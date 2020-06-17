@@ -980,7 +980,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	// check if this request is auhorized
 	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
 	if err != nil {
-		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+		if errors.As(err, &auth.ErrNotAuthorized{}) {
 			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
@@ -1763,7 +1763,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	// check if this request is auhorized
 	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
 	if err != nil {
-		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+		if errors.As(err, &auth.ErrNotAuthorized{}) {
 			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,

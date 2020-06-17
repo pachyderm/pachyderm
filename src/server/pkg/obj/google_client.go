@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -40,7 +41,7 @@ func (c *googleClient) Walk(ctx context.Context, name string, fn func(name strin
 	for {
 		objectAttrs, err := objectIter.Next()
 		if err != nil {
-			if err == iterator.Done {
+			if errors.Is(err, iterator.Done) {
 				break
 			}
 			return err
@@ -72,8 +73,8 @@ func (c *googleClient) Delete(ctx context.Context, name string) error {
 }
 
 func (c *googleClient) IsRetryable(err error) (ret bool) {
-	googleErr, ok := err.(*googleapi.Error)
-	if !ok {
+	var googleErr googleapi.Error
+	if !errors.As(err, &googleErr) {
 		return false
 	}
 	// https://github.com/pachyderm/pachyderm/issues/912
@@ -81,12 +82,12 @@ func (c *googleClient) IsRetryable(err error) (ret bool) {
 }
 
 func (c *googleClient) IsNotExist(err error) (result bool) {
-	return err == storage.ErrObjectNotExist
+	return errors.Is(err, storage.ErrObjectNotExist)
 }
 
 func (c *googleClient) IsIgnorable(err error) bool {
-	googleErr, ok := err.(*googleapi.Error)
-	if !ok {
+	var googleErr googleapi.Error
+	if !errors.As(err, &googleErr) {
 		return false
 	}
 	return googleErr.Code == 429

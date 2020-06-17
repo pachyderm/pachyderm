@@ -71,7 +71,7 @@ func TestStripS3Prefix(t *testing.T) {
 	for {
 		// decode next object
 		if err := d.Decode(&manifestPiece); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				t.Fatalf("never found S3 bucket name in kubernetes manifest")
 			}
 			t.Fatalf("could not deserialize json object: %v", err)

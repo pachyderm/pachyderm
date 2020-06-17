@@ -11,6 +11,7 @@ import (
 
 	"github.com/crewjam/saml"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
@@ -31,7 +32,8 @@ func (a *apiServer) handleSAMLResponseInternal(cfg *canonicalConfig, sp *saml.Se
 	assertion, err := sp.ParseResponse(req, []string{""})
 	if err != nil {
 		errMsg := fmt.Sprintf("Error parsing SAML response: %v", err)
-		if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
+		var invalidRespErr saml.InvalidResponseError
+		if errors.As(err, invalidRespErr) {
 			errMsg += "\n(" + invalidRespErr.PrivateErr.Error() + ")"
 		}
 		return "", "", errutil.NewHTTPError(http.StatusBadRequest, errMsg)

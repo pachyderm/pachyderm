@@ -1705,7 +1705,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil // expected--with no output repo, FlushCommit can't return anything
 		}
 		return errors.Wrapf(err, "unexpected error value")

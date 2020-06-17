@@ -42,7 +42,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commitInfos
 		}
 		require.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -228,7 +229,7 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 	for {
 		idx, err := r.Peek()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err

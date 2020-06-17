@@ -601,7 +601,7 @@ func (v *validator) validate(r io.Reader) error {
 	hdr, err := tar.NewReader(r).Next()
 	if err != nil {
 		// We expect an empty tar stream if no files were uploaded.
-		if err == io.EOF && len(v.files) == 0 {
+		if errors.Is(err, io.EOF) && len(v.files) == 0 {
 			return nil
 		}
 		return err

@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client/limit"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
@@ -95,16 +96,16 @@ func (c *microsoftClient) Exists(ctx context.Context, name string) bool {
 }
 
 func (c *microsoftClient) IsRetryable(err error) (ret bool) {
-	microsoftErr, ok := err.(storage.AzureStorageServiceError)
-	if !ok {
+	var microsoftErr storage.AzureStorageServiceError
+	if !errors.As(err, &microsoftErr) {
 		return false
 	}
 	return microsoftErr.StatusCode >= 500
 }
 
 func (c *microsoftClient) IsNotExist(err error) bool {
-	microsoftErr, ok := err.(storage.AzureStorageServiceError)
-	if !ok {
+	var microsoftErr storage.AzureStorageServiceError
+	if !errors.As(err, &microsoftErr) {
 		return false
 	}
 	return microsoftErr.StatusCode == 404

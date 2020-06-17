@@ -63,7 +63,7 @@ func runWatchTest(t *testing.T, client Client) {
 			return nil
 		},
 	)
-	require.Equal(t, ErrCancelled, err)
+	require.True(t, errors.Is(err, ErrCancelled))
 }
 
 func getEtcdClient() (Client, error) {

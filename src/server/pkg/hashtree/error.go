@@ -31,11 +31,11 @@ func Code(err error) ErrCode {
 		return OK
 	}
 
-	hte, ok := err.(*hashTreeError)
-	if !ok {
-		return Unknown
+	var hte hashTreeError
+	if errors.As(err, &hte) {
+		return hte.code
 	}
-	return hte.code
+	return Unknown
 }
 
 // errorf is analogous to errors.Errorf, but generates hashTreeErrors instead of

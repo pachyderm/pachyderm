@@ -6,6 +6,8 @@ import (
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Reader is io.Reader for proto.Message instead of []byte.
@@ -42,7 +44,7 @@ func (r *readWriter) ReadBytes() ([]byte, error) {
 	}
 	buf := r.buf[0:l]
 	if _, err := io.ReadFull(r.r, buf); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, io.ErrUnexpectedEOF
 		}
 		return nil, err

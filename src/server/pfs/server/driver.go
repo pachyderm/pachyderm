@@ -2073,7 +2073,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 				return err
 			}
 			if err := f(&commitInfo); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -2209,7 +2209,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		}
 		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			} else if auth.IsErrNotAuthorized(err) {
 				continue // again, just skip (we can't wait on commits we can't access)
@@ -2225,7 +2225,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, commit := range fromCommits {
 		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			}
 			return err
@@ -3003,7 +3003,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					if header == nil {
 						header = sqlReader.Header
 					} else {
@@ -3028,7 +3028,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					EOF = true
 				} else {
 					return nil, err
@@ -3912,7 +3912,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 	for {
 		_fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+			if errors.As(err, &pfsserver.ErrFileNotFound{}) {
 				return f(fi)
 			}
 			return err
@@ -4354,8 +4354,7 @@ func isNotFoundErr(err error) bool {
 }
 
 func isNoHeadErr(err error) bool {
-	_, ok := err.(pfsserver.ErrNoHead)
-	return ok
+	return errors.As(err, &pfsserver.ErrNoHead{})
 }
 
 func commitKey(commit *pfs.Commit) string {
@@ -4672,7 +4671,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		// simply calling Close()
 		pw.CloseWithError(err) // can't error
 	}
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		return false, "", "", err
 	}
 	if err := eg.Wait(); err != nil {

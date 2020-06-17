@@ -32,7 +32,7 @@ func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 			for {
 				req, err := server.Recv()
 				if err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						return nil
 					}
 					return err

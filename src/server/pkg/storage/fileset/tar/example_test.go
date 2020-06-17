@@ -11,6 +11,8 @@ import (
 	"io"
 	"log"
 	"os"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func Example_minimal() {
@@ -45,7 +47,7 @@ func Example_minimal() {
 	tr := tar.NewReader(&buf)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break // End of archive
 		}
 		if err != nil {

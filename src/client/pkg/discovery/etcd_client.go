@@ -9,6 +9,8 @@ import (
 
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type etcdClient struct {
@@ -99,13 +101,16 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	for {
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
-			etcdErr, ok := err.(*etcd.EtcdError)
-			if ok && etcdErr.ErrorCode == 401 {
-				continue
+			var etcdErr etcd.EtcdError
+			if errors.As(err, &etcdErr) {
+				if etcdErr.ErrorCode == 401 {
+					continue
+				}
+				if etcdErr.ErrorCode == 501 {
+					continue
+				}
 			}
-			if ok && etcdErr.ErrorCode == 501 {
-				continue
-			}
+
 			return err
 		}
 	}
@@ -201,7 +206,7 @@ func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack
 	for {
 		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
 		if err != nil {
-			if err == etcd.ErrWatchStoppedByUser {
+			if errors.Is(err, etcd.ErrWatchStoppedByUser) {
 				return ErrCancelled
 			}
 			return err

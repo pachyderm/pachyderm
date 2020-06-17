@@ -2,6 +2,8 @@ package fileset
 
 import (
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type stream interface {
@@ -26,7 +28,7 @@ func (pq *priorityQueue) iterate(f func([]stream, ...string) error) error {
 	for {
 		ss, err := pq.next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -48,7 +50,7 @@ func (pq *priorityQueue) empty() bool {
 func (pq *priorityQueue) insert(s stream) error {
 	// Get next in stream and insert it.
 	if err := s.next(); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err

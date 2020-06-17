@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -90,7 +91,7 @@ func (gc *garbageCollector) pollingFunc(ctx context.Context) error {
 					return ctx.Err()
 				}
 			}
-		}(); ctx.Err() != context.Canceled {
+		}(); !errors.Is(ctx.Err(), context.Canceled) {
 			return err
 		}
 		return nil

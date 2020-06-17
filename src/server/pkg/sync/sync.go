@@ -14,6 +14,7 @@ import (
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -382,7 +383,7 @@ func PushFile(c *pachclient.APIClient, pfc pachclient.PutFileClient, pfsFile *pf
 		for i, object = range fileInfo.Objects {
 			hash := pfs.NewHash()
 			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return err
