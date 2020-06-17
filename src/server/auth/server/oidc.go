@@ -27,7 +27,7 @@ func init() {
 	stateInfoMap = make(map[string]sessionInfo)
 }
 
-type internalOIDCProvider struct {
+type InternalOIDCProvider struct {
 	Provider     *oidc.Provider
 	Issuer       string
 	ClientID     string
@@ -51,8 +51,8 @@ func CryptoString(n int) string {
 }
 
 // NewOIDCIDP creates a new internalOIDCProvider object from the given parameters
-func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret string) (*internalOIDCProvider, error) {
-	o := &internalOIDCProvider{}
+func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret string) (*InternalOIDCProvider, error) {
+	o := &InternalOIDCProvider{}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
 	if o.RedirectURI == "" {
@@ -65,7 +65,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
-func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
+func (o *InternalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 	nonce := CryptoString(15)
 	var err error
 	// prepare request by filling out parameters
@@ -99,7 +99,7 @@ func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 // it discover the username (which is the email) of the user who obtained the
 // code (or verify that the code belongs to OIDCUsername). This is how
 // Pachyderm currently implements authorization in a production cluster
-func (o *internalOIDCProvider) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
+func (o *InternalOIDCProvider) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
 	// lookup the token from the given state
 	si, ok := stateInfoMap[state]
 	if !ok {

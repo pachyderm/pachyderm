@@ -152,7 +152,7 @@ type apiServer struct {
 
 	// oidcSP should not be read/written directly--use setCacheConfig and
 	// getSAMLSP
-	oidcSP   *internalOIDCProvider // object for parsing saml responses
+	oidcSP   *InternalOIDCProvider // object for parsing saml responses
 	oidcSPMu sync.Mutex            // guard 'oidcSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are

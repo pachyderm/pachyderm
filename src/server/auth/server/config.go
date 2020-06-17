@@ -576,12 +576,12 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 // getOIDCSP returns apiServer's oidc.ServiceProvider and config together, to
 // avoid a race where a OIDC request is mishandled because the config is
 // modified between reading them
-func (a *apiServer) getOIDCSP() (*canonicalConfig, *internalOIDCProvider) {
+func (a *apiServer) getOIDCSP() (*canonicalConfig, *InternalOIDCProvider) {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	a.oidcSPMu.Lock()
 	defer a.oidcSPMu.Unlock()
-	var sp internalOIDCProvider
+	var sp InternalOIDCProvider
 	if a.oidcSP != nil {
 		sp = *a.oidcSP
 	}
