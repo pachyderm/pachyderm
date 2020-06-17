@@ -94,6 +94,29 @@ nothing added to commit but untracked files present (use "git add" to track)
 
 11) Post the update on the #users channel.
 
+### New minor major or minor releases
+
+In the case of a new major or minor release (x.0.0 or 1.x.0), you will need
+to make a couple of additional changes, or CI will fail.
+
+First, you'll want to regenerate the golden manifests. This can be done
+by simply running `make regenerate-test-deploy-manifests`.
+
+Second, you'll need to write up the extract/restore functionality. Broadly,
+this involves a few steps:
+
+1) Copy the protobuf from the prior release into `src/client/admin`.
+2) Update `src/client/admin/admin.proto` to include the operations for the
+   prior release.
+3) Run `make proto` to rebuild the protos.
+4) Add a converter to `src/server/admin/server`, e.g. `convert_1_11.go`.
+5) Update the admin client (`src/client/admin.go`) and admin server
+   (`src/server/admin/server/api_server.go`.)
+
+Look to the extract/restore functionality for other versions as a basis to
+build off of. Frequently, it's just a matter of copy/pasting that code and
+updating some names.
+
 ### If the release failed
 
 You'll need to delete the *release* and the *release tag* in github. Navigate to
