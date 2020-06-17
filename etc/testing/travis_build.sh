@@ -3,5 +3,8 @@
 set -ex
 
 make install docker-build
-docker push pachyderm/pachd:local pachyderm/pachd:$(pachctl version --client-only)
-docker push pachyderm/pachd:local pachyderm/worker:$(pachctl version --client-only)
+version=$(pachctl version --client-only)
+docker tag pachyderm/pachd:local pachyderm/pachd:${version}
+docker push pachyderm/pachd:${version}
+docker tag pachyderm/worker:local pachyderm/worker:${version}
+docker push pachyderm/worker:${version}
