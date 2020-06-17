@@ -4,8 +4,8 @@
     },
     "description": "A pipeline that trains the ML model on the tweets gathered by the `tweets` pipeline.",
     "transform": {
-        "image": "pachyderm/gpt-2-example",
-        "cmd": ["/train.py"]
+        "image": "pachyderm/gpt-2-example:v6",
+        "cmd": ["/train.py", "1558M", "1000"]
     },
     "input": {
         "pfs": {
@@ -18,11 +18,11 @@
             "type": "nvidia.com/gpu",
             "number": 1
         },
-        "memory": "10G",
+        "memory": "15G",
         "cpu": 1
     },
     "resource_requests": {
-        "memory": "10G",
+        "memory": "15G",
         "cpu": 1
     },
     "standby": true

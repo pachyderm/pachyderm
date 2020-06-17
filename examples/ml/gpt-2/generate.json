@@ -4,7 +4,7 @@
     },
     "description": "A pipeline that generates tweets based on the trained model.",
     "transform": {
-        "image": "pachyderm/gpt-2-example",
+        "image": "pachyderm/gpt-2-example:v6",
         "cmd": ["/generate.py"]
     },
     "input": {
@@ -18,11 +18,11 @@
             "type": "nvidia.com/gpu",
             "number": 1
         },
-        "memory": "10G",
+        "memory": "15G",
         "cpu": 1
     },
     "resource_requests": {
-        "memory": "10G",
+        "memory": "15G",
         "cpu": 1
     },
     "standby": true

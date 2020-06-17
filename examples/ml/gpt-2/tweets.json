@@ -4,8 +4,8 @@
     },
     "description": "A pipeline that scrapes tweets from https://twitter.com.",
     "transform": {
-        "image": "pachyderm/gpt-2-example",
-        "cmd": ["/tweets.py"]
+        "image": "pachyderm/tweet-scraper:v2",
+        "cmd": ["/go/tweets"]
     },
     "input": {
         "pfs": {
