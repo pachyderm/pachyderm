@@ -33,7 +33,7 @@ func (a *apiServer) handleSAMLResponseInternal(cfg *canonicalConfig, sp *saml.Se
 	if err != nil {
 		errMsg := fmt.Sprintf("Error parsing SAML response: %v", err)
 		var invalidRespErr *saml.InvalidResponseError
-		if errors.As(err, invalidRespErr) {
+		if errors.As(err, &invalidRespErr) {
 			errMsg += "\n(" + invalidRespErr.PrivateErr.Error() + ")"
 		}
 		return "", "", errutil.NewHTTPError(http.StatusBadRequest, errMsg)

@@ -2209,7 +2209,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		}
 		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
 		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+			var notFoundErr *pfsserver.ErrCommitNotFound
+			if errors.As(err, &notFoundErr) {
 				continue // just skip this
 			} else if auth.IsErrNotAuthorized(err) {
 				continue // again, just skip (we can't wait on commits we can't access)
@@ -2225,7 +2226,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, commit := range fromCommits {
 		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
 		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+			var notFoundErr *pfsserver.ErrCommitNotFound
+			if errors.As(err, &notFoundErr) {
 				continue // just skip this
 			}
 			return err
@@ -3912,7 +3914,8 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 	for {
 		_fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
-			if errors.As(err, &pfsserver.ErrFileNotFound{}) {
+			var notFoundErr *pfsserver.ErrFileNotFound
+			if errors.As(err, &notFoundErr) {
 				return f(fi)
 			}
 			return err
@@ -4354,7 +4357,8 @@ func isNotFoundErr(err error) bool {
 }
 
 func isNoHeadErr(err error) bool {
-	return errors.As(err, &pfsserver.ErrNoHead{})
+	var noHeadErr *pfsserver.ErrNoHead
+	return errors.As(err, &noHeadErr)
 }
 
 func commitKey(commit *pfs.Commit) string {

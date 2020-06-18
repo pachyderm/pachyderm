@@ -474,8 +474,9 @@ func TestWriter(t *testing.T) {
 	}}
 
 	equalError := func(x, y error) bool {
-		ok1 := errors.As(x, &headerError{})
-		ok2 := errors.As(y, &headerError{})
+		var headErr *headerError
+		ok1 := errors.As(x, &headErr)
+		ok2 := errors.As(y, &headErr)
 		if ok1 || ok2 {
 			return ok1 && ok2
 		}
@@ -502,7 +503,8 @@ func TestWriter(t *testing.T) {
 				case testReadFrom:
 					f := &testFile{ops: tf.ops}
 					got, err := tw.readFrom(f)
-					if errors.As(err, &testError{}) {
+					var testErr *testError
+					if errors.As(err, &testErr) {
 						t.Errorf("test %d, ReadFrom(): %v", i, err)
 					} else if got != tf.wantCnt || !equalError(err, tf.wantErr) {
 						t.Errorf("test %d, ReadFrom() = (%d, %v), want (%d, %v)", i, got, err, tf.wantCnt, tf.wantErr)
@@ -1285,7 +1287,8 @@ func TestFileWriter(t *testing.T) {
 			case testReadFrom:
 				f := &testFile{ops: tf.ops}
 				got, err := fw.ReadFrom(f)
-				if errors.As(err, &testError{}) {
+				var testErr *testError
+				if errors.As(err, &testErr) {
 					t.Errorf("test %d.%d, ReadFrom(): %v", i, j, err)
 				} else if got != tf.wantCnt || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, ReadFrom() = (%d, %v), want (%d, %v)", i, j, got, err, tf.wantCnt, tf.wantErr)
