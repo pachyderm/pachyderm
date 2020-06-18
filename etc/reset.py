@@ -61,7 +61,7 @@ class BaseDriver:
         # cause us to bring up a new pachyderm cluster with access to the old
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
-        return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
+        return ["local", "-d", "--no-guaranteed", "--host-path=/var/pachyderm-{}".format(secrets.token_hex(5))]
 
     async def deploy(self, dash, ide):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
@@ -134,18 +134,18 @@ class MinikubeDriver(BaseDriver):
     async def deploy(self, dash, ide):
         await super().deploy(dash, ide)
         ip = (await capture("minikube", "ip")).strip()
-        await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
+        await run("pachctl", "config", "update", "context", "--pachd-address={}:30650".format(ip))
 
 class GCPDriver(BaseDriver):
     def __init__(self, project_id, cluster_name=None):
         if cluster_name is None:
-            cluster_name = f"pach-{secrets.token_hex(5)}"
+            cluster_name = "pach-{}".format(secrets.token_hex(5))
         self.cluster_name = cluster_name
-        self.object_storage_name = f"{cluster_name}-storage"
+        self.object_storage_name = "{}-storage".format(cluster_name)
         self.project_id = project_id
 
     def image(self, name):
-        return f"gcr.io/{self.project_id}/{name}"
+        return "gcr.io/{}/{}".format(self.project_id, name)
 
     async def reset(self):
         cluster_exists = (await run("gcloud", "container", "clusters", "describe", self.cluster_name,
@@ -160,13 +160,13 @@ class GCPDriver(BaseDriver):
 
             account = (await capture("gcloud", "config", "get-value", "account")).strip()
             await run("kubectl", "create", "clusterrolebinding", "cluster-admin-binding",
-                "--clusterrole=cluster-admin", f"--user={account}")
+                "--clusterrole=cluster-admin", "--user={}".format(account))
 
-            await run("gsutil", "mb", f"gs://{self.object_storage_name}")
+            await run("gsutil", "mb", "gs://{}".format(self.object_storage_name))
 
             docker_config_path = os.path.expanduser("~/.docker/config.json")
             await run("kubectl", "create", "secret", "generic", "regcred",
-                f"--from-file=.dockerconfigjson={docker_config_path}",
+                "--from-file=.dockerconfigjson={}".format(docker_config_path),
                 "--type=kubernetes.io/dockerconfigjson")
 
     async def push_image(self, image):
@@ -178,20 +178,20 @@ class GCPDriver(BaseDriver):
 
     def deploy_args(self):
         return ["google", self.object_storage_name, "32", "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
-            f"--registry=gcr.io/{self.project_id}"]
+            "--registry=gcr.io/{}".format(self.project_id)]
 
 class HubApiError(Exception):
     def __init__(self, errors):
         def get_message(error):
             try:
-                return f"{error['title']}: {error['detail']}"
+                return "{}: {}".format(error['title'], error['detail'])
             except KeyError:
                 return json.dumps(error)
 
         if len(errors) > 1:
             message = ["multiple errors:"]
             for error in errors:
-                message.append(f"- {get_message(error)}")
+                message.append("- {}".format(get_message(error)))
             message = "\n".join(message)
         else:
             message = get_message(errors[0])
@@ -208,7 +208,7 @@ class HubDriver:
 
     def request(self, method, endpoint, body=None):
         headers = {
-            "Authorization": f"Api-Key {self.api_key}",
+            "Authorization": "Api-Key {}".format(self.api_key),
         }
         if body is not None:
             body = json.dumps({
@@ -217,8 +217,8 @@ class HubDriver:
                 }
             })
 
-        conn = http.client.HTTPSConnection(f"hub.pachyderm.com")
-        conn.request(method, f"/api/v1{endpoint}", headers=headers, body=body)
+        conn = http.client.HTTPSConnection("hub.pachyderm.com")
+        conn.request(method, "/api/v1{}".format(endpoint), headers=headers, body=body)
         response = conn.getresponse()
         j = json.load(response)
 
@@ -236,9 +236,9 @@ class HubDriver:
         if self.cluster_name is None:
             return
 
-        for pach in self.request("GET", f"/organizations/{self.org_id}/pachs?limit=100"):
-            if pach["attributes"]["name"].startswith(f"{self.cluster_name}-"):
-                self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
+        for pach in self.request("GET", "/organizations/{}/pachs?limit=100".format(self.org_id)):
+            if pach["attributes"]["name"].startswith("{}-".format(self.cluster_name)):
+                self.request("DELETE", "/organizations/{}/pachs/{}".format(self.org_id, pach['id']))
                 self.old_cluster_names.append(pach["attributes"]["name"])
 
     async def deploy(self, dash, ide):
@@ -250,7 +250,7 @@ class HubDriver:
             self.push_image("pachyderm/worker:local"),
         )
 
-        response = self.request("POST", f"/organizations/{self.org_id}/pachs", body={
+        response = self.request("POST", "/organizations/{}/pachs".format(self.org_id), body={
             "name": self.cluster_name or "sandbox",
             "pachVersion": await get_client_version(),
         })
@@ -261,7 +261,7 @@ class HubDriver:
 
         await run("pachctl", "config", "set", "context", cluster_name, stdin=json.dumps({
             "source": 2,
-            "pachd_address": f"grpcs://{gke_name}.clusters.pachyderm.io:31400",
+            "pachd_address": "grpcs://{}.clusters.pachyderm.io:31400".format(gke_name),
         }))
 
         await run("pachctl", "config", "set", "active-context", cluster_name)
@@ -275,11 +275,11 @@ class HubDriver:
         await retry(ping, attempts=100)
 
         async def get_otp():
-            response = self.request("GET", f"/organizations/{self.org_id}/pachs/{pach_id}/otps")
+            response = self.request("GET", "/organizations/{}/pachs/{}/otps".format(self.org_id, pach_id))
             return response["attributes"]["otp"]
         otp = await retry(get_otp, sleep=5)
 
-        await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
+        await run("pachctl", "auth", "login", "--one-time-password", stdin="{}\n".format(otp))
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
@@ -306,7 +306,7 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
         stdout, stderr = None, None
 
     if raise_on_error and proc.returncode:
-        raise Exception(f"unexpected return code from `{cmd}`: {proc.returncode}")
+        raise Exception("unexpected return code from `{}`: {}".format(cmd, proc.returncode))
 
     return RunResult(rc=proc.returncode, stdout=stdout, stderr=stderr)
 
@@ -331,7 +331,7 @@ def find_in_json(j, f):
                 return v
 
 def print_status(status):
-    print(f"===> {status}")
+    print("===> {}".format(status))
 
 async def retry(f, attempts=10, sleep=1.0):
     """
@@ -390,7 +390,7 @@ async def main():
             else:
                 driver = MinikubeDriver()
         if driver is None:
-            raise Exception(f"could not derive driver from context name: {kube_context}")
+            raise Exception("could not derive driver from context name: {}".format(kube_context))
     elif args.target == "minikube":
         print_status("using the minikube driver")
         driver = MinikubeDriver()
@@ -409,7 +409,7 @@ async def main():
         cluster_name = target_parts[1] if len(target_parts) == 2 else None
         driver = HubDriver(os.environ["PACH_HUB_API_KEY"], os.environ["PACH_HUB_ORG_ID"], cluster_name)
     else:
-        raise Exception(f"unknown target: {args.target}")
+        raise Exception("unknown target: {}".format(args.target))
 
     procs = [run("make", "install"), driver.reset()]
     if not args.skip_build:
