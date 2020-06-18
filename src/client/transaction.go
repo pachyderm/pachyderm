@@ -593,9 +593,6 @@ func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthT
 func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest, opts ...grpc.CallOption) (*auth.GetOIDCLoginResponse, error) {
 	return nil, unsupportedError("GetOIDCLogin")
 }
-func (c *authBuilderClient) GetOIDCError(ctx context.Context, req *auth.GetOIDCErrorRequest, opts ...grpc.CallOption) (*auth.GetOIDCErrorResponse, error) {
-	return nil, unsupportedError("GetOIDCError")
-}
 func (c *authBuilderClient) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest, opts ...grpc.CallOption) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, unsupportedError("ExtendAuthToken")
 }

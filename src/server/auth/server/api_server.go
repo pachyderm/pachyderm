@@ -151,8 +151,8 @@ type apiServer struct {
 	samlSPMu sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
 	// oidcSP should not be read/written directly--use setCacheConfig and
-	// getSAMLSP
-	oidcSP   *InternalOIDCProvider // object for parsing saml responses
+	// getOIDCSP
+	oidcSP   *InternalOIDCProvider // object representing the OIDC provider
 	oidcSPMu sync.Mutex            // guard 'oidcSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
@@ -573,7 +573,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if a.activationState() == none {
 		// users should be able to call "deactivate" from the "partial" activation
 		// state, in case activation fails and they need to revert to "none"
-		return nil, auth.ErrNotActivated
+		// return nil, auth.ErrNotActivated
 	}
 
 	// Check if the cluster is in a partially-activated state. If so, allow it to
@@ -888,6 +888,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	case req.OIDCState != "":
+		// first wait to see if the token was exchanged without any errors
+		ti := <-tokenChan
+		if ti.err != nil {
+			return nil, errors.Wrapf(ti.err, "error exchanging token")
+		}
+
 		// Determine caller's Pachyderm/OIDC username
 		_, a.oidcSP = a.getOIDCSP()
 		if a.oidcSP == nil {
@@ -1900,28 +1906,13 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
 	}
 
-	authURL, err := sp.GetOIDCLoginURL(req.State)
+	authURL, state, err := sp.GetOIDCLoginURL()
 	if err != nil {
 		return nil, err
 	}
 	return &auth.GetOIDCLoginResponse{
 		LoginURL: authURL,
-	}, nil
-}
-
-// GetOIDCError implements the protobuf auth.GetOIDCError RPC
-func (a *apiServer) GetOIDCError(ctx context.Context, req *auth.GetOIDCErrorRequest) (resp *auth.GetOIDCErrorResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	ti := <-tokenChan
-
-	errMsg := ""
-	if ti.err != nil {
-		errMsg = ti.err.Error()
-	}
-	return &auth.GetOIDCErrorResponse{
-		Error: errMsg,
+		State:    state,
 	}, nil
 }
 

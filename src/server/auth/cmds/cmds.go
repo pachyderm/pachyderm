@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pkg/browser"
 
@@ -39,48 +38,34 @@ func githubLogin() (string, error) {
 
 // super hacky check to see if OIDC is being used
 func usingOIDC(c *client.APIClient) bool {
-	state := server.CryptoString(10)
-
-	_, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
+	_, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	return true
 }
 
 func requestOIDCLogin(c *client.APIClient) (string, error) {
-	state := server.CryptoString(30)
 
 	var authURL string
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
 		return "", err
 	}
 	authURL = loginInfo.LoginURL
+	state := loginInfo.State
 
 	// print the prepared URL and promp the user to click on it
-	fmt.Println("(1) Please paste this link into a browser:\n\n" +
+	fmt.Println("You will momentarily be directed to your IdP and asked to authorize Pachyderm's " +
+		"login app on your IdP.\n\nPaste the following URL into a browser if not automatically redirected:\n\n" +
 		authURL + "\n\n" +
-		"(You will be directed to your IdP and asked to authorize Pachyderm's " +
-		"login app on your IdP.)")
+		"")
 
 	err = browser.OpenURL(authURL)
 	if err != nil {
 		return "", err
 	}
-	// receive token
-	authError, err := c.GetOIDCError(c.Ctx(), &auth.GetOIDCErrorRequest{})
-	if err != nil {
-		return "", err
-	}
-
-	if authError != nil {
-		if authError.Error != "" {
-			fmt.Printf("authorization error: %v\n", authError.Error)
-		}
-	}
-
-	fmt.Println("Authorized!")
 
 	return state, nil // drop trailing newline
 }

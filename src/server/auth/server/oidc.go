@@ -27,6 +27,7 @@ func init() {
 	stateInfoMap = make(map[string]sessionInfo)
 }
 
+// InternalOIDCProvider is our internal representation of an oidc provider
 type InternalOIDCProvider struct {
 	Provider     *oidc.Provider
 	Issuer       string
@@ -65,14 +66,15 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
-func (o *InternalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
-	nonce := CryptoString(15)
+func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
+	state := CryptoString(30)
+	nonce := CryptoString(30)
 	var err error
 	// prepare request by filling out parameters
 	if o.Provider == nil {
 		o.Provider, err = oidc.NewProvider(context.Background(), o.Issuer)
 		if err != nil {
-			return "", fmt.Errorf("provider could not be found: %v", err)
+			return "", "", fmt.Errorf("provider could not be found: %v", err)
 		}
 	}
 	conf := oauth2.Config{
@@ -92,7 +94,7 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 	url := conf.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce))
-	return url, nil
+	return url, state, nil
 }
 
 // OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
@@ -138,6 +140,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 		logrus.Warn("cached provider was nil, but issuer info was present, so recovering")
 		sp.Provider, err = oidc.NewProvider(context.Background(), sp.Issuer)
 		if err != nil {
+			logrus.Errorf("could not find provider %v: %v", sp.Issuer, err)
 			http.Error(w, "OIDC Provider could not be found:", http.StatusConflict)
 			return
 		}
@@ -159,7 +162,9 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	// Use the authorization code that is pushed to the redirect
 	tok, err := conf.Exchange(ctx, code)
 	if err != nil {
-		log.Fatal("failed to exchange code", err)
+		logrus.Errorf("failed to exchange code: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	logrus.Info("Exchanged OIDC code for token")
@@ -168,7 +173,9 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
-		log.Fatal("missing id token")
+		logrus.Errorf("missing id token")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	logrus.Infof("raw ID Token: %v", rawIDToken)
@@ -176,12 +183,16 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	// Parse and verify ID Token payload.
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		log.Fatal("did not verify token", err)
+		logrus.Errorf("could not verify token: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	si := stateInfoMap[state]
 	if idToken.Nonce != si.Nonce {
-		log.Fatal("expected nonces to match, instead set nonce %v but got nonce %v", si.Nonce, idToken.Nonce)
+		logrus.Errorf("expected nonces to match, instead set nonce %v but got nonce %v", si.Nonce, idToken.Nonce)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 	logrus.Infof("nonce is %v", idToken.Nonce)
 
@@ -191,7 +202,9 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 
 	// let the CLI know that we've successfully exchanged the code, and verified the token
 	tokenChan <- tokenInfo{token: tok.AccessToken, err: err}
+	// make sure the channel is cleaned up for future logins
 	close(tokenChan)
+	tokenChan = make(chan tokenInfo)
 
 	fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
 }

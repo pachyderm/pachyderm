@@ -215,7 +215,7 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // Exactly one of 'github_token', 'oidc_token', or 'one_time_password' must be set:
+  // Exactly one of 'github_token', 'oidc_state', or 'one_time_password' must be set:
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
@@ -377,19 +377,12 @@ message SetACLResponse {}
 //// OIDC API
 
 message GetOIDCLoginRequest {
-  string state = 1;
 }
 
 message GetOIDCLoginResponse {
   // The login URL generated for the OIDC object
   string login_url = 1 [(gogoproto.customname) = "LoginURL"];
-}
-
-message GetOIDCErrorRequest {}
-
-message GetOIDCErrorResponse {
-  // Response for API call to check if the authentication has succeded
-  string error = 1;
+  string state = 2;
 }
 
 //// Token API (very limited -- for pipelines)
@@ -511,7 +504,6 @@ service API {
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
-  rpc GetOIDCError(GetOIDCErrorRequest) returns (GetOIDCErrorResponse) {}
 
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
