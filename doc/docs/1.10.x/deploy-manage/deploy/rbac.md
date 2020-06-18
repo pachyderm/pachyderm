@@ -1,8 +1,14 @@
 # RBAC
 
-Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC) and is a default part of all Pachyderm deployments. For most users, you shouldn't have any issues as Pachyderm takes care of setting all the RBAC permissions automatically. However, if you are deploying Pachyderm on a cluster that your company owns, security policies might not allow certain RBAC permissions by default. Therefore, it's suggested that you contact your Kubernetes admin and provide the following to ensure you don't encounter any permissions issues:
-
-Pachyderm Permission Requirements:
+Pachyderm has support for Kubernetes Role-Based Access
+Controls (RBAC), which is a default part of all
+Pachyderm deployments. In most use cases, Pachyderm
+sets all the RBAC permissions automatically. However,
+if you are deploying Pachyderm on a cluster that your
+company owns, security policies might not allow certain
+RBAC permissions by default. Therefore, you need to
+contact your Kubernetes administrator and provide the
+following list of required permissions:
 
 ```
 Rules: []rbacv1.PolicyRule{{
@@ -21,12 +27,20 @@ Rules: []rbacv1.PolicyRule{{
 }},
 ```
 
-## RBAC and DNS
-Kubernetes currently (as of 1.8.0) has a bug that prevents kube-dns from
-working with RBAC. Not having DNS will make Pachyderm effectively unusable. You
-can tell if you're being affected by the bug like so:
+The following table explains how Pachyderm uses those permissions:
 
-```shell
+| Permission       | Description   |
+| ---------------- | ------------- |
+| Access to nodes    | Required for the `coefficient` option in the `parallelism` parameter of the pipeline spec. `coefficient` determines the number of worker nodes to run for your pipeline. If this permission cannot be granted, `constant` can be used instead. |
+| Access to pods, replica controllers, and services | Pachyderm uses this permission to monitor the created pipelines. The permissions related to `replicationcontrollers` and `services` are used in the setup and deletion of pipelines. Each pipeline has its own RC and service in addition to the pods.
+| Access to secrets | Required to give various kinds of credentials to pipelines, including storage credentials to access S3 or other object storage backends, Docker credentials to pull from a private registry, and others. |
+
+## RBAC and DNS
+
+In older Kubernetes versions, `kube-dns` did not work properly with RBAC.
+To check if your cluster is affected by this issue, run:
+
+```bash
 kubectl get all --namespace=kube-system
 ```
 
@@ -53,31 +67,31 @@ svc/kube-dns               ClusterIP   10.96.0.10     <none>        53/UDP,53/TC
 svc/kubernetes-dashboard   NodePort    10.97.194.16   <none>        80:30000/TCP    3m
 ```
 
-Notice how `po/kubernetes-dashboard-bzjjh` only has 2/3 pods ready and has 4 restarts.
-To fix this do:
+In the output above, `po/kubernetes-dashboard-bzjjh` has only
+two out of three pods ready and has restarted four times.
+To fix this issue, run:
 
-```shell
+```bash
 kubectl -n kube-system create sa kube-dns
 kubectl -n kube-system patch deploy/kube-dns -p '{"spec": {"template": {"spec": {"serviceAccountName": "kube-dns"}}}}'
 ```
 
 These commands enforce `kube-dns` to use the appropriate
-`ServiceAccount`. By default, Kubernetes creates the
-`ServiceAccount`, but does not use it until you run the above
-commands.
+`ServiceAccount`. Kubernetes has created the `ServiceAccount`, but
+does not use it until you run the above commands.
 
-## RBAC Permissions on GKE
+## Resolving RBAC Permissions on GKE
 
-If you're deploying Pachyderm on GKE and run into the following error:
+When you deploy Pachyderm on GKE, you might see the following error:
 
 ```bash
 Error from server (Forbidden): error when creating "STDIN": clusterroles.rbac.authorization.k8s.io "pachyderm" is forbidden: attempt to grant extra privileges:
 ```
 
-Run the following and redeploy Pachyderm:
+To fix this issue, run the following command and redeploy
+Pachyderm:
 
 ```bash
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
-
 ```
 
