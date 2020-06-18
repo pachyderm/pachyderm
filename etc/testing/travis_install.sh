@@ -5,6 +5,7 @@ set -ex
 # install latest version of docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo add-apt-repository -y ppa:deadsnakes/ppa
 sudo apt-get update -y
 sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
@@ -17,9 +18,9 @@ sudo service docker restart
 sudo apt-get install -y -qq \
   jq \
   silversearcher-ag \
-  python3 \
-  python3-pip \
-  python3-setuptools \
+  python3.7 \
+  python3.7-pip \
+  python3.7-setuptools \
   pkg-config \
   fuse
 
