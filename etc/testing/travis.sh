@@ -9,33 +9,6 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-minikube delete || true  # In case we get a recycled machine
-make launch-kube
-sleep 5
-
-# Wait until a connection with kubernetes has been established
-echo "Waiting for connection to kubernetes..."
-max_t=90
-wheel='\|/-';
-until {
-  minikube status &>/dev/null
-  kubectl version &>/dev/null
-}; do
-    if ((max_t-- <= 0)); then
-        echo "Could not connect to minikube"
-        echo "minikube status --alsologtostderr --loglevel=0 -v9:"
-        echo "==================================================="
-        minikube status --alsologtostderr --loglevel=0 -v9
-        exit 1
-    fi
-    echo -en "\e[G$${wheel:0:1}";
-    # shellcheck disable=SC2034
-    wheel="$${wheel:1}$${wheel:0:1}";
-    sleep 1;
-done
-minikube status
-kubectl version
-
 echo "Running test suite based on BUCKET=$BUCKET"
 
 make install
@@ -45,14 +18,7 @@ docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
 docker pull "pachyderm/worker:${version}"
 docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
-for i in $(seq 3); do
-    make clean-launch-dev || true # may be nothing to delete
-    make launch-dev && break
-    (( i < 3 )) # false if this is the last loop (causes exit)
-    sleep 10
-done
-
-pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
+./etc/reset.py --skip-build
 
 function test_bucket {
     set +x
