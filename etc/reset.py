@@ -356,12 +356,16 @@ async def main():
     parser.add_argument("--target", default="", help="Where to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
+    parser.add_argument("--skip-build", action="store_true", help="Skip re-build of images")
+    parser.add_argument("--skip-deploy", action="store_true", help="Skip deploy")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
+    if args.skip_deploy and (args.dash or args.ide):
+        raise Exception("Cannot set `--dash` or `--ide` with `--skip-deploy`")
 
     driver = None
 
@@ -407,13 +411,13 @@ async def main():
     else:
         raise Exception(f"unknown target: {args.target}")
 
-    await asyncio.gather(
-        run("make", "install"),
-        run("make", "docker-build"),
-        driver.reset(),
-    )
+    procs = [run("make", "install"), driver.reset()]
+    if not args.skip_build:
+        procs.append(run("make", "docker-build"))
+    await asyncio.gather(*procs)
 
-    await driver.deploy(args.dash, args.ide)
+    if not args.skip_deploy:
+        await driver.deploy(args.dash, args.ide)
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
