@@ -712,7 +712,7 @@ func TestCompaction(t *testing.T) {
 		const (
 			nFileSets   = 100
 			filesPer    = 10
-			fileSetSize = 1e6
+			fileSetSize = 1e3
 		)
 		for i := 0; i < nFileSets; i++ {
 			fsSpec := fileSetSpec{}

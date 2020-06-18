@@ -618,7 +618,7 @@ func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFile
 
 // GlobFileV2 not implemented
 func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) error {
-	return errors.Errorf("method not implemented")
+	return errors.Errorf("v2 method not implemented")
 }
 
 func drainFileServer(putFileServer interface {
