@@ -58,6 +58,20 @@ To add stateful storage, complete the following steps:
    aws s3api list-buckets --query 'Buckets[].Name'
    ```
 
+### (Optional) Set up Bucket Encryption
+
+Amazon S3 supports two types of bucket encryption — server-side encryption
+(SSE-S3) and AWS Key Management Service (AWS KMS), which stores customer
+master keys. Pachyderm supports both these methods. Therefore, when you
+are creating a bucket for your Pachyderm cluster, you can set up either
+of them. Because Pachyderm requests to buckets do not include encryption
+information, the method that you select for the bucket is applied.
+Setting up communication between Pachyderm object storage clients and AWS KMS
+to append encryption information to Pachyderm requests is not supported and
+not recommended. 
+
+To set up bucket encryption, see [Amazon S3 Default Encryption for S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html).
+
 ## Deploy Pachyderm with an IAM Role
 
 IAM roles provide better user management and security
