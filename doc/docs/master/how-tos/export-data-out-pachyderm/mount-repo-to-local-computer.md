@@ -1,6 +1,6 @@
 # Mount a Repo to a Local Computer
 
-!!! warninig
+!!! warning
     Because Pachyderm uses FUSE to mount a repo and
     macOS does not fully support FUSE, you might
     not be able to use this functionality on macOS.
@@ -59,7 +59,7 @@ write access to the mounted repositories, which means that you can
 open the files for editing and putting them back to the Pachyderm
 repository. 
 
-For example, you have an [OpenCV pipeline](../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
+For example, you have the [OpenCV example pipeline](../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
 up and running,
 and you need to edit files in the `images` repository. Let's
 say you want to experiment with brightness and contrast
@@ -106,20 +106,15 @@ Yosemite or later.
     brew cask install osxfuse
     ```
 
-    ```bash
-    brew install sshfs
-    ```
-
   * On Ubuntu, run:
 
     ```bash
-    sudo apt-get install sshfs
+    sudo apt-get install -y fuse
     ```
 
     For more information, see:
 
     * [FUSE for macOS](https://osxfuse.github.io/)
-    * [FUSE on Ubuntu](https://gist.github.com/cstroe/e83681e3510b43e3f618)
 
   !!! note
       macOS has limited support for FUSE and might not be stable.
@@ -155,14 +150,14 @@ For example, `pfs`.
    and enable file editing in this repository, run:
 
    ```bash
-   pachctl mount images --repos images@master+w
+   pachctl mount pfs --repos images@master+w
    ```
 
    To give read-only access, omit `+w`.
 
    **System Response:**
 
-   ```bash
+   ```
    ro for images: &{Branch:master Write:true}
    ri: repo:<name:"montage" > created:<seconds:1591812554 nanos:348079652 > size_bytes:1345398 description:"Output repo for pipeline montage." branches:<repo:<name:"montage" > name:"master" >
    continue
@@ -185,14 +180,14 @@ in your terminal:
    /dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse)
    /dev/disk1s5 on /private/var/vm (apfs, local, journaled, nobrowse)
    map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)
-   pachctl@osxfuse0 on /Users/testuser/pachyderm/images (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
+   pachctl@osxfuse0 on /Users/testuser/pfs (osxfuse, nodev, nosuid, synchronous, mounted by testuser)
    ```
 
 1. Access your mountpoint.
 
    For example, in macOS, open Finder, press
    `CMD + SHIFT + G`, and type the mountpoint location. If you have mounted
-   the repo to `~/pachyderm/images`, type `~/pachyderm/images`.
+   the repo to `~/pfs`, type `~/pfs`.
 
    ![finder-repo-mount](../../assets/images/s_finder_repo_mount.png)
 
