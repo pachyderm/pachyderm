@@ -1,7 +1,9 @@
 # Mount a Volume in a Pipeline
 
-You may have a local folder that you want your pipeline to write
-files to. You can mount that folder as a volume in Kubernetes
+You may have a local or a network-attached storage that you want your
+pipeline to write files to. This way your data persists beyond the
+lifecycle of your pipeline.
+You can mount that folder as a volume in Kubernetes
 and make it available in your pipeline worker by using the
 `pod_patch` pipeline parameter.
 The `pod_patch` parameter takes a string that specifies the changes
@@ -48,7 +50,7 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
    For testing purposes, you might want to add an `index.html`
    file as described in [Create an index.html file](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/#create-an-index-html-file-on-your-node).
 
-1. Get the ReplicaController (RC) manifest from your pipeline:
+1. Get the ReplicationController (RC) manifest from your pipeline:
 
    ```bash
    kubectl get rc <rc-pipeline> -o json > <filename>.yaml
@@ -94,13 +96,14 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
    created in Step 1.
 
 1. Save these changes to a new file.
-1. Copy the contents of the original RC to clipboard:
-
-   **Example:**
+1. Copy the contents of the original RC to the clipboard:
+   For example, in macOS you can run:
 
    ```bash
    pbcopy < test.yaml
    ```
+
+   You can use any other way of copying the content of a file.
 
 1. Go to a JSON patch generator, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html),
 and paste the contents of the original RC manifest to the **Source JSON**
@@ -138,7 +141,7 @@ field.
    pachctl update pipeline -f <pipeline-spec.yaml>
    ```
 
-   A new pod and new replica controller should be created with
+   A new pod and new replication controller should be created with
    your modified changes.
 
 1. Verify that your file was mounted by connecting to your pod and
