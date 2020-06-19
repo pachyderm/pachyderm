@@ -65,6 +65,7 @@ func Cmds() []*cobra.Command {
 
 	var profileFile string
 	var binaryFile string
+	var interactive bool
 	pprof := &cobra.Command{
 		Use:   "{{alias}} <profile>",
 		Short: "Analyze a profile of pachd in pprof.",
@@ -108,16 +109,22 @@ func Cmds() []*cobra.Command {
 			if err := eg.Wait(); err != nil {
 				return err
 			}
-			cmd := exec.Command("go", "tool", "pprof", binaryFile, profileFile)
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			return cmd.Run()
+			if interactive {
+				cmd := exec.Command("go", "tool", "pprof", binaryFile, profileFile)
+				cmd.Stdin = os.Stdin
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				return cmd.Run()
+			}
+			return nil
 		}),
 	}
 	pprof.Flags().StringVar(&profileFile, "profile-file", "profile", "File to write the profile to.")
 	pprof.Flags().StringVar(&binaryFile, "binary-file", "binary", "File to write the binary to.")
 	pprof.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
+	pprof.Flags().BoolVarP(&interactive, "interactive", "i", false, "If set, "+
+		"open an interactive session with 'go tool pprof' analyzing the collected "+
+		"profile.")
 	commands = append(commands, cmdutil.CreateAlias(pprof, "debug pprof"))
 
 	debug := &cobra.Command{
