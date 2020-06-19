@@ -428,8 +428,7 @@ on the subject.
 ### Sidecar Resource Limits (optional)
 
 `sidecar_resource_limits` determines the upper threshold of resources
-allocated to the sidecar, init, or storage containers. You can also
-set the init container limit to the user container limit. 
+allocated to the sidecar containers.
 
 This field can be useful in deployments where Kubernetes automatically
 applies resource limits to containers, which might conflict with Pachyderm
