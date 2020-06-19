@@ -127,6 +127,7 @@ nav:
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
+                - concepts/pipeline-concepts/how-to-design-your-workflow.md
             - Job: concepts/pipeline-concepts/job.md
             - Datum:
                 - Overview: concepts/pipeline-concepts/datum/index.md
