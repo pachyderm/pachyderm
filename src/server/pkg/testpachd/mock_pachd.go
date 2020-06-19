@@ -112,7 +112,6 @@ type setScopeFunc func(context.Context, *auth.SetScopeRequest) (*auth.SetScopeRe
 type getACLFunc func(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error)
 type setACLFunc func(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
-type getOIDCErrorFunc func(context.Context, *auth.GetOIDCErrorRequest) (*auth.GetOIDCErrorResponse, error)
 type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -136,7 +135,6 @@ type mockSetScope struct{ handler setScopeFunc }
 type mockGetACL struct{ handler getACLFunc }
 type mockSetACL struct{ handler setACLFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
-type mockGetOIDCError struct{ handler getOIDCErrorFunc }
 type mockGetAuthToken struct{ handler getAuthTokenFunc }
 type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
@@ -160,7 +158,6 @@ func (mock *mockSetScope) Use(cb setScopeFunc)                     { mock.handle
 func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handler = cb }
 func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)             { mock.handler = cb }
-func (mock *mockGetOIDCError) Use(cb getOIDCErrorFunc)             { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)       { mock.handler = cb }
@@ -190,7 +187,6 @@ type mockAuthServer struct {
 	GetACL             mockGetACL
 	SetACL             mockSetACL
 	GetOIDCLogin       mockGetOIDCLogin
-	GetOIDCError       mockGetOIDCError
 	GetAuthToken       mockGetAuthToken
 	ExtendAuthToken    mockExtendAuthToken
 	RevokeAuthToken    mockRevokeAuthToken
@@ -284,12 +280,6 @@ func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLog
 		return api.mock.GetOIDCLogin.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetOIDCLogin")
-}
-func (api *authServerAPI) GetOIDCError(ctx context.Context, req *auth.GetOIDCErrorRequest) (*auth.GetOIDCErrorResponse, error) {
-	if api.mock.GetOIDCError.handler != nil {
-		return api.mock.GetOIDCError.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.GetOIDCError")
 }
 func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	if api.mock.GetAuthToken.handler != nil {
