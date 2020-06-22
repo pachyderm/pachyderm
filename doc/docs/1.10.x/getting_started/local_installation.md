@@ -5,7 +5,7 @@ on macOS®, Linux®, or Microsoft® Windows®. Local installation helps you to l
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
-When you run `pachctl deploy local`, a single-node cluster is created.
+`pachctl deploy local` is designed for a single-node cluster.
 This cluster uses local storage on disk and does not create a
 PersistentVolume (PV). If you want to deploy a production multi-node
 cluster, follow the instructions for your cloud provider or on-prem
