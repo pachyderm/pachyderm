@@ -66,6 +66,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     }
     "disk": string,
   },
+  "sidecar_resource_limits": {
+    "memory": string,
+    "cpu": number
+  },
   "datum_timeout": string,
   "datum_tries": int,
   "job_timeout": string,
@@ -419,6 +423,17 @@ processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
 [Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 on the subject.
+
+### Sidecar Resource Limits (optional)
+
+`sidecar_resource_limits` determines the upper threshold of resources
+allocated to the sidecar containers.
+
+This field can be useful in deployments where Kubernetes automatically
+applies resource limits to containers, which might conflict with Pachyderm
+pipelines' resource requests. Such a deployment might fail if Pachyderm
+requests more than the default Kubernetes limit. The `sidecar_resource_limits`
+enables you to explicitly specify these resources to fix the issue.
 
 ### Datum Timeout (optional)
 
