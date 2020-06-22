@@ -104,6 +104,9 @@ docker-build-gpu:
 docker-build-kafka:
 	docker build -t kafka-demo etc/testing/kafka
 
+docker-build-spout-test:
+	docker build -t spout-test etc/testing/spout
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 
@@ -232,7 +235,7 @@ test-pfs-storage:
 	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
 	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
 
-test-pps: launch-stats launch-kafka docker-build-test-entrypoint
+test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
@@ -270,9 +273,20 @@ test-vault:
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
+	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
 	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
+	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
+	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
+
+test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
@@ -283,7 +297,7 @@ test-local:
 
 test-auth:
 	yes | pachctl delete all
-	go test -v -count=1 ./src/server/auth/server -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT)
@@ -441,7 +455,7 @@ goxc-build:
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
-	docker-build-kafka \
+	docker-build-spout-test \
 	docker-push-gpu \
 	docker-push-gpu-dev \
 	docker-gpu \
@@ -475,6 +489,7 @@ goxc-build:
 	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
+	test-s3gateway-unit \
 	test-fuse \
 	test-local \
 	test-auth \

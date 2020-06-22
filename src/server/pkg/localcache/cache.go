@@ -42,13 +42,18 @@ func (c *Cache) Has(key string) bool {
 func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	f, err := os.Create(filepath.Join(c.root, key))
+	path := filepath.Join(c.root, key)
+	f, err := os.Create(path)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
+		}
+		if retErr != nil {
+			os.Remove(path)
+			delete(c.keys, key)
 		}
 	}()
 	buf := grpcutil.GetBuffer()

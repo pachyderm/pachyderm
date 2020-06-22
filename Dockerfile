@@ -11,3 +11,5 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go-bindata -o src/server/cmd/worker/assets/assets.go -pkg assets /etc/ssl/certs/... && \
     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"
+# symlink for systems (e.g. hub) that expect pachd to be in the old location
+RUN ln -s /app/pachd /pachd

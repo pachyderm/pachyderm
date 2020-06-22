@@ -230,10 +230,12 @@ async def main():
 
     deployment_args = [
         "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
-        *driver.extra_deploy_args()
+        "--log-level=debug", *driver.extra_deploy_args()
     ]
     if not args.dash:
         deployment_args.append("--no-dashboard")
+    if os.environ.get("STORAGE_V2") == "true":
+        deployment_args.append("--new-storage-layer")
 
     deployments_str = await capture(*deployment_args)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))

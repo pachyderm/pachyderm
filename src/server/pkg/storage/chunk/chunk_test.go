@@ -8,12 +8,12 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"modernc.org/mathutil"
 )
@@ -36,16 +36,9 @@ var tests = []test{
 	test{10 * units.MB, 1 * units.MB, 100 * units.MB},
 }
 
-// (bryce) this should be somewhere else (probably testutil).
-func seedRand() string {
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-}
-
 func TestWriteThenRead(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
 				// Generate set of annotations.
@@ -61,7 +54,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
 				// Generate two sets of annotations.

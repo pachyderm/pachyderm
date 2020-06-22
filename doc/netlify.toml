@@ -1,7 +1,8 @@
 [build]
-base = "doc"
-command = "./build.sh"
-publish = "doc/site"
+  base = "doc/"
+  command = "./build.sh"
+  publish = "site/"
+  ignore = "git diff --quiet HEAD^ HEAD -- ."
 
 [[redirects]]
   from = "/"
@@ -14,6 +15,30 @@ publish = "doc/site"
   to = "/latest/"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/en/latest/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+#[[redirects]]
+#  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+#  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+#  status = 301
+#  force = true
 
 [[redirects]]
    from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"

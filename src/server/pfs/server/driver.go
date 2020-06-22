@@ -37,9 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -156,6 +154,7 @@ func newDriver(
 		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
+		// TODO: set maxFanIn based on downward API.
 	}
 
 	// Create spec repo (default repo)
@@ -169,32 +168,6 @@ func newDriver(
 		return repos.Create(repo.Name, repoInfo)
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
-	}
-	if env.NewStorageLayer {
-		// (bryce) local client for testing.
-		// need to figure out obj_block_api_server before this
-		// can be changed.
-		objClient, err := obj.NewLocalClient(storageRoot)
-		if err != nil {
-			return nil, err
-		}
-		// (bryce) local db for testing.
-		db, err := gc.NewLocalDB()
-		if err != nil {
-			return nil, err
-		}
-		gcClient, err := gc.NewClient(db)
-		if err != nil {
-			return nil, err
-		}
-		chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
-		d.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
-		d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
-		if err != nil {
-			return nil, err
-		}
-		go d.master(env, objClient, db)
-		go d.compactionWorker()
 	}
 	return d, nil
 }
@@ -2875,7 +2848,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var mu sync.Mutex
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
-			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
+			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
 		if err != nil {
 			return err
 		}
@@ -2910,7 +2883,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	reader io.Reader) (*pfs.PutFileRecords, error) {
+	del bool, reader io.Reader) (*pfs.PutFileRecords, error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -2920,6 +2893,10 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 		return nil, errors.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
 	}
 	records := &pfs.PutFileRecords{}
+	if del {
+		records.Tombstone = true
+		return records, nil
+	}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
@@ -4649,6 +4626,14 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			// Close the previous 'put file' if there is one
 			if pw != nil {
 				pw.Close() // can't error
+			}
+			if req.Delete {
+				d.putFileLimiter.Acquire()
+				eg.Go(func() error {
+					defer d.putFileLimiter.Release()
+					return f(req, nil)
+				})
+				continue
 			}
 			pr, pw = io.Pipe()
 			pr := pr

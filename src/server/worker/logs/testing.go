@@ -67,7 +67,7 @@ func (ml *MockLogger) LogStep(name string, cb func() error) (retErr error) {
 	ml.Logf("started %v", name)
 	defer func() {
 		if retErr != nil {
-			retErr = errors.Wrap(retErr, name)
+			retErr = errors.EnsureStack(retErr)
 			ml.Logf("errored %v: %v", name, retErr)
 		} else {
 			ml.Logf("finished %v", name)
