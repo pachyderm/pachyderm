@@ -113,7 +113,6 @@ case "${BUCKET}" in
         make enterprise-code-checkin-test
         make test-cmds
         make test-libs
-        make test-tls
         make test-proto-static
         make test-transaction
         make test-deploy-manifests
