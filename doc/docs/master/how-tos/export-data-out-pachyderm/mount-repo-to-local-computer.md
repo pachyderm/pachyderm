@@ -115,9 +115,6 @@ Yosemite or later.
 
     * [FUSE for macOS](https://osxfuse.github.io/)
 
-  !!! note
-      macOS has limited support for FUSE and might not be stable.
-
 ## Mount a Pachyderm Repo
 
 Before you can mount a Pachyderm repo, verify that you have all the
