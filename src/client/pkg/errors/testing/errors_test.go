@@ -1,8 +1,10 @@
 package testing
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
@@ -69,31 +71,31 @@ func TestAsFooErr(t *testing.T) {
 	otherErr := &OtherErr{}
 
 	err = FooErr{1}
-	require.True(t, As(err, &FooErr{}))
-	require.False(t, As(err, &OtherErr{}))
+	require.True(t, errors.As(err, &FooErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = FooErr{2}
-	require.True(t, As(err, fooerr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, fooerr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, fooerr, &FooErr{2})
 
 	err = FooErr{3}
-	require.True(t, As(err, &fooerr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &fooerr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, fooerr, &FooErr{3})
 
 	err = &FooErr{4}
-	require.True(t, As(err, &FooErr{}))
-	require.False(t, As(err, &OtherErr{}))
+	require.True(t, errors.As(err, &FooErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &FooErr{5}
-	require.True(t, As(err, fooerr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, fooerr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, fooerr, &FooErr{5})
 
 	err = &FooErr{6}
-	require.True(t, As(err, &fooerr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &fooerr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, fooerr, &FooErr{6})
 }
 
@@ -104,31 +106,31 @@ func TestAsPtrFooErr(t *testing.T) {
 
 	// these don't compile - fooptrerr can't be used as an error unless it's a pointer
 	// err = PtrFooErr{1}
-	// require.True(t, As(err, &PtrFooErr{}))
-	// require.False(t, As(err, &OtherErr{}))
+	// require.True(t, errors.As(err, &PtrFooErr{}))
+	// require.False(t, errors.As(err, &OtherErr{}))
 
 	// err = PtrFooErr{2}
-	// require.True(t, As(err, fooptrerr))
-	// require.False(t, As(err, otherErr))
+	// require.True(t, errors.As(err, fooptrerr))
+	// require.False(t, errors.As(err, otherErr))
 	// require.Equal(t, fooptrerr, &PtrFooErr{2})
 
 	// err = PtrFooErr{3}
-	// require.True(t, As(err, &fooptrerr))
-	// require.False(t, As(err, &otherErr))
+	// require.True(t, errors.As(err, &fooptrerr))
+	// require.False(t, errors.As(err, &otherErr))
 	// require.Equal(t, fooptrerr, &PtrFooErr{3})
 
 	err = &PtrFooErr{4}
-	require.True(t, As(err, &PtrFooErr{}))
-	require.False(t, As(err, &OtherErr))
+	require.True(t, errors.As(err, &PtrFooErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &PtrFooErr{5}
-	require.True(t, As(err, fooptrerr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, fooptrerr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, fooptrerr, &PtrFooErr{5})
 
 	err = &PtrFooErr{6}
-	require.True(t, As(err, &fooptrerr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &fooptrerr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, fooptrerr, &PtrFooErr{6})
 }
 
@@ -140,32 +142,32 @@ func TestAsConcreteIntErr(t *testing.T) {
 
 	err = ConcreteIntErr{1}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
-	// require.True(t, As(err, &IntErr{}))
-	require.False(t, As(err, &OtherErr{}))
+	// require.True(t, errors.As(err, &IntErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = ConcreteIntErr{2}
-	require.True(t, As(err, interr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, interr, &ConcreteIntErr{2})
 
 	err = ConcreteIntErr{3}
-	require.True(t, As(err, &interr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &interr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, interr, &ConcreteIntErr{3})
 
 	err = &ConcreteIntErr{4}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
-	// require.True(t, As(err, &IntErr{}))
-	require.False(t, As(err, &OtherErr{}))
+	// require.True(t, errors.As(err, &IntErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &ConcreteIntErr{5}
-	require.True(t, As(err, interr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, interr, &ConcreteIntErr{5})
 
 	err = &ConcreteIntErr{6}
-	require.True(t, As(err, &interr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &interr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, interr, &ConcreteIntErr{6})
 }
 
@@ -177,31 +179,31 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 
 	// these don't compile - ConcretePtrIntErr can't be used as an error unless it's a pointer
 	// err = ConcretePtrIntErr{1}
-	// require.True(t, As(err, &IntErr{}))
-	// require.False(t, As(err, &OtherErr{}))
+	// require.True(t, errors.As(err, &IntErr{}))
+	// require.False(t, errors.As(err, &OtherErr{}))
 
 	// err = ConcretePtrIntErr{2}
-	// require.True(t, As(err, interr))
-	// require.False(t, As(err, otherErr))
+	// require.True(t, errors.As(err, interr))
+	// require.False(t, errors.As(err, otherErr))
 	// require.Equal(t, interr, &ConcretePtrIntErr{2})
 
 	// err = ConcretePtrIntErr{3}
-	// require.True(t, As(err, &interr))
-	// require.False(t, As(err, &otherErr))
+	// require.True(t, errors.As(err, &interr))
+	// require.False(t, errors.As(err, &otherErr))
 	// require.Equal(t, interr, &ConcretePtrIntErr{3})
 
 	err = &ConcretePtrIntErr{4}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
-	// require.True(t, As(err, &IntErr{}))
-	require.False(t, As(err, &OtherErr{}))
+	// require.True(t, errors.As(err, &IntErr{}))
+	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &ConcretePtrIntErr{5}
-	require.True(t, As(err, interr))
-	require.False(t, As(err, otherErr))
+	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, interr, &ConcretePtrIntErr{5})
 
 	err = &ConcretePtrIntErr{6}
-	require.True(t, As(err, &interr))
-	require.False(t, As(err, &otherErr))
+	require.True(t, errors.As(err, &interr))
+	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, interr, &ConcretePtrIntErr{6})
 }
