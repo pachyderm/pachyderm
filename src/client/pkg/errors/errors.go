@@ -54,7 +54,9 @@ func EnsureStack(err error) error {
 }
 
 // Frame is the type of a StackFrame, it is an alias for errors.Frame.
-type Frame errors.Frame
+type Frame struct {
+	errors.Frame
+}
 
 // Callers returns an errors.StackTrace for the place at which it's called.
 func Callers() errors.StackTrace {
@@ -89,7 +91,7 @@ func ForEachStackFrame(err error, f func(Frame)) {
 	}
 	if len(st) > 0 {
 		for _, frame := range st {
-			f(Frame(frame))
+			f(Frame{frame})
 		}
 	}
 }

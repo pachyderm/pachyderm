@@ -72,8 +72,7 @@ func newLogger(service string, exportStats bool) Logger {
 			)
 			if err := prometheus.Register(newReportMetricGauge); err != nil {
 				// metrics may be redundantly registered; ignore these errors
-				var regError *prometheus.AlreadyRegisteredError
-				if !errors.As(err, &regError) {
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 					entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
 					newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
 				}
@@ -156,8 +155,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			)
 			if err := prometheus.Register(runTime); err != nil {
 				// metrics may be redundantly registered; ignore these errors
-				var regError *prometheus.AlreadyRegisteredError
-				if !errors.As(err, &regError) {
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 					l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
 				}
 			} else {
@@ -184,8 +182,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 		)
 		if err := prometheus.Register(secondsCount); err != nil {
 			// metrics may be redundantly registered; ignore these errors
-			var regError *prometheus.AlreadyRegisteredError
-			if !errors.As(err, &regError) {
+			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
 			}
 		} else {

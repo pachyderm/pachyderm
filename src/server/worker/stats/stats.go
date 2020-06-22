@@ -201,8 +201,7 @@ func InitPrometheus() {
 	for _, metric := range metrics {
 		if err := prometheus.Register(metric); err != nil {
 			// metrics may be redundantly registered; ignore these errors
-			var regError *prometheus.AlreadyRegisteredError
-			if !errors.As(err, &regError) {
+			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 				logrus.Errorf("error registering prometheus metric: %v", err)
 			}
 		}

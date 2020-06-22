@@ -726,8 +726,7 @@ func (a *apiServer) checkOrDeployGithookService() error {
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
-		var githookErr *errGithookServiceNotFound
-		if errors.As(err, &githookErr) {
+		if errors.As(err, &errGithookServiceNotFound{}) {
 			svc := assets.GithookService(a.namespace)
 			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err

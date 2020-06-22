@@ -31,8 +31,7 @@ func RegisterCacheStats(cacheName string, groupCacheStats *groupcache.Stats) {
 	}
 	if err := prometheus.Register(c); err != nil {
 		// metrics may be redundantly registered; ignore these errors
-		var regError *prometheus.AlreadyRegisteredError
-		if !errors.As(err, &regError) {
+		if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 			logrus.Infof("error registering prometheus metric: %v", err)
 		}
 	}
@@ -70,8 +69,7 @@ func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 			)
 			if err != nil {
 				// metrics may be redundantly registered; ignore these errors
-				var regError *prometheus.AlreadyRegisteredError
-				if !errors.As(err, &regError) {
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 					logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
 				}
 			} else {

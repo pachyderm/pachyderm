@@ -511,6 +511,7 @@ func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 	if len(msgAndArgs) == 1 {
 		tb.Logf(msgAndArgs[0].(string))
 	}
+
 	if len(msgAndArgs) > 1 {
 		tb.Logf(msgAndArgs[0].(string), msgAndArgs[1:]...)
 	}
