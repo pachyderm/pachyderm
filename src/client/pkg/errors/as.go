@@ -16,12 +16,9 @@ import (
 func As(err error, target interface{}) bool {
 	// Check the type of target, it must be a pointer to an error, or a pointer to a pointer to an error
 	v := reflect.ValueOf(target)
-	if v.Kind() != reflect.Ptr && v.Kind() != reflect.Struct {
-		fmt.Printf("Kind(): %v\n", v.Kind())
-		panic("target must be a non-nil pointer to an error type, or a pointer to a pointer to an error type")
-	}
 
-	if v.Kind() == reflect.Struct {
+	switch v.Kind() {
+	case reflect.Struct:
 		x := &target
 		if errors.As(err, x) {
 			fmt.Printf("ret 1\n")
@@ -31,20 +28,25 @@ func As(err error, target interface{}) bool {
 		// TODO: this branch never triggers
 		fmt.Printf("ret 2\n")
 		return errors.As(err, &x)
-	} else {
+	case reflect.Ptr:
 		// Unwrap inner type
 		vi := v.Elem()
 
-		if _, ok := target.(error); ok {
+		if _, ok := v.Interface().(error); ok {
+			// Wrap target in an extra pointer layer
+			x := reflect.New(reflect.TypeOf(target))
+			if errors.As(err, x.Interface()) {
+				fmt.Printf("ret 3, target(%s): %v, x(%s): %v\n", reflect.TypeOf(target), target, reflect.TypeOf(x.Interface()), x.Interface())
+				return true
+			}
+
 			if _, ok := vi.Interface().(error); ok {
-				fmt.Printf("ret 3\n")
+				fmt.Printf("ret 4\n")
 				return errors.As(err, target)
 			}
 
-			// Wrap target in an extra pointer layer
-			x := &target
-			fmt.Printf("ret 4\n")
-			return errors.As(err, x)
+			fmt.Printf("ret 4b\n")
+			return false
 		}
 
 		if _, ok := vi.Interface().(error); ok {
@@ -56,6 +58,6 @@ func As(err error, target interface{}) bool {
 			return errors.As(err, vi.Interface())
 		}
 	}
-
+	fmt.Printf("Kind(): %v\n", v.Kind())
 	panic("target must be a non-nil pointer to an error type, or a pointer to a pointer to an error type")
 }

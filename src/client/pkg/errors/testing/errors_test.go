@@ -85,11 +85,11 @@ func TestAsFooErr(t *testing.T) {
 	require.Equal(t, fooerr, &FooErr{3})
 
 	err = &FooErr{4}
-	// require.True(t, errors.As(err, &FooErr{})) // TODO: broken
+	require.True(t, errors.As(err, &FooErr{}))
 	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &FooErr{5}
-	// require.True(t, errors.As(err, fooerr)) // TODO: broken
+	require.True(t, errors.As(err, fooerr))
 	require.False(t, errors.As(err, otherErr))
 	// require.Equal(t, fooerr, &FooErr{5}) // TODO: broken
 
