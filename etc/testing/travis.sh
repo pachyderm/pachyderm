@@ -95,27 +95,25 @@ case "${BUCKET}" in
  MISC)
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
-        make lint
-        make enterprise-code-checkin-test
-        make test-cmds
-        make test-libs
-        make test-tls
-        make test-vault
-        make test-enterprise
-        make test-worker
-        make test-s3gateway-unit
-        make test-proto-static
-        make test-transaction
-        make test-deploy-manifests
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
-        make lint
-        make enterprise-code-checkin-test
-        make test-cmds
-        make test-libs
-        make test-proto-static
-        make test-transaction
-        make test-deploy-manifests
+    fi
+
+    make lint
+    make enterprise-code-checkin-test
+    make test-cmds
+    make test-libs
+    make test-proto-static
+    make test-transaction
+    make test-deploy-manifests
+
+    make test-s3gateway-unit
+    make test-enterprise
+    make test-worker
+
+    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+        make test-tls
+        make test-vault
     fi
     ;;
  ADMIN)
