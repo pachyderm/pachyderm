@@ -166,10 +166,7 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-// AdminRoles reflects any cluster-wide (admin) permissions a principal has.
-// A principal can have multiple admin roles.
-message AdminRoles {
-  enum Role {
+enum AdminRole {
     UNDEFINED = 0;
 
     // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
@@ -178,7 +175,11 @@ message AdminRoles {
     // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
     FS = 2;
   }
-  repeated Role roles = 1;
+
+// AdminRoles reflects any cluster-wide (admin) permissions a principal has.
+// A principal can have multiple admin roles.
+message AdminRoles {
+  repeated AdminRole roles = 1;
 }
 
 // Get the current list of cluster admins

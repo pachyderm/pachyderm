@@ -459,16 +459,16 @@ func ModifyAdminCmd() *cobra.Command {
 			defer c.Close()
 
 			roles := auth.AdminRoles{
-				Roles: make([]auth.AdminRoles_Role, len(rolesStr)),
+				Roles: make([]auth.AdminRole, len(rolesStr)),
 			}
 
 			if len(rolesStr) > 0 {
 				for i, role := range strings.Split(rolesStr, ",") {
-					s, ok := auth.AdminRoles_Role_value[role]
+					s, ok := auth.AdminRole_value[role]
 					if !ok {
 						return fmt.Errorf("Unsupported admin role %q, valid roles are 'SUPER', 'FS'", role)
 					}
-					roles.Roles[i] = auth.AdminRoles_Role(s)
+					roles.Roles[i] = auth.AdminRole(s)
 				}
 			} else {
 				fmt.Printf("Removing all admin roles for %q\n", user)

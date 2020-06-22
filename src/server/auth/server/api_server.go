@@ -721,16 +721,16 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 		Admins: make(map[string]*auth.AdminRoles),
 	}
 	for admin := range a.adminCache {
-		resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_SUPER}}
+		resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_SUPER}}
 	}
 
 	a.fsAdminMu.Lock()
 	defer a.fsAdminMu.Unlock()
 	for admin := range a.fsAdminCache {
 		if _, ok := resp.Admins[admin]; ok {
-			resp.Admins[admin].Roles = append(resp.Admins[admin].Roles, auth.AdminRoles_FS)
+			resp.Admins[admin].Roles = append(resp.Admins[admin].Roles, auth.AdminRole_FS)
 		} else {
-			resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_FS}}
+			resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_FS}}
 		}
 	}
 	return resp, nil
@@ -805,10 +805,10 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	var grantFS bool
 	if req.Roles != nil {
 		for _, role := range req.Roles.Roles {
-			if role == auth.AdminRoles_SUPER {
+			if role == auth.AdminRole_SUPER {
 				grantSuper = true
 			}
-			if role == auth.AdminRoles_FS {
+			if role == auth.AdminRole_FS {
 				grantFS = true
 			}
 		}
@@ -1316,10 +1316,10 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	var adminRoles auth.AdminRoles
 
 	if _, ok := a.adminCache[callerInfo.Subject]; ok {
-		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRoles_SUPER)
+		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRole_SUPER)
 	}
 	if _, ok := a.fsAdminCache[callerInfo.Subject]; ok {
-		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRoles_FS)
+		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRole_FS)
 	}
 
 	// return final result
