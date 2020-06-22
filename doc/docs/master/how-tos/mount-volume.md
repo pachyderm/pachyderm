@@ -1,8 +1,7 @@
 # Mount a Volume in a Pipeline
 
 You may have a local or a network-attached storage that you want your
-pipeline to write files to. This way your data persists beyond the
-lifecycle of your pipeline.
+pipeline to write files to.
 You can mount that folder as a volume in Kubernetes
 and make it available in your pipeline worker by using the
 `pod_patch` pipeline parameter.
@@ -78,12 +77,12 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
    `mountPath` is where your volume will be mounted inside of the
    container.
 
-1. Find the `volumes` section:
+1. Find the `volumes` section.
 1. Add the information about the volume.
 
    **Example:**
 
-   ```bash
+   ```json
    {
         "name": "task-pv-storage",
         "persistentVolumeClaim": {
@@ -96,23 +95,7 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
    created in Step 1.
 
 1. Save these changes to a new file.
-1. Copy the contents of the original RC to the clipboard:
-
-   * If you are on macOS, you can use `pbcopy`. Example:
-
-     ```bash
-     pbcopy < test.yaml
-     ```
-
-   * If you are on Linux, you can use [xclip](https://linux.die.net/man/1/xclip).
-     Example:
-
-     ```bash
-     xclip -sel clip < test.yaml
-     ```
-
-     You can use any other way of copying the contents of a file.
-
+1. Copy the contents of the original RC to the clipboard.
 1. Go to a JSON patch generator, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html),
 and paste the contents of the original RC manifest to the **Source JSON**
 field.
