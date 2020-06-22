@@ -3157,7 +3157,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
 		var isAdmin bool
 		for _, s := range me.AdminRoles.Roles {
-			if s == auth.AdminRoles_SUPER {
+			if s == auth.AdminRole_SUPER {
 				isAdmin = true
 				break
 			}

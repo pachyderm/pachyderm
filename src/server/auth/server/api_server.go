@@ -139,11 +139,8 @@ type apiServer struct {
 	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
-	adminCache map[string]interface{} // cache of current cluster admins
-	adminMu    sync.Mutex             // guard 'adminCache'
-
-	fsAdminCache map[string]interface{} // cache of current cluster FS admins
-	fsAdminMu    sync.Mutex             // guard 'fsAdminCache'
+	adminCache map[string]auth.AdminRoles // cache of current cluster admins
+	adminMu    sync.Mutex                 // guard 'adminCache'
 
 	// configCache should not be read/written directly--use setCacheConfig and
 	// getCacheConfig
@@ -225,11 +222,10 @@ func NewAuthServer(
 	public bool,
 ) (APIServer, error) {
 	s := &apiServer{
-		env:          env,
-		txnEnv:       txnEnv,
-		pachLogger:   log.NewLogger("auth.API"),
-		adminCache:   make(map[string]interface{}),
-		fsAdminCache: make(map[string]interface{}),
+		env:        env,
+		txnEnv:     txnEnv,
+		pachLogger: log.NewLogger("auth.API"),
+		adminCache: make(map[string]auth.AdminRoles),
 		tokens: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
@@ -297,8 +293,7 @@ func NewAuthServer(
 		public: public,
 	}
 	go s.retrieveOrGeneratePPSToken()
-	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix), s.admins, s.adminMu, s.adminCache)
-	go s.watchAdmins(path.Join(etcdPrefix, fsAdminsPrefix), s.fsAdmins, s.fsAdminMu, s.fsAdminCache)
+	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix), path.Join(etcdPrefix, fsAdminsPrefix))
 
 	if public {
 		// start SAML and OIDC services
@@ -378,41 +373,75 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	}
 }
 
-func (a *apiServer) watchAdmins(fullAdminPrefix string, collection col.Collection, mu sync.Mutex, cache map[string]interface{}) {
+func (a *apiServer) watchAdmins(superAdminPrefix, fsAdminPrefix string) {
 	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
 		// stay activated.
-		watcher, err := collection.ReadOnly(context.Background()).Watch()
+		superWatcher, err := a.admins.ReadOnly(context.Background()).Watch()
 		if err != nil {
 			return err
 		}
-		defer watcher.Close()
+		defer superWatcher.Close()
+
+		fsWatcher, err := a.fsAdmins.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer fsWatcher.Close()
+
 		// The auth service is activated if we have admins, and not
 		// activated otherwise.
 		for {
-			ev, ok := <-watcher.Watch()
-			if !ok {
-				return errors.New("admin watch closed unexpectedly")
+			var key string
+			var boolProto types.BoolValue
+			var username string
+			var role auth.AdminRole
+			var ev *watch.Event
+			var ok bool
+			select {
+			case ev, ok = <-superWatcher.Watch():
+				if !ok {
+					return errors.New("admin watch closed unexpectedly")
+				}
+				ev.Unmarshal(&key, &boolProto)
+				username = strings.TrimPrefix(key, superAdminPrefix+"/")
+			case ev, ok = <-fsWatcher.Watch():
+				if !ok {
+					return errors.New("fs admin watch closed unexpectedly")
+				}
+				ev.Unmarshal(&key, &boolProto)
+				username = strings.TrimPrefix(key, fsAdminPrefix+"/")
 			}
 			b.Reset() // event successfully received
 
 			if err := func() error {
 				// Lock a.adminMu in case we need to modify a.adminCache
-				mu.Lock()
-				defer mu.Unlock()
+				a.adminMu.Lock()
+				defer a.adminMu.Unlock()
 
-				// Parse event data and potentially update adminCache
-				var key string
-				var boolProto types.BoolValue
-				ev.Unmarshal(&key, &boolProto)
-				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
 				case watch.EventPut:
-					cache[username] = struct{}{}
+					if existing, ok := a.adminCache[username]; ok {
+						a.adminCache[username] = auth.AdminRoles{Roles: append(existing.Roles, role)}
+					} else {
+						a.adminCache[username] = auth.AdminRoles{Roles: []auth.AdminRole{role}}
+					}
 				case watch.EventDelete:
-					delete(cache, username)
+					if existing, ok := a.adminCache[username]; ok {
+						newRoles := make([]auth.AdminRole, 0, len(existing.Roles))
+						for _, r := range existing.Roles {
+							if role != r {
+								newRoles = append(newRoles, r)
+							}
+						}
+						if len(newRoles) > 0 {
+							a.adminCache[username] = auth.AdminRoles{Roles: newRoles}
+						} else {
+							delete(a.adminCache, username)
+						}
+					}
 				case watch.EventError:
 					return ev.Err
 				}
@@ -621,7 +650,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -720,19 +749,10 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 	resp = &auth.GetAdminsResponse{
 		Admins: make(map[string]*auth.AdminRoles),
 	}
-	for admin := range a.adminCache {
-		resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_SUPER}}
+	for admin, roles := range a.adminCache {
+		resp.Admins[admin] = &roles
 	}
 
-	a.fsAdminMu.Lock()
-	defer a.fsAdminMu.Unlock()
-	for admin := range a.fsAdminCache {
-		if _, ok := resp.Admins[admin]; ok {
-			resp.Admins[admin].Roles = append(resp.Admins[admin].Roles, auth.AdminRole_FS)
-		} else {
-			resp.Admins[admin] = &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_FS}}
-		}
-	}
 	return resp, nil
 }
 
@@ -745,7 +765,11 @@ func (a *apiServer) validateModifyAdminsRequest(user string, grantSuper bool) er
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
 		for u, roles := range a.adminCache {
-			m[u] = roles
+			for _, r := range roles.Roles {
+				if r == auth.AdminRole_SUPER {
+					m[u] = roles
+				}
+			}
 		}
 	}()
 
@@ -781,7 +805,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -819,6 +843,20 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		return nil, err
 	}
 
+	// Get the user's existing grants
+	var hasSuper bool
+	var hasFS bool
+	func() {
+		a.adminMu.Lock()
+		defer a.adminMu.Unlock()
+		if roles, ok := a.adminCache[req.Principal]; ok {
+			for _, r := range roles.Roles {
+				hasSuper = hasSuper || (r == auth.AdminRole_SUPER)
+				hasFS = hasFS || (r == auth.AdminRole_FS)
+			}
+		}
+	}()
+
 	// Update "admins" list (watchAdmins() will update admins cache)
 	if grantSuper {
 		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -827,14 +865,8 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 			return nil, err
 		}
 	} else {
-		var removeSuper bool
-		func() {
-			a.adminMu.Lock()
-			defer a.adminMu.Unlock()
-			_, removeSuper = a.adminCache[req.Principal]
-		}()
-
-		if removeSuper {
+		// If the user has a cached SUPER role but it's not in the list, remove it
+		if hasSuper {
 			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 				return a.admins.ReadWrite(stm).Delete(req.Principal)
 			}); err != nil {
@@ -850,14 +882,8 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 			return nil, err
 		}
 	} else {
-		var removeFS bool
-		func() {
-			a.fsAdminMu.Lock()
-			defer a.fsAdminMu.Unlock()
-			_, removeFS = a.fsAdminCache[req.Principal]
-		}()
-
-		if removeFS {
+		// If the user has a cached FS role but it's not in the list, remove it
+		if hasFS {
 			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 				return a.fsAdmins.ReadWrite(stm).Delete(req.Principal)
 			}); err != nil {
@@ -877,7 +903,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 
-	isAdmin, err := a.hasSuperAdminRole(ctx, username)
+	isAdmin, err := a.hasAdminRole(ctx, username, auth.AdminRole_SUPER)
 	if err != nil {
 		return err
 	}
@@ -1080,7 +1106,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1220,7 +1246,7 @@ func (a *apiServer) AuthorizeInTransaction(
 		return nil, err
 	}
 	// Check for FS admin or SUPER admin role
-	isAdmin, err := a.hasFSAdminRole(txnCtx.ClientContext, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1316,10 +1342,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	var adminRoles auth.AdminRoles
 
 	if _, ok := a.adminCache[callerInfo.Subject]; ok {
-		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRole_SUPER)
-	}
-	if _, ok := a.fsAdminCache[callerInfo.Subject]; ok {
-		adminRoles.Roles = append(adminRoles.Roles, auth.AdminRole_FS)
+		adminRoles.Roles = a.adminCache[callerInfo.Subject].Roles
 	}
 
 	// return final result
@@ -1340,43 +1363,20 @@ func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) err
 	return nil
 }
 
-func (a *apiServer) hasSuperAdminRole(ctx context.Context, subject string) (bool, error) {
+// hasAdminRole checks if the subject has the specified role _or_ the SUPER admin role, which is a superset of all admin roles
+func (a *apiServer) hasAdminRole(ctx context.Context, subject string, role auth.AdminRole) (bool, error) {
 	if subject == ppsUser {
 		return true, nil
 	}
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	if _, ok := a.adminCache[subject]; ok {
-		return true, nil
-	}
-
-	// Get scope based on group access
-	groups, err := a.getGroups(ctx, subject)
-	if err != nil {
-		return false, errors.Wrapf(err, "could not retrieve caller's group memberships")
-	}
-	for _, g := range groups {
-		if _, ok := a.adminCache[g]; ok {
-			return true, nil
+	if roles, ok := a.adminCache[subject]; ok {
+		for _, r := range roles.Roles {
+			if r == auth.AdminRole_SUPER || r == role {
+				return true, nil
+			}
 		}
 	}
-	return false, nil
-}
-
-func (a *apiServer) hasFSAdminRole(ctx context.Context, subject string) (bool, error) {
-	hasSuperAdmin, err := a.hasSuperAdminRole(ctx, subject)
-	if err != nil {
-		return false, err
-	}
-	if hasSuperAdmin {
-		return true, nil
-	}
-
-	a.fsAdminMu.Lock()
-	defer a.fsAdminMu.Unlock()
-	if _, ok := a.fsAdminCache[subject]; ok {
-		return true, nil
-	}
 
 	// Get scope based on group access
 	groups, err := a.getGroups(ctx, subject)
@@ -1384,8 +1384,12 @@ func (a *apiServer) hasFSAdminRole(ctx context.Context, subject string) (bool, e
 		return false, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 	for _, g := range groups {
-		if _, ok := a.fsAdminCache[g]; ok {
-			return true, nil
+		if roles, ok := a.adminCache[g]; ok {
+			for _, r := range roles.Roles {
+				if r == auth.AdminRole_SUPER || r == role {
+					return true, nil
+				}
+			}
 		}
 	}
 	return false, nil
@@ -1409,7 +1413,7 @@ func (a *apiServer) SetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasFSAdminRole(txnCtx.ClientContext, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1543,7 +1547,7 @@ func (a *apiServer) GetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.hasFSAdminRole(txnCtx.ClientContext, callerInfo.Subject)
+	callerIsAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1711,7 +1715,7 @@ func (a *apiServer) SetACLInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasFSAdminRole(txnCtx.ClientContext, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1897,7 +1901,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2008,7 +2012,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2074,7 +2078,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2167,7 +2171,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2202,7 +2206,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2317,7 +2321,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 	// infinite recursion
 	var target string
 	if req.Username != "" && req.Username != callerInfo.Subject {
-		isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+		isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 		if err != nil {
 			return nil, err
 		}
@@ -2354,7 +2358,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2612,7 +2616,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasSuperAdminRole(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRole_SUPER)
 	if err != nil {
 		return nil, err
 	}

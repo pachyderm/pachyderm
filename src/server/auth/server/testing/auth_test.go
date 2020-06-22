@@ -264,7 +264,7 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		for a, roles := range getAdminsResp.Admins {
 			var isSuper bool
 			for _, r := range roles.Roles {
-				if r == auth.AdminRoles_SUPER {
+				if r == auth.AdminRole_SUPER {
 					isSuper = true
 					break
 				}

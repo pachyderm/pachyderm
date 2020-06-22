@@ -41,12 +41,17 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 
 // helper method to generate a super admin role
 func superAdminRole() *auth.AdminRoles {
-	return &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_SUPER}}
+	return &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_SUPER}}
 }
 
 // helper method to generate an fs admin role
 func fsAdminRole() *auth.AdminRoles {
-	return &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_FS}}
+	return &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_FS}}
+}
+
+// helper method to generate an empty admin role
+func emptyAdminRole() *auth.AdminRoles {
+	return &auth.AdminRoles{Roles: []auth.AdminRole{}}
 }
 
 // helper function to generate map of admins
@@ -59,7 +64,7 @@ func admins(super ...string) func(fs ...string) map[string]*auth.AdminRoles {
 	return func(fs ...string) map[string]*auth.AdminRoles {
 		for _, u := range fs {
 			if _, ok := a[u]; ok {
-				a[u].Roles = append(a[u].Roles, auth.AdminRoles_FS)
+				a[u].Roles = append(a[u].Roles, auth.AdminRole_FS)
 			} else {
 				a[u] = fsAdminRole()
 			}
@@ -107,7 +112,7 @@ func TestActivate(t *testing.T) {
 	// Check that the token 'c' received from pachd authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.AdminRoles_SUPER, who.AdminRoles.Roles[0])
+	require.Equal(t, auth.AdminRole_SUPER, who.AdminRoles.Roles[0])
 	require.Equal(t, admin, who.Username)
 }
 
@@ -201,7 +206,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// 'admin' revokes bob's admin status
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: &auth.AdminRoles{Roles: []auth.AdminRoles_Role{}}})
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: emptyAdminRole()})
 	require.NoError(t, err)
 
 	// wait until bob is not in admin list
@@ -326,7 +331,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// 'admin' revokes bob's admin status
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: &auth.AdminRoles{Roles: []auth.AdminRoles_Role{}}})
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: emptyAdminRole()})
 	require.NoError(t, err)
 
 	// wait until bob is not in admin list
