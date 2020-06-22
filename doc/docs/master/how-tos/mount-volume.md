@@ -13,7 +13,7 @@ and the one with your changes. You can use one of the online JSON patch
 utilities, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html)
 to create a diff. A diff for mounting a volume might look like this:
 
-```bash
+```json
 [
  {
   "op": "add",
@@ -68,7 +68,7 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
 
    **Example:**
 
-   ```bash
+   ```json
    {
         "mountPath": "/data",
         "name": "task-pv-storage"
@@ -97,19 +97,27 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
 
 1. Save these changes to a new file.
 1. Copy the contents of the original RC to the clipboard:
-   For example, in macOS you can run:
 
-   ```bash
-   pbcopy < test.yaml
-   ```
+   * If you are on macOS, you can use `pbcopy`. Example:
 
-   You can use any other way of copying the content of a file.
+     ```bash
+     pbcopy < test.yaml
+     ```
+
+   * If you are on Linux, you can use [xclip](https://linux.die.net/man/1/xclip).
+     Example:
+
+     ```bash
+     xclip -sel clip < test.yaml
+     ```
+
+     You can use any other way of copying the contents of a file.
 
 1. Go to a JSON patch generator, such as [JSON Patch Generator](https://extendsclass.com/json-patch.html),
 and paste the contents of the original RC manifest to the **Source JSON**
 field.
 1. Copy the contents of the modified RC manifest to clipboard
-by using `pbcopy` as described above.
+as described above.
 1. Paste the contents of the modified RC manifest to the **Target JSON**
 field.
 1. Copy the generated JSON Patch.
@@ -122,7 +130,7 @@ field.
 
    **Example:**
 
-   ```bash
+   ```json
    "pod_patch": "[{\"op\": \"add\",\"path\": \"/volumes/-\",\"value\": {\"name\": \"task-pv-storage\",\"persistentVolumeClaim\": {\"claimName\": \"task-pv-claim\"}}}, {\"op\": \"add\",\"path\": \"/containers/0/volumeMounts/-\",\"value\": {\"mountPath\": \"/data\",\"name\": \"task-pv-storage\"}}]"
    ```
 
@@ -146,7 +154,7 @@ field.
 
 1. Verify that your file was mounted by connecting to your pod and
 listing the directory that you have specified as a mountpoint. In this
-example, it's `/data`
+example, it is `/data`.
 
    **Example:**
 
@@ -160,3 +168,17 @@ example, it's `/data`
 
    If you have added the `index.html` file for testing as described
    in Step 1, you should see that file in the mounted directory.
+
+   You might want to adjust your pipeline code to read from or write to
+   the mounted directory. For example, in the aforementioned
+   [OpenCV example](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/#create-a-pipeline),
+   the code reads from the `/pfs/images` directory and writes to the
+   `/pfs/out` directory. If you want to read or write to the `/data`
+   directory, you need to change those to `/data`.
+
+   !!! important
+       Pachyderm has no notion of the files stored in the mounted directory
+       before it is mounted to Pachyderm. Moreover, if you have mounted a
+       network share to which you write files from other than Pachyderm
+       sources, Pachyderm does not guarantee the provenance of those changes.
+
