@@ -3,6 +3,7 @@ package server
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
@@ -36,6 +37,9 @@ func NewAPIServer(
 	storageRoot string,
 	memoryRequest int64,
 ) (APIServer, error) {
+	if env.StorageV2 {
+		return newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	}
 	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 
@@ -86,5 +90,38 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 			return nil, err
 		}
 		return blockAPIServer, nil
+	}
+}
+
+// NewObjClient creates an obj.Client by selecting a construcot from the obj package.
+func NewObjClient(conf *serviceenv.Configuration) (obj.Client, error) {
+	dir := conf.StorageRoot
+	switch conf.StorageBackend {
+	case MinioBackendEnvVar:
+		// S3 compatible doesn't like leading slashes
+		if len(dir) > 0 && dir[0] == '/' {
+			dir = dir[1:]
+		}
+		return obj.NewMinioClientFromSecret(dir)
+
+	case AmazonBackendEnvVar:
+		// amazon doesn't like leading slashes
+		if len(dir) > 0 && dir[0] == '/' {
+			dir = dir[1:]
+		}
+		return obj.NewAmazonClientFromSecret(dir)
+
+	case GoogleBackendEnvVar:
+		// TODO figure out if google likes leading slashses
+		return obj.NewGoogleClientFromSecret(dir)
+
+	case MicrosoftBackendEnvVar:
+		return obj.NewMicrosoftClientFromSecret(dir)
+
+	case LocalBackendEnvVar:
+		fallthrough
+
+	default:
+		return obj.NewLocalClient(dir)
 	}
 }

@@ -65,5 +65,10 @@ If one of the datums is marked as *recovered* and two others are
 successfully processed, only these two successful datums are used in
 the next pipeline.
 
+If you want to let the job proceed with only the successful datums being
+written to the output, set `"err_cmd" : ["true"]`. The failed datums,
+which are "recovered" by `err_cmd` in this way, will be retried on
+the next job, just as failed datums. 
+
 !!! note "See Also:"
     [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd/)

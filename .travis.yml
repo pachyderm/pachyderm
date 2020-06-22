@@ -7,7 +7,6 @@ cache:
     - ${HOME}/.cache
     - ${HOME}/cached-deps
     - ${HOME}/gopath/pkg/mod
-    - ${HOME}/docker
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
 language: go
 go:
@@ -33,21 +32,26 @@ env:
     - BUCKET=PPS5
     - BUCKET=PPS6
     - BUCKET=EXAMPLES
+
+stages:
+  - build
+  - test
+
+jobs:
+  include:
+    - stage: build
+      script: etc/testing/travis_build.sh
+
 before_install:
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
-  - etc/testing/travis_before_install.sh
 install:
   - etc/testing/travis_install.sh
-before_script:
-  - docker version
-script:
-  - etc/testing/travis.sh
+script: etc/testing/travis.sh
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
   - etc/testing/travis_cache.sh
-  - etc/testing/travis_before_cache.sh
 after_failure:
   - kubectl version
   - kubectl get all

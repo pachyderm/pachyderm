@@ -9,9 +9,6 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-kubectl version --client
-etcdctl --version
-
 minikube delete || true  # In case we get a recycled machine
 make launch-kube
 sleep 5
@@ -41,10 +38,12 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make docker-build
-
-# fix for docker build process messing with permissions
-sudo chown -R "${USER}:${USER}" "${GOPATH}"
+make install
+version=$(pachctl version --client-only)
+docker pull "pachyderm/pachd:${version}"
+docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
+docker pull "pachyderm/worker:${version}"
+docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
