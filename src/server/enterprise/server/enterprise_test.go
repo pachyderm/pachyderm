@@ -17,7 +17,7 @@ import (
 const year = 365 * 24 * time.Hour
 
 func TestValidateActivationCode(t *testing.T) {
-	_, err := validateActivationCode(testutil.GetTestEnterpriseCode())
+	_, err := validateActivationCode(testutil.GetTestEnterpriseCode(t))
 	require.NoError(t, err)
 }
 
@@ -29,7 +29,7 @@ func TestGetState(t *testing.T) {
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode()})
+		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
@@ -47,8 +47,8 @@ func TestGetState(t *testing.T) {
 		if time.Until(expires) <= year {
 			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
-		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
-			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode(t) {
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode(t))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -59,7 +59,7 @@ func TestGetState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(),
+			ActivationCode: testutil.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
 		})
 	require.NoError(t, err)
@@ -79,8 +79,8 @@ func TestGetState(t *testing.T) {
 		if expires.Unix() != respExpires.Unix() {
 			return errors.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
 		}
-		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
-			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode(t) {
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode(t))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -94,7 +94,7 @@ func TestDeactivate(t *testing.T) {
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode()})
+		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),

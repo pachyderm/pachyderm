@@ -212,7 +212,7 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		}
 		_, err = seedClient.Enterprise.Activate(context.Background(),
 			&enterprise.ActivateRequest{
-				ActivationCode: tu.GetTestEnterpriseCode(),
+				ActivationCode: tu.GetTestEnterpriseCode(tb),
 			})
 		return err
 	}, backoff.NewTestingBackOff()))

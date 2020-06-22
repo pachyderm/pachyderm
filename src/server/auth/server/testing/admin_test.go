@@ -550,7 +550,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -623,7 +623,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	year := 365 * 24 * time.Hour
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
@@ -722,7 +722,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -776,7 +776,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire

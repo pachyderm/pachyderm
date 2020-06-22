@@ -24,9 +24,9 @@ import (
 	prom_model "github.com/prometheus/common/model"
 )
 
-func activateEnterprise(c *client.APIClient) error {
+func activateEnterprise(t testing.TB, c *client.APIClient) error {
 	_, err := c.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode(t)})
 
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func activateEnterprise(c *client.APIClient) error {
 func TestPrometheusStats(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, activateEnterprise(c))
+	require.NoError(t, activateEnterprise(t, c))
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -261,7 +261,7 @@ func TestPrometheusStats(t *testing.T) {
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, activateEnterprise(c))
+	require.NoError(t, activateEnterprise(t, c))
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))

@@ -79,7 +79,7 @@ func initPachClient(t testing.TB) (*client.APIClient, string) {
 	// Activate Pachyderm Enterprise (if it's not already active)
 	_, err := c.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 		})
 	require.NoError(t, err)
 	activateResp, err := c.AuthAPIClient.Activate(context.Background(),
