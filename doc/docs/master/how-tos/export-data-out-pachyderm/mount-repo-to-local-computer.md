@@ -1,30 +1,31 @@
 # Mount a Repo to a Local Computer
 
 !!! warning
-    Because Pachyderm uses FUSE to mount a repo and
-    macOS does not fully support FUSE, you might
-    not be able to use this functionality on macOS.
+    Pachyderm uses FUSE to mount repositories as local filesystems.
+    Because Apple has announced phasing out support for macOS
+    kernel extensions, including FUSE, this functionality is no
+    longer stable on macOS Catalina (10.15) or later.
 
 Pachyderm enables you to mount a repository
 as a local filesystem on your computer by using the
 `pachctl mount` command. This command
 uses Filesystem in Userspace (FUSE) user interface to export a Pachyderm
 File System (PFS) to a Unix computer system.
-This functionality is useful when you want to expose the results
-of your pipeline for further consumption or modify the files
+This functionality is useful when you want to pull data locally to experiment,
+review the results of a pipeline, or modify the files
 in the input repository directly.
 
 You can mount a Pachyderm repo in one of the following modes:
 
-* `Read-only` — the users can view files in all
-repositories, but cannot modify them.
-* `Read-write` — the users can view files
-in all repositories and modify the files in input repositories.
+* `Read-only` — you can read the mounted files to further experiment with them
+locally, but cannot modify them.
+* `Read-write` — you can read mounted files, modify their contents, and
+push them back into your centralized Pachyderm input repositories.
 
 ## Mounting Repositories in Read-Only Mode
 
 By default, when you run the `pachctl mount` command, Pachyderm mounts
-all Pachyderm repositories in read-only mode. You can access the
+all repositories in read-only mode. You can access the
 files through your file browser or enable third-party applications
 access. Read-only access enables you to explore and experiment with
 the data, without modifying it. For example, you can mount your
@@ -42,29 +43,27 @@ will be mounted.
 **Example:**
 
 ```bash
-pachctl mount images --repos images@staging+w
+pachctl mount images --repos images@staging
 ```
 
-You need to add the `+w` to the branch to enable write access.
-
-Also, you can mount a specific commit. Because commits
+Also, you can mount a specific commit, but because commits
 might be on multiple branches, modifying them might result in data deletion
-in the `HEAD` of the branches. That is why you can only mount commits in
-read-only mode.
+in the `HEAD` of the branches. Therefore, you can only mount commits in
+read-only mode. If you want to write to a specific commit that is not
+the `HEAD` of a branch, you can create a new branch with that commit as `HEAD`.
 
 ## Mounting Repositories in Read-Write Mode
 
 Running the `pachctl mount` command with the `--write` flag grants you
 write access to the mounted repositories, which means that you can
-open the files for editing and putting them back to the Pachyderm
+open the files for editing and put them back to the Pachyderm
 repository. 
 
 For example, you have the [OpenCV example pipeline](../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
-up and running,
-and you need to edit files in the `images` repository. Let's
-say you want to experiment with brightness and contrast
-settings in `liberty.png`. Then, you want the pipelines
-run for the updated file and see the result in the end.
+up and running. If you want to edit files in the `images`
+repository, experiment with brightness and contrast
+settings in `liberty.png`, and finally have your `edges`
+pipeline process those changes.
 If you do not mount the `images` repo, you would have to
 first download the files to your computer, edit them,
 and then put them back to the repository. The `pachctl mount`
