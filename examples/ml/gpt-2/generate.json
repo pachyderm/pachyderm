@@ -1,29 +1,37 @@
 {
-    "pipeline": {
-        "name": "generate"
+  "pipeline": {
+    "name": "generate"
+  },
+  "description": "A pipeline that generates tweets based on the trained model.",
+  "transform": {
+    "image": "pachyderm/gpt-2-example:v7",
+    "cmd": [
+      "/generate.py"
+    ]
+  },
+  "input": {
+    "pfs": {
+      "repo": "train",
+      "glob": "/*"
+    }
+  },
+  "resource_limits": {
+    "gpu": {
+      "type": "nvidia.com/gpu",
+      "number": 1
     },
-    "description": "A pipeline that generates tweets based on the trained model.",
-    "transform": {
-        "image": "pachyderm/gpt-2-example",
-        "cmd": ["/generate.py"]
-    },
-    "input": {
-        "pfs": {
-            "repo": "train",
-            "glob": "/*"
-        }
-    },
-    "resource_limits": {
-        "gpu": {
-            "type": "nvidia.com/gpu",
-            "number": 1
-        },
-        "memory": "10G",
-        "cpu": 1
-    },
-    "resource_requests": {
-        "memory": "10G",
-        "cpu": 1
-    },
-    "standby": true
+    "memory": "96G",
+    "cpu": 1
+  },
+  "resource_requests": {
+    "memory": "96G",
+    "cpu": 1
+  },
+  "scheduling_spec": {
+    "node_selector": {
+      "cloud.google.com/gke-accelerator": "nvidia-tesla-t4"
+    }
+  },
+  "enable_stats": true,
+  "standby": true
 }

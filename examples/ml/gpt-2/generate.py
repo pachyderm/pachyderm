@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import gpt_2_simple as gpt2
 import os
+import numpy as np
 
 models = [f for f in os.listdir("/pfs/train")]
 
@@ -11,7 +12,8 @@ os.chdir(model_dir)
 sess = gpt2.start_tf_sess()
 gpt2.load_gpt2(sess)
 
-out = os.path.join("/pfs/out", models[0])
-gpt2.generate_to_file(sess, destination_path=out, prefix="<|startoftext|>",
-                      truncate="<|endoftext|>", include_prefix=False,
-                      length=280, nsamples=200, temperature=1.0)
+for temp in np.linspace(0.6, 1.5, num=10):
+    out = os.path.join("/pfs/out", models[0]+str(temp))
+    gpt2.generate_to_file(sess, destination_path=out, prefix="<|startoftext|>",
+                          truncate="<|endoftext|>", include_prefix=False,
+                          length=280, nsamples=200, temperature=temp)
