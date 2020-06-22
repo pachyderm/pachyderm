@@ -257,3 +257,40 @@ func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFi
 		return server.Send(fi)
 	})
 }
+
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteRepoRequest,
+) error {
+	if request.All {
+		return a.driver.deleteAll(txnCtx)
+	}
+	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+}
+
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteCommitInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteCommitRequest,
+) error {
+	return a.driver.deleteCommit(txnCtx, request.Commit)
+}
+
+// DeleteAll implements the protobuf pfs.DeleteAll RPC
+func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.deleteAll(txnCtx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// BuildCommit is not implemented in v2
+func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
+	return nil, errors.New("v2 does not implement BuildCommit")
+}
