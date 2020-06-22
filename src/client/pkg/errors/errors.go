@@ -20,9 +20,6 @@ var (
 	// considered to match a target if it is equal to that target or if it
 	// implements a method `Is(error) bool` such that `Is(target)` returns true.
 	Is = errors.Is
-	// As finds the first error in err's chain that matches the target's type, and
-	// if so, sets target to that error value and returns true.
-	As = errors.As
 	// Wrap returns an error annotating err with a stack trace
 	// at the point Wrap is called, and the supplied message.
 	// If err is nil, Wrap returns nil.

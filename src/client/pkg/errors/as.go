@@ -1,6 +1,9 @@
 package errors
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/pkg/errors"
 )
 
