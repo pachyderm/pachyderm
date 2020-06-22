@@ -18,6 +18,8 @@ docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
 docker pull "pachyderm/worker:${version}"
 docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
+minikube delete || true # In case we get a recycled machine
+make launch-kube
 python3.7 ./etc/reset.py --skip-build
 
 function test_bucket {
