@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pkg/browser"
+	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,7 @@ func githubLogin() (string, error) {
 func usingOIDC(c *client.APIClient) bool {
 	_, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
-		fmt.Println(err)
+		logrus.Warnf("checking if oidc is enabled: %v", err)
 		return false
 	}
 	return true
@@ -67,7 +68,7 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 		return "", err
 	}
 
-	return state, nil // drop trailing newline
+	return state, nil
 }
 
 func writePachTokenToCfg(token string) error {

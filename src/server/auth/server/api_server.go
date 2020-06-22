@@ -283,8 +283,8 @@ func NewAuthServer(
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 
 	if public {
-		// start SAML service (won't respond to
-		// anything until config is set)
+		// start SAML and OIDC services
+		// (won't respond to anything until config is set)
 		go s.serveSAML()
 		go s.serveOIDC()
 	}
@@ -573,6 +573,9 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if a.activationState() == none {
 		// users should be able to call "deactivate" from the "partial" activation
 		// state, in case activation fails and they need to revert to "none"
+
+		// TODO: we should consider if we want to allow deactivation to proceed
+		// even if the state is "none", in case they're in a bad state
 		return nil, auth.ErrNotActivated
 	}
 
@@ -894,13 +897,13 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, errors.Wrapf(ti.err, "error exchanging token")
 		}
 
-		// Determine caller's Pachyderm/OIDC username
+		// Determine caller's Pachyderm/OIDC user info (email)
 		_, a.oidcSP = a.getOIDCSP()
 		if a.oidcSP == nil {
 			return nil, errors.Errorf("could not find oidc configuration")
 		}
 
-		username, err := a.oidcSP.OIDCTokenToUsername(ctx, req.OIDCState)
+		email, err := a.oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
@@ -912,7 +915,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 		prefix := idps[0].Name
 
-		username, err = a.canonicalizeSubject(ctx, prefix+":"+username)
+		username, err := a.canonicalizeSubject(ctx, prefix+":"+email)
 		if err != nil {
 			return nil, err
 		}
@@ -2441,9 +2444,10 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 		if err != nil {
 			return "", err
 		}
+	case auth.PipelinePrefix, auth.RobotPrefix:
+		break
 	default:
-		// the prefix for OIDC users can be anything, since it depends on the user set idp name
-		return subject, nil
+		return "", errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	}
 	return subject, nil
 }

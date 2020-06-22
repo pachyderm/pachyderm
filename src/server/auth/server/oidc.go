@@ -52,16 +52,14 @@ func CryptoString(n int) string {
 }
 
 // NewOIDCIDP creates a new internalOIDCProvider object from the given parameters
-func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret string) (*InternalOIDCProvider, error) {
+func NewOIDCIDP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
 	o := &InternalOIDCProvider{}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
-	if o.RedirectURI == "" {
-		o.RedirectURI = fmt.Sprintf("http://localhost:%v/authorization-code/callback", 30000+OidcPort)
-	}
 	o.Issuer = issuer
 	o.ClientID = clientID
 	o.ClientSecret = clientSecret
+	o.RedirectURI = redirectURI
 	return o, err
 }
 
@@ -97,11 +95,11 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
 	return url, state, nil
 }
 
-// OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
-// it discover the username (which is the email) of the user who obtained the
-// code (or verify that the code belongs to OIDCUsername). This is how
+// OIDCStateToEmail takes the state session created for the OIDC session
+// and uses it discover the email of the user who obtained the
+// code (or verify that the code belongs to them). This is how
 // Pachyderm currently implements authorization in a production cluster
-func (o *InternalOIDCProvider) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
+func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (string, error) {
 	// lookup the token from the given state
 	si, ok := stateInfoMap[state]
 	if !ok {
@@ -157,7 +155,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	code := req.URL.Query()["code"][0]
 	state := req.URL.Query()["state"][0]
 
-	logrus.Infof("session state: %v", state)
+	logrus.Infof("session state and code are obtained")
 
 	// Use the authorization code that is pushed to the redirect
 	tok, err := conf.Exchange(ctx, code)
@@ -167,7 +165,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logrus.Info("Exchanged OIDC code for token")
+	logrus.Info("exchanged OIDC code for token")
 
 	var verifier = sp.Provider.Verifier(&oidc.Config{ClientID: conf.ClientID})
 	// Extract the ID Token from OAuth2 token.
@@ -197,7 +195,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	logrus.Infof("nonce is %v", idToken.Nonce)
 
 	si.Token = tok.AccessToken
-	logrus.Infof("saving state %v with access token %v", state, tok.AccessToken)
+	logrus.Infof("saving state with access token")
 	stateInfoMap[state] = si
 
 	// let the CLI know that we've successfully exchanged the code, and verified the token

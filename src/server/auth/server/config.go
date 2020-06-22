@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -128,6 +129,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 					Issuer:       idp.OIDC.Issuer,
 					ClientID:     idp.OIDC.ClientID,
 					ClientSecret: idp.OIDC.ClientSecret,
+					RedirectURI:  idp.OIDC.RedirectURI,
 				},
 			}
 
@@ -360,6 +362,12 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		return nil, errors.Wrapf(err, "OIDC issuer must be a valid URL")
 	}
 
+	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
+	_, err := oidc.NewProvider(context.Background(), newIDP.OIDC.Issuer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
+	}
+
 	if _, err := url.Parse(newIDP.OIDC.RedirectURI); err != nil {
 		return nil, errors.Wrapf(err, "OIDC redirect_uri must be a valid URL")
 	}
@@ -528,7 +536,11 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			}
 		}
 		if idp.OIDC != nil {
-			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.Issuer, idp.OIDC.ClientID, idp.OIDC.ClientSecret)
+			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(),
+				idp.OIDC.Issuer,
+				idp.OIDC.ClientID,
+				idp.OIDC.ClientSecret,
+				idp.OIDC.RedirectURI)
 			if err != nil {
 				return err
 			}
