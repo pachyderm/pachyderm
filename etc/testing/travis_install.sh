@@ -19,8 +19,8 @@ sudo apt-get install -y -qq \
   jq \
   silversearcher-ag \
   python3.7 \
-  python3.7-pip \
-  python3.7-setuptools \
+  python3-pip \
+  python3-setuptools \
   pkg-config \
   fuse
 
