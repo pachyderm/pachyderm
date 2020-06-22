@@ -93,12 +93,6 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc test suite because secret env vars exist"
-    else
-        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
-    fi
-
     make lint
     make enterprise-code-checkin-test
     make test-cmds
@@ -106,12 +100,13 @@ case "${BUCKET}" in
     make test-proto-static
     make test-transaction
     make test-deploy-manifests
-
     make test-s3gateway-unit
     make test-enterprise
     make test-worker
-
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+        # these tests require secure env vars to run, which aren't available
+        # when the PR is coming from an outside contributor - so we just
+        # disable them
         make test-tls
         make test-vault
     fi
