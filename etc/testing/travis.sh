@@ -18,7 +18,7 @@ docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
 docker pull "pachyderm/worker:${version}"
 docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
-./etc/reset.py --skip-build
+python3.7 ./etc/reset.py --skip-build
 
 function test_bucket {
     set +x
