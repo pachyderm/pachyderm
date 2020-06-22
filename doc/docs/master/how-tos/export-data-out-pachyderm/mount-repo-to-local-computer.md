@@ -9,7 +9,7 @@
 Pachyderm enables you to mount a repository
 as a local filesystem on your computer by using the
 `pachctl mount` command. This command
-uses Filesystem in Userspace (FUSE) user interface to export a Pachyderm
+uses the Filesystem in Userspace (FUSE) user interface to export a Pachyderm
 File System (PFS) to a Unix computer system.
 This functionality is useful when you want to pull data locally to experiment,
 review the results of a pipeline, or modify the files
