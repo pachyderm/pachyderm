@@ -66,7 +66,7 @@ class BaseDriver:
     async def update_config(self):
         pass
 
-    async def deploy(self, dash, ide):
+    async def deploy(self, skip_build, dash, ide):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
         if not dash:
             deploy_args.append("--no-dashboard")
@@ -243,14 +243,15 @@ class HubDriver:
                 self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
                 self.old_cluster_names.append(pach["attributes"]["name"])
 
-    async def deploy(self, dash, ide):
+    async def deploy(self, skip_build, dash, ide):
         if ide:
             raise Exception("cannot deploy IDE in hub")
 
-        await asyncio.gather(
-            self.push_image("pachyderm/pachd:local"),
-            self.push_image("pachyderm/worker:local"),
-        )
+        if not skip_build:
+            await asyncio.gather(
+                self.push_image("pachyderm/pachd:local"),
+                self.push_image("pachyderm/worker:local"),
+            )
 
         response = self.request("POST", f"/organizations/{self.org_id}/pachs", body={
             "name": self.cluster_name or "sandbox",
@@ -419,7 +420,7 @@ async def main():
     await asyncio.gather(*procs)
 
     if not args.skip_deploy:
-        await driver.deploy(args.dash, args.ide)
+        await driver.deploy(args.skip_build, args.dash, args.ide)
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
