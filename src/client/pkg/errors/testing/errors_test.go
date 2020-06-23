@@ -2,50 +2,11 @@ package testing
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
-
-func checkType(i interface{}) {
-	fmt.Printf("%s: %v\n", reflect.TypeOf(i), i)
-}
-
-func TestReflect(t *testing.T) {
-	var err error
-	checkType(err)
-
-	x := FooErr{5}
-	checkType(x)
-
-	xp := &x
-	checkType(xp)
-
-	xpp := &xp
-	checkType(xpp)
-
-	xv := reflect.ValueOf(x)
-	checkType(xv.Interface())
-
-	xpv := reflect.ValueOf(xp)
-	checkType(xpv.Interface())
-
-	xppv := reflect.ValueOf(xpp)
-	checkType(xppv.Interface())
-
-	xvv := reflect.New(xv.Type())
-	xvv.Elem().Set(xv)
-	checkType(xvv.Interface())
-
-	xpvv := reflect.New(xpv.Type())
-	xpvv.Elem().Set(xpv)
-	checkType(xpvv.Interface())
-
-	xppvv := reflect.New(xppv.Type())
-	checkType(xppvv.Interface())
-}
 
 // FooErr is an error with a normal receiver for fulfilling the error interface
 type FooErr struct {
@@ -130,7 +91,7 @@ func TestAsFooErr(t *testing.T) {
 	err = &FooErr{5}
 	require.True(t, errors.As(err, fooerr))
 	require.False(t, errors.As(err, otherErr))
-	// require.Equal(t, fooerr, &FooErr{5}) // TODO: broken
+	require.Equal(t, fooerr, &FooErr{5})
 
 	err = &FooErr{6}
 	require.True(t, errors.As(err, &fooerr))
@@ -165,7 +126,7 @@ func TestAsPtrFooErr(t *testing.T) {
 	err = &PtrFooErr{5}
 	require.True(t, errors.As(err, fooptrerr))
 	require.False(t, errors.As(err, otherErr))
-	// require.Equal(t, fooptrerr, &PtrFooErr{5}) // TODO: broken
+	require.Equal(t, fooptrerr, &PtrFooErr{5})
 
 	err = &PtrFooErr{6}
 	require.True(t, errors.As(err, &fooptrerr))
@@ -202,7 +163,7 @@ func TestAsConcreteIntErr(t *testing.T) {
 	interr = &ConcreteIntErr{}
 	require.True(t, errors.As(err, interr))
 	require.False(t, errors.As(err, otherErr))
-	require.Equal(t, ConcreteIntErr{5}, interr)
+	require.Equal(t, &ConcreteIntErr{5}, interr)
 
 	err = &ConcreteIntErr{6}
 	require.True(t, errors.As(err, &interr))
@@ -238,7 +199,7 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 	err = &ConcretePtrIntErr{5}
 	require.True(t, errors.As(err, interr))
 	require.False(t, errors.As(err, otherErr))
-	require.Equal(t, ConcretePtrIntErr{5}, interr)
+	require.Equal(t, &ConcretePtrIntErr{5}, interr)
 
 	err = &ConcretePtrIntErr{6}
 	require.True(t, errors.As(err, &interr))
