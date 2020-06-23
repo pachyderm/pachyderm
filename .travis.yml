@@ -36,11 +36,14 @@ env:
 stages:
   - build
   - test
+  - deploy
 
 jobs:
   include:
     - stage: build
       script: etc/testing/travis_build.sh
+    - stage: deploy
+      script: etc/testing/travis_deploy.sh
 
 before_install:
   # Make sure cache dirs exist and are writable
