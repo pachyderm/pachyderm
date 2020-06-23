@@ -2,11 +2,14 @@ package testutil
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -60,4 +63,25 @@ func GetTestEnterpriseCode(t testing.TB) string {
 		t.Skip("skipping test since credentials aren't available.")
 	}
 	return cachedEnterpriseCode
+}
+
+// ActivateEnterprise activates enterprise in Pachyderm (if it's not on already.)
+func ActivateEnterprise(t testing.TB, c *client.APIClient) error {
+	code := GetTestEnterpriseCode(t)
+
+	return backoff.Retry(func() error {
+		resp, err := c.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State == enterprise.State_ACTIVE {
+			return nil
+		}
+		_, err = c.Enterprise.Activate(context.Background(),
+			&enterprise.ActivateRequest{
+				ActivationCode: code,
+			})
+		return err
+	}, backoff.NewTestingBackOff())
 }

@@ -16,7 +16,6 @@ import (
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -201,21 +200,7 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(tb, backoff.Retry(func() error {
-		resp, err := seedClient.Enterprise.GetState(context.Background(),
-			&enterprise.GetStateRequest{})
-		if err != nil {
-			return err
-		}
-		if resp.State == enterprise.State_ACTIVE {
-			return nil
-		}
-		_, err = seedClient.Enterprise.Activate(context.Background(),
-			&enterprise.ActivateRequest{
-				ActivationCode: tu.GetTestEnterpriseCode(tb),
-			})
-		return err
-	}, backoff.NewTestingBackOff()))
+	require.NoError(tb, tu.ActivateEnterprise(tb, seedClient))
 
 	// Cluster may be in one of four states:
 	// 1) Auth is off (=> Activate auth)

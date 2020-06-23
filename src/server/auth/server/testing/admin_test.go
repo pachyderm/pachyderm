@@ -1438,21 +1438,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 	defer deleteAll(t)
 
 	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := seedClient.Enterprise.GetState(context.Background(),
-			&enterprise.GetStateRequest{})
-		if err != nil {
-			return err
-		}
-		if resp.State == enterprise.State_ACTIVE {
-			return nil
-		}
-		_, err = seedClient.Enterprise.Activate(context.Background(),
-			&enterprise.ActivateRequest{
-				ActivationCode: tu.GetTestEnterpriseCode(t),
-			})
-		return err
-	}, backoff.NewTestingBackOff()))
+	require.NoError(t, tu.ActivateEnterprise(t, seedClient))
 
 	client := seedClient.WithCtx(context.Background())
 	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
@@ -1484,21 +1470,7 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	defer deleteAll(t)
 
 	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := seedClient.Enterprise.GetState(context.Background(),
-			&enterprise.GetStateRequest{})
-		if err != nil {
-			return err
-		}
-		if resp.State == enterprise.State_ACTIVE {
-			return nil
-		}
-		_, err = seedClient.Enterprise.Activate(context.Background(),
-			&enterprise.ActivateRequest{
-				ActivationCode: tu.GetTestEnterpriseCode(t),
-			})
-		return err
-	}, backoff.NewTestingBackOff()))
+	require.NoError(t, tu.ActivateEnterprise(t, seedClient))
 
 	client := seedClient.WithCtx(context.Background())
 	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
