@@ -1630,12 +1630,15 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		filter := fmt.Sprintf(`{pipelineName=%q, container="user"} |= "\"master\":%t"`, pipelineInfo.Pipeline.Name, request.Master)
+		filter := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+		if request.Master {
+			filter += contains("master")
+		}
 		if request.Job != nil {
-			filter += kvFilter("jobId", request.Job.ID)
+			filter += contains(request.Job.ID)
 		}
 		if request.Datum != nil {
-			filter += kvFilter("datumId", request.Datum.ID)
+			filter += contains(request.Datum.ID)
 		}
 		fmt.Println(filter)
 		resp, err := loki.QueryRange(filter, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
@@ -1656,8 +1659,8 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	}
 }
 
-func kvFilter(key, val string) string {
-	return fmt.Sprintf(`|= "\"%s\":\"%s\""`, key, val)
+func contains(s string) string {
+	return fmt.Sprintf(" |= %q", s)
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
