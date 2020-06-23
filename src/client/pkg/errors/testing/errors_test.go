@@ -2,11 +2,50 @@ package testing
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
+
+func checkType(i interface{}) {
+	fmt.Printf("%s: %v\n", reflect.TypeOf(i), i)
+}
+
+func TestReflect(t *testing.T) {
+	var err error
+	checkType(err)
+
+	x := FooErr{5}
+	checkType(x)
+
+	xp := &x
+	checkType(xp)
+
+	xpp := &xp
+	checkType(xpp)
+
+	xv := reflect.ValueOf(x)
+	checkType(xv.Interface())
+
+	xpv := reflect.ValueOf(xp)
+	checkType(xpv.Interface())
+
+	xppv := reflect.ValueOf(xpp)
+	checkType(xppv.Interface())
+
+	xvv := reflect.New(xv.Type())
+	xvv.Elem().Set(xv)
+	checkType(xvv.Interface())
+
+	xpvv := reflect.New(xpv.Type())
+	xpvv.Elem().Set(xpv)
+	checkType(xpvv.Interface())
+
+	xppvv := reflect.New(xppv.Type())
+	checkType(xppvv.Interface())
+}
 
 // FooErr is an error with a normal receiver for fulfilling the error interface
 type FooErr struct {
@@ -136,8 +175,7 @@ func TestAsPtrFooErr(t *testing.T) {
 
 func TestAsConcreteIntErr(t *testing.T) {
 	var err error
-	var interr IntErr
-	interr = &ConcreteIntErr{}
+	var interr IntErr = &ConcreteIntErr{}
 	otherErr := &OtherErr{}
 
 	err = ConcreteIntErr{1}
@@ -148,12 +186,12 @@ func TestAsConcreteIntErr(t *testing.T) {
 	err = ConcreteIntErr{2}
 	require.True(t, errors.As(err, interr))
 	require.False(t, errors.As(err, otherErr))
-	require.Equal(t, interr, &ConcreteIntErr{2})
+	require.Equal(t, &ConcreteIntErr{2}, interr)
 
 	err = ConcreteIntErr{3}
 	require.True(t, errors.As(err, &interr))
 	require.False(t, errors.As(err, &otherErr))
-	// require.Equal(t, interr, &ConcreteIntErr{3}) // TODO: broken
+	require.Equal(t, ConcreteIntErr{3}, interr)
 
 	err = &ConcreteIntErr{4}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
@@ -161,20 +199,20 @@ func TestAsConcreteIntErr(t *testing.T) {
 	require.False(t, errors.As(err, &OtherErr{}))
 
 	err = &ConcreteIntErr{5}
+	interr = &ConcreteIntErr{}
 	require.True(t, errors.As(err, interr))
 	require.False(t, errors.As(err, otherErr))
-	// require.Equal(t, interr, &ConcreteIntErr{5}) // TODO: broken
+	require.Equal(t, ConcreteIntErr{5}, interr)
 
 	err = &ConcreteIntErr{6}
 	require.True(t, errors.As(err, &interr))
 	require.False(t, errors.As(err, &otherErr))
-	require.Equal(t, interr, &ConcreteIntErr{6})
+	require.Equal(t, &ConcreteIntErr{6}, interr)
 }
 
 func TestAsConcretePtrIntErr(t *testing.T) {
 	var err error
-	var interr IntErr
-	interr = &ConcretePtrIntErr{}
+	var interr IntErr = &ConcretePtrIntErr{}
 	otherErr := &OtherErr{}
 
 	// these don't compile - ConcretePtrIntErr can't be used as an error unless it's a pointer
@@ -185,12 +223,12 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 	// err = ConcretePtrIntErr{2}
 	// require.True(t, errors.As(err, interr))
 	// require.False(t, errors.As(err, otherErr))
-	// require.Equal(t, interr, &ConcretePtrIntErr{2})
+	// require.Equal(t, &ConcretePtrIntErr{2}, interr)
 
 	// err = ConcretePtrIntErr{3}
 	// require.True(t, errors.As(err, &interr))
 	// require.False(t, errors.As(err, &otherErr))
-	// require.Equal(t, interr, &ConcretePtrIntErr{3})
+	// require.Equal(t, &ConcretePtrIntErr{3}, interr)
 
 	err = &ConcretePtrIntErr{4}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
@@ -200,10 +238,10 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 	err = &ConcretePtrIntErr{5}
 	require.True(t, errors.As(err, interr))
 	require.False(t, errors.As(err, otherErr))
-	// require.Equal(t, interr, &ConcretePtrIntErr{5}) // TODO: broken
+	require.Equal(t, ConcretePtrIntErr{5}, interr)
 
 	err = &ConcretePtrIntErr{6}
 	require.True(t, errors.As(err, &interr))
 	require.False(t, errors.As(err, &otherErr))
-	require.Equal(t, interr, &ConcretePtrIntErr{6})
+	require.Equal(t, &ConcretePtrIntErr{6}, interr)
 }

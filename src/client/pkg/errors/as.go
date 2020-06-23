@@ -7,6 +7,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+var errorType = reflect.TypeOf((*error)(nil)).Elem()
+
+func tryAs(err error, targetVal reflect.Value) bool {
+	e := targetVal.Type().Elem()
+	if e.Kind() == reflect.Interface || e.Implements(errorType) {
+		res := errors.As(err, targetVal.Interface())
+		fmt.Printf("as (%s): %v\n", targetVal.Type(), res)
+		return res
+	}
+	return false
+}
+
 // As finds the first error in err's chain that matches the target's type, and
 // if so, sets target to that error value and returns true.
 // As is a wrapper for the underlying errors.As function, which may panic or
@@ -16,33 +28,67 @@ import (
 func As(err error, target interface{}) bool {
 	// Check the type of target, it must be a pointer to an error, or a pointer to a pointer to an error
 	v := reflect.ValueOf(target)
+	fmt.Printf("%s (%v): %v\n", reflect.TypeOf(target), v.Kind(), target)
+
+	switch v.Kind() {
+	case reflect.Ptr:
+		e := v.Type().Elem()
+		vp := reflect.New(v.Type())
+		vpe := vp.Type().Elem()
+		fmt.Printf("%s (%v): %v\n", vp.Type(), vp.Kind(), vp.Interface())
+
+		// Attempt unwrapping a nested pointer
+		if v.Elem().Kind() == reflect.Ptr {
+			fmt.Printf("as 0: %s\n", v.Elem().Type())
+			if errors.As(err, v.Elem().Interface()) {
+				fmt.Printf("ret 0\n")
+				return true
+			}
+		} else if vpe.Kind() == reflect.Interface || vpe.Implements(errorType) {
+			fmt.Printf("as 1: %s\n", vp.Type())
+			if errors.As(err, vp.Interface()) {
+				v.Elem().Set(vp.Elem().Elem())
+				fmt.Printf("ret 1\n")
+				return true
+			}
+		}
+
+		if e.Kind() == reflect.Interface || e.Implements(errorType) {
+			fmt.Printf("as 2: %s\n", v.Type())
+			if errors.As(err, v.Interface()) {
+				fmt.Printf("ret 2\n")
+				return true
+			}
+		}
+	}
+
+	fmt.Printf("ret false\n")
+	return false
 
 	switch v.Kind() {
 	case reflect.Struct:
-		x := &target
-		if errors.As(err, x) {
-			fmt.Printf("ret 1\n")
-			return true
-		}
-
-		// TODO: this branch never triggers
-		fmt.Printf("ret 2\n")
-		return errors.As(err, &x)
 	case reflect.Ptr:
 		// Unwrap inner type
 		vi := v.Elem()
 
 		if _, ok := v.Interface().(error); ok {
 			// Wrap target in an extra pointer layer
-			x := reflect.New(reflect.TypeOf(target))
+			// x := reflect.New(reflect.TypeOf(target))
+			// if errors.As(err, x.Interface()) {
+			// 	fmt.Printf("ret 3 (%v), err(%s): %v, target(%s): %v, x(%s): %v\n", true, reflect.TypeOf(err), err, reflect.TypeOf(target), target, reflect.TypeOf(x.Interface()), x.Interface())
+			// 	return true
+			// }
+			x := reflect.New(v.Type())
 			if errors.As(err, x.Interface()) {
-				fmt.Printf("ret 3, target(%s): %v, x(%s): %v\n", reflect.TypeOf(target), target, reflect.TypeOf(x.Interface()), x.Interface())
+				v.Elem().Set(x)
+				fmt.Printf("ret 3 (%v), err(%s): %v, target(%s): %v, x(%s): %v\n", true, reflect.TypeOf(err), err, reflect.TypeOf(target), target, reflect.TypeOf(x.Interface()), x.Interface())
 				return true
 			}
 
 			if _, ok := vi.Interface().(error); ok {
-				fmt.Printf("ret 4\n")
-				return errors.As(err, target)
+				res := errors.As(err, target)
+				fmt.Printf("ret 4 (%v), err(%s): %v, target(%s): %v\n", res, reflect.TypeOf(err), err, reflect.TypeOf(target), target)
+				return res
 			}
 
 			fmt.Printf("ret 4b\n")
