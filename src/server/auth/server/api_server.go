@@ -771,14 +771,14 @@ func (a *apiServer) validateModifyAdminsRequest(user string, grantSuper bool) er
 	// Check to make sure that req doesn't remove all cluster SUPER admins
 	m := make(map[string]interface{})
 
-	// copy existing admins into m
+	// copy the set of admins that have the SUPER role into m
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
 		for u, roles := range a.adminCache {
 			for _, r := range roles.Roles {
 				if r == auth.AdminRole_SUPER {
-					m[u] = roles
+					m[u] = true
 				}
 			}
 		}
@@ -1134,8 +1134,6 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		}
 		return nil, err
 	}
-
-	fmt.Printf("Req subject: %q, caller: %q, isadmin: %v\n", req.Subject, callerInfo.Subject, isAdmin)
 
 	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
 	// than the TTL for the token that the user will get once the OTP is exchanged

@@ -444,7 +444,7 @@ func ListAdminsCmd() *cobra.Command {
 // cluster admins
 func ModifyAdminCmd() *cobra.Command {
 	modifyAdmin := &cobra.Command{
-		Use:   "{{alias}} <user> <scopes>",
+		Use:   "{{alias}} <user> <roles>",
 		Short: "Set the admin roles for a given user",
 		Long: "Set the cluster admin roles for a given user." +
 			"The first argument is the user to modify, the second is a comma-separated list of roles." +
