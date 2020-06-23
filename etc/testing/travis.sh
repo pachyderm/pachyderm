@@ -11,12 +11,19 @@ set -ex
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make install
-version=$(pachctl version --client-only)
-docker pull "pachyderm/pachd:${version}"
-docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
-docker pull "pachyderm/worker:${version}"
-docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
+if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+    # Pull the pre-built images. This is only done if we have access to the
+    # secret env vars, because otherwise the build step would've had to be
+    # skipped.
+    make install
+    version=$(pachctl version --client-only)
+    docker pull "pachyderm/pachd:${version}"
+    docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
+    docker pull "pachyderm/worker:${version}"
+    docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
+else
+    make docker-build
+fi
 
 minikube delete || true # In case we get a recycled machine
 make launch-kube
@@ -59,30 +66,22 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
+    make lint
+    make enterprise-code-checkin-test
+    make test-cmds
+    make test-libs
+    make test-proto-static
+    make test-transaction
+    make test-deploy-manifests
+    make test-s3gateway-unit
+    make test-enterprise
+    make test-worker
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc test suite because secret env vars exist"
-        make lint
-        make enterprise-code-checkin-test
-        make test-cmds
-        make test-libs
+        # these tests require secure env vars to run, which aren't available
+        # when the PR is coming from an outside contributor - so we just
+        # disable them
         make test-tls
         make test-vault
-        make test-enterprise
-        make test-worker
-        make test-s3gateway-unit
-        make test-proto-static
-        make test-transaction
-        make test-deploy-manifests
-    else
-        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
-        make lint
-        make enterprise-code-checkin-test
-        make test-cmds
-        make test-libs
-        make test-tls
-        make test-proto-static
-        make test-transaction
-        make test-deploy-manifests
     fi
     ;;
  ADMIN)

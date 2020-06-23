@@ -8,7 +8,6 @@ For example, you can use these tools:
 
 * [MinIO](https://docs.min.io/docs/minio-client-complete-guide)
 * [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-* [S3cmd](https://s3tools.org/usage)
 
 When you deploy `pachd`, the S3 gateway starts automatically.
 
