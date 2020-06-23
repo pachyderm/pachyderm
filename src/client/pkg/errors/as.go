@@ -39,15 +39,20 @@ func As(err error, target interface{}) bool {
 
 		// Attempt unwrapping a nested pointer
 		if v.Elem().Kind() == reflect.Ptr {
-			fmt.Printf("as 0: %s\n", v.Elem().Type())
-			if errors.As(err, v.Elem().Interface()) {
+			if tryAs(err, v.Elem()) {
 				fmt.Printf("ret 0\n")
 				return true
 			}
-		} else if vpe.Kind() == reflect.Interface || vpe.Implements(errorType) {
+		} else if tryAs(err, vp) {
+			fmt.Printf("ret 1\n")
+			v.Elem().Set(vp.Elem().Elem())
+			return true
+		} else if tryAs(err, v) {
+			fmt.Printf("ret 2\n")
+			return true
+		}
 			fmt.Printf("as 1: %s\n", vp.Type())
 			if errors.As(err, vp.Interface()) {
-				v.Elem().Set(vp.Elem().Elem())
 				fmt.Printf("ret 1\n")
 				return true
 			}
