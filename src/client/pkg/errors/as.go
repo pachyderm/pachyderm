@@ -23,19 +23,17 @@ func tryAs(err error, targetVal reflect.Value) bool {
 // a pointer).  This works by inspecting the type of target and attempting
 // multiple errors.As calls if necessary.
 func As(err error, target interface{}) bool {
-	// Check the type of target, it must be a pointer to an error, or a pointer to a pointer to an error
 	v := reflect.ValueOf(target)
 
 	switch v.Kind() {
 	case reflect.Ptr:
-		vp := reflect.New(v.Type())
-
 		// Attempt unwrapping a nested pointer
 		if v.Elem().Kind() == reflect.Ptr && tryAs(err, v.Elem()) {
 			return true
 		}
 
 		// Attempt wrapping with an additional pointer
+		vp := reflect.New(v.Type())
 		if tryAs(err, vp) {
 			v.Elem().Set(vp.Elem().Elem())
 			return true
