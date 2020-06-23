@@ -32,11 +32,6 @@ const (
 	external
 )
 
-type tokenInfo struct {
-	token string
-	err   error
-}
-
 type canonicalSAMLIDP struct {
 	MetadataURL    *url.URL
 	Metadata       *saml.EntityDescriptor
