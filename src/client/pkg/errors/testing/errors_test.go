@@ -136,6 +136,7 @@ func TestAsPtrFooErr(t *testing.T) {
 
 func TestAsConcreteIntErr(t *testing.T) {
 	var err error
+	var interrFace IntErr
 	var interr IntErr = &ConcreteIntErr{}
 	otherErr := &OtherErr{}
 
@@ -146,13 +147,16 @@ func TestAsConcreteIntErr(t *testing.T) {
 
 	err = ConcreteIntErr{2}
 	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcreteIntErr{2}, interr)
 
 	err = ConcreteIntErr{3}
 	require.True(t, errors.As(err, &interr))
+	require.True(t, errors.As(err, &interrFace))
 	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, ConcreteIntErr{3}, interr)
+	require.Equal(t, ConcreteIntErr{3}, interrFace)
 
 	err = &ConcreteIntErr{4}
 	// this doesn't compile - can't construct an IntErr{} as it's an interface
@@ -162,17 +166,21 @@ func TestAsConcreteIntErr(t *testing.T) {
 	err = &ConcreteIntErr{5}
 	interr = &ConcreteIntErr{}
 	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcreteIntErr{5}, interr)
 
 	err = &ConcreteIntErr{6}
 	require.True(t, errors.As(err, &interr))
+	require.True(t, errors.As(err, &interrFace))
 	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, &ConcreteIntErr{6}, interr)
+	require.Equal(t, &ConcreteIntErr{6}, interrFace)
 }
 
 func TestAsConcretePtrIntErr(t *testing.T) {
 	var err error
+	var interrFace IntErr
 	var interr IntErr = &ConcretePtrIntErr{}
 	otherErr := &OtherErr{}
 
@@ -198,11 +206,14 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 
 	err = &ConcretePtrIntErr{5}
 	require.True(t, errors.As(err, interr))
+	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcretePtrIntErr{5}, interr)
 
 	err = &ConcretePtrIntErr{6}
 	require.True(t, errors.As(err, &interr))
+	require.True(t, errors.As(err, &interrFace))
 	require.False(t, errors.As(err, &otherErr))
 	require.Equal(t, &ConcretePtrIntErr{6}, interr)
+	require.Equal(t, &ConcretePtrIntErr{6}, interrFace)
 }

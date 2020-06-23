@@ -1589,8 +1589,7 @@ func TestFileReader(t *testing.T) {
 			case testWriteTo:
 				f := &testFile{ops: tf.ops}
 				got, err := fr.WriteTo(f)
-				var testErr *testError
-				if errors.As(err, &testErr) {
+				if errors.As(err, &testError{}) {
 					t.Errorf("test %d.%d, WriteTo(): %v", i, j, err)
 				} else if got != tf.wantCnt || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, WriteTo() = (%d, %v), want (%d, %v)", i, j, got, err, tf.wantCnt, tf.wantErr)
