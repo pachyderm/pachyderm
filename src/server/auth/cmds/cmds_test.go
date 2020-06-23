@@ -31,7 +31,7 @@ func activateEnterprise(t *testing.T) {
 	if string(out) != "ACTIVE" {
 		// Enterprise not active in the cluster. Activate it
 		require.NoError(t,
-			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
+			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode(t)).Run())
 	}
 }
 
