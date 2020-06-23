@@ -26,7 +26,9 @@ import "google/protobuf/timestamp.proto";
  *      "pipeline:terasort"
  */
 
-//// Activation API
+////////////////////////
+//// Activation API ////
+////////////////////////
 
 // ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
 // GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
@@ -58,6 +60,10 @@ message ActivateResponse {
 
 message DeactivateRequest {}
 message DeactivateResponse {}
+
+///////////////////////////////////////
+//// Configuration Data Structures ////
+///////////////////////////////////////
 
 // IDProvider configures a single ID provider that can authenticate Pachyderm
 // users
@@ -148,6 +154,10 @@ message AuthConfig {
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
 
+///////////////////////////
+//// Configuration API ////
+///////////////////////////
+
 message GetConfigurationRequest {}
 message GetConfigurationResponse {
   AuthConfig configuration = 1;
@@ -171,7 +181,9 @@ message ModifyAdminsRequest {
 }
 message ModifyAdminsResponse {}
 
-//// Authentication data structures
+////////////////////////////////////////
+//// Authentication data structures ////
+////////////////////////////////////////
 
 // OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
 // one-time-use codes that are passed to the frontend and then exchanged for
@@ -203,7 +215,9 @@ message TokenInfo {
   TokenSource source = 2;
 }
 
-//// Authentication API
+////////////////////////////
+//// Authentication API ////
+////////////////////////////
 
 message AuthenticateRequest {
   // Exactly one of 'github_token' or 'one_time_password' must be set:
@@ -236,7 +250,9 @@ message WhoAmIResponse {
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
 }
 
-//// Authorization data structures
+///////////////////////////////////////
+//// Authorization Data Structures ////
+///////////////////////////////////////
 
 // Scope (actually a "role" in canonical security nomenclature) represents a
 // rough level of access that a principal has to a repo
@@ -264,7 +280,9 @@ message Groups {
   map<string, bool> groups = 1;
 }
 
-//// Authorization API
+///////////////////////////
+//// Authorization API ////
+///////////////////////////
 
 message AuthorizeRequest {
   // repo is the object that the caller wants to access
@@ -324,6 +342,7 @@ message GetACLRequest {
   string repo = 1;
 }
 
+// ACLEntry is a memer of the {Set,Get}ACL{Request,Response} messages
 message ACLEntry {
   // username is the principal posessing this level of access to this ACL's
   // repo (despite the name, this principal may be for a human github user or a
@@ -360,7 +379,9 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
-//// Token API (very limited -- for pipelines)
+///////////////////
+//// Token API ////
+///////////////////
 
 message GetAuthTokenRequest {
   // The returned token will allow the caller to access resources as this
@@ -396,6 +417,10 @@ message RevokeAuthTokenRequest {
 
 message RevokeAuthTokenResponse {}
 
+////////////////////
+//// Groups API ////
+////////////////////
+
 message SetGroupsForUserRequest {
   string username = 1;
   repeated string groups = 2;
@@ -427,6 +452,10 @@ message GetUsersResponse {
   repeated string usernames = 1;
 }
 
+/////////////////
+//// OTP API ////
+/////////////////
+
 // GetOneTimePassword allows users to generate short-lived (~30s) tokens that
 // can be passed to Authenticate() (via AuthenticateRequest.one_time_password)
 // and exchanged for a longer-lived pachyderm token. This is more secure than
@@ -453,6 +482,10 @@ message GetOneTimePasswordResponse {
   // expiration is the time at which the token in 'code' will expire
   google.protobuf.Timestamp otp_expiration = 2 [(gogoproto.customname) = "OTPExpiration"];
 }
+
+//////////////////////
+//// Auth service ////
+//////////////////////
 
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
