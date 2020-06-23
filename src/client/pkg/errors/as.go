@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -12,9 +11,7 @@ var errorType = reflect.TypeOf((*error)(nil)).Elem()
 func tryAs(err error, targetVal reflect.Value) bool {
 	e := targetVal.Type().Elem()
 	if e.Kind() == reflect.Interface || e.Implements(errorType) {
-		res := errors.As(err, targetVal.Interface())
-		fmt.Printf("as (%s): %v\n", targetVal.Type(), res)
-		return res
+		return errors.As(err, targetVal.Interface())
 	}
 	return false
 }
@@ -28,7 +25,6 @@ func tryAs(err error, targetVal reflect.Value) bool {
 func As(err error, target interface{}) bool {
 	// Check the type of target, it must be a pointer to an error, or a pointer to a pointer to an error
 	v := reflect.ValueOf(target)
-	fmt.Printf("%s (%v): %v\n", reflect.TypeOf(target), v.Kind(), target)
 
 	switch v.Kind() {
 	case reflect.Ptr:
@@ -36,22 +32,17 @@ func As(err error, target interface{}) bool {
 
 		// Attempt unwrapping a nested pointer
 		if v.Elem().Kind() == reflect.Ptr && tryAs(err, v.Elem()) {
-			fmt.Printf("ret 0\n")
 			return true
 		}
 
 		// Attempt wrapping with an additional pointer
 		if tryAs(err, vp) {
-			fmt.Printf("ret 1\n")
 			v.Elem().Set(vp.Elem().Elem())
 			return true
 		}
 
 		// Attempt the passed target as-is
-		if tryAs(err, v) {
-			fmt.Printf("ret 2\n")
-			return true
-		}
+		return tryAs(err, v)
 	}
 	return false
 }
