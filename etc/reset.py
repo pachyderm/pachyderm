@@ -63,6 +63,9 @@ class BaseDriver:
         # just using a different hostpath on every deployment.
         return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
 
+    async def update_config(self):
+        pass
+
     async def deploy(self, dash, ide):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
         if not dash:
@@ -93,7 +96,7 @@ class BaseDriver:
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "create", "-f", "-", stdin=deployments_str)
-
+        await self.update_config()
         await retry(ping, attempts=60)
 
         if ide:
@@ -131,8 +134,7 @@ class MinikubeDriver(BaseDriver):
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, dash, ide):
-        await super().deploy(dash, ide)
+    async def update_config(self):
         ip = (await capture("minikube", "ip")).strip()
         await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
 
