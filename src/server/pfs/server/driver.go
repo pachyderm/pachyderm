@@ -4462,11 +4462,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 	return req, nil
 }
 
-func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (bool, string, string, error) {
-	// return values
-	var oneOff bool
-	var repo string
-	var branch string
+func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, retErr error) {
 
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
@@ -4474,6 +4470,23 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	var eg errgroup.Group
 	var rawCommitID string
 	var commitID string
+
+	// Always make sure we've closed any hanging pipes and that our callbacks finish
+	defer func() {
+		// Closing the pipes should be the trigger to cancel any still-running callbacks
+		if pw != nil {
+			if retErr != nil {
+				pw.CloseWithError(retErr)
+			} else {
+				pw.Close()
+			}
+		}
+
+		err := eg.Wait()
+		if retErr == nil && !errors.Is(err, io.EOF) {
+			retErr = err
+		}
+	}()
 
 	var err error
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
@@ -4645,15 +4658,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			return false, "", "", err
 		}
 	}
-	if pw != nil {
-		// This may pass io.EOF to CloseWithError but that's equivalent to
-		// simply calling Close()
-		pw.CloseWithError(err) // can't error
-	}
-	if !errors.Is(err, io.EOF) {
-		return false, "", "", err
-	}
-	if err := eg.Wait(); err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, "", "", err
 	}
 	return oneOff, repo, branch, nil
