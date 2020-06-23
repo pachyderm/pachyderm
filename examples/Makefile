@@ -6,6 +6,11 @@
 SHELL := /bin/bash
 PACHCTL := pachctl
 KUBECTL := kubectl
+# This controls which version of iris is deployed.
+# acceptable values are python, julia, rstats
+# invoke another flavor like this:
+# env IRIS_FLAVOR=julia make -e iris
+IRIS_FLAVOR := python
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/ref/ref.fasta \
@@ -35,6 +40,23 @@ GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/bams/motherRnaseqPP.bam \
 				gatk/GATK_Germline/data/bams/son.bai \
 				gatk/GATK_Germline/data/bams/son.bam
+
+iris-base:
+	$(PACHCTL) create repo training
+	$(PACHCTL) create repo attributes
+	$(PACHCTL) create pipeline -f ml/iris/$(IRIS_FLAVOR)_train.json 
+	$(PACHCTL) create pipeline -f ml/iris/$(IRIS_FLAVOR)_infer.json
+
+iris: iris-base
+	$(PACHCTL) start transaction
+	$(PACHCTL) start commit training@master
+	$(PACHCTL) start commit attributes@master
+	$(PACHCTL) finish transaction
+	$(PACHCTL) put file training@master:iris.csv -f ml/iris/data/iris.csv
+	$(PACHCTL) finish commit training@master
+	$(PACHCTL) put file attributes@master:1.csv  -f ml/iris/data/test/1.csv
+	$(PACHCTL) finish commit attributes@master
+	$(PACHCTL) put file attributes@master:2.csv  -f ml/iris/data/test/2.csv
 
 opencv-base:
 	$(PACHCTL) create repo images
