@@ -20,7 +20,12 @@ docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
 minikube delete || true # In case we get a recycled machine
 make launch-kube
-python3.7 ./etc/reset.py --skip-build
+
+if [[ "$BUCKET" == "EXAMPLES" ]]; then
+    python3.7 ./etc/reset.py --target=hub
+else
+    python3.7 ./etc/reset.py --skip-build
+fi
 
 function test_bucket {
     set +x
