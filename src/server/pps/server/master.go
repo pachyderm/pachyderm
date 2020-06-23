@@ -334,7 +334,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					pps.PipelineState_PIPELINE_RUNNING,
 					pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
-					var pte *ppsutil.PipelineTransitionError
+					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
 						// pipeline is stopped, exit monitorPipeline (which pausing the
 						// pipeline should also do). monitorPipeline will be called when
@@ -376,7 +376,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							pps.PipelineState_PIPELINE_STANDBY,
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
-							var pte *ppsutil.PipelineTransitionError
+							pte := &ppsutil.PipelineTransitionError{}
 							if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
 								// pipeline is stopped, exit monitorPipeline (see above)
 								return nil
@@ -408,7 +408,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							pps.PipelineState_PIPELINE_RUNNING,
 							pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
-							var pte *ppsutil.PipelineTransitionError
+							pte := &ppsutil.PipelineTransitionError{}
 							if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
 								// pipeline is stopped; monitorPipeline will be called when it
 								// transitions back to running
@@ -458,7 +458,7 @@ For:
 				pps.PipelineState_PIPELINE_CRASHING,
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
-				var pte *ppsutil.PipelineTransitionError
+				pte := &ppsutil.PipelineTransitionError{}
 				if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_CRASHING {
 					log.Print(err) // Pipeline has moved to STOPPED or been updated--give up
 					return

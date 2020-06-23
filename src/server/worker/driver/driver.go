@@ -762,7 +762,7 @@ func (d *driver) RunUserCode(
 	// broken pipe errors.
 	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
-		var exiterr *exec.ExitError
+		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
@@ -827,7 +827,7 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 	// broken pipe errors.
 	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
-		var exiterr *exec.ExitError
+		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {

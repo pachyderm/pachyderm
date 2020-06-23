@@ -29,7 +29,7 @@ func Code(err error) ErrCode {
 		return OK
 	}
 
-	var hte *hashTreeError
+	hte := &hashTreeError{}
 	if errors.As(err, &hte) {
 		return hte.code
 	}

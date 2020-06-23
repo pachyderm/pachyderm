@@ -474,7 +474,7 @@ func TestWriter(t *testing.T) {
 	}}
 
 	equalError := func(x, y error) bool {
-		var headErr *headerError
+		headErr := &headerError{}
 		ok1 := errors.As(x, &headErr)
 		ok2 := errors.As(y, &headErr)
 		if ok1 || ok2 {

@@ -101,7 +101,7 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	for {
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
-			var etcdErr *etcd.EtcdError
+			etcdErr := &etcd.EtcdError{}
 			if errors.As(err, &etcdErr) {
 				if etcdErr.ErrorCode == 401 {
 					continue

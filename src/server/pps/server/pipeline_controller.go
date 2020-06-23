@@ -380,8 +380,7 @@ func (op *pipelineOp) createPipelineResources() error {
 	return backoff.RetryNotify(func() error {
 		return op.apiServer.createWorkerSvcAndRc(op.pachClient.Ctx(), op.ptr, op.pipelineInfo)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		var invalidOptsErr *noValidOptionsErr
-		invalidOpts := errors.As(err, &invalidOptsErr)
+		invalidOpts := errors.As(err, &noValidOptionsErr{})
 		errCount++
 		switch {
 		case invalidOpts:

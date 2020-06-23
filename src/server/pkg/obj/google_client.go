@@ -73,7 +73,7 @@ func (c *googleClient) Delete(ctx context.Context, name string) error {
 }
 
 func (c *googleClient) IsRetryable(err error) (ret bool) {
-	var googleErr *googleapi.Error
+	googleErr := &googleapi.Error{}
 	if !errors.As(err, &googleErr) {
 		return false
 	}
@@ -86,7 +86,7 @@ func (c *googleClient) IsNotExist(err error) (result bool) {
 }
 
 func (c *googleClient) IsIgnorable(err error) bool {
-	var googleErr *googleapi.Error
+	googleErr := &googleapi.Error{}
 	if !errors.As(err, &googleErr) {
 		return false
 	}

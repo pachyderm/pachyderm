@@ -95,7 +95,7 @@ func WithGarbageCollector(objClient obj.Client, db *gorm.DB, f func(context.Cont
 }
 
 func isRetriableError(err error) bool {
-	var pqErr *pq.Error
+	pqErr := &pq.Error{}
 	if errors.As(err, &pqErr) {
 		return pqErr.Code.Class().Name() == "transaction_rollback"
 	}

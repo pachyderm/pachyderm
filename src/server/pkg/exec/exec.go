@@ -489,7 +489,7 @@ func (c *Cmd) Output() ([]byte, error) {
 
 	err := c.Run()
 	if err != nil && captureErr {
-		var ee *ExitError
+		ee := &ExitError{}
 		if errors.As(err, &ee) {
 			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}
