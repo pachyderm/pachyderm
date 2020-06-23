@@ -466,7 +466,7 @@ func ModifyAdminCmd() *cobra.Command {
 				for i, role := range strings.Split(rolesStr, ",") {
 					s, ok := auth.AdminRole_value[role]
 					if !ok {
-						return fmt.Errorf("Unsupported admin role %q, valid roles are 'SUPER', 'FS'", role)
+						return fmt.Errorf("unsupported admin role %q, valid roles are 'SUPER', 'FS'", role)
 					}
 					roles.Roles[i] = auth.AdminRole(s)
 				}
