@@ -12,7 +12,7 @@ set -ex
 echo "Running test suite based on BUCKET=$BUCKET"
 
 if [[ "$BUCKET" == "EXAMPLES" ]]; then
-    python3.7 ./etc/reset.py --target=hub --skip-build
+    python3.7 ./etc/deploy/hub.py deploy --skip-build --expire-hours 2
 elif [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     minikube delete || true # In case we get a recycled machine
     make launch-kube
@@ -88,6 +88,7 @@ case "${BUCKET}" in
  EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
+    python3.7 ./etc/deploy/hub.py destroy --cluster-name="$(pachctl config get active-context)"
     ;;
  PFS)
     make test-pfs-server

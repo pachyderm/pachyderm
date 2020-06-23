@@ -6,8 +6,14 @@ import json
 import asyncio
 import secrets
 import argparse
-import collections
 import http.client
+
+# a way to import util.py without adding it to the PYTHONPATH :o
+import pathlib
+import importlib.util
+util_spec = importlib.util.spec_from_file_location("util", pathlib.Path(__file__).parent / "util.py")
+util = importlib.util.module_from_spec(util_spec)
+util_spec.loader.exec_module(util)
 
 ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
@@ -22,24 +28,11 @@ DELETABLE_RESOURCES = [
 # Matches the end of one JSON object and the beginning of another
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
-RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
-
-client_version = None
-async def get_client_version():
-    """Gets the pachctl client version"""
-    global client_version
-    if client_version is None:
-        client_version = (await capture("pachctl", "version", "--client-only")).strip()
-    return client_version
-
-class RedactedString(str):
-    pass
-
 class BaseDriver:
     """
-    The base driver. Most other drivers build off of this. Additionally, it
-    can be used directly for less prescriptive local kubernetes environments,
-    e.g. docker for mac.
+    The base driver. Others drivers build off this. Additionally, it can be
+    used directly for less prescriptive local kubernetes environments, e.g.
+    docker for mac.
     """
 
     def image(self, name):
@@ -50,15 +43,15 @@ class BaseDriver:
         # be undeployed too. Using kubectl rather than helm here because
         # this'll work even if the helm CLI is not installed.
         undeploy_args = []
-        jupyterhub_apps = json.loads(await capture("kubectl", "get", "pod", "-lapp=jupyterhub", "-o", "json"))
+        jupyterhub_apps = json.loads(await util.capture("kubectl", "get", "pod", "-lapp=jupyterhub", "-o", "json"))
         if len(jupyterhub_apps["items"]) > 0:
             undeploy_args.append("--ide")
 
          # ignore errors here because most likely no cluster is just deployed
          # yet
-        await run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n", raise_on_error=False)
+        await util.run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n", raise_on_error=False)
         # clear out resources not removed from the undeploy process
-        await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
+        await util.run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     async def push_image(self, images):
         pass
@@ -75,59 +68,12 @@ class BaseDriver:
     async def update_config(self):
         pass
 
-    async def deploy(self, skip_build, dash, ide):
-        deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
-        if not dash:
-            deploy_args.append("--no-dashboard")
-        if os.environ.get("STORAGE_V2") == "true":
-            deployment_args.append("--new-storage-layer")
-
-        deployments_str = await capture(*deploy_args)
-        deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
-
-        dash_spec = find_in_json(deployments_json, lambda j: \
-            isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
-        grpc_proxy_spec = find_in_json(deployments_json, lambda j: \
-            isinstance(j, dict) and j.get("name") == "grpc-proxy")
-        
-        pull_images = [run("docker", "pull", ETCD_IMAGE)]
-        if dash_spec is not None:
-            pull_images.append(run("docker", "pull", dash_spec["image"]))
-        if grpc_proxy_spec is not None:
-            pull_images.append(run("docker", "pull", grpc_proxy_spec["image"]))
-        await asyncio.gather(*pull_images)
-
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
-        if dash_spec is not None:
-            push_images.append(dash_spec["image"])
-        if grpc_proxy_spec is not None:
-            push_images.append(grpc_proxy_spec["image"])
-
-        await asyncio.gather(*[self.push_image(i) for i in push_images])
-        await run("kubectl", "create", "-f", "-", stdin=deployments_str)
-        await self.update_config()
-        await retry(ping, attempts=60)
-
-        if ide:
-            await asyncio.gather(*[self.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
-
-            enterprise_token = await capture(
-                "aws", "s3", "cp",
-                "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
-                "-"
-            )
-            await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
-            await run("pachctl", "auth", "activate", stdin="admin\n")
-            await run("pachctl", "deploy", "ide", 
-                "--user-image", self.image(IDE_USER_IMAGE),
-                "--hub-image", self.image(IDE_HUB_IMAGE),
-            )
-
 class MinikubeDriver(BaseDriver):
     """Driver for deploying to minikube"""
+
     async def reset(self):
         async def minikube_status():
-            await run("minikube", "status", capture_output=True)
+            await util.run("minikube", "status", capture_output=True)
 
         is_minikube_running = True
         try:
@@ -136,20 +82,21 @@ class MinikubeDriver(BaseDriver):
             is_minikube_running = False
 
         if not is_minikube_running:
-            await run("minikube", "start")
-            await retry(minikube_status)
+            await util.run("minikube", "start")
+            await util.retry(minikube_status)
 
         await super().reset()
 
     async def push_image(self, image):
-        await run("./etc/kube/push-to-minikube.sh", image)
+        await util.run("./etc/kube/push-to-minikube.sh", image)
 
     async def update_config(self):
-        ip = (await capture("minikube", "ip")).strip()
-        await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
+        ip = (await util.capture("minikube", "ip")).strip()
+        await util.run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
 
 class GCPDriver(BaseDriver):
     """Driver for deploying to GCP"""
+
     def __init__(self, project_id, cluster_name=None):
         if cluster_name is None:
             cluster_name = f"pach-{secrets.token_hex(5)}"
@@ -161,225 +108,43 @@ class GCPDriver(BaseDriver):
         return f"gcr.io/{self.project_id}/{name}"
 
     async def reset(self):
-        cluster_exists = (await run("gcloud", "container", "clusters", "describe", self.cluster_name,
+        cluster_exists = (await util.run("gcloud", "container", "clusters", "describe", self.cluster_name,
             raise_on_error=False, capture_output=True)).rc == 0
 
         if cluster_exists:
             await super().reset()
-        else:
-            # create the cluster from scratch if it doesn't exist already
-            await run("gcloud", "config", "set", "container/cluster", self.cluster_name)
-            await run("gcloud", "container", "clusters", "create", self.cluster_name, "--scopes=storage-rw",
-                "--machine-type=n1-standard-8", "--num-nodes=2")
+            return
+        
+        # create the cluster from scratch if it doesn't exist already
+        await util.run("gcloud", "config", "set", "container/cluster", self.cluster_name)
 
-            account = (await capture("gcloud", "config", "get-value", "account")).strip()
-            await run("kubectl", "create", "clusterrolebinding", "cluster-admin-binding",
-                "--clusterrole=cluster-admin", f"--user={account}")
+        await asyncio.gather(
+            util.run("gcloud", "container", "clusters", "create", self.cluster_name, "--scopes=storage-rw",
+                "--machine-type=n1-standard-8", "--num-nodes=2"),
+            util.run("gsutil", "mb", f"gs://{self.object_storage_name}"),
+        )
 
-            await run("gsutil", "mb", f"gs://{self.object_storage_name}")
+        account = (await util.capture("gcloud", "config", "get-value", "account")).strip()
+        docker_config_path = pathlib.Path.home() / ".docker" / "config.json"
 
-            docker_config_path = os.path.expanduser("~/.docker/config.json")
-            await run("kubectl", "create", "secret", "generic", "regcred",
+        await asyncio.gather(
+            util.run("kubectl", "create", "clusterrolebinding", "cluster-admin-binding",
+                "--clusterrole=cluster-admin", f"--user={account}"),
+            util.run("kubectl", "create", "secret", "generic", "regcred",
                 f"--from-file=.dockerconfigjson={docker_config_path}",
-                "--type=kubernetes.io/dockerconfigjson")
+                "--type=kubernetes.io/dockerconfigjson"),
+        )
 
     async def push_image(self, image):
         image_url = self.image(image)
         if ":local" in image_url:
-            image_url = image_url.replace(":local", ":" + (await get_client_version()))
-        await run("docker", "tag", image, image_url)
-        await run("docker", "push", image_url)
+            image_url = image_url.replace(":local", ":" + (await util.get_client_version()))
+        await util.run("docker", "tag", image, image_url)
+        await util.run("docker", "push", image_url)
 
     def deploy_args(self):
         return ["google", self.object_storage_name, "32", "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
             f"--registry=gcr.io/{self.project_id}"]
-
-class HubApiError(Exception):
-    """Encapsulates a hub API error response"""
-
-    def __init__(self, errors):
-        def get_message(error):
-            try:
-                return f"{error['title']}: {error['detail']}"
-            except KeyError:
-                return json.dumps(error)
-
-        if len(errors) > 1:
-            message = ["multiple errors:"]
-            for error in errors:
-                message.append(f"- {get_message(error)}")
-            message = "\n".join(message)
-        else:
-            message = get_message(errors[0])
-
-        super().__init__(message)
-        self.errors = errors
-
-class HubDriver:
-    """Driver for deploying to hub"""
-
-    def __init__(self, api_key, org_id, cluster_name):
-        self.api_key = api_key
-        self.org_id = org_id
-        self.cluster_name = cluster_name
-        self.old_cluster_names = []
-
-    def request(self, method, endpoint, body=None):
-        headers = {
-            "Authorization": f"Api-Key {self.api_key}",
-        }
-        if body is not None:
-            body = json.dumps({
-                "data": {
-                    "attributes": body,
-                }
-            })
-
-        conn = http.client.HTTPSConnection(f"hub.pachyderm.com")
-        conn.request(method, f"/api/v1{endpoint}", headers=headers, body=body)
-        response = conn.getresponse()
-        j = json.load(response)
-
-        if "errors" in j:
-            raise HubApiError(j["errors"])
-        
-        return j["data"]
-
-    async def push_image(self, src):
-        dst = src.replace(":local", ":" + (await get_client_version()))
-        await run("docker", "tag", src, dst)
-        await run("docker", "push", dst)
-
-    async def reset(self):
-        if self.cluster_name is None:
-            return
-
-        for pach in self.request("GET", f"/organizations/{self.org_id}/pachs?limit=100"):
-            if pach["attributes"]["name"].startswith(f"{self.cluster_name}-"):
-                self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
-                self.old_cluster_names.append(pach["attributes"]["name"])
-
-    async def deploy(self, skip_build, dash, ide):
-        if ide:
-            raise Exception("cannot deploy IDE in hub")
-
-        if not skip_build:
-            await asyncio.gather(
-                self.push_image("pachyderm/pachd:local"),
-                self.push_image("pachyderm/worker:local"),
-            )
-
-        response = self.request("POST", f"/organizations/{self.org_id}/pachs", body={
-            "name": self.cluster_name or "sandbox",
-            "pachVersion": await get_client_version(),
-        })
-
-        cluster_name = response["attributes"]["name"]
-        gke_name = response["attributes"]["gkeName"]
-        pach_id = response["id"]
-
-        await run("pachctl", "config", "set", "context", cluster_name, stdin=json.dumps({
-            "source": 2,
-            "pachd_address": f"grpcs://{gke_name}.clusters.pachyderm.io:31400",
-        }))
-
-        await run("pachctl", "config", "set", "active-context", cluster_name)
-
-        # hack-ey way to clean up the old contexts, now that the active
-        # context has been swapped to the new cluster
-        await asyncio.gather(*[
-            run("pachctl", "config", "delete", "context", n, raise_on_error=False) for n in self.old_cluster_names
-        ])
-
-        # wait up to 10min for the cluster to work
-        await retry(ping, attempts=60, sleep=10)
-
-        async def get_otp():
-            response = self.request("GET", f"/organizations/{self.org_id}/pachs/{pach_id}/otps")
-            return response["attributes"]["otp"]
-        otp = await retry(get_otp, sleep=5)
-
-        await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
-
-async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
-    """Runs a command asynchronously"""
-    print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
-    print_status("running: `{}`".format(" ".join(print_args)))
-
-    proc = await asyncio.create_subprocess_exec(
-        cmd, *args,
-        stdin=asyncio.subprocess.PIPE if stdin is not None else None,
-        stdout=asyncio.subprocess.PIPE if capture_output else None,
-        stderr=asyncio.subprocess.PIPE if capture_output else None,
-    )
-    
-    if timeout is None:
-        stdin = stdin.encode("utf8") if stdin is not None else None
-        result = await proc.communicate(input=stdin)
-    else:
-        result = await asyncio.wait_for(proc.communicate(input=stdin), timeout=timeout)
-
-    if capture_output:
-        stdout, stderr = result
-        stdout = stdout.decode("utf8")
-        stderr = stderr.decode("utf8")
-    else:
-        stdout, stderr = None, None
-
-    if raise_on_error and proc.returncode:
-        raise Exception(f"unexpected return code from `{cmd}`: {proc.returncode}")
-
-    return RunResult(rc=proc.returncode, stdout=stdout, stderr=stderr)
-
-async def capture(cmd, *args, **kwargs):
-    _, stdout, _ = await run(cmd, *args, capture_output=True, **kwargs)
-    return stdout
-
-def find_in_json(j, f):
-    """
-    Recurses through a JSON value, looking for a value according to the input
-    function `f`.
-    """
-    if f(j):
-        return j
-
-    iter = None
-    if isinstance(j, dict):
-        iter = j.values()
-    elif isinstance(j, list):
-        iter = j
-
-    if iter is not None:
-        for sub_j in iter:
-            v = find_in_json(sub_j, f)
-            if v is not None:
-                return v
-
-def print_status(status):
-    """Prints a status message"""
-    print(f"===> {status}")
-
-async def retry(f, attempts=10, sleep=1.0):
-    """
-    Repeatedly retries an operation, ignore exceptions, n times with a given
-    sleep between runs.
-    """
-    count = 0
-    while count < attempts:
-        try:
-            return await f()
-        except:
-            count += 1
-            if count >= attempts:
-                raise
-            await asyncio.sleep(sleep)
-
-async def ping():
-    """
-    Raises an exception if the configured pachyderm cluster is not yet
-    reachable
-    """
-    await run("pachctl", "version", timeout=5)
 
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
@@ -401,21 +166,22 @@ async def main():
     # derive which driver to use from the target
     driver = None
     if args.target == "":
-        # if no target is specified, derive which driver to use from the k8s context name
-        kube_context = await capture("kubectl", "config", "current-context", raise_on_error=False)
+        # if no target is specified, derive which driver to use from the k8s
+        # context name
+        kube_context = await util.capture("kubectl", "config", "current-context", raise_on_error=False)
         kube_context = kube_context.strip() if kube_context else ""
         if kube_context == "minikube":
-            print_status("using the minikube driver")
+            util.print_status("using the minikube driver")
             driver = MinikubeDriver()
         elif kube_context == "docker-desktop":
-            print_status("using the base driver")
+            util.print_status("using the base driver")
             driver = BaseDriver()
         if driver is None:
             # minikube won't set the k8s context if the VM isn't running. This
             # checks for the presence of the minikube executable as an
             # alternate means.
             try:
-                await run("minikube", "version", capture_output=True)
+                await util.run("minikube", "version", capture_output=True)
             except:
                 pass
             else:
@@ -423,34 +189,90 @@ async def main():
         if driver is None:
             raise Exception(f"could not derive driver from context name: {kube_context}")
     elif args.target == "minikube":
-        print_status("using the minikube driver")
+        util.print_status("using the minikube driver")
         driver = MinikubeDriver()
     elif args.target == "base":
-        print_status("using the base driver")
+        util.print_status("using the base driver")
         driver = BaseDriver()
     elif args.target.startswith("gcp"):
-        print_status("using the gcp driver")
-        project_id = (await capture("gcloud", "config", "get-value", "project")).strip()
+        util.print_status("using the gcp driver")
+        project_id = (await util.capture("gcloud", "config", "get-value", "project")).strip()
         target_parts = args.target.split(":", maxsplit=1)
         cluster_name = target_parts[1] if len(target_parts) == 2 else None
         driver = GCPDriver(project_id, cluster_name)
-    elif args.target.startswith("hub"):
-        print_status("using the hub driver")
-        target_parts = args.target.split(":", maxsplit=1)
-        cluster_name = target_parts[1] if len(target_parts) == 2 else None
-        driver = HubDriver(os.environ["PACH_HUB_API_KEY"], os.environ["PACH_HUB_ORG_ID"], cluster_name)
     else:
         raise Exception(f"unknown target: {args.target}")
 
     # clear environment & build everything in parallel
-    procs = [run("make", "install"), driver.reset()]
+    procs = [util.run("make", "install"), driver.reset()]
     if not args.skip_build:
-        procs.append(run("make", "docker-build"))
+        procs.append(util.run("make", "docker-build"))
     await asyncio.gather(*procs)
 
-    # deploy
-    if not args.skip_deploy:
-        await driver.deploy(args.skip_build, args.dash, args.ide)
+    if args.skip_deploy:
+        return
+
+    # generate a manifest
+    deploy_args = ["pachctl", "deploy", *driver.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
+    if not args.dash:
+        deploy_args.append("--no-dashboard")
+    if os.environ.get("STORAGE_V2") == "true":
+        deployment_args.append("--new-storage-layer")
+    deployments_str = await util.capture(*deploy_args)
+    deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
+
+    # figure out what images we want to pull
+    dash_spec = util.find_in_json(deployments_json, lambda j: \
+        isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
+    grpc_proxy_spec = util.find_in_json(deployments_json, lambda j: \
+        isinstance(j, dict) and j.get("name") == "grpc-proxy")
+    
+    # pull the images
+    pull_images = [util.run("docker", "pull", ETCD_IMAGE)]
+    if dash_spec is not None:
+        pull_images.append(util.run("docker", "pull", dash_spec["image"]))
+    if grpc_proxy_spec is not None:
+        pull_images.append(util.run("docker", "pull", grpc_proxy_spec["image"]))
+    await asyncio.gather(*pull_images)
+
+    # push the images
+    push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
+    if dash_spec is not None:
+        push_images.append(dash_spec["image"])
+    if grpc_proxy_spec is not None:
+        push_images.append(grpc_proxy_spec["image"])
+    await asyncio.gather(*[driver.push_image(i) for i in push_images])
+
+    # apply the manifest
+    await util.run("kubectl", "create", "-f", "-", stdin=deployments_str)
+
+    # patch the config
+    await driver.update_config()
+
+    # wait for the cluster to stand up
+    await util.retry(util.ping, attempts=60)
+
+    # deploy the IDE
+    if args.ide:
+        # push the IDE images
+        await asyncio.gather(*[driver.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
+
+        # enable enterprise
+        enterprise_token = await util.capture(
+            "aws", "s3", "cp",
+            "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
+            "-"
+        )
+        await util.run("pachctl", "enterprise", "activate", util.RedactedString(enterprise_token))
+
+        # activate auth
+        await util.run("pachctl", "auth", "activate", stdin="admin\n")
+
+        # run the deploy IDE command
+        await util.run("pachctl", "deploy", "ide", 
+            "--user-image", driver.image(IDE_USER_IMAGE),
+            "--hub-image", driver.image(IDE_HUB_IMAGE),
+        )
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
