@@ -20,20 +20,6 @@ var (
 	notConfigured = goerr.New("OIDC ID provider configuration not found")
 )
 
-var tokenChan chan tokenInfo
-
-type sessionInfo struct {
-	Nonce string
-	Token string
-}
-
-var stateInfoMap map[string]sessionInfo
-
-func init() {
-	tokenChan = make(chan tokenInfo)
-	stateInfoMap = make(map[string]sessionInfo)
-}
-
 // InternalOIDCProvider contains information about the configured OIDC ID
 // provider, as well as auth information identifying Pachyderm in the ID
 // provider (ClientID and ClientSecret), which Pachyderm needs to perform
