@@ -21,20 +21,24 @@ const (
 func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *gorm.DB) {
 	ctx := context.Background()
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
-	err := backoff.RetryUntilCancel(ctx, func() error {
-		masterCtx, err := masterLock.Lock(ctx)
-		if err != nil {
+	for {
+		err := backoff.RetryNotify(func() error {
+			masterCtx, err := masterLock.Lock(ctx)
+			if err != nil {
+				return err
+			}
+			defer masterLock.Unlock(masterCtx)
+			opts, err := gc.ServiceEnvToOptions(env)
+			if err != nil {
+				return err
+			}
+			return gc.Run(masterCtx, objClient, db, opts...)
+		}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+			log.Printf("error in pfs master: %v", err)
 			return err
-		}
-		defer masterLock.Unlock(masterCtx)
-		opts, err := gc.ServiceEnvToOptions(env)
+		})
 		if err != nil {
-			return err
+			panic(err)
 		}
-		return gc.Run(masterCtx, objClient, db, opts...)
-	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		log.Printf("error in pfs master: %v", err)
-		return err
-	})
-	panic(err)
+	}
 }
