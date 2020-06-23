@@ -406,12 +406,14 @@ func (a *apiServer) watchAdmins(superAdminPrefix, fsAdminPrefix string) {
 					return errors.New("admin watch closed unexpectedly")
 				}
 				ev.Unmarshal(&key, &boolProto)
+				role = auth.AdminRole_SUPER
 				username = strings.TrimPrefix(key, superAdminPrefix+"/")
 			case ev, ok = <-fsWatcher.Watch():
 				if !ok {
 					return errors.New("fs admin watch closed unexpectedly")
 				}
 				ev.Unmarshal(&key, &boolProto)
+				role = auth.AdminRole_FS
 				username = strings.TrimPrefix(key, fsAdminPrefix+"/")
 			}
 			b.Reset() // event successfully received
@@ -424,7 +426,16 @@ func (a *apiServer) watchAdmins(superAdminPrefix, fsAdminPrefix string) {
 				switch ev.Type {
 				case watch.EventPut:
 					if existing, ok := a.adminCache[username]; ok {
-						a.adminCache[username] = auth.AdminRoles{Roles: append(existing.Roles, role)}
+						var alreadyGranted bool
+						for _, r := range existing.Roles {
+							if r == role {
+								alreadyGranted = true
+								break
+							}
+						}
+						if !alreadyGranted {
+							a.adminCache[username] = auth.AdminRoles{Roles: append(existing.Roles, role)}
+						}
 					} else {
 						a.adminCache[username] = auth.AdminRoles{Roles: []auth.AdminRole{role}}
 					}
@@ -750,7 +761,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 		Admins: make(map[string]*auth.AdminRoles),
 	}
 	for admin, roles := range a.adminCache {
-		resp.Admins[admin] = &roles
+		resp.Admins[admin] = &auth.AdminRoles{Roles: roles.Roles}
 	}
 
 	return resp, nil
