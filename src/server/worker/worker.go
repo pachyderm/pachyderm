@@ -54,6 +54,7 @@ func NewWorker(
 	namespace string,
 	hashtreePath string,
 	rootPath string,
+	storageV2 bool,
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
@@ -70,6 +71,7 @@ func NewWorker(
 		hashtreePath,
 		rootPath,
 		namespace,
+		storageV2,
 	)
 	if err != nil {
 		return nil, err
@@ -120,20 +122,22 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		// Clean the driver hashtree cache for any jobs that are deleted
-		eg.Go(func() error {
-			return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-				var key string
-				if err := e.Unmarshal(&key, &pps.EtcdJobInfo{}); err != nil {
-					return err
-				}
-				if e.Type == watch.EventDelete {
-					driver.ChunkCaches().RemoveCache(key)
-					driver.ChunkStatsCaches().RemoveCache(key)
-				}
-				return nil
+		if !w.driver.StorageV2() {
+			// Clean the driver hashtree cache for any jobs that are deleted
+			eg.Go(func() error {
+				return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+					var key string
+					if err := e.Unmarshal(&key, &pps.EtcdJobInfo{}); err != nil {
+						return err
+					}
+					if e.Type == watch.EventDelete {
+						driver.ChunkCaches().RemoveCache(key)
+						driver.ChunkStatsCaches().RemoveCache(key)
+					}
+					return nil
+				})
 			})
-		})
+		}
 
 		// Run any worker tasks that the master creates
 		eg.Go(func() error {

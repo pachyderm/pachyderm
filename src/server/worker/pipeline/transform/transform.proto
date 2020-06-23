@@ -83,3 +83,16 @@ message MergeData {
   pfs.Object tree = 6;
   uint64 tree_size = 7;
 }
+
+// Messages specific to V2.
+
+// TODO: Add path ranges for indexing into inputs.
+message DatumDataV2 {
+  // Inputs
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string datum_fileset = 2;
+  pfs.Commit output_commit = 3;
+
+  // Outputs
+  DatumStats stats = 4;
+}

@@ -194,34 +194,37 @@ func NewDriver(
 	hashtreePath string,
 	rootPath string,
 	namespace string,
+	storageV2 bool,
 ) (Driver, error) {
 
 	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
-	chunkCachePath := filepath.Join(hashtreePath, "chunk")
-	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+	if !storageV2 {
+		chunkCachePath := filepath.Join(hashtreePath, "chunk")
+		chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
 
-	// Delete the hashtree path (if it exists) in case it is left over from a previous run
-	if err := os.RemoveAll(chunkCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
+		// Delete the hashtree path (if it exists) in case it is left over from a previous run
+		if err := os.RemoveAll(chunkCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.RemoveAll(chunkStatsCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
 
-	if err := os.MkdirAll(pfsPath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
+		if err := os.MkdirAll(pfsPath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
 
-	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
-	if err != nil {
-		logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
-		numShards = 1
+		numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
+		if err != nil {
+			logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
+			numShards = 1
+		}
 	}
 
 	result := &driver{
@@ -239,6 +242,7 @@ func NewDriver(
 		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
 		chunkStatsCaches: cache.NewWorkerCache(chunkStatsCachePath),
 		namespace:        namespace,
+		storageV2:        storageV2,
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -410,6 +414,10 @@ func (d *driver) ChunkCaches() cache.WorkerCache {
 
 func (d *driver) ChunkStatsCaches() cache.WorkerCache {
 	return d.chunkStatsCaches
+}
+
+func (d *driver) StorageV2() bool {
+	return d.storageV2
 }
 
 // This is broken out into its own function because its scope is small and it
@@ -688,6 +696,84 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	}
 
 	return nil
+}
+
+func (d *driver) WithDataV2(
+	inputs []*common.Input,
+	cb func(string, *pps.ProcessStats) error,
+) (_ *pps.ProcessStats, retErr error) {
+	puller := filesync.NewPullerV2()
+	stats := &pps.ProcessStats{}
+	// Download input data into a temporary directory
+	// This can be interrupted via the pachClient using driver.WithContext
+	var dir string
+	if err := logger.LogStep("downloading data", func() error {
+		var err error
+		dir, err = d.downloadDataV2(inputs, puller, stats)
+		return err
+	}); err != nil {
+		return err
+	}
+	// We run these cleanup functions no matter what, so that if
+	// downloadData partially succeeded, we still clean up the resources.
+	defer func() {
+		if err := os.RemoveAll(dir); retErr == nil {
+			retErr = errors.WithStack(err)
+		}
+	}()
+	// It's important that we run puller.CleanUp before os.RemoveAll,
+	// because otherwise puller.Cleanup might try to open pipes that have
+	// been deleted.
+	defer func() {
+		if _, err := puller.CleanUp(); retErr == nil {
+			retErr = errors.WithStack(err)
+		}
+	}()
+	if err != nil {
+		return stats, errors.WithStack(err)
+	}
+	if err := os.MkdirAll(d.InputDir(), 0777); err != nil {
+		return stats, errors.WithStack(err)
+	}
+	// If the pipeline spec set a custom user to execute the process, make sure
+	// the input directory and its content are owned by it
+	if d.uid != nil && d.gid != nil {
+		if err := filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			return os.Chown(name, int(*d.uid), int(*d.gid))
+		}); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	if err := cb(dir, stats); err != nil {
+		return stats, err
+	}
+	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
+	return stats, nil
+}
+
+func (d *driver) downloadDatumV2(
+	inputs []*common.Input,
+	puller *filesync.Puller,
+	stats *pps.ProcessStats,
+) (_ string, retErr error) {
+	// The scratch space is where Pachyderm stores downloaded and output data, which is
+	// then symlinked into place for the pipeline.
+	scratchPath := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+	// Clean up any files if an error occurs
+	defer func() {
+		if retErr != nil {
+			os.RemoveAll(scratchPath)
+		}
+	}()
+	outPath := filepath.Join(scratchPath, "out")
+	for _, input := range inputs {
+		file := input.FileInfo.File
+		fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)
+	}
+	return scratchPath, nil
 }
 
 // Run user code and return the combined output of stdout and stderr.
