@@ -7,7 +7,7 @@ RUN apt-get update -yq
 RUN apt-get install -yq unzip
 
 RUN \
-  PROTO_COMPILER_VERSION=3.12.3; \
+  PROTO_COMPILER_VERSION=3.11.4; \
   wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTO_COMPILER_VERSION}/protoc-${PROTO_COMPILER_VERSION}-linux-x86_64.zip" -O protoc.zip
 RUN unzip protoc.zip -d /
 RUN cp -r /include /bin
