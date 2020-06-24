@@ -21,7 +21,7 @@ function activate {
         admin="admin"
         echo "${admin}" | pachctl auth activate
     elif pachctl auth list-admins | grep "github:"; then
-        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
+        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1 | sed 's/^github:\([^:]*\).*/\1/')"
         admin="${admin#github:}"
         echo "${admin}" | pachctl auth login
     else
@@ -32,7 +32,7 @@ function activate {
 
 function delete_all {
     if pachctl auth list-admins; then
-        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
+        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1 | sed 's/^github:\([^:]*\).*/\1/')"
         admin="${admin#github:}"
         echo "${admin}" | pachctl auth login
     else

@@ -13,7 +13,7 @@ command -v vault
 # generate an auth token for one of Pachyderm's existing admins
 admin="$(
   pachctl auth list-admins \
-    | grep 'github:' | head -n 1 | sed 's/^github://'
+    | grep 'github:' | head -n 1 | sed 's/^github:\([^:]*\).*/\1/'
 )"
 ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}')"
 
