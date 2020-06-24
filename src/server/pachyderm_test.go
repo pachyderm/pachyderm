@@ -4395,7 +4395,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// This is put in a backoff because there's the possibility that pod was
 	// evicted from k8s and is being re-initialized, in which case `GetLogs`
-	// will appropriately fail
+	// will appropriately fail. With the loki logging backend enabled the
+	// eviction worry goes away, but is replaced with there being a window when
+	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
@@ -4409,6 +4411,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			require.True(t, iter.Message().Message != "")
 			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
+		}
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
 		}
 		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
 		if err := iter.Err(); err != nil {
