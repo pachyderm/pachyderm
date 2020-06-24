@@ -47,7 +47,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/grafana/loki/pkg/logproto"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
@@ -66,10 +65,6 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
-
-	// maxLogMessages is the maximum number of log messages the loki server
-	// will send us, it will error if this is made higher.
-	maxLogMessages = 5000
 )
 
 var (
@@ -1592,11 +1587,7 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		resp, err := loki.QueryRange(`{app="pachd"}`, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
-		if err != nil {
-			return err
-		}
-		return lokiutil.ForEachLine(resp, func(line string) error {
+		return lokiutil.QueryRange(loki, `{app="pachd"}`, time.Time{}, time.Now(), func(t time.Time, line string) error {
 			return apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
@@ -1630,22 +1621,17 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		filter := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+		query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
 		if request.Master {
-			filter += contains("master")
+			query += contains("master")
 		}
 		if request.Job != nil {
-			filter += contains(request.Job.ID)
+			query += contains(request.Job.ID)
 		}
 		if request.Datum != nil {
-			filter += contains(request.Datum.ID)
+			query += contains(request.Datum.ID)
 		}
-		fmt.Println(filter)
-		resp, err := loki.QueryRange(filter, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
-		if err != nil {
-			return err
-		}
-		return lokiutil.ForEachLine(resp, func(line string) error {
+		return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
 			msg := &pps.LogMessage{}
 			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
 				return nil

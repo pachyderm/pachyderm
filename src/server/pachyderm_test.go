@@ -4548,6 +4548,55 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestManyLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	numLogs := 10000
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"i=0",
+					fmt.Sprintf("while [ \"$i\" -lt %d ]", numLogs),
+					"do",
+					"	echo $i",
+					"	i=`expr $i + 1`",
+					"done",
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogs("", jis[0].Job.ID, nil, "", false, false, 0)
+		logsReceived := 0
+		for iter.Next() {
+			if iter.Message().User {
+				logsReceived++
+			}
+		}
+		if numLogs != logsReceived {
+			return fmt.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+		}
+		return nil
+	})
+}
+
 func TestAllDatumsAreProcessed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
