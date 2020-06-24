@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -4415,7 +4414,6 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		if numLogs < 2 {
 			return fmt.Errorf("didn't get enough log lines")
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4429,7 +4427,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			require.True(t, iter.Message().Message != "")
 			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4479,34 +4479,28 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false, 0)
-
 		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
-			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+			havePathLog, haveBase64Log := pathLog.Next(), base64Log.Next()
+			if havePathLog != haveBase64Log {
 				return errors.Errorf("Unequal log lengths")
 			}
 			if !havePathLog {
 				break
 			}
 			numLogs++
-			if pathLog.Message().Message != hexLog.Message().Message ||
-				hexLog.Message().Message != base64Log.Message().Message {
+			if pathLog.Message().Message != base64Log.Message().Message {
 				return errors.Errorf(
-					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					"unequal logs, pathLogs: \"%s\" base64Log: \"%s\"",
 					pathLog.Message().Message,
-					hexLog.Message().Message,
 					base64Log.Message().Message)
 			}
 		}
-		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+		for _, logsiter := range []*client.LogsIter{pathLog, base64Log} {
 			if logsiter.Err() != nil {
 				return logsiter.Err()
 			}

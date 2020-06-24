@@ -1631,7 +1631,12 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if request.Datum != nil {
 			query += contains(request.Datum.ID)
 		}
+		for _, filter := range request.DataFilters {
+			query += contains(filter)
+		}
 		return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+			fmt.Println(line)
+			fmt.Printf("%+v\n", request.DataFilters)
 			msg := &pps.LogMessage{}
 			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
 				return nil
