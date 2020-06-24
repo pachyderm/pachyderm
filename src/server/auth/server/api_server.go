@@ -860,7 +860,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
-		if roles, ok := a.adminCache[req.Principal]; ok {
+		if roles, ok := a.adminCache[canonicalizedUser]; ok {
 			for _, r := range roles.Roles {
 				hasSuper = hasSuper || (r == auth.AdminRole_SUPER)
 				hasFS = hasFS || (r == auth.AdminRole_FS)
@@ -871,7 +871,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	// Update "admins" list (watchAdmins() will update admins cache)
 	if grantSuper {
 		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.admins.ReadWrite(stm).Put(req.Principal, epsilon)
+			return a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
 		}); err != nil {
 			return nil, err
 		}
@@ -879,7 +879,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		// If the user has a cached SUPER role but it's not in the list, remove it
 		if hasSuper {
 			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-				return a.admins.ReadWrite(stm).Delete(req.Principal)
+				return a.admins.ReadWrite(stm).Delete(canonicalizedUser)
 			}); err != nil {
 				return nil, err
 			}
@@ -888,7 +888,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 
 	if grantFS {
 		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.fsAdmins.ReadWrite(stm).Put(req.Principal, epsilon)
+			return a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
 		}); err != nil {
 			return nil, err
 		}
@@ -896,7 +896,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		// If the user has a cached FS role but it's not in the list, remove it
 		if hasFS {
 			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-				return a.fsAdmins.ReadWrite(stm).Delete(req.Principal)
+				return a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
 			}); err != nil {
 				return nil, err
 			}

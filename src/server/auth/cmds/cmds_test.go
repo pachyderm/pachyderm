@@ -150,15 +150,15 @@ func TestAdmins(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
 			| match "admin"
-		pachctl auth modify-admins --add admin2
+		pachctl auth modify-admin admin2 'SUPER'
 		pachctl auth list-admins \
-			| match  "admin2"
-		pachctl auth modify-admins --remove admin
+			| match  "github:admin2"
+		pachctl auth modify-admin admin ''
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
 		pachctl auth list-admins \
-			| match -v "^github:admin$" \
-			| match "^github:admin2$"
+			| match -v "github:admin: \[SUPER\]" \
+			| match "github:admin2: \[SUPER\]"
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
@@ -166,32 +166,11 @@ func TestAdmins(t *testing.T) {
 	// works for non-admins)
 	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth modify-admins --add admin --remove admin2
+		pachctl auth modify-admin admin SUPER
+		pachctl auth modify-admin admin2 ''
 		pachctl auth list-admins \
 			| match -v "admin2" \
 			| match "admin"
-		`).Run())
-}
-
-func TestModifyAdminsPropagateError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	activateAuth(t)
-	defer deactivateAuth(t)
-
-	// Add admin2, and then try to remove it along with a fake admin. Make sure we
-	// get an error
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins \
-			| match "admin"
-		pachctl auth modify-admins --add admin2
-		pachctl auth list-admins \
-			| match  "admin2"
-
- 		# cmd should fail
-		! pachctl auth modify-admins --remove admin1,not_in_list
 		`).Run())
 }
 
@@ -233,7 +212,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 
 	// Make "admin" a cluster admins, so that deactivateAuth works
 	require.NoError(t,
-		tu.Cmd("pachctl", "auth", "modify-admins", "--add=admin").Run())
+		tu.Cmd("pachctl", "auth", "modify-admin", "admin", "SUPER").Run())
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {
