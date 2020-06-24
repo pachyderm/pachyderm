@@ -3127,12 +3127,6 @@ func TestDisableGitHubAuthFSAdmin(t *testing.T) {
 		)
 	}, backoff.NewTestingBackOff()))
 
-	// alice tries to get config but doesn't have permission as an FS admin
-	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
-	require.Nil(t, cfg)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
 	// alice tries to set config to no GH, but doesn't have permission
 	configNoGitHub := &auth.AuthConfig{
 		LiveConfigVersion: 1,
