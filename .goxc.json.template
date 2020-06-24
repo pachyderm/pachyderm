@@ -2,6 +2,7 @@
 	"ArtifactsDest": "build",
 	"Tasks": [
 		"default",
+        "tag",
 		"publish-github"
 	],
 	"BuildConstraints": "linux,amd64 darwin,amd64",
