@@ -722,10 +722,10 @@ func (api *pfsServerAPI) ListFileV2(req *pfs.ListFileRequest, serv pfs.API_ListF
 	return errors.Errorf("unhandled pachd mock pfs.ListFileV2")
 }
 func (api *pfsServerAPI) GlobFileV2(req *pfs.GlobFileRequest, serv pfs.API_GlobFileV2Server) error {
-	if api.mock.ListFileV2.handler != nil {
+	if api.mock.GlobFileV2.handler != nil {
 		return api.mock.GlobFileV2.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.ListFileV2")
+	return errors.Errorf("unhandled pachd mock pfs.GlobFileV2")
 }
 
 /* PPS Server Mocks */
