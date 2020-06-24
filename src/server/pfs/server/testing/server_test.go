@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
@@ -6272,5 +6273,41 @@ func TestFuzzProvenance(t *testing.T) {
 
 		return nil
 	})
+	require.NoError(t, err)
+}
+
+// TestPutFileLeak is a regression test for when PutFile may result in a leaked
+// goroutine in pachd that would use up a limiter and never release it, in the
+// situation where the client starts uploading a file but causes a short-circuit
+// by making a protocol error in the PutFile request.
+func TestPutFileLeak(t *testing.T) {
+	t.Parallel()
+
+	pachdConfig := &serviceenv.PachdFullConfiguration{}
+	pachdConfig.StoragePutFileConcurrencyLimit = 10
+
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		require.NoError(t, env.PachClient.CreateRepo("repo"))
+
+		for i := 0; i < 20; i++ {
+			pfc, err := env.PachClient.PfsAPIClient.PutFile(env.Context)
+			if err != nil {
+				return err
+			}
+
+			err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "master", "1")})
+			if err != nil {
+				return err
+			}
+
+			err = pfc.Send(&pfs.PutFileRequest{File: pclient.NewFile("repo", "faster", "2")})
+			require.NoError(t, err)
+
+			_, err = pfc.CloseAndRecv()
+			require.YesError(t, err)
+		}
+
+		return nil
+	}, pachdConfig)
 	require.NoError(t, err)
 }

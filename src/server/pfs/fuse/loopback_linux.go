@@ -1,9 +1,3 @@
-// +build linux
-
-// Copyright 2019 the Go-FUSE Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package fuse
 
 import (
@@ -13,26 +7,6 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	"golang.org/x/sys/unix"
 )
-
-func (n *loopbackNode) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
-	sz, err := syscall.Getxattr(n.path(), attr, dest)
-	return uint32(sz), fs.ToErrno(err)
-}
-
-func (n *loopbackNode) Setxattr(ctx context.Context, attr string, data []byte, flags uint32) syscall.Errno {
-	err := syscall.Setxattr(n.path(), attr, data, int(flags))
-	return fs.ToErrno(err)
-}
-
-func (n *loopbackNode) Removexattr(ctx context.Context, attr string) syscall.Errno {
-	err := syscall.Removexattr(n.path(), attr)
-	return fs.ToErrno(err)
-}
-
-func (n *loopbackNode) Listxattr(ctx context.Context, dest []byte) (uint32, syscall.Errno) {
-	sz, err := syscall.Listxattr(n.path(), dest)
-	return uint32(sz), fs.ToErrno(err)
-}
 
 func (n *loopbackNode) renameExchange(name string, newparent *loopbackNode, newName string) syscall.Errno {
 	fd1, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0)

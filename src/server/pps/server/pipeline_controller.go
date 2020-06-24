@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -31,6 +32,8 @@ const (
 	noRCExpected
 	rcExpected
 )
+
+const crashingBackoff = time.Second * 15
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -109,16 +112,16 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			}
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// trigger another event
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
 		op.startPipelineMonitor()
@@ -130,7 +133,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// default: scale down if standby hasn't propagated to kube RC yet
 		op.startPipelineMonitor()
@@ -145,19 +148,29 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			if err := op.scaleUpPipeline(); err != nil {
 				return err
 			}
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 		}
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped
 		op.stopPipelineMonitor()
+		op.stopCrashingPipelineMonitor()
 		// default: scale down if pause/standby hasn't propagated to etcd yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_FAILURE:
-		// pipeline fails if docker image isn't found
+		// pipeline fails if it encounters an unrecoverable error
 		if err := op.finishPipelineOutputCommits(); err != nil {
 			return err
 		}
 		return op.deletePipelineResources()
+	case pps.PipelineState_PIPELINE_CRASHING:
+		if !op.rcIsFresh() {
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+		}
+		if op.pipelineInfo.Stopped {
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
+		}
+		// start a monitor to poll k8s and update us when it goes into a running state
+		op.startCrashingPipelineMonitor()
 	}
 	return nil
 }
@@ -342,10 +355,11 @@ func (op *pipelineOp) rcIsFresh() bool {
 // error (to indicate to the caller that it shouldn't continue with other
 // operations) but doesn't fail the pipeline as the pipeline state is already
 // unsettable.
-func (op *pipelineOp) setPipelineState(state pps.PipelineState) error {
+func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, "")
+		return op.apiServer.setPipelineState(op.pachClient.Ctx(),
+			op.pipelineInfo.Pipeline.Name, state, reason)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
 			return errors.Wrapf(err, "could not set pipeline state for %q to %v"+
@@ -388,6 +402,7 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
+	op.stopCrashingPipelineMonitor()
 	op.apiServer.monitorCancelsMu.Lock()
 	defer op.apiServer.monitorCancelsMu.Unlock()
 	if _, ok := op.apiServer.monitorCancels[op.name]; !ok {
@@ -403,8 +418,23 @@ func (op *pipelineOp) startPipelineMonitor() {
 	}
 }
 
+func (op *pipelineOp) startCrashingPipelineMonitor() {
+	op.stopPipelineMonitor()
+	op.apiServer.monitorCancelsMu.Lock()
+	defer op.apiServer.monitorCancelsMu.Unlock()
+	if _, ok := op.apiServer.crashingMonitorCancels[op.name]; !ok {
+		ctx, cancel := context.WithCancel(context.Background())
+		op.apiServer.crashingMonitorCancels[op.name] = cancel
+		go op.apiServer.monitorCrashingPipeline(ctx, op)
+	}
+}
+
 func (op *pipelineOp) stopPipelineMonitor() {
 	op.apiServer.cancelMonitor(op.name)
+}
+
+func (op *pipelineOp) stopCrashingPipelineMonitor() {
+	op.apiServer.cancelCrashingMonitor(op.name)
 }
 
 // finishPipelineOutputCommits finishes any output commits of
@@ -535,10 +565,9 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}()
 
 	// compute target pipeline parallelism
-	kubeClient := op.apiServer.env.GetKubeClient()
-	parallelism, err := ppsutil.GetExpectedNumWorkers(kubeClient, op.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker): %v", err)
+	parallelism := int(op.ptr.Parallelism)
+	if parallelism == 0 {
+		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker)")
 		parallelism = 1
 	}
 
@@ -608,7 +637,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 		if err := op.createPipelineResources(); err != nil {
 			return err
 		}
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING)
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
 			return err
@@ -637,4 +666,19 @@ func (op *pipelineOp) failPipeline(reason string) error {
 		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
+}
+
+func (op *pipelineOp) allWorkersUp() (bool, error) {
+	parallelism := int(op.ptr.Parallelism)
+	if parallelism == 0 {
+		parallelism = 1
+	}
+	workerPoolID := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
+	workerStatus, err := workerserver.Status(op.pachClient.Ctx(), workerPoolID,
+		op.apiServer.env.GetEtcdClient(), op.apiServer.etcdPrefix,
+		op.apiServer.workerGrpcPort)
+	if err != nil {
+		return false, err
+	}
+	return parallelism == len(workerStatus), nil
 }

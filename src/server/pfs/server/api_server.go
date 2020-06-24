@@ -15,12 +15,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
+
+var _ APIServer = &apiServer{}
 
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
@@ -224,11 +225,6 @@ func (a *apiServer) FinishCommitInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.FinishCommitRequest,
 ) error {
-	if a.env.StorageV2 {
-		return metrics.ReportRequest(func() error {
-			return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
-		})
-	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)
 	}
@@ -597,6 +593,27 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// V2 Methods
+// GetTarV2 not implemented by v1 apiServer
+func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
+	return errors.Errorf("v2 method not implemented")
+}
+
+// GetTarConditionalV2 not implemented by v1 apiServer
+func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
+	return errors.Errorf("v2 method not implemented")
+}
+
+// PutTarV2 not implemented by v1 apiServer
+func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
+	return errors.Errorf("v2 method not implemented")
+}
+
+// ListFileV2 not implemented by v1 apiServer
+func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
+	return errors.Errorf("v2 method not implemented")
 }
 
 func drainFileServer(putFileServer interface {

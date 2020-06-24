@@ -3,7 +3,6 @@ module github.com/pachyderm/pachyderm
 go 1.13
 
 require (
-	cloud.google.com/go v0.49.0
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/OneOfOne/xxhash v1.2.6
@@ -59,7 +58,7 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
-	github.com/pachyderm/s2 v0.0.0-20200528231500-590b33e3c716
+	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.5.0
@@ -75,7 +74,6 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
-	github.com/uber-go/atomic v1.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
@@ -86,15 +84,14 @@ require (
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200523222454-059865788121
-	golang.org/x/tools v0.0.0-20200601175630-2caf76543d99 // indirect
+	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
+	golang.org/x/tools v0.0.0-20200617042924-7f3f4b10a808 // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/grpc v1.27.0
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
-	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 	k8s.io/api v0.17.4

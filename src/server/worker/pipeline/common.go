@@ -16,9 +16,24 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
+
+func openAndWait() error {
+	// at the end of file, we open the pipe again, since this blocks until something is written to the pipe
+	openAndWait, err := os.Open("/pfs/out")
+	if err != nil {
+		return err
+	}
+	// and then we immediately close this reader of the pipe, so that the main reader can continue its standard behavior
+	err = openAndWait.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // RunUserCode will run the pipeline's user code until canceled by the context
 // - used for services and spouts. Unlike how the transform worker runs user
@@ -26,11 +41,13 @@ import (
 func RunUserCode(
 	driver driver.Driver,
 	logger logs.TaggedLogger,
+	outputCommit *pfs.Commit,
+	inputs []*common.Input,
 ) error {
 	return backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
-		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
-		return driver.RunUserCode(logger, nil, &pps.ProcessStats{}, nil)
+		env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
+		return driver.RunUserCode(logger, env, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in RunUserCode: %+v, retrying in: %+v", err, d)
 		return nil
@@ -46,51 +63,62 @@ func ReceiveSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-) error {
+) (retErr1 error) {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		repo := pipelineInfo.Pipeline.Name
+		// open a read connection to the /pfs/out named pipe
+		out, err := os.Open("/pfs/out")
+		if err != nil {
+			return err
+		}
+		// and close it when we're done
+		defer func() {
+			if err := out.Close(); err != nil && retErr1 == nil {
+				// this lets us pass the error through if Close fails
+				retErr1 = err
+			}
+		}()
 		for {
-			// this extra closure is so that we can scope the defer
-			if err := func() (retErr error) {
-				// open a read connection to the /pfs/out named pipe
-				out, err := os.Open("/pfs/out")
-				if err != nil {
-					return err
-				}
-				// and close it at the end of each loop
-				defer func() {
-					if err := out.Close(); err != nil && retErr == nil {
-						// this lets us pass the error through if Close fails
-						retErr = err
-					}
-				}()
+			// this extra closure is so that we can scope the defer for FinishCommit
+
+			if err := func() (retErr2 error) {
+
+				// create a new tar reader
 				outTar := tar.NewReader(out)
 
-				// start commit
-				commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-					Parent:     client.NewCommit(repo, ""),
-					Branch:     pipelineInfo.OutputBranch,
-					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
-				})
-				if err != nil {
-					return err
-				}
+				var commit *pfs.Commit
 
-				// finish the commit even if there was an issue
-				defer func() {
-					if err := pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
-						// this lets us pass the error through if FinishCommit fails
-						retErr = err
-					}
-				}()
 				// this loops through all the files in the tar that we've read from /pfs/out
 				for {
 					fileHeader, err := outTar.Next()
 					if errors.Is(err, io.EOF) {
+						err = openAndWait()
+						if err != nil {
+							return err
+						}
 						break
 					}
 					if err != nil {
 						return err
+					}
+					if commit == nil {
+						// start commit
+						commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+							Parent:     client.NewCommit(repo, ""),
+							Branch:     pipelineInfo.OutputBranch,
+							Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+						})
+						if err != nil {
+							return err
+						}
+
+						// finish the commit even if there was an issue
+						defer func() {
+							if err := pachClient.FinishCommit(repo, commit.ID); err != nil && retErr2 == nil {
+								// this lets us pass the error through if FinishCommit fails
+								retErr2 = err
+							}
+						}()
 					}
 					// put files into pachyderm
 					if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), pipelineInfo.Spout.Marker) {

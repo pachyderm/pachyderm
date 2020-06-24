@@ -41,19 +41,20 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage        string              // The user's pipeline/job image
-	labels           map[string]string   // k8s labels attached to the RC and workers
-	annotations      map[string]string   // k8s annotations attached to the RC and workers
-	parallelism      int32               // Number of replicas the RC maintains
-	cacheSize        string              // Size of cache that sidecar uses
-	resourceRequests *v1.ResourceList    // Resources requested by pipeline/job pods
-	resourceLimits   *v1.ResourceList    // Resources requested by pipeline/job pods
-	workerEnv        []v1.EnvVar         // Environment vars set in the user container
-	volumes          []v1.Volume         // Volumes that we expose to the user container
-	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
-	podSpec          string
-	podPatch         string
+	userImage             string              // The user's pipeline/job image
+	labels                map[string]string   // k8s labels attached to the RC and workers
+	annotations           map[string]string   // k8s annotations attached to the RC and workers
+	parallelism           int32               // Number of replicas the RC maintains
+	cacheSize             string              // Size of cache that sidecar uses
+	resourceRequests      *v1.ResourceList    // Resources requested by pipeline/job pods
+	resourceLimits        *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the user and init containers
+	sidecarResourceLimits *v1.ResourceList    // Resources requested by pipeline/job pods, applied to the sidecar container
+	workerEnv             []v1.EnvVar         // Environment vars set in the user container
+	volumes               []v1.Volume         // Volumes that we expose to the user container
+	volumeMounts          []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
+	schedulingSpec        *pps.SchedulingSpec // the SchedulingSpec for the pipeline
+	podSpec               string
+	podPatch              string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -300,7 +301,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/app/pachd", "--mode", "sidecar"},
+				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
@@ -341,9 +342,18 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 
 	if options.resourceLimits != nil {
+		podSpec.InitContainers[0].Resources.Limits = make(v1.ResourceList)
 		podSpec.Containers[0].Resources.Limits = make(v1.ResourceList)
 		for k, v := range *options.resourceLimits {
+			podSpec.InitContainers[0].Resources.Limits[k] = v
 			podSpec.Containers[0].Resources.Limits[k] = v
+		}
+	}
+
+	if options.sidecarResourceLimits != nil {
+		podSpec.Containers[1].Resources.Limits = make(v1.ResourceList)
+		for k, v := range *options.sidecarResourceLimits {
+			podSpec.Containers[1].Resources.Limits[k] = v
 		}
 	}
 
@@ -406,6 +416,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
 	var resourceLimits *v1.ResourceList
+	var sidecarResourceLimits *v1.ResourceList
 	if pipelineInfo.ResourceRequests != nil {
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
@@ -415,9 +426,16 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}
 	if pipelineInfo.ResourceLimits != nil {
 		var err error
-		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
+		resourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.ResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource limit")
+		}
+	}
+	if pipelineInfo.SidecarResourceLimits != nil {
+		var err error
+		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.SidecarResourceLimits)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
 	}
 
@@ -548,24 +566,25 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:           rcName,
-		s3GatewayPort:    s3GatewayPort,
-		specCommit:       ptr.SpecCommit.ID,
-		labels:           labels,
-		annotations:      annotations,
-		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up
-		resourceRequests: resourceRequests,
-		resourceLimits:   resourceLimits,
-		userImage:        userImage,
-		workerEnv:        workerEnv,
-		volumes:          volumes,
-		volumeMounts:     volumeMounts,
-		imagePullSecrets: imagePullSecrets,
-		cacheSize:        pipelineInfo.CacheSize,
-		service:          service,
-		schedulingSpec:   pipelineInfo.SchedulingSpec,
-		podSpec:          pipelineInfo.PodSpec,
-		podPatch:         pipelineInfo.PodPatch,
+		rcName:                rcName,
+		s3GatewayPort:         s3GatewayPort,
+		specCommit:            ptr.SpecCommit.ID,
+		labels:                labels,
+		annotations:           annotations,
+		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
+		resourceRequests:      resourceRequests,
+		resourceLimits:        resourceLimits,
+		sidecarResourceLimits: sidecarResourceLimits,
+		userImage:             userImage,
+		workerEnv:             workerEnv,
+		volumes:               volumes,
+		volumeMounts:          volumeMounts,
+		imagePullSecrets:      imagePullSecrets,
+		cacheSize:             pipelineInfo.CacheSize,
+		service:               service,
+		schedulingSpec:        pipelineInfo.SchedulingSpec,
+		podSpec:               pipelineInfo.PodSpec,
+		podPatch:              pipelineInfo.PodPatch,
 	}, nil
 }
 

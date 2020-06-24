@@ -705,7 +705,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 						{
 							Name:    pachdName,
 							Image:   image,
-							Command: []string{"/app/pachd"},
+							Command: []string{"/pachd"},
 							Env:     envVars,
 							Ports: []v1.ContainerPort{
 								{
@@ -744,7 +744,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
-										Command: []string{"/app/pachd", "--readiness"},
+										Command: []string{"/pachd", "--readiness"},
 									},
 								},
 							},

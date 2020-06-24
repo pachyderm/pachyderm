@@ -37,9 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -170,29 +168,6 @@ func newDriver(
 		return repos.Create(repo.Name, repoInfo)
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
-	}
-	if env.StorageV2 {
-		objClient, err := NewObjClient(env.Configuration)
-		if err != nil {
-			return nil, err
-		}
-		// (bryce) local db for testing.
-		db, err := gc.NewLocalDB()
-		if err != nil {
-			return nil, err
-		}
-		gcClient, err := gc.NewClient(db)
-		if err != nil {
-			return nil, err
-		}
-		chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
-		d.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
-		d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
-		if err != nil {
-			return nil, err
-		}
-		go d.master(env, objClient, db)
-		go d.compactionWorker()
 	}
 	return d, nil
 }
@@ -4484,11 +4459,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 	return req, nil
 }
 
-func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (bool, string, string, error) {
-	// return values
-	var oneOff bool
-	var repo string
-	var branch string
+func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, retErr error) {
 
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
@@ -4496,6 +4467,23 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	var eg errgroup.Group
 	var rawCommitID string
 	var commitID string
+
+	// Always make sure we've closed any hanging pipes and that our callbacks finish
+	defer func() {
+		// Closing the pipes should be the trigger to cancel any still-running callbacks
+		if pw != nil {
+			if retErr != nil {
+				pw.CloseWithError(retErr)
+			} else {
+				pw.Close()
+			}
+		}
+
+		err := eg.Wait()
+		if retErr == nil && !errors.Is(err, io.EOF) {
+			retErr = err
+		}
+	}()
 
 	var err error
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
@@ -4667,15 +4655,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			return false, "", "", err
 		}
 	}
-	if pw != nil {
-		// This may pass io.EOF to CloseWithError but that's equivalent to
-		// simply calling Close()
-		pw.CloseWithError(err) // can't error
-	}
-	if err != io.EOF {
-		return false, "", "", err
-	}
-	if err := eg.Wait(); err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, "", "", err
 	}
 	return oneOff, repo, branch, nil

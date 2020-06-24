@@ -36,7 +36,10 @@ type FileSet struct {
 	subFileSet                 int64
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) *FileSet {
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) (*FileSet, error) {
+	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
+		return nil, err
+	}
 	f := &FileSet{
 		ctx:          ctx,
 		storage:      storage,
@@ -49,7 +52,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 	for _, opt := range opts {
 		opt(f)
 	}
-	return f
+	return f, nil
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
@@ -86,7 +89,6 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 			}
 		}
 	}
-	return nil
 }
 
 func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
@@ -165,5 +167,6 @@ func (f *FileSet) serialize() error {
 
 // Close closes the file set.
 func (f *FileSet) Close() error {
+	defer f.storage.filesetSem.Release(1)
 	return f.serialize()
 }

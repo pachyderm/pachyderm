@@ -1,7 +1,8 @@
 [build]
-base = "doc"
-command = "./build.sh"
-publish = "doc/site"
+  base = "doc/"
+  command = "./build.sh"
+  publish = "site/"
+  ignore = "git diff --quiet HEAD^ HEAD -- ."
 
 [[redirects]]
   from = "/"
@@ -11,6 +12,12 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/en/latest/index.html"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/"
   to = "/latest/"
   status = 301
   force = true

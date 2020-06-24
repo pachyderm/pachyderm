@@ -66,6 +66,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     }
     "disk": string,
   },
+  "sidecar_resource_limits": {
+    "memory": string,
+    "cpu": number
+  },
   "datum_timeout": string,
   "datum_tries": int,
   "job_timeout": string,
@@ -278,11 +282,17 @@ on `stdin`.
 Lines do not have to end in newline characters.
 
 `transform.env` is a key-value map of environment variables that
-Pachyderm injects into the container.
+Pachyderm injects into the container. There are also environment variables
+that are automatically injected into the container, such as:
 
-**Note:** There are environment variables that are automatically injected
-into the container, for a comprehensive list of them see the [Environment
-Variables](#environment-variables) section below.
+* `PACH_JOB_ID` – the ID of the current job.
+* `PACH_OUTPUT_COMMIT_ID` – the ID of the commit in the output repo for
+the current job.
+* `<input>_COMMIT` - the ID of the input commit. For example, if your
+input is the `images` repo, this will be `images_COMMIT`.
+
+For a complete list of variables and
+descriptions see: [Configure Environment Variables](../../deploy-manage/deploy/environment-variables/).
 
 `transform.secrets` is an array of secrets. You can use the secrets to
 embed sensitive data, such as credentials. The secrets reference
@@ -413,6 +423,17 @@ processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
 [Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 on the subject.
+
+### Sidecar Resource Limits (optional)
+
+`sidecar_resource_limits` determines the upper threshold of resources
+allocated to the sidecar containers.
+
+This field can be useful in deployments where Kubernetes automatically
+applies resource limits to containers, which might conflict with Pachyderm
+pipelines' resource requests. Such a deployment might fail if Pachyderm
+requests more than the default Kubernetes limit. The `sidecar_resource_limits`
+enables you to explicitly specify these resources to fix the issue.
 
 ### Datum Timeout (optional)
 
@@ -937,34 +958,3 @@ The root mount point is at `/pfs`, which contains:
   - Each input will be found here by its name, which defaults to the repo
   name if not specified.
 - `/pfs/out` which is where you write any output.
-
-# Environment Variables
-
-There are several environment variables that get injected into the user code
-before it runs. They are:
-
-- `PACH_JOB_ID` the id the currently run job.
-- `PACH_OUTPUT_COMMIT_ID` the id of the commit being outputted to.
-- For each input there will be an environment variable with the same name
-    defined to the path of the file for that input. For example if you are
-    accessing an input called `foo` from the path `/pfs/foo` which contains a
-    file called `bar` then the environment variable `foo` will have the value
-    `/pfs/foo/bar`. The path in the environment variable is the path which
-    matched the glob pattern, even if the file is a directory, ie if your glob
-    pattern is `/*` it would match a directory `/bar`, the value of `$foo`
-    would then be `/pfs/foo/bar`. With a glob pattern of `/*/*` you would match
-    the files contained in `/bar` and thus the value of `foo` would be
-    `/pfs/foo/bar/quux`.
-- For each input there will be an environment variable named `input_COMMIT`
-    indicating the id of the commit being used for that input.
-
-In addition to these environment variables Kubernetes also injects others for
-Services that are running inside the cluster. These allow you to connect to
-those outside services, which can be powerful but also can be hard to reason
-about, as processing might be retried multiple times. For example if your code
-writes a row to a database that row may be written multiple times due to
-retries. Interaction with outside services should be [idempotent](https://en.wikipedia.org/wiki/Idempotence) to prevent
-unexpected behavior. Furthermore, one of the running services that your code
-can connect to is Pachyderm itself, this is generally not recommended as very
-little of the Pachyderm API is idempotent, but in some specific cases it can be
-a viable approach.

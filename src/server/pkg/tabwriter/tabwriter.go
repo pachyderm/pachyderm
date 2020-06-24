@@ -12,7 +12,7 @@ const (
 	termHeight = 50
 )
 
-// Writer is like tabwriter.Writer in the stdlibexcept that it's suitable for
+// Writer is like tabwriter.Writer in the stdlib except that it's suitable for
 // large numbers of items because it periodically flushes its contents and
 // reprints a header when it does.
 type Writer struct {
