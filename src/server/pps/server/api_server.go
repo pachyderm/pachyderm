@@ -1635,10 +1635,26 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			query += contains(filter)
 		}
 		return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
-			fmt.Println(line)
-			fmt.Printf("%+v\n", request.DataFilters)
 			msg := &pps.LogMessage{}
+			// These filters are almost always unnecessary because we apply
+			// them in the Loki request, but many of them are just done with
+			// string matching so there technically could be some false
+			// positive matches (although it's pretty unlikely), checking here
+			// just makes sure we don't accidentally intersperse unrelated log
+			// messages.
 			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
+				return nil
+			}
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				return nil
+			}
+			if request.Job != nil && request.Job.ID != msg.JobID {
+				return nil
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				return nil
+			}
+			if request.Master != msg.Master {
 				return nil
 			}
 			if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
