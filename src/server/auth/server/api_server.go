@@ -674,7 +674,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
-		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+		a.admins.ReadWrite(stm).DeleteAll()   // watchAdmins() will see the write
+		a.fsAdmins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
 		a.authConfig.ReadWrite(stm).DeleteAll()

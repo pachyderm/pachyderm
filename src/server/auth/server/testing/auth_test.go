@@ -1865,6 +1865,7 @@ func TestDeleteAll(t *testing.T) {
 	}
 	deleteAll(t)
 	defer deleteAll(t)
+
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
