@@ -22,6 +22,8 @@ func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) err
 	return foc.Close()
 }
 
+// DeleteFilesV2 deletes a set of files.
+// The optional tag field indicates specific tags in the files to delete.
 func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...string) error {
 	foc, err := c.NewFileOperationClientV2(repo, commit)
 	if err != nil {
@@ -33,16 +35,16 @@ func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...str
 	return foc.Close()
 }
 
-// PutTarClient is used for performing a stream of put tar operations.
-// The files are not persisted until the PutTarClient is closed.
-// PutTarClient is not thread safe. Multiple PutTarClients (or PutTar calls)
+// FileOperationClient is used for performing a stream of file operations.
+// The operations are not persisted until the FileOperationClient is closed.
+// FileOperationClient is not thread safe. Multiple FileOperationClients
 // should be used for concurrent upload.
 type FileOperationClient struct {
 	client pfs.API_FileOperationV2Client
 	err    error
 }
 
-// NewPutTarClientV2 creates a new PutTarClient.
+// NewFileOperationClientV2 creates a new FileOperationClient.
 func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperationClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -60,7 +62,6 @@ func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperati
 }
 
 // PutTar puts a tar stream into PFS.
-// The files are not persisted until the PutTarClient is closed.
 func (foc *FileOperationClient) PutTar(r io.Reader, tag ...string) error {
 	return foc.maybeError(func() error {
 		if len(tag) > 0 {
@@ -101,6 +102,8 @@ func (foc *FileOperationClient) sendPutTar(req *pfs.PutTarRequestV2) error {
 	})
 }
 
+// DeleteFiles deletes a set of files.
+// The optional tag field indicates specific tags in the files to delete.
 func (foc *FileOperationClient) DeleteFiles(files []string, tag ...string) error {
 	return foc.maybeError(func() error {
 		req := &pfs.DeleteFilesRequestV2{Files: files}
@@ -122,7 +125,7 @@ func (foc *FileOperationClient) sendDeleteFiles(req *pfs.DeleteFilesRequestV2) e
 	})
 }
 
-// Close closes the PutTarClient, which persists the files.
+// Close closes the FileOperationClient.
 func (foc *FileOperationClient) Close() error {
 	return foc.maybeError(func() error {
 		_, err := foc.client.CloseAndRecv()

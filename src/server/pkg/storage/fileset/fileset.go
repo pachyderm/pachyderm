@@ -219,7 +219,7 @@ func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
 
 func getSortedTags(tags map[string]struct{}) []string {
 	var tgs []string
-	for tag, _ := range tags {
+	for tag := range tags {
 		tgs = append(tgs, tag)
 	}
 	sort.Strings(tgs)
