@@ -1,8 +1,17 @@
 #!/bin/bash
 
 set -ex
-# Runs various examples ot ensure they don't break. Some examples were
+
+# Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
+
+function delete_all {
+    # Rather than calling `pachctl delete all`, which also deletes auth
+    # credentials (if any), these commands will only delete the bits that are
+    # relevant to the examples
+    pachctl delete pipeline --all
+    pachctl delete repo --all
+}
 
 pushd examples/opencv
     pachctl create repo images
@@ -19,7 +28,7 @@ pushd examples/opencv
     pachctl inspect file montage@master:montage.png
 popd
 
-yes | pachctl delete all
+delete_all
 
 pushd examples/shuffle
     pachctl create repo fruits
@@ -57,7 +66,7 @@ pushd examples/shuffle
     fi
 popd
 
-yes | pachctl delete all
+delete_all
 
 pushd examples/word_count
     # note: we do not test reducing because it's slower
@@ -79,7 +88,7 @@ pushd examples/word_count
     fi
 popd
 
-yes | pachctl delete all
+delete_all
 
 pushd examples/ml/hyperparameter
     pachctl create repo raw_data
@@ -111,7 +120,7 @@ pushd examples/ml/hyperparameter
     fi
 popd
 
-yes | pachctl delete all
+delete_all
 
 pushd examples/ml/iris
     pachctl create repo training
