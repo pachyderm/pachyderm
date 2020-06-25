@@ -75,15 +75,11 @@ type canonicalConfig struct {
 	Version int64
 	Source  configSource
 
-	// currently, there is only one permissible type of ID provider (SAML), and
-	// SAMLSvc must be set iff there is a SAML ID provider in this list. Therefore
-	// there are currently two possible forms of canonicalConfig:
-	// 1. empty config
-	// 2. IDPs contains a single element configuring a SAML ID provider, and
-	//    SAMLSvc contains config for Pachyderm's ACS
+	// IDPs contain canonicalized configs for any ID providers configured to work
+	// with this cluster
 	IDPs []canonicalIDPConfig
 
-	// SAMLSvc must be set
+	// SAMLSvc must be set if and only if there is a SAML ID provider
 	SAMLSvc *canonicalSAMLSvcConfig
 }
 
