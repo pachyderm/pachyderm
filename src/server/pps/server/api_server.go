@@ -1336,7 +1336,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	if a.env.LokiLogging {
-		return a.GetLogsLoki(request, apiGetLogsServer)
+		return a.getLogsLoki(request, apiGetLogsServer)
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1572,8 +1572,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	return eg.Wait()
 }
 
-// GetLogs implements the protobuf pps.GetLogs RPC
-func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
