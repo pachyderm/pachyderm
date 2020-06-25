@@ -125,25 +125,11 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := context.Background()
 
 	var err error
-	cfg, sp := a.getOIDCSP()
-	if cfg == nil {
-		http.Error(w, "auth has no active config (either never set or disabled)", http.StatusConflict)
-		return
-	}
+	sp := a.getOIDCSP()
 	if sp == nil {
 		http.Error(w, "OIDC has not been configured or was disabled", http.StatusConflict)
 		return
 	}
-	if sp.Provider == nil {
-		logrus.Warn("cached provider was nil, but issuer info was present, so recovering")
-		sp.Provider, err = oidc.NewProvider(context.Background(), sp.Issuer)
-		if err != nil {
-			logrus.Errorf("could not find provider %v: %v", sp.Issuer, err)
-			http.Error(w, "OIDC Provider could not be found:", http.StatusConflict)
-			return
-		}
-	}
-
 	conf := &oauth2.Config{
 		ClientID:     sp.ClientID,
 		ClientSecret: sp.ClientSecret,

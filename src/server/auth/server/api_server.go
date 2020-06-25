@@ -892,7 +892,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 
 	case req.OIDCState != "":
 		// confirm OIDC has been configured
-		_, oidcSP := a.getOIDCSP()
+		oidcSP := a.getOIDCSP()
 		if oidcSP == nil {
 			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
 		}
@@ -1901,7 +1901,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	var err error
 
-	_, sp := a.getOIDCSP()
+	sp := a.getOIDCSP()
 	if sp == nil {
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
 	}
