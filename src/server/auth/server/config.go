@@ -577,7 +577,7 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 }
 
 // getOIDCSP returns apiServer's InternalOIDCProvider, if it exists
-func (a *apiServer) getOIDCSP() *internalOIDCProvider {
+func (a *apiServer) getOIDCSP() *InternalOIDCProvider {
 	a.oidcSPMu.Lock()
 	defer a.oidcSPMu.Unlock()
 	if a.oidcSP == nil {
