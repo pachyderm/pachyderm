@@ -11,12 +11,11 @@ set -ex
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-minikube delete || true # In case we get a recycled machine
-make launch-kube
-
 if [[ "$BUCKET" == "EXAMPLES" ]]; then
     python3.7 ./etc/reset.py --target=hub --skip-build
 elif [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+    minikube delete || true # In case we get a recycled machine
+    make launch-kube
     # Pull the pre-built images. This is only done if we have access to the
     # secret env vars, because otherwise the build step would've had to be
     # skipped.
@@ -28,6 +27,8 @@ elif [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
     python3.7 ./etc/reset.py --skip-build
 else
+    minikube delete || true # In case we get a recycled machine
+    make launch-kube
     python3.7 ./etc/reset.py
 fi
 
