@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -181,6 +182,11 @@ func (md *MockDriver) WithData(
 // Make sure to implement this in terms of the `InputDir` method.
 func (md *MockDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return cb()
+}
+
+// UserCodeEnv returns an empty set of environment variables.
+func (md *MockDriver) UserCodeEnv(jobID string, outputCommit *pfs.Commit, inputs []*common.Input) []string {
+	return []string{}
 }
 
 // RunUserCode does nothing.  Inherit and shadow this if you actually want to
