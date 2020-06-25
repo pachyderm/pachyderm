@@ -7,6 +7,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path"
+	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	"github.com/coreos/go-oidc"
 	logrus "github.com/sirupsen/logrus"
@@ -14,10 +22,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
+
 // various oidc invalid argument errors. Use 'goerror' instead of internal
 // 'errors' library b/c stack trace isn't useful
 var (
 	notConfigured = goerr.New("OIDC ID provider configuration not found")
+	watchFailed   = goerr.New("error converting OIDC state token (has it expired?)")
+	tokenDeleted  = goerr.New("error converting OIDC state token: it expired or was exercised")
 )
 
 // InternalOIDCProvider contains information about the configured OIDC ID
@@ -25,6 +37,11 @@ var (
 // provider (ClientID and ClientSecret), which Pachyderm needs to perform
 // authorization with it.
 type InternalOIDCProvider struct {
+	// a points back to the owning auth/server.apiServer, currently just so that
+	// InternalOIDCProvider can get an etcd client from it to read/write OIDC
+	// state tokens to etcd during authorization
+	a *apiServer
+
 	// Provider generates the ID provider login URL returned by GetOIDCLogin
 	Provider *oidc.Provider
 
@@ -71,13 +88,22 @@ func CryptoString(n int) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// NewOIDCSP creates a new internalOIDCProvider object from the given parameters
-func NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
+// NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
+func (a *apiServer) NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
 	o := &InternalOIDCProvider{
+		a:            a,
 		Issuer:       issuer,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURI:  redirectURI,
+		States: col.NewCollection(
+			a.env.GetEtcdClient(),
+			path.Join(oidcAuthnPrefix),
+			nil,
+			&auth.SessionInfo{}, // TODO make OIDCSessionInfo
+			nil,
+			nil,
+		),
 	}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
@@ -88,13 +114,13 @@ func NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI 
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
-func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
+func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
 	if o == nil {
 		return "", "", notConfigured
 	}
+	// TODO(msteffen): could we use UUIDs for these?
 	state := CryptoString(30)
 	nonce := CryptoString(30)
-	var err error
 	conf := oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,
@@ -105,9 +131,13 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
 		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
-	si := stateInfoMap[state]
-	si.Nonce = nonce
-	stateInfoMap[state] = si
+	if _, err := col.NewSTM(ctx, o.a.env.GetEtcdClient(), func(stm col.STM) error {
+		return o.States.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
+			Nonce: nonce, // read & verified by /authorization-code/callback
+		}, threeMinutes)
+	}); err != nil {
+		return "", "", errors.Wrap(err, "could not create OIDC login session")
+	}
 
 	url := conf.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
@@ -120,17 +150,51 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
 // code (or verify that the code belongs to them). This is how
 // Pachyderm currently implements authorization in a production cluster
 func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (string, error) {
-	// lookup the token from the given state
-	si, ok := stateInfoMap[state]
-	if !ok {
-		return "", fmt.Errorf("did not have a valid state")
-	}
-	oauthToken := si.Token
+	// reestablish watch in a loop, in case there's a watch error
+	var idToken string
+	if err := backoff.RetryNotify(func() error {
+		watcher, err := o.States.ReadOnly(ctx).WatchOne(state)
+		if err != nil {
+			return watchFailed
+		}
+		defer watcher.Close()
 
-	// Use the token passed in as our token source
+		// lookup the token from the given state
+		for e := range watcher.Watch() {
+			if e.Type == watch.EventError {
+				// reestablish watch
+				return errors.Wrapf(e.Err, "error watching OIDC state token during conversion")
+			} else if e.Type == watch.EventDelete {
+				return tokenDeleted
+			}
+
+			// see if there's an ID token attached to the OIDC state now
+			var si auth.SessionInfo
+			if err := si.Unmarshal(e.Value); err != nil {
+				// retry watch (maybe a valid SessionInfo will appear later?)
+				return errors.Wrapf(e.Err, "error unmarshalling OIDC SessionInfo during conversion")
+			}
+			if si.IDToken != "" {
+				idToken = si.IDToken
+				return nil // success
+			}
+			logrus.Errorf("ID token unset in OIDC conversion watch event")
+		}
+		return nil
+	}, backoff.New60sBackOff(), func(err error, _ time.Duration) error {
+		logrus.Errorf("error watching OIDC state token during authorization: %v", err)
+		if err == watchFailed || err == tokenDeleted {
+			return err // don't retry, just return the error
+		}
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	// Use the ID token passed from the authorization callback as our token source
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
-			AccessToken: oauthToken,
+			AccessToken: idToken,
 		},
 	)
 	userInfo, err := o.Provider.UserInfo(ctx, ts)
@@ -192,23 +256,25 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	si := stateInfoMap[state]
-	if idToken.Nonce != si.Nonce {
-		logrus.Errorf("expected nonces to match, instead set nonce %v but got nonce %v", si.Nonce, idToken.Nonce)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	logrus.Infof("nonce is %v", idToken.Nonce)
+	// Verify the ID token, and if it's valid, add it to this state's SessionInfo
+	// in etcd, so that any concurrent Authorize() calls can discover it and give
+	// the caller a Pachyderm token.
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		var si auth.SessionInfo
+		return sp.States.ReadWrite(stm).Update(state, &si, func() error {
+			if idToken.Nonce != si.Nonce {
+				logrus.Errorf("IDP nonce %v did not match Pachyderm's session nonce %v",
+					idToken.Nonce, si.Nonce)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return nil // no error in etcd read, even though the request is erroring
+			}
+			logrus.Infof("nonce is %v", idToken.Nonce)
 
-	si.Token = tok.AccessToken
-	logrus.Infof("saving state with access token")
-	stateInfoMap[state] = si
-
-	// let the CLI know that we've successfully exchanged the code, and verified the token
-	tokenChan <- tokenInfo{token: tok.AccessToken, err: err}
-	// make sure the channel is cleaned up for future logins
-	close(tokenChan)
-	tokenChan = make(chan tokenInfo)
+			si.IDToken = rawIDToken
+			logrus.Infof("saving state with access token")
+			return nil
+		})
+	})
 
 	fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
 }

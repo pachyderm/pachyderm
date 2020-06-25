@@ -51,6 +51,7 @@ const (
 	membersPrefix          = "/members"
 	groupsPrefix           = "/groups"
 	configPrefix           = "/config"
+	oidcAuthnPrefix        = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	// and the default lifetime of an auth token from GetAuthToken.
@@ -895,11 +896,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		oidcSP := a.getOIDCSP()
 		if oidcSP == nil {
 			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
-		}
-		// first wait to see if the token was exchanged without any errors
-		ti := <-tokenChan
-		if ti.err != nil {
-			return nil, errors.Wrapf(ti.err, "error exchanging token")
 		}
 
 		// Determine caller's Pachyderm/OIDC user info (email)
@@ -1906,7 +1902,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
 	}
 
-	authURL, state, err := sp.GetOIDCLoginURL()
+	authURL, state, err := sp.GetOIDCLoginURL(ctx)
 	if err != nil {
 		return nil, err
 	}
