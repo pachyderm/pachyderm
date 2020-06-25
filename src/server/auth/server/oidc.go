@@ -51,30 +51,30 @@ func CryptoString(n int) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// NewOIDCIDP creates a new internalOIDCProvider object from the given parameters
-func NewOIDCIDP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
-	o := &InternalOIDCProvider{}
+// NewOIDCSP creates a new internalOIDCProvider object from the given parameters
+func NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
+	o := &InternalOIDCProvider{
+		Issuer:       issuer,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURI:  redirectURI,
+	}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
-	o.Issuer = issuer
-	o.ClientID = clientID
-	o.ClientSecret = clientSecret
-	o.RedirectURI = redirectURI
-	return o, err
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
+	if o == nil {
+		return "", "", fmt.Errorf("OIDC ID provider configuration not found")
+	}
 	state := CryptoString(30)
 	nonce := CryptoString(30)
 	var err error
-	// prepare request by filling out parameters
-	if o.Provider == nil {
-		o.Provider, err = oidc.NewProvider(context.Background(), o.Issuer)
-		if err != nil {
-			return "", "", fmt.Errorf("provider could not be found: %v", err)
-		}
-	}
 	conf := oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,

@@ -532,7 +532,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			}
 		}
 		if idp.OIDC != nil {
-			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(),
+			a.oidcSP, err = NewOIDCSP(a.env.GetEtcdClient().Ctx(),
 				idp.OIDC.Issuer,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,
