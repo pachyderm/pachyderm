@@ -608,8 +608,8 @@ func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server
 	return errV2NotImplemented
 }
 
-// PutTarV2 not implemented by v1 apiServer
-func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
+// FileOperationV2 not implemented by v1 apiServer
+func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) error {
 	return errV2NotImplemented
 }
 

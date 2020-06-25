@@ -12,80 +12,123 @@ import (
 
 // PutTarV2 puts a tar stream into PFS.
 func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) error {
-	ptc, err := c.NewPutTarClientV2(repo, commit)
+	foc, err := c.NewFileOperationClientV2(repo, commit)
 	if err != nil {
 		return err
 	}
-	if err := ptc.PutTar(r, tag...); err != nil {
+	if err := foc.PutTar(r, tag...); err != nil {
 		return err
 	}
-	return ptc.Close()
+	return foc.Close()
 }
 
-// PutTarClient is used for performing a stream of put tar operations.
-// The files are not persisted until the PutTarClient is closed.
-// PutTarClient is not thread safe. Multiple PutTarClients (or PutTar calls)
+// DeleteFilesV2 deletes a set of files.
+// The optional tag field indicates specific tags in the files to delete.
+func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...string) error {
+	foc, err := c.NewFileOperationClientV2(repo, commit)
+	if err != nil {
+		return err
+	}
+	if err := foc.DeleteFiles(files, tag...); err != nil {
+		return err
+	}
+	return foc.Close()
+}
+
+// FileOperationClient is used for performing a stream of file operations.
+// The operations are not persisted until the FileOperationClient is closed.
+// FileOperationClient is not thread safe. Multiple FileOperationClients
 // should be used for concurrent upload.
-type PutTarClient struct {
-	client pfs.API_PutTarV2Client
+type FileOperationClient struct {
+	client pfs.API_FileOperationV2Client
 	err    error
 }
 
-// NewPutTarClientV2 creates a new PutTarClient.
-func (c APIClient) NewPutTarClientV2(repo, commit string) (_ *PutTarClient, retErr error) {
+// NewFileOperationClientV2 creates a new FileOperationClient.
+func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperationClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIClient.PutTarV2(c.Ctx())
+	client, err := c.PfsAPIClient.FileOperationV2(c.Ctx())
 	if err != nil {
 		return nil, err
 	}
-	if err := client.Send(&pfs.PutTarRequestV2{
+	if err := client.Send(&pfs.FileOperationRequestV2{
 		Commit: NewCommit(repo, commit),
 	}); err != nil {
 		return nil, err
 	}
-	return &PutTarClient{client: client}, nil
+	return &FileOperationClient{client: client}, nil
 }
 
 // PutTar puts a tar stream into PFS.
-// The files are not persisted until the PutTarClient is closed.
-func (ptc *PutTarClient) PutTar(r io.Reader, tag ...string) error {
-	return ptc.maybeError(func() error {
+func (foc *FileOperationClient) PutTar(r io.Reader, tag ...string) error {
+	return foc.maybeError(func() error {
 		if len(tag) > 0 {
 			if len(tag) > 1 {
 				return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
 			}
-			if err := ptc.client.Send(&pfs.PutTarRequestV2{Tag: tag[0]}); err != nil {
+			if err := foc.sendPutTar(&pfs.PutTarRequestV2{Tag: tag[0]}); err != nil {
 				return err
 			}
 		}
 		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
-			return ptc.client.Send(&pfs.PutTarRequestV2{Data: data})
+			return foc.sendPutTar(&pfs.PutTarRequestV2{Data: data})
 		}); err != nil {
 			return err
 		}
-		return ptc.client.Send(&pfs.PutTarRequestV2{EOF: true})
+		return foc.sendPutTar(&pfs.PutTarRequestV2{EOF: true})
 	})
 }
 
-func (ptc *PutTarClient) maybeError(f func() error) (retErr error) {
-	if ptc.err != nil {
-		return ptc.err
+func (foc *FileOperationClient) maybeError(f func() error) (retErr error) {
+	if foc.err != nil {
+		return foc.err
 	}
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 		if retErr != nil {
-			ptc.err = retErr
+			foc.err = retErr
 		}
 	}()
 	return f()
 }
 
-// Close closes the PutTarClient, which persists the files.
-func (ptc *PutTarClient) Close() error {
-	return ptc.maybeError(func() error {
-		_, err := ptc.client.CloseAndRecv()
+func (foc *FileOperationClient) sendPutTar(req *pfs.PutTarRequestV2) error {
+	return foc.client.Send(&pfs.FileOperationRequestV2{
+		Operation: &pfs.FileOperationRequestV2_PutTar{
+			PutTar: req,
+		},
+	})
+}
+
+// DeleteFiles deletes a set of files.
+// The optional tag field indicates specific tags in the files to delete.
+func (foc *FileOperationClient) DeleteFiles(files []string, tag ...string) error {
+	return foc.maybeError(func() error {
+		req := &pfs.DeleteFilesRequestV2{Files: files}
+		if len(tag) > 0 {
+			if len(tag) > 1 {
+				return errors.Errorf("DeleteFiles called with %v tags, expected 0 or 1", len(tag))
+			}
+			req.Tag = tag[0]
+		}
+		return foc.sendDeleteFiles(req)
+	})
+}
+
+func (foc *FileOperationClient) sendDeleteFiles(req *pfs.DeleteFilesRequestV2) error {
+	return foc.client.Send(&pfs.FileOperationRequestV2{
+		Operation: &pfs.FileOperationRequestV2_DeleteFiles{
+			DeleteFiles: req,
+		},
+	})
+}
+
+// Close closes the FileOperationClient.
+func (foc *FileOperationClient) Close() error {
+	return foc.maybeError(func() error {
+		_, err := foc.client.CloseAndRecv()
 		return err
 	})
 }

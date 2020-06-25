@@ -386,8 +386,8 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
-func (c *pfsBuilderClient) PutTarV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutTarV2Client, error) {
-	return nil, unsupportedError("PutTarV2")
+func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_FileOperationV2Client, error) {
+	return nil, unsupportedError("FileOperationV2")
 }
 func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
 	return nil, unsupportedError("GetTarV2")

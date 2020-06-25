@@ -228,6 +228,10 @@ func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob str
 		return nil
 	}
 	if err := d.storage.ResolveIndexes(ctx, compactedPaths, func(idx *index.Index) error {
+		// Ignore index entries for deleted files.
+		if len(idx.DataOp.DataRefs) == 0 {
+			return nil
+		}
 		if fr == nil {
 			return nextFileReader(idx)
 		}
@@ -289,6 +293,7 @@ type FileReader struct {
 func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
 	h := pfs.NewHash()
 	for _, dataRef := range idx.DataOp.DataRefs {
+		// TODO Pull from chunk hash.
 		h.Write([]byte(dataRef.Hash))
 	}
 	return &FileReader{
