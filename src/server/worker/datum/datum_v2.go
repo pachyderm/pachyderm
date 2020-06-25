@@ -2,20 +2,26 @@ package datum
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 const (
-	TmpFileName   = "tmp"
-	InputFileName = "input"
-	OutputPrefix  = "pfs/out"
+	MetaPrefix        = "meta"
+	MetaFileName      = "meta"
+	PFSPrefix         = "pfs"
+	OutputPrefix      = "out"
+	TmpFileName       = "tmp"
+	defaultNumRetries = 0
 )
 
 type PutTarClient interface {
@@ -31,23 +37,23 @@ type DatumHasher interface {
 
 type SetOption func(*Set)
 
-func WithDatumOutput(ptc PutTarClient) SetOption {
+func WithMetaOutput(ptc PutTarClient) SetOption {
 	return func(s *Set) {
-		s.datumOutputClient = ptc
+		s.metaOutputClient = ptc
 	}
 }
 
-func WithRawOutput(ptc PutTarClient) SetOption {
+func WithPFSOutput(ptc PutTarClient) SetOption {
 	return func(s *Set) {
-		s.rawOutputClient = ptc
+		s.pfsOutputClient = ptc
 	}
 }
 
 type Set struct {
-	pachClient                         *client.APIClient
-	hasher                             DatumHasher
-	storageRoot                        string
-	datumOutputClient, rawOutputClient PutTarClient
+	pachClient                        *client.APIClient
+	hasher                            DatumHasher
+	storageRoot                       string
+	metaOutputClient, pfsOutputClient PutTarClient
 }
 
 func WithSet(pachClient *client.APIClient, storageRoot string, hasher DatumHasher, cb func(s *Set) error, opts ...SetOption) (retErr error) {
@@ -70,96 +76,146 @@ func WithSet(pachClient *client.APIClient, storageRoot string, hasher DatumHashe
 	return cb(s)
 }
 
-func (s *Set) WithDatum(inputs []*common.InputV2, cb func(d *Datum) error) (retErr error) {
+// TODO: Handle datum concurrency here, and potentially move symlinking here.
+func (s *Set) WithDatum(ctx context.Context, inputs []*common.InputV2, cb func(d *Datum) error, opts ...DatumOption) (retErr error) {
 	hash := s.hasher.Hash(inputs)
 	d := &Datum{
-		set:         s,
-		inputs:      inputs,
-		hash:        hash,
-		storageRoot: path.Join(s.storageRoot, hash),
+		set: s,
+		meta: &Meta{
+			Inputs: inputs,
+		},
+		hash:            hash,
+		metaStorageRoot: path.Join(s.storageRoot, MetaPrefix, hash),
+		pfsStorageRoot:  path.Join(s.storageRoot, PFSPrefix, hash),
+		numRetries:      defaultNumRetries,
 	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	attemptsLeft := d.numRetries + 1
+	return backoff.RetryUntilCancel(ctx, func() error {
+		return d.withData(func() error {
+			if err := cb(d); err != nil {
+				if attemptsLeft == 0 {
+					return d.handleFailedDatum(err)
+				}
+				attemptsLeft--
+				return err
+			}
+			return d.uploadOutput()
+		})
+	}, &backoff.ZeroBackOff{}, func(_ error, _ time.Duration) error {
+		return nil
+	})
+}
+
+type DatumOption func(*Datum)
+
+func WithRetry(numRetries int) DatumOption {
+	return func(d *Datum) {
+		d.numRetries = numRetries
+	}
+}
+
+func WithRecoveryCallback(cb func() error) DatumOption {
+	return func(d *Datum) {
+		d.recoveryCallback = cb
+	}
+}
+
+type Datum struct {
+	set  *Set
+	meta *Meta
+	// TODO: Create separate id from input paths for top level directory.
+	hash                            string
+	pfsStorageRoot, metaStorageRoot string
+	numRetries                      int
+	recoveryCallback                func() error
+}
+
+func (d *Datum) StorageRoot() string {
+	return d.pfsStorageRoot
+}
+
+func (d *Datum) handleFailedDatum(err error) error {
+	d.meta.State = State_FAILED
+	if d.recoveryCallback != nil {
+		err = d.recoveryCallback()
+		if err == nil {
+			d.meta.State = State_RECOVERED
+		}
+	}
+	// TODO: Store error in meta.
+	return d.uploadMetaOutput()
+}
+
+func (d *Datum) withData(cb func() error) (retErr error) {
 	// Setup and defer cleanup of datum directory.
-	if err := os.MkdirAll(d.storageRoot, 0700); err != nil {
+	if err := os.MkdirAll(d.pfsStorageRoot, 0700); err != nil {
 		return err
 	}
 	defer func() {
-		if err := os.RemoveAll(d.storageRoot); retErr == nil {
+		if err := os.RemoveAll(d.pfsStorageRoot); retErr == nil {
 			retErr = err
 		}
 	}()
 	// Download input files.
-	for _, input := range inputs {
-		if err := sync.PullV2(s.pachClient, input.FileInfo.File, path.Join(d.storageRoot, input.Name)); err != nil {
+	// TODO: Move to copy file for inputs to datum file set.
+	for _, input := range d.meta.Inputs {
+		if err := sync.PullV2(d.set.pachClient, input.FileInfo.File, path.Join(d.pfsStorageRoot, input.Name)); err != nil {
 			return err
 		}
 	}
-	// Defer upload of output.
-	// TODO: Upload during error?
+	return cb()
+}
+
+func (d *Datum) uploadMetaOutput() error {
+	if d.set.metaOutputClient != nil {
+		if err := d.uploadMetaFile(); err != nil {
+			return err
+		}
+		return d.upload(d.set.metaOutputClient, d.pfsStorageRoot)
+	}
+	return nil
+}
+
+func (d *Datum) uploadMetaFile() (retErr error) {
+	// Setup and defer cleanup of meta directory.
+	if err := os.MkdirAll(d.metaStorageRoot, 0700); err != nil {
+		return err
+	}
 	defer func() {
-		if err := d.uploadOutput(); retErr == nil {
+		if err := os.RemoveAll(d.metaStorageRoot); retErr == nil {
 			retErr = err
 		}
 	}()
-	// TODO: Record failures.
-	return cb(d)
-}
-
-type Datum struct {
-	set    *Set
-	inputs []*common.InputV2
-	// TODO: Create separate id from input paths for top level directory.
-	hash        string
-	storageRoot string
-}
-
-func (d *Datum) StorageRoot() string {
-	return d.storageRoot
-}
-
-func (d *Datum) Fail() {
-
-}
-
-func (d *Datum) Recover() {
-
+	marshaler := &jsonpb.Marshaler{}
+	buf := &bytes.Buffer{}
+	if err := marshaler.Marshal(buf, d.meta); err != nil {
+		return err
+	}
+	fullPath := path.Join(d.metaStorageRoot, MetaFileName)
+	if err := sync.WriteFile(fullPath, buf); err != nil {
+		return err
+	}
+	return d.upload(d.set.metaOutputClient, d.metaStorageRoot)
 }
 
 func (d *Datum) uploadOutput() error {
-	if d.set.datumOutputClient != nil {
-		if err := d.serializeInputs(); err != nil {
-			return err
-		}
-		if err := d.upload(d.set.datumOutputClient, d.storageRoot); err != nil {
-			return err
-		}
+	if err := d.uploadMetaOutput(); err != nil {
+		return err
 	}
-	if d.set.rawOutputClient != nil {
-		if err := d.upload(d.set.rawOutputClient, path.Join(d.storageRoot, OutputPrefix)); err != nil {
+	if d.set.pfsOutputClient != nil {
+		if err := d.upload(d.set.pfsOutputClient, path.Join(d.pfsStorageRoot, OutputPrefix)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *Datum) serializeInputs() error {
-	marshaler := &jsonpb.Marshaler{}
-	buf := &bytes.Buffer{}
-	for _, input := range d.inputs {
-		if err := marshaler.Marshal(buf, input); err != nil {
-			return err
-		}
-	}
-	return d.writeFile(InputFileName, buf)
-}
-
-func (d *Datum) writeFile(fileName string, r io.Reader) error {
-	fullPath := path.Join(d.storageRoot, fileName)
-	return sync.WriteFile(fullPath, r)
-}
-
 func (d *Datum) upload(ptc PutTarClient, storageRoot string) error {
 	// TODO: Might make more sense to convert to tar on the fly.
-	f, err := os.Create(path.Join(d.storageRoot, TmpFileName))
+	f, err := os.Create(path.Join(storageRoot, TmpFileName))
 	if err != nil {
 		return err
 	}

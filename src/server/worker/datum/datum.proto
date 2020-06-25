@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package pachyderm.worker.datum;
+option go_package = "github.com/pachyderm/pachyderm/src/server/worker/datum";
+
+import "server/worker/common/common.proto";
+
+enum State {
+  PROCESSED = 0;
+  FAILED = 1;
+  RECOVERED = 2;
+}
+
+message Meta {
+  repeated common.InputV2 inputs = 1;
+  Stats stats = 2;
+  State state = 3;
+  string reason = 4;
+}
+
+message Stats {
+}
+

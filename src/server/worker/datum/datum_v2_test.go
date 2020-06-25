@@ -3,6 +3,7 @@ package datum
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -61,19 +62,19 @@ func TestSet(t *testing.T) {
 				return err
 			}
 			return di.Iterate(func(inputs []*common.InputV2) error {
-				return s.WithDatum(inputs, func(d *Datum) error {
+				return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
 					return copyFile(path.Join(d.StorageRoot(), OutputPrefix), path.Join(d.StorageRoot(), inputName), func(_ []byte) []byte {
 						return []byte("output")
 					})
 				})
 			})
-		}, WithDatumOutput(foc)))
+		}, WithMetaOutput(foc)))
 		require.NoError(t, c.FinishCommit(outputRepo, outputCommit.ID))
 		// Check output.
 		require.NoError(t, WithSet(c, "", &hasher{}, func(s *Set) error {
 			di := NewFileSetIterator(c, outputRepo, outputCommit.ID)
 			return di.Iterate(func(inputs []*common.InputV2) error {
-				return s.WithDatum(inputs, func(d *Datum) error {
+				return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
 					return nil
 				})
 			})

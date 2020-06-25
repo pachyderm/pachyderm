@@ -115,22 +115,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 			err = errors.Unwrap(err)
 		}
 	}()
-	if driver.StorageV2 {
-		datumData, err := deserializeDatumDataV2(subtask.Data)
-		if err != nil {
-			return err
-		}
-		return status.withJob(datumData.JobID, func() error {
-			logger = logger.WithJob(datumData.JobID)
-			if err := logger.LogStep("datum task", func() error {
-				return handleDatumTaskV2(driver, logger, datumData, subtask.ID, status)
-			}); err != nil {
-				return err
-			}
-			subtask.Data, err = serializeDatumData(datumData)
-			return err
-		})
-	}
+
 	// Handle 'process datum' tasks
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
@@ -371,61 +356,6 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 
 		return nil
 	})
-}
-
-func handleDatumTaskV2(driver driver.Driver, logger logs.TaggedLogger, data *DatumDataV2, subtaskID string, status *Status) error {
-	storageRoot := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-	h := &hasher{
-		name: driver.PipelineInfo().Pipeline.Name,
-		salt: driver.PipelineInfo().Salt,
-	}
-	return datum.WithSet(pachClient, logger.JobID(), storageRoot, h, func(s *Set) {
-		di := datum.NewFileSetIterator("/tmp", data.DatumFileSet)
-		return di.Iterate(func(inputs []*common.Input) error {
-			return s.WithDatum(inputs, func(d *Datum) error {
-				var failures int64
-				if err := backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
-					// WithActiveData acquires a mutex so that we don't run this section concurrently
-					if err := driver.WithActiveData(inputs, d.StorageRoot(), func() error {
-						ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
-						defer cancel()
-						driver := driver.WithContext(ctx)
-						return status.withDatum(inputs, cancel, func() error {
-							env := userCodeEnv(driver, logger.JobID(), outputCommit, inputs)
-							if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-								if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
-									if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-										return errors.Wrap(err, "RunUserErrorHandlingCode")
-									}
-									return errDatumRecovered
-								}
-								return err
-							}
-							return nil
-						})
-					}); err != nil {
-						return err
-					}
-					return err
-				}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-					failures++
-					if failures >= driver.PipelineInfo().DatumTries {
-						logger.Logf("failed to process datum with error: %+v", err)
-						return err
-					}
-					logger.Logf("failed processing datum: %v, retrying in %v", err, d)
-					return nil
-				}); err != nil {
-					if err == errDatumRecovered {
-						d.Recovered()
-					} else {
-						d.Failed()
-					}
-					return nil
-				}
-			})
-		})
-	}, datum.WithRawOutput())
 }
 
 func processDatum(

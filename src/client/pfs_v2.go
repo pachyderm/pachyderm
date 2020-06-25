@@ -42,6 +42,19 @@ type FileOperationClient struct {
 	err    error
 }
 
+func (c APIClient) WithFileOperationClientV2(repo, commit string, cb func(*FileOperationClient) error) (retErr error) {
+	foc, err := c.NewFileOperationClientV2(repo, commit)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if retErr == nil {
+			retErr = foc.Close()
+		}
+	}()
+	return cb(foc)
+}
+
 // NewPutTarClientV2 creates a new PutTarClient.
 func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperationClient, retErr error) {
 	defer func() {
@@ -186,37 +199,6 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 	}
 }
 
-// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
-func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoV2) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
-	defer cancel()
-	req := &pfs.ListFileRequest{
-		File: NewFile(repoName, commitID, path),
-		Full: true,
-	}
-	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
-	if err != nil {
-		return err
-	}
-	for {
-		finfo, err := client.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-
-		if err := f(finfo); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type getTarConditionalReader struct {
 	client     pfs.API_GetTarConditionalV2Client
 	r          *bytes.Reader
@@ -263,4 +245,64 @@ func (r *getTarConditionalReader) drain() error {
 			return err
 		}
 	}
+}
+
+// ListFileV2 returns info about all files in a commit under path, calling cb with each FileInfoV2.
+func (c APIClient) ListFileV2(repo string, commit string, path string, cb func(*pfs.FileInfoV2) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	req := &pfs.ListFileRequest{
+		File: NewFile(repo, commit, path),
+	}
+	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		fi, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(fi); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GlobFileV2 returns info about all files in a commit that match pattern, calling cb with each FileInfoV2.
+func (c APIClient) GlobFileV2(repo string, commit string, pattern string, cb func(*pfs.FileInfoV2) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	req := &pfs.GlobFileRequest{
+		Commit:  NewCommit(repo, commit),
+		Pattern: pattern,
+	}
+	client, err := c.PfsAPIClient.GlobFileV2(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		fi, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := cb(fi); err != nil {
+			return err
+		}
+	}
+	return nil
 }

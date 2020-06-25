@@ -92,7 +92,8 @@ message DatumDataV2 {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
   string datum_fileset = 2;
   pfs.Commit output_commit = 3;
+  pfs.Commit stats_commit = 4;
 
   // Outputs
-  DatumStats stats = 4;
+  DatumStats stats = 5;
 }

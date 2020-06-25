@@ -145,6 +145,9 @@ func (w *Worker) worker() {
 				ctx,
 				func(ctx context.Context, subtask *work.Task) error {
 					driver := w.driver.WithContext(ctx)
+					if w.driver.StorageV2() {
+						return transform.WorkerV2(driver, logger, subtask, w.status)
+					}
 					return transform.Worker(driver, logger, subtask, w.status)
 				},
 			)

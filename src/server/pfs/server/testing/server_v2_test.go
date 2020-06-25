@@ -36,7 +36,7 @@ type loadConfig struct {
 
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
-	config.pachdConfig = newPachdConfig()
+	config.pachdConfig = NewPachdConfig()
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -45,35 +45,11 @@ func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 
 type loadConfigOption func(*loadConfig)
 
-// TODO Will use later, commenting to make linter happy.
-//func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
-//	return func(config *loadConfig) {
-//		config.pachdConfig = newPachdConfig(opts...)
-//	}
-//}
-
 func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 	return func(config *loadConfig) {
 		config.branchGens = append(config.branchGens, newBranchGenerator(opts...))
 	}
 }
-
-func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguration {
-	config := &serviceenv.PachdFullConfiguration{}
-	config.StorageV2 = true
-	config.StorageMemoryThreshold = units.GB
-	config.StorageShardThreshold = units.GB
-	config.StorageLevelZeroSize = units.MB
-	config.StorageGCPolling = "30s"
-	config.StorageCompactionMaxFanIn = 10
-	for _, opt := range opts {
-		opt(config)
-	}
-	return config
-}
-
-// TODO This should probably be moved to the corresponding packages with configuration available
-type pachdConfigOption func(*serviceenv.PachdFullConfiguration)
 
 // TODO Will use later, commenting to make linter happy.
 //func withMemoryThreshold(memoryThreshold int64) pachdConfigOption {
@@ -695,7 +671,7 @@ func TestListFileV2(t *testing.T) {
 		t.SkipNow()
 	}
 
-	config := newPachdConfig()
+	config := NewPachdConfig()
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))

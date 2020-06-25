@@ -2,7 +2,6 @@ package datum
 
 import (
 	"archive/tar"
-	"encoding/json"
 	"io"
 	"path"
 
@@ -41,9 +40,10 @@ func (pi *pfsIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
 	if pi.input == nil {
 		return nil
 	}
-	commit := client.NewCommit(pi.input.Repo, pi.input.Commit)
+	repo := pi.input.Repo
+	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFileV2(commit, pattern, func(fi *pfs.FileInfoV2) error {
+	return pi.pachClient.GlobFileV2(repo, commit, pattern, func(fi *pfs.FileInfoV2) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		return cb([]*common.InputV2{
@@ -174,7 +174,7 @@ func NewFileSetIterator(pachClient *client.APIClient, repo, commit string, baseF
 }
 
 func (fsi *fileSetIterator) Iterate(cb func([]*common.InputV2) error) error {
-	r, err := fsi.pachClient.GetTarV2(fsi.repo, fsi.commit, path.Join("/*", InputFileName))
+	r, err := fsi.pachClient.GetTarV2(fsi.repo, fsi.commit, path.Join(MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}
@@ -187,19 +187,11 @@ func (fsi *fileSetIterator) Iterate(cb func([]*common.InputV2) error) error {
 			}
 			return err
 		}
-		decoder := json.NewDecoder(tr)
-		var inputs []*common.InputV2
-		for {
-			input := &common.InputV2{}
-			if err := jsonpb.UnmarshalNext(decoder, input); err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-			inputs = append(inputs, input)
+		meta := &Meta{}
+		if err := jsonpb.Unmarshal(tr, meta); err != nil {
+			return err
 		}
-		return cb(inputs)
+		return cb(meta.Inputs)
 	}
 }
 
