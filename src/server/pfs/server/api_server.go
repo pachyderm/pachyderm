@@ -596,24 +596,31 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 // V2 Methods
+var errV2NotImplemented = errors.Errorf("v2 method not implemented")
+
 // GetTarV2 not implemented by v1 apiServer
 func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
-	return errors.Errorf("v2 method not implemented")
+	return errV2NotImplemented
 }
 
 // GetTarConditionalV2 not implemented by v1 apiServer
 func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	return errors.Errorf("v2 method not implemented")
+	return errV2NotImplemented
 }
 
 // PutTarV2 not implemented by v1 apiServer
 func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
-	return errors.Errorf("v2 method not implemented")
+	return errV2NotImplemented
 }
 
 // ListFileV2 not implemented by v1 apiServer
 func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	return errors.Errorf("v2 method not implemented")
+	return errV2NotImplemented
+}
+
+// GlobFileV2 not implemented
+func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) error {
+	return errV2NotImplemented
 }
 
 func drainFileServer(putFileServer interface {
