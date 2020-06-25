@@ -21,7 +21,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -76,12 +75,10 @@ func initPachClient(t testing.TB) (*client.APIClient, string) {
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
 		return c, ""
 	}
+
 	// Activate Pachyderm Enterprise (if it's not already active)
-	_, err := c.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
-		})
-	require.NoError(t, err)
+	require.NoError(t, tu.ActivateEnterprise(t, c))
+
 	activateResp, err := c.AuthAPIClient.Activate(context.Background(),
 		&auth.ActivateRequest{Subject: "robot:admin"},
 	)

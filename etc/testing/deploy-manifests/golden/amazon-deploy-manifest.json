@@ -503,7 +503,7 @@
             "name": "pachd",
             "image": "pachyderm/pachd:1.11.0",
             "command": [
-              "/app/pachd"
+              "/pachd"
             ],
             "ports": [
               {
@@ -950,7 +950,7 @@
             "readinessProbe": {
               "exec": {
                 "command": [
-                  "/app/pachd",
+                  "/pachd",
                   "--readiness"
                 ]
               }

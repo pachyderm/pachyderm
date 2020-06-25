@@ -37,7 +37,6 @@ type loadConfig struct {
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
 	config.pachdConfig = newPachdConfig()
-	config.pachdConfig.StorageCompactionMaxFanIn = 2
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -66,6 +65,7 @@ func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguratio
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelZeroSize = units.MB
 	config.StorageGCPolling = "30s"
+	config.StorageCompactionMaxFanIn = 10
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -695,8 +695,7 @@ func TestListFileV2(t *testing.T) {
 		t.SkipNow()
 	}
 
-	config := &serviceenv.PachdFullConfiguration{}
-	config.StorageV2 = true
+	config := newPachdConfig()
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -743,7 +742,7 @@ func TestCompaction(t *testing.T) {
 		const (
 			nFileSets   = 100
 			filesPer    = 10
-			fileSetSize = 1e6
+			fileSetSize = 1e3
 		)
 		for i := 0; i < nFileSets; i++ {
 			fsSpec := fileSetSpec{}

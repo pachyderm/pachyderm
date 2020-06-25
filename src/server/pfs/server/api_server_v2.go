@@ -244,3 +244,10 @@ func (a *apiServerV2) FinishCommitInTransaction(
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }
+
+func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfoV2) error {
+		return server.Send(fi)
+	})
+}

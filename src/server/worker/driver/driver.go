@@ -108,6 +108,10 @@ type Driver interface {
 	// two datums can be active concurrently.
 	WithActiveData([]*common.Input, string, func() error) error
 
+	// UserCodeEnv returns the set of environment variables to construct when
+	// launching the configured user process.
+	UserCodeEnv(string, *pfs.Commit, []*common.Input) []string
+
 	// RunUserCode links a specific scratch space for the active input/output
 	// data, then runs the pipeline's configured code. It uses a mutex to enforce
 	// that this is not done concurrently, and may block.
@@ -1317,4 +1321,46 @@ func (d *driver) UploadOutput(
 		return nil, errors.EnsureStack(err)
 	}
 	return b.Bytes(), nil
+}
+
+func (d *driver) UserCodeEnv(
+	jobID string,
+	outputCommit *pfs.Commit,
+	inputs []*common.Input,
+) []string {
+	result := os.Environ()
+
+	for _, input := range inputs {
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+	}
+
+	if jobID != "" {
+		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+
+		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
+			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
+			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
+			// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
+			// break the worker.APIServer initialization in newTestAPIServer (in
+			// worker/worker_test.go), which uses mock clients but has no good way to
+			// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
+			// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
+			// NewAPIServer, and then change this code.
+			result = append(
+				result,
+				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
+					ppsutil.SidecarS3GatewayService(jobID),
+					d.Namespace(),
+					os.Getenv("S3GATEWAY_PORT"),
+				),
+			)
+		}
+	}
+
+	if outputCommit != nil {
+		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	}
+
+	return result
 }

@@ -51,22 +51,6 @@ To list filesystem objects, complete the following steps:
      2019-07-12 14:36:27 master.raw_data
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd ls
-     ```
-
-     **System Response:**
-
-     ```
-     2019-07-12 15:09 master.train
-     2019-07-12 14:58 master.pre_process
-     2019-07-12 14:58 master.split
-     2019-07-12 14:58 stats.split
-     2019-07-12 14:36 master.raw_data
-     ```
-
 1. List the contents of a repository:
 
    * If you are using MinIO, type:
@@ -91,18 +75,6 @@ To list filesystem objects, complete the following steps:
 
      ```
      2019-07-26 11:22:23    2685061 github_issues_medium.csv
-     ```
-
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd ls s3://master.raw_data/
-     ```
-
-     **System Response:**
-
-     ```
-     2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
      ```
 
 ## Create an S3 Bucket
@@ -141,14 +113,6 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      make_bucket: master.test
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd mb s3://master.test
-     ```
-
-     This command creates the `test` repository with the `master` branch.
-
 1. Verify that the S3 bucket has been successfully created:
 
    * If you are using MinIO, type:
@@ -182,12 +146,6 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      2019-07-12 14:58:09 master.split
      2019-07-12 14:58:09 stats.split
      2019-07-12 14:36:27 master.raw_data
-     ```
-
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd ls
      ```
 
      **System Response:**
@@ -251,12 +209,6 @@ To remove an S3 bucket, run one of the following commands:
   remove_bucket: master.test
   ```
 
-* If you are using S3cmd, type:
-
-  ```bash
-  s3cmd rb s3://master.test
-  ```
-
 ## Upload and Download File Objects
 
 For input repositories at the top of your DAG, you can both add files
@@ -295,12 +247,6 @@ To add a file to a repository, complete the following steps:
      upload: ./test.csv to s3://master.raw_data/test.csv
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd cp test.csv s3://master.raw_data
-     ```
-
    These commands add the `test.csv` file to the `master` branch in
    the `raw_data` repository. `raw_data` is an input repository.
 
@@ -332,19 +278,6 @@ To add a file to a repository, complete the following steps:
      2019-07-19 12:11:37       62 test.csv
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd ls s3://master.raw_data/
-     ```
-
-     **System Response:**
-
-     ```
-     2019-07-19 12:11  2685061 github_issues_medium.csv
-     2019-07-19 12:11       62 test.csv
-     ```
-
 1. Download a file from MinIO to the
 current directory by running the following commands:
 
@@ -372,11 +305,6 @@ current directory by running the following commands:
      download: s3://master.raw_data/test.csv to ./test.csv
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd cp s3://master.raw_data/test.csv .
-     ```
 ## Remove a File Object
 
 You can delete a file in the `HEAD` of a Pachyderm branch by using the
@@ -410,19 +338,6 @@ MinIO command-line interface:
      2019-07-19 12:11:37         62 test.csv
      ```
 
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd ls s3://master.raw_data
-     ```
-
-     **System Response:**
-
-     ```
-     2019-07-19 12:11    2685061 github_issues_medium.csv
-     2019-07-19 12:11         62 test.csv
-     ```
-
 1. Delete a file from a repository. Example:
 
    * If you are using MinIO, type:
@@ -447,10 +362,4 @@ MinIO command-line interface:
 
      ```
      delete: s3://master.raw_data/test.csv
-     ```
-
-   * If you are using S3cmd, type:
-
-     ```bash
-     s3cmd rm s3://master.raw_data/test.csv
      ```

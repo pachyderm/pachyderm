@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
@@ -40,11 +41,13 @@ func openAndWait() error {
 func RunUserCode(
 	driver driver.Driver,
 	logger logs.TaggedLogger,
+	outputCommit *pfs.Commit,
+	inputs []*common.Input,
 ) error {
 	return backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
-		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
-		return driver.RunUserCode(logger, nil, &pps.ProcessStats{}, nil)
+		env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
+		return driver.RunUserCode(logger, env, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in RunUserCode: %+v, retrying in: %+v", err, d)
 		return nil
@@ -81,7 +84,6 @@ func ReceiveSpout(
 			if err := func() (retErr2 error) {
 
 				// create a new tar reader
-
 				outTar := tar.NewReader(out)
 
 				var commit *pfs.Commit

@@ -34,8 +34,7 @@ func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *
 		return gc.Run(masterCtx, objClient, db, opts...)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in pfs master: %v", err)
-		return nil
+		return err
 	})
-	// Never ending backoff should prevent us from getting here.
 	panic(err)
 }
