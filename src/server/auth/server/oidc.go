@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
+	goerr "errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,12 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
+)
+
+// various oidc invalid argument errors. Use 'goerror' instead of internal
+// 'errors' library b/c stack trace isn't useful
+var (
+	notConfigured = goerr.New("OIDC ID provider configuration not found")
 )
 
 var tokenChan chan tokenInfo
@@ -70,7 +77,7 @@ func NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (o *InternalOIDCProvider) GetOIDCLoginURL() (string, string, error) {
 	if o == nil {
-		return "", "", fmt.Errorf("OIDC ID provider configuration not found")
+		return "", "", notConfigured
 	}
 	state := CryptoString(30)
 	nonce := CryptoString(30)
