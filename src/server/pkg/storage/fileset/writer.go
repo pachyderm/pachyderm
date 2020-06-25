@@ -135,6 +135,8 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return w.tw.Write(data)
 }
 
+// DeleteFile deletes a file.
+// The optional tag field indicates specific tags in the files to delete.
 func (w *Writer) DeleteFile(name string, tags ...string) error {
 	if len(tags) == 0 {
 		tags = []string{headerTag}
@@ -150,6 +152,7 @@ func (w *Writer) DeleteFile(name string, tags ...string) error {
 	return nil
 }
 
+// DeleteTag deletes a tag in the current file.
 func (w *Writer) DeleteTag(id string) {
 	// TODO Might want this to be a map, then convert to slice.
 	w.idx.DataOp.DeleteTags = append(w.idx.DataOp.DeleteTags, &chunk.Tag{Id: id})
