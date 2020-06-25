@@ -13,17 +13,20 @@ ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
 IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
 
+# Kubernetes resources to delete that aren't removed via `pachctl undeploy`
 DELETABLE_RESOURCES = [
     "roles.rbac.authorization.k8s.io",
     "rolebindings.rbac.authorization.k8s.io"
 ]
 
+# Matches the end of one JSON object and the beginning of another
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
 
 client_version = None
 async def get_client_version():
+    """Gets the pachctl client version"""
     global client_version
     if client_version is None:
         client_version = (await capture("pachctl", "version", "--client-only")).strip()
@@ -33,6 +36,12 @@ class RedactedString(str):
     pass
 
 class BaseDriver:
+    """
+    The base driver. Most other drivers build off of this. Additionally, it
+    can be used directly for less prescriptive local kubernetes environments,
+    e.g. docker for mac.
+    """
+
     def image(self, name):
         return name
 
@@ -115,6 +124,7 @@ class BaseDriver:
             )
 
 class MinikubeDriver(BaseDriver):
+    """Driver for deploying to minikube"""
     async def reset(self):
         async def minikube_status():
             await run("minikube", "status", capture_output=True)
@@ -139,6 +149,7 @@ class MinikubeDriver(BaseDriver):
         await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
 
 class GCPDriver(BaseDriver):
+    """Driver for deploying to GCP"""
     def __init__(self, project_id, cluster_name=None):
         if cluster_name is None:
             cluster_name = f"pach-{secrets.token_hex(5)}"
@@ -156,6 +167,7 @@ class GCPDriver(BaseDriver):
         if cluster_exists:
             await super().reset()
         else:
+            # create the cluster from scratch if it doesn't exist already
             await run("gcloud", "config", "set", "container/cluster", self.cluster_name)
             await run("gcloud", "container", "clusters", "create", self.cluster_name, "--scopes=storage-rw",
                 "--machine-type=n1-standard-8", "--num-nodes=2")
@@ -183,6 +195,8 @@ class GCPDriver(BaseDriver):
             f"--registry=gcr.io/{self.project_id}"]
 
 class HubApiError(Exception):
+    """Encapsulates a hub API error response"""
+
     def __init__(self, errors):
         def get_message(error):
             try:
@@ -202,6 +216,8 @@ class HubApiError(Exception):
         self.errors = errors
 
 class HubDriver:
+    """Driver for deploying to hub"""
+
     def __init__(self, api_key, org_id, cluster_name):
         self.api_key = api_key
         self.org_id = org_id
@@ -285,6 +301,7 @@ class HubDriver:
         await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
+    """Runs a command asynchronously"""
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
     print_status("running: `{}`".format(" ".join(print_args)))
 
@@ -318,6 +335,10 @@ async def capture(cmd, *args, **kwargs):
     return stdout
 
 def find_in_json(j, f):
+    """
+    Recurses through a JSON value, looking for a value according to the input
+    function `f`.
+    """
     if f(j):
         return j
 
@@ -334,6 +355,7 @@ def find_in_json(j, f):
                 return v
 
 def print_status(status):
+    """Prints a status message"""
     print(f"===> {status}")
 
 async def retry(f, attempts=10, sleep=1.0):
@@ -352,6 +374,10 @@ async def retry(f, attempts=10, sleep=1.0):
             await asyncio.sleep(sleep)
 
 async def ping():
+    """
+    Raises an exception if the configured pachyderm cluster is not yet
+    reachable
+    """
     await run("pachctl", "version", timeout=5)
 
 async def main():
@@ -363,6 +389,7 @@ async def main():
     parser.add_argument("--skip-deploy", action="store_true", help="Skip deploy")
     args = parser.parse_args()
 
+    # sanity checks
     if "GOPATH" not in os.environ:
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
@@ -370,10 +397,10 @@ async def main():
     if args.skip_deploy and (args.dash or args.ide):
         raise Exception("Cannot set `--dash` or `--ide` with `--skip-deploy`")
 
+    # derive which driver to use from the target
     driver = None
-
     if args.target == "":
-        # derive which driver to use from the k8s context name
+        # if no target is specified, derive which driver to use from the k8s context name
         kube_context = await capture("kubectl", "config", "current-context", raise_on_error=False)
         kube_context = kube_context.strip() if kube_context else ""
         if kube_context == "minikube":
@@ -414,11 +441,13 @@ async def main():
     else:
         raise Exception(f"unknown target: {args.target}")
 
+    # clear environment & build everything in parallel
     procs = [run("make", "install"), driver.reset()]
     if not args.skip_build:
         procs.append(run("make", "docker-build"))
     await asyncio.gather(*procs)
 
+    # deploy
     if not args.skip_deploy:
         await driver.deploy(args.skip_build, args.dash, args.ide)
 
