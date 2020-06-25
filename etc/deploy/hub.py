@@ -106,8 +106,8 @@ async def main():
 
         await util.run("pachctl", "config", "set", "active-context", cluster_name)
 
-        # wait up to 10min for the cluster to work
-        await util.retry(util.ping, attempts=60, sleep=10)
+        # wait up to 30min for the cluster to work
+        await util.retry(util.ping, attempts=3*60, sleep=10)
 
         async def get_otp():
             response = request("GET", f"/organizations/{ORG_ID}/pachs/{pach_id}/otps")
