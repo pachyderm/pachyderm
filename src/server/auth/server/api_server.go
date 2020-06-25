@@ -891,6 +891,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	case req.OIDCState != "":
+		// confirm OIDC has been configured
+		_, oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
+		}
 		// first wait to see if the token was exchanged without any errors
 		ti := <-tokenChan
 		if ti.err != nil {
@@ -898,12 +903,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		// Determine caller's Pachyderm/OIDC user info (email)
-		_, a.oidcSP = a.getOIDCSP()
-		if a.oidcSP == nil {
-			return nil, errors.Errorf("could not find oidc configuration")
-		}
-
-		email, err := a.oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
+		email, err := oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
@@ -1901,10 +1901,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	var err error
 
-	cfg, sp := a.getOIDCSP()
-	if cfg == nil {
-		return nil, fmt.Errorf("auth has no active config (either never set or disabled)")
-	}
+	_, sp := a.getOIDCSP()
 	if sp == nil {
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
 	}
