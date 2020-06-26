@@ -97,6 +97,9 @@ message PFSInput {
   // this input by querying
   // http://<pipeline>-s3.<namespace>/<job id>.<input>/my/file
   bool s3 = 9;
+  // Trigger defines when this input is processed by the pipeline, if it's nil
+  // the input is processed anytime something is committed to the input branch.
+  pfs.Trigger trigger = 10;
 }
 
 message CronInput {
