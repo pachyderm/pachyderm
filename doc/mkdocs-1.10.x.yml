@@ -150,6 +150,7 @@ nav:
         - Use JupyterHub:
             - Overview: how-tos/use-jupyterhub/index.md
             - Using python-pachyderm in JupyterHub: how-tos/use-jupyterhub/using-jupyterhub.md
+        - Mount a Volume: how-tos/mount-volume.md
         - Pipeline Operations:
             - Create a Pipeline: how-tos/create-pipeline.md
             - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md

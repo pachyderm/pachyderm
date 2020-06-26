@@ -297,7 +297,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/app/pachd", "--mode", "sidecar"},
+				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,

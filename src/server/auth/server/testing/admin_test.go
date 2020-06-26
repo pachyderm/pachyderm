@@ -550,7 +550,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -623,7 +623,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	year := 365 * 24 * time.Hour
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
@@ -722,7 +722,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -776,7 +776,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -1437,6 +1437,9 @@ func TestActivateAsRobotUser(t *testing.T) {
 	deleteAll(t)
 	defer deleteAll(t)
 
+	// Activate Pachyderm Enterprise (if it's not already active)
+	require.NoError(t, tu.ActivateEnterprise(t, seedClient))
+
 	client := seedClient.WithCtx(context.Background())
 	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
 		Subject: robot("deckard"),
@@ -1465,6 +1468,9 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	}
 	deleteAll(t)
 	defer deleteAll(t)
+
+	// Activate Pachyderm Enterprise (if it's not already active)
+	require.NoError(t, tu.ActivateEnterprise(t, seedClient))
 
 	client := seedClient.WithCtx(context.Background())
 	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{

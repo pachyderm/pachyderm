@@ -330,7 +330,7 @@ spec:
     spec:
       containers:
       - command:
-        - /app/pachd
+        - /pachd
         env:
         - name: PACH_ROOT
           value: /pach
@@ -579,7 +579,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /app/pachd
+            - /pachd
             - --readiness
         resources:
           limits:
