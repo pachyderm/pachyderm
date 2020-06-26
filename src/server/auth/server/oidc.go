@@ -118,7 +118,15 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 	if o == nil {
 		return "", "", notConfigured
 	}
-	// TODO(msteffen): could we use UUIDs for these?
+	// TODO(msteffen, adelelopez): We *think* this 'if' block can't run anymore:
+	// (if o != nil, then o.Provider != nil)
+	// remove if no one reports seeing this error in 1.11.0.
+	if o.Provider == nil {
+		o.Provider, err = oidc.NewProvider(context.Background(), o.Issuer)
+		if err != nil {
+			return "", "", fmt.Errorf("provider could not be found: %v", err)
+		}
+	}
 	state := CryptoString(30)
 	nonce := CryptoString(30)
 	conf := oauth2.Config{
