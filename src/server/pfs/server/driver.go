@@ -1332,6 +1332,35 @@ func (d *driver) makeCommit(
 		}
 	}
 
+	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+	// newCommit to parent's ChildCommits
+	if parent.ID != "" {
+		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+		// happen if 'branch' is new and diverges from the existing branch in
+		// 'parent.ID')
+		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parent commit not found")
+		}
+		// fail if the parent commit has not been finished
+		if parentCommitInfo.Finished == nil {
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
+		}
+		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parent
+			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
+			if newCommitInfo.Branch == nil {
+				newCommitInfo.Branch = parentCommitInfo.Branch
+			}
+			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+			return nil
+		}); err != nil {
+			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+			// missing/invalid commit ID
+			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
+		}
+	}
+
 	// keep track of which branches are represented in the commit provenance
 	provenantBranches := make(map[string]bool)
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
@@ -1363,35 +1392,6 @@ func (d *driver) makeCommit(
 			return nil
 		}); err != nil {
 			return nil, err
-		}
-	}
-
-	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
-	// newCommit to parent's ChildCommits
-	if parent.ID != "" {
-		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
-		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent.ID')
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
-		if err != nil {
-			return nil, errors.Wrapf(err, "parent commit not found")
-		}
-		// fail if the parent commit has not been finished
-		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
-		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parent
-			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
-			if newCommitInfo.Branch == nil {
-				newCommitInfo.Branch = parentCommitInfo.Branch
-			}
-			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-			return nil
-		}); err != nil {
-			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-			// missing/invalid commit ID
-			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
 		}
 	}
 

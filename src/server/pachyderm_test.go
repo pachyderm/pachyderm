@@ -10003,7 +10003,7 @@ func TestSpout(t *testing.T) {
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
@@ -10020,6 +10020,13 @@ func TestSpout(t *testing.T) {
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
+
+		// check that the spec commit for the pipeline has the correct subvenance -
+		// there should be one entry for the output commit in the spout pipeline,
+		// and one for the propagated commit in the downstream pipeline
+		commitInfo, err := c.InspectCommit("__spec__", pipeline)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfo.Subvenance))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
