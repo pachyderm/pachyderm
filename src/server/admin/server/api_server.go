@@ -183,6 +183,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				ci.Finished = types.TimestampNow()
 			}
 			return writeOp(&admin.Op{Op1_11: &admin.Op1_11{Commit: &pfs.BuildCommitRequest{
+				Origin:     ci.Origin,
 				Parent:     ci.ParentCommit,
 				Tree:       ci.Tree,
 				ID:         ci.Commit.ID,
