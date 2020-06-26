@@ -2013,6 +2013,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
 	}
+	// determine standby state
+	standby := request.Standby
+	if a.env.DefaultStandby {
+		standby = !request.DisableStandby
+	}
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:              request.Pipeline,
 		Version:               1,
@@ -2037,7 +2042,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ChunkSpec:             request.ChunkSpec,
 		DatumTimeout:          request.DatumTimeout,
 		JobTimeout:            request.JobTimeout,
-		Standby:               request.Standby,
+		Standby:               standby,
 		DatumTries:            request.DatumTries,
 		SchedulingSpec:        request.SchedulingSpec,
 		PodSpec:               request.PodSpec,

@@ -680,6 +680,7 @@ message CreatePipelineRequest {
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
   pfs.Commit spec_commit = 34;
   Metadata metadata = 46;
+  bool disable_standby = 48;
 }
 
 message InspectPipelineRequest {
