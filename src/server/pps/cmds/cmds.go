@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -438,6 +439,32 @@ each datum.`,
 		follow      bool
 		tail        int64
 	)
+
+	// prettyLogsPrinter helps to print the logs recieved in different colours
+	prettyLogsPrinter := func(message string) {
+		informationArray := strings.Split(message, " ")
+		if len(informationArray) > 1 {
+			debugString := informationArray[1]
+			debugLevel := strings.ToLower(debugString)
+			var debugLevelColoredString string
+			if debugLevel == "info" {
+				debugLevelColoredString = color.New(color.FgGreen).Sprint(debugString)
+			} else if debugLevel == "warning" {
+				debugLevelColoredString = color.New(color.FgYellow).Sprint(debugString)
+			} else if debugLevel == "error" {
+				debugLevelColoredString = color.New(color.FgRed).Sprint(debugString)
+			} else {
+				debugLevelColoredString = debugString
+			}
+			informationArray[1] = debugLevelColoredString
+			coloredMessage := strings.Join(informationArray, " ")
+			fmt.Println(coloredMessage)
+		} else {
+			fmt.Println(message)
+		}
+
+	}
+
 	getLogs := &cobra.Command{
 		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]",
 		Short: "Return logs from a job.",
@@ -483,11 +510,11 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 					}
 					fmt.Println(buf.String())
 				} else if iter.Message().User {
-					fmt.Println(iter.Message().Message)
+					prettyLogsPrinter(iter.Message().Message)
 				} else if iter.Message().Master && master {
-					fmt.Println(iter.Message().Message)
+					prettyLogsPrinter(iter.Message().Message)
 				} else if pipelineName == "" && jobID == "" {
-					fmt.Println(iter.Message().Message)
+					prettyLogsPrinter(iter.Message().Message)
 				}
 			}
 			return iter.Err()
