@@ -103,6 +103,7 @@ type WorkerSpecificConfiguration struct {
 type FeatureFlags struct {
 	StorageV2                    bool `env:"STORAGE_V2,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
+	DefaultStandby               bool `env:"DEFAULT_STANDBY,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.
