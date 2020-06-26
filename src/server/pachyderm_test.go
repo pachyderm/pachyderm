@@ -10003,7 +10003,7 @@ func TestSpout(t *testing.T) {
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
