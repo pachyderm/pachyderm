@@ -73,6 +73,26 @@ class BaseDriver:
         deployments_str = await capture(*deploy_args)
         deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
 
+        if os.environ.get("PACH_DEFAULT_STANDBY") == "true":
+            # find the pachd deployment
+            def find_pachd_deployment(j):
+                if isinstance(j, dict) and j.get("kind") == "Deployment":
+                    metadata = j.get("metadata")
+                    if metadata:
+                        return metadata.get("name") == "pachd"
+                return False
+            pachd_deployment = find_in_json(deployments_json, find_pachd_deployment)
+            assert pachd_deployment is not None, "could not find pachd deployment"
+
+            # inject the feature flag env var
+            pachd_containers = pachd_deployment["spec"]["template"]["spec"]["containers"]
+            for pachd_container in pachd_containers:
+                if pachd_container.get("name") == "pachd":
+                    pachd_container["env"].append({
+                        "name": "DEFAULT_STANDBY",
+                        "value": "true",
+                    })
+
         dash_spec = find_in_json(deployments_json, lambda j: \
             isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
         grpc_proxy_spec = find_in_json(deployments_json, lambda j: \
@@ -92,7 +112,7 @@ class BaseDriver:
             push_images.append(grpc_proxy_spec["image"])
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
-        await run("kubectl", "create", "-f", "-", stdin=deployments_str)
+        await run("kubectl", "create", "-f", "-", stdin="\n".join(json.dumps(m) for m in deployments_json))
 
         await retry(ping, attempts=60)
 
