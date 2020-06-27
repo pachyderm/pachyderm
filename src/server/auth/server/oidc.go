@@ -106,7 +106,7 @@ func (a *apiServer) NewOIDCSP(issuer, clientID, clientSecret, redirectURI string
 			a.env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
 			nil,
-			&auth.SessionInfo{}, // TODO make OIDCSessionInfo
+			&auth.SessionInfo{},
 			nil,
 			nil,
 		),
