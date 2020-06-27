@@ -526,11 +526,8 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 				//                        by the Metadata service)
 			}
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
 		if idp.OIDC != nil {
 			a.oidcSP, err = a.NewOIDCSP(
-				ctx,
 				idp.OIDC.Issuer,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,

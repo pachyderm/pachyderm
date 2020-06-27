@@ -95,7 +95,7 @@ func CryptoString(n int) string {
 }
 
 // NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
-func (a *apiServer) NewOIDCSP(ctx context.Context, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
+func (a *apiServer) NewOIDCSP(issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
 	o := &InternalOIDCProvider{
 		a:            a,
 		Issuer:       issuer,
@@ -112,7 +112,16 @@ func (a *apiServer) NewOIDCSP(ctx context.Context, issuer, clientID, clientSecre
 		),
 	}
 	var err error
-	o.Provider, err = oidc.NewProvider(ctx, issuer)
+	o.Provider, err = oidc.NewProvider(
+		// Due to the implementation of go-oidc, this context is used for RPCs
+		// (fetching certificates) within all future OIDC authentication flows.
+		// Thus, it must not have a timeout. We ideally should create a new
+		// context.WithCancel() and cancel that new context if/when o.Provider is
+		// updated, but we don't have a convenient place to put that cancel() call
+		// and the effect of this omission is limited to in-flight authentication
+		// flows at the moment that o.Provider updated, so we're ignoring it.
+		context.Background(),
+		issuer)
 	if err != nil {
 		return nil, err
 	}
