@@ -29,7 +29,7 @@ const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
 var (
 	notConfigured = goerr.New("OIDC ID provider configuration not found")
 	watchFailed   = goerr.New("error converting OIDC state token (has it expired?)")
-	tokenDeleted  = goerr.New("error converting OIDC state token: it expired or was exercised")
+	tokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
 
 // InternalOIDCProvider contains information about the configured OIDC ID
