@@ -213,7 +213,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 			if si.AccessToken != "" {
 				accessToken = si.AccessToken
 				return nil // success
-			} else if si.AuthCodeErr != "" {
+			} else if si.ConversionErr {
 				return authFailed
 			}
 			logrus.Errorf("ID token unset in OIDC conversion watch event")
@@ -313,7 +313,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 			if conversionErr == nil {
 				si.AccessToken = accessToken
 			} else {
-				si.AuthCodeErr = authFailed.Error()
+				si.ConversionErr = true
 			}
 			return nil
 		})

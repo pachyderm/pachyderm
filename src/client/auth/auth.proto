@@ -392,11 +392,15 @@ message SessionInfo {
   // access_token contains a user's OIDC access token, which can be used to get
   // their user info.
   string access_token = 2;
-  // auth_code_err contains any error encountered while exchanging an
-  // authorization code for an access token (in /authorization-code/callback).
-  // Storing it here allows any related calls to Authenticate() to read then
-  // error and return it to pachctl, so that the CLI can print it.
-  string auth_code_err = 3;
+  // conversion_err indicates whether an error was encountered while exchanging
+  // an auth code for an access token, or while obtaining a user's email (in
+  // /authorization-code/callback). Storing the error state here allows any
+  // sibling calls to Authenticate() (i.e. using the same OIDC state token) to
+  // notify their caller that an error has occurred. We avoid passing the caller
+  // any details of the error (which are logged by Pachyderm) to avoid giving
+  // information to a user who has network access to Pachyderm but not an
+  // account in the OIDC provider.
+  bool conversion_err = 3;
 }
 
 //// OIDC API
