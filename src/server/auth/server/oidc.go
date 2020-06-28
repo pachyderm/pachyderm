@@ -43,6 +43,10 @@ type InternalOIDCProvider struct {
 	// state tokens to etcd during authorization
 	a *apiServer
 
+	// Prefix indicates the user-specified name given to this ID provider in the
+	// Pachyderm auth config (i.e. taken from the IDP.Name field)
+	Prefix string
+
 	// Provider generates the ID provider login URL returned by GetOIDCLogin
 	Provider *oidc.Provider
 
@@ -96,9 +100,10 @@ func CryptoString(n int) string {
 }
 
 // NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
-func (a *apiServer) NewOIDCSP(issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
+func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
 	o := &InternalOIDCProvider{
 		a:            a,
+		Prefix:       name,
 		Issuer:       issuer,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,

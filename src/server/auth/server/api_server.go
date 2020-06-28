@@ -892,7 +892,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	case req.OIDCState != "":
-		// confirm OIDC has been configured
+		// confirm OIDC has been configured and get OIDC prefix
 		oidcSP := a.getOIDCSP()
 		if oidcSP == nil {
 			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
@@ -904,14 +904,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		canonicalConfig := a.getCacheConfig()
-		idps := canonicalConfig.IDPs
-		if len(idps) != 1 {
-			return nil, errors.Errorf("invalid config, oidc needs exactly one idp set")
-		}
-		prefix := idps[0].Name
-
-		username, err := a.canonicalizeSubject(ctx, prefix+":"+email)
+		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+email)
 		if err != nil {
 			return nil, err
 		}
