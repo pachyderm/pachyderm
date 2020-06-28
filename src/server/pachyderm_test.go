@@ -11558,7 +11558,8 @@ func TestMalformedPipeline(t *testing.T) {
 
 	pipelineName := tu.UniqueString("MalformedPipeline")
 
-	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
+	var err error
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "invalid pipeline spec", err.Error())
 
@@ -11672,6 +11673,14 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     &pps.Input{Cron: &pps.CronInput{}},
 	})
 	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
+	})
+	require.YesError(t, err)
 	require.Matches(t, "Empty spec string", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
@@ -11680,7 +11689,23 @@ func TestMalformedPipeline(t *testing.T) {
 		Input:     &pps.Input{Git: &pps.GitInput{}},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "clone URL is missing", err.Error())
+	require.Matches(t, "clone URL is missing \\(", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL is missing .git suffix", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL must use https protocol", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewPipeline(pipelineName),
@@ -11705,22 +11730,6 @@ func TestMalformedPipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "no input set", err.Error())
-}
-
-func TestSimpleCron(t *testing.T) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	pipelineName := tu.UniqueString("MalformedPipeline")
-
-	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
-		Transform: &pps.Transform{Cmd: []string{"bash"}, Stdin: []string{"echo foo > /pfs/out/file"}},
-		Input:     &pps.Input{Cron: &pps.CronInput{Spec: "@every 10s"}},
-	})
-	require.NoError(t, err)
-
-	// TODO: the worker fails to symlink active data directory - because there is no name?
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {

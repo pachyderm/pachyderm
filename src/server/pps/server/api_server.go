@@ -261,6 +261,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("multiple input types set")
 				}
 				set = true
+				if len(input.Cron.Name) == 0 {
+					return errors.Errorf("input must specify a name")
+				}
 				if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 					return errors.Wrapf(err, "error parsing cron-spec")
 				}
