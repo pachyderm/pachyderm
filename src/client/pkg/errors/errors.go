@@ -33,6 +33,7 @@ var (
 	WithStack = errors.WithStack
 )
 
+// StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
 type StackTrace = errors.StackTrace
 
 // EnsureStack will add a stack onto the given error only if it does not already
