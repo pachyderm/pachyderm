@@ -185,7 +185,6 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 			state, email, retErr)
 	}()
 	// reestablish watch in a loop, in case there's a watch error
-	var accessToken string
 	if err := backoff.RetryNotify(func() error {
 		watcher, err := o.States.ReadOnly(ctx).WatchOne(state)
 		if err != nil {
@@ -210,13 +209,13 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				// retry watch (maybe a valid SessionInfo will appear later?)
 				return errors.Wrapf(err, "error unmarshalling OIDC SessionInfo")
 			}
-			if si.AccessToken != "" {
-				accessToken = si.AccessToken
-				return nil // success
-			} else if si.ConversionErr {
+			if si.ConversionErr {
 				return authFailed
+			} else if si.Email != "" {
+				// Success
+				email = si.Email
+				return nil
 			}
-			logrus.Errorf("ID token unset in OIDC conversion watch event")
 		}
 		return nil
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
@@ -229,19 +228,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 	}); err != nil {
 		return "", err
 	}
-
-	// Use the ID token passed from the authorization callback as our token source
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: accessToken,
-		},
-	)
-	userInfo, err := o.Provider.UserInfo(ctx, ts)
-	if err != nil {
-		return "", err
-	}
-	logrus.Infof("recovered user info with email: '%v'", userInfo.Email)
-	return userInfo.Email, nil
+	return email, nil
 }
 
 // handleOIDCExchange implements the /authorization-code/callback endpoint. In
@@ -297,7 +284,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	// Verify the ID token, and if it's valid, add it to this state's SessionInfo
 	// in etcd, so that any concurrent Authorize() calls can discover it and give
 	// the caller a Pachyderm token.
-	nonce, accessToken, conversionErr := a.handleOIDCExchangeInternal(
+	nonce, email, conversionErr := a.handleOIDCExchangeInternal(
 		context.Background(), sp, code, state)
 	_, etcdErr := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var si auth.SessionInfo
@@ -311,7 +298,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 					nonce, si.Nonce)
 			}
 			if conversionErr == nil {
-				si.AccessToken = accessToken
+				si.Email = email
 			} else {
 				si.ConversionErr = true
 			}
@@ -352,12 +339,12 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in etcd and sending an HTTP
 // response to the user's browser.
-func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *InternalOIDCProvider, authCode, state string) (nonce, accessToken string, retErr error) {
+func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *InternalOIDCProvider, authCode, state string) (nonce, email string, retErr error) {
 	// log request, but do not log auth code (short-lived, but senstive user authenticator)
 	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", state)
 	defer func() {
-		logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q, \"nonce\": %q }",
-			state, nonce)
+		logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q, \"nonce\": %q, \"email\": %q }",
+			state, nonce, email)
 	}()
 	conf := &oauth2.Config{
 		ClientID:     sp.ClientID,
@@ -385,7 +372,18 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	if err != nil {
 		return "", "", errors.Wrapf(err, "could not verify token")
 	}
-	return idToken.Nonce, tok.AccessToken, nil
+
+	// Use the ID token passed from the authorization callback as our token source
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{
+			AccessToken: tok.AccessToken,
+		},
+	)
+	userInfo, err := sp.Provider.UserInfo(ctx, ts)
+	if err != nil {
+		return "", "", errors.Wrapf(err, "could not get user info")
+	}
+	return idToken.Nonce, userInfo.Email, nil
 }
 
 func (a *apiServer) serveOIDC() {

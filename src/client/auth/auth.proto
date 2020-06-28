@@ -389,9 +389,14 @@ message SessionInfo {
   // continuity with the IdP after a user has arrived there from GetOIDCLogin().
   // This is a 30-character CSPRNG-generated string.
   string nonce = 1;
-  // access_token contains a user's OIDC access token, which can be used to get
-  // their user info.
-  string access_token = 2;
+  // email contains the email adddress associated with a user in their OIDC ID
+  // provider. Currently users are identified with their email address rather
+  // than their OIDC subject identifier to make switching between OIDC ID
+  // providers easier for users, and to make user identities more easily
+  // comprehensible in Pachyderm. The OIDC spec doesn't require that users'
+  // emails be present or unique, but we think this will be preferable in
+  // practice.
+  string email = 2;
   // conversion_err indicates whether an error was encountered while exchanging
   // an auth code for an access token, or while obtaining a user's email (in
   // /authorization-code/callback). Storing the error state here allows any
