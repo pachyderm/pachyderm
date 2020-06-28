@@ -376,14 +376,14 @@ message SetACLResponse {}
 //// OIDC Data Structures ////
 //////////////////////////////
 
-// SessionInfo stores information associated with one OIDC authentication flow
-// (i.e. a single instance of a single user logging in). Flows are stored in the
-// 'oidc-authns' collection, keyed by the OIDC 'state' token (30-character
-// CSPRNG-generated string). Entries are generated and inserted by
-// 'GetOIDCLogin', then /authorization-code/callback retrieves an access token
-// from the ID provider and sets access_token, and finally Authorize() converts
-// the access token to an email address and returns a Pachyderm token
-// identifying that email address's subject.
+// SessionInfo stores information associated with one OIDC authentication
+// session (i.e. a single instance of a single user logging in). Sessions are
+// short-lived and stored in the 'oidc-authns' collection, keyed by the OIDC
+// 'state' token (30-character CSPRNG-generated string). 'GetOIDCLogin'
+// generates and inserts entries, then /authorization-code/callback retrieves
+// an access token from the ID provider and uses it to retrive the caller's
+// email and store it in 'email', and finally Authorize() returns a Pachyderm
+// token identified with that email address as a subject in Pachyderm.
 message SessionInfo {
   // nonce is used by /authorization-code/callback to validate session
   // continuity with the IdP after a user has arrived there from GetOIDCLogin().

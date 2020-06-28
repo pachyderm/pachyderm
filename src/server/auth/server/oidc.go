@@ -71,11 +71,11 @@ type InternalOIDCProvider struct {
 	RedirectURI string
 
 	// States is an etcd collection containing the state information associated
-	// with every in-progress authentication flow. /authorization-code/callback
+	// with every in-progress authentication session. /authorization-code/callback
 	// places users' ID tokens in here when they authenticate successfully, and
 	// Authenticate() retrieves those ID tokens, converts them to Pachyderm
-	// tokens, and returns users' Pachyderm tokens back to them—all scoped to the
-	// state token identifying the login flow
+	// tokens, and returns users' Pachyderm tokens back to them--all scoped to the
+	// OIDC state token identifying the login session
 	States col.Collection
 }
 
@@ -120,12 +120,12 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 	var err error
 	o.Provider, err = oidc.NewProvider(
 		// Due to the implementation of go-oidc, this context is used for RPCs
-		// (fetching certificates) within all future OIDC authentication flows.
+		// (fetching certificates) within all future OIDC authentication sessions.
 		// Thus, it must not have a timeout. We ideally should create a new
 		// context.WithCancel() and cancel that new context if/when o.Provider is
 		// updated, but we don't have a convenient place to put that cancel() call
 		// and the effect of this omission is limited to in-flight authentication
-		// flows at the moment that o.Provider updated, so we're ignoring it.
+		// sessions at the moment that o.Provider updated, so we're ignoring it.
 		context.Background(),
 		issuer)
 	if err != nil {
@@ -175,10 +175,10 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 	return url, state, nil
 }
 
-// OIDCStateToEmail takes the state session created for the OIDC session
-// and uses it discover the email of the user who obtained the
-// code (or verify that the code belongs to them). This is how
-// Pachyderm currently implements authorization in a production cluster
+// OIDCStateToEmail takes the state token created for the OIDC session and
+// uses it discover the email of the user who obtained the code (or verify that
+// the code belongs to them). This is how Pachyderm currently implements OIDC
+// authorization in a production cluster
 func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (string, error) {
 	// reestablish watch in a loop, in case there's a watch error
 	var accessToken string
