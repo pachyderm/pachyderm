@@ -179,12 +179,18 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 // uses it discover the email of the user who obtained the code (or verify that
 // the code belongs to them). This is how Pachyderm currently implements OIDC
 // authorization in a production cluster
-func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (string, error) {
+func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (email string, retErr error) {
+	defer func() {
+		logrus.Infof("converted OIDC state %q to email %q (or err: %v)",
+			state, email, retErr)
+	}()
 	// reestablish watch in a loop, in case there's a watch error
 	var accessToken string
 	if err := backoff.RetryNotify(func() error {
 		watcher, err := o.States.ReadOnly(ctx).WatchOne(state)
 		if err != nil {
+			logrus.Errorf("error watching OIDC state token %q during authorization: %v",
+				state, err)
 			return watchFailed
 		}
 		defer watcher.Close()
@@ -192,8 +198,8 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 		// lookup the token from the given state
 		for e := range watcher.Watch() {
 			if e.Type == watch.EventError {
-				// reestablish watch
-				return errors.Wrapf(e.Err, "error watching OIDC state token during conversion")
+				// reestablish watch (error not returned to user)
+				return e.Err
 			} else if e.Type == watch.EventDelete {
 				return tokenDeleted
 			}
@@ -202,7 +208,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 			var si auth.SessionInfo
 			if err := si.Unmarshal(e.Value); err != nil {
 				// retry watch (maybe a valid SessionInfo will appear later?)
-				return errors.Wrapf(e.Err, "error unmarshalling OIDC SessionInfo during conversion")
+				return errors.Wrapf(err, "error unmarshalling OIDC SessionInfo")
 			}
 			if si.AccessToken != "" {
 				accessToken = si.AccessToken
@@ -213,8 +219,9 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 			logrus.Errorf("ID token unset in OIDC conversion watch event")
 		}
 		return nil
-	}, backoff.New60sBackOff(), func(err error, _ time.Duration) error {
-		logrus.Errorf("error watching OIDC state token %q during authorization: %v", state, err)
+	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
+		logrus.Errorf("error watching OIDC state token %q during authorization (retrying in %s): %v",
+			state, d, err)
 		if err == watchFailed || err == tokenDeleted || err == authFailed {
 			return err // don't retry, just return the error
 		}
