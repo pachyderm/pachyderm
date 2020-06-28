@@ -28,9 +28,9 @@ const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
 // 'errors' library b/c stack trace isn't useful
 var (
 	notConfigured = goerr.New("OIDC ID provider configuration not found")
-	watchFailed   = goerr.New("error converting OIDC state token (has it expired?)")
+	authFailed    = goerr.New("Authorization failed")
+	watchFailed   = goerr.New("error watching OIDC state token (has it expired?)")
 	tokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
-	unauthorized  = goerr.New("Unauthorized")
 )
 
 // InternalOIDCProvider contains information about the configured OIDC ID
@@ -175,14 +175,6 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 	return url, state, nil
 }
 
-// authCodeConversionErr is a wrapper struct for fatal errors passed to
-// OIDCStateToEmail from /authorization-code/callback. Errors wrapped in this
-// struct should be returned to the caller (Authorize(), and ultimately,
-// pachctl).
-type authCodeConversionError struct {
-	error
-}
-
 // OIDCStateToEmail takes the state session created for the OIDC session
 // and uses it discover the email of the user who obtained the
 // code (or verify that the code belongs to them). This is how
@@ -216,19 +208,15 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				accessToken = si.AccessToken
 				return nil // success
 			} else if si.AuthCodeErr != "" {
-				return authCodeConversionError{
-					goerr.New(si.AuthCodeErr),
-				}
+				return authFailed
 			}
 			logrus.Errorf("ID token unset in OIDC conversion watch event")
 		}
 		return nil
 	}, backoff.New60sBackOff(), func(err error, _ time.Duration) error {
 		logrus.Errorf("error watching OIDC state token %q during authorization: %v", state, err)
-		if err == watchFailed || err == tokenDeleted {
+		if err == watchFailed || err == tokenDeleted || err == authFailed {
 			return err // don't retry, just return the error
-		} else if a, ok := err.(authCodeConversionError); ok {
-			return a.error
 		}
 		return nil
 	}); err != nil {
@@ -249,6 +237,40 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 	return userInfo.Email, nil
 }
 
+// handleOIDCExchange implements the /authorization-code/callback endpoint. In
+// the success case, it converts the passed authorization code to an email
+// address and associates the email address with the passed OIDC state token in
+// the 'oidc-authns' collection.
+//
+// The error handling from this function is slightly delicate, as callers may
+// have network access to Pachyderm, but may not have an OIDC account or any
+// legitimate access to this cluster, so we want to avoid leaking operational
+// details. In general:
+// - This should not return an HTTP error with more information than pachctl
+//   prints. Currently, pachctl only prints the OIDC state token presented by
+//   the user and "Authorization failed" if the token exchange doesn't work
+//   (indicated by SessionInfo.ConversionErr == true).
+// - More information may be included in logs (which should only be accessible
+//   Pachyderm administrators with kubectl access), and logs include any
+//   relevant OIDC state token. Thus if a user is legitimate, they can present
+//   the OIDC state token displayed by pachctl or their browser to a cluster
+//   administrator, the cluster administrator can locate a detailed error in
+//   pachctl's logs, and together they can resolve any authorization issues.
+// - However, this should not log any long-lived credentials that would allow a
+//   kubernetes cluster administrator to impersonate an individual user in
+//   Pachyderm or elsewhere (i.e. an OIDC authorization code or access token, or
+//   a Pachyderm token). Nonce and OIDC state token are OK (for now), as they
+//   are both short-lived and internal to Pachyderm. If needed, Pachyderm
+//   cluster administrators can impersonate users by calling GetAuthToken(),
+//   but that call is logged and auditable.
+// - In particular, because errors returned by handleOIDCExchange are logged,
+//   error messages should not contain long-lived auth credentials
+// TODO(msteffen): OIDC state may not be OK, as an untrusted administrator could
+// cause an Authenticate() request to fail by interfering at the network layer,
+// and then exercise the OIDC state themselves if they act quickly. We could
+// avoid logging OIDC state and log nonce instead, but nonce isn't available in
+// all places below that log. For now, there are larger security holes that need
+// to be patched first.
 func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	sp := a.getOIDCSP()
@@ -273,55 +295,63 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	_, etcdErr := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var si auth.SessionInfo
 		return sp.States.ReadWrite(stm).Update(state, &si, func() error {
+			// nonce can only be checked inside etcd txn, but if nonces don't match
+			// that's a non-retryable authentication error, so set conversionErr as
+			// if handleOIDCExchangeInternal had errored and proceed
+			if conversionErr == nil && nonce != si.Nonce {
+				conversionErr = fmt.Errorf(
+					"IDP nonce %v did not match Pachyderm's session nonce %v",
+					nonce, si.Nonce)
+			}
 			if conversionErr == nil {
-				if nonce != si.Nonce {
-					logrus.Errorf("IDP nonce %v did not match Pachyderm's session nonce %v",
-						nonce, si.Nonce)
-					return unauthorized
-				}
 				si.AccessToken = accessToken
 			} else {
-				si.AuthCodeErr = conversionErr.Error()
+				si.AuthCodeErr = authFailed.Error()
 			}
 			return nil
 		})
 	})
+	// Make exactly one call, to http.Error or http.Write, with either
+	// conversionErr (non-retryable) or etcdErr (retryable) if either is set
+	switch {
+	case conversionErr != nil:
+		// Don't give the user specific error information
+		http.Error(w,
+			fmt.Sprintf("authorization failed (OIDC state token: %q; Pachyderm "+
+				"logs may contain more information)", state),
+			http.StatusUnauthorized)
+	case etcdErr != nil:
+		http.Error(w,
+			fmt.Sprintf("temporary error during authorization (OIDC state token: "+
+				"%q; Pachyderm logs may contain more information)", state),
+			http.StatusInternalServerError)
+	default:
+		// Success
+		fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
+	}
+	// Wite more detailed error information into pachd's logs, if appropriate
+	// (use two ifs here vs switch in case both are set)
 	if conversionErr != nil {
-		if conversionErr == unauthorized {
-			http.Error(w, conversionErr.Error(), http.StatusUnauthorized)
-		} else {
-			http.Error(w, "could not convert authorization code",
-				http.StatusInternalServerError)
-		}
-		logrus.Errorf("could not convert authorization code: %v", conversionErr)
-		return
+		logrus.Errorf("could not convert authorization code (OIDC state: %q) %v",
+			state, conversionErr)
 	}
 	if etcdErr != nil {
-		if conversionErr == nil {
-			// only return this if conversionErr == nil, so http.Error is only
-			// called once
-			if etcdErr == unauthorized {
-				http.Error(w, etcdErr.Error(), http.StatusUnauthorized)
-			} else {
-				http.Error(w,
-					fmt.Sprintf("error storing OIDC authentication information"),
-					http.StatusInternalServerError)
-			}
-		}
-		logrus.Errorf("error storing OIDC authorization code in etcd: %v", etcdErr.Error())
-		return
+		logrus.Errorf("error storing OIDC authorization code in etcd (OIDC state: %q): %v",
+			state, etcdErr)
 	}
-	// Success
-	fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
 }
 
 // handleOIDCExchangeInternal is a convenience function for converting an
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in etcd and sending an HTTP
 // response to the user's browser.
-//
-// **any error returned from this function will be displayed to the user**
 func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *InternalOIDCProvider, authCode, state string) (nonce, accessToken string, retErr error) {
+	// log request, but do not log auth code (short-lived, but senstive user authenticator)
+	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", state)
+	defer func() {
+		logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q, \"nonce\": %q }",
+			state, nonce)
+	}()
 	conf := &oauth2.Config{
 		ClientID:     sp.ClientID,
 		ClientSecret: sp.ClientSecret,
@@ -333,24 +363,20 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	// Use the authorization code that is pushed to the redirect
 	tok, err := conf.Exchange(ctx, authCode)
 	if err != nil {
-		logrus.Errorf("failed to exchange code (state: %q): %v", state, err)
-		return "", "", unauthorized
+		return "", "", errors.Wrapf(err, "failed to exchange code")
 	}
-	logrus.Info("successfully exchanged OIDC authorization code for access token")
 
 	var verifier = sp.Provider.Verifier(&oidc.Config{ClientID: conf.ClientID})
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
-		logrus.Errorf("missing id token (state: %q)", state)
-		return "", "", unauthorized
+		return "", "", errors.New("missing id token")
 	}
 
 	// Parse and verify ID Token payload.
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		logrus.Errorf("could not verify token (state: %q): %v", state, err)
-		return "", "", unauthorized
+		return "", "", errors.Wrapf(err, "could not verify token")
 	}
 	return idToken.Nonce, tok.AccessToken, nil
 }
