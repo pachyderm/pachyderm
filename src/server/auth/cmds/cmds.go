@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pkg/browser"
-	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -37,18 +36,7 @@ func githubLogin() (string, error) {
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
 
-// super hacky check to see if OIDC is being used
-func usingOIDC(c *client.APIClient) bool {
-	_, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
-	if err != nil {
-		logrus.Warnf("checking if oidc is enabled: %v", err)
-		return false
-	}
-	return true
-}
-
 func requestOIDCLogin(c *client.APIClient) (string, error) {
-
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
@@ -207,7 +195,18 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OneTimePassword: code})
-			} else if !usingOIDC(c) {
+			} else if state, err := requestOIDCLogin(c); err == nil {
+				// Exchange OIDC token for Pachyderm token
+				fmt.Println("Retrieving Pachyderm token...")
+				resp, authErr = c.Authenticate(
+					c.Ctx(),
+					&auth.AuthenticateRequest{OIDCState: state})
+				if authErr != nil && !auth.IsErrPartiallyActivated(authErr) {
+					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
+							"contain more information)", state)
+				}
+			} else {
 				// Exchange GitHub token for Pachyderm token
 				token, err := githubLogin()
 				if err != nil {
@@ -217,25 +216,15 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{GitHubToken: token})
-			} else {
-				// Exchange OIDC token for Pachyderm token
-				state, err := requestOIDCLogin(c)
-				if err != nil {
-					return err
-				}
-				fmt.Println("Retrieving Pachyderm token...")
-				resp, authErr = c.Authenticate(
-					c.Ctx(),
-					&auth.AuthenticateRequest{OIDCState: state})
 			}
 
 			// Write new Pachyderm token to config
-			if authErr != nil {
-				if auth.IsErrPartiallyActivated(authErr) {
-					return errors.Wrapf(authErr, "if pachyderm is stuck in this state, you "+
-						"can revert by running 'pachctl auth deactivate' or retry by "+
-						"running 'pachctl auth activate' again")
-				}
+			if auth.IsErrPartiallyActivated(authErr) {
+				return errors.Wrapf(authErr, "Pachyderm auth is partially activated "+
+					"(if pachyderm is stuck in this state, you can revert by running "+
+					"'pachctl auth deactivate' or retry by running 'pachctl auth "+
+					"activate' again)")
+			} else if authErr != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
 			}
 			return writePachTokenToCfg(resp.PachToken)
