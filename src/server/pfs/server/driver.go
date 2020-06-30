@@ -1079,17 +1079,18 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
+	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
-	branch string, provenance []*pfs.CommitProvenance,
+	branch string, origin *pfs.CommitOrigin, provenance []*pfs.CommitProvenance,
 	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object,
 	started, finished time.Time, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", started, finished, sizeBytes)
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, origin, provenance, tree, trees,
+			datums, nil, nil, "", started, finished, sizeBytes)
 		return err
 	})
 	return commit, err
@@ -1112,6 +1113,7 @@ func (d *driver) makeCommit(
 	ID string,
 	parent *pfs.Commit,
 	branch string,
+	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
 	treeRef *pfs.Object,
 	treesRefs []*pfs.Object,
@@ -1141,9 +1143,12 @@ func (d *driver) makeCommit(
 	if newCommit.ID == "" {
 		newCommit.ID = uuid.NewWithoutDashes()
 	}
+	if origin == nil {
+		origin = &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}
+	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
-		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Origin:      origin,
 		Description: description,
 	}
 	if branch != "" {
@@ -2869,7 +2874,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -3302,7 +3307,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -4151,7 +4156,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
