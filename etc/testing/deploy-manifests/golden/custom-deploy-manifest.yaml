@@ -351,6 +351,8 @@ spec:
           value: pachyderm/pachd:1.11.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
+        - name: WORKER_SERVICE_ACCOUNT
+          value: pachyderm-worker
         - name: PACHD_VERSION
           value: 1.11.0
         - name: METRICS

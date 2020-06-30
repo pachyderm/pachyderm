@@ -565,6 +565,10 @@
                 "value": "IfNotPresent"
               },
               {
+                "name": "WORKER_SERVICE_ACCOUNT",
+                "value": "pachyderm-worker"
+              },
+              {
                 "name": "PACHD_VERSION",
                 "value": "1.11.0"
               },
