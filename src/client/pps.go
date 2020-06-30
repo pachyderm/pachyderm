@@ -530,6 +530,44 @@ func (c APIClient) GetLogs(
 	return resp
 }
 
+// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
+func (c APIClient) GetLogsLoki(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	tail int64,
+) *LogsIter {
+	request := pps.GetLogsRequest{
+		Master:         master,
+		Follow:         follow,
+		Tail:           tail,
+		UseLokiBackend: true,
+	}
+	resp := &LogsIter{}
+	if pipelineName != "" {
+		request.Pipeline = NewPipeline(pipelineName)
+	}
+	if jobID != "" {
+		request.Job = NewJob(jobID)
+	}
+	request.DataFilters = data
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: NewJob(jobID),
+			ID:  datumID,
+		}
+	}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
+	return resp
+}
+
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
 // output Repo (which has the same name as the pipeline). Whenever new data is

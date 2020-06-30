@@ -1338,7 +1338,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
-	if a.env.LokiLogging {
+	if a.env.LokiLogging || request.UseLokiBackend {
 		return a.getLogsLoki(request, apiGetLogsServer)
 	}
 	func() { a.Log(request, nil, nil, 0) }()

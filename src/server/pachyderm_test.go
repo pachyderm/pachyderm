@@ -4538,6 +4538,48 @@ func TestManyLogs(t *testing.T) {
 	})
 }
 
+func TestLokiLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"sh"},
+				Stdin: []string{"echo", "foo"},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
+		foundFoo := false
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "foo") {
+				foundFoo = true
+				break
+			}
+		}
+		if !foundFoo {
+			return fmt.Errorf("did not recieve a log line containing foo")
+		}
+		return nil
+	})
+}
+
 func TestAllDatumsAreProcessed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
