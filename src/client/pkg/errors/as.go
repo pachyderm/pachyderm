@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -42,5 +43,5 @@ func As(err error, target interface{}) bool {
 		// Attempt the passed target as-is
 		return tryAs(err, v)
 	}
-	return false
+	panic(fmt.Sprintf("unexpected target type: %v, errors.As must be passed a pointer target", v.Kind()))
 }

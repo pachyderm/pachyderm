@@ -147,7 +147,6 @@ func TestAsConcreteIntErr(t *testing.T) {
 
 	err = ConcreteIntErr{2}
 	require.True(t, errors.As(err, interr))
-	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcreteIntErr{2}, interr)
 
@@ -166,10 +165,10 @@ func TestAsConcreteIntErr(t *testing.T) {
 	err = &ConcreteIntErr{5}
 	interr = &ConcreteIntErr{}
 	require.True(t, errors.As(err, interr))
-	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcreteIntErr{5}, interr)
 
+	interrFace = nil
 	err = &ConcreteIntErr{6}
 	require.True(t, errors.As(err, &interr))
 	require.True(t, errors.As(err, &interrFace))
@@ -206,10 +205,10 @@ func TestAsConcretePtrIntErr(t *testing.T) {
 
 	err = &ConcretePtrIntErr{5}
 	require.True(t, errors.As(err, interr))
-	require.False(t, errors.As(err, interrFace))
 	require.False(t, errors.As(err, otherErr))
 	require.Equal(t, &ConcretePtrIntErr{5}, interr)
 
+	interrFace = nil
 	err = &ConcretePtrIntErr{6}
 	require.True(t, errors.As(err, &interr))
 	require.True(t, errors.As(err, &interrFace))
