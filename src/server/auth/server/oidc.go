@@ -27,10 +27,10 @@ const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
 // various oidc invalid argument errors. Use 'goerror' instead of internal
 // 'errors' library b/c stack trace isn't useful
 var (
-	notConfigured = goerr.New("OIDC ID provider configuration not found")
-	authFailed    = goerr.New("Authorization failed")
-	watchFailed   = goerr.New("error watching OIDC state token (has it expired?)")
-	tokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
+	errNotConfigured = goerr.New("OIDC ID provider configuration not found")
+	errAuthFailed    = goerr.New("authorization failed")
+	errWatchFailed   = goerr.New("error watching OIDC state token (has it expired?)")
+	errTokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
 
 // InternalOIDCProvider contains information about the configured OIDC ID
@@ -137,7 +137,7 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
 	if o == nil {
-		return "", "", notConfigured
+		return "", "", errNotConfigured
 	}
 	// TODO(msteffen, adelelopez): We *think* this 'if' block can't run anymore:
 	// (if o != nil, then o.Provider != nil)
@@ -190,7 +190,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 		if err != nil {
 			logrus.Errorf("error watching OIDC state token %q during authorization: %v",
 				state, err)
-			return watchFailed
+			return errWatchFailed
 		}
 		defer watcher.Close()
 
@@ -200,7 +200,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				// reestablish watch (error not returned to user)
 				return e.Err
 			} else if e.Type == watch.EventDelete {
-				return tokenDeleted
+				return errTokenDeleted
 			}
 
 			// see if there's an ID token attached to the OIDC state now
@@ -210,7 +210,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				return errors.Wrapf(err, "error unmarshalling OIDC SessionInfo")
 			}
 			if si.ConversionErr {
-				return authFailed
+				return errAuthFailed
 			} else if si.Email != "" {
 				// Success
 				email = si.Email
@@ -221,7 +221,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error watching OIDC state token %q during authorization (retrying in %s): %v",
 			state, d, err)
-		if err == watchFailed || err == tokenDeleted || err == authFailed {
+		if err == errWatchFailed || err == errTokenDeleted || err == errAuthFailed {
 			return err // don't retry, just return the error
 		}
 		return nil
@@ -269,7 +269,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	ctx := req.Context()
 	sp := a.getOIDCSP()
 	if sp == nil {
-		http.Error(w, notConfigured.Error(), http.StatusConflict)
+		http.Error(w, errNotConfigured.Error(), http.StatusConflict)
 		return
 	}
 	code := req.URL.Query()["code"][0]
