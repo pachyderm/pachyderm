@@ -717,7 +717,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	// specCommits holds the specCommits of pipelines that we're interested in
 	specCommits := make(map[string]bool)
 	if err := a.listPipelinePtr(pachClient, pipeline, history,
-		func(ptr *pps.EtcdPipelineInfo) error {
+		func(name string, ptr *pps.EtcdPipelineInfo) error {
 			specCommits[ptr.SpecCommit.ID] = true
 			return nil
 		}); err != nil {
@@ -820,7 +820,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	// previous jobs running.
 	pipelinePtr.SpecCommit = specCommit
 	if full {
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
 		if err != nil {
 			return nil, err
 		}
@@ -2143,7 +2143,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
 				}
@@ -2417,7 +2417,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		return nil, err
 	}
 	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, &pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2504,8 +2504,8 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
-		func(ptr *pps.EtcdPipelineInfo) error {
-			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, ptr)
+		func(name string, ptr *pps.EtcdPipelineInfo) error {
+			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
 			if err != nil {
 				return err
 			}
@@ -2516,11 +2516,11 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 // listPipelinePtr enumerates all PPS pipelines in etcd, filters them based on
 // 'request', and then calls 'f' on each value
 func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
-	pipeline *pps.Pipeline, history int64, f func(*pps.EtcdPipelineInfo) error) error {
+	pipeline *pps.Pipeline, history int64, f func(string, *pps.EtcdPipelineInfo) error) error {
 	p := &pps.EtcdPipelineInfo{}
-	forEachPipeline := func() error {
+	forEachPipeline := func(name string) error {
 		for i := int64(0); i <= history || history == -1; i++ {
-			if err := f(p); err != nil {
+			if err := f(name, p); err != nil {
 				return err
 			}
 			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.ID)
@@ -2536,8 +2536,8 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 		return nil // shouldn't happen
 	}
 	if pipeline == nil {
-		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(string) error {
-			return forEachPipeline()
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(name string) error {
+			return forEachPipeline(name)
 		}); err != nil {
 			return err
 		}
@@ -2548,7 +2548,7 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 			}
 			return err
 		}
-		if err := forEachPipeline(); err != nil {
+		if err := forEachPipeline(pipeline.Name); err != nil {
 			return err
 		}
 	}
