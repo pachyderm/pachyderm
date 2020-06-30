@@ -554,6 +554,10 @@
                 "value": "IfNotPresent"
               },
               {
+                "name": "WORKER_SERVICE_ACCOUNT",
+                "value": "pachyderm-worker"
+              },
+              {
                 "name": "PACHD_VERSION",
                 "value": "1.11.0"
               },
@@ -579,10 +583,6 @@
               {
                 "name": "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING",
                 "value": "false"
-              },
-              {
-                "name": "WORKER_SERVICE_ACCOUNT",
-                "value": "pachyderm-worker"
               },
               {
                 "name": "PACH_NAMESPACE",
