@@ -165,7 +165,7 @@ type fileSetIterator struct {
 	repo, commit string
 }
 
-func NewFileSetIterator(pachClient *client.APIClient, repo, commit string, baseFileSet ...string) IteratorV2 {
+func NewFileSetIterator(pachClient *client.APIClient, repo, commit string, baseFileSet ...string) *fileSetIterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       repo,
@@ -173,8 +173,8 @@ func NewFileSetIterator(pachClient *client.APIClient, repo, commit string, baseF
 	}
 }
 
-func (fsi *fileSetIterator) Iterate(cb func([]*common.InputV2) error) error {
-	r, err := fsi.pachClient.GetTarV2(fsi.repo, fsi.commit, path.Join(MetaPrefix, "*", MetaFileName))
+func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
+	r, err := fsi.pachClient.GetTarV2(fsi.repo, fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,9 @@ func (fsi *fileSetIterator) Iterate(cb func([]*common.InputV2) error) error {
 		if err := jsonpb.Unmarshal(tr, meta); err != nil {
 			return err
 		}
-		return cb(meta.Inputs)
+		if err := cb(meta); err != nil {
+			return err
+		}
 	}
 }
 

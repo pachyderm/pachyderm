@@ -12,7 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	pfstesting "github.com/pachyderm/pachyderm/src/server/pfs/server/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -21,14 +21,11 @@ import (
 type hasher struct{}
 
 func (h *hasher) Hash(inputs []*common.InputV2) string {
-	// TODO: implement this for skipping testing.
-	return ""
-	//return common.HashDatum("", "", inputs)
+	return common.HashDatumV2("", "", inputs)
 }
 
 func TestSet(t *testing.T) {
-	config := &serviceenv.PachdFullConfiguration{}
-	config.StorageV2 = true
+	config := pfstesting.NewPachdConfig()
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		inputRepo := tu.UniqueString(t.Name() + "_input")
@@ -41,7 +38,7 @@ func TestSet(t *testing.T) {
 		tw := tar.NewWriter(buf)
 		for i := 0; i < 50; i++ {
 			require.NoError(t, writeFile(tw, &testFile{
-				name: fmt.Sprintf("foo%v", i),
+				name: fmt.Sprintf("/foo%v", i),
 				data: []byte("input"),
 			}))
 		}
@@ -53,34 +50,43 @@ func TestSet(t *testing.T) {
 		in.Pfs.Commit = inputCommit.ID
 		outputCommit, err := c.StartCommit(outputRepo, "master")
 		require.NoError(t, err)
-		foc, err := c.NewFileOperationClientV2(outputRepo, outputCommit.ID)
-		require.NoError(t, err)
+		var allInputs [][]*common.InputV2
 		// Create datum fileset.
-		require.NoError(t, WithSet(c, "", &hasher{}, func(s *Set) error {
-			di, err := NewIteratorV2(c, in)
-			if err != nil {
-				return err
-			}
-			return di.Iterate(func(inputs []*common.InputV2) error {
-				return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
-					return copyFile(path.Join(d.StorageRoot(), OutputPrefix), path.Join(d.StorageRoot(), inputName), func(_ []byte) []byte {
-						return []byte("output")
+		require.NoError(t, c.WithFileOperationClientV2(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
+			require.NoError(t, withTmpDir(func(storageRoot string) error {
+				require.NoError(t, WithSet(c, storageRoot, &hasher{}, func(s *Set) error {
+					di, err := NewIteratorV2(c, in)
+					if err != nil {
+						return err
+					}
+					return di.Iterate(func(inputs []*common.InputV2) error {
+						allInputs = append(allInputs, inputs)
+						return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
+							return copyFile(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
+								return []byte("output")
+							})
+						})
 					})
-				})
-			})
-		}, WithMetaOutput(foc)))
+				}, WithMetaOutput(foc)))
+				return nil
+			}))
+			return nil
+		}))
 		require.NoError(t, c.FinishCommit(outputRepo, outputCommit.ID))
 		// Check output.
-		require.NoError(t, WithSet(c, "", &hasher{}, func(s *Set) error {
-			di := NewFileSetIterator(c, outputRepo, outputCommit.ID)
-			return di.Iterate(func(inputs []*common.InputV2) error {
-				return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
+		require.NoError(t, withTmpDir(func(storageRoot string) error {
+			require.NoError(t, WithSet(c, storageRoot, &hasher{}, func(s *Set) error {
+				fsi := NewFileSetIterator(c, outputRepo, outputCommit.ID)
+				return fsi.Iterate(func(meta *Meta) error {
+					require.Equal(t, allInputs[0], meta.Inputs)
+					allInputs = allInputs[1:]
 					return nil
 				})
-			})
+			}))
+			return nil
 		}))
 		return nil
-	}))
+	}, config))
 }
 
 // TODO: Should refactor this and fileset tests to have a general purpose tool for creating tar streams.
@@ -129,4 +135,20 @@ func copyFile(outputPrefix, inputPath string, cb func([]byte) []byte) (retErr er
 	}()
 	_, err = outputF.Write(data)
 	return err
+}
+
+func withTmpDir(cb func(string) error) (retErr error) {
+	storageRoot := path.Join(os.TempDir(), "datum_test")
+	if err := os.RemoveAll(storageRoot); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(storageRoot, 0700); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(storageRoot); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(storageRoot)
 }

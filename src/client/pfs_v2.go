@@ -302,7 +302,6 @@ func (c APIClient) GlobFileV2(repo string, commit string, pattern string, cb fun
 			}
 			return err
 		}
-
 		if err := cb(fi); err != nil {
 			return err
 		}

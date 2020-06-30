@@ -16,7 +16,6 @@ import (
 
 func TestIteratorsV2(t *testing.T) {
 	config := pfstesting.NewPachdConfig()
-	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		dataRepo := tu.UniqueString(t.Name() + "_data")

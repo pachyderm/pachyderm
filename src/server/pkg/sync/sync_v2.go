@@ -30,7 +30,7 @@ func TarToLocal(file *pfs.File, storageRoot string, r io.Reader) error {
 			}
 			return err
 		}
-		basePath, err := filepath.Rel(hdr.Name, file.Path)
+		basePath, err := filepath.Rel(file.Path, hdr.Name)
 		if err != nil {
 			return err
 		}
@@ -73,13 +73,25 @@ func LocalToTar(storageRoot string, w io.Writer) (retErr error) {
 		if err != nil {
 			return err
 		}
+		if file == storageRoot {
+			return nil
+		}
 		// TODO: link name?
 		hdr, err := tar.FileInfoHeader(fi, "")
 		if err != nil {
 			return err
 		}
+		hdr.Name, err = filepath.Rel(storageRoot, file)
+		if err != nil {
+			return err
+		}
+		// TODO: Hack to match glob, need consistent canonicalization.
+		hdr.Name = filepath.Join("/", hdr.Name)
 		if err := tw.WriteHeader(hdr); err != nil {
 			return err
+		}
+		if hdr.Typeflag == tar.TypeDir {
+			return nil
 		}
 		f, err := os.Open(file)
 		if err != nil {

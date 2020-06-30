@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -46,6 +47,27 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 	hash.Write([]byte(pipelineName))
 	hash.Write([]byte(pipelineSalt))
 
+	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
+}
+
+// TODO: This needs more discussion.
+func DatumIDV2(inputs []*InputV2) string {
+	var files []string
+	for _, input := range inputs {
+		files = append(files, input.FileInfo.File.Path)
+	}
+	return strings.Join(files, "-")
+}
+
+func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*InputV2) string {
+	hash := sha256.New()
+	for _, input := range inputs {
+		hash.Write([]byte(input.Name))
+		hash.Write([]byte(input.FileInfo.File.Path))
+		hash.Write([]byte(input.FileInfo.Hash))
+	}
+	hash.Write([]byte(pipelineName))
+	hash.Write([]byte(pipelineSalt))
 	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 
