@@ -267,6 +267,10 @@ spec:
     nodePort: 30654
     port: 654
     targetPort: 0
+  - name: oidc-port
+    nodePort: 30657
+    port: 657
+    targetPort: 0
   - name: api-git-port
     nodePort: 30655
     port: 655
@@ -575,6 +579,9 @@ spec:
           protocol: TCP
         - containerPort: 654
           name: saml-port
+          protocol: TCP
+        - containerPort: 657
+          name: oidc-port
           protocol: TCP
         readinessProbe:
           exec:

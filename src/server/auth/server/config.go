@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -39,12 +40,20 @@ type canonicalSAMLIDP struct {
 
 type canonicalGitHubIDP struct{}
 
+type canonicalOIDCIDP struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+}
+
 type canonicalIDPConfig struct {
 	Name        string
 	Description string
 
 	SAML   *canonicalSAMLIDP
 	GitHub *canonicalGitHubIDP
+	OIDC   *canonicalOIDCIDP
 }
 
 type canonicalSAMLSvcConfig struct {
@@ -61,15 +70,11 @@ type canonicalConfig struct {
 	Version int64
 	Source  configSource
 
-	// currently, there is only one permissible type of ID provider (SAML), and
-	// SAMLSvc must be set iff there is a SAML ID provider in this list. Therefore
-	// there are currently two possible forms of canonicalConfig:
-	// 1. empty config
-	// 2. IDPs contains a single element configuring a SAML ID provider, and
-	//    SAMLSvc contains config for Pachyderm's ACS
+	// IDPs contain canonicalized configs for any ID providers configured to work
+	// with this cluster
 	IDPs []canonicalIDPConfig
 
-	// SAMLSvc must be set
+	// SAMLSvc must be set if and only if there is a SAML ID provider
 	SAMLSvc *canonicalSAMLSvcConfig
 }
 
@@ -107,8 +112,21 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
 			}
 			idpProtos = append(idpProtos, samlIDP)
+		} else if idp.OIDC != nil {
+			oidcIDP := &auth.IDProvider{
+				Name:        idp.Name,
+				Description: idp.Description,
+				OIDC: &auth.IDProvider_OIDCOptions{
+					Issuer:       idp.OIDC.Issuer,
+					ClientID:     idp.OIDC.ClientID,
+					ClientSecret: idp.OIDC.ClientSecret,
+					RedirectURI:  idp.OIDC.RedirectURI,
+				},
+			}
+
+			idpProtos = append(idpProtos, oidcIDP)
 		} else {
-			return nil, errors.Errorf("could not marshal non-SAML, non-GitHub ID provider %q", idp.Name)
+			return nil, errors.Errorf("could not marshal non-SAML, non-OIDC, non-GitHub ID provider %q", idp.Name)
 		}
 	}
 
@@ -198,8 +216,12 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 		return nil, errors.Errorf("cannot configure ID provider with reserved prefix %q", auth.PipelinePrefix)
 	}
 
-	// Check if the IDP is a known type (right now the only types of IDPs are SAML and GitHub)
-	if idp.SAML == nil && idp.GitHub == nil {
+	// Check if the IDP is a known type (right now the only types of IDPs are SAML, OIDC and GitHub)
+	newIDP := &canonicalIDPConfig{}
+	newIDP.Name = idp.Name
+	newIDP.Description = idp.Description
+	switch {
+	case idp.SAML == nil && idp.GitHub == nil && idp.OIDC == nil:
 		// render ID provider as json for error message
 		idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 		idpConfigMsg := string(idpConfigAsJSON)
@@ -207,21 +229,34 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 			idpConfigMsg = fmt.Sprintf("(could not marshal config json: %v)", err)
 		}
 		return nil, errors.Errorf("ID provider has unrecognized type: %v", idpConfigMsg)
+
+	case idp.SAML != nil && idp.GitHub != nil:
+		return nil, errors.New("cannot configure ID provider for both SAML and GitHub")
+	case idp.SAML != nil && idp.OIDC != nil:
+		return nil, errors.New("cannot configure ID provider for both SAML and OIDC")
+	case idp.OIDC != nil && idp.GitHub != nil:
+		return nil, errors.New("cannot configure ID provider for both OIDC and GitHub")
+
+	case idp.GitHub != nil:
+		newIDP.GitHub = &canonicalGitHubIDP{}
+		return newIDP, nil
+
+	case idp.SAML != nil:
+		return validateIDPSAML(idp, src)
+	case idp.OIDC != nil:
+		return validateIDPOIDC(idp, src)
 	}
+
+	return nil, nil
+}
+
+func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, error) {
 	newIDP := &canonicalIDPConfig{}
 	newIDP.Name = idp.Name
 	newIDP.Description = idp.Description
-	if idp.SAML != nil && idp.GitHub != nil {
-		return nil, errors.New("cannot configure ID provider for both SAML and GitHub")
-	}
-	if idp.GitHub != nil {
-		newIDP.GitHub = &canonicalGitHubIDP{}
-		return newIDP, nil
-	}
 	newIDP.SAML = &canonicalSAMLIDP{
 		GroupAttribute: idp.SAML.GroupAttribute,
 	}
-
 	// construct this SAML ID provider's metadata. There are three valid cases:
 	// 1. This is a user-provided config (i.e. it's coming from an RPC), and the
 	//    IDP's metadata was set directly in the config
@@ -302,6 +337,39 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 	return newIDP, nil
 }
 
+func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, error) {
+	newIDP := &canonicalIDPConfig{}
+	newIDP.Name = idp.Name
+	newIDP.Description = idp.Description
+
+	newIDP.OIDC = &canonicalOIDCIDP{
+		Issuer:       idp.OIDC.Issuer,
+		ClientID:     idp.OIDC.ClientID,
+		ClientSecret: idp.OIDC.ClientSecret,
+		RedirectURI:  idp.OIDC.RedirectURI,
+	}
+
+	if _, err := url.Parse(newIDP.OIDC.Issuer); err != nil {
+		return nil, errors.Wrapf(err, "OIDC issuer must be a valid URL")
+	}
+
+	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
+	_, err := oidc.NewProvider(context.Background(), newIDP.OIDC.Issuer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
+	}
+
+	if _, err := url.Parse(newIDP.OIDC.RedirectURI); err != nil {
+		return nil, errors.Wrapf(err, "OIDC redirect_uri must be a valid URL")
+	}
+
+	if newIDP.OIDC.ClientID == "" {
+		return nil, errors.Errorf("OIDC configuration must have a non-empty client_id")
+	}
+
+	return newIDP, nil
+}
+
 // validateConfig converts an auth.AuthConfig proto from an RPC into a
 // canonicalized config (with all URLs parsed, SAML metadata fetched and
 // persisted, etc.)
@@ -317,6 +385,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 	// Validate all ID providers (and fetch IDP metadata for all SAML ID
 	// providers)
 	var samlIDP string
+	var oidcIDP string
 	for _, idp := range config.IDProviders {
 		if idp.SAML != nil {
 			// confirm that there is only one SAML IDP (requirement for now)
@@ -326,11 +395,23 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 			}
 			samlIDP = idp.Name
 		}
+		if idp.OIDC != nil {
+			// confirm that there is only one OIDC IDP (requirement for now)
+			if oidcIDP != "" {
+				return nil, errors.Errorf("two OIDC providers found in config, %q and %q, "+
+					"but only one is allowed", idp.Name, oidcIDP)
+			}
+			oidcIDP = idp.Name
+		}
 		canonicalIDP, err := validateIDP(idp, src)
 		if err != nil {
 			return nil, err
 		}
 		c.IDPs = append(c.IDPs, *canonicalIDP)
+	}
+
+	if samlIDP != "" && oidcIDP != "" {
+		return nil, errors.New("cannot have both an OIDC ID provider and a SAML ID provider")
 	}
 
 	// Make sure a SAML ID provider is configured if using SAML
@@ -395,12 +476,15 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
+	a.oidcSPMu.Lock()
+	defer a.oidcSPMu.Unlock()
 	if config == nil {
 		logrus.Warnf("deleting the cached config, but it should not be possible " +
 			"to delete the auth config in etcd without deactivating auth. Is that " +
 			"what's happening?")
 		a.configCache = nil
 		a.samlSP = nil
+		a.oidcSP = nil
 		return nil
 	}
 
@@ -423,6 +507,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	// Set a.configCache and possibly a.samlSP
 	a.configCache = newConfig
 	a.samlSP = nil // overwrite if there's a SAML ID provider
+	a.oidcSP = nil
 	for _, idp := range newConfig.IDPs {
 		if idp.SAML != nil {
 			a.samlSP = &saml.ServiceProvider{
@@ -441,6 +526,17 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 				//                        by the Metadata service)
 			}
 		}
+		if idp.OIDC != nil {
+			a.oidcSP, err = a.NewOIDCSP(
+				idp.Name,
+				idp.OIDC.Issuer,
+				idp.OIDC.ClientID,
+				idp.OIDC.ClientSecret,
+				idp.OIDC.RedirectURI)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -449,11 +545,11 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache == nil {
-		defaultCononicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
+		defaultCanonicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
 		if err != nil {
 			panic("could not convert default auth config")
 		}
-		return defaultCononicalConfig
+		return defaultCanonicalConfig
 	}
 	// copy config to avoid data races
 	newConfig := *a.configCache
@@ -479,6 +575,18 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 
 	// copy config to avoid data races
 	return &cfg, &sp
+}
+
+// getOIDCSP returns apiServer's InternalOIDCProvider, if it exists
+func (a *apiServer) getOIDCSP() *InternalOIDCProvider {
+	a.oidcSPMu.Lock()
+	defer a.oidcSPMu.Unlock()
+	if a.oidcSP == nil {
+		return nil
+	}
+	// copy oidcSP to avoid a data race
+	var sp InternalOIDCProvider = *a.oidcSP
+	return &sp
 }
 
 // watchConfig waits for config updates in etcd and then copies new config
@@ -514,7 +622,7 @@ func (a *apiServer) watchConfig() {
 				switch ev.Type {
 				case watch.EventPut:
 					if err := a.setCacheConfig(&configProto); err != nil {
-						logrus.Warnf("could not update SAML service with new config: %v", err)
+						logrus.Warnf("could not update auth service with new config: %v", err)
 					}
 				case watch.EventDelete:
 					// This should currently be impossible

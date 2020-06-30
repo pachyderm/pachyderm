@@ -51,6 +51,7 @@ const (
 	membersPrefix          = "/members"
 	groupsPrefix           = "/groups"
 	configPrefix           = "/config"
+	oidcAuthnPrefix        = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	// and the default lifetime of an auth token from GetAuthToken.
@@ -89,6 +90,12 @@ const (
 
 	// SamlPort is the port where SAML ID Providers can send auth assertions
 	SamlPort = 654
+
+	// GitHookPort is 655
+	// Prometheus uses 656
+
+	// OidcPort is the port where OIDC ID Providers can send auth assertions
+	OidcPort = 657
 )
 
 // DefaultAuthConfig is the default config for the auth API server
@@ -143,6 +150,11 @@ type apiServer struct {
 	// getSAMLSP
 	samlSP   *saml.ServiceProvider // object for parsing saml responses
 	samlSPMu sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
+
+	// oidcSP should not be read/written directly--use setCacheConfig and
+	// getOIDCSP
+	oidcSP   *InternalOIDCProvider // object representing the OIDC provider
+	oidcSPMu sync.Mutex            // guard 'oidcSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -272,10 +284,12 @@ func NewAuthServer(
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 
 	if public {
-		// start SAML service (won't respond to
-		// anything until config is set)
+		// start SAML and OIDC services
+		// (won't respond to anything until config is set)
 		go s.serveSAML()
+		go s.serveOIDC()
 	}
+
 	// Watch for new auth config options
 	go s.watchConfig()
 	return s, nil
@@ -457,6 +471,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return nil, err
 		}
 	}
+
 	switch {
 	case req.Subject == "":
 		fallthrough
@@ -559,6 +574,9 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if a.activationState() == none {
 		// users should be able to call "deactivate" from the "partial" activation
 		// state, in case activation fails and they need to revert to "none"
+
+		// TODO: we should consider if we want to allow deactivation to proceed
+		// even if the state is "none", in case they're in a bad state
 		return nil, auth.ErrNotActivated
 	}
 
@@ -581,8 +599,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return &auth.DeactivateResponse{}, nil
 	}
 
-	// Get calling user. The user must be a cluster admin to disable auth for the
-	// cluster
+	// Get calling user. The user must be a cluster admin to disable auth for the cluster
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
@@ -874,6 +891,47 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
 
+	case req.OIDCState != "":
+		// confirm OIDC has been configured and get OIDC prefix
+		oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
+		}
+
+		// Determine caller's Pachyderm/OIDC user info (email)
+		email, err := oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
+		if err != nil {
+			return nil, err
+		}
+
+		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+email)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Info("canonicalized username is:", username)
+
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
+		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
+			return nil, err
+		}
+
+		logrus.Info("expired cluster check has passed")
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&auth.TokenInfo{
+					Subject: username,
+					Source:  auth.TokenInfo_AUTHENTICATE,
+				},
+				defaultSessionTTLSecs)
+		}); err != nil {
+			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
+		}
+
 	case req.OneTimePassword != "":
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
@@ -927,6 +985,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	default:
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
+
+	logrus.Info("Authentication checks successful, now returning pachToken")
 
 	// Return new pachyderm token to caller
 	return &auth.AuthenticateResponse{
@@ -1824,6 +1884,27 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}, nil
 }
 
+// GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
+func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	var err error
+
+	sp := a.getOIDCSP()
+	if sp == nil {
+		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
+	}
+
+	authURL, state, err := sp.GetOIDCLoginURL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &auth.GetOIDCLoginResponse{
+		LoginURL: authURL,
+		State:    state,
+	}, nil
+}
+
 // ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
 func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
@@ -2485,8 +2566,8 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 			}
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return errors.Errorf("expected config version %d, but live config has version %d",
-					req.Configuration.LiveConfigVersion, liveConfigVersion)
+				return errors.Errorf("expected live config version %d, but new live config has version %d",
+					liveConfigVersion, req.Configuration.LiveConfigVersion)
 			}
 			liveConfig.Reset()
 			liveConfig = *configToStore
