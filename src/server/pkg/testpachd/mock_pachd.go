@@ -111,6 +111,7 @@ type getScopeFunc func(context.Context, *auth.GetScopeRequest) (*auth.GetScopeRe
 type setScopeFunc func(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
 type getACLFunc func(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error)
 type setACLFunc func(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -133,6 +134,7 @@ type mockGetScope struct{ handler getScopeFunc }
 type mockSetScope struct{ handler setScopeFunc }
 type mockGetACL struct{ handler getACLFunc }
 type mockSetACL struct{ handler setACLFunc }
+type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetAuthToken struct{ handler getAuthTokenFunc }
 type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
@@ -155,6 +157,7 @@ func (mock *mockGetScope) Use(cb getScopeFunc)                     { mock.handle
 func (mock *mockSetScope) Use(cb setScopeFunc)                     { mock.handler = cb }
 func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handler = cb }
 func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
+func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)             { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)       { mock.handler = cb }
@@ -183,6 +186,7 @@ type mockAuthServer struct {
 	SetScope           mockSetScope
 	GetACL             mockGetACL
 	SetACL             mockSetACL
+	GetOIDCLogin       mockGetOIDCLogin
 	GetAuthToken       mockGetAuthToken
 	ExtendAuthToken    mockExtendAuthToken
 	RevokeAuthToken    mockRevokeAuthToken
@@ -270,6 +274,12 @@ func (api *authServerAPI) SetACL(ctx context.Context, req *auth.SetACLRequest) (
 		return api.mock.SetACL.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.SetACL")
+}
+func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
+	if api.mock.GetOIDCLogin.handler != nil {
+		return api.mock.GetOIDCLogin.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetOIDCLogin")
 }
 func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	if api.mock.GetAuthToken.handler != nil {
@@ -396,10 +406,11 @@ type diffFileFunc func(context.Context, *pfs.DiffFileRequest) (*pfs.DiffFileResp
 type deleteFileFunc func(context.Context, *pfs.DeleteFileRequest) (*types.Empty, error)
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
-type putTarFuncV2 func(pfs.API_PutTarV2Server) error
+type fileOperationFuncV2 func(pfs.API_FileOperationV2Server) error
 type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
 type getTarConditionalFuncV2 func(pfs.API_GetTarConditionalV2Server) error
-type listFileFuncV2 func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
+type listFileV2Func func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
+type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -431,10 +442,11 @@ type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteFile struct{ handler deleteFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
-type mockPutTarV2 struct{ handler putTarFuncV2 }
+type mockFileOperationV2 struct{ handler fileOperationFuncV2 }
 type mockGetTarV2 struct{ handler getTarFuncV2 }
 type mockGetTarConditionalV2 struct{ handler getTarConditionalFuncV2 }
-type mockListFileV2 struct{ handler listFileFuncV2 }
+type mockListFileV2 struct{ handler listFileV2Func }
+type mockGlobFileV2 struct{ handler globFileV2Func }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                   { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)                 { mock.handler = cb }
@@ -466,10 +478,11 @@ func (mock *mockDiffFile) Use(cb diffFileFunc)                       { mock.hand
 func (mock *mockDeleteFile) Use(cb deleteFileFunc)                   { mock.handler = cb }
 func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)               { mock.handler = cb }
 func (mock *mockFsck) Use(cb fsckFunc)                               { mock.handler = cb }
-func (mock *mockPutTarV2) Use(cb putTarFuncV2)                       { mock.handler = cb }
+func (mock *mockFileOperationV2) Use(cb fileOperationFuncV2)         { mock.handler = cb }
 func (mock *mockGetTarV2) Use(cb getTarFuncV2)                       { mock.handler = cb }
 func (mock *mockGetTarConditionalV2) Use(cb getTarConditionalFuncV2) { mock.handler = cb }
-func (mock *mockListFileV2) Use(cb listFileFuncV2)                   { mock.handler = cb }
+func (mock *mockListFileV2) Use(cb listFileV2Func)                   { mock.handler = cb }
+func (mock *mockGlobFileV2) Use(cb globFileV2Func)                   { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -507,10 +520,11 @@ type mockPFSServer struct {
 	DeleteFile          mockDeleteFile
 	DeleteAll           mockDeleteAllPFS
 	Fsck                mockFsck
-	PutTarV2            mockPutTarV2
+	FileOperationV2     mockFileOperationV2
 	GetTarV2            mockGetTarV2
 	GetTarConditionalV2 mockGetTarConditionalV2
 	ListFileV2          mockListFileV2
+	GlobFileV2          mockGlobFileV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -693,11 +707,11 @@ func (api *pfsServerAPI) Fsck(req *pfs.FsckRequest, serv pfs.API_FsckServer) err
 	}
 	return errors.Errorf("unhandled pachd mock pfs.Fsck")
 }
-func (api *pfsServerAPI) PutTarV2(serv pfs.API_PutTarV2Server) error {
-	if api.mock.PutTarV2.handler != nil {
-		return api.mock.PutTarV2.handler(serv)
+func (api *pfsServerAPI) FileOperationV2(serv pfs.API_FileOperationV2Server) error {
+	if api.mock.FileOperationV2.handler != nil {
+		return api.mock.FileOperationV2.handler(serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.PutTarV2")
+	return errors.Errorf("unhandled pachd mock pfs.FileOperationV2")
 }
 func (api *pfsServerAPI) GetTarV2(req *pfs.GetTarRequestV2, serv pfs.API_GetTarV2Server) error {
 	if api.mock.GetTarV2.handler != nil {
@@ -716,6 +730,12 @@ func (api *pfsServerAPI) ListFileV2(req *pfs.ListFileRequest, serv pfs.API_ListF
 		return api.mock.ListFileV2.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListFileV2")
+}
+func (api *pfsServerAPI) GlobFileV2(req *pfs.GlobFileRequest, serv pfs.API_GlobFileV2Server) error {
+	if api.mock.GlobFileV2.handler != nil {
+		return api.mock.GlobFileV2.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.GlobFileV2")
 }
 
 /* PPS Server Mocks */

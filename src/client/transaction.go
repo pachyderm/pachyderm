@@ -386,8 +386,8 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
-func (c *pfsBuilderClient) PutTarV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutTarV2Client, error) {
-	return nil, unsupportedError("PutTarV2")
+func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_FileOperationV2Client, error) {
+	return nil, unsupportedError("FileOperationV2")
 }
 func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
 	return nil, unsupportedError("GetTarV2")
@@ -397,6 +397,9 @@ func (c *pfsBuilderClient) GetTarConditionalV2(ctx context.Context, opts ...grpc
 }
 func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileV2Client, error) {
 	return nil, unsupportedError("ListFileV2")
+}
+func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
+	return nil, unsupportedError("GlobFileV2")
 }
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
@@ -589,6 +592,9 @@ func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest,
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")
+}
+func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest, opts ...grpc.CallOption) (*auth.GetOIDCLoginResponse, error) {
+	return nil, unsupportedError("GetOIDCLogin")
 }
 func (c *authBuilderClient) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest, opts ...grpc.CallOption) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, unsupportedError("ExtendAuthToken")

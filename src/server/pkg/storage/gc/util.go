@@ -136,8 +136,8 @@ func tryTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc)
 	return nil
 }
 
-func retry(name string, f func() error) error {
-	return backoff.RetryNotify(f, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
+func retry(ctx context.Context, name string, f func() error) error {
+	return backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
 		fmt.Printf("%v: %v\n", name, err)
 		return nil
 	})

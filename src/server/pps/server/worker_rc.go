@@ -233,6 +233,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
+	// Get service account name for worker from env or use default
+	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
+	if !ok {
+		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+	}
+
 	// possibly expose s3 gateway port in the sidecar container
 	var sidecarPorts []v1.ContainerPort
 	if options.s3GatewayPort != 0 {
@@ -314,7 +320,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Ports: sidecarPorts,
 			},
 		},
-		ServiceAccountName:            assets.WorkerSAName,
+		ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,

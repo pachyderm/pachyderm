@@ -12,16 +12,13 @@ message Range {
 }
 
 // DataOp is a sequence of data references and an operation associated with the referenced data.
+// TODO Delete semantics are a bit weird, need to revisit before 2.0.
+// A delete will have just delete_tags set. 
+// An overwrite will have delete_tags and data_refs set.
+// An append will just have data_refs set.
 message DataOp {
-  repeated chunk.DataRef data_refs = 1;
-  Op op = 2;
-}
-
-// Op is the set of operations that can be associated with data.
-enum Op {
-  APPEND = 0;
-  OVERWRITE = 1;
-  DELETE = 2;
+  repeated chunk.Tag delete_tags = 1;
+  repeated chunk.DataRef data_refs = 2;
 }
 
 // Index stores an index to and metadata about file sets.

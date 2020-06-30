@@ -117,15 +117,14 @@ func ValidateGitCloneURL(url string) error {
 	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
 	//     clone_url: "https://github.com/sjezewski/testgithook.git",
 	//     svn_url: "https://github.com/sjezewski/testgithook",
-	invalidErr := errors.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
 
 	if !strings.HasSuffix(url, ".git") {
 		// svn_url case
-		return invalidErr
+		return errors.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
 	}
 	if !strings.HasPrefix(url, "https://") {
 		// git_url or ssh_url cases
-		return invalidErr
+		return errors.Errorf("clone URL must use https protocol (example clone URL %v)", exampleURL)
 	}
 
 	return nil

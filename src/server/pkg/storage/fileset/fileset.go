@@ -7,15 +7,19 @@ import (
 	"path"
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
+
+// TODO Might want to rework this a bit later or add some additional validation.
+type dataOp struct {
+	deleteTags map[string]struct{}
+	memFiles   map[string]*memFile
+}
 
 type memFile struct {
 	hdr  *tar.Header
 	tag  string
 	data *bytes.Buffer
-	op   index.Op
 }
 
 func (mf *memFile) Write(data []byte) (int, error) {
@@ -32,7 +36,7 @@ type FileSet struct {
 	memAvailable, memThreshold int64
 	name                       string
 	defaultTag                 string
-	fs                         map[string][]*memFile
+	fs                         map[string]*dataOp
 	subFileSet                 int64
 }
 
@@ -47,7 +51,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 		memThreshold: memThreshold,
 		name:         name,
 		defaultTag:   defaultTag,
-		fs:           make(map[string][]*memFile),
+		fs:           make(map[string]*dataOp),
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -92,35 +96,66 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 }
 
 func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
-	f.createParent(hdr.Name)
+	f.createParent(hdr.Name, tag)
 	hdr.Size = 0
 	mf := &memFile{
 		hdr:  hdr,
 		tag:  tag,
 		data: &bytes.Buffer{},
 	}
-	f.fs[hdr.Name] = append(f.fs[hdr.Name], mf)
+	dataOp := f.getDataOp(hdr.Name)
+	dataOp.memFiles[tag] = mf
 	return mf
 }
 
-func (f *FileSet) createParent(name string) {
+func (f *FileSet) getDataOp(name string) *dataOp {
+	if _, ok := f.fs[name]; !ok {
+		f.fs[name] = &dataOp{
+			deleteTags: make(map[string]struct{}),
+			memFiles:   make(map[string]*memFile),
+		}
+	}
+	return f.fs[name]
+}
+
+func (f *FileSet) createParent(name string, tag string) {
 	name, _ = path.Split(name)
 	if _, ok := f.fs[name]; ok {
 		return
 	}
-	f.fs[name] = append(f.fs[name], &memFile{
+	mf := &memFile{
 		hdr: &tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     name,
 		},
-	})
-	f.createParent(name)
+		tag:  tag,
+		data: &bytes.Buffer{},
+	}
+	dataOp := f.getDataOp(name)
+	dataOp.memFiles[tag] = mf
+	f.createParent(name, tag)
 }
 
 // Delete deletes a file from the file set.
-func (f *FileSet) Delete(name string) {
-	name = path.Join(f.root, name)
-	f.fs[name] = []*memFile{&memFile{op: index.Op_DELETE}}
+func (f *FileSet) Delete(name string, customTag ...string) {
+	// TODO This should be a cleaning function.
+	name = path.Join(f.root, "/", name)
+	var tag string
+	if len(customTag) > 0 {
+		tag = customTag[0]
+	}
+	if tag == headerTag {
+		deleteTags := make(map[string]struct{})
+		deleteTags[headerTag] = struct{}{}
+		f.fs[name] = &dataOp{deleteTags: deleteTags}
+		return
+	}
+	dataOp := f.getDataOp(name)
+	if _, ok := dataOp.deleteTags[headerTag]; ok {
+		return
+	}
+	dataOp.deleteTags[tag] = struct{}{}
+	dataOp.memFiles[tag] = nil
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
@@ -137,21 +172,27 @@ func (f *FileSet) serialize() error {
 	// Serialize file set.
 	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
-		mfs := f.fs[name]
-		sort.Slice(mfs, func(i, j int) bool {
-			return mfs[i].tag < mfs[j].tag
-		})
-		// TODO Serialize deletion operations.
+		dataOp := f.fs[name]
+		deleteTags := getSortedTags(dataOp.deleteTags)
+		mfs := getSortedMemFiles(dataOp.memFiles)
+		if len(mfs) == 0 {
+			if err := w.DeleteFile(name, deleteTags...); err != nil {
+				return err
+			}
+			continue
+		}
+		// TODO Tar header validation?
 		hdr := mfs[len(mfs)-1].hdr
 		if err := w.WriteHeader(hdr); err != nil {
 			return err
 		}
-		if hdr.Typeflag != tar.TypeDir {
-			for _, mf := range mfs {
-				w.Tag(mf.tag)
-				if _, err := w.Write(mf.data.Bytes()); err != nil {
-					return err
-				}
+		for _, tag := range deleteTags {
+			w.DeleteTag(tag)
+		}
+		for _, mf := range mfs {
+			w.Tag(mf.tag)
+			if _, err := w.Write(mf.data.Bytes()); err != nil {
+				return err
 			}
 		}
 	}
@@ -159,10 +200,30 @@ func (f *FileSet) serialize() error {
 		return err
 	}
 	// Reset in-memory file set.
-	f.fs = make(map[string][]*memFile)
+	f.fs = make(map[string]*dataOp)
 	f.memAvailable = f.memThreshold
 	f.subFileSet++
 	return nil
+}
+
+func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
+	var mfs []*memFile
+	for _, mf := range memFiles {
+		mfs = append(mfs, mf)
+	}
+	sort.SliceStable(mfs, func(i, j int) bool {
+		return mfs[i].tag < mfs[j].tag
+	})
+	return mfs
+}
+
+func getSortedTags(tags map[string]struct{}) []string {
+	var tgs []string
+	for tag := range tags {
+		tgs = append(tgs, tag)
+	}
+	sort.Strings(tgs)
+	return tgs
 }
 
 // Close closes the file set.

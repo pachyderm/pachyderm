@@ -17,6 +17,7 @@ require (
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
+	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
 	github.com/dlclark/regexp2 v1.2.0 // indirect
@@ -35,6 +36,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
 	github.com/golang/snappy v0.0.1
+	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
@@ -59,8 +61,10 @@ require (
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
 	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
+	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
+	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
@@ -79,18 +83,19 @@ require (
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
-	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
+	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
-	golang.org/x/tools v0.0.0-20200617042924-7f3f4b10a808 // indirect
+	golang.org/x/tools v0.0.0-20200626171337-aa94e735be7f // indirect
 	google.golang.org/api v0.14.0
+	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
-	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect

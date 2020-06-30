@@ -6311,3 +6311,73 @@ func TestPutFileLeak(t *testing.T) {
 	}, pachdConfig)
 	require.NoError(t, err)
 }
+
+// TestAtomicHistory repeatedly writes to a file while concurrently reading
+// its history. This checks for a regression where the repo would sometimes
+// lock.
+func TestAtomicHistory(t *testing.T) {
+	t.Parallel()
+
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := tu.UniqueString("TestAtomicHistory")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
+		aSize := 1 * 1024 * 1024
+		bSize := aSize + 1024
+
+		for i := 0; i < 10; i++ {
+			// create a file of all A's
+			a := strings.Repeat("A", aSize)
+			_, err := env.PachClient.PutFileOverwrite(repo, "master", "/file", strings.NewReader(a), 0)
+			require.NoError(t, err)
+
+			// sllowwwllly replace it with all B's
+			ctx, cancel := context.WithCancel(context.Background())
+			eg, ctx := errgroup.WithContext(ctx)
+			eg.Go(func() error {
+				b := strings.Repeat("B", bSize)
+				r := SlowReader{underlying: strings.NewReader(b)}
+				_, err := env.PachClient.PutFileOverwrite(repo, "master", "/file", &r, 0)
+				cancel()
+				return err
+			})
+
+			// should pull /file when it's all A's
+			eg.Go(func() error {
+				for {
+					fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
+					require.NoError(t, err)
+					require.Equal(t, len(fileInfos), 1)
+
+					// stop once B's have been written
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+						time.Sleep(1 * time.Millisecond)
+					}
+				}
+			})
+
+			require.NoError(t, eg.Wait())
+
+			// should pull /file when it's all B's
+			fileInfos, err := env.PachClient.ListFileHistory(repo, "master", "/file", 1)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(fileInfos))
+			require.Equal(t, bSize, int(fileInfos[0].SizeBytes))
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+type SlowReader struct {
+	underlying io.Reader
+}
+
+func (r *SlowReader) Read(p []byte) (n int, err error) {
+	n, err = r.underlying.Read(p)
+	time.Sleep(1 * time.Millisecond)
+	return
+}

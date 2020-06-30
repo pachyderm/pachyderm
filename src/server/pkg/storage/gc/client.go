@@ -83,7 +83,7 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 			`, chunk, tmpID).Scan(&flushChunk)
 		},
 	}
-	return retry(flushingDeletion, func() error {
+	return retry(ctx, flushingDeletion, func() error {
 		if err := runTransaction(ctx, c.db, stmtFuncs); err != nil {
 			return err
 		}
