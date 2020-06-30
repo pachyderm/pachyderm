@@ -223,7 +223,7 @@ message AuthenticateRequest {
   // is that string (unless this "looks like" a GitHub access code, in which
   // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
-  // This is the session state that Pachyderm creates in order to keep track of 
+  // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
   string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
 
@@ -372,6 +372,41 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
+//////////////////////////////
+//// OIDC Data Structures ////
+//////////////////////////////
+
+// SessionInfo stores information associated with one OIDC authentication
+// session (i.e. a single instance of a single user logging in). Sessions are
+// short-lived and stored in the 'oidc-authns' collection, keyed by the OIDC
+// 'state' token (30-character CSPRNG-generated string). 'GetOIDCLogin'
+// generates and inserts entries, then /authorization-code/callback retrieves
+// an access token from the ID provider and uses it to retrive the caller's
+// email and store it in 'email', and finally Authorize() returns a Pachyderm
+// token identified with that email address as a subject in Pachyderm.
+message SessionInfo {
+  // nonce is used by /authorization-code/callback to validate session
+  // continuity with the IdP after a user has arrived there from GetOIDCLogin().
+  // This is a 30-character CSPRNG-generated string.
+  string nonce = 1;
+  // email contains the email adddress associated with a user in their OIDC ID
+  // provider. Currently users are identified with their email address rather
+  // than their OIDC subject identifier to make switching between OIDC ID
+  // providers easier for users, and to make user identities more easily
+  // comprehensible in Pachyderm. The OIDC spec doesn't require that users'
+  // emails be present or unique, but we think this will be preferable in
+  // practice.
+  string email = 2;
+  // conversion_err indicates whether an error was encountered while exchanging
+  // an auth code for an access token, or while obtaining a user's email (in
+  // /authorization-code/callback). Storing the error state here allows any
+  // sibling calls to Authenticate() (i.e. using the same OIDC state token) to
+  // notify their caller that an error has occurred. We avoid passing the caller
+  // any details of the error (which are logged by Pachyderm) to avoid giving
+  // information to a user who has network access to Pachyderm but not an
+  // account in the OIDC provider.
+  bool conversion_err = 3;
+}
 
 //// OIDC API
 

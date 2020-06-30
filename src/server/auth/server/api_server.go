@@ -51,6 +51,7 @@ const (
 	membersPrefix          = "/members"
 	groupsPrefix           = "/groups"
 	configPrefix           = "/config"
+	oidcAuthnPrefix        = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	// and the default lifetime of an auth token from GetAuthToken.
@@ -891,31 +892,19 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	case req.OIDCState != "":
-		// first wait to see if the token was exchanged without any errors
-		ti := <-tokenChan
-		if ti.err != nil {
-			return nil, errors.Wrapf(ti.err, "error exchanging token")
+		// confirm OIDC has been configured and get OIDC prefix
+		oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
 		}
 
 		// Determine caller's Pachyderm/OIDC user info (email)
-		_, a.oidcSP = a.getOIDCSP()
-		if a.oidcSP == nil {
-			return nil, errors.Errorf("could not find oidc configuration")
-		}
-
-		email, err := a.oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
+		email, err := oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
 
-		canonicalConfig := a.getCacheConfig()
-		idps := canonicalConfig.IDPs
-		if len(idps) != 1 {
-			return nil, errors.Errorf("invalid config, oidc needs exactly one idp set")
-		}
-		prefix := idps[0].Name
-
-		username, err := a.canonicalizeSubject(ctx, prefix+":"+email)
+		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+email)
 		if err != nil {
 			return nil, err
 		}
@@ -1901,15 +1890,12 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	var err error
 
-	cfg, sp := a.getOIDCSP()
-	if cfg == nil {
-		return nil, fmt.Errorf("auth has no active config (either never set or disabled)")
-	}
+	sp := a.getOIDCSP()
 	if sp == nil {
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
 	}
 
-	authURL, state, err := sp.GetOIDCLoginURL()
+	authURL, state, err := sp.GetOIDCLoginURL(ctx)
 	if err != nil {
 		return nil, err
 	}

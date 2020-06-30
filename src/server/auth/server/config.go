@@ -32,11 +32,6 @@ const (
 	external
 )
 
-type tokenInfo struct {
-	token string
-	err   error
-}
-
 type canonicalSAMLIDP struct {
 	MetadataURL    *url.URL
 	Metadata       *saml.EntityDescriptor
@@ -75,15 +70,11 @@ type canonicalConfig struct {
 	Version int64
 	Source  configSource
 
-	// currently, there is only one permissible type of ID provider (SAML), and
-	// SAMLSvc must be set iff there is a SAML ID provider in this list. Therefore
-	// there are currently two possible forms of canonicalConfig:
-	// 1. empty config
-	// 2. IDPs contains a single element configuring a SAML ID provider, and
-	//    SAMLSvc contains config for Pachyderm's ACS
+	// IDPs contain canonicalized configs for any ID providers configured to work
+	// with this cluster
 	IDPs []canonicalIDPConfig
 
-	// SAMLSvc must be set
+	// SAMLSvc must be set if and only if there is a SAML ID provider
 	SAMLSvc *canonicalSAMLSvcConfig
 }
 
@@ -536,7 +527,8 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			}
 		}
 		if idp.OIDC != nil {
-			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(),
+			a.oidcSP, err = a.NewOIDCSP(
+				idp.Name,
 				idp.OIDC.Issuer,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,
@@ -585,25 +577,16 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 	return &cfg, &sp
 }
 
-// getOIDCSP returns apiServer's oidc.ServiceProvider and config together, to
-// avoid a race where a OIDC request is mishandled because the config is
-// modified between reading them
-func (a *apiServer) getOIDCSP() (*canonicalConfig, *InternalOIDCProvider) {
-	a.configMu.Lock()
-	defer a.configMu.Unlock()
+// getOIDCSP returns apiServer's InternalOIDCProvider, if it exists
+func (a *apiServer) getOIDCSP() *InternalOIDCProvider {
 	a.oidcSPMu.Lock()
 	defer a.oidcSPMu.Unlock()
-	var sp InternalOIDCProvider
-	if a.oidcSP != nil {
-		sp = *a.oidcSP
+	if a.oidcSP == nil {
+		return nil
 	}
-	var cfg canonicalConfig
-	if a.configCache != nil {
-		cfg = *a.configCache
-	}
-
-	// copy config to avoid data races
-	return &cfg, &sp
+	// copy oidcSP to avoid a data race
+	var sp InternalOIDCProvider = *a.oidcSP
+	return &sp
 }
 
 // watchConfig waits for config updates in etcd and then copies new config
