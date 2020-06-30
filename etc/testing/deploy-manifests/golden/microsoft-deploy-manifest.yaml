@@ -358,6 +358,8 @@ spec:
           value: "false"
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
+        - name: WORKER_SERVICE_ACCOUNT
+          value: pachyderm-worker
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:

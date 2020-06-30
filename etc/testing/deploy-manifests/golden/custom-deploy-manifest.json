@@ -581,6 +581,10 @@
                 "value": "false"
               },
               {
+                "name": "WORKER_SERVICE_ACCOUNT",
+                "value": "pachyderm-worker"
+              },
+              {
                 "name": "PACH_NAMESPACE",
                 "valueFrom": {
                   "fieldRef": {
