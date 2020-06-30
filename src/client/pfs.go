@@ -356,6 +356,23 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 	return grpcutil.ScrubGRPC(err)
 }
 
+// CreateBranchTrigger Creates a branch with a trigger
+func (c APIClient) CreateBranchTrigger(repoName string, branch string, commit string, trigger *pfs.Trigger) error {
+	var head *pfs.Commit
+	if commit != "" {
+		head = NewCommit(repoName, commit)
+	}
+	_, err := c.PfsAPIClient.CreateBranch(
+		c.Ctx(),
+		&pfs.CreateBranchRequest{
+			Branch:  NewBranch(repoName, branch),
+			Head:    head,
+			Trigger: trigger,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
 // InspectBranch returns information on a specific PFS branch
 func (c APIClient) InspectBranch(repoName string, branch string) (*pfs.BranchInfo, error) {
 	branchInfo, err := c.PfsAPIClient.InspectBranch(

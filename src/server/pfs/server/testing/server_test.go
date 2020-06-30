@@ -40,6 +40,7 @@ import (
 )
 
 const (
+	KB = 1024
 	MB = 1024 * 1024
 )
 
@@ -6380,4 +6381,38 @@ func (r *SlowReader) Read(p []byte) (n int, err error) {
 	n, err = r.underlying.Read(p)
 	time.Sleep(1 * time.Millisecond)
 	return
+}
+
+// TestTrigger tests branch triggers
+func TestTrigger(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		require.NoError(t, c.CreateRepo("repo"))
+		require.NoError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
+			Branch: "master",
+			Size_:  "1K",
+		}))
+		bis, err := c.ListBranch("repo")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(bis))
+		require.Nil(t, bis[0].Head)
+
+		// Write a small file, too small to trigger
+		_, err = c.PutFile("repo", "master", "file", strings.NewReader("small"))
+		require.NoError(t, err)
+		bi, err := c.InspectBranch("repo", "trigger")
+		require.NoError(t, err)
+		require.Nil(t, bi.Head)
+
+		_, err = c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
+		require.NoError(t, err)
+
+		bi, err = c.InspectBranch("repo", "trigger")
+		require.NoError(t, err)
+		require.NotNil(t, bi.Head)
+
+		return nil
+	})
+	require.NoError(t, err)
 }
