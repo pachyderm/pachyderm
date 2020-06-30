@@ -1597,78 +1597,76 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 				Message: strings.TrimSuffix(line, "\n"),
 			})
 		})
-	} else {
-
-		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
-		// RC name
-		var pipelineInfo *pps.PipelineInfo
-		var err error
-		if request.Pipeline != nil {
-			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
-			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
-			}
-		} else if request.Job != nil {
-			// If user provides a job, lookup the pipeline from the job info, and then
-			// get the pipeline RC
-			var jobPtr pps.EtcdJobInfo
-			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
-			if err != nil {
-				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
-			}
-			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
-			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
-			}
-		}
-
-		// 2) Check whether the caller is authorized to get logs from this pipeline/job
-		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return err
-		}
-		query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
-		if request.Master {
-			query += contains("master")
-		}
-		if request.Job != nil {
-			query += contains(request.Job.ID)
-		}
-		if request.Datum != nil {
-			query += contains(request.Datum.ID)
-		}
-		for _, filter := range request.DataFilters {
-			query += contains(filter)
-		}
-		return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
-			msg := &pps.LogMessage{}
-			// These filters are almost always unnecessary because we apply
-			// them in the Loki request, but many of them are just done with
-			// string matching so there technically could be some false
-			// positive matches (although it's pretty unlikely), checking here
-			// just makes sure we don't accidentally intersperse unrelated log
-			// messages.
-			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
-				return nil
-			}
-			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-				return nil
-			}
-			if request.Job != nil && request.Job.ID != msg.JobID {
-				return nil
-			}
-			if request.Datum != nil && request.Datum.ID != msg.DatumID {
-				return nil
-			}
-			if request.Master != msg.Master {
-				return nil
-			}
-			if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
-				return nil
-			}
-			msg.Message = strings.TrimSuffix(msg.Message, "\n")
-			return apiGetLogsServer.Send(msg)
-		})
 	}
+
+	// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
+	// RC name
+	var pipelineInfo *pps.PipelineInfo
+	if request.Pipeline != nil {
+		pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
+		}
+	} else if request.Job != nil {
+		// If user provides a job, lookup the pipeline from the job info, and then
+		// get the pipeline RC
+		var jobPtr pps.EtcdJobInfo
+		err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+		if err != nil {
+			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+		}
+		pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
+		}
+	}
+
+	// 2) Check whether the caller is authorized to get logs from this pipeline/job
+	if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+		return err
+	}
+	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+	if request.Master {
+		query += contains("master")
+	}
+	if request.Job != nil {
+		query += contains(request.Job.ID)
+	}
+	if request.Datum != nil {
+		query += contains(request.Datum.ID)
+	}
+	for _, filter := range request.DataFilters {
+		query += contains(filter)
+	}
+	return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+		msg := &pps.LogMessage{}
+		// These filters are almost always unnecessary because we apply
+		// them in the Loki request, but many of them are just done with
+		// string matching so there technically could be some false
+		// positive matches (although it's pretty unlikely), checking here
+		// just makes sure we don't accidentally intersperse unrelated log
+		// messages.
+		if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
+			return nil
+		}
+		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+			return nil
+		}
+		if request.Job != nil && request.Job.ID != msg.JobID {
+			return nil
+		}
+		if request.Datum != nil && request.Datum.ID != msg.DatumID {
+			return nil
+		}
+		if request.Master != msg.Master {
+			return nil
+		}
+		if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+			return nil
+		}
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+		return apiGetLogsServer.Send(msg)
+	})
 }
 
 func contains(s string) string {

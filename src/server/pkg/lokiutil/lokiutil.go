@@ -18,7 +18,7 @@ const (
 	maxLogMessages = 5000
 )
 
-func ForEachLine(resp *loghttp.QueryResponse, f func(t time.Time, line string) error) error {
+func forEachLine(resp *loghttp.QueryResponse, f func(t time.Time, line string) error) error {
 	// sort and display entries
 	streams, ok := resp.Data.Result.(loghttp.Streams)
 	if !ok {
@@ -48,6 +48,8 @@ func ForEachLine(resp *loghttp.QueryResponse, f func(t time.Time, line string) e
 	return nil
 }
 
+// QueryRange calls QueryRange on the passed loki.Client and calls f with each
+// logline.
 func QueryRange(c *loki.Client, queryStr string, from, through time.Time, f func(t time.Time, line string) error) error {
 	for {
 		resp, err := c.QueryRange(queryStr, maxLogMessages, from, through, logproto.FORWARD, 0, 0, true)
@@ -55,7 +57,7 @@ func QueryRange(c *loki.Client, queryStr string, from, through time.Time, f func
 			return err
 		}
 		nMsgs := 0
-		if err := ForEachLine(resp, func(t time.Time, line string) error {
+		if err := forEachLine(resp, func(t time.Time, line string) error {
 			from = t
 			nMsgs++
 			return f(t, line)

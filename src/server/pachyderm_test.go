@@ -4347,14 +4347,12 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 		var numLogs int
-		var loglines []string
 		for iter.Next() {
 			if !iter.Message().User {
 				continue
 			}
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
 		if numLogs < 2 {
@@ -4367,11 +4365,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
 		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
-		loglines = []string{}
 		for iter.Next() {
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		}
 		if numLogs < 2 {
 			return fmt.Errorf("didn't get enough log lines")
