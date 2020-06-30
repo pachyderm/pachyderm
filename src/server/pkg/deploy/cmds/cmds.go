@@ -722,6 +722,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var putFileConcurrencyLimit int
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
+	var workerServiceAccountName string
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -777,6 +778,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				ExposeObjectAPI:            exposeObjectAPI,
 				ClusterDeploymentID:        clusterDeploymentID,
 				RequireCriticalServersOnly: requireCriticalServersOnly,
+				WorkerServiceAccountName:   workerServiceAccountName,
 			}
 			if tlsCertKey != "" {
 				// TODO(msteffen): If either the cert path or the key path contains a
@@ -825,6 +827,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 	deploy.PersistentFlags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
+	deploy.PersistentFlags().StringVar(&workerServiceAccountName, "worker-service-account", assets.DefaultWorkerServiceAccountName, "The Kubernetes service account for workers to use when creating S3 gateways.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
