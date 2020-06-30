@@ -386,6 +386,12 @@
         "nodePort": 30654
       },
       {
+        "name": "oidc-port",
+        "port": 657,
+        "targetPort": 0,
+        "nodePort": 30657
+      },
+      {
         "name": "api-git-port",
         "port": 655,
         "targetPort": 0,
@@ -516,6 +522,11 @@
               {
                 "name": "saml-port",
                 "containerPort": 654,
+                "protocol": "TCP"
+              },
+              {
+                "name": "oidc-port",
+                "containerPort": 657,
                 "protocol": "TCP"
               }
             ],

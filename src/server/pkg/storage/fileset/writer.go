@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -21,6 +22,7 @@ type Writer struct {
 	tw        *tar.Writer
 	cw        *chunk.Writer
 	iw        *index.Writer
+	idx       *index.Index
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
 	priorFile bool
@@ -68,15 +70,20 @@ func (w *Writer) finishPriorFile() error {
 	return w.tw.Flush()
 }
 
-func (w *Writer) setupAnnotation(path string) {
-	w.cw.Annotate(&chunk.Annotation{
+func (w *Writer) setupAnnotation(path string, empty ...bool) {
+	w.idx = &index.Index{
+		Path:   path,
+		DataOp: &index.DataOp{},
+	}
+	a := &chunk.Annotation{
 		Data: &data{
-			idx: &index.Index{
-				Path:   path,
-				DataOp: &index.DataOp{},
-			},
+			idx: w.idx,
 		},
-	})
+	}
+	if len(empty) > 0 {
+		a.Empty = empty[0]
+	}
+	w.cw.Annotate(a)
 }
 
 func (w *Writer) callback() chunk.WriterFunc {
@@ -94,10 +101,12 @@ func (w *Writer) callback() chunk.WriterFunc {
 		// Update the file indexes.
 		for i := 0; i < len(annotations); i++ {
 			idx := annotations[i].Data.(*data).idx
-			idx.DataOp.DataRefs = append(idx.DataOp.DataRefs, annotations[i].NextDataRef)
-			for _, tag := range annotations[i].NextDataRef.Tags {
-				if tag.Id != headerTag && tag.Id != paddingTag {
-					idx.SizeBytes += int64(tag.SizeBytes)
+			if annotations[i].NextDataRef != nil {
+				idx.DataOp.DataRefs = append(idx.DataOp.DataRefs, annotations[i].NextDataRef)
+				for _, tag := range annotations[i].NextDataRef.Tags {
+					if tag.Id != headerTag && tag.Id != paddingTag {
+						idx.SizeBytes += int64(tag.SizeBytes)
+					}
 				}
 			}
 			idxs = append(idxs, idx)
@@ -126,13 +135,43 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return w.tw.Write(data)
 }
 
+// DeleteFile deletes a file.
+// The optional tag field indicates specific tags in the files to delete.
+func (w *Writer) DeleteFile(name string, tags ...string) error {
+	if len(tags) == 0 {
+		tags = []string{headerTag}
+	}
+	// Finish prior file.
+	if err := w.finishPriorFile(); err != nil {
+		return err
+	}
+	w.setupAnnotation(name, true)
+	for _, tag := range tags {
+		w.DeleteTag(tag)
+	}
+	return nil
+}
+
+// DeleteTag deletes a tag in the current file.
+func (w *Writer) DeleteTag(id string) {
+	// TODO Might want this to be a map, then convert to slice.
+	w.idx.DataOp.DeleteTags = append(w.idx.DataOp.DeleteTags, &chunk.Tag{Id: id})
+}
+
 // CopyFile copies a file (header and tags included).
 func (w *Writer) CopyFile(fr *FileReader) error {
 	// Finish prior file.
 	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
-	w.setupAnnotation(fr.Index().Path)
+	var empty bool
+	if _, err := fr.PeekTag(); err == io.EOF {
+		empty = true
+	}
+	w.setupAnnotation(fr.Index().Path, empty)
+	for _, tag := range fr.Index().DataOp.DeleteTags {
+		w.DeleteTag(tag.Id)
+	}
 	return fr.Iterate(func(dr *chunk.DataReader) error {
 		return w.cw.Copy(dr)
 	})

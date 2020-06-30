@@ -206,7 +206,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 	return backoff.RetryNotify(func() error {
 		return op.apiServer.sudo(op.pachClient, func(superUserClient *client.APIClient) error {
 			var err error
-			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
+			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.name, op.ptr)
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {

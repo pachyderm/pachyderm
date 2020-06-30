@@ -76,7 +76,7 @@ func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
 }
 
 func (gc *garbageCollector) pollingFunc(ctx context.Context) error {
-	return retry(polling, func() error {
+	return retry(ctx, polling, func() error {
 		if err := func() error {
 			for {
 				if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
@@ -105,14 +105,14 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	// Mark the chunks as deleting.
 	var toDelete []string
 	var err error
-	if err := retry(markingDeletingChunks, func() error {
+	if err := retry(ctx, markingDeletingChunks, func() error {
 		toDelete, err = gc.markChunksDeleting(ctx, chunks)
 		return err
 	}); err != nil {
 		return err
 	}
 	// Delete the chunks from object storage.
-	if err := retry(deletingChunks, func() error {
+	if err := retry(ctx, deletingChunks, func() error {
 		chunks := toDelete
 		for len(chunks) > 0 {
 			if err := gc.objClient.Delete(ctx, chunks[0]); err != nil {
@@ -126,7 +126,7 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	}
 	// Remove the chunk rows.
 	transitiveDeletes := []string{}
-	if err := retry(deletingChunkRows, func() error {
+	if err := retry(ctx, deletingChunkRows, func() error {
 		transitiveDeletes, err = gc.deleteChunkRows(ctx, toDelete)
 		return err
 	}); err != nil {

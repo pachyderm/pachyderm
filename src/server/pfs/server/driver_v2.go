@@ -187,6 +187,7 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
+	// TODO: handle children of a directory
 	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
 		return f(fr.Info())
 	})
@@ -227,6 +228,10 @@ func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob str
 		return nil
 	}
 	if err := d.storage.ResolveIndexes(ctx, compactedPaths, func(idx *index.Index) error {
+		// Ignore index entries for deleted files.
+		if len(idx.DataOp.DataRefs) == 0 {
+			return nil
+		}
 		if fr == nil {
 			return nextFileReader(idx)
 		}
@@ -288,6 +293,7 @@ type FileReader struct {
 func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
 	h := pfs.NewHash()
 	for _, dataRef := range idx.DataOp.DataRefs {
+		// TODO Pull from chunk hash.
 		h.Write([]byte(dataRef.Hash))
 	}
 	return &FileReader{
@@ -512,4 +518,21 @@ func (d *driverV2) compactionWorker() {
 	})
 	// Never ending backoff should prevent us from getting here.
 	panic(err)
+}
+
+func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfoV2) error) (retErr error) {
+	// Validate arguments
+	if commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if commit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+
+	return d.getTarConditional(pachClient.Ctx(), commit.Repo.Name, commit.ID, pattern, func(fr *FileReader) error {
+		return f(fr.Info())
+	})
 }

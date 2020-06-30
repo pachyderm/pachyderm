@@ -33,7 +33,7 @@ var (
 	WithStack = errors.WithStack
 )
 
-// StackTrace is the type used for a stack trace
+// StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
 type StackTrace = errors.StackTrace
 
 // EnsureStack will add a stack onto the given error only if it does not already
@@ -51,9 +51,7 @@ func EnsureStack(err error) error {
 }
 
 // Frame is the type of a StackFrame, it is an alias for errors.Frame.
-type Frame struct {
-	errors.Frame
-}
+type Frame struct{ errors.Frame }
 
 // Callers returns an errors.StackTrace for the place at which it's called.
 func Callers() errors.StackTrace {

@@ -30,6 +30,8 @@ type Annotation struct {
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
 	Data        interface{}
+	// TODO Find a way around needing this field (for deletions).
+	Empty bool
 
 	tags []*Tag
 }
@@ -127,7 +129,7 @@ func (w *Writer) Annotate(a *Annotation) {
 	if w.buf.Len() >= w.chunkSize.avg {
 		w.createChunk()
 	}
-	if w.buf.Len() == 0 && w.drs == nil {
+	if w.buf.Len() == 0 && w.drs == nil && len(w.annotations) > 0 && !w.annotations[len(w.annotations)-1].Empty {
 		w.annotations = nil
 	}
 	w.annotations = append(w.annotations, a)
@@ -298,6 +300,9 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 	for _, a := range annotations {
 		// Update the annotation fields.
 		size := sizeOfTags(a.tags)
+		if size == 0 {
+			continue
+		}
 		dataRef := &DataRef{}
 		dataRef.ChunkInfo = chunkRef.ChunkInfo
 		if len(annotations) > 1 {
@@ -396,6 +401,8 @@ func (w *Writer) maybeBufferDataReader(dr *DataReader) error {
 		}
 		return w.flushDataReader(dr)
 	}
+	lastA := w.annotations[len(w.annotations)-1]
+	lastA.NextDataRef = dr.DataRef()
 	w.drs = append(w.drs, dr)
 	return nil
 }
@@ -441,11 +448,8 @@ func (w *Writer) maybeCheapCopy() {
 	// Cheap copy if full chunk is buffered.
 	lastBufDataRef := w.drs[len(w.drs)-1].DataRef()
 	if lastBufDataRef.OffsetBytes+lastBufDataRef.SizeBytes == lastBufDataRef.ChunkInfo.SizeBytes {
-		for i, a := range w.annotations {
-			dataRef := w.drs[i].DataRef()
-			a.NextDataRef = dataRef
-			a.tags = dataRef.Tags
-		}
+		lastA := w.annotations[len(w.annotations)-1]
+		lastA.tags = lastA.NextDataRef.Tags
 		w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
 			return w.executeFunc(annotations, prevChan, nextChan)
 		})
@@ -460,7 +464,7 @@ func (w *Writer) Close() error {
 		if err := w.flushDataReaders(); err != nil {
 			return err
 		}
-		if w.buf.Len() > 0 {
+		if len(w.annotations) > 0 {
 			chunk := w.buf.Bytes()
 			w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
 				return w.processChunk(chunk, annotations, prevChan, nextChan)

@@ -37,7 +37,6 @@ type loadConfig struct {
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
 	config.pachdConfig = newPachdConfig()
-	config.pachdConfig.StorageCompactionMaxFanIn = 2
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -66,6 +65,7 @@ func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguratio
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelZeroSize = units.MB
 	config.StorageGCPolling = "30s"
+	config.StorageCompactionMaxFanIn = 10
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -171,6 +171,14 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				if err := c.PutTarV2(repo, commit.ID, r); err != nil {
 					return err
 				}
+				if rand.Float64() < config.deleteProb {
+					file := validator.deleteRandomFile()
+					if file != "" {
+						if err := c.DeleteFilesV2(repo, commit.ID, []string{file}); err != nil {
+							return err
+						}
+					}
+				}
 				validator.recordFileSet(fs)
 			}
 			if err := c.FinishCommit(repo, commit.ID); err != nil {
@@ -203,6 +211,7 @@ type commitConfig struct {
 	putTarGens                               []putTarGenerator
 	putThroughputConfig, getThroughputConfig *throughputConfig
 	putCancelConfig, getCancelConfig         *cancelConfig
+	deleteProb                               float64
 }
 
 type throughputConfig struct {
@@ -312,6 +321,12 @@ func withPutCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption
 func withGetCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption {
 	return func(config *commitConfig) {
 		config.getCancelConfig = newCancelConfig(maxTime, prob...)
+	}
+}
+
+func withDeleteProb(prob float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.deleteProb = prob
 	}
 }
 
@@ -503,6 +518,7 @@ func fuzzCommits() []branchGeneratorOption {
 				withFileGenerator(fuzzFiles()),
 			),
 		)
+		commitOpts = append(commitOpts, fuzzDelete()...)
 		branchOpts = append(branchOpts, withCommitGenerator(commitOpts...))
 	}
 	return branchOpts
@@ -543,6 +559,12 @@ func fuzzCancel() []commitGeneratorOption {
 			5*time.Second,
 			0.05,
 		),
+	}
+}
+
+func fuzzDelete() []commitGeneratorOption {
+	return []commitGeneratorOption{
+		withDeleteProb(0.3),
 	}
 }
 
@@ -626,6 +648,14 @@ func (v *validator) validate(r io.Reader) error {
 	return nil
 }
 
+func (v *validator) deleteRandomFile() string {
+	for file := range v.files {
+		delete(v.files, file)
+		return file
+	}
+	return ""
+}
+
 type fileSetSpec map[string][]byte
 
 func (fs fileSetSpec) recordFile(name string, r io.Reader) error {
@@ -665,8 +695,7 @@ func TestListFileV2(t *testing.T) {
 		t.SkipNow()
 	}
 
-	config := &serviceenv.PachdFullConfiguration{}
-	config.StorageV2 = true
+	config := newPachdConfig()
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -713,7 +742,7 @@ func TestCompaction(t *testing.T) {
 		const (
 			nFileSets   = 100
 			filesPer    = 10
-			fileSetSize = 1e6
+			fileSetSize = 1e3
 		)
 		for i := 0; i < nFileSets; i++ {
 			fsSpec := fileSetSpec{}
