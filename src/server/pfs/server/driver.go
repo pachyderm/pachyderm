@@ -1856,6 +1856,9 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
+	if userCommit.Repo == nil {
+		return nil, errors.Errorf("cannot resolve commit with no repo")
+	}
 	if userCommit.ID == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}

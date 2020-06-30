@@ -11551,6 +11551,187 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
+// Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
+func TestMalformedPipeline(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	pipelineName := tu.UniqueString("MalformedPipeline")
+
+	var err error
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "invalid pipeline spec", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pipelineName)},
+	)
+	require.YesError(t, err)
+	require.Matches(t, "must specify a transform", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:        client.NewPipeline(pipelineName),
+		Transform:       &pps.Transform{},
+		Service:         &pps.Service{},
+		ParallelismSpec: &pps.ParallelismSpec{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:     client.NewPipeline(pipelineName),
+		Transform:    &pps.Transform{},
+		HashtreeSpec: &pps.HashtreeSpec{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "HashtreeSpec.Constant must be > 0", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+
+	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a repo", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Repo: dataRepo}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a glob", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     client.NewPFSInput("out", "/*"),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named \"out\"", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named \"out\"", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data", Repo: "dne", Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "dne not found", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input: client.NewCrossInput(
+			client.NewPFSInput("foo", "/*"),
+			client.NewPFSInput("foo", "/*"),
+		),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "name \"foo\" was used more than once", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "Empty spec string", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL is missing \\(", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL is missing .git suffix", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL must use https protocol", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cross: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Union: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Join: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)

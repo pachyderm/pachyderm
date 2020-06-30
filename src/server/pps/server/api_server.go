@@ -261,6 +261,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("multiple input types set")
 				}
 				set = true
+				if len(input.Cron.Name) == 0 {
+					return errors.Errorf("input must specify a name")
+				}
 				if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 					return errors.Wrapf(err, "error parsing cron-spec")
 				}
@@ -2229,9 +2232,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		var commit *pfs.Commit
 		if request.SpecCommit != nil {
 			// Make sure that the spec commit actually exists
-			commitInfo, err := pachClient.InspectCommit(request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{Commit: request.SpecCommit})
 			if err != nil {
-				return nil, errors.Wrapf(err, "error inspecting commit: \"%s@%s\"", request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+				return nil, errors.Wrap(err, "error inspecting spec commit")
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
