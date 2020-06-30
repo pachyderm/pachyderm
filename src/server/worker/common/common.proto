@@ -4,7 +4,7 @@ package common;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker/common";
 
 import "client/pfs/pfs.proto";
-import "gogoproto/gogo.proto";
+
 
 message Input {
   pfs.FileInfo file_info = 1;
@@ -13,7 +13,7 @@ message Input {
   string join_on = 8;
   bool lazy = 3;
   string branch = 4;
-  string git_url = 6 [(gogoproto.customname) = "GitURL"];
+  string git_url = 6;
   bool empty_files = 7;
   bool s3 = 9; // If set, workers won't create an input directory for this input
 }

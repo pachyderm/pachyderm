@@ -7,7 +7,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
-import "gogoproto/gogo.proto";
+
 
 import "client/admin/v1_8/pfs/pfs.proto";
 
@@ -39,7 +39,7 @@ message Egress {
 }
 
 message Job {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }
 
 enum JobState {
@@ -54,7 +54,7 @@ enum JobState {
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
-  string ip = 3 [(gogoproto.customname) = "IP"];
+  string ip = 3;
 }
 
 message Spout {
@@ -102,7 +102,7 @@ message CronInput {
 
 message GitInput {
   string name = 1;
-  string url = 2 [(gogoproto.customname) = "URL"];
+  string url = 2;
   string branch = 3;
   string commit = 4;
 }
@@ -160,7 +160,7 @@ message InputFile {
 
 message Datum {
   // ID is the hash computed from all the files
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
   Job job = 2;
 }
 
@@ -204,8 +204,8 @@ message AggregateProcessStats {
 }
 
 message WorkerStatus {
-  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  string worker_id = 1;
+  string job_id = 2;
   repeated pps_1_8.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
@@ -372,7 +372,7 @@ message EtcdPipelineInfo {
 
 message PipelineInfo {
   reserved 3, 4, 22, 26;
-  string id = 17 [(gogoproto.customname) = "ID"];
+  string id = 17;
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
@@ -415,7 +415,7 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 32;
   google.protobuf.Duration datum_timeout = 33;
   google.protobuf.Duration job_timeout = 34;
-  string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
+  string githook_url = 35;
   pfs_1_8.Commit spec_commit = 36;
   bool standby = 37;
   int64 datum_tries = 39;
@@ -496,9 +496,9 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string job_id = 3 [(gogoproto.customname) = "JobID"];
-  string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
+  string job_id = 3;
+  string worker_id = 7;
+  string datum_id = 9;
   bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)

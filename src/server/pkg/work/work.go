@@ -72,28 +72,28 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 // The callback will receive a Master, which should be used for running subtasks in the task queue.
 // The task state will be cleaned up upon return of the callback.
 func (tq *TaskQueue) RunTask(ctx context.Context, f func(*Master)) (retErr error) {
-	task := &Task{ID: uuid.NewWithoutDashes()}
+	task := &Task{Id: uuid.NewWithoutDashes()}
 	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
-		return tq.taskCol.ReadWrite(stm).Put(task.ID, task)
+		return tq.taskCol.ReadWrite(stm).Put(task.Id, task)
 	}); err != nil {
 		return err
 	}
 	defer func() {
 		if retErr != nil {
-			if err := tq.deleteTask(task.ID); err != nil {
-				fmt.Printf("errored deleting task %v: %v\n", task.ID, err)
+			if err := tq.deleteTask(task.Id); err != nil {
+				fmt.Printf("errored deleting task %v: %v\n", task.Id, err)
 			}
 		}
 	}()
-	return tq.taskQueue.runTask(ctx, task.ID, func(te *taskEntry) {
+	return tq.taskQueue.runTask(ctx, task.Id, func(te *taskEntry) {
 		defer func() {
-			if err := tq.deleteTask(task.ID); err != nil {
-				fmt.Printf("errored deleting task %v: %v\n", task.ID, err)
+			if err := tq.deleteTask(task.Id); err != nil {
+				fmt.Printf("errored deleting task %v: %v\n", task.Id, err)
 			}
 		}()
 		f(&Master{
 			taskEtcd:  tq.taskEtcd,
-			taskID:    task.ID,
+			taskID:    task.Id,
 			taskEntry: te,
 		})
 	})
@@ -209,8 +209,8 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 }
 
 func (m *Master) createSubtask(subtask *Task) error {
-	if subtask.ID == "" {
-		subtask.ID = uuid.NewWithoutDashes()
+	if subtask.Id == "" {
+		subtask.Id = uuid.NewWithoutDashes()
 	}
 	subtaskKey := path.Join(m.taskID, subtask.ID)
 	subtaskInfo := &TaskInfo{Task: subtask}

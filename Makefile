@@ -91,9 +91,6 @@ docker-build: enterprise-code-checkin-test
 		-t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
 
-docker-build-proto:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
-
 docker-build-netcat:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
@@ -202,17 +199,11 @@ full-clean-launch: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
-
 test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
 
 regenerate-test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh --regenerate
-
-proto: docker-build-proto
-	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
@@ -452,7 +443,6 @@ goxc-build:
 	release-helper \
 	release-version \
 	docker-build \
-	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
 	docker-build-spout-test \
@@ -473,10 +463,8 @@ goxc-build:
 	clean-launch-dev \
 	full-clean-launch \
 	integration-tests \
-	test-proto-static \
 	test-deploy-manifests \
 	regenerate-test-deploy-manifests \
-	proto \
 	test \
 	enterprise-code-checkin-test \
 	test-pfs-server \

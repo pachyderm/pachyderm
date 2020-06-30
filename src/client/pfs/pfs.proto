@@ -7,8 +7,6 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-import "gogoproto/gogo.proto";
-
 import "client/auth/auth.proto";
 
 ////  PFS Data structures (stored in etcd)
@@ -94,7 +92,7 @@ message CommitOrigin {
 // protos)
 message Commit {
   Repo repo = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2;
 }
 
 // CommitRange represents chain of commits with Lower being an ancestor of

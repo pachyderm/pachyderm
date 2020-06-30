@@ -4,7 +4,7 @@ package admin;
 option go_package = "github.com/pachyderm/pachyderm/src/client/admin";
 
 import "google/protobuf/empty.proto";
-import "gogoproto/gogo.proto";
+
 import "client/admin/v1_7/pfs/pfs.proto";
 import "client/admin/v1_7/pps/pps.proto";
 import "client/admin/v1_8/pfs/pfs.proto";
@@ -102,8 +102,8 @@ message RestoreRequest {
 }
 
 message ClusterInfo {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  string deployment_id = 2 [(gogoproto.customname) = "DeploymentID"];
+  string id = 1;
+  string deployment_id = 2;
 }
 
 service API {
