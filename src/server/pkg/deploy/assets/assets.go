@@ -24,11 +24,15 @@ import (
 )
 
 const (
-	// WorkerSAName is the name of the service account that pachyderm
-	// pipelines use to create an s3 gateway service for each job
-	WorkerSAName          = "pachyderm-worker"
-	workerRoleName        = "pachyderm-worker" // Role given to worker SA
-	workerRoleBindingName = "pachyderm-worker" // Binding worker role to SA
+	// WorkerServiceAccountEnvVar is the name of the environment variable used to tell pachd
+	// what service account to assign to new worker RCs, for the purpose of
+	// creating S3 gateway services.
+	WorkerServiceAccountEnvVar = "WORKER_SERVICE_ACCOUNT"
+	// DefaultWorkerServiceAccountName is the default value to use if WorkerServiceAccountEnvVar is
+	// undefined (for compatibility purposes)
+	DefaultWorkerServiceAccountName = "pachyderm-worker"
+	workerRoleName                  = "pachyderm-worker" // Role given to worker Service Account
+	workerRoleBindingName           = "pachyderm-worker" // Binding worker role to Service Account
 )
 
 var (
@@ -264,6 +268,10 @@ type AssetOpts struct {
 	// RequireCriticalServersOnly is true when only the critical Pachd servers
 	// are required to startup and run without error.
 	RequireCriticalServersOnly bool
+
+	// WorkerServiceAccountName is the name of the service account that will be
+	// used in the worker pods for creating S3 gateways.
+	WorkerServiceAccountName string
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -341,7 +349,7 @@ func ServiceAccounts(opts *AssetOpts) []*v1.ServiceAccount {
 				Kind:       "ServiceAccount",
 				APIVersion: "v1",
 			},
-			ObjectMeta: objectMeta(WorkerSAName, labels(""), nil, opts.Namespace),
+			ObjectMeta: objectMeta(opts.WorkerServiceAccountName, labels(""), nil, opts.Namespace),
 		},
 	}
 }
@@ -430,7 +438,7 @@ func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 }
 
 // RoleBinding returns a RoleBinding that binds Pachyderm's workerRole to its
-// worker service account (WorkerSAName)
+// worker service account (assets.WorkerServiceAccountName)
 func workerRoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
@@ -440,7 +448,7 @@ func workerRoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 		ObjectMeta: objectMeta(workerRoleBindingName, labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
-			Name:      WorkerSAName,
+			Name:      opts.WorkerServiceAccountName,
 			Namespace: opts.Namespace,
 		}},
 		RoleRef: rbacv1.RoleRef{
@@ -617,6 +625,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
 		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
 		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
+		{Name: WorkerServiceAccountEnvVar, Value: opts.WorkerServiceAccountName},
 		{Name: "PACHD_VERSION", Value: opts.Version},
 		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
 		{Name: "LOG_LEVEL", Value: opts.LogLevel},
