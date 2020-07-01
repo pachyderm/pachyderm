@@ -4531,6 +4531,9 @@ func TestManyLogs(t *testing.T) {
 				logsReceived++
 			}
 		}
+		if iter.Err() != nil {
+			return iter.Err()
+		}
 		if numLogs != logsReceived {
 			return fmt.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
 		}
@@ -4572,6 +4575,9 @@ func TestLokiLogs(t *testing.T) {
 				foundFoo = true
 				break
 			}
+		}
+		if iter.Err() != nil {
+			return iter.Err()
 		}
 		if !foundFoo {
 			return fmt.Errorf("did not recieve a log line containing foo")
