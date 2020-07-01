@@ -1887,7 +1887,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 // GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
 func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
 	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	// Don't log response to avoid logging OIDC state token
+	defer func(start time.Time) { a.LogResp(req, nil, retErr, time.Since(start)) }(time.Now())
 	var err error
 
 	sp := a.getOIDCSP()
@@ -2472,8 +2473,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	}
 
 	// Get calling user. The user must be logged in to get the cluster config
-	_, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
+	if _, err := a.getAuthenticatedUser(ctx); err != nil {
 		return nil, err
 	}
 

@@ -204,7 +204,9 @@ func LoginCmd() *cobra.Command {
 				if authErr != nil && !auth.IsErrPartiallyActivated(authErr) {
 					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
 						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
-							"contain more information)", state)
+							"contain more information)",
+						// Print state token as it's logged, for easy searching
+						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 				}
 			} else {
 				// Exchange GitHub token for Pachyderm token
