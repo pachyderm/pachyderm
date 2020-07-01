@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	pb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -31,6 +32,9 @@ var (
 		Micro:      MicroVersion,
 		Additional: AdditionalVersion,
 	}
+
+	// Custom release have a 40 character commit hash build into the version string
+	customReleaseRegex = regexp.MustCompile(`[0-9a-f]{40}`)
 )
 
 // IsUnstable will return true for alpha or beta builds, and false otherwise.
@@ -52,6 +56,15 @@ func PrettyPrintVersion(version *pb.Version) string {
 // allows us to gate backwards-incompatible features on release boundaries.
 func IsAtLeast(major, minor int) bool {
 	return MajorVersion > major || (MajorVersion == major && MinorVersion >= minor)
+}
+
+// IsCustomRelease returns true if versionAdditional is a hex commit hash that is
+// 40 characters long
+func IsCustomRelease(version *pb.Version) bool {
+	if version.Additional != "" && customReleaseRegex.MatchString(version.Additional) {
+		return true
+	}
+	return false
 }
 
 // PrettyVersion calls PrettyPrintVersion on Version and returns the result.

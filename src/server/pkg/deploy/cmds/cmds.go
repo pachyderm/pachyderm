@@ -1308,10 +1308,10 @@ underlying volume will not be removed.`)
 
 func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 	var err error
-	version := version.PrettyPrintVersion(version.Version)
+	tagVersion := version.PrettyPrintVersion(version.Version)
 	defer func() {
 		if err != nil && !dryRun {
-			fmt.Printf("No updated dash image found for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
+			fmt.Printf("No updated dash image found for pachctl %v: %v Falling back to dash image %v\n", tagVersion, err, defaultDashImage)
 		}
 	}()
 	if dashImage != "" {
@@ -1319,7 +1319,11 @@ func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 		return dashImage
 	}
 	dashImage = defaultDashImage
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/v%v/etc/compatibility/%v", version, version)
+	verCustom := tagVersion
+	if version.IsCustomRelease(version.Version) {
+		verCustom = version.PrettyPrintVersionNoAdditional(version.Version)
+	}
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/v%v/etc/compatibility/%v", tagVersion, verCustom)
 	resp, err := http.Get(compatibleDashVersionsURL)
 	if err != nil {
 		return dashImage
