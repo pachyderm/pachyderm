@@ -104,10 +104,10 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 						}
 						return nil
 					}); err != nil {
-						if workerCtx.Err() == context.Canceled {
+						if errors.Is(workerCtx.Err(), context.Canceled) {
 							return nil
 						}
-						if ctx.Err() == context.Canceled {
+						if errors.Is(ctx.Err(), context.Canceled) {
 							continue
 						}
 						return err
@@ -153,7 +153,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *TaskInfo) error {
 						return collectSubtask(subtaskInfo, collected[i])
 					})
-				}); err != nil && ctx.Err() != context.Canceled {
+				}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 					return err
 				}
 				return nil

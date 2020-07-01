@@ -7,6 +7,8 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 var (
@@ -42,7 +44,7 @@ func ChunkReader(r io.Reader, f func([]byte) error) (int, error) {
 	for {
 		n, err := r.Read(buf)
 		if n == 0 && err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return total, nil
 			}
 			return total, err
@@ -191,7 +193,7 @@ func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer Streamin
 
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.
 func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
-	for bytesValue, err := streamingBytesClient.Recv(); err != io.EOF; bytesValue, err = streamingBytesClient.Recv() {
+	for bytesValue, err := streamingBytesClient.Recv(); !errors.Is(err, io.EOF); bytesValue, err = streamingBytesClient.Recv() {
 		if err != nil {
 			return err
 		}

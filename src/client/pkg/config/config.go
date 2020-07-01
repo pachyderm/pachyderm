@@ -106,7 +106,7 @@ func Read(ignoreCache bool) (*Config, error) {
 		for contextName, context := range value.V2.Contexts {
 			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 			if err != nil {
-				if err != grpcutil.ErrNoPachdAddress {
+				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
 					return nil, errors.Wrapf(err, "could not parse pachd address for context '%s'", contextName)
 				}
 			} else {

@@ -64,7 +64,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commitInfos
 		}
 		require.NoError(t, err)
@@ -3037,7 +3037,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 					require.NoError(t, err)
 					_, err = iter.Next()
 					if err != nil {
-						if err == io.EOF {
+						if errors.Is(err, io.EOF) {
 							return errors.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
 						}
 						return err
@@ -10404,7 +10404,7 @@ func TestSpout(t *testing.T) {
 			t.Errorf("Could not get file %v", err)
 		}
 		xs := 0
-		for err != io.EOF {
+		for !errors.Is(err, io.EOF) {
 			line := ""
 			line, err = buf.ReadString('\n')
 
@@ -10456,7 +10456,7 @@ func TestSpout(t *testing.T) {
 		if err != nil {
 			t.Errorf("Could not get file %v", err)
 		}
-		for err != io.EOF {
+		for !errors.Is(err, io.EOF) {
 			line := ""
 			line, err = buf.ReadString('\n')
 
@@ -10941,7 +10941,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil // expected--with no output repo, FlushCommit can't return anything
 		}
 		return errors.Wrapf(err, "unexpected error value")
@@ -11746,7 +11746,7 @@ func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
 	var objects []*pfs.Object
-	for object, err := objectsClient.Recv(); err != io.EOF; object, err = objectsClient.Recv() {
+	for object, err := objectsClient.Recv(); !errors.Is(err, io.EOF); object, err = objectsClient.Recv() {
 		require.NoError(t, err)
 		objects = append(objects, object.Object)
 	}
@@ -11757,7 +11757,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
 	require.NoError(t, err)
 	var tags []string
-	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
+	for resp, err := tagsClient.Recv(); !errors.Is(err, io.EOF); resp, err = tagsClient.Recv() {
 		require.NoError(t, err)
 		tags = append(tags, resp.Tag.Name)
 	}

@@ -836,8 +836,8 @@ func byteRange(offset uint64, size uint64) string {
 }
 
 func isNetRetryable(err error) bool {
-	netErr, ok := err.(net.Error)
-	return ok && netErr.Temporary()
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Temporary()
 }
 
 // TestStorage is a defensive method for checking to make sure that storage is
