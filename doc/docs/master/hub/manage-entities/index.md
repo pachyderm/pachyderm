@@ -2,57 +2,83 @@
 
 When you interact with Pachyderm Hub, you create an account,
 organizations, and other entities to gain access to Pachyderm
-Hub resources. Creating an account is the first
+Hub resources. Creating a free account is the first
 step in this workflow.
 
-An account allows you to create workspaces and access
-them from anywhere. In Pachyderm Hub, you can create various types
-of accounts, including a free account for testing purposes. For more
-information, see [Pachyderm Hub Accounts](TBA)
-
-When you create a Pachyderm Hub account, you accept our Terms and
-Conditions and Privacy Policy.
-
-## Manage Organizations
-
-!!! note
-    Organizations are available for paid accounts. 
-
-An organization is a collection of users that are associated with
-the same entity, such as a company, and belong to the same billing
-profile. When you sign up for a paid account, you are prompted to
-create an organization.
-The first paid user authorized with Pachyderm Hub gets Admin permissions
-and can invite new members. In an organization, you can create multiple
-workspaces and have a more granular control over resources and members.
-
-To create an organization, sign up for a Pro account as described in
-[Create a Pro Account](TBA). 
-
-## Manage Workspaces
-
-A workspace is a collection of infrastructure resources that run
-Pachyderm components needed to process your data. Workspace resource
-limitations are defined by the type of your account. By default,
-all members of an organization have access to all workspaces. You
-can restrict user access by defining a access control list (ACL) for
-each workspace.
-
-Each workspace has isolated computing, processing, storage, and other
-resources. Resource autoscaling is managed by Pachyderm behind the
-scenes. Each workspace in an organization must have a unique name.
-
-## Manage Members
-
-A member is a user account of a Pachyderm Hub organization that represents
-a person interacting with Pachyderm Hub. A member is associated with a
-GitHub or Google account, therefore, you must have either of these
-to log in to Pachyderm Hub. All users in Pachyderm Hub get administrative
-access to the corresponding Pachyderm Hub organization and workspaces.
-The first user that has created the organization is responsible for
-billing. This role can later be transferred to other users.
-
-
-
-
-
+<div class="row">
+   <div class="column-2">
+     <div class="card-square mdl-card mdl-shadow--2dp">
+       <div class="mdl-card__title mdl-card--expand">
+         <h4 class="mdl-card__title-text">Manage Organizations &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
+       </div>
+       <div class="mdl-card__supporting-text">
+         An organization enables you to invite members and create
+         multiple workspaces. The first steps is to create a
+         Pro Account.
+       </div>
+       <div class="mdl-card__actions mdl-card--border">
+         <ul>
+           <li><a href="manage-organizations/#create-a-pro-account" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Create a Pro Account
+           </a>
+         </li>
+        </ul>
+       </div>
+     </div>
+   </div>
+   <div class="column-2">
+     <div class="card-square mdl-card mdl-shadow--2dp">
+       <div class="mdl-card__title mdl-card--expand">
+         <h4 class="mdl-card__title-text">Manage Workspaces &nbsp;&nbsp;&nbsp;<i class="fa fa-laptop"></i></h4>
+       </div>
+       <div class="mdl-card__supporting-text">
+         Wowkspaces provide computational power to run
+         and manage your pipelines, as well as track their
+         provenance.
+       </div>
+       <div class="mdl-card__actions mdl-card--border">
+         <ul>
+           <li><a href="manage-workspaces/#create-a-workspace" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Create a Workspace
+           </a>
+           </li>
+           <li><a href="manage-workspaces/#connect-to-your-workspace" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Connect to Your Workspace
+           </a>
+           </li>
+           <li><a href="manage-workspaces/#delete-a-workspace" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Delete a Workspace
+           </a>
+           </li>
+         </ul>
+        </div>
+      </div>
+   </div>
+<div class="column-2">
+      <div class="card-square mdl-card mdl-shadow--2dp">
+        <div class="mdl-card__title mdl-card--expand">
+          <h4 class="mdl-card__title-text">Manage Members &nbsp;&nbsp;&nbsp;<i class="fa fa-laptop"></i></h4>
+        </div>
+        <div class="mdl-card__supporting-text">
+          Learn how to invite and manage the members of your Pachyderm
+          Hub organization.
+        </div>
+        <div class="mdl-card__actions mdl-card--border">
+          <ul>
+            <li><a href="manage-members/#add-a-new-member" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+             Add a New Member
+            </a>
+            </li>
+            <li><a href="manage-members/#deactivate-a-member" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+             Deactivate a Member
+            </a>
+            </li>
+            <li><a href="manage-members/#restore-a-member" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+             Restore a Member
+            </a>
+            </li>
+          </ul>
+         </div>
+       </div>
+    </div>
+ </div>

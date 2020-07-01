@@ -16,8 +16,8 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../pachub/pachub_getting_started/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-          Getting Started with PacHub
+          <li><a href="../hub/hub_getting_started/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Getting Started with Pachyderm Hub
           </a>
           </li>
           <li><a href="beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">

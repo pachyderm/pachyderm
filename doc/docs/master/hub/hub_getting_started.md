@@ -198,4 +198,4 @@ Congratulations! You have successfully deployed and configured a Pachyderm
 workspace in Pachyderm Hub. Now, try our Beginners tutorial that walks
 you through the Pachyderm basics.
 
-* [Beginner Tutorial](../../getting_started/beginner_tutorial.md)
+* [Beginner Tutorial](../../getting_started/beginner_tutorial/)

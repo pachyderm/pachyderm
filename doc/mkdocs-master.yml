@@ -391,9 +391,10 @@ nav:
         - Overview: hub/index.md
         - Getting Started: hub/hub_getting_started.md
         - Manage Entitites:
-          - Overview:
-          - Manage Workspaces:
-          - Manage Members: 
+          - Overview: hub/manage-entities/index.md
+          - Manage Organizations: hub/manage-entities/manage-organizations.md
+          - Manage Workspaces: hub/manage-entities/manage-workspaces.md
+          - Manage Members: hub/manage-entities/manage-members.md
 
 # Google Analytics
 #google_analytics:
