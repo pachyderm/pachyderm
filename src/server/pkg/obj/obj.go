@@ -399,7 +399,7 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 //   isS3V2 - Set to true if client follows S3V2
 func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
 	defer func() { c = newCheckedClient(c) }()
-	log.Warnf("DEPRECATED: Support S3V2 option is being deprecated. It will be removed in a future version")
+	log.Warnf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
 	if isS3V2 {
 		return newMinioClientV2(endpoint, bucket, id, secret, secure)
 	}
