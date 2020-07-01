@@ -27,6 +27,9 @@ You'll need the following credentials / tools:
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
 - A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
+- `silversearcher`
+    - run: `apt-get install -y silversearcher-ag` on Linux
+    -      `brew install the_silver_searcher` on mac
 
 If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
 
@@ -36,15 +39,27 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` (next step) will fail if there are any uncommitted changes in the current branch
 
-3) Update `src/client/version/client.go` version values, build a new local version of pachctl, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run):
-
+3) Update client version. Commit these changes locally. You will push to GitHub in the next step.
+    - [Required for Major, Minor, and Patch releases]
+      - `src/client/version/client.go` version values
+        - for a major release increment the MajorVersion and set the MinorVersion and MicroVersion to 0 --> eg. 2.0.0
+        - for a minor release leave the MajorVersion unchanged, increment the MinorVersion, and set the MicroVersion to 0 --> eg. 1.10.0
+        - for a patch release leave the MajorVersion and MinorVersion unchanged and increment the MicorVersion --> eg. 1.9.8
 ```
 > make VERSION_ADDITIONAL= install
 > git add src/client/version/client.go
-> git commit -m"Increment version for $(pachctl version --client-only) point release"
+> git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-4) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.
+4) Update dash compatability version. Commit these changes locally. You will push to GitHub in the next step.
+
+```
+> make dash-compatability
+> git add src/server/pkg/deploy/cmds/cmds.go
+> git commit -m"Update dash compatability for $(pachctl version --client-only) release"
+```
+
+5) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.
 
   Note in particular:
 
@@ -52,7 +67,7 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
   * Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything)
 
-5) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
+6) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
 
 ```
 > git add doc
@@ -60,9 +75,9 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 > git push origin master
 ```
 
-6) Run `make point-release` or `make VERSION_ADDITIONAL=-rc1 release-candidate`
+7) Run `make point-release` or `make VERSION_ADDITIONAL=-rc1 release-candidate`
 
-7) Commit the changes (the dash compatibility file will have been newly created), e.g.:
+8) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
 ```
 > git status
@@ -79,20 +94,20 @@ nothing added to commit but untracked files present (use "git add" to track)
 > git push origin master
 ```
 
-8) Regenerate the golden deployment manifests: `make regenerate-test-deploy-manifests`
+9) Regenerate the golden deployment manifests: `make regenerate-test-deploy-manifests`
 
-9) Commit the changes:
+10) Commit the changes:
 
 ```
 > git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
 > git push origin master
 ```
 
-10) Update the
+11) Update the
 [release's notes](https://github.com/pachyderm/pachyderm/releases) and the
 [changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md).
 
-11) Post the update on the #users channel.
+12) Post the update on the #users channel.
 
 ### New major or minor releases
 

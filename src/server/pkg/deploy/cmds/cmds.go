@@ -1319,7 +1319,7 @@ func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 		return dashImage
 	}
 	dashImage = defaultDashImage
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/compatibility/%v", version)
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/v%v/etc/compatibility/%v", version, version)
 	resp, err := http.Get(compatibleDashVersionsURL)
 	if err != nil {
 		return dashImage
