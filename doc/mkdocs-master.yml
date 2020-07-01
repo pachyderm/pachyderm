@@ -387,6 +387,13 @@ nav:
         - General Troubleshooting: troubleshooting/general_troubleshooting.md
         - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
         - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
+    - Pachyderm Hub:
+        - Overview: hub/index.md
+        - Getting Started: hub/hub_getting_started.md
+        - Manage Entitites:
+          - Overview:
+          - Manage Workspaces:
+          - Manage Members: 
 
 # Google Analytics
 #google_analytics:
