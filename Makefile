@@ -357,6 +357,12 @@ launch-logging: check-kubectl check-kubectl-connection
 	cd etc/plugin/logging && ./deploy.sh
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
+launch-loki:
+	helm upgrade --install loki loki/loki-stack
+
+clean-launch-loki:
+	helm uninstall loki
+
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 

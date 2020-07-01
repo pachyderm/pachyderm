@@ -77,3 +77,6 @@ if [ ! -f ~/cached-deps/kubeval ]; then
       | tar xzf - kubeval && \
       mv ./kubeval ~/cached-deps/kubeval
 fi
+
+# Install helm
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash

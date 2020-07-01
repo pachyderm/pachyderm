@@ -127,6 +127,7 @@ case "${BUCKET}" in
     make push-to-minikube
     popd
     make docker-build-kafka
+    make launch-loki
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
