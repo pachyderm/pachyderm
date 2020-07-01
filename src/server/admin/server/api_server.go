@@ -183,6 +183,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				ci.Finished = types.TimestampNow()
 			}
 			return writeOp(&admin.Op{Op1_11: &admin.Op1_11{Commit: &pfs.BuildCommitRequest{
+				Origin:     ci.Origin,
 				Parent:     ci.ParentCommit,
 				Tree:       ci.Tree,
 				ID:         ci.Commit.ID,
@@ -313,7 +314,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	}
 	req, err := restoreServer.Recv()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -361,7 +362,7 @@ func (r *restoreCtx) start(initial *admin.Op) error {
 		} else {
 			req, err := r.restoreServer.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return nil
 				}
 				return err
@@ -397,7 +398,7 @@ func (r *restoreCtx) startFromURL(reqURL string) error {
 	for {
 		op.Reset()
 		if err := r.r.Read(&op); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -687,7 +688,7 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 
 	// Read leftover bytes in buffer (from prior Read() call) into 'p'
 	n, err := r.buf.Read(p)
-	if n == len(p) || err != nil && err != io.EOF {
+	if n == len(p) || err != nil && !errors.Is(err, io.EOF) {
 		return n, err // quit early if done; ignore EOF--just means buf is now empty
 	}
 	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
@@ -793,7 +794,7 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 
 	// Read leftover bytes in buffer (from prior Read() call) into 'p'
 	n, err := r.buf.Read(p)
-	if n == len(p) || err != nil && err != io.EOF {
+	if n == len(p) || err != nil && !errors.Is(err, io.EOF) {
 		return n, err // quit early if done; ignore EOF--just means buf is now empty
 	}
 	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'

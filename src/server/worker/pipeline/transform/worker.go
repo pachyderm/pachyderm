@@ -499,7 +499,7 @@ func processDatum(
 		}
 		logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 		return nil
-	}); err == errDatumRecovered {
+	}); errors.Is(err, errDatumRecovered) {
 		// keep track of the recovered datums
 		recoveredDatumTags = []string{tag}
 		stats.DatumsRecovered++

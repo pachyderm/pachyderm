@@ -181,7 +181,7 @@ func Cmds() []*cobra.Command {
 				decoder = json.NewDecoder(contextReader)
 
 				if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						return errors.New("unexpected EOF")
 					}
 					return errors.Wrapf(err, "malformed context")
@@ -189,7 +189,7 @@ func Cmds() []*cobra.Command {
 
 				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 				if err != nil {
-					if err != grpcutil.ErrNoPachdAddress {
+					if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
 						return err
 					}
 				} else {
@@ -248,7 +248,7 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("pachd-address") {
 				parsedPachdAddress, err := grpcutil.ParsePachdAddress(pachdAddress)
 				if err != nil {
-					if err == grpcutil.ErrNoPachdAddress {
+					if errors.Is(err, grpcutil.ErrNoPachdAddress) {
 						context.PachdAddress = ""
 					} else {
 						return err

@@ -212,7 +212,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 		}
 	}
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Origin, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}

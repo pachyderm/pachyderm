@@ -229,6 +229,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
+	// Get service account name for worker from env or use default
+	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
+	if !ok {
+		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+	}
+
 	// possibly expose s3 gateway port in the sidecar container
 	var sidecarPorts []v1.ContainerPort
 	if options.s3GatewayPort != 0 {
@@ -310,7 +316,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Ports: sidecarPorts,
 			},
 		},
-		ServiceAccountName:            assets.WorkerSAName,
+		ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -726,7 +732,7 @@ func (a *apiServer) checkOrDeployGithookService() error {
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
-		if _, ok := err.(*errGithookServiceNotFound); ok {
+		if errors.As(err, &errGithookServiceNotFound{}) {
 			svc := assets.GithookService(a.namespace)
 			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err

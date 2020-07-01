@@ -248,6 +248,7 @@ message BuildCommitRequest {
   reserved 2;
   Commit parent = 1;
   string branch = 4;
+  CommitOrigin origin = 12;
   repeated CommitProvenance provenance = 6;
   Object tree = 3;
   repeated Object trees = 7;

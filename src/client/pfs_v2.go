@@ -165,7 +165,7 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 	for {
 		resp, err := client.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -207,7 +207,7 @@ func (c APIClient) ListFileV2(repoName string, commitID string, path string, f f
 	for {
 		finfo, err := client.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -260,7 +260,7 @@ func (r *getTarConditionalReader) nextResponse() error {
 func (r *getTarConditionalReader) drain() error {
 	for {
 		if err := r.nextResponse(); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err

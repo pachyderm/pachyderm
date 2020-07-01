@@ -121,14 +121,22 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
-		return nil, errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
+		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
+		// don't completely fail since this puts us in a bad state
+	} else {
+		if err := result.Unmarshal(buf.Bytes()); err != nil {
+			return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+		}
 	}
-	if err := result.Unmarshal(buf.Bytes()); err != nil {
-		return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+	// at least get the name if we aren't able to get the pipeline spec file
+	if result.Pipeline == nil {
+		result.Pipeline = &pps.Pipeline{
+			Name: name,
+		}
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason

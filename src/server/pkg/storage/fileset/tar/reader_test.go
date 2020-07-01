@@ -638,7 +638,7 @@ func TestReader(t *testing.T) {
 				var hdr *Header
 				hdr, err = tr.Next()
 				if err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						err = nil // Expected error
 					}
 					break
@@ -679,7 +679,7 @@ func TestReader(t *testing.T) {
 				}
 			}
 
-			if err != v.err {
+			if !errors.Is(err, v.err) {
 				t.Fatalf("unexpected error: got %v, want %v", err, v.err)
 			}
 			f.Close()
@@ -735,7 +735,7 @@ func TestPartialRead(t *testing.T) {
 				}
 			}
 
-			if _, err := tr.Next(); err != io.EOF {
+			if _, err := tr.Next(); !errors.Is(err, io.EOF) {
 				t.Fatalf("Next(): got %v, want EOF", err)
 			}
 		})
@@ -751,7 +751,7 @@ func TestUninitializedRead(t *testing.T) {
 
 	tr := NewReader(f)
 	_, err = tr.Read([]byte{})
-	if err == nil || err != io.EOF {
+	if err == nil || !errors.Is(err, io.EOF) {
 		t.Errorf("Unexpected error: %v, wanted %v", err, io.EOF)
 	}
 
@@ -871,7 +871,7 @@ func TestReadTruncation(t *testing.T) {
 					}
 				}
 			}
-			if err != v.err {
+			if !errors.Is(err, v.err) {
 				t.Errorf("test %d, NewReader(%s) with %s discard: got %v, want %v",
 					i, s1, s2, err, v.err)
 			}
@@ -896,7 +896,7 @@ func TestReadHeaderOnly(t *testing.T) {
 	tr := NewReader(f)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -1132,7 +1132,7 @@ func TestReadOldGNUSparseMap(t *testing.T) {
 		if !equalSparseEntries(got, v.wantMap) {
 			t.Errorf("test %d, readOldGNUSparseMap(): got %v, want %v", i, got, v.wantMap)
 		}
-		if err != v.wantErr {
+		if !errors.Is(err, v.wantErr) {
 			t.Errorf("test %d, readOldGNUSparseMap() = %v, want %v", i, err, v.wantErr)
 		}
 		if hdr.Size != v.wantSize {
@@ -1323,7 +1323,7 @@ func TestReadGNUSparsePAXHeaders(t *testing.T) {
 		if !equalSparseEntries(got, v.wantMap) {
 			t.Errorf("test %d, readGNUSparsePAXHeaders(): got %v, want %v", i, got, v.wantMap)
 		}
-		if err != v.wantErr {
+		if !errors.Is(err, v.wantErr) {
 			t.Errorf("test %d, readGNUSparsePAXHeaders() = %v, want %v", i, err, v.wantErr)
 		}
 		if hdr.Size != v.wantSize {
@@ -1583,15 +1583,15 @@ func TestFileReader(t *testing.T) {
 			case testRead:
 				b := make([]byte, tf.cnt)
 				n, err := fr.Read(b)
-				if got := string(b[:n]); got != tf.wantStr || err != tf.wantErr {
+				if got := string(b[:n]); got != tf.wantStr || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, Read(%d):\ngot  (%q, %v)\nwant (%q, %v)", i, j, tf.cnt, got, err, tf.wantStr, tf.wantErr)
 				}
 			case testWriteTo:
 				f := &testFile{ops: tf.ops}
 				got, err := fr.WriteTo(f)
-				if _, ok := err.(testError); ok {
+				if errors.As(err, &testError{}) {
 					t.Errorf("test %d.%d, WriteTo(): %v", i, j, err)
-				} else if got != tf.wantCnt || err != tf.wantErr {
+				} else if got != tf.wantCnt || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, WriteTo() = (%d, %v), want (%d, %v)", i, j, got, err, tf.wantCnt, tf.wantErr)
 				}
 				if len(f.ops) > 0 {

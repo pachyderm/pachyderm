@@ -1,11 +1,11 @@
 package discovery
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
@@ -63,7 +63,7 @@ func runWatchTest(t *testing.T, client Client) {
 			return nil
 		},
 	)
-	require.Equal(t, ErrCancelled, err)
+	require.True(t, errors.Is(err, ErrCancelled))
 }
 
 func getEtcdClient() (Client, error) {

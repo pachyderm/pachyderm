@@ -200,7 +200,7 @@ func iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error
 	c := NewChildCursor(tx, path)
 	for k, v := c.K(), c.V(); k != nil; k, v = c.Next() {
 		if err := f(k, v, c.c); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -279,7 +279,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 				return errors.EnsureStack(err)
 			}
 			if err := f(externalDefault(s(k)), node); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -341,7 +341,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 				continue
 			}
 			if err := f(nodePath, node); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -363,7 +363,7 @@ func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodePro
 			return nil
 		}
 		if err := f(path, node); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

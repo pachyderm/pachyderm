@@ -756,7 +756,7 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 }
 
 func waitForError(name string, errChan chan error, required bool, f func() error) {
-	if err := f(); err != http.ErrServerClosed {
+	if err := f(); !errors.Is(err, http.ErrServerClosed) {
 		if !required {
 			log.Errorf("error setting up and/or running %v: %v", name, err)
 		} else {

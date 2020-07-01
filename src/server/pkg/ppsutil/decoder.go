@@ -104,7 +104,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 		return nil
 	})
 	switch {
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		return nil, err
 	case err != nil:
 		return nil, errors.Wrapf(err, "malformed pipeline spec")

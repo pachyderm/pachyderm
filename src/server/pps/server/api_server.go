@@ -261,6 +261,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("multiple input types set")
 				}
 				set = true
+				if len(input.Cron.Name) == 0 {
+					return errors.Errorf("input must specify a name")
+				}
 				if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 					return errors.Wrapf(err, "error parsing cron-spec")
 				}
@@ -718,7 +721,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	// specCommits holds the specCommits of pipelines that we're interested in
 	specCommits := make(map[string]bool)
 	if err := a.listPipelinePtr(pachClient, pipeline, history,
-		func(ptr *pps.EtcdPipelineInfo) error {
+		func(name string, ptr *pps.EtcdPipelineInfo) error {
 			specCommits[ptr.SpecCommit.ID] = true
 			return nil
 		}); err != nil {
@@ -821,7 +824,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	// previous jobs running.
 	pipelinePtr.SpecCommit = specCommit
 	if full {
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
 		if err != nil {
 			return nil, err
 		}
@@ -1126,7 +1129,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	}
 	for {
 		f, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, grpcutil.ScrubGRPC(err)
@@ -1519,7 +1522,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	var mu sync.Mutex
 	for {
 		fileInfo, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		eg.Go(func() error {
@@ -1740,7 +1743,7 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	// only after all other commits are also finished, preventing any new jobs)
 	for {
 		ci, err := iter.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
@@ -2144,7 +2147,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
 				}
@@ -2230,9 +2233,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		var commit *pfs.Commit
 		if request.SpecCommit != nil {
 			// Make sure that the spec commit actually exists
-			commitInfo, err := pachClient.InspectCommit(request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{Commit: request.SpecCommit})
 			if err != nil {
-				return nil, errors.Wrapf(err, "error inspecting commit: \"%s@%s\"", request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+				return nil, errors.Wrap(err, "error inspecting spec commit")
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
@@ -2418,7 +2421,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		return nil, err
 	}
 	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, &pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2505,8 +2508,8 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
-		func(ptr *pps.EtcdPipelineInfo) error {
-			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, ptr)
+		func(name string, ptr *pps.EtcdPipelineInfo) error {
+			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
 			if err != nil {
 				return err
 			}
@@ -2517,11 +2520,11 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 // listPipelinePtr enumerates all PPS pipelines in etcd, filters them based on
 // 'request', and then calls 'f' on each value
 func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
-	pipeline *pps.Pipeline, history int64, f func(*pps.EtcdPipelineInfo) error) error {
+	pipeline *pps.Pipeline, history int64, f func(string, *pps.EtcdPipelineInfo) error) error {
 	p := &pps.EtcdPipelineInfo{}
-	forEachPipeline := func() error {
+	forEachPipeline := func(name string) error {
 		for i := int64(0); i <= history || history == -1; i++ {
-			if err := f(p); err != nil {
+			if err := f(name, p); err != nil {
 				return err
 			}
 			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.ID)
@@ -2537,8 +2540,8 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 		return nil // shouldn't happen
 	}
 	if pipeline == nil {
-		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(string) error {
-			return forEachPipeline()
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(name string) error {
+			return forEachPipeline(name)
 		}); err != nil {
 			return err
 		}
@@ -2549,7 +2552,7 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 			}
 			return err
 		}
-		if err := forEachPipeline(); err != nil {
+		if err := forEachPipeline(pipeline.Name); err != nil {
 			return err
 		}
 	}
@@ -3255,7 +3258,7 @@ func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClie
 		}
 		for {
 			ci, err := client.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
 				return nil, grpcutil.ScrubGRPC(err)
@@ -3284,7 +3287,7 @@ func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClie
 			return nil, errors.Wrapf(err, "error listing tagged objects")
 		}
 
-		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+		for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
 			resp := resp
 			if err != nil {
 				return nil, err
@@ -3370,7 +3373,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for oi, err := objects.Recv(); err != io.EOF; oi, err = objects.Recv() {
+	for oi, err := objects.Recv(); !errors.Is(err, io.EOF); oi, err = objects.Recv() {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error receiving objects from ListObjects")
 		}
@@ -3403,7 +3406,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+	for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error receiving tags from ListTags")
 		}

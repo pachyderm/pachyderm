@@ -7,7 +7,6 @@ package tar
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"testing"
 	"testing/iotest"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func bytediff(a, b []byte) string {
@@ -473,8 +474,9 @@ func TestWriter(t *testing.T) {
 	}}
 
 	equalError := func(x, y error) bool {
-		_, ok1 := x.(headerError)
-		_, ok2 := y.(headerError)
+		headErr := &headerError{}
+		ok1 := errors.As(x, &headErr)
+		ok2 := errors.As(y, &headErr)
 		if ok1 || ok2 {
 			return ok1 && ok2
 		}
@@ -501,7 +503,7 @@ func TestWriter(t *testing.T) {
 				case testReadFrom:
 					f := &testFile{ops: tf.ops}
 					got, err := tw.readFrom(f)
-					if _, ok := err.(testError); ok {
+					if errors.As(err, &testError{}) {
 						t.Errorf("test %d, ReadFrom(): %v", i, err)
 					} else if got != tf.wantCnt || !equalError(err, tf.wantErr) {
 						t.Errorf("test %d, ReadFrom() = (%d, %v), want (%d, %v)", i, got, err, tf.wantCnt, tf.wantErr)
@@ -812,7 +814,7 @@ func TestValidTypeflagWithPAXHeader(t *testing.T) {
 
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -842,7 +844,7 @@ func TestWriterErrors(t *testing.T) {
 		if err := tw.WriteHeader(hdr); err != nil {
 			t.Fatalf("WriteHeader() = %v, want nil", err)
 		}
-		if _, err := tw.Write([]byte{0x00}); err != ErrWriteTooLong {
+		if _, err := tw.Write([]byte{0x00}); !errors.Is(err, ErrWriteTooLong) {
 			t.Fatalf("Write() = %v, want %v", err, ErrWriteTooLong)
 		}
 	})
@@ -857,7 +859,7 @@ func TestWriterErrors(t *testing.T) {
 
 	t.Run("BeforeHeader", func(t *testing.T) {
 		tw := NewWriter(new(bytes.Buffer))
-		if _, err := tw.Write([]byte("Kilts")); err != ErrWriteTooLong {
+		if _, err := tw.Write([]byte("Kilts")); !errors.Is(err, ErrWriteTooLong) {
 			t.Fatalf("Write() = %v, want %v", err, ErrWriteTooLong)
 		}
 	})
@@ -871,10 +873,10 @@ func TestWriterErrors(t *testing.T) {
 		if err := tw.Close(); err != nil {
 			t.Fatalf("Close() = %v, want nil", err)
 		}
-		if _, err := tw.Write([]byte("Kilts")); err != ErrWriteAfterClose {
+		if _, err := tw.Write([]byte("Kilts")); !errors.Is(err, ErrWriteAfterClose) {
 			t.Fatalf("Write() = %v, want %v", err, ErrWriteAfterClose)
 		}
-		if err := tw.Flush(); err != ErrWriteAfterClose {
+		if err := tw.Flush(); !errors.Is(err, ErrWriteAfterClose) {
 			t.Fatalf("Flush() = %v, want %v", err, ErrWriteAfterClose)
 		}
 		if err := tw.Close(); err != nil {
@@ -906,7 +908,7 @@ func TestWriterErrors(t *testing.T) {
 
 	t.Run("Persistence", func(t *testing.T) {
 		tw := NewWriter(new(failOnceWriter))
-		if err := tw.WriteHeader(&Header{}); err != io.ErrShortWrite {
+		if err := tw.WriteHeader(&Header{}); !errors.Is(err, io.ErrShortWrite) {
 			t.Fatalf("WriteHeader() = %v, want %v", err, io.ErrShortWrite)
 		}
 		if err := tw.WriteHeader(&Header{Name: "small.txt"}); err == nil {
@@ -1278,15 +1280,15 @@ func TestFileWriter(t *testing.T) {
 			switch tf := tf.(type) {
 			case testWrite:
 				got, err := fw.Write([]byte(tf.str))
-				if got != tf.wantCnt || err != tf.wantErr {
+				if got != tf.wantCnt || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, Write(%s):\ngot  (%d, %v)\nwant (%d, %v)", i, j, tf.str, got, err, tf.wantCnt, tf.wantErr)
 				}
 			case testReadFrom:
 				f := &testFile{ops: tf.ops}
 				got, err := fw.ReadFrom(f)
-				if _, ok := err.(testError); ok {
+				if errors.As(err, &testError{}) {
 					t.Errorf("test %d.%d, ReadFrom(): %v", i, j, err)
-				} else if got != tf.wantCnt || err != tf.wantErr {
+				} else if got != tf.wantCnt || !errors.Is(err, tf.wantErr) {
 					t.Errorf("test %d.%d, ReadFrom() = (%d, %v), want (%d, %v)", i, j, got, err, tf.wantCnt, tf.wantErr)
 				}
 				if len(f.ops) > 0 {
