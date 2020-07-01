@@ -137,7 +137,7 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
 	if o == nil {
-		return "", "", errNotConfigured
+		return "", "", errors.WithStack(errNotConfigured)
 	}
 	// TODO(msteffen, adelelopez): We *think* this 'if' block can't run anymore:
 	// (if o != nil, then o.Provider != nil)
@@ -190,7 +190,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 		if err != nil {
 			logrus.Errorf("error watching OIDC state token %q during authorization: %v",
 				state, err)
-			return errWatchFailed
+			return errors.WithStack(errWatchFailed)
 		}
 		defer watcher.Close()
 
@@ -200,7 +200,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				// reestablish watch (error not returned to user)
 				return e.Err
 			} else if e.Type == watch.EventDelete {
-				return errTokenDeleted
+				return errors.WithStack(errTokenDeleted)
 			}
 
 			// see if there's an ID token attached to the OIDC state now
@@ -210,7 +210,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 				return errors.Wrapf(err, "error unmarshalling OIDC SessionInfo")
 			}
 			if si.ConversionErr {
-				return errAuthFailed
+				return errors.WithStack(errAuthFailed)
 			} else if si.Email != "" {
 				// Success
 				email = si.Email
@@ -221,7 +221,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error watching OIDC state token %q during authorization (retrying in %s): %v",
 			state, d, err)
-		if err == errWatchFailed || err == errTokenDeleted || err == errAuthFailed {
+		if errors.Is(err, errWatchFailed) || errors.Is(err, errTokenDeleted) || errors.Is(err, errAuthFailed) {
 			return err // don't retry, just return the error
 		}
 		return nil
