@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	"github.com/fatih/color"
-	"github.com/pachyderm/pachyderm/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -1273,7 +1272,7 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 	return nil
 }
 
-func buildHelper(pc *client.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string) error {
+func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string) error {
 	// validation
 	if request.Pipeline == nil {
 		return errors.New("no `pipeline` specified")

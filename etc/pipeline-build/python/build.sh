@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 python --version
 pip --version
 cd /pfs/__source__
