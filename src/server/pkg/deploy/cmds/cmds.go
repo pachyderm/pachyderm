@@ -629,7 +629,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
 	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
-	if isS3V2 == true {
+	if isS3V2 {
 		fmt.Printf("DEPRECATED: The use of S3V2 option is being deprecated and will be removed in future version\n\n")
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
