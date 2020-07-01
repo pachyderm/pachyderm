@@ -8,11 +8,12 @@ package cert
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type loggingPipeAddr struct{}

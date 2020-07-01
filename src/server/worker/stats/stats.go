@@ -7,6 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 const (
@@ -199,7 +201,7 @@ func InitPrometheus() {
 	for _, metric := range metrics {
 		if err := prometheus.Register(metric); err != nil {
 			// metrics may be redundantly registered; ignore these errors
-			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 				logrus.Errorf("error registering prometheus metric: %v", err)
 			}
 		}

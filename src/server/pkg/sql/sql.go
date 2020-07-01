@@ -35,7 +35,7 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 	}
 	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	row, err := r.rd.ReadBytes('\n')
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, errors.Wrapf(err, "error reading pgdump row")
 	}
 	// corner case: some pgdump files separate lines with \r\n (even on linux),
@@ -49,7 +49,7 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 		err = r.readFooter()
 		row = nil // The endline is part of the footer
 	}
-	if err == io.EOF && len(r.Footer) == 0 {
+	if errors.Is(err, io.EOF) && len(r.Footer) == 0 {
 		return nil, errors.Errorf("invalid pgdump - missing footer")
 	}
 	return row, err
@@ -60,7 +60,7 @@ func (r *PGDumpReader) readHeader() error {
 	for !done {
 		b, err := r.rd.ReadBytes('\n')
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return errors.Errorf("invalid header - missing row inserts")
 			}
 			return err

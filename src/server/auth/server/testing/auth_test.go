@@ -1273,7 +1273,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		for { // flushCommit yields two output commits (one from the prev pipeline)
 			_, err = iter.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			} else if err != nil {
 				return err
@@ -2921,7 +2921,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		_, err := iter.Next()
-		if err != io.EOF {
+		if !errors.Is(err, io.EOF) {
 			return err
 		}
 		return nil

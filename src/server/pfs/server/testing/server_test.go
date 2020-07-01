@@ -57,7 +57,7 @@ func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.Commi
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commitInfos, nil
 		}
 		if err != nil {
@@ -3303,7 +3303,7 @@ func TestPutFileSplitSQL(t *testing.T) {
 		require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
 		_, err = pgReader.ReadRow()
 		require.YesError(t, err)
-		require.Equal(t, io.EOF, err)
+		require.True(t, errors.Is(err, io.EOF))
 
 		// Create a new commit that overwrites all existing data & puts it back with
 		// --header-records=1
@@ -3335,7 +3335,7 @@ func TestPutFileSplitSQL(t *testing.T) {
 		require.Equal(t, "Toyota\tCorolla\t2005\tgreatest car ever made\n", string(record))
 		_, err = pgReader.ReadRow()
 		require.YesError(t, err)
-		require.Equal(t, io.EOF, err)
+		require.True(t, errors.Is(err, io.EOF))
 
 		return nil
 	})

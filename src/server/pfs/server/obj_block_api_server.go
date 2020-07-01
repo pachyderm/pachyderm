@@ -281,7 +281,7 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 	for !done {
 		object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
 			size, err := io.CopyN(w, r, pfsclient.ChunkSize)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				done = true
 				return size, nil
 			}

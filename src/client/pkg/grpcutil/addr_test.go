@@ -3,12 +3,13 @@ package grpcutil
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 func TestParsePachdAddress(t *testing.T) {
 	_, err := ParsePachdAddress("")
-	require.Equal(t, err, ErrNoPachdAddress)
+	require.True(t, errors.Is(err, ErrNoPachdAddress))
 
 	_, err = ParsePachdAddress("grpc://user@pachyderm.com:80")
 	require.YesError(t, err)

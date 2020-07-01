@@ -232,7 +232,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 							}
 						}
 						return errComplete
-					}); err != nil && err != errComplete {
+					}); err != nil && !errors.Is(err, errComplete) {
 					return err
 				}
 				serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
@@ -307,7 +307,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 			oldShards = newShards
 			return nil
 		})
-	if err == discovery.ErrCancelled {
+	if errors.Is(err, discovery.ErrCancelled) {
 		return ErrCancelled
 	}
 	return err
@@ -377,7 +377,7 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 			for version = range versions {
 			}
 			return errComplete
-		}); err != errComplete {
+		}); !errors.Is(err, errComplete) {
 		return err
 	}
 
@@ -406,7 +406,7 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 				}
 			}
 			return errComplete
-		}); err != nil && err != errComplete {
+		}); err != nil && !errors.Is(err, errComplete) {
 		return err
 	}
 	return nil

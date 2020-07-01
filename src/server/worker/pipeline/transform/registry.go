@@ -308,7 +308,7 @@ func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Ta
 			return err
 		}
 		if err := cb(response.Tag, response.Object); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

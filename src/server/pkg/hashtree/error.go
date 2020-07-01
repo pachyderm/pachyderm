@@ -4,22 +4,20 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-
-	go_errors "github.com/pkg/errors"
 )
 
 // hashTreeError is a custom error type, returned by HashTree's methods
 type hashTreeError struct {
 	code       ErrCode
 	s          string
-	stackTrace go_errors.StackTrace
+	stackTrace errors.StackTrace
 }
 
 func (e *hashTreeError) Error() string {
 	return e.s
 }
 
-func (e *hashTreeError) StackTrace() go_errors.StackTrace {
+func (e *hashTreeError) StackTrace() errors.StackTrace {
 	return e.stackTrace
 }
 
@@ -31,11 +29,11 @@ func Code(err error) ErrCode {
 		return OK
 	}
 
-	hte, ok := err.(*hashTreeError)
-	if !ok {
-		return Unknown
+	hte := &hashTreeError{}
+	if errors.As(err, &hte) {
+		return hte.code
 	}
-	return hte.code
+	return Unknown
 }
 
 // errorf is analogous to errors.Errorf, but generates hashTreeErrors instead of

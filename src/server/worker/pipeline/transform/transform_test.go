@@ -103,7 +103,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 
 		eg.Go(func() error {
 			err := Run(env.driver, env.logger)
-			if err != nil && err.Error() == "context canceled" {
+			if err != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
 			return err
@@ -122,7 +122,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 				env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 				return nil
 			})
-			if err != nil && err.Error() == "context canceled" {
+			if err != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
 			return err
@@ -132,7 +132,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	})
 
 	workerSpawnerErr := eg.Wait()
-	if workerSpawnerErr != nil && workerSpawnerErr.Error() != "context canceled" {
+	if workerSpawnerErr != nil && errors.Is(workerSpawnerErr, context.Canceled) {
 		return workerSpawnerErr
 	}
 	return err

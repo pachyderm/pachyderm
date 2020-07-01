@@ -1083,7 +1083,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 	defer client.Close()
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err

@@ -630,7 +630,7 @@ func (tr *Reader) Read(b []byte) (int, error) {
 		return 0, tr.err
 	}
 	n, err := tr.curr.Read(b)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		tr.err = err
 	}
 	return n, err
@@ -683,7 +683,7 @@ func (fr *regFileReader) Read(b []byte) (n int, err error) {
 		fr.nb -= int64(n)
 	}
 	switch {
-	case err == io.EOF && fr.nb > 0:
+	case errors.Is(err, io.EOF) && fr.nb > 0:
 		return n, io.ErrUnexpectedEOF
 	case err == nil && fr.nb == 0:
 		return n, io.EOF
@@ -747,7 +747,7 @@ func (sr *sparseFileReader) Read(b []byte) (n int, err error) {
 
 	n = len(b0) - len(b)
 	switch {
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		return n, errMissData // Less data in dense file than sparse file
 	case err != nil:
 		return n, err
@@ -810,7 +810,7 @@ func (sr *sparseFileReader) WriteTo(w io.Writer) (n int64, err error) {
 
 	n = sr.pos - pos0
 	switch {
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		return n, errMissData // Less data in dense file than sparse file
 	case err != nil:
 		return n, err
@@ -841,7 +841,7 @@ func (zeroReader) Read(b []byte) (int, error) {
 // io.ErrUnexpectedEOF when io.EOF is hit before len(b) bytes are read.
 func mustReadFull(r io.Reader, b []byte) (int, error) {
 	n, err := tryReadFull(r, b)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		err = io.ErrUnexpectedEOF
 	}
 	return n, err
@@ -855,7 +855,7 @@ func tryReadFull(r io.Reader, b []byte) (n int, err error) {
 		nn, err = r.Read(b[n:])
 		n += nn
 	}
-	if len(b) == n && err == io.EOF {
+	if len(b) == n && errors.Is(err, io.EOF) {
 		err = nil
 	}
 	return n, err
@@ -885,7 +885,7 @@ func discard(r io.Reader, n int64) error {
 	}
 
 	copySkipped, err := io.CopyN(ioutil.Discard, r, n-seekSkipped)
-	if err == io.EOF && seekSkipped+copySkipped < n {
+	if errors.Is(err, io.EOF) && seekSkipped+copySkipped < n {
 		err = io.ErrUnexpectedEOF
 	}
 	return err

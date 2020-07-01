@@ -6,13 +6,14 @@ package errgroup_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 var (

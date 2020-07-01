@@ -28,7 +28,7 @@ func (c APIClient) Extract(objects bool, f func(op *admin.Op) error) error {
 	}
 	for {
 		op, err := extractClient.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -72,7 +72,7 @@ func (c APIClient) ExtractURL(url string) error {
 	if err == nil {
 		return errors.Errorf("unexpected response from extract: %v", resp)
 	}
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		return err
 	}
 	return nil
@@ -125,7 +125,7 @@ func (c APIClient) RestoreReader(r io.Reader) (retErr error) {
 	op := &admin.Op{}
 	for {
 		if err := reader.Read(op); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err

@@ -77,7 +77,7 @@ func Deploy(context *config.Context, repoName, repoURL, installName, chartName, 
 
 	history := action.NewHistory(actionConfig)
 	history.Max = 1
-	if _, err := history.Run(installName); err == driver.ErrReleaseNotFound {
+	if _, err := history.Run(installName); errors.Is(err, driver.ErrReleaseNotFound) {
 		// install
 		install := action.NewInstall(actionConfig)
 		install.ChartPathOptions = upgrade.ChartPathOptions
