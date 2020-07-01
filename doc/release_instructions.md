@@ -51,12 +51,12 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 > git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-4) Update dash compatability version. Commit these changes locally. You will push to GitHub in the next step.
+4) Update dash compatibility version. Commit these changes locally. You will push to GitHub in the next step.
 
 ```
-> make dash-compatability
+> make dash-compatibility
 > git add src/server/pkg/deploy/cmds/cmds.go
-> git commit -m"Update dash compatability for $(pachctl version --client-only) release"
+> git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
 ```
 
 5) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.

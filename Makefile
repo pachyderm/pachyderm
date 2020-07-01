@@ -322,8 +322,8 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
-dash-compatability:
-	./etc/build/dash_compatability.sh
+dash-compatibility:
+	./etc/build/dash_compatibility.sh
 
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
