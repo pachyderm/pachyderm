@@ -855,53 +855,35 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		return nil, err
 	}
 
-	// Get the user's existing grants
-	var hasSuper bool
-	var hasFS bool
-	func() {
-		a.adminMu.Lock()
-		defer a.adminMu.Unlock()
-		if roles, ok := a.adminCache[canonicalizedUser]; ok {
-			for _, r := range roles.Roles {
-				hasSuper = hasSuper || (r == auth.AdminRole_SUPER)
-				hasFS = hasFS || (r == auth.AdminRole_FS)
-			}
-		}
-	}()
-
+	var val types.BoolValue
 	// Update "admins" list (watchAdmins() will update admins cache)
-	if grantSuper {
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		// If the user has a cached SUPER role but it's not in the list, remove it
-		if hasSuper {
-			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-				return a.admins.ReadWrite(stm).Delete(canonicalizedUser)
-			}); err != nil {
-				return nil, err
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		if grantSuper {
+			a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
+		} else {
+			if err := a.admins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
+				if !col.IsErrNotFound(err) {
+					return err
+				}
+			} else {
+				a.admins.ReadWrite(stm).Delete(canonicalizedUser)
 			}
 		}
-	}
 
-	if grantFS {
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		// If the user has a cached FS role but it's not in the list, remove it
-		if hasFS {
-			if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-				return a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
-			}); err != nil {
-				return nil, err
+		if grantFS {
+			a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
+		} else {
+			if err := a.fsAdmins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
+				if !col.IsErrNotFound(err) {
+					return err
+				}
+			} else {
+				a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return &auth.ModifyAdminsResponse{}, nil

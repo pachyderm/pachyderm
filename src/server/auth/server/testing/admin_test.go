@@ -390,13 +390,13 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			admins(admin)(gh(bob)), resp.Admins,
 		)
-	}, backoff.NewTestingBackOff()))
+	})
 
 	// admin deletes the repo's ACL
 	_, err = adminClient.AuthAPIClient.SetACL(adminClient.Ctx(),
