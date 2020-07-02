@@ -63,9 +63,4 @@ popd
 
 rm -rf homebrew-tap
 
-echo "--- Updating compatability file"
-
-touch "etc/compatibility/$VERSION"
-go run etc/build/get_dash_version.go >> "etc/compatibility/$VERSION"
-
 echo "--- Successfully released pachctl"

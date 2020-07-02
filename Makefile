@@ -46,7 +46,7 @@ point-release:
 	@make doc
 	@echo "Release completed"
 
-# Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
+# Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
 release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
@@ -321,6 +321,9 @@ doc-custom: install-doc release-version
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
+
+dash-compatibility:
+	./etc/build/dash_compatibility.sh
 
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
