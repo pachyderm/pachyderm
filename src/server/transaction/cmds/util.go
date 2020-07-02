@@ -78,7 +78,7 @@ func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient)
 	}
 	err = callback(c)
 	if err == nil && txn != nil {
-		fmt.Fprintf(os.Stderr, "Added to transaction: %s\n", txn.ID)
+		fmt.Fprintf(os.Stdout, "Added to transaction: %s\n", txn.ID)
 	}
 	return err
 }
