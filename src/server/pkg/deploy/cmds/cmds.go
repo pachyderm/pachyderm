@@ -598,6 +598,9 @@ If <object store backend> is \"s3\", then the arguments are:
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
 			}
+			if isS3V2 {
+				fmt.Printf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version\n\n")
+			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err := assets.WriteCustomAssets(
@@ -631,7 +634,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
-	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
+	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client (DEPRECATED)")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
