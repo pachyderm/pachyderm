@@ -67,11 +67,11 @@ func IsCustomRelease(version *pb.Version) bool {
 	return false
 }
 
-// Get branch from version string
+// BranchFromVersion returns version string for the release branch
 // patch release of .0 is always from the master. Others are from the M.m.x branch
 func BranchFromVersion(version *pb.Version) string {
 	if version.Micro == 0 {
-		return fmt.Sprintf("master")
+		return "master"
 	}
 	return fmt.Sprintf("%d.%d.x", version.Major, version.Minor)
 }
