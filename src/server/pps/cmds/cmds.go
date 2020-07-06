@@ -1075,10 +1075,6 @@ you can increase the amount of memory used for the bloom filters with the
 }
 
 func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
-	if pushImages {
-		// TODO(ys): remove `--push-images`
-		logrus.Warning("--push-images` is deprecated")
-	}
 	if build && pushImages {
 		logrus.Warning("`--push-images` is redundant, as it's already enabled with `--build`")
 	}
@@ -1112,38 +1108,27 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			request.Reprocess = reprocess
 		}
 
-		// coerce build mode if it was omitted on a new pipeline that has a build step
-		if !build && !update && request.Transform != nil && request.Transform.Build != nil {
-			build = true
+		isLocal := true
+		url, err := url.Parse(pipelinePath)
+		if pipelinePath == "-" || (err == nil && url.Scheme != "") {
+			isLocal = false
 		}
 
-		if build || pushImages {
-			if request.Transform == nil {
-				return errors.New("must specify a pipeline `transform`")
+		if request.Transform != nil && request.Transform.Build != nil {
+			if !isLocal {
+				return errors.Errorf("cannot use build step-enabled pipelines that aren't local")
 			}
-			if request.Transform.Dockerfile != "" && request.Transform.Build != nil {
-				return errors.New("cannot specify both `dockerfile` and `build` in the pipeline transform")
-			}
-			if request.Transform.Build != nil && pushImages {
-				return errors.New("`--push-images` cannot be used with build pipelines")
-			}
-			if build {
-				url, err := url.Parse(pipelinePath)
-				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
-					return errors.Errorf("cannot build pipeline because it is not local")
-				}
-			}
-
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
-
-			if request.Transform.Build == nil {
-				if err := dockerBuildHelper(request, build, registry, username, pipelineParentPath); err != nil {
-					return err
-				}
-			} else {
-				if err := buildHelper(pc, request, pipelineParentPath); err != nil {
-					return err
-				}
+			if err := buildHelper(pc, request, pipelineParentPath, update); err != nil {
+				return err
+			}
+		} else if build || pushImages {
+			if build && !isLocal {
+				return errors.Errorf("cannot build pipeline because it is not local")
+			}
+			pipelineParentPath, _ := filepath.Split(pipelinePath)
+			if err := dockerBuildHelper(request, build, registry, username, pipelineParentPath); err != nil {
+				return err
 			}
 		}
 
@@ -1159,6 +1144,12 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 }
 
 func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, registry, username, pipelineParentPath string) error {
+	// validation
+	if request.Transform == nil {
+		return errors.New("must specify a pipeline `transform`")
+	}
+
+	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
 		return errors.Wrapf(err, "could not create a docker client from the environment")
@@ -1272,7 +1263,9 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 	return nil
 }
 
-func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string) error {
+// TODO: if transactions ever add support for pipeline creation, use them here
+// to create everything atomically
+func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string, update bool) error {
 	// validation
 	if request.Pipeline == nil {
 		return errors.New("no `pipeline` specified")
@@ -1280,22 +1273,17 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	if request.Pipeline.Name == "" {
 		return errors.New("no pipeline `name` specified")
 	}
-	if request.Transform.Image == "" {
-		return errors.New("no transform `image` specified")
-	}
 	if request.Spout != nil {
-		return errors.New("build pipelines do not work with spouts")
+		return errors.New("build step-enabled pipelines do not work with spouts")
 	}
 	if request.Input == nil {
 		return errors.New("no `input` specified")
 	}
-	if strings.HasPrefix(request.OutputBranch, "__") {
-		return errors.New("`output_branch` cannot have a double underscore prefix")
-	}
 	var err error
 	ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
-		if strings.HasPrefix(ppsclient.InputName(input), "__") {
-			err = errors.New("inputs cannot have names with a double underscore prefix")
+		inputName := ppsclient.InputName(input)
+		if inputName == "build" || inputName == "source" {
+			err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
 		}
 	})
 	if err != nil {
@@ -1316,33 +1304,35 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		return errors.Wrapf(err, "could not stat build path %q", buildPath)
 	}
 
+	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
+
 	// utility function for creating an input used as part of a build step
-	createInput := func(name string) *ppsclient.Input {
+	createBuildPipelineInput := func(name string) *ppsclient.Input {
 		return &ppsclient.Input{
 			Pfs: &ppsclient.PFSInput{
 				Name:   name,
 				Glob:   "/",
-				Repo:   request.Pipeline.Name,
+				Repo:   buildPipelineName,
 				Branch: name,
 			},
 		}
 	}
 
 	// create the source repo
-	if err := pc.CreateRepo(request.Pipeline.Name); err != nil {
+	if err := pc.UpdateRepo(buildPipelineName); err != nil {
 		return errors.Wrapf(err, "failed to create repo for build step-enabled pipeline")
 	}
 
 	// create the build pipeline
 	if err := pc.CreatePipeline(
-		request.Pipeline.Name,
+		buildPipelineName,
 		request.Transform.Image,
-		[]string{"./build.sh"},
+		[]string{"sh", "./build.sh"},
 		[]string{},
 		&ppsclient.ParallelismSpec{Constant: 1},
-		createInput("__source__"),
-		"__build__",
-		true,
+		createBuildPipelineInput("source"),
+		"build",
+		update,
 	); err != nil {
 		return errors.Wrapf(err, "failed to create build pipeline for build step-enabled pipeline")
 	}
@@ -1367,12 +1357,14 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	commit, err := pc.StartCommit(request.Pipeline.Name, "__source__")
+	commit, err := pc.StartCommit(buildPipelineName, "source")
 	if err != nil {
 		return errors.Wrapf(err, "failed to start commit for source code in build step-enabled pipeline")
 	}
-	if err = pc.DeleteFile(request.Pipeline.Name, commit.ID, "/"); err != nil {
-		return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+	if update {
+		if err = pc.DeleteFile(buildPipelineName, commit.ID, "/"); err != nil {
+			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+		}
 	}
 	pfc, err := pc.NewPutFileClient()
 	if err != nil {
@@ -1403,7 +1395,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 			}
 		}()
 
-		if _, err = pfc.PutFileOverwrite(request.Pipeline.Name, commit.ID, destFilePath, f, 0); err != nil {
+		if _, err = pfc.PutFileOverwrite(buildPipelineName, commit.ID, destFilePath, f, 0); err != nil {
 			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
 		}
 
@@ -1415,20 +1407,20 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
 	}
 
-	if err = pc.FinishCommit(request.Pipeline.Name, commit.ID); err != nil {
+	if err = pc.FinishCommit(buildPipelineName, commit.ID); err != nil {
 		return errors.Wrapf(err, "failed to finish commit for source code in build step-enabled pipeline")
 	}
 
 	// modify the pipeline to use the build assets
 	request.Input = &ppsclient.Input{
 		Cross: []*ppsclient.Input{
-			createInput("__source__"),
-			createInput("__build__"),
+			createBuildPipelineInput("source"),
+			createBuildPipelineInput("build"),
 			request.Input,
 		},
 	}
 	if request.Transform.Cmd == nil || len(request.Transform.Cmd) == 0 {
-		request.Transform.Cmd = []string{"./run.sh"}
+		request.Transform.Cmd = []string{"/pfs/build/run"}
 	}
 
 	return nil
