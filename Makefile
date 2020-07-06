@@ -101,8 +101,6 @@ docker-build-pachctl:
 		$(DOCKER_BUILD_FLAGS) \
 		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
 
-	docker tag pachyderm/pachctl pachyderm/pachctl:local
-
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
