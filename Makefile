@@ -71,7 +71,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version docker-build docker-push
+release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
@@ -148,10 +148,16 @@ docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
+docker-tag-pachctl: install
+	docker tag pachyderm/pachctl pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
+
 docker-push: docker-tag
 	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+
+docker-push-pachctl: docker-tag-pachctl
+	docker push pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
