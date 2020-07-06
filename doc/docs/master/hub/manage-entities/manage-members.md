@@ -1,15 +1,15 @@
 # Manage Members
 
-A member is a user account in Pachyderm Hub that represents
-a person interacting with Pachyderm Hub. A member is associated with a
-GitHub or Google account. Therefore, you must have either of these
-to log in to Pachyderm Hub. All users in Pachyderm Hub get administrative
-access to the corresponding Pachyderm Hub organization and all workspaces.
-In the current Pachyderm version, other roles are not supported.
-The first user that has created the organization is responsible for
-billing. This role can later be transferred to other users.
+Within an organization, each uniquely authenticated GitHub or Google
+account is considered a member. All members in Pachyderm Hub get
+administrative access to the corresponding Pachyderm Hub organization
+and all workspaces.
+In the current Pachyderm version, other roles are not yet supported.
+The first member that has created the organization is responsible for
+billing. This role can later be transferred to other members of the
+organization.
 
-Each type of account has a limit on the number of users that you can
+Each type of account has a limit on the number of members that you can
 invite to your organization. View biling details in your account
 profile to learn how many users you can add.
 

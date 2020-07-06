@@ -1,18 +1,5 @@
 # Getting Started with Pachyderm Hub
 
-<!--Pachyderm Hub is a platform for data scientists where you can
-version-control your data, build analysis pipelines, and
-track the provenance of your data science workflow.
-
-This section walks you through
-the steps of creating a cluster in Pachyderm Hub so that
-you do not need to worry about the underlying infrastructure
-and can get started using Pachyderm right away.-->
-
-<!--Follow the steps below to configure your first Pachyderm pipeline or
-watch the 2-minute [Getting Started Screencast](../tutorials/screencast-opencv.html).-->
-
-
 Pachyderm Hub is a platform for data scientists where you can
 version-control your data, build analysis pipelines, and
 track the provenance of your data science workflow. Start using
@@ -31,26 +18,27 @@ To get started, complete the following steps:
 
 ## Log in
 
-Pachyderm Hub uses GitHub OAuth as an identity provider. Therefore,
-to start using Pachyderm Hub, you need to log in by authorizing
-Pachyderm Hub with your GitHub account. If you do not
-have a GitHub account yet, create one by following the steps described
-in [Join GitHub](https://github.com/join).
+Pachyderm Hub supports GitHub OAuth and Google as identity providers.
+Therefore, to start using Pachyderm Hub, you need to log in by authorizing
+Pachyderm Hub with your GitHub or Google account. If you do not
+have a GitHub account yet and want to use one, create it by following
+the steps described in [Join GitHub](https://github.com/join).
 
 To log in to Pachyderm Hub, complete the following steps:
 
 1. Go to [hub.pachyderm.com](https://hub.pachyderm.com).
 1. Click **Try for free**.
-1. Authorize Pachyderm Hub with your GitHub account by typing your
-   GitHub user name and password.
+1. Authorize Pachyderm Hub with your GitHub or Google account by typing your
+   user name and password.
 1. Proceed to [Step 1](#step-1-create-a-workspace).
 
 ## Step 1: Create a Workspace
 
-To get started, create a Pachyderm worksapce in which your pipelines will run.
-A workspace runs on top of the underlying cloud infrastructure.
-In the free tier, you can create one workspace with the resource
-specifications:
+To get started, you must create a Pachyderm workspace.
+A workspace runs on top of the underlying cloud infrastructure and
+provides the resouces for you to upload data and build analysis pipelines.
+In the free tier, you can create one workspace at a time with the following
+resource specifications:
 
 | Resource   | Allocation |
 | ---------- | ---------- |
@@ -59,12 +47,11 @@ specifications:
 | GPU        | None       |
 | Time limit | 4 hours    |
 
-
 To create a workspace, complete the following steps:
 
 1. If you have not yet done so, log in to Pachyderm Hub.
-1. Click **Create New Workspace**.
-1. Type a name for your cluster. For example, `test1`.
+1. Click **Create New Workspace** or **Create a 4-Hour Workspace**.
+1. Fill out the required fields and accept Terms and Conditions.
 1. Click **Create**.
 
    Your cluster is provisioned instantly!
@@ -195,7 +182,7 @@ To connect to your workspace, complete the following steps:
 ## Next Steps
 
 Congratulations! You have successfully deployed and configured a Pachyderm
-workspace in Pachyderm Hub. Now, try our Beginners tutorial that walks
+workspace in Pachyderm Hub. Now, try our Beginners Tutorial that walks
 you through the Pachyderm basics.
 
 * [Beginner Tutorial](../../getting_started/beginner_tutorial/)

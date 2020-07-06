@@ -1,11 +1,10 @@
 # Overview
 
 Pachyderm Hub is an online data science platform that enables you to
-store, version, and process your data, as well allows your data science
-teams collaborate on their projects. Pachyderm Hub takes care
+store, version, and collaborate on shared datasets and pipelines. Pachyderm Hub takes care
 of infrastructure resource management, autoscaling, and workflow scheduling
-so you can focus on writing code and conducting experiments that imporant
-for your business.
+so you can focus on writing code and conducting experiments that are imporant
+to your business.
 
 <div class="btn">
   <div class="center-screen">

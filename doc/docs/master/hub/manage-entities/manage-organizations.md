@@ -1,7 +1,7 @@
 # Manage Organizations
 
 !!! note
-    Organizations are available in paid accounts.
+    Organizations are only available in Pachyderm Hub Pro accounts.
 
 An organization is a collection of users that are associated with
 the same entity, such as a company, and belong to the same billing
