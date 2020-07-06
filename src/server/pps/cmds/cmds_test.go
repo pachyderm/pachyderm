@@ -483,6 +483,62 @@ func TestEditPipeline(t *testing.T) {
 		`).Run())
 }
 
+func TestPipelineBuild(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
+
+	testPipelineBuild(t, "python", "test-base.json")
+	testPipelineBuild(t, "python", "test-custom-args.json")
+}
+
+func testPipelineBuild(t *testing.T, lang, pipelineFilename string) {
+	t.Helper()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl create pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/{{.pipelineFilename}}"
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"lang", lang,
+		"pipelineFilename", pipelineFilename,
+	).Run())
+
+	verifyPipelineBuildOutput(t)
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl update pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/{{.pipelineFilename}}"
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"lang", lang,
+		"pipelineFilename", pipelineFilename,
+	).Run())
+
+	verifyPipelineBuildOutput(t)
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl update pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/{{.pipelineFilename}}" --reprocess
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"lang", lang,
+		"pipelineFilename", pipelineFilename,
+	).Run())
+
+	verifyPipelineBuildOutput(t)
+}
+
+func verifyPipelineBuildOutput(t *testing.T) {
+	t.Helper()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl flush commit test-pipeline-build@master
+		pachctl get file test-pipeline-build@master:/1.txt | match 0001
+		pachctl get file test-pipeline-build@master:/11.txt | match 0011
+		pachctl get file test-pipeline-build@master:/111.txt | match 0111
+	`).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")

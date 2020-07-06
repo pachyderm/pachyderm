@@ -1,0 +1,15 @@
+{
+  "pipeline": {
+    "name": "test-pipeline-build"
+  },
+  "transform": {
+    "image": "pachyderm/python-build",
+    "build": {}
+  },
+  "input": {
+    "pfs": {
+      "repo": "in",
+      "glob": "/*"
+    }
+  }
+}
