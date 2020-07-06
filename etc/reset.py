@@ -134,8 +134,18 @@ class MinikubeDriver(BaseDriver):
 
     async def deploy(self, dash, ide, builder_images):
         await super().deploy(dash, ide, builder_images)
+
+        # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
         await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
+
+        # the config update above will cause subsequent deploys to create a
+        # new context, so to prevent the config from growing in size on every
+        # deploy, we'll go ahead and delete any "orphaned" contexts now
+        for line in (await capture("pachctl", "config", "list", "context")).strip().split("\n")[1:]:
+            context = line.strip()
+            if context.startswith("local"):
+                await run("pachctl", "config", "delete", "context", context)
 
 class GCPDriver(BaseDriver):
     def __init__(self, project_id, cluster_name=None):
