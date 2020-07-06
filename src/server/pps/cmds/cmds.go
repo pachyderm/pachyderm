@@ -1420,7 +1420,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		},
 	}
 	if request.Transform.Cmd == nil || len(request.Transform.Cmd) == 0 {
-		request.Transform.Cmd = []string{"/pfs/build/run"}
+		request.Transform.Cmd = []string{"sh", "/pfs/build/run.sh"}
 	}
 
 	return nil

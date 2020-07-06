@@ -6,7 +6,8 @@
   "transform": {
     "image": "pachyderm/go-build",
     "cmd": [
-      "/pfs/build/run",
+      "sh",
+      "/pfs/build/run.sh",
       "/pfs/scraper/", 
       "/pfs/out"
     ],
