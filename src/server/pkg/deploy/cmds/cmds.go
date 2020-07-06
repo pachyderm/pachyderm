@@ -1317,9 +1317,9 @@ func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 	var relVersion string
 
 	// This is the branch where to look.
-	// If a new dash version need to be pushed we can just update the compatibility file
-	// in github repo. All version of pachd will pick it upon restart. To make this work
-	// we have to point to the right branch (not tag) in the repo
+	// When a new dash version needs to be pushed we can just update the compatibility file
+	// in pachyderm repo branch. A (re)deploy will pick it up. To make this work we have to
+	// point the URL to the branch (not tag) in the repo.
 	branch := version.BranchFromVersion(version.Version)
 	if version.IsCustomRelease(version.Version) {
 		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
