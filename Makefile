@@ -81,15 +81,27 @@ docker-build: enterprise-code-checkin-test
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
-		--progress plain -t pachyderm_build .
+		--progress plain -f Dockerfile.pachd -t pachyderm_build .
+
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
+
 	docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
 		-t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
+
+docker-build-pachctl:
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		--build-arg GC_FLAGS="$(GC_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
+
+	docker tag pachyderm/pachctl pachyderm/pachctl:local
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
