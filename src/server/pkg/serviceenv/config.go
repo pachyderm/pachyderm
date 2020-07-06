@@ -20,6 +20,7 @@ type GlobalConfiguration struct {
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
+	GCPercent     int    `env:"GC_PERCENT,default=50"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so

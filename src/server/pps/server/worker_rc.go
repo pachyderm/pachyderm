@@ -99,6 +99,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
+	}, {
+		Name:  "GC_PERCENT",
+		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()

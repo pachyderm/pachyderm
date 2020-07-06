@@ -115,6 +115,7 @@ type apiServer struct {
 	port                   uint16
 	httpPort               uint16
 	peerPort               uint16
+	gcPercent              int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
