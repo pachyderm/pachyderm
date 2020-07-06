@@ -471,6 +471,7 @@ goxc-build:
 	release-helper \
 	release-version \
 	docker-build \
+	docker-build-pachctl \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
@@ -482,6 +483,10 @@ goxc-build:
 	docker-build-test-entrypoint \
 	check-kubectl \
 	check-kubectl-connection \
+	docker-tag \
+	docker-tag-pachctl \
+	docker-push \
+	docker-push-pachctl \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
