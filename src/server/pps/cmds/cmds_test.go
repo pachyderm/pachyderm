@@ -25,6 +25,7 @@
 package cmds
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -487,10 +488,6 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	testPipelineBuildLifecycle(t, "python")
 }
 
-// func TestPipelineBuildLifecyclePython(t *testing.T) {
-// 	testPipelineBuildLifecycle(t, "python")
-// }
-
 func testPipelineBuildLifecycle(t *testing.T, lang string) {
 	t.Helper()
 
@@ -500,29 +497,84 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
 	`).Run())
 
+	spec := fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": "test-pipeline-build"
+		  },
+		  "transform": {
+		    "image": "pachyderm/%s-build",
+		    "build": {}
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, lang)
+
 	require.NoError(t, tu.BashCmd(`
-		pachctl create pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/test-base.json"
+		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		pachctl create pipeline <<EOF
+			{{.spec}}
+		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
 		"lang", lang,
+		"spec", spec,
 	).Run())
 
 	verifyPipelineBuildOutput(t, "0")
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl update pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/test-base.json"
+		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		pachctl update pipeline <<EOF
+			{{.spec}}
+		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
 		"lang", lang,
+		"spec", spec,
 	).Run())
 
 	verifyPipelineBuildOutput(t, "0")
 
+	spec = fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": "test-pipeline-build"
+		  },
+		  "transform": {
+		    "image": "pachyderm/%s-build",
+		    "cmd": [
+		      "sh",
+		      "/pfs/build/run.sh",
+		      "_"
+		    ],
+		    "build": {
+		      "path": "."
+		    }
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, lang)
+
 	require.NoError(t, tu.BashCmd(`
-		pachctl update pipeline -f "../../../../etc/testing/pipeline-build/{{.lang}}/test-custom-args.json" --reprocess
+		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		pachctl update pipeline --reprocess <<EOF
+			{{.spec}}
+		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
 		"lang", lang,
+		"spec", spec,
 	).Run())
 
 	verifyPipelineBuildOutput(t, "_")
