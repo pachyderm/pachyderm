@@ -14,8 +14,7 @@ def main():
         if os.path.isfile(os.path.join(INPUT_DIRECTORY, fname)):
             with open(os.path.join(INPUT_DIRECTORY, fname), "r") as f_in:
                 with open(os.path.join(OUTPUT_DIRECTORY, fname), "w") as f_out: 
-                    for line in f_in:
-                        f_out.write("{}\n".format(left_pad(line, LENGTH, pad_char)))
+                    f_out.write("{}".format(left_pad(f_in.read(), LENGTH, pad_char)))
 
 if __name__ == "__main__":
     main()

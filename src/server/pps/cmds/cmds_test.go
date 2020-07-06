@@ -488,6 +488,10 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	testPipelineBuildLifecycle(t, "python")
 }
 
+func TestPipelineBuildLifecycleGo(t *testing.T) {
+	testPipelineBuildLifecycle(t, "go")
+}
+
 func testPipelineBuildLifecycle(t *testing.T, lang string) {
 	t.Helper()
 
