@@ -1110,7 +1110,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 
 		isLocal := true
 		url, err := url.Parse(pipelinePath)
-		if pipelinePath == "-" || (err == nil && url.Scheme != "") {
+		if pipelinePath != "-" && err == nil && url.Scheme != "" {
 			isLocal = false
 		}
 
