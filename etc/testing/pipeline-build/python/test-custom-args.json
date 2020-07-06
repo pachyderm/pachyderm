@@ -1,14 +1,13 @@
 {
   "pipeline": {
-    "name": "test-pipeline-build-python"
+    "name": "test-pipeline-build"
   },
   "transform": {
     "image": "pachyderm/python-build",
     "cmd": [
       "sh",
       "/pfs/build/run.sh",
-      "--content",
-      "#"
+      "--content=_"
     ],
     "build": {
       "path": "."
