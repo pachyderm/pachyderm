@@ -3,6 +3,7 @@ package pipeline
 import (
 	"archive/tar"
 	"context"
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
@@ -54,6 +55,19 @@ func RunUserCode(
 	})
 }
 
+type hexWriter struct {
+	w io.Writer
+}
+
+func (h hexWriter) Write(d []byte) (int, error) {
+	dst := make([]byte, hex.EncodedLen(len(d)))
+	hex.Encode(dst, d)
+	if _, err := h.w.Write(dst); err != nil {
+		return 0, nil
+	}
+	return len(d), nil
+}
+
 // ReceiveSpout is used by both services and spouts if a spout is defined on the
 // pipeline. ctx is separate from pachClient because services may call this, and
 // they use a cancel function that affects the context but not the pachClient
@@ -72,7 +86,7 @@ func ReceiveSpout(
 		if err != nil {
 			return err
 		}
-		out = io.TeeReader(outF, os.Stdout)
+		out = io.TeeReader(outF, hexWriter{w: os.Stdout})
 		// and close it when we're done
 		defer func() {
 			if err := outF.Close(); err != nil && retErr1 == nil {
