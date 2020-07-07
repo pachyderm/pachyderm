@@ -370,7 +370,7 @@ async def main():
     parser.add_argument("--target", default="", help="Where to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
-    parser.add_argument("--builder-images", action="store_true", help="Deploy builder images")
+    parser.add_argument("--builders", action="store_true", help="Deploy images used in pipeline builds")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -429,7 +429,7 @@ async def main():
     ]
 
     builder_images = []
-    if args.builder_images:
+    if args.builders:
         for language in os.listdir(PIPELINE_BUILD_DIR):
             builder_image = f"pachyderm/{language}-build"
             procs.append(run("docker", "build", "-t", builder_image, ".", cwd=os.path.join(PIPELINE_BUILD_DIR, language)))
