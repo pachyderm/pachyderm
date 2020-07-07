@@ -107,6 +107,9 @@ docker-build-kafka:
 docker-build-spout-test:
 	docker build -t spout-test etc/testing/spout
 
+docker-build-spout-manager-test:
+	docker build -t spout-manager etc/testing/spout-manager
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 
@@ -235,7 +238,7 @@ test-pfs-storage:
 	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
 	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
 
-test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
+test-pps: launch-stats docker-build-spout-test docker-build-spout-manager-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
