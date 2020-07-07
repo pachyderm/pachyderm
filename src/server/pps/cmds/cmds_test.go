@@ -522,6 +522,15 @@ func TestEditPipeline(t *testing.T) {
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
 	testPipelineBuildLifecycle(t, "python")
+
+	// the python example also contains a `.pachignore`, so we can verify it's
+	// intended behavior here
+	require.NoError(t, tu.BashCmd(`
+		pachctl get file test-pipeline-build_build@source:/.pachignore
+	`).Run())
+	require.YesError(t, tu.BashCmd(`
+		pachctl get file test-pipeline-build_build@source:/foo.txt
+	`).Run())
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
@@ -799,9 +808,6 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 		EOF
 	`).Run())
 }
-
-// TODO(ys): things to test:
-// - build w/ ignore
 
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
