@@ -637,6 +637,172 @@ func verifyPipelineBuildOutput(t *testing.T, prefix string) {
 	).Run())
 }
 
+func TestMissingPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because there's no pipeline object in the spec
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "transform": {
+			    "image": "pachyderm/python-build"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestUnnamedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because there's no pipeline name
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {},
+			  "transform": {
+			    "image": "pachyderm/python-build"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildSpout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because pipeline build can't be used w/ spouts
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "image": "pachyderm/python-build",
+			    "build": {}
+			  },
+			  "spout": {}
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildMissingInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because pipeline build can't be used w/ spouts
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "image": "pachyderm/python-build",
+			    "build": {}
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildBadInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because 'build' and 'source' are reserved input names for
+	// when using pipeline builds
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "image": "pachyderm/python-build",
+			    "build": {}
+			  },
+			  "input": {
+			    "pfs": {
+			      "name": "build",
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "image": "pachyderm/python-build",
+			    "build": {}
+			  },
+			  "input": {
+			    "pfs": {
+			      "name": "source",
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildMissingPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because 'build' and 'source' are reserved input names for
+	// when using pipeline builds
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "image": "pachyderm/python-build",
+			    "build": {
+			      "path": "/some/path/that/doesnt/exist"
+			    }
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+// TODO(ys): things to test:
+// - build w/ ignore
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")
