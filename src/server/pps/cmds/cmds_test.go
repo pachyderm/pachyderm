@@ -49,6 +49,9 @@ const badJSON2 = `{
 `
 
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl create pipeline -f - 2>&1 || true ) \
@@ -64,6 +67,9 @@ func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 }
 
 func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl update pipeline -f - 2>&1 || true ) \
@@ -79,6 +85,9 @@ func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 }
 
 func TestRawFullPipelineInfo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl garbage-collect
@@ -118,6 +127,9 @@ func TestRawFullPipelineInfo(t *testing.T) {
 // historically, so we should continue to support it until we formally deprecate
 // it.
 func TestJSONMultiplePipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -176,6 +188,9 @@ func TestJSONMultiplePipelines(t *testing.T) {
 // specify numeric values such as a pipeline's parallelism (a feature of gogo's
 // JSON parser).
 func TestJSONStringifiedNumbers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -221,6 +236,9 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 // the problem in the JSON, rather than an error complaining about multiple
 // documents.
 func TestJSONMultiplePipelinesError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// pipeline spec has no quotes around "name" in first pipeline
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
@@ -268,6 +286,9 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -319,6 +340,9 @@ func TestYAMLPipelineSpec(t *testing.T) {
 // issue referenced by the error (use of a string instead of an array for 'cmd')
 // is the main problem below
 func TestYAMLError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// "cmd" should be a list, instead of a string
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
@@ -341,6 +365,9 @@ func TestYAMLError(t *testing.T) {
 }
 
 func TestTFJobBasic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -396,6 +423,9 @@ func TestTFJobBasic(t *testing.T) {
 // TestYAMLSecret tests creating a YAML pipeline with a secret (i.e. the fix for
 // https://github.com/pachyderm/pachyderm/issues/4119)
 func TestYAMLSecret(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -432,6 +462,9 @@ func TestYAMLSecret(t *testing.T) {
 // TestYAMLTimestamp tests creating a YAML pipeline with a timestamp (i.e. the
 // fix for https://github.com/pachyderm/pachyderm/issues/4209)
 func TestYAMLTimestamp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -457,6 +490,9 @@ func TestYAMLTimestamp(t *testing.T) {
 }
 
 func TestEditPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 	`).Run())
@@ -494,7 +530,11 @@ func TestPipelineBuildLifecycleGo(t *testing.T) {
 
 func testPipelineBuildLifecycle(t *testing.T, lang string) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 
+	// reset and create some test input
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo in
@@ -519,6 +559,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		}
 	`, lang)
 
+	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.lang}}
 		pachctl create pipeline <<EOF
@@ -529,9 +570,9 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		"lang", lang,
 		"spec", spec,
 	).Run())
-
 	verifyPipelineBuildOutput(t, "0")
 
+	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.lang}}
 		pachctl update pipeline <<EOF
@@ -542,7 +583,6 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		"lang", lang,
 		"spec", spec,
 	).Run())
-
 	verifyPipelineBuildOutput(t, "0")
 
 	spec = fmt.Sprintf(`
@@ -570,6 +610,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		}
 	`, lang)
 
+	// update the pipeline with a custom cmd and verify results
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.lang}}
 		pachctl update pipeline --reprocess <<EOF
@@ -580,7 +621,6 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		"lang", lang,
 		"spec", spec,
 	).Run())
-
 	verifyPipelineBuildOutput(t, "_")
 }
 
