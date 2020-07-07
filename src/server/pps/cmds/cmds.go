@@ -1098,6 +1098,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			return err
 		}
 
+		if request.Pipeline == nil {
+			return errors.New("no `pipeline` specified")
+		}
+		if request.Pipeline.Name == "" {
+			return errors.New("no pipeline `name` specified")
+		}
+
 		// Add trace if env var is set
 		if ctx, ok := extended.StartAnyExtendedTrace(pc.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
 			pc = pc.WithCtx(ctx)
@@ -1118,6 +1125,22 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if !isLocal {
 				return errors.Errorf("cannot use build step-enabled pipelines that aren't local")
 			}
+			if request.Spout != nil {
+				return errors.New("build step-enabled pipelines do not work with spouts")
+			}
+			if request.Input == nil {
+				return errors.New("no `input` specified")
+			}
+			var err error
+			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+				inputName := ppsclient.InputName(input)
+				if inputName == "build" || inputName == "source" {
+					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+				}
+			})
+			if err != nil {
+				return err
+			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
 			if err := buildHelper(pc, request, pipelineParentPath, update); err != nil {
 				return err
@@ -1125,6 +1148,9 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 		} else if build || pushImages {
 			if build && !isLocal {
 				return errors.Errorf("cannot build pipeline because it is not local")
+			}
+			if request.Transform == nil {
+				return errors.New("must specify a pipeline `transform`")
 			}
 			pipelineParentPath, _ := filepath.Split(pipelinePath)
 			if err := dockerBuildHelper(request, build, registry, username, pipelineParentPath); err != nil {
@@ -1144,11 +1170,6 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 }
 
 func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, registry, username, pipelineParentPath string) error {
-	// validation
-	if request.Transform == nil {
-		return errors.New("must specify a pipeline `transform`")
-	}
-
 	// create docker client
 	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -1266,30 +1287,6 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 // TODO: if transactions ever add support for pipeline creation, use them here
 // to create everything atomically
 func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string, update bool) error {
-	// validation
-	if request.Pipeline == nil {
-		return errors.New("no `pipeline` specified")
-	}
-	if request.Pipeline.Name == "" {
-		return errors.New("no pipeline `name` specified")
-	}
-	if request.Spout != nil {
-		return errors.New("build step-enabled pipelines do not work with spouts")
-	}
-	if request.Input == nil {
-		return errors.New("no `input` specified")
-	}
-	var err error
-	ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
-		inputName := ppsclient.InputName(input)
-		if inputName == "build" || inputName == "source" {
-			err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
-		}
-	})
-	if err != nil {
-		return err
-	}
-
 	buildPath := request.Transform.Build.Path
 	if buildPath == "" {
 		buildPath = "."
