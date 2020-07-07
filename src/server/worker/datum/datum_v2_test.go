@@ -18,12 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
-type hasher struct{}
-
-func (h *hasher) Hash(inputs []*common.InputV2) string {
-	return common.HashDatumV2("", "", inputs)
-}
-
 func TestSet(t *testing.T) {
 	config := pfstesting.NewPachdConfig()
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
@@ -54,14 +48,14 @@ func TestSet(t *testing.T) {
 		// Create datum fileset.
 		require.NoError(t, c.WithFileOperationClientV2(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
 			require.NoError(t, withTmpDir(func(storageRoot string) error {
-				require.NoError(t, WithSet(c, storageRoot, &hasher{}, func(s *Set) error {
+				require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
 					di, err := NewIteratorV2(c, in)
 					if err != nil {
 						return err
 					}
-					return di.Iterate(func(inputs []*common.InputV2) error {
-						allInputs = append(allInputs, inputs)
-						return s.WithDatum(context.Background(), inputs, func(d *Datum) error {
+					return di.Iterate(func(meta *Meta) error {
+						allInputs = append(allInputs, meta.Inputs)
+						return s.WithDatum(context.Background(), meta, func(d *Datum) error {
 							return copyFile(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
 								return []byte("output")
 							})
@@ -75,7 +69,7 @@ func TestSet(t *testing.T) {
 		require.NoError(t, c.FinishCommit(outputRepo, outputCommit.ID))
 		// Check output.
 		require.NoError(t, withTmpDir(func(storageRoot string) error {
-			require.NoError(t, WithSet(c, storageRoot, &hasher{}, func(s *Set) error {
+			require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
 				fsi := NewFileSetIterator(c, outputRepo, outputCommit.ID)
 				return fsi.Iterate(func(meta *Meta) error {
 					require.Equal(t, allInputs[0], meta.Inputs)

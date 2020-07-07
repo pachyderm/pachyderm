@@ -87,12 +87,12 @@ message MergeData {
 // Messages specific to V2.
 
 // TODO: Add path ranges for indexing into inputs.
-message DatumDataV2 {
+message DatumSetV2 {
   // Inputs
   string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string datum_fileset = 2;
+  string file_set = 2;
   pfs.Commit output_commit = 3;
-  pfs.Commit stats_commit = 4;
+  pfs.Commit meta_commit = 4;
 
   // Outputs
   DatumStats stats = 5;

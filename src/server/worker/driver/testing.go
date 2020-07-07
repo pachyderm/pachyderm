@@ -235,3 +235,7 @@ func (md *MockDriver) ReportUploadStats(time.Time, *pps.ProcessStats, logs.Tagge
 func (md *MockDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(md.ctx, md.etcdClient, cb)
 }
+
+func (md *MockDriver) StorageV2() bool {
+	return false
+}

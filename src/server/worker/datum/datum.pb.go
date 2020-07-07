@@ -5,6 +5,7 @@ package datum
 
 import (
 	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	common "github.com/pachyderm/pachyderm/src/server/worker/common"
 	io "io"
@@ -52,10 +53,12 @@ func (State) EnumDescriptor() ([]byte, []int) {
 }
 
 type Meta struct {
-	Inputs               []*common.InputV2 `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Stats                *Stats            `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
-	State                State             `protobuf:"varint,3,opt,name=state,proto3,enum=pachyderm.worker.datum.State" json:"state,omitempty"`
-	Reason               string            `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	JobID                string            `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Inputs               []*common.InputV2 `protobuf:"bytes,2,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	Hash                 string            `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty"`
+	State                State             `protobuf:"varint,4,opt,name=state,proto3,enum=pachyderm.worker.datum.State" json:"state,omitempty"`
+	Reason               string            `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	Stats                *Stats            `protobuf:"bytes,6,opt,name=stats,proto3" json:"stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -94,6 +97,13 @@ func (m *Meta) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Meta proto.InternalMessageInfo
 
+func (m *Meta) GetJobID() string {
+	if m != nil {
+		return m.JobID
+	}
+	return ""
+}
+
 func (m *Meta) GetInputs() []*common.InputV2 {
 	if m != nil {
 		return m.Inputs
@@ -101,11 +111,11 @@ func (m *Meta) GetInputs() []*common.InputV2 {
 	return nil
 }
 
-func (m *Meta) GetStats() *Stats {
+func (m *Meta) GetHash() string {
 	if m != nil {
-		return m.Stats
+		return m.Hash
 	}
-	return nil
+	return ""
 }
 
 func (m *Meta) GetState() State {
@@ -120,6 +130,13 @@ func (m *Meta) GetReason() string {
 		return m.Reason
 	}
 	return ""
+}
+
+func (m *Meta) GetStats() *Stats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
 }
 
 type Stats struct {
@@ -170,25 +187,28 @@ func init() {
 func init() { proto.RegisterFile("server/worker/datum/datum.proto", fileDescriptor_96ec7427544ac634) }
 
 var fileDescriptor_96ec7427544ac634 = []byte{
-	// 275 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2f, 0x4e, 0x2d, 0x2a,
-	0x4b, 0x2d, 0xd2, 0x2f, 0xcf, 0x2f, 0xca, 0x4e, 0x2d, 0xd2, 0x4f, 0x49, 0x2c, 0x29, 0xcd, 0x85,
-	0x90, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9, 0x42, 0x62, 0x05, 0x89, 0xc9, 0x19, 0x95, 0x29, 0xa9,
-	0x45, 0xb9, 0x7a, 0x10, 0x35, 0x7a, 0x60, 0x59, 0x29, 0x45, 0x54, 0x8d, 0xc9, 0xf9, 0xb9, 0xb9,
-	0xf9, 0x79, 0x50, 0x0a, 0xa2, 0x55, 0x69, 0x23, 0x23, 0x17, 0x8b, 0x6f, 0x6a, 0x49, 0xa2, 0x90,
-	0x3a, 0x17, 0x5b, 0x66, 0x5e, 0x41, 0x69, 0x49, 0xb1, 0x04, 0xa3, 0x02, 0xb3, 0x06, 0xb7, 0x11,
-	0xbf, 0x1e, 0x54, 0x9d, 0x27, 0x48, 0x34, 0xcc, 0x28, 0x08, 0x2a, 0x2d, 0x64, 0xcc, 0xc5, 0x5a,
-	0x5c, 0x92, 0x58, 0x52, 0x2c, 0xc1, 0xa4, 0xc0, 0xa8, 0xc1, 0x6d, 0x24, 0xab, 0x87, 0xdd, 0x72,
-	0xbd, 0x60, 0x90, 0xa2, 0x20, 0x88, 0x5a, 0x98, 0xa6, 0x54, 0x09, 0x66, 0x05, 0x46, 0x0d, 0x3e,
-	0xfc, 0x9a, 0x52, 0x21, 0x9a, 0x52, 0x85, 0xc4, 0xb8, 0xd8, 0x8a, 0x52, 0x13, 0x8b, 0xf3, 0xf3,
-	0x24, 0x58, 0x14, 0x18, 0x35, 0x38, 0x83, 0xa0, 0x3c, 0x25, 0x76, 0x2e, 0x56, 0xb0, 0xe1, 0x5a,
-	0x86, 0x10, 0x46, 0xaa, 0x10, 0x2f, 0x17, 0x67, 0x40, 0x90, 0xbf, 0xb3, 0x6b, 0x70, 0xb0, 0xab,
-	0x8b, 0x00, 0x83, 0x10, 0x17, 0x17, 0x9b, 0x9b, 0xa3, 0xa7, 0x8f, 0xab, 0x8b, 0x00, 0x23, 0x48,
-	0x2a, 0xc8, 0xd5, 0xd9, 0x3f, 0xcc, 0x35, 0xc8, 0xd5, 0x45, 0x80, 0xc9, 0xc9, 0xe5, 0xc4, 0x23,
-	0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92, 0x63, 0x8c, 0x32, 0x4b, 0xcf, 0x2c, 0xc9,
-	0x28, 0x4d, 0x02, 0x79, 0x55, 0x1f, 0xee, 0x22, 0x24, 0x56, 0x71, 0x51, 0xb2, 0x3e, 0x96, 0xc0,
-	0x4f, 0x62, 0x03, 0x07, 0x9e, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xf2, 0x79, 0xfa, 0x00, 0x9a,
-	0x01, 0x00, 0x00,
+	// 331 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x91, 0x41, 0x4b, 0xfb, 0x30,
+	0x18, 0xc6, 0xff, 0xd9, 0xd6, 0xfe, 0x59, 0x86, 0x3a, 0x82, 0x8c, 0x32, 0x70, 0xab, 0xbb, 0x58,
+	0x3c, 0xb4, 0xb8, 0x81, 0x77, 0xb7, 0x56, 0xa8, 0x28, 0x93, 0x0c, 0x76, 0xf0, 0x22, 0xe9, 0x1a,
+	0xd6, 0x4d, 0xba, 0x8c, 0x24, 0x55, 0xfc, 0x86, 0x1e, 0xfd, 0x04, 0x22, 0xbd, 0xf8, 0x35, 0x24,
+	0x49, 0x15, 0x85, 0xe1, 0xa5, 0x7d, 0xde, 0xf7, 0x79, 0xde, 0x5f, 0x78, 0x13, 0xd8, 0x17, 0x94,
+	0x3f, 0x52, 0x1e, 0x3c, 0x31, 0xfe, 0x40, 0x79, 0x90, 0x12, 0x59, 0xe4, 0xe6, 0xeb, 0x6f, 0x39,
+	0x93, 0x0c, 0x75, 0xb6, 0x64, 0x91, 0x3d, 0xa7, 0x94, 0xe7, 0xbe, 0xc9, 0xf8, 0xda, 0xed, 0x1e,
+	0xff, 0x1e, 0x5c, 0xb0, 0x3c, 0x67, 0x9b, 0xea, 0x67, 0x46, 0xbb, 0x87, 0x4b, 0xb6, 0x64, 0x5a,
+	0x06, 0x4a, 0x99, 0xee, 0xe0, 0x03, 0xc0, 0xc6, 0x0d, 0x95, 0x04, 0xb9, 0xd0, 0x5e, 0xb3, 0xe4,
+	0x7e, 0x95, 0x3a, 0xc0, 0x05, 0x5e, 0x73, 0xdc, 0x2c, 0xdf, 0xfa, 0xd6, 0x15, 0x4b, 0xe2, 0x10,
+	0x5b, 0x6b, 0x96, 0xc4, 0x29, 0x3a, 0x81, 0xf6, 0x6a, 0xb3, 0x2d, 0xa4, 0x70, 0x6a, 0x6e, 0xdd,
+	0x6b, 0x0d, 0x0f, 0xfc, 0x8a, 0x1f, 0xab, 0xee, 0x7c, 0x88, 0x2b, 0x1b, 0x21, 0xd8, 0xc8, 0x88,
+	0xc8, 0x9c, 0xba, 0x02, 0x61, 0xad, 0xd1, 0x08, 0x5a, 0x42, 0x12, 0x49, 0x9d, 0x86, 0x0b, 0xbc,
+	0xfd, 0xe1, 0x91, 0xbf, 0x7b, 0x11, 0x7f, 0xa6, 0x42, 0xd8, 0x64, 0x51, 0x07, 0xda, 0x9c, 0x12,
+	0xc1, 0x36, 0x8e, 0xa5, 0x51, 0x55, 0xf5, 0x05, 0x13, 0x8e, 0xed, 0x02, 0xaf, 0xf5, 0x37, 0x4c,
+	0x18, 0x98, 0x18, 0xfc, 0x87, 0x96, 0xae, 0x4f, 0xcf, 0x8c, 0xa0, 0x68, 0x0f, 0x36, 0x6f, 0xf1,
+	0x74, 0x12, 0xcd, 0x66, 0x51, 0xd8, 0xfe, 0x87, 0x20, 0xb4, 0x2f, 0x2f, 0xe2, 0xeb, 0x28, 0x6c,
+	0x03, 0x65, 0xe1, 0x68, 0x32, 0x9d, 0x47, 0x38, 0x0a, 0xdb, 0xb5, 0x71, 0xf8, 0x52, 0xf6, 0xc0,
+	0x6b, 0xd9, 0x03, 0xef, 0x65, 0x0f, 0xdc, 0x9d, 0x2f, 0x57, 0x32, 0x2b, 0x12, 0xb5, 0x7e, 0xf0,
+	0x7d, 0xf2, 0x0f, 0x25, 0xf8, 0x22, 0xd8, 0xf1, 0x90, 0x89, 0xad, 0xaf, 0x7c, 0xf4, 0x19, 0x00,
+	0x00, 0xff, 0xff, 0xe6, 0xeb, 0xe0, 0x47, 0xe6, 0x01, 0x00, 0x00,
 }
 
 func (m *Meta) Marshal() (dAtA []byte, err error) {
@@ -215,18 +235,6 @@ func (m *Meta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Reason) > 0 {
-		i -= len(m.Reason)
-		copy(dAtA[i:], m.Reason)
-		i = encodeVarintDatum(dAtA, i, uint64(len(m.Reason)))
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.State != 0 {
-		i = encodeVarintDatum(dAtA, i, uint64(m.State))
-		i--
-		dAtA[i] = 0x18
-	}
 	if m.Stats != nil {
 		{
 			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
@@ -237,7 +245,26 @@ func (m *Meta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintDatum(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0x32
+	}
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintDatum(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.State != 0 {
+		i = encodeVarintDatum(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintDatum(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if len(m.Inputs) > 0 {
 		for iNdEx := len(m.Inputs) - 1; iNdEx >= 0; iNdEx-- {
@@ -250,8 +277,15 @@ func (m *Meta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 				i = encodeVarintDatum(dAtA, i, uint64(size))
 			}
 			i--
-			dAtA[i] = 0xa
+			dAtA[i] = 0x12
 		}
+	}
+	if len(m.JobID) > 0 {
+		i -= len(m.JobID)
+		copy(dAtA[i:], m.JobID)
+		i = encodeVarintDatum(dAtA, i, uint64(len(m.JobID)))
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -300,14 +334,18 @@ func (m *Meta) Size() (n int) {
 	}
 	var l int
 	_ = l
+	l = len(m.JobID)
+	if l > 0 {
+		n += 1 + l + sovDatum(uint64(l))
+	}
 	if len(m.Inputs) > 0 {
 		for _, e := range m.Inputs {
 			l = e.Size()
 			n += 1 + l + sovDatum(uint64(l))
 		}
 	}
-	if m.Stats != nil {
-		l = m.Stats.Size()
+	l = len(m.Hash)
+	if l > 0 {
 		n += 1 + l + sovDatum(uint64(l))
 	}
 	if m.State != 0 {
@@ -315,6 +353,10 @@ func (m *Meta) Size() (n int) {
 	}
 	l = len(m.Reason)
 	if l > 0 {
+		n += 1 + l + sovDatum(uint64(l))
+	}
+	if m.Stats != nil {
+		l = m.Stats.Size()
 		n += 1 + l + sovDatum(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -372,6 +414,38 @@ func (m *Meta) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JobID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDatum
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDatum
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDatum
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.JobID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Inputs", wireType)
 			}
 			var msglen int
@@ -404,7 +478,90 @@ func (m *Meta) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 2:
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDatum
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDatum
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDatum
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDatum
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= State(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Reason", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDatum
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDatum
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDatum
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Reason = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
 			}
@@ -439,57 +596,6 @@ func (m *Meta) Unmarshal(dAtA []byte) error {
 			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
-			}
-			m.State = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDatum
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.State |= State(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Reason", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDatum
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDatum
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDatum
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Reason = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

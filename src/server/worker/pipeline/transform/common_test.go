@@ -60,6 +60,7 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 			filepath.Join(workerDir, "hashtrees"),
 			workerDir,
 			"namespace",
+			false,
 		)
 		if err != nil {
 			return err

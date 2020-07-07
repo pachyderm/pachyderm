@@ -51,24 +51,21 @@ func forEachCommit(
 				} else if ci.Finished == nil {
 					return cb(ci, statsCommit)
 				} else {
-					// TODO: V2 recovery for inconsistent output commit / job state?
-					if !driver.StorageV2() {
-						// Make sure that the job has been correctly finished as the commit has.
-						ji, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true)
-						if err != nil {
-							return err
+					// Make sure that the job has been correctly finished as the commit has.
+					ji, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true)
+					if err != nil {
+						return err
+					}
+					if !ppsutil.IsTerminal(ji.State) {
+						if ci.Trees == nil && ci.Tree == nil {
+							ji.State = pps.JobState_JOB_KILLED
+							ji.Reason = "output commit is finished without data, but job state has not been updated"
+						} else {
+							ji.State = pps.JobState_JOB_SUCCESS
 						}
-						if !ppsutil.IsTerminal(ji.State) {
-							if ci.Trees == nil && ci.Tree == nil {
-								ji.State = pps.JobState_JOB_KILLED
-								ji.Reason = "output commit is finished without data, but job state has not been updated"
-							} else {
-								ji.State = pps.JobState_JOB_SUCCESS
-							}
 
-							if err := finishJob(pi, pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
-								return errors.Wrap(err, "could not update job with finished output commit")
-							}
+						if err := finishJob(pi, pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
+							return errors.Wrap(err, "could not update job with finished output commit")
 						}
 					}
 				}

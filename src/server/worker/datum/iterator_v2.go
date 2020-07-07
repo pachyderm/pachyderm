@@ -12,11 +12,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/stream"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 type IteratorV2 interface {
-	Iterate(func([]*common.InputV2) error) error
+	Iterate(func(*Meta) error) error
 }
 
 type pfsIteratorV2 struct {
@@ -36,7 +37,7 @@ func newPFSIteratorV2(pachClient *client.APIClient, input *pps.PFSInput) Iterato
 	}
 }
 
-func (pi *pfsIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
+func (pi *pfsIteratorV2) Iterate(cb func(*Meta) error) error {
 	if pi.input == nil {
 		return nil
 	}
@@ -46,15 +47,17 @@ func (pi *pfsIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
 	return pi.pachClient.GlobFileV2(repo, commit, pattern, func(fi *pfs.FileInfoV2) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
-		return cb([]*common.InputV2{
-			&common.InputV2{
-				FileInfo:   fi,
-				JoinOn:     joinOn,
-				Name:       pi.input.Name,
-				Lazy:       pi.input.Lazy,
-				Branch:     pi.input.Branch,
-				EmptyFiles: pi.input.EmptyFiles,
-				S3:         pi.input.S3,
+		return cb(&Meta{
+			Inputs: []*common.InputV2{
+				&common.InputV2{
+					FileInfo:   fi,
+					JoinOn:     joinOn,
+					Name:       pi.input.Name,
+					Lazy:       pi.input.Lazy,
+					Branch:     pi.input.Branch,
+					EmptyFiles: pi.input.EmptyFiles,
+					S3:         pi.input.S3,
+				},
 			},
 		})
 	})
@@ -76,14 +79,11 @@ func newUnionIteratorV2(pachClient *client.APIClient, inputs []*pps.Input) (Iter
 	return ui, nil
 }
 
-// TODO: Might want to merge the iterators to keep lexicographical sorting.
-func (ui *unionIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
-	for _, di := range ui.iterators {
-		if err := di.Iterate(cb); err != nil {
-			return err
-		}
-	}
-	return nil
+// TODO: It might make sense to check if duplicate datums show up in the merge?
+func (ui *unionIteratorV2) Iterate(cb func(*Meta) error) error {
+	return Merge(ui.iterators, func(metas []*Meta) error {
+		return cb(metas[0])
+	})
 }
 
 type crossIteratorV2 struct {
@@ -102,17 +102,17 @@ func newCrossIteratorV2(pachClient *client.APIClient, inputs []*pps.Input) (Iter
 	return ci, nil
 }
 
-func (ci *crossIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
+func (ci *crossIteratorV2) Iterate(cb func(*Meta) error) error {
 	return iterate(nil, ci.iterators, cb)
 }
 
-func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func([]*common.InputV2) error) error {
+func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func(*Meta) error) error {
 	if len(iterators) == 0 {
-		return cb(crossInputs)
+		return cb(&Meta{Inputs: crossInputs})
 	}
 	// TODO: Might want to exit fast for the zero datums case.
-	return iterators[0].Iterate(func(inputs []*common.InputV2) error {
-		return iterate(append(crossInputs, inputs...), iterators[1:], cb)
+	return iterators[0].Iterate(func(meta *Meta) error {
+		return iterate(append(crossInputs, meta.Inputs...), iterators[1:], cb)
 	})
 }
 
@@ -165,7 +165,7 @@ type fileSetIterator struct {
 	repo, commit string
 }
 
-func NewFileSetIterator(pachClient *client.APIClient, repo, commit string, baseFileSet ...string) *fileSetIterator {
+func NewFileSetIterator(pachClient *client.APIClient, repo, commit string) IteratorV2 {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       repo,
@@ -195,6 +195,69 @@ func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 			return err
 		}
 	}
+}
+
+func Merge(dits []IteratorV2, cb func([]*Meta) error) error {
+	var ss []stream.Stream
+	for _, dit := range dits {
+		ss = append(ss, newDatumStream(dit, len(ss)))
+	}
+	pq := stream.NewPriorityQueue(ss)
+	return pq.Iterate(func(ss []stream.Stream, _ ...string) error {
+		var metas []*Meta
+		for _, s := range ss {
+			metas = append(metas, s.(*datumStream).meta)
+		}
+		return cb(metas)
+	})
+}
+
+type datumStream struct {
+	meta     *Meta
+	metaChan chan *Meta
+	errChan  chan error
+	priority int
+}
+
+func newDatumStream(dit IteratorV2, priority int) *datumStream {
+	metaChan := make(chan *Meta)
+	errChan := make(chan error, 1)
+	go func() {
+		if err := dit.Iterate(func(meta *Meta) error {
+			metaChan <- meta
+			return nil
+		}); err != nil {
+			errChan <- err
+			return
+		}
+		close(metaChan)
+	}()
+	return &datumStream{
+		metaChan: metaChan,
+		errChan:  errChan,
+		priority: priority,
+	}
+}
+
+func (ds *datumStream) Next() error {
+	select {
+	case meta, more := <-ds.metaChan:
+		if !more {
+			return io.EOF
+		}
+		ds.meta = meta
+		return nil
+	case err := <-ds.errChan:
+		return err
+	}
+}
+
+func (ds *datumStream) Key() string {
+	return common.DatumIDV2(ds.meta.Inputs)
+}
+
+func (ds *datumStream) Priority() int {
+	return ds.priority
 }
 
 func NewIteratorV2(pachClient *client.APIClient, input *pps.Input) (IteratorV2, error) {

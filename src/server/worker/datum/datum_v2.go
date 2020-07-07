@@ -29,25 +29,50 @@ type PutTarClient interface {
 	PutTar(io.Reader, ...string) error
 }
 
-// TODO: This is copied from the chain package, needs to be refactored somewhere else.
-type DatumHasher interface {
-	// Hash should essentially wrap the common.HashDatum function, but other
-	// implementations may be useful in tests.
-	Hash([]*common.InputV2) string
+// TODO:
+// Implement chunk spec configuration (hardcoded just for testing).
+func CreateSets(dit IteratorV2, storageRoot string, upload func(func(PutTarClient) error) error) error {
+	var metas []*Meta
+	if err := dit.Iterate(func(meta *Meta) error {
+		metas = append(metas, meta)
+		// TODO: Hardcoded just for testing, datum set creation configuration will be applied here.
+		if len(metas) > 10 {
+			if err := createSet(metas, storageRoot, upload); err != nil {
+				return err
+			}
+			metas = nil
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return createSet(metas, storageRoot, upload)
+}
+
+func createSet(metas []*Meta, storageRoot string, upload func(func(PutTarClient) error) error) error {
+	return upload(func(ptc PutTarClient) error {
+		return WithSet(nil, storageRoot, func(s *Set) error {
+			for _, meta := range metas {
+				d := newDatum(s, meta)
+				if err := d.uploadMetaOutput(); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, WithMetaOutput(ptc))
+	})
 }
 
 type Set struct {
 	pachClient                        *client.APIClient
 	storageRoot                       string
-	hasher                            DatumHasher
 	metaOutputClient, pfsOutputClient PutTarClient
 }
 
-func WithSet(pachClient *client.APIClient, storageRoot string, hasher DatumHasher, cb func(*Set) error, opts ...SetOption) (retErr error) {
+func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
 		pachClient:  pachClient,
 		storageRoot: storageRoot,
-		hasher:      hasher,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -64,22 +89,8 @@ func WithSet(pachClient *client.APIClient, storageRoot string, hasher DatumHashe
 }
 
 // TODO: Handle datum concurrency here, and potentially move symlinking here.
-func (s *Set) WithDatum(ctx context.Context, inputs []*common.InputV2, cb func(*Datum) error, opts ...DatumOption) error {
-	hash := s.hasher.Hash(inputs)
-	d := &Datum{
-		set: s,
-		// TODO: Needs more discussion.
-		ID: common.DatumIDV2(inputs),
-		meta: &Meta{
-			Inputs: inputs,
-		},
-		hash:        hash,
-		storageRoot: path.Join(s.storageRoot, hash),
-		numRetries:  defaultNumRetries,
-	}
-	for _, opt := range opts {
-		opt(d)
-	}
+func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, opts ...DatumOption) error {
+	d := newDatum(s, meta, opts...)
 	attemptsLeft := d.numRetries + 1
 	cancelCtx, cancel := context.WithCancel(ctx)
 	return backoff.RetryUntilCancel(cancelCtx, func() error {
@@ -102,14 +113,28 @@ func (s *Set) WithDatum(ctx context.Context, inputs []*common.InputV2, cb func(*
 }
 
 type Datum struct {
-	set  *Set
-	ID   string
-	meta *Meta
-	// TODO: Create separate id from input paths for top level directory.
-	hash             string
+	set              *Set
+	ID               string
+	meta             *Meta
 	storageRoot      string
 	numRetries       int
 	recoveryCallback func() error
+}
+
+func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
+	// TODO: ID needs more discussion.
+	ID := common.DatumIDV2(meta.Inputs)
+	d := &Datum{
+		set:         set,
+		meta:        meta,
+		ID:          ID,
+		storageRoot: path.Join(set.storageRoot, ID),
+		numRetries:  defaultNumRetries,
+	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d
 }
 
 func (d *Datum) PFSStorageRoot() string {

@@ -11,7 +11,6 @@ import (
 	pfstesting "github.com/pachyderm/pachyderm/src/server/pfs/server/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 func TestIteratorsV2(t *testing.T) {
@@ -194,9 +193,9 @@ func TestIteratorsV2(t *testing.T) {
 
 func validateDIV2(t testing.TB, di IteratorV2, datums ...string) {
 	t.Helper()
-	require.NoError(t, di.Iterate(func(inputs []*common.InputV2) error {
+	require.NoError(t, di.Iterate(func(meta *Meta) error {
 		var key string
-		for _, input := range inputs {
+		for _, input := range meta.Inputs {
 			key += input.FileInfo.File.Path
 		}
 		require.Equal(t, datums[0], key)

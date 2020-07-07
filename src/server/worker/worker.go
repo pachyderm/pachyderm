@@ -221,6 +221,9 @@ func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 		case driver.PipelineInfo().Spout != nil:
 			return "spout", spout.Run
 		default:
+			if driver.StorageV2() {
+				return "transform", transform.RunV2
+			}
 			return "transform", transform.Run
 		}
 	}()

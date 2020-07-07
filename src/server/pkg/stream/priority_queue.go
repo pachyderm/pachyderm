@@ -1,57 +1,56 @@
-package fileset
+package stream
 
 import (
 	"io"
 )
 
-// TODO: Change the code that depends on this to use the stream package priority queue.
-type stream interface {
-	next() error
-	key() string
-	streamPriority() int
+type Stream interface {
+	Next() error
+	Key() string
+	Priority() int
 }
 
-type priorityQueue struct {
-	queue []stream
+type PriorityQueue struct {
+	queue []Stream
 	size  int
-	ss    []stream
+	ss    []Stream
 }
 
-func newPriorityQueue(ss []stream) *priorityQueue {
-	return &priorityQueue{
-		queue: make([]stream, len(ss)+1),
+func NewPriorityQueue(ss []Stream) *PriorityQueue {
+	return &PriorityQueue{
+		queue: make([]Stream, len(ss)+1),
 		ss:    ss,
 	}
 }
 
-func (pq *priorityQueue) iterate(f func([]stream, ...string) error) error {
+func (pq *PriorityQueue) Iterate(cb func([]Stream, ...string) error) error {
 	for {
-		ss, err := pq.next()
+		ss, err := pq.Next()
 		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
 			return err
 		}
-		if err := f(ss, pq.peek()...); err != nil {
+		if err := cb(ss, pq.Peek()...); err != nil {
 			return err
 		}
 	}
 }
 
-func (pq *priorityQueue) isHigherPriority(i, j int) bool {
+func (pq *PriorityQueue) isHigherPriority(i, j int) bool {
 	si := pq.queue[i]
 	sj := pq.queue[j]
-	return si.key() < sj.key() || (si.key() == sj.key() && si.streamPriority() < sj.streamPriority())
+	return si.Key() < sj.Key() || (si.Key() == sj.Key() && si.Priority() < sj.Priority())
 }
 
-func (pq *priorityQueue) empty() bool {
+func (pq *PriorityQueue) empty() bool {
 	return len(pq.queue) == 1 || pq.queue[1] == nil
 }
 
-func (pq *priorityQueue) insert(s stream) error {
+func (pq *PriorityQueue) insert(s Stream) error {
 	// Get next in stream and insert it.
-	if err := s.next(); err != nil {
+	if err := s.Next(); err != nil {
 		if err == io.EOF {
 			return nil
 		}
@@ -71,7 +70,7 @@ func (pq *priorityQueue) insert(s stream) error {
 	return nil
 }
 
-func (pq *priorityQueue) next() ([]stream, error) {
+func (pq *PriorityQueue) Next() ([]Stream, error) {
 	// Re-insert streams
 	if pq.ss != nil {
 		for _, s := range pq.ss {
@@ -83,10 +82,10 @@ func (pq *priorityQueue) next() ([]stream, error) {
 	if pq.empty() {
 		return nil, io.EOF
 	}
-	ss := []stream{pq.queue[1]}
+	ss := []Stream{pq.queue[1]}
 	pq.fill()
 	// Keep popping streams off the queue if they have the same key.
-	for pq.queue[1] != nil && pq.queue[1].key() == ss[0].key() {
+	for pq.queue[1] != nil && pq.queue[1].Key() == ss[0].Key() {
 		ss = append(ss, pq.queue[1])
 		pq.fill()
 	}
@@ -94,14 +93,14 @@ func (pq *priorityQueue) next() ([]stream, error) {
 	return ss, nil
 }
 
-func (pq *priorityQueue) peek() []string {
+func (pq *PriorityQueue) Peek() []string {
 	if pq.empty() {
 		return nil
 	}
-	return []string{pq.queue[1].key()}
+	return []string{pq.queue[1].Key()}
 }
 
-func (pq *priorityQueue) fill() {
+func (pq *PriorityQueue) fill() {
 	// Replace first stream with last
 	pq.queue[1] = pq.queue[pq.size]
 	pq.queue[pq.size] = nil
@@ -126,6 +125,6 @@ func (pq *priorityQueue) fill() {
 	}
 }
 
-func (pq *priorityQueue) swap(i, j int) {
+func (pq *PriorityQueue) swap(i, j int) {
 	pq.queue[i], pq.queue[j] = pq.queue[j], pq.queue[i]
 }

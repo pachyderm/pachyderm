@@ -145,6 +145,8 @@ type Driver interface {
 	// for datums and one for datum stats. The lifetime of these caches will be
 	// bound to the callback, and any resources will be cleaned up upon return.
 	WithDatumCache(func(*hashtree.MergeCache, *hashtree.MergeCache) error) error
+
+	StorageV2() bool
 }
 
 type driver struct {
@@ -184,6 +186,8 @@ type driver struct {
 	// These caches are used for storing and merging hashtrees from jobs until the
 	// job is complete
 	chunkCaches, chunkStatsCaches cache.WorkerCache
+
+	storageV2 bool
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -205,30 +209,28 @@ func NewDriver(
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if !storageV2 {
-		chunkCachePath := filepath.Join(hashtreePath, "chunk")
-		chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+	chunkCachePath := filepath.Join(hashtreePath, "chunk")
+	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
 
-		// Delete the hashtree path (if it exists) in case it is left over from a previous run
-		if err := os.RemoveAll(chunkCachePath); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		if err := os.RemoveAll(chunkStatsCachePath); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+	// Delete the hashtree path (if it exists) in case it is left over from a previous run
+	if err := os.RemoveAll(chunkCachePath); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 
-		if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
+	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 
-		numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
-		if err != nil {
-			logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
-			numShards = 1
-		}
+	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
+	if err != nil {
+		logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
+		numShards = 1
 	}
 
 	result := &driver{
