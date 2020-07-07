@@ -67,13 +67,15 @@ func ReceiveSpout(
 	return backoff.RetryUntilCancel(ctx, func() error {
 		repo := pipelineInfo.Pipeline.Name
 		// open a read connection to the /pfs/out named pipe
-		out, err := os.Open("/pfs/out")
+		var out io.Reader
+		outF, err := os.Open("/pfs/out")
 		if err != nil {
 			return err
 		}
+		out = io.TeeReader(outF, os.Stdout)
 		// and close it when we're done
 		defer func() {
-			if err := out.Close(); err != nil && retErr1 == nil {
+			if err := outF.Close(); err != nil && retErr1 == nil {
 				// this lets us pass the error through if Close fails
 				retErr1 = err
 			}
