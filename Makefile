@@ -48,6 +48,10 @@ point-release:
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
 release-candidate:
+	@if [ $${VERSION_ADDITIONAL:0:1} != - ]; then \
+	  echo "VERSION_ADDITIONAL must start with a '-'"; \
+	  exit 1; \
+	fi
 	@make release-helper
 	@make release-pachctl-custom
 	@echo "Release completed"

@@ -55,17 +55,15 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 4) Update dash compatibility version. Commit these changes locally. You will push to GitHub in a later step.
 ```
 > make dash-compatibility
-> git add src/server/pkg/deploy/cmds/cmds.go
+> git add etc/compatibility/<VERSION>
 > git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
 ```
 
-5) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.
-
-  Note in particular:
-
-  * You can also run just `make release-custom` to use the commit hash as the version suffix.
-
-  * Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything)
+5) Run `make doc` or `make VERSION_ADDITIONAL=-<rc/version suffix> doc-custom` with the new version values.
+    - This is only done for Major or Minor releases. We don't publish docs for alpha/beta/rc or custom releases
+    - Note in particular:
+        - You can also run just `make release-custom` to use the commit hash as the version suffix.
+        - Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything)
 
 6) At this point, all of our auto-generated documentation should be updated. You will push to GitHub in a later step.
 ```
@@ -92,6 +90,10 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 ```
 
 10) Run `make point-release` or `make VERSION_ADDITIONAL=-rc1 release-candidate`
+    - To make alpha/beta/rc releases use...
+        - `make VERSION_ADDITIONAL=-alpha1 release-candidate` or
+        - `make VERSION_ADDITIONAL=-beta1 release-candidate` or
+        - `make VERSION_ADDITIONAL=-rc1 release-candidate`
 
 11) Update the
 [release's notes](https://github.com/pachyderm/pachyderm/releases)
