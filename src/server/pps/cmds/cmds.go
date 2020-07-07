@@ -1375,7 +1375,10 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 			return nil
 		}
 
-		destFilePath := strings.TrimPrefix(srcFilePath, buildPath)
+		destFilePath, err := filepath.Rel(buildPath, srcFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
+		}
 		for _, g := range ignores {
 			if g.Match(destFilePath) {
 				return nil
