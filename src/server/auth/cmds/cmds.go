@@ -427,7 +427,7 @@ func ListAdminsCmd() *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+			resp, err := c.GetAdminsV2(c.Ctx(), &auth.GetAdminsV2Request{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -474,7 +474,7 @@ func ModifyAdminCmd() *cobra.Command {
 				fmt.Printf("Removing all admin roles for %q\n", user)
 			}
 
-			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
+			_, err = c.ModifyAdmin(c.Ctx(), &auth.ModifyAdminRequest{
 				Principal: user,
 				Roles:     &roles,
 			})

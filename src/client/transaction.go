@@ -566,8 +566,14 @@ func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetC
 func (c *authBuilderClient) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest, opts ...grpc.CallOption) (*auth.GetAdminsResponse, error) {
 	return nil, unsupportedError("GetAdmins")
 }
+func (c *authBuilderClient) GetAdminsV2(ctx context.Context, req *auth.GetAdminsV2Request, opts ...grpc.CallOption) (*auth.GetAdminsV2Response, error) {
+	return nil, unsupportedError("GetAdminsV2")
+}
 func (c *authBuilderClient) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest, opts ...grpc.CallOption) (*auth.ModifyAdminsResponse, error) {
 	return nil, unsupportedError("ModifyAdmins")
+}
+func (c *authBuilderClient) ModifyAdmin(ctx context.Context, req *auth.ModifyAdminRequest, opts ...grpc.CallOption) (*auth.ModifyAdminResponse, error) {
+	return nil, unsupportedError("ModifyAdmin")
 }
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")

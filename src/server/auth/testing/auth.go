@@ -28,6 +28,16 @@ func (a *InactiveAPIServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// GetAdminsV2 implements the GetAdminsV2 RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetAdminsV2(context.Context, *auth.GetAdminsV2Request) (*auth.GetAdminsV2Response, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// ModifyAdmin implements the ModifyAdmin RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyAdmin(context.Context, *auth.ModifyAdminRequest) (*auth.ModifyAdminResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
 	return nil, auth.ErrNotActivated

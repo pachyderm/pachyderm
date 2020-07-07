@@ -740,6 +740,32 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	admins, err := a.GetAdminsV2(ctx, &auth.GetAdminsV2Request{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &auth.GetAdminsResponse{
+		Admins: make([]string, 0, len(admins.Admins)),
+	}
+
+	for admin, roles := range admins.Admins {
+		for _, role := range roles.Roles {
+			if role == auth.AdminRole_SUPER {
+				resp.Admins = append(resp.Admins, admin)
+				break
+			}
+		}
+	}
+	return resp, nil
+	return resp, nil
+}
+
+// GetAdmins implements the protobuf auth.GetAdmins RPC
+func (a *apiServer) GetAdminsV2(ctx context.Context, req *auth.GetAdminsV2Request) (resp *auth.GetAdminsV2Response, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
 	case none:
 		return nil, auth.ErrNotActivated
@@ -758,7 +784,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	resp = &auth.GetAdminsResponse{
+	resp = &auth.GetAdminsV2Response{
 		Admins: make(map[string]*auth.AdminRoles),
 	}
 	for admin, roles := range a.adminCache {
@@ -801,8 +827,31 @@ func (a *apiServer) validateModifyAdminsRequest(user string, grantSuper bool) er
 	return nil
 }
 
-// ModifyAdmins implements the protobuf auth.ModifyAdmins RPC
 func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (resp *auth.ModifyAdminsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	for _, toAdd := range req.Add {
+		_, err := a.ModifyAdmin(ctx, &auth.ModifyAdminRequest{
+			Principal: toAdd,
+			Roles:     &auth.AdminRoles{Roles: []auth.AdminRole{auth.AdminRole_SUPER}},
+		})
+		return nil, err
+	}
+
+	for _, toRemove := range req.Remove {
+		_, err := a.ModifyAdmin(ctx, &auth.ModifyAdminRequest{
+			Principal: toRemove,
+			Roles:     &auth.AdminRoles{Roles: []auth.AdminRole{}},
+		})
+		return nil, err
+	}
+
+	return &auth.ModifyAdminsResponse{}, nil
+}
+
+// ModifyAdmin implements the protobuf auth.ModifyAdmins RPC
+func (a *apiServer) ModifyAdmin(ctx context.Context, req *auth.ModifyAdminRequest) (resp *auth.ModifyAdminResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
@@ -886,7 +935,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		return nil, err
 	}
 
-	return &auth.ModifyAdminsResponse{}, nil
+	return &auth.ModifyAdminResponse{}, nil
 }
 
 // expiredClusterAdminCheck enforces that if the cluster's enterprise token is
@@ -1332,15 +1381,23 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
 	var adminRoles auth.AdminRoles
+	var isAdmin bool
 
 	if _, ok := a.adminCache[callerInfo.Subject]; ok {
 		adminRoles.Roles = a.adminCache[callerInfo.Subject].Roles
+		for _, role := range adminRoles.Roles {
+			if role == auth.AdminRole_SUPER {
+				isAdmin = true
+				break
+			}
+		}
 	}
 
 	// return final result
 	return &auth.WhoAmIResponse{
 		Username:   callerInfo.Subject,
 		TTL:        ttl,
+		IsAdmin:    isAdmin,
 		AdminRoles: &adminRoles,
 	}, nil
 }

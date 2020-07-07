@@ -44,8 +44,8 @@ var (
 // Caller must hold tokenMapMut. Currently only called by getPachClient(),
 // activateAuth (which is only called by getPachClient()) and deleteAll()
 func isAuthActive(tb testing.TB, checkConfig bool) bool {
-	_, err := seedClient.GetAdmins(context.Background(),
-		&auth.GetAdminsRequest{})
+	_, err := seedClient.GetAdminsV2(context.Background(),
+		&auth.GetAdminsV2Request{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
 		adminClient := getPachClientInternal(tb, admin)
@@ -218,8 +218,8 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	adminClient := getPachClientInternal(tb, admin)
-	getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
-		&auth.GetAdminsRequest{})
+	getAdminsResp, err := adminClient.GetAdminsV2(adminClient.Ctx(),
+		&auth.GetAdminsV2Request{})
 
 	// Detect case 2: auth was deactivated during previous test. De/Reactivate
 	// TODO it may may sense to do this between every test, though it would mean
@@ -232,8 +232,8 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 
 		// "admin" may no longer be an admin, so get a list of admins, authorize as
 		// the first admin, and deactivate auth
-		getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
-			&auth.GetAdminsRequest{})
+		getAdminsResp, err := adminClient.GetAdminsV2(adminClient.Ctx(),
+			&auth.GetAdminsV2Request{})
 		require.NoError(tb, err)
 		if len(getAdminsResp.Admins) == 0 {
 			panic("it should not be possible to leave a cluster with no admins")
@@ -290,14 +290,14 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 			return nil
 		}
 
-		_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{
+		_, err = curAdminClient.ModifyAdmin(curAdminClient.Ctx(), &auth.ModifyAdminRequest{
 			Principal: admin,
 			Roles:     superAdminRole(),
 		})
 		require.NoError(tb, err)
 		for a := range getAdminsResp.Admins {
 			if a != admin {
-				_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{Principal: a})
+				_, err = curAdminClient.ModifyAdmin(curAdminClient.Ctx(), &auth.ModifyAdminRequest{Principal: a})
 				require.NoError(tb, err)
 			}
 		}
@@ -309,8 +309,8 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		}
 		// Wait for admin change to take effect
 		require.NoError(tb, backoff.Retry(func() error {
-			getAdminsResp, err = adminClient.GetAdmins(adminClient.Ctx(),
-				&auth.GetAdminsRequest{})
+			getAdminsResp, err = adminClient.GetAdminsV2(adminClient.Ctx(),
+				&auth.GetAdminsV2Request{})
 			_, hasAdmin := getAdminsResp.Admins[admin]
 			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
 			if !hasExpectedAdmin {
@@ -1879,13 +1879,13 @@ func TestDeleteAll(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// admin makes alice an fs admin
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err = adminClient.ModifyAdmin(adminClient.Ctx(),
+		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			admins(admin)(gh(alice)), resp.Admins,
@@ -3114,13 +3114,13 @@ func TestDisableGitHubAuthFSAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	// admin makes alice an fs admin
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err = adminClient.ModifyAdmin(adminClient.Ctx(),
+		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			admins(admin)(gh(alice)), resp.Admins,
@@ -3147,13 +3147,13 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// admin makes alice an fs admin
-	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err := adminClient.ModifyAdmin(adminClient.Ctx(),
+		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			admins(admin)(gh(alice)), resp.Admins,

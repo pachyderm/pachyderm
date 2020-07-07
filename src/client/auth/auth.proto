@@ -183,22 +183,32 @@ message AdminRoles {
 }
 
 // Get the current list of cluster admins
+message GetAdminsV2Request{}
+message GetAdminsV2Response{
+  // admins contains a mapping of principals to admin roles
+  map<string, AdminRoles> admins = 1;
+}
+
+// Deprecated. Get the list of cluster super admins.
 message GetAdminsRequest{}
 message GetAdminsResponse{
-  reserved 1;
-
-  // admins contains a mapping of principals to admin roles
-  map<string, AdminRoles> admins = 2;
+  repeated string admins = 1;
 }
+
+// Deprecated. Add and remove users from the set of cluster super admins.
+message ModifyAdminsRequest {
+  repeated string add = 1;
+  repeated string remove = 2;
+}
+message ModifyAdminsResponse {}
 
 // Set admin roles for the specified principal. Setting an empty list of roles
 // revokes any admin roles the principal has.
-message ModifyAdminsRequest {
-  reserved 1, 2;
-  string principal = 3;
-  AdminRoles roles = 4;
+message ModifyAdminRequest {
+  string principal = 1;
+  AdminRoles roles = 2;
 }
-message ModifyAdminsResponse {}
+message ModifyAdminResponse {}
 
 //// Authentication data structures
 
@@ -263,9 +273,8 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
-  reserved 2;
-
   string username = 1;
+  bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
   AdminRoles admin_roles = 4;
 }
@@ -545,10 +554,14 @@ service API {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
 
-  // GetAdmins returns the current list of cluster admins
+  // Deprecated. GetAdmins returns the current list of cluster super admins
   rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
-  // ModifyAdmins adds or removes admins from the cluster
+  // GetAdminsV2 returns the current list of cluster admins
+  rpc GetAdminsV2(GetAdminsV2Request) returns (GetAdminsV2Response) {}
+  // Deprecated. ModifyAdmins adds or removes super admins from the cluster
   rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
+  // ModifyAdmin sets the list of admin roles for a principal
+  rpc ModifyAdmin(ModifyAdminRequest) returns (ModifyAdminResponse) {}
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
