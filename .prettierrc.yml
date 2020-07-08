@@ -1,0 +1,4 @@
+# Config for prettier: https://prettier.io/
+tabWidth: 4
+proseWrap: always
+printWidth: 80

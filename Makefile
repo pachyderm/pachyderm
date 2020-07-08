@@ -444,6 +444,9 @@ lint:
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
+format-docs:
+	npx prettier --write '*.md' '**/*.md'
+
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
 	  echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
@@ -552,6 +555,7 @@ goxc-build:
 	clean-microsoft-cluster \
 	lint \
 	spellcheck \
+	format-docs \
 	goxc-generate-local \
 	goxc-release \
 	goxc-build
