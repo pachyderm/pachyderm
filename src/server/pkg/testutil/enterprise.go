@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
+// Pull the enterprise code out of the env var stored in travis
 func GetTestEnterpriseCode(t testing.TB) string {
 	acode, exists := os.LookupEnv("ENT_ACT_CODE")
 	if !exists {
