@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.0-experimental
 ARG GO_VERSION
 FROM golang:${GO_VERSION}-buster AS pachctl_build
+RUN apt update && apt install ca-certificates
 WORKDIR /app
 COPY . .
 ARG LD_FLAGS
@@ -11,4 +12,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go install -ldflags "${LD_FLAGS}" -gcflags "${GC_FLAGS}" ./src/server/cmd/pachctl
 
 FROM debian:buster-slim
+COPY --from=pachctl_build /etc/ssl/certs /etc/ssl/certs
+COPY --from=pachctl_build /usr/share/ca-certificates /usr/share/ca-certificates
 COPY --from=pachctl_build /go/bin/pachctl /usr/local/bin/pachctl
