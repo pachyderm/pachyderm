@@ -9,6 +9,11 @@ following:
    software.
 3. Log in to both the dash and CLI.
 
+!!! note
+    Although this section describes how to enable SAML with Okta, you can
+    configure Okta with OIDC with a corresponding
+    [OIDC auth config](../../oidc/configure-keycloak/#configure-keycloak).
+
 ## Activation
 
 When starting out, we **highly** recommend running Pachyderm in Minikube, as

@@ -73,13 +73,13 @@ GitHub-based user in the system. The reason:
 This image shows an example configuration for an Okta test app that
 authenticates Okta users with Pachyderm:
 
-![Okta test app config](../assets/images/okta_form.png)
+![Okta test app config](../../../assets/images/okta_form.png)
 
 Pachyderm also needs a URL where it can scrape SAML metadata from the ID
 provider. All SAML ID providers should provide such a URL; the Okta metadata
 URL, for example, can be retrieved here:
 
-![Metadata image](../assets/images/IdPMetadata_highlight.png)
+![Metadata image](../../../assets/images/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
 This enables the Pachyderm ACS. See inline comments:

@@ -385,6 +385,7 @@ nav:
             - Overview: enterprise/auth/index.md
             - Enable Access Controls: enterprise/auth/enable-auth.md
             - Manage Users and Groups: enterprise/auth/manage-users-groups.md
+            - Manage Authentication Config: enterprise/auth/auth-config.md
             - Configure a SAML Provider:
               - Overview: enterprise/auth/saml/saml.md
               - Configure SAML: enterprise/auth/saml/saml_setup.md

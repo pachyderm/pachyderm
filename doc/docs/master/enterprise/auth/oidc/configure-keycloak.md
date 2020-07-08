@@ -4,13 +4,18 @@ Keycloak is an open-source identity management solution that supports
 OIDC and provides authentication and authorization. When using Keycloak
 with Pachyderm, Keycloak is responsible for authorizing user access to
 your data that is stored in Pachyderm through identity and access tokens.
-For more information about Keycloak support for OIDC, see
+For more information about Keycloak support for OIDC, see the
 [Keycloak Documentation](https://www.keycloak.org/docs/latest/securing_apps/#openid-connect-2).
+
+!!! note
+    Although this section describes how to configure Keycloak with
+    OIDC, you can configure SAML as well with the corresponding
+    [SAML auth config](../../saml/saml_setup/#write-pachyderm-config).
 
 ## Prerequisites
 
 Before you can configure Pachyderm to work with Keycloak, you need to
-have the following configured:
+have the following components up and running:
 
 * Pachyderm Enterprise 1.11.x or later. The enterprise token must be
   activated by running `pachctl enterprise activate`.
@@ -25,28 +30,9 @@ have the following configured:
 * Keycloak must be running in your environment:
 
   If you are just testing Keycloak with Pachyderm, you can run
-  Keycloak in Minikube on your machine:
-
-  ```bash
-  docker run -p 8080:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin quay.io/keycloak/keycloak:10.0.1
-  ```
-
-  **System Response:**
-
-  ```bash
-  Unable to find image 'quay.io/keycloak/keycloak:10.0.1' locally
-  10.0.1: Pulling from keycloak/keycloak
-  e96e3a1df3b2: Pull complete
-  1b99828eddf5: Pull complete
-  ...
-
-  19:08:49,501 INFO  [org.wildfly.extension.undertow] (ServerService Thread Pool -- 63) WFLYUT0021: Registered web context: '/auth' for server 'default-server'
-  19:08:49,793 INFO  [org.jboss.as.server] (ServerService Thread Pool -- 46) WFLYSRV0010: Deployed "keycloak-server.war" (runtime-name : "keycloak-server.war")
-  ```
-
-  In the above command, we use Keycloak version 10.0.1. You might need to
-  update this version to the latest Keycloak build. The user and password
-  are both set to `admin`. Booting Keycloak might take some time.
+  Keycloak in Minikube on your machine. Follow the instructions
+  on how to set up Keycloak locally as described in
+  [Keycloak on Kubernetes](https://www.keycloak.org/getting-started/getting-started-kube).
 
   If you are deploying in production, see [Keycloak Documentation](https://www.keycloak.org/getting-started).
 
@@ -62,10 +48,27 @@ below to configure the two components to work together.
 
 To configure Pachyderm with Keycloak, complete the following steps:
 
-1. Go to the **Keycloak Administration Console** by pointing your browser to
-`http://localhost:8080/auth/`and logging in with your user and password.
-If you have boot Keycloak in Docker as described above, use `admin` as
-login and password.
+1. Go to the **Keycloak Administration Console**. If you have deployed
+Keycloak on Minikube as described above, get the address of the console
+by running the following script:
+
+   ```bash
+   KEYCLOAK_URL=https://keycloak.$(minikube ip).nip.io/auth &&
+   echo "Keycloak Admin Console: $KEYCLOAK_URL/admin"
+   ```
+
+   **Example of System Response:**
+
+   ```bash
+   Keycloak Admin Console: https://keycloak.192.168.64.36.nip.io/auth/admin
+   ```
+
+1. Paste the link above to a browser and log in as admin. If you have
+used the instructions above to deploy Keycloak on Minikube, use the following
+credentials:
+
+   * `username:` `admin`
+   * `password:` `admin`
 
    ![Keycloak login](../../../assets/images/s_keycloak_login.png)
 
@@ -74,11 +77,12 @@ the next step.
 
    A realm is a logically isolated group, similar to a tenant. By default,
    Keycloak predefines a `Master` realm for administrative purposes. You need
-   to create a new realm for Pachyderm.
+   to create a new realm for Pachyderm. For example, you can call it
+   `pachyderm`.
 
-1. If you do not have any users to whom you want to grant access to Pachyderm,
-create a user by clicking **Users > Add user** and filling out the required
-fields. Otherwise, proceed to the next step.
+1. If you have created a new realm you need to add users to whom you want to
+grant access to Pachyderm. Create a user by clicking **Users > Add user** and
+filling out the required fields. Otherwise, proceed to the next step.
 
    1. Set up a password for this user by clicking **Credentials** and typing
    your password information.
@@ -89,13 +93,13 @@ fields. Otherwise, proceed to the next step.
 1. Create a client for Pachyderm:
 
    1. Click **Clients > Create**.
-   1. Specify a client ID. For example, *Pachyderm*.
+   1. Specify a client ID. For example, *pachyderm-test*.
    1. Set the **Client Protocol** to **openid-connect**.
-   1. Set the **Root URL** to `http://<ip>:14687/authorization-code/callback`.
+   1. Set the **Root URL** to `http://<ip>:30657/authorization-code/callback`.
       For example:
 
       ```bash
-      http://localhost:14687/authorization-code/callback
+      http://192.168.64.36:30657/authorization-code/callback
       ```
 
       You can configure additional settings, such as require consent and so on,
@@ -104,8 +108,16 @@ fields. Otherwise, proceed to the next step.
 
       ![Keycloak Client](../../../assets/images/s_keycloak_client.png)
 
-1. Go to terminal and forward the pachd pod to the OIDC port. If you have not
-change default settings, it is port `14687`:
+1. Proceed to [Configure Pachyderm](#confgiure-pachyderm).
+
+## Configure Pachyderm
+
+Now that you have Keycloak configured, you need to log in to Pachyderm
+with the user you have created in Keycloak.
+
+To configure Pachyderm, complete the following steps:
+
+1. Go to the terminal and forward the `pachd` pod to the OIDC port:
 
    1. Get the `pachd` pod ID:
 
@@ -116,9 +128,10 @@ change default settings, it is port `14687`:
       **Example system response:**
 
       ```bash
-      dash-5768cb7d98-j6cgt    2/2     Running   0          4h2m
-      etcd-56d897697-xzsqr     1/1     Running   0          4h2m
-      pachd-79f7f68c65-9qs8g   1/1     Running   0          4h2m
+      dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
+      etcd-56d897697-xzsqr        1/1     Running   0          4h2m
+      keycloak-857c59449b-htg99   1/1     Running   0          4h6m
+      pachd-79f7f68c65-9qs8g      1/1     Running   0          4h2m
       ```
 
    1. Forward the `pachd` pod to the OIDC port:
@@ -126,35 +139,119 @@ change default settings, it is port `14687`:
       **Example:**
 
       ```bash
-      kubectl port-forward pachd-79f7f68c65-9qs8g 14687
+      kubectl port-forward pachd-79f7f68c65-9qs8g 30657
       ```
 
 1. Enable Pachyderm authentication:
 
-   (This needs to be verified)
-
    ```bash
-   pachctl auth activate
+   pachctl auth activate --initial-admin=robot:admin
    ```
 
-1. Copy the link printed in the output to a web browser.
+   Pachyderm returns a token.
 
-   The link prompts you to your Pachyderm realm login.
-   Use your credentials to log in.
+   **WARNING!** You must save the token to a secure location
+   to avoid being locked out of your cluster.
 
-1. If you have enabled **Request consent**, grant access to
-the realm by clicking **Yes**.
-
-   You should be now logged to Pachyderm with your OIDC user.
-
-1. Verify Pachyderm authentication config by running:
+1. Log in as the admin user with the token you received in the previous
+step:
 
    ```bash
-   pachctl auth get-config
+   pachctl auth use-auth-token
    ```
 
-1. Check your identity by running:
+1. Set up the authentication config:
+
+    ```bash
+    pachctl auth set-config <<EOF
+    {
+            "live_config_version": 2,
+            "id_providers": [{
+            "name": "keycloak",
+            "description": "oidc-based authentication with locally hosted keycloak",
+            "oidc":{
+                    "issuer": "http://keycloak.<ip>.nip.io/auth/realms/<realm-name>",
+                    "client_id": "<client-id>",
+                    "redirect_uri": "http://<ip>:30657/authorization-code/callback"
+            }
+        }]
+    }
+    EOF
+    ```
+
+    You need to replace the following placeholders with relevant values:
+
+    - `ip` — the IP of the Kubernetes host. If you are using minikube, you can get the
+    IP address by running `minikube ip`.
+ 
+    - `realm-name` — the name of the Keycloak realm that you have created for Pachyderm.
+    In the example, above it is called `pachyderm`.
+
+    - `client-id` — the name of the Pachyderm's Keycloak client. In the example above,
+    `pachyderm-test`.
+
+1. Log in as the user you have created in the Pachyderm realm:
+
+   1. Run:
+
+      ```bash
+      pachctl auth login
+      ```
+
+      **Example of System Response:**
+
+      ```bash
+      You will momentarily be directed to your IdP and asked to authorize
+      Pachyderm\'s login app on your IdP.
+
+      Paste the following URL into a browser if not automatically redirected:
+
+      http://keycloak.192.168.64.36.nip.io/auth/realms/pachyderm/protocol/openid-connect/auth?client_id=pachyderm-test&nonce=O-5zWG2v0KKbijzIJMi289V8qUrY8sg&redirect_uri=http%3A%2F%2F192.168.64.36%3A30657%2Fauthorization-code%2Fcallback&response_type=code&scope=openid+profile+email&state=d4lTSkAImVpvEqiQgHIkf6Fp3Y5E9E8
+
+      Retrieving Pachyderm token...
+      ```
+
+1. Go to the browser and log in to the Pachyderm realm
+with the user you have previously created and no the admin
+user.
+
+   * If you have enabled **Request consent**, grant access to
+   the realm by clicking **Yes**.
+
+   You should see the following message printed out in your browser:
+
+   ```
+   You are now logged in. Go back to the terminal to use Pachyderm!
+   ```
+
+1. In the terminal, check that you are logged in as the Keycloak user:
 
    ```bash
    pachctl auth whoami
    ```
+
+   **Example of System Response:**
+
+   ```bash
+   You are "keycloak:test@pachyderm.com"
+   session expires: 06 Aug 20 09:23 PDT
+   ```
+
+!!! note "See Also"
+    - [Configure SAML authentication with Okta](../../saml/saml_setup/)
+
+## Modifying Realm Settings
+
+If you make any changes, such as changing the protocol from
+OIDC to SAML in the Keycloak UI, you will have
+to update the Pachyderm authentication config as well. Just
+changing the protocol in the Keycloak UI will result in
+error the next time users log in.
+
+## Limitations
+
+Pachyderm authentication has the following limitations:
+
+- Only one identity provider can authenticate with Pachyderm at a time.
+- Group support is not available with OIDC.
+- Only one Keycloak realm can be configured with Pachyderm.
