@@ -50,4 +50,3 @@ $ pachctl list file foo@master --history all
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

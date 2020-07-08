@@ -4,7 +4,8 @@ Create a new pipeline.
 
 ### Synopsis
 
-Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.
+Create a new pipeline from a pipeline specification. For details on the format,
+see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.
 
 ```
 pachctl create pipeline [flags]
@@ -27,4 +28,3 @@ pachctl create pipeline [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

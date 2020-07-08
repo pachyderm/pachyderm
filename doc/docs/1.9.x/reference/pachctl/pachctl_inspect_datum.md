@@ -4,7 +4,8 @@ Display detailed info about a single datum.
 
 ### Synopsis
 
-Display detailed info about a single datum. Requires the pipeline to have stats enabled.
+Display detailed info about a single datum. Requires the pipeline to have stats
+enabled.
 
 ```
 pachctl inspect datum <job> <datum> [flags]
@@ -24,4 +25,3 @@ pachctl inspect datum <job> <datum> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

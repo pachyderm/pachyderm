@@ -4,7 +4,8 @@ Deploy credentials for the Amazon S3 storage provider.
 
 ### Synopsis
 
-Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.
+Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can
+ingress data from and egress data to it.
 
 ```
 pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>] [flags]
@@ -60,4 +61,3 @@ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<ses
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

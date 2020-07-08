@@ -4,7 +4,8 @@ Deploy credentials for a particular storage provider.
 
 ### Synopsis
 
-Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.
+Deploy credentials for a particular storage provider, so that Pachyderm can
+ingress data from and egress data to it.
 
 ### Options
 
@@ -48,4 +49,3 @@ Deploy credentials for a particular storage provider, so that Pachyderm can ingr
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

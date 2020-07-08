@@ -1,30 +1,28 @@
 # Troubleshooting
 
-This section describe troubleshooting guidelines that should
-help you in troubleshooting your deployment and pipelines.
+This section describe troubleshooting guidelines that should help you in
+troubleshooting your deployment and pipelines.
 
-Pachyderm has a built-in logging system that collects
-information about events in your Pachyderm environment at
-pipeline, datum, and job level. See [pachctl logs](../reference/pachctl/pachctl_logs.md).
+Pachyderm has a built-in logging system that collects information about events
+in your Pachyderm environment at pipeline, datum, and job level. See
+[pachctl logs](../reference/pachctl/pachctl_logs.md).
 
-To troubleshoot the cluster itself, use the `kubectl` tool
-troubleshooting tips. A few basic commands that you can use
-include the following:
+To troubleshoot the cluster itself, use the `kubectl` tool troubleshooting tips.
+A few basic commands that you can use include the following:
 
-* Get the list of all Kubernetes objects:
+-   Get the list of all Kubernetes objects:
 
-  ```bash
-  kubectl get all
-  ```
+    ```bash
+    kubectl get all
+    ```
 
-* Get the information about a pod:
+-   Get the information about a pod:
 
-  ```bash
-  kubectl describe pod <podname>
-  ```
+    ```bash
+    kubectl describe pod <podname>
+    ```
 
-The sections below provide troubleshooting steps for specific
-issues:
+The sections below provide troubleshooting steps for specific issues:
 
 <div class="row">
   <div class="column-2">

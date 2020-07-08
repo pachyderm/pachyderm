@@ -18,4 +18,3 @@ Create a new instance of a Pachyderm resource.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -44,4 +44,3 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

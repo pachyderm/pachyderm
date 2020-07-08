@@ -23,4 +23,3 @@ pachctl enterprise activate <activation-code> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

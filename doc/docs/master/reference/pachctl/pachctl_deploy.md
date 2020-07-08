@@ -48,4 +48,3 @@ Deploy a Pachyderm cluster.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

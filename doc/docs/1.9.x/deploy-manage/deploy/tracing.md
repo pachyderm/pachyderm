@@ -1,7 +1,7 @@
 # Configure Tracing with Jaeger
 
-Pachyderm has the ability to trace requests using Jaeger. This
-can be useful when diagnosing slow clusters.
+Pachyderm has the ability to trace requests using Jaeger. This can be useful
+when diagnosing slow clusters.
 
 ![Successful Trace](../../assets/images/healthy.png)
 
@@ -21,6 +21,7 @@ To use tracing in Pachyderm, complete the following steps:
     # For pachctl
     $ export JAEGER_ENDPOINT=localhost:14268
     $ kubectl port-forward svc/jaeger-collector 14268 & # Collector service
+    ```
 
 
     # For pachd
@@ -38,17 +39,17 @@ To use tracing in Pachyderm, complete the following steps:
 
 3. Send Pachyderm a traced request
 
-    Just set the `PACH_TRACE` environment variable to "true" before
-    running any `pachctl` command (note that `JAEGER_ENDPOINT` must also be
-    set/exported):
+    Just set the `PACH_TRACE` environment variable to "true" before running any
+    `pachctl` command (note that `JAEGER_ENDPOINT` must also be set/exported):
+
     ```
     PACH_TRACE=true pachctl list job # for example
     ```
 
-    We generally don't recommend exporting `PACH_TRACE` because
-    tracing calls can slow them down somewhat and make interesting traces hard
-    to find in Jaeger.  Therefore you may only want to set this variable for
-    the specific calls you want to trace.
+    We generally don't recommend exporting `PACH_TRACE` because tracing calls
+    can slow them down somewhat and make interesting traces hard to find in
+    Jaeger. Therefore you may only want to set this variable for the specific
+    calls you want to trace.
 
     However, Pachyderm's client library reads this variable and implements the
     relevant tracing, so any binary that uses Pachyderm's go client library can
@@ -57,27 +58,29 @@ To use tracing in Pachyderm, complete the following steps:
 ## View Traces
 
 To view traces, run:
+
 ```
 $ kubectl port-forward svc/jaeger-query 16686:80 & # UI service
 
 ```
+
 then connect to `localhost:16686` in your browser, and you should see all
 collected traces.
 
 !!! note "See Also:"
-    [Kubernetes Service Environment Variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables)
+[Kubernetes Service Environment Variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables)
 
 ## Troubleshooting
 
 1. If you see `<trace-without-root-span>`, this likely means that `pachd` has
-    connected to Jaeger, but `pachctl` has not. Make sure that the
-    `JAEGER_ENDPOINT` environment variable is set on your local machine, and
-    that `kubectl port-forward "po/${jaeger_pod}" 14268` is running.
+   connected to Jaeger, but `pachctl` has not. Make sure that the
+   `JAEGER_ENDPOINT` environment variable is set on your local machine, and that
+   `kubectl port-forward "po/${jaeger_pod}" 14268` is running.
 
 2. If you see a trace appear in Jaeger with no subtraces, like so:
 
     ![Trace with no children](../../assets/images/no-traces.png)
 
-    ...this likely means that `pachd` has not connected to Jaeger, but
-    `pachctl` has. Make sure to restart the `pachd` pods *after* creating the
-    Jaeger service in Kubernetes
+    ...this likely means that `pachd` has not connected to Jaeger, but `pachctl`
+    has. Make sure to restart the `pachd` pods _after_ creating the Jaeger
+    service in Kubernetes

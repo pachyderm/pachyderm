@@ -1,7 +1,7 @@
 # Configure SAML
 
-This guide will walk through testing Pachyderm's experimental SAML support.
-This will describe the process of:
+This guide will walk through testing Pachyderm's experimental SAML support. This
+will describe the process of:
 
 1. Activating Pachyderm enterprise and Pachyderm auth
 1. Configuring Pachyderm's auth system and enabling its SAML ACS (Assertion
@@ -25,21 +25,22 @@ pachctl enterprise activate <enterprise code>
 pachctl auth activate --initial-admin=robot:admin
 ```
 
-These commands cause Pachyderm's auth system to start verifying attempts to
-read and write Pachyderm data and blocking unauthorized users. Whichever user
-ran this command automatically authenticates as `robot:admin` and has admin
+These commands cause Pachyderm's auth system to start verifying attempts to read
+and write Pachyderm data and blocking unauthorized users. Whichever user ran
+this command automatically authenticates as `robot:admin` and has admin
 privileges in the cluster (run `pachctl auth whoami`, as shown below, to
 confirm)
 
 Users will either need to set the `--initial-admin` admin flag or have one
 GitHub-based user in the system. The reason:
+
 1. Pachyderm requires there to be at least one cluster admin if auth is
    activated
 1. Pachyderm uses GitHub for authentication by default. Without this flag,
    Pachyderm asks the caller to go through an OAuth flow with GitHub, and then
-   at the conclusion, makes the caller the cluster admin. Then whoever
-   activated Pachyderm's auth system can assume admin status by
-   re-authenticating via GitHub and performing any necessary actions
+   at the conclusion, makes the caller the cluster admin. Then whoever activated
+   Pachyderm's auth system can assume admin status by re-authenticating via
+   GitHub and performing any necessary actions
 1. To avoid the OAuth flow, though, it's also possible to make the initial
    cluster admin a "robot user". Setting `--initial-admin=robot:<something>`
    does this.
@@ -47,29 +48,30 @@ GitHub-based user in the system. The reason:
    this robot user. At any point, you can authenticate as this robot user by
    running
 
-   ```
-   pachctl auth use-auth-token
-   ```
-
-   **System response:**
-
-   ```bash
-   Please paste your Pachyderm auth token:
-   <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
-   ```
-
-   ```bash
-   pachctl auth whoami
+    ```
+    pachctl auth use-auth-token
     ```
 
-   **System response:**
+    **System response:**
 
-   ```bash
-   You are "robot:admin"
-   You are an administrator of this Pachyderm cluster
-   ```
+    ```bash
+    Please paste your Pachyderm auth token:
+    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
+    ```
+
+    ```bash
+    pachctl auth whoami
+    ```
+
+    **System response:**
+
+    ```bash
+    You are "robot:admin"
+    You are an administrator of this Pachyderm cluster
+    ```
 
 ## Create IdP test app
+
 This image shows an example configuration for an Okta test app that
 authenticates Okta users with Pachyderm:
 
@@ -82,6 +84,7 @@ URL, for example, can be retrieved here:
 ![Metadata image](../assets/images/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
+
 This enables the Pachyderm ACS. See inline comments:
 
 ```bash
@@ -120,20 +123,22 @@ EOF
 ```
 
 ## Logging In
-Currently Pachyderm only supports IdP-initiated authentication. Configure
-an Okta app to point to the Pachyderm ACS
-(`http://localhost:30654/saml/acs` if using `pachctl`'s port forwarding, then
-sign in via the new Okta app
+
+Currently Pachyderm only supports IdP-initiated authentication. Configure an
+Okta app to point to the Pachyderm ACS (`http://localhost:30654/saml/acs` if
+using `pachctl`'s port forwarding, then sign in via the new Okta app
 
 This should allow you to log in at the Pachyderm dash. To log in with the
-Pachyderm CLI, get a One-Time Password from the Pachyderm dash, and then
-run `pachctl auth login --code=<one-time password>` in your terminal.
+Pachyderm CLI, get a One-Time Password from the Pachyderm dash, and then run
+`pachctl auth login --code=<one-time password>` in your terminal.
 
 ## Other features
+
 ### Debug Logging
-If we run into issues while deploying this, it may be useful to enable
-a collection of debug logs that we added during development. To do so,
-add the option `"debug_logging": true` to `"saml_svc_options"`:
+
+If we run into issues while deploying this, it may be useful to enable a
+collection of debug logs that we added during development. To do so, add the
+option `"debug_logging": true` to `"saml_svc_options"`:
 
 ```
 pachctl auth set-config <<EOF
@@ -148,9 +153,11 @@ EOF
 ```
 
 ### Groups
-Pachyderm has very preliminary, experimental support for groups. While they won't
-appear in ACLs in the dash (and may have other issues), you can experiment using
-the CLI by setting `"group_attribute"` in the IDProvider field of the auth config:
+
+Pachyderm has very preliminary, experimental support for groups. While they
+won't appear in ACLs in the dash (and may have other issues), you can experiment
+using the CLI by setting `"group_attribute"` in the IDProvider field of the auth
+config:
 
 ```bash
 pachctl auth set-config <<EOF

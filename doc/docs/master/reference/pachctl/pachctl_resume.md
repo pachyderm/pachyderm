@@ -18,4 +18,3 @@ Resume a stopped task.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

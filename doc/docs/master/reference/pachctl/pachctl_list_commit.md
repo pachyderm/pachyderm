@@ -43,4 +43,3 @@ $ pachctl list commit foo@master --from XXX
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

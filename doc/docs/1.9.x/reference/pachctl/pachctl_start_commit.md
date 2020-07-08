@@ -4,7 +4,8 @@ Start a new commit.
 
 ### Synopsis
 
-Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
+Start a new commit with parent-commit as the parent, or start a commit on the
+given branch; if the branch does not exist, it will be created.
 
 ```
 pachctl start commit <repo>@<branch-or-commit> [flags]
@@ -41,4 +42,3 @@ $ pachctl start commit test -p XXX
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

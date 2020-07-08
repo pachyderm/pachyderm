@@ -1,11 +1,11 @@
 # OpenCV Example in Go
 
-This is the OpenCV example that uses the Pachyderm Go API.
-To run this example, you must have the [Go](https://golang.org/)
-programming language installed and configured on your computer.
+This is the OpenCV example that uses the Pachyderm Go API. To run this example,
+you must have the [Go](https://golang.org/) programming language installed and
+configured on your computer.
 
-To run the OpenCV example, execute `opencv-example.go` from the
-root of the Pachyderm repository.
+To run the OpenCV example, execute `opencv-example.go` from the root of the
+Pachyderm repository.
 
 **Example:**
 
@@ -22,13 +22,13 @@ go run examples/opencv/goclient-example/opencv-example.go
 
 The example creates the following:
 
-- Pipelines:
+-   Pipelines:
 
-  - `edges`
-  - `montage`
+    -   `edges`
+    -   `montage`
 
-- Repositories:
+-   Repositories:
 
-  - `images`
-  - `edges`
-  - `montage`
+    -   `images`
+    -   `edges`
+    -   `montage`

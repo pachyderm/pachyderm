@@ -1,27 +1,18 @@
+## Setup
 
-Setup
------
+-   Run `./setup-demo.sh`
+-   You'll want to do that, and run through this script before any demo (to
+    cache the opencv image)
+-   Then do a `pachctl delete all` and re-create the images repo
 
-- Run `./setup-demo.sh`
-- You'll want to do that, and run through this script before any demo (to cache the opencv image)
-- Then do a `pachctl delete all` and re-create the images repo
-
-Demo
-----
+## Demo
 
 ## Exposition:
 
-Local setup
-    - minikube
-    - local VM running k8s
+Local setup - minikube - local VM running k8s
 
-kubectl get all
-    - running all on my machine
-    - from a VM
-pachctl list repo
-    - see images repo
-    - version control data
-    - all terms from git
+kubectl get all - running all on my machine - from a VM pachctl list repo - see
+images repo - version control data - all terms from git
 
 ## Step 1 -- Add a file
 
@@ -37,7 +28,7 @@ pachctl put file images@master -i examples/opencv/images.txt
     - statue of liberty
 
 ## Step 2 -- Add new images
-   
+
 ```shell
 pachctl put file images@master -i examples/opencv/images2.txt
 ```
@@ -75,23 +66,19 @@ pachctl list job
 ```shell
 pachctl put file images@master -c -i examples/opencv/images3.txt
 ```
+
     - kicks off the pipeline
     - see new commit in the edges repo
 
-Common questions
----
+## Common questions
 
-- provenance
-  - look at input commits for one of the outputs
-- no reprocessing!
-  - only processed the new images per commit
-- if you delete minikube has to pull container again
-  - you can just kill pachyderm, thats ok
+-   provenance
+    -   look at input commits for one of the outputs
+-   no reprocessing!
+    -   only processed the new images per commit
+-   if you delete minikube has to pull container again
+    -   you can just kill pachyderm, thats ok
 
-Gotchas
----
+## Gotchas
 
-VM network req
-broken putfile / do delete all to recover
-
-
+VM network req broken putfile / do delete all to recover

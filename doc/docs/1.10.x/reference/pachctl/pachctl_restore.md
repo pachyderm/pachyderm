@@ -34,4 +34,3 @@ $ pachctl restore -u s3://bucket/backup
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

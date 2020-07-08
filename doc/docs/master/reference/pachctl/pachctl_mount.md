@@ -24,4 +24,3 @@ pachctl mount <path/to/mount/point> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -18,4 +18,3 @@ Wait for notifications of changes to a Pachyderm resource.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -1,7 +1,7 @@
 # How-Tos
 
-This section includes how-tos that describe best practices of
-data operations in Pachyderm.
+This section includes how-tos that describe best practices of data operations in
+Pachyderm.
 
 <div class="row">
   <div class="column-2">

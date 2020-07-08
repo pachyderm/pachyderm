@@ -23,4 +23,3 @@ pachctl copy file <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-b
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

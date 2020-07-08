@@ -49,4 +49,3 @@ $ pachctl list job -p foo -i bar@YYY
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

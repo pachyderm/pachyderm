@@ -1,18 +1,15 @@
 # Manage Cluster Access
 
-Pachyderm contexts enable you to store configuration parameters for
-multiple Pachyderm clusters in a single configuration file saved at
-`~/.pachyderm/config.json`. This file stores the information
-about all Pachyderm clusters that you have deployed from your
-machine locally or on a remote server.
+Pachyderm contexts enable you to store configuration parameters for multiple
+Pachyderm clusters in a single configuration file saved at
+`~/.pachyderm/config.json`. This file stores the information about all Pachyderm
+clusters that you have deployed from your machine locally or on a remote server.
 
-For example, if you have a cluster that
-is deployed locally in `minikube` and another one deployed on
-Amazon EKS, configurations for these clusters are stored in
-that `config.json` file. By default, all local cluster configurations
-have the `local` prefix. If you have multiple local clusters,
-Pachyderm adds a consecutive number to the `local` prefix
-of each cluster.
+For example, if you have a cluster that is deployed locally in `minikube` and
+another one deployed on Amazon EKS, configurations for these clusters are stored
+in that `config.json` file. By default, all local cluster configurations have
+the `local` prefix. If you have multiple local clusters, Pachyderm adds a
+consecutive number to the `local` prefix of each cluster.
 
 The following text is an example of a Pachyderm `config.json` file:
 
@@ -33,39 +30,37 @@ The following text is an example of a Pachyderm `config.json` file:
 
 ## View the Active Context
 
-When you have multiple Pachyderm clusters, you can switch
-between them by setting the current context.
-The active context is the cluster that you interact with when
-you run `pachctl` commands.
+When you have multiple Pachyderm clusters, you can switch between them by
+setting the current context. The active context is the cluster that you interact
+with when you run `pachctl` commands.
 
 To view active context, type:
 
-* View the active context:
+-   View the active context:
 
-  ```bash
-  $ pachctl config get active-context
-  local-1
-  ```
+    ```bash
+    $ pachctl config get active-context
+    local-1
+    ```
 
-* List all contexts and view the current context:
+-   List all contexts and view the current context:
 
-  ```bash
-  $ pachctl config list context
-    ACTIVE  NAME
-            default
-            local
-    *       local-1
-  ```
+    ```bash
+    $ pachctl config list context
+      ACTIVE  NAME
+              default
+              local
+      *       local-1
+    ```
 
-  The active context is marked with an asterisk.
+    The active context is marked with an asterisk.
 
 ## Change the Active Context
 
-To change the active context, type `pachctl config set
-active-context <name>`.
+To change the active context, type `pachctl config set active-context <name>`.
 
-Also, you can set the `PACH_CONTEXT` environmental variable
-that overrides the active context.
+Also, you can set the `PACH_CONTEXT` environmental variable that overrides the
+active context.
 
 **Example:**
 
@@ -75,78 +70,74 @@ export PACH_CONTEXT=local1
 
 ## Create a New Context
 
-When you deploy a new Pachyderm cluster, a new context
-that points to the new cluster is created automatically.
+When you deploy a new Pachyderm cluster, a new context that points to the new
+cluster is created automatically.
 
-In addition, you can create a new context by providing your parameters
-through the standard input stream (`stdin`) in your terminal.
-Specify the parameters as a comma-separated list enclosed in
-curly brackets.
+In addition, you can create a new context by providing your parameters through
+the standard input stream (`stdin`) in your terminal. Specify the parameters as
+a comma-separated list enclosed in curly brackets.
 
-!!! note
-    By default, the `pachd` port is `30650`.
+!!! note By default, the `pachd` port is `30650`.
 
-To create a new context with specific parameters, complete
-the following steps:
+To create a new context with specific parameters, complete the following steps:
 
-1. Create a new Pachyderm context with a specific `pachd` IP address
-and a client certificate:
+1. Create a new Pachyderm context with a specific `pachd` IP address and a
+   client certificate:
 
-   ```bash
-   $ echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
-   Reading from stdin
-   ```
+    ```bash
+    $ echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
+    Reading from stdin
+    ```
 
 1. Verify your configuration by running the following command:
 
-   ```bash
-   $ pachctl config get context new-local
-   {
-     "pachd_address": "10.10.10.130:650",
-     "server_cas": "key.pem"
-   }
-   ```
+    ```bash
+    $ pachctl config get context new-local
+    {
+      "pachd_address": "10.10.10.130:650",
+      "server_cas": "key.pem"
+    }
+    ```
 
 ## Update an Existing Context
 
-You can update an existing context with new parameters, such
-as a Pachyderm IP address, certificate authority (CA), and others.
-For the list of parameters, see [Pachyderm Config Specification](../../reference/config_spec.md).
+You can update an existing context with new parameters, such as a Pachyderm IP
+address, certificate authority (CA), and others. For the list of parameters, see
+[Pachyderm Config Specification](../../reference/config_spec.md).
 
 To update the Active Context, run the following commands:
 
 1. Update the context with a new `pachd` address:
 
-   ```bash
-   $ pachctl config update context local-1 --pachd-address 10.10.10.131
-   ```
+    ```bash
+    $ pachctl config update context local-1 --pachd-address 10.10.10.131
+    ```
 
-   The `pachctl config update` command supports the `--pachd-address`
-   flag only.
+    The `pachctl config update` command supports the `--pachd-address` flag
+    only.
 
 1. Verify that the context has been updated:
 
-   ```bash
-   $ pachctl config get context local-1
-   {
-     "pachd_address": "10.10.10.131"
-   }
-   ```
+    ```bash
+    $ pachctl config get context local-1
+    {
+      "pachd_address": "10.10.10.131"
+    }
+    ```
 
-1. Alternatively, you can update multiple properties by using
-an `echo` script:
+1. Alternatively, you can update multiple properties by using an `echo` script:
 
-   ```bash
-   $ echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
-   Reading from stdin.
-   ```
+    ```bash
+    $ echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
+    Reading from stdin.
+    ```
 
 1. Verify that the changes were applied:
 
-   ```bash
-   $ pachctl config get context local-1
-   {
-     "pachd_address": "10.10.10.132",
-     "server_cas": "key.pem"
-   }
-   ```
+    ```bash
+    $ pachctl config get context local-1
+    {
+      "pachd_address": "10.10.10.132",
+      "server_cas": "key.pem"
+    }
+    ```

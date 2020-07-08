@@ -30,4 +30,3 @@ pachctl port-forward [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

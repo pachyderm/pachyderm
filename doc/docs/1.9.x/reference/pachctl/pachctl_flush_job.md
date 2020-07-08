@@ -37,4 +37,3 @@ $ pachctl flush job foo@XXX -p bar -p baz
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

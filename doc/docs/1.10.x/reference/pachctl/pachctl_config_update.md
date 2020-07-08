@@ -18,4 +18,3 @@ Commands for updating pachyderm config values
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

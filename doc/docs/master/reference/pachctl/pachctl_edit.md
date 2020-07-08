@@ -18,4 +18,3 @@ Edit the value of an existing Pachyderm resource.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

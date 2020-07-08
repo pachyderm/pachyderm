@@ -22,4 +22,3 @@ pachctl delete file <repo>@<branch-or-commit>:<path/in/pfs> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

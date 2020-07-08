@@ -18,4 +18,3 @@ Show the differences between two Pachyderm resources.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

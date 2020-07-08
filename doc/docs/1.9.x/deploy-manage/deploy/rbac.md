@@ -1,8 +1,15 @@
 # RBAC
 
-Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC) and is a default part of all Pachyderm deployments. For most users, you shouldn't have any issues as Pachyderm takes care of setting all the RBAC permissions automatically. However, if you are deploying Pachyderm on a cluster that your company owns, security policies might not allow certain RBAC permissions by default. Therefore, it's suggested that you contact your Kubernetes admin and provide the following to ensure you don't encounter any permissions issues:
+Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC) and is a
+default part of all Pachyderm deployments. For most users, you shouldn't have
+any issues as Pachyderm takes care of setting all the RBAC permissions
+automatically. However, if you are deploying Pachyderm on a cluster that your
+company owns, security policies might not allow certain RBAC permissions by
+default. Therefore, it's suggested that you contact your Kubernetes admin and
+provide the following to ensure you don't encounter any permissions issues:
 
 Pachyderm Permission Requirements
+
 ```
 Rules: []rbacv1.PolicyRule{{
 	APIGroups: []string{""},
@@ -21,9 +28,10 @@ Rules: []rbacv1.PolicyRule{{
 ```
 
 ## RBAC and DNS
-Kubernetes currently (as of 1.8.0) has a bug that prevents kube-dns from
-working with RBAC. Not having DNS will make Pachyderm effectively unusable. You
-can tell if you're being affected by the bug like so:
+
+Kubernetes currently (as of 1.8.0) has a bug that prevents kube-dns from working
+with RBAC. Not having DNS will make Pachyderm effectively unusable. You can tell
+if you're being affected by the bug like so:
 
 ```shell
 $ kubectl get all --namespace=kube-system
@@ -47,8 +55,8 @@ svc/kube-dns               ClusterIP   10.96.0.10     <none>        53/UDP,53/TC
 svc/kubernetes-dashboard   NodePort    10.97.194.16   <none>        80:30000/TCP    3m
 ```
 
-Notice how `po/kubernetes-dashboard-bzjjh` only has 2/3 pods ready and has 4 restarts.
-To fix this do:
+Notice how `po/kubernetes-dashboard-bzjjh` only has 2/3 pods ready and has 4
+restarts. To fix this do:
 
 ```shell
 kubectl -n kube-system create sa kube-dns
@@ -60,6 +68,7 @@ ServiceAccount. Kubernetes creates the ServiceAccount, it just doesn't actually
 use it.
 
 ## RBAC Permissions on GKE
+
 If you're deploying Pachyderm on GKE and run into the following error:
 
 ```
@@ -72,4 +81,3 @@ Run the following and redeploy Pachyderm:
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 
 ```
-

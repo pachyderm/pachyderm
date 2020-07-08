@@ -18,4 +18,3 @@ Auth commands manage access to data in a Pachyderm cluster
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -1,10 +1,12 @@
 ## pachctl deploy import-images
 
-Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.
+Import a tarball (from stdin) containing all of the images in a deployment and
+push them to a private registry.
 
 ### Synopsis
 
-Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.
+Import a tarball (from stdin) containing all of the images in a deployment and
+push them to a private registry.
 
 ```
 pachctl deploy import-images <input-file> [flags]
@@ -51,4 +53,3 @@ pachctl deploy import-images <input-file> [flags]
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

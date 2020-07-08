@@ -1,21 +1,19 @@
-title: Pachyderm Documentation
-description: A website for the Pachyderm Data Science platform documentation.
-date: "10-01-2019"
-robots: index
-image: assets/images/android-chrome-256x256.png
+title: Pachyderm Documentation description: A website for the Pachyderm Data
+Science platform documentation. date: "10-01-2019" robots: index image:
+assets/images/android-chrome-256x256.png
 
 # Welcome
 
 Welcome to the Pachyderm documentation portal!
 
-Here you can find information for beginners and experienced
-Pachyderm users, as well as the Pachyderm API reference docs.
+Here you can find information for beginners and experienced Pachyderm users, as
+well as the Pachyderm API reference docs.
 
-If you cannot find what you are looking for or have an issue that is
-not mentioned here, we'd love to hear from you either on
+If you cannot find what you are looking for or have an issue that is not
+mentioned here, we'd love to hear from you either on
 [GitHub](https://github.com/pachyderm/pachyderm/), in our
-[Users Slack channel](http://slack.pachyderm.io/), or by
-email at support@pachyderm.io.
+[Users Slack channel](http://slack.pachyderm.io/), or by email at
+support@pachyderm.io.
 
 <div class="row">
   <div class="column">

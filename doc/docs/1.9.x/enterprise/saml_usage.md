@@ -11,8 +11,8 @@ support. We'll describe:
 
 Follow the instructions in [Configure SAML](saml_setup.md) to enable auth in a
 Pachyderm cluster and connect it to a SAML ID provider. Then, we'll authenticate
-as a cluster admin in one console and set up our [open CV
-demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.md).
+as a cluster admin in one console and set up our
+[open CV demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.md).
 
 In the CLI, that would look like:
 
@@ -46,6 +46,7 @@ fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minu
 ```
 
 ## Authenticating via a SAML ID Provider (in the dashboard)
+
 Before authenticating, navigating to the dash will yield a blank screen:
 
 ![Blocked-out dash](../assets/images/saml_log_in.png)
@@ -71,6 +72,7 @@ indicated by a lock symbol):
 ![Dash with locked repos](../assets/images/saml_dag.png)
 
 ## Authenticating in the CLI
+
 After authenticating in the dash, you'll be given the opportunity to generate a
 one-time password (OTP) and sign in on the CLI. You can also generate an OTP
 from the settings panel:

@@ -1,23 +1,25 @@
 # S3 Gateway API
 
-This section outlines the HTTP API exposed by the s3 gateway and any peculiarities
-relative to S3. The operations largely mirror those documented in S3's
+This section outlines the HTTP API exposed by the s3 gateway and any
+peculiarities relative to S3. The operations largely mirror those documented in
+S3's
 [official docs](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_Simple_Storage_Service.html).
 
-Generally, you would not call these endpoints directly, but rather use a
-tool or library designed to work with S3-like APIs. Because of that, some
-working knowledge of S3 and HTTP is assumed.
+Generally, you would not call these endpoints directly, but rather use a tool or
+library designed to work with S3-like APIs. Because of that, some working
+knowledge of S3 and HTTP is assumed.
 
 ### Authentication
 
-If authentication is not enabled on the Pachyderm cluster, S3 gateway
-endpoints can be hit without passing auth credentials.
+If authentication is not enabled on the Pachyderm cluster, S3 gateway endpoints
+can be hit without passing auth credentials.
 
 If authentication is enabled, credentials must be passed using AWS'
 [signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html)
-or [signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html)
-methods. For both methods, set the AWS access key and secret key to the
-same value. Both values are the Pachyderm auth token that is used to issue the
+or
+[signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html)
+methods. For both methods, set the AWS access key and secret key to the same
+value. Both values are the Pachyderm auth token that is used to issue the
 relevant PFS calls. One or both signature methods are built into most s3 tools
 and libraries already, so you do not need to configure these methods manually.
 
@@ -50,24 +52,24 @@ Only S3's list objects v1 is supported.
 PFS directories are represented via `CommonPrefixes`. This largely mirrors how
 S3 is used in practice, but leads to a couple of differences:
 
-* If you set the delimiter parameter, it must be `/`.
-* Empty directories are included in listed results.
+-   If you set the delimiter parameter, it must be `/`.
+-   Empty directories are included in listed results.
 
 With regard to listed results:
 
-* Due to PFS peculiarities, the `LastModified` field references when the most
-recent commit to the branch happened, which may or may not have modified the
-specific object listed.
-* The HTTP `ETag` field does not use MD5, but is a cryptographically secure
-hash of the file contents.
-* The S3 `StorageClass` and `Owner` fields always have the same filler value.
+-   Due to PFS peculiarities, the `LastModified` field references when the most
+    recent commit to the branch happened, which may or may not have modified the
+    specific object listed.
+-   The HTTP `ETag` field does not use MD5, but is a cryptographically secure
+    hash of the file contents.
+-   The S3 `StorageClass` and `Owner` fields always have the same filler value.
 
 #### `GetBucketLocation`
 
 Route: `GET /<branch>.<repo>/?location`
 
-This will always serve the same location for every bucket, but the endpoint
-is implemented to provide better compatibility with S3 clients.
+This will always serve the same location for every bucket, but the endpoint is
+implemented to provide better compatibility with S3 clients.
 
 #### `GetBucketVersioning`
 
@@ -79,16 +81,16 @@ This will get whether versioning is enabled, which is always true.
 
 Route: `GET /<branch>.<repo>/?uploads`
 
-Lists the in-progress multipart uploads in the given branch. The `delimiter` query parameter is not supported.
+Lists the in-progress multipart uploads in the given branch. The `delimiter`
+query parameter is not supported.
 
 #### `CreateBucket`
 
 Route: `PUT /<branch>.<repo>/`.
 
-If the repo does not exist, it is created. If the branch does not exist, it
-is likewise created. As per S3's behavior in some regions (but not all),
-trying to create the same bucket twice will return a `BucketAlreadyOwnedByYou`
-error.
+If the repo does not exist, it is created. If the branch does not exist, it is
+likewise created. As per S3's behavior in some regions (but not all), trying to
+create the same bucket twice will return a `BucketAlreadyOwnedByYou` error.
 
 #### `DeleteObjects`
 
@@ -115,11 +117,11 @@ response bodies for bad requests using these headers are not standard S3 XML.
 
 With regard to HTTP response headers:
 
-* Due to PFS peculiarities, the HTTP `Last-Modified` header references when
-the most recent commit to the branch happened, which may or may not have
-modified this specific object.
-* The HTTP `ETag` does not use MD5, but is a cryptographically secure hash of
-the file contents.
+-   Due to PFS peculiarities, the HTTP `Last-Modified` header references when
+    the most recent commit to the branch happened, which may or may not have
+    modified this specific object.
+-   The HTTP `ETag` does not use MD5, but is a cryptographically secure hash of
+    the file contents.
 
 #### `PutObject`
 
@@ -127,12 +129,12 @@ Route: `PUT /<branch>.<repo>/<filepath>`.
 
 Writes the PFS file at `filepath` in an atomic commit on the HEAD of `branch`.
 
-Any existing file content is overwritten. Unlike S3, there is no limit to
-upload size.
+Any existing file content is overwritten. Unlike S3, there is no limit to upload
+size.
 
-Unlike s3, a 64mb max size is not enforced on this endpoint. Especially,
-as the file upload size gets larger, we recommend setting the `Content-MD5`
-request header to ensure data integrity.
+Unlike s3, a 64mb max size is not enforced on this endpoint. Especially, as the
+file upload size gets larger, we recommend setting the `Content-MD5` request
+header to ensure data integrity.
 
 #### `AbortMultipartUpload`
 
@@ -144,10 +146,10 @@ Aborts an in-progress multipart upload.
 
 Route: `POST /<branch>.<repo>?uploadId=<uploadId>`
 
-Completes a multipart upload. If ETags are included in the request
-payload, they must be of the same format as returned by the S3
-gateway when the multipart chunks are included. If they are `md5`
-hashes or any other hash algorithm, they are ignored.
+Completes a multipart upload. If ETags are included in the request payload, they
+must be of the same format as returned by the S3 gateway when the multipart
+chunks are included. If they are `md5` hashes or any other hash algorithm, they
+are ignored.
 
 #### `CreateMultipartUpload`
 

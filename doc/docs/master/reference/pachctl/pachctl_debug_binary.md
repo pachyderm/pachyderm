@@ -22,4 +22,3 @@ pachctl debug binary [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

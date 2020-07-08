@@ -18,4 +18,3 @@ Print a list of Pachyderm resources of a specific type.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

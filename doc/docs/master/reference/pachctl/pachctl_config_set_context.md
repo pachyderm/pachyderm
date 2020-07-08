@@ -4,7 +4,8 @@ Set a context.
 
 ### Synopsis
 
-Set a context config from a given name and either JSON stdin, or a given kubernetes context.
+Set a context config from a given name and either JSON stdin, or a given
+kubernetes context.
 
 ```
 pachctl config set context [flags]
@@ -24,4 +25,3 @@ pachctl config set context [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

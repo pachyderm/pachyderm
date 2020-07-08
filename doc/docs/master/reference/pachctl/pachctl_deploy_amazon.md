@@ -4,10 +4,10 @@ Deploy a Pachyderm cluster running on AWS.
 
 ### Synopsis
 
-Deploy a Pachyderm cluster running on AWS.
-  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
-  <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
-  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).
+Deploy a Pachyderm cluster running on AWS. <bucket-name>: An S3 bucket where
+Pachyderm will store PFS data. <region>: The AWS region where Pachyderm is being
+deployed (e.g. us-west-1) <disk-size>: Size of EBS volumes, in GB (assumed to
+all be the same).
 
 ```
 pachctl deploy amazon <bucket-name> <region> <disk-size> [flags]
@@ -67,4 +67,3 @@ pachctl deploy amazon <bucket-name> <region> <disk-size> [flags]
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

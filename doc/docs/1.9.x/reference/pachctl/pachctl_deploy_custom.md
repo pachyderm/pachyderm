@@ -4,9 +4,9 @@ Deploy a custom Pachyderm cluster configuration
 
 ### Synopsis
 
-Deploy a custom Pachyderm cluster configuration.
-If <object store backend> is \"s3\", then the arguments are:
-    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>
+Deploy a custom Pachyderm cluster configuration. If <object store backend> is
+\"s3\", then the arguments are: <volumes> <size of volumes (in GB)> <bucket>
+<id> <secret> <endpoint>
 
 ```
 pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args> [flags]
@@ -65,4 +65,3 @@ pachctl deploy custom --persistent-disk <persistent disk backend> --object-store
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

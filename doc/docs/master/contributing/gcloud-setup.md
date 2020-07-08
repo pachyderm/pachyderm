@@ -1,10 +1,12 @@
 # Gcloud cluster setup
 
-In order to develop pachyderm against a gcloud-deployed cluster, follow these instructions.
+In order to develop pachyderm against a gcloud-deployed cluster, follow these
+instructions.
 
 ## First steps
 
-First follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/doc/contributing/setup.md).
+First follow the
+[general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/doc/contributing/setup.md).
 
 ## gcloud
 
@@ -12,14 +14,17 @@ First follow the [general setup instructions](https://github.com/pachyderm/pachy
 
 Setup Google Cloud Platform via the web
 
-- login with your Gmail or G Suite account
-  - click the silhouette in the upper right to make sure you're logged in with the right account
-- get your owner/admin to setup a project for you (e.g. YOURNAME-dev)
-- then they need to go into the project > settings > permissions and add you
-  - hint to owner/admin: its the permissions button in one of the left hand popin menus (GKE UI can be confusing)
-- you should have an email invite to accept
-- click 'use google APIS' (or something along the lines of enable/manage APIs)
-- click through to google compute engine API and enable it or click the 'get started' button to make it provision
+-   login with your Gmail or G Suite account
+    -   click the silhouette in the upper right to make sure you're logged in
+        with the right account
+-   get your owner/admin to setup a project for you (e.g. YOURNAME-dev)
+-   then they need to go into the project > settings > permissions and add you
+    -   hint to owner/admin: its the permissions button in one of the left hand
+        popin menus (GKE UI can be confusing)
+-   you should have an email invite to accept
+-   click 'use google APIS' (or something along the lines of enable/manage APIs)
+-   click through to google compute engine API and enable it or click the 'get
+    started' button to make it provision
 
 Then, locally, run the following commands one at a time:
 
@@ -40,9 +45,9 @@ Then, locally, run the following commands one at a time:
 
 Setup a project on gcloud
 
-- go to console.cloud.google.com/start
-- make sure you're logged in w your gmail account
-- create project 'YOURNAME-dev'
+-   go to console.cloud.google.com/start
+-   make sure you're logged in w your gmail account
+-   create project 'YOURNAME-dev'
 
 ## kubectl
 

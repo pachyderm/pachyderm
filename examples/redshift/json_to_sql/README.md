@@ -1,8 +1,12 @@
 # JSON to SQL
 
-This directory contains a small go script that consumes single-layer .json files from stdin and outputs them as SQL INSERT statements. Each field in each record of the input is converted to a column name, and the value of that field is written to that column.
+This directory contains a small go script that consumes single-layer .json files
+from stdin and outputs them as SQL INSERT statements. Each field in each record
+of the input is converted to a column name, and the value of that field is
+written to that column.
 
-The binary takes a single argument: the name of the table that the data should be written to. For example:
+The binary takes a single argument: the name of the table that the data should
+be written to. For example:
 
 ```
 $ go build to_sql.go && cat test.json | ./to_sql cars

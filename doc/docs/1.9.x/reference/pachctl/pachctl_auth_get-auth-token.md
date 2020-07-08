@@ -1,10 +1,13 @@
 ## pachctl auth get-auth-token
 
-Get an auth token that authenticates the holder as "username", or the currently signed-in user, if no 'username' is provided
+Get an auth token that authenticates the holder as "username", or the currently
+signed-in user, if no 'username' is provided
 
 ### Synopsis
 
-Get an auth token that authenticates the holder as "username"; or the currently signed-in user, if no 'username' is provided. Only cluster admins can obtain an auth token on behalf of another user.
+Get an auth token that authenticates the holder as "username"; or the currently
+signed-in user, if no 'username' is provided. Only cluster admins can obtain an
+auth token on behalf of another user.
 
 ```
 pachctl auth get-auth-token [username] [flags]
@@ -24,4 +27,3 @@ pachctl auth get-auth-token [username] [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

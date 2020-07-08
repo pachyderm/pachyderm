@@ -1,10 +1,8 @@
 # Overview
 
-This section describes how you can deploy Pachyderm
-in a production environment.
-Also, you can find information about basic Pachyderm operations,
-including upgrading to minor and major versions, autoscaling,
-and others.
+This section describes how you can deploy Pachyderm in a production environment.
+Also, you can find information about basic Pachyderm operations, including
+upgrading to minor and major versions, autoscaling, and others.
 
 <div class="row">
   <div class="column-2">

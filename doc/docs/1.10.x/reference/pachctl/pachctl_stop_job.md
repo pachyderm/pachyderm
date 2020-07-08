@@ -4,7 +4,7 @@ Stop a job.
 
 ### Synopsis
 
-Stop a job.  The job will be stopped immediately.
+Stop a job. The job will be stopped immediately.
 
 ```
 pachctl stop job <job> [flags]
@@ -22,4 +22,3 @@ pachctl stop job <job> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

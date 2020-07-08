@@ -25,4 +25,3 @@ pachctl debug pprof <profile> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

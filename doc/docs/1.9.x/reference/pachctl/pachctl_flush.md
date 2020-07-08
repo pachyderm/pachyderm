@@ -18,4 +18,3 @@ Wait for the side-effects of a Pachyderm resource to propagate.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

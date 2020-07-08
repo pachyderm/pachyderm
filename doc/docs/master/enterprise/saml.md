@@ -1,7 +1,7 @@
 # Overview
 
-This guide walks you through an example of using Pachyderm's SAML support, including the
-following:
+This guide walks you through an example of using Pachyderm's SAML support,
+including the following:
 
 1. Activate Pachyderm enterprise and Pachyderm auth.
 2. Configure Pachyderm's auth system to enable its SAML ACS, receive SAML
@@ -24,6 +24,7 @@ pachctl auth activate --initial-admin=robot:admin
 At this point, Pachyderm is ready to authenticate & authorize users.
 
 What the `--initial-admin` flag does is this:
+
 1. Pachyderm requires there to be at least one cluster admin if auth is
    activated
 2. Pachyderm's authentication is built around GitHub by default. Without this
@@ -38,41 +39,42 @@ What the `--initial-admin` flag does is this:
    this robot user. At any point, you can authenticate as this robot user by
    running the following command:
 
-   ```bash
-   pachctl auth use-auth-token
-   ```
+    ```bash
+    pachctl auth use-auth-token
+    ```
 
-   **System response:**
+    **System response:**
 
-   ```bash
-   Please paste your Pachyderm auth token:
-   <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
-   # you are now robot:admin, cluster administrator
-   ```
+    ```bash
+    Please paste your Pachyderm auth token:
+    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
+    # you are now robot:admin, cluster administrator
+    ```
 
 The rest of this example assumes that your Pachyderm cluster is running in
 minikube, and you're accessing it via `pachctl`'s port forwarding. Many of the
-SAML service provider URLs below are set to some variation of `localhost`,
-which will only work if you're using port forwarding and your browser is able
-to access Pachyderm via `localhost` on the port forwarder's usual ports.
+SAML service provider URLs below are set to some variation of `localhost`, which
+will only work if you're using port forwarding and your browser is able to
+access Pachyderm via `localhost` on the port forwarder's usual ports.
 
 ## Create IdP test app
+
 The ID provider (IdP) that this example uses is Okta. Here is an example
-configuration for an Okta test app that authenticates Okta users
-with Pachyderm:
+configuration for an Okta test app that authenticates Okta users with Pachyderm:
 
 ![Okta test app config](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/okta_form.png)
 
-Once created, you can get the IdP Metadata URL associated with the test Okta
-app here:
+Once created, you can get the IdP Metadata URL associated with the test Okta app
+here:
 
 ![Metadata image](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
-Broadly, setting an auth config is what enables SAML in Pachyderm
-(specifically, it enables Pachyderm's ACS). Below is an example config that will
-allow users to authenticate in your Pachyderm cluster using the Okta app above.
-Note that this example assumes
+
+Broadly, setting an auth config is what enables SAML in Pachyderm (specifically,
+it enables Pachyderm's ACS). Below is an example config that will allow users to
+authenticate in your Pachyderm cluster using the Okta app above. Note that this
+example assumes
 
 ```
 # Lookup current config version--pachyderm config has a barrier to prevent
@@ -105,6 +107,7 @@ EOF
 ```
 
 ## Logging In
+
 Currently Pachyderm only supports IdP-initiated authentication. To proceed,
 configure your Okta app to point to the Pachyderm ACS
 (`http://localhost:30654/saml/acs` if using `pachctl`'s port forwarding), then
@@ -113,11 +116,15 @@ sign in via the new Okta app in your Okta dashboard.
 After clicking on the test Okta app, your browser will do a SAML authentication
 handshake with your pachyderm cluster, and you will arrive at your Pachyderm
 dashboard fully authenticated. To log in with the Pachyderm CLI, get a One-Time
-Password from the Pachyderm dash, and then run `pachctl auth login
---code=<one-time password>` in your terminal.
+Password from the Pachyderm dash, and then run
+`pachctl auth login --code=<one-time password>` in your terminal.
 
 ### Groups
-If your SAML ID provider supports setting group attributes, you can use groups to manage access in Pachyderm with the `"group_attribute"` in the IDProvider field of the auth config:
+
+If your SAML ID provider supports setting group attributes, you can use groups
+to manage access in Pachyderm with the `"group_attribute"` in the IDProvider
+field of the auth config:
+
 ```
 pachctl auth set-config <<EOF
 {
@@ -135,6 +142,7 @@ EOF
 ```
 
 Then, try:
+
 ```
 pachctl create repo group-test
 pachctl put file group-test@master -f some-data.txt
@@ -142,8 +150,8 @@ pachctl auth set group/saml:"Test Group" reader group-test
 ```
 
 Elsewhere:
+
 ```
 pachctl auth login --code=<auth code>
 pachctl get file group-test@master:some-data.txt # should work for members of "Test Group"
 ```
-

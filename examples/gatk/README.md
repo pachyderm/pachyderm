@@ -2,19 +2,31 @@
 
 ![alt tag](pipeline.png)
 
-This example illustrates the use of GATK in Pachyderm for [Germline](https://en.wikipedia.org/wiki/Germline) variant calling and joint [genotyping](https://en.wikipedia.org/wiki/Genotyping).
+This example illustrates the use of GATK in Pachyderm for
+[Germline](https://en.wikipedia.org/wiki/Germline) variant calling and joint
+[genotyping](https://en.wikipedia.org/wiki/Genotyping).
 
-GATK is a toolkit provided by the Broad Institute that was created to assist scientists with variant discovery and genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
+GATK is a toolkit provided by the Broad Institute that was created to assist
+scientists with variant discovery and genotyping. Each stage of this GATK best
+practice pipeline can be scaled individually and is automatically triggered as
+data flows into the top of the pipeline. The example follows
+[this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc)
+from GATK, which includes more details about the various stages.
 
 ## Committing the reference genome
 
-You can retrieve all the input data for this pipeline from the Broad Institute [here](https://drive.google.com/open?id=0BzI1CyccGsZicE5HNkR6anpLTnM). We will utilize a b37 human genome reference containing only a subset of chromosome 20, which we prepared specially for GATK tutorials in order to provide a reasonable size for download. It is accompanied by its index and sequence dictionary.
+You can retrieve all the input data for this pipeline from the Broad Institute
+[here](https://drive.google.com/open?id=0BzI1CyccGsZicE5HNkR6anpLTnM). We will
+utilize a b37 human genome reference containing only a subset of chromosome 20,
+which we prepared specially for GATK tutorials in order to provide a reasonable
+size for download. It is accompanied by its index and sequence dictionary.
 
 Download `GATK_Germline.zip` and unzip it to your local dir.
 
 ```sh
 wget https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip
-``` 
+```
+
 ```sh
 $ unzip GATK_Germline.zip
 Archive:  GATK_Germline.zip
@@ -28,23 +40,31 @@ Archive:  GATK_Germline.zip
   inflating: data/bams/.DS_Store
   etc...
 ```
+
 Change into the directory that contains the files we want to import
+
 ```sh
 $ cd data/ref
 $ ls
 Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 ```
-Next, we want to create our pachyderm repo and then instruct pachyderm to import those into our repo
+
+Next, we want to create our pachyderm repo and then instruct pachyderm to import
+those into our repo
+
 ```sh
 $ pachctl create repo reference
 $ pachctl put file reference@master -r -f .
 ```
+
 First milestone reached! Lets just check and make sure everything looks good
+
 ```sh
 $ pachctl list repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB
 ```
+
 ```sh
 $ pachctl list file reference@master
 NAME                TYPE                SIZE
@@ -56,15 +76,18 @@ refSDF              dir                 22.57MiB
 $ cd ../../
 ```
 
-## Committing a sample 
+## Committing a sample
 
-Next, we're going to work on commiting the `*.bam` files for Mom. Let's start by create a repositories for input `*.bam` files to go into:
+Next, we're going to work on commiting the `*.bam` files for Mom. Let's start by
+create a repositories for input `*.bam` files to go into:
 
 ```sh
 $ pachctl create repo samples
 ```
 
-Add a `*.bam` file (along with it's index file) corresponding to a first sample, in our case it's the `mother`. Here we will assume that the files corresponding to each sample are committed to separate directories (e.g., `/mother`). 
+Add a `*.bam` file (along with it's index file) corresponding to a first sample,
+in our case it's the `mother`. Here we will assume that the files corresponding
+to each sample are committed to separate directories (e.g., `/mother`).
 
 ```sh
 $ cd data/bams/
@@ -88,7 +111,9 @@ mother/mother.bam   file                23.79MiB
 
 ## Variant calling
 
-To call variants for the input sample, we will run the `HaplotypeCaller` using GATK. Details of the exact GATK command and related scripting are included in the [likelihoods.json](likelihoods.json) pipeline specification. 
+To call variants for the input sample, we will run the `HaplotypeCaller` using
+GATK. Details of the exact GATK command and related scripting are included in
+the [likelihoods.json](likelihoods.json) pipeline specification.
 
 To create and run the variant calling pipeline to generate genotype likelihoods:
 
@@ -115,7 +140,9 @@ mother.g.vcf.idx    file                758B
 
 ## Joint genotyping
 
-The last step is to joint call all your GVCF files using the GATK tool GenotypeGVCFs.  Details of this GATK command and related scripting are included in the [joint-call.json](joint-call.json) pipeline specification.
+The last step is to joint call all your GVCF files using the GATK tool
+GenotypeGVCFs. Details of this GATK command and related scripting are included
+in the [joint-call.json](joint-call.json) pipeline specification.
 
 To run the joint genotyping:
 
@@ -138,7 +165,9 @@ joint.vcf.idx       file                10.21KiB
 
 ## Adding more samples
 
-Now that we have our pipelines running, out final results will be automatically updated any time we add new samples. To illustrate this, we can add the `father` and `son` samples as follows:
+Now that we have our pipelines running, out final results will be automatically
+updated any time we add new samples. To illustrate this, we can add the `father`
+and `son` samples as follows:
 
 ```sh
 $ cd data/bams/
@@ -154,7 +183,7 @@ $ pachctl list file samples@master
 NAME                TYPE                SIZE
 father              dir                 9.662MiB
 mother              dir                 23.79MiB
-son                 dir                 9.58MiB 
+son                 dir                 9.58MiB
 ```
 
 This will trigger new jobs to process the new samples:
@@ -170,6 +199,8 @@ a350a349-5ddb-4e19-bdda-66d7edbf9447 likelihoods/e783989ca367428ea2df6406a23bea6
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb About an hour ago  18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
 ```
 
-If you are using the [Enterprise Edition](https://docs.pachyderm.com/latest/enterprise/), you should be able to see the DAG and data as shown below:
+If you are using the
+[Enterprise Edition](https://docs.pachyderm.com/latest/enterprise/), you should
+be able to see the DAG and data as shown below:
 
 ![alt tag](dash.png)

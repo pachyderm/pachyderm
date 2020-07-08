@@ -6,16 +6,16 @@ Garbage collect unused data.
 
 Garbage collect unused data.
 
-When a file/commit/repo is deleted, the data is not immediately removed from
-the underlying storage system (e.g. S3) for performance and architectural
-reasons.  This is similar to how when you delete a file on your computer, the
-file is not necessarily wiped from disk immediately.
+When a file/commit/repo is deleted, the data is not immediately removed from the
+underlying storage system (e.g. S3) for performance and architectural reasons.
+This is similar to how when you delete a file on your computer, the file is not
+necessarily wiped from disk immediately.
 
-To actually remove the data, you will need to manually invoke garbage
-collection with "pachctl garbage-collect".
+To actually remove the data, you will need to manually invoke garbage collection
+with "pachctl garbage-collect".
 
 Currently "pachctl garbage-collect" can only be started when there are no
-pipelines running.  You also need to ensure that there's no ongoing "put file".
+pipelines running. You also need to ensure that there's no ongoing "put file".
 Garbage collection puts the cluster into a readonly mode where no new jobs can
 be created and no data can be added.
 
@@ -26,7 +26,6 @@ have; at around 10M objects it starts to become likely with the default values.
 To lower Pachyderm's error rate and make garbage-collection more comprehensive,
 you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
-
 
 ```
 pachctl garbage-collect [flags]
@@ -45,4 +44,3 @@ pachctl garbage-collect [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -39,14 +39,14 @@ example of a simple config:
 
 ```json
 {
-  "user_id": "514cbe16-e615-46fe-92d9-3156f12885d7",
-  "v2": {
-    "active_context": "default",
-    "contexts": {
-      "default": {}
-    },
-    "metrics": true
-  }
+    "user_id": "514cbe16-e615-46fe-92d9-3156f12885d7",
+    "v2": {
+        "active_context": "default",
+        "contexts": {
+            "default": {}
+        },
+        "metrics": true
+    }
 }
 ```
 
@@ -73,16 +73,16 @@ associated with.)
 
 #### Source
 
-An integer that specifies where the config came from. This parameter is for internal use only and
-should not be modified.
+An integer that specifies where the config came from. This parameter is for
+internal use only and should not be modified.
 
 #### Pachd Address
 
 A `host:port` specification for connecting to pachd. If this is set, pachyderm
-will directly connect to the cluster, rather than resorting to kubernetes'
-port forwarding. If you can set this (because there's no firewall between you
-and the cluster), you should, as kubernetes' port forwarder is not designed to
-handle large amounts of data.
+will directly connect to the cluster, rather than resorting to kubernetes' port
+forwarding. If you can set this (because there's no firewall between you and the
+cluster), you should, as kubernetes' port forwarder is not designed to handle
+large amounts of data.
 
 #### Server CAs
 
@@ -92,8 +92,8 @@ This is only set when TLS is enabled.
 #### Session token
 
 A secret token identifying the current pachctl user within their pachyderm
-cluster. This is included in all RPCs sent by pachctl, and used to determine
-if pachctl actions are authorized. This is only set when auth is enabled.
+cluster. This is included in all RPCs sent by pachctl, and used to determine if
+pachctl actions are authorized. This is only set when auth is enabled.
 
 #### Active transaction
 
@@ -107,8 +107,8 @@ context.
 
 #### Auth info
 
-The name of the underlying Kubernetes cluster's auth credentials, extracted
-from the Kubernetes context.
+The name of the underlying Kubernetes cluster's auth credentials, extracted from
+the Kubernetes context.
 
 #### Namespace
 
@@ -123,9 +123,9 @@ expected cluster.
 #### Port forwarders
 
 A mapping of `service name -> local port`. This field is populated when you run
-explicit port forwarding (`pachctl port-forward`), so that subsequent
-`pachctl` operations know to use the explicit port forwarder.
+explicit port forwarding (`pachctl port-forward`), so that subsequent `pachctl`
+operations know to use the explicit port forwarder.
 
-This field is removed when the `pachctl port-forward` operation
-completes. You might need to manually delete the field from your
-config if the process failed to remove the field automatically.
+This field is removed when the `pachctl port-forward` operation completes. You
+might need to manually delete the field from your config if the process failed
+to remove the field automatically.

@@ -22,4 +22,3 @@ pachctl restart datum <job> <datum-path1>,<datum-path2>,... [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

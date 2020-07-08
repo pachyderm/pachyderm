@@ -4,7 +4,9 @@ Log in to Pachyderm
 
 ### Synopsis
 
-Login to Pachyderm. Any resources that have been restricted to the account you have with your ID provider (e.g. GitHub, Okta) account will subsequently be accessible.
+Login to Pachyderm. Any resources that have been restricted to the account you
+have with your ID provider (e.g. GitHub, Okta) account will subsequently be
+accessible.
 
 ```
 pachctl auth login [flags]
@@ -23,4 +25,3 @@ pachctl auth login [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

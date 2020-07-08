@@ -4,7 +4,8 @@ about: Create a report to help us improve
 labels: docs
 projects: Documentation
 ---
-<!-- This form is for documentation issues! 
+
+<!-- This form is for documentation issues!
 
 If you're looking for help, please check:
 
@@ -22,8 +23,10 @@ Slack: http://slack.pachyderm.io/
 **Anything else we need to know?**
 
 **Environment:**
-- Kubernetes version (use `kubectl version`):
-- Pachyderm CLI and pachd server version (use `pachctl version`):
-- Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs dockerized k8s):
-- OS:
-- Other:
+
+-   Kubernetes version (use `kubectl version`):
+-   Pachyderm CLI and pachd server version (use `pachctl version`):
+-   Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs
+    dockerized k8s):
+-   OS:
+-   Other:

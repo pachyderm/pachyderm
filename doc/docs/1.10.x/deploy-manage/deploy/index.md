@@ -1,10 +1,9 @@
 # Overview
 
-Pachyderm runs on [Kubernetes](http://kubernetes.io/) and
-is backed by an object store of your choice. Because of that,
-Pachyderm can run on any platform that supports Kubernetes
-and an object store. This section covers common
-deployment options and related topics:
+Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object
+store of your choice. Because of that, Pachyderm can run on any platform that
+supports Kubernetes and an object store. This section covers common deployment
+options and related topics:
 
 <div class="row">
   <div class="column-2">

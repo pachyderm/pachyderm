@@ -4,8 +4,8 @@ Delete everything.
 
 ### Synopsis
 
-Delete all repos, commits, files, pipelines and jobs.
-This resets the cluster to its initial state.
+Delete all repos, commits, files, pipelines and jobs. This resets the cluster to
+its initial state.
 
 ```
 pachctl delete all [flags]
@@ -23,4 +23,3 @@ pachctl delete all [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

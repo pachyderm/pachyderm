@@ -1,8 +1,7 @@
 # Overview
 
-This section describes main managing operations and
-administrative tasks that you might need to perform
-throughout the lifetime of your cluster.
+This section describes main managing operations and administrative tasks that
+you might need to perform throughout the lifetime of your cluster.
 
 <div class="row">
   <div class="column-2">

@@ -2,7 +2,8 @@
 name: Bug report
 about: Create a report to help us improve
 ---
-<!-- This form is for bug reports ONLY! 
+
+<!-- This form is for bug reports ONLY!
 
 If you're looking for help, please check:
 
@@ -20,8 +21,10 @@ Slack: http://slack.pachyderm.io/
 **Anything else we need to know?**:
 
 **Environment?**:
-- Kubernetes version (use `kubectl version`):
-- Pachyderm CLI and pachd server version (use `pachctl version`):
-- Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs dockerized k8s):
-- OS (e.g. from /etc/os-release):
-- Others:
+
+-   Kubernetes version (use `kubectl version`):
+-   Pachyderm CLI and pachd server version (use `pachctl version`):
+-   Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs
+    dockerized k8s):
+-   OS (e.g. from /etc/os-release):
+-   Others:

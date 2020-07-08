@@ -18,4 +18,3 @@ Cancel and restart an ongoing task.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

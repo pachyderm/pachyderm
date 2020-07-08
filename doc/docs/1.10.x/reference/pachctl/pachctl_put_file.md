@@ -4,7 +4,8 @@ Put a file into the filesystem.
 
 ### Synopsis
 
-Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.
+Put a file into the filesystem. This command supports a number of ways to insert
+data into PFS.
 
 ```
 pachctl put file <repo>@<branch-or-commit>[:<path/to/file>] [flags]
@@ -76,4 +77,3 @@ $ pachctl put file repo@branch -i http://host/path
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

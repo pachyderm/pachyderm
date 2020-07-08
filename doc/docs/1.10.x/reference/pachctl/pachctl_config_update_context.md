@@ -4,7 +4,8 @@ Updates a context.
 
 ### Synopsis
 
-Updates an existing context config from a given name (or the currently-active context, if no name is given).
+Updates an existing context config from a given name (or the currently-active
+context, if no name is given).
 
 ```
 pachctl config update context [context] [flags]
@@ -28,4 +29,3 @@ pachctl config update context [context] [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

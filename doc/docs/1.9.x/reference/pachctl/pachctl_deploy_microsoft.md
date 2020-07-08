@@ -4,9 +4,9 @@ Deploy a Pachyderm cluster running on Microsoft Azure.
 
 ### Synopsis
 
-Deploy a Pachyderm cluster running on Microsoft Azure.
-  <container>: An Azure container where Pachyderm will store PFS data.
-  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).
+Deploy a Pachyderm cluster running on Microsoft Azure. <container>: An Azure
+container where Pachyderm will store PFS data. <disk-size>: Size of persistent
+volumes, in GB (assumed to all be the same).
 
 ```
 pachctl deploy microsoft <container> <account-name> <account-key> <disk-size> [flags]
@@ -53,4 +53,3 @@ pachctl deploy microsoft <container> <account-name> <account-key> <disk-size> [f
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

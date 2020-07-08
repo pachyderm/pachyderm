@@ -22,4 +22,3 @@ pachctl config get context [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -1,9 +1,8 @@
 # Enterprise Edition
 
-This section describes features available in the enterprise
-edition of Pachyderm. You can try them by enabling a
-14-day free-trial by logging in to the Pachyderm UI and
-providing your email address. If you are interested in
+This section describes features available in the enterprise edition of
+Pachyderm. You can try them by enabling a 14-day free-trial by logging in to the
+Pachyderm UI and providing your email address. If you are interested in
 purchasing Pachyderm Enterprise, contact our sales team.
 
 <div class="btn">
@@ -14,7 +13,6 @@ purchasing Pachyderm Enterprise, contact our sales team.
 
 Read about how you can use Pachyderm Enterprise features in the following
 sections.
-
 
 <div class="row">
   <div class="column-2">

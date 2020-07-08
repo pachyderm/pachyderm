@@ -51,4 +51,3 @@ pachctl deploy list-images [flags]
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

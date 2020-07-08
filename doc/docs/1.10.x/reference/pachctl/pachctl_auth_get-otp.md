@@ -1,10 +1,13 @@
 ## pachctl auth get-otp
 
-Get a one-time password that authenticates the holder as "username", or the currently signed in user if no 'username' is specified
+Get a one-time password that authenticates the holder as "username", or the
+currently signed in user if no 'username' is specified
 
 ### Synopsis
 
-Get a one-time password that authenticates the holder as "username", or the currently signed in user if no 'username' is specified. Only cluster admins may obtain a one-time password on behalf of another user.
+Get a one-time password that authenticates the holder as "username", or the
+currently signed in user if no 'username' is specified. Only cluster admins may
+obtain a one-time password on behalf of another user.
 
 ```
 pachctl auth get-otp <username> [flags]
@@ -23,4 +26,3 @@ pachctl auth get-otp <username> [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -1,8 +1,8 @@
 # Getting Started
 
-Pachyderm provides multiple easy ways to get up and running quickly.
-You can deploy Pachyderm on you local machine, in you favorite cloud
-provider, or in our fully managed service, Pachyderm Hub.
+Pachyderm provides multiple easy ways to get up and running quickly. You can
+deploy Pachyderm on you local machine, in you favorite cloud provider, or in our
+fully managed service, Pachyderm Hub.
 
 <div class="row">
   <div class="column-2">
@@ -55,4 +55,3 @@ provider, or in our fully managed service, Pachyderm Hub.
      </div>
   </div>
 </div>
-

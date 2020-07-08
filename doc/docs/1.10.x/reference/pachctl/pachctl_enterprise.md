@@ -18,4 +18,3 @@ Enterprise commands enable Pachyderm Enterprise features
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

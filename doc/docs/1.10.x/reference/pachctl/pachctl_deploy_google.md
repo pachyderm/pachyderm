@@ -4,10 +4,11 @@ Deploy a Pachyderm cluster running on Google Cloud Platform.
 
 ### Synopsis
 
-Deploy a Pachyderm cluster running on Google Cloud Platform.
-  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
-  <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
-  <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).
+Deploy a Pachyderm cluster running on Google Cloud Platform. <bucket-name>: A
+Google Cloud Storage bucket where Pachyderm will store PFS data. <disk-size>:
+Size of Google Compute Engine persistent disks in GB (assumed to all be the
+same). <credentials-file>: A file containing the private key for the account
+(downloaded from Google Compute Engine).
 
 ```
 pachctl deploy google <bucket-name> <disk-size> [<credentials-file>] [flags]
@@ -55,4 +56,3 @@ pachctl deploy google <bucket-name> <disk-size> [<credentials-file>] [flags]
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

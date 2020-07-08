@@ -4,7 +4,9 @@ Print commits as they are created (finished).
 
 ### Synopsis
 
-Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.
+Print commits as they are created in the specified repo and branch. By default,
+all existing commits on the specified branch are returned first. A commit is
+only considered 'created' when it's been finished.
 
 ```
 pachctl subscribe commit <repo>@<branch> [flags]
@@ -41,4 +43,3 @@ $ pachctl subscribe commit test@master --new
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

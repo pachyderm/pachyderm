@@ -4,7 +4,8 @@ Deploy credentials for the Azure storage provider.
 
 ### Synopsis
 
-Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.
+Deploy credentials for the Azure storage provider, so that Pachyderm can ingress
+data from and egress data to it.
 
 ```
 pachctl deploy storage microsoft <account-name> <account-key> [flags]
@@ -51,4 +52,3 @@ pachctl deploy storage microsoft <account-name> <account-key> [flags]
       --upload-concurrency-limit int    The maximum number of concurrent object storage uploads per Pachd instance. (default 100)
   -v, --verbose                         Output verbose logs
 ```
-

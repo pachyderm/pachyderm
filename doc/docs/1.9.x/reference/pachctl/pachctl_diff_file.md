@@ -40,4 +40,3 @@ $ pachctl diff file foo@master:path1 bar@master:path2
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

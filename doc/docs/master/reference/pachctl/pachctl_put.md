@@ -18,4 +18,3 @@ Insert data into Pachyderm.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

@@ -13,7 +13,7 @@ pachctl undeploy [flags]
 ### Options
 
 ```
-  -a, --all                
+  -a, --all
                            Delete everything, including the persistent volumes where metadata
                            is stored.  If your persistent volumes were dynamically provisioned (i.e. if
                            you used the "--dynamic-etcd-nodes" flag), the underlying volumes will be
@@ -31,4 +31,3 @@ pachctl undeploy [flags]
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

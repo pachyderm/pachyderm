@@ -18,4 +18,3 @@ Print a list of Pachyderm resources matching a glob pattern.
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

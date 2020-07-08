@@ -41,4 +41,3 @@ $ pachctl get file foo@master^2:XXX
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-

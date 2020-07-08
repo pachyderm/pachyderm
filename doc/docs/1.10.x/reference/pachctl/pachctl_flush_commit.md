@@ -36,4 +36,3 @@ $ pachctl flush commit foo@XXX -r bar -r baz
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```
-
