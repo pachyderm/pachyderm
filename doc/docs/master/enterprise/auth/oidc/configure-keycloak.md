@@ -41,11 +41,6 @@ have the following components up and running:
 After you have installed Pachyderm and Keycloak, follow the steps
 below to configure the two components to work together.
 
-!!! note
-    If you have used a different authentication type before,
-    you need to disable authentication before configuring
-    Keycloak. Run `pachctl auth deactivate`.
-
 To configure Pachyderm with Keycloak, complete the following steps:
 
 1. Go to the **Keycloak Administration Console**. If you have deployed
@@ -181,7 +176,8 @@ step:
 
     You need to replace the following placeholders with relevant values:
 
-    - `ip` — the IP of the Kubernetes host. If you are using minikube, you can get the
+    - `issuer` — the URL to the location of your Keycloak realm.
+    - `ip` — the IP of the Kubernetes host. If you are using Minikube, you can get the
     IP address by running `minikube ip`.
  
     - `realm-name` — the name of the Keycloak realm that you have created for Pachyderm.
@@ -189,6 +185,9 @@ step:
 
     - `client-id` — the name of the Pachyderm's Keycloak client. In the example above,
     `pachyderm-test`.
+
+    - `redirect_uri` — the URL that redirects back to Pachyderm. If you are running Pachyderm
+    in Minikube, it is the Minikube IP address.
 
 1. Log in as the user you have created in the Pachyderm realm:
 

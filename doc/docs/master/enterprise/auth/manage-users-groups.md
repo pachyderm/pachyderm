@@ -9,8 +9,11 @@ which providers support user and group authentication:
 | --------------- | --------------- | --------------- |
 | GitHub          | &#10004;        | X               |
 | Okta (SAML)     | &#10004;        | &#10004;        |
+| Otka (OIDC)     | &#10004;        | X               |
 | Keycloak (OIDC) | &#10004;        | X               |
+| Keycloak (SAML) | &#10004;        | &#10004;        |
 | Google (OIDC)   | &#10004;        | X               | 
+| Auth0 (OIDC)    | &#10004;        | X               |
 
 ## Configure User Access
 

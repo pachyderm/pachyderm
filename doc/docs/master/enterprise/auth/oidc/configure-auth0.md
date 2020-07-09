@@ -28,7 +28,7 @@ account, either paid or free.
 
 If you do not have an Auth0 account, you need to sign up for one
 at https://auth0.com . Then, you need to add Pachyderm as an application
-in Auth0 and configure it to work with Pachyderm.
+and configure it to work with Auth0.
 
 To configure Auth0, complete the following steps:
 
@@ -56,15 +56,15 @@ following format:
    if you are running Pachyderm in Minikube, you can find the IP
    address by running `minikube ip`.
 
-1. Proceed to [Configure Pachyderm Auth](#configure-pachyderm-auth)
+1. Proceed to [Configure Pachyderm Auth](#configure-pachyderm-auth).
 
 ## Configure Pachyderm Auth
 
 After you have configured a Pachyderm application in Auth0, you
 need to create a Pachyderm OIDC config with the Auth0 parameters.
 All the required parameters, such as `client_id`, `client_secret`, 
-and others can, be found on the setting screen. In addition, OIDC
-settings are exposed at https://<domain>/.well-known/openid-configuration.
+and othersi, are located on the application settings screen. In addition, OIDC
+settings are exposed at https://appication-domain/.well-known/openid-configuration.
 
 To configure Pachyderm Auth, complete the following steps:
 
@@ -145,17 +145,19 @@ step:
     You need to replace the following placeholders with relevant values:
 
     - `issuer` — The domain of your application in Auth0. For example,
-    `dev-7vllfmvr.us.auth0.com/`.
+    `dev-7vllfmvr.us.auth0.com/`. Note the trailing slash.
 
-    - `client_id` — The Pachyderm **Client ID** in Auth0. The Client ID
-    consists of 32 alphanumeric characters.
+    - `client_id` — The Pachyderm **Client ID** in Auth0. The client ID
+    consists of alphanumeric characters and can be found on the application
+    settings page.
 
-    - `client_secret` - The Pachyderm client secret in Auth0.
+    - `client_secret` - The Pachyderm client secret in Auth0 located
+    on the application settings page.
     - `redirect_uri` - This parameter should match what you have added
     to **Allowed Callback URLs** in the previous step.
 
 1. Log in as the user you have created in the Pachyderm application
-or sing in with Google:
+or sign in with Google:
 
    1. Run:
 

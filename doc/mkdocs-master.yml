@@ -393,7 +393,8 @@ nav:
             - Configure an OIDC Provider:
               - Overview: enterprise/auth/oidc/index.md
               - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
-              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-oauth2.md
+              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
+              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
