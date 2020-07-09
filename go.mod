@@ -87,13 +87,10 @@ require (
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
-	golang.org/x/tools v0.0.0-20200630154851-b2d8b0336632 // indirect
+	golang.org/x/tools v0.0.0-20200708183856-df98bc6d456c // indirect
 	google.golang.org/api v0.14.0
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.0.0-20200706180831-95bc2bdf7e31 // indirect
-	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/go-playground/webhooks.v5 v5.11.0

@@ -531,7 +531,7 @@ func (c APIClient) GetLogs(
 	return resp
 }
 
-// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
 // 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
 // simply pass an empty value, though one of 'pipelineName' and 'jobID'
 // must be set. Responses are written to 'messages'
