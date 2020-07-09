@@ -48,7 +48,7 @@ more information about the types of supported users, see [Account Types](../).
 
 To activate access controls with `pachctl`, complete the following steps:
 
-* If you are authenticating as a `robot`, OICD, or SAML user, activate
+* If you are authenticating as a `robot`, OIDC, or SAML user, activate
 access controls by specifying a robot user as an initial admin:
 
   ```bash
@@ -64,7 +64,7 @@ access controls by specifying a robot user as an initial admin:
   corresponding section to configure a selected type of user:
 
   * To configure a SAML user, follow the steps in [Configure a SAML Auth Provider]().
-  * To configure a OICD user, follow the steps in [Configure an OIDC Auth Provider]().
+  * To configure a OIDC user, follow the steps in [Configure an OIDC Auth Provider]().
 
 * Activate access controls with a GitHub account:
 
