@@ -672,7 +672,7 @@ func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event
 				return e.Err
 			}
 			if err := f(e); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err

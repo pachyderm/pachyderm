@@ -8,6 +8,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -78,7 +79,7 @@ func (r *Reader) Iterate(f func(*DataReader) error, tagUpperBound ...string) err
 	for {
 		dr, err := r.Peek()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -91,7 +92,7 @@ func (r *Reader) Iterate(f func(*DataReader) error, tagUpperBound ...string) err
 			return nil
 		}
 		if err := f(dr); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -239,7 +240,7 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...st
 	for {
 		tag, err := dr.PeekTag()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -248,7 +249,7 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...st
 			return nil
 		}
 		if err := f(tag, bytes.NewReader(dr.chunk[dr.offset:dr.offset+tag.SizeBytes])); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

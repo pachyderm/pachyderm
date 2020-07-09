@@ -428,7 +428,7 @@ $ {{alias}} foo@master --from XXX`,
 		if raw {
 			for {
 				commitInfo, err := commitIter.Next()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return nil
 				}
 				if err != nil {
@@ -442,7 +442,7 @@ $ {{alias}} foo@master --from XXX`,
 		writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 		for {
 			commitInfo, err := commitIter.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -1525,7 +1525,7 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 			oI++
 		}
 		if err := f(nFI, oFI); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

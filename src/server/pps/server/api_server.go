@@ -1129,7 +1129,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	}
 	for {
 		f, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, grpcutil.ScrubGRPC(err)
@@ -1525,7 +1525,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	var mu sync.Mutex
 	for {
 		fileInfo, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		eg.Go(func() error {
@@ -1844,7 +1844,7 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	// only after all other commits are also finished, preventing any new jobs)
 	for {
 		ci, err := iter.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
@@ -3359,7 +3359,7 @@ func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClie
 		}
 		for {
 			ci, err := client.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
 				return nil, grpcutil.ScrubGRPC(err)
@@ -3388,7 +3388,7 @@ func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClie
 			return nil, errors.Wrapf(err, "error listing tagged objects")
 		}
 
-		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+		for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
 			resp := resp
 			if err != nil {
 				return nil, err
@@ -3474,7 +3474,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for oi, err := objects.Recv(); err != io.EOF; oi, err = objects.Recv() {
+	for oi, err := objects.Recv(); !errors.Is(err, io.EOF); oi, err = objects.Recv() {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error receiving objects from ListObjects")
 		}
@@ -3507,7 +3507,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+	for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error receiving tags from ListTags")
 		}

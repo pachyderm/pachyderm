@@ -374,8 +374,8 @@ func (c *amazonClient) IsRetryable(err error) (retVal bool) {
 		return true
 	}
 
-	awsErr, ok := err.(awserr.Error)
-	if !ok {
+	var awsErr awserr.Error
+	if !errors.As(err, &awsErr) {
 		return false
 	}
 	for _, c := range []string{
@@ -401,8 +401,8 @@ func (c *amazonClient) IsNotExist(err error) bool {
 			return true
 		}
 	}
-	awsErr, ok := err.(awserr.Error)
-	if !ok {
+	var awsErr awserr.Error
+	if !errors.As(err, &awsErr) {
 		return false
 	}
 	if awsErr.Code() == "NoSuchKey" {

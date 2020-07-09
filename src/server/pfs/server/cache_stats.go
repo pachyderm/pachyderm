@@ -10,6 +10,8 @@ import (
 	"github.com/golang/groupcache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type cacheStats struct {
@@ -29,7 +31,7 @@ func RegisterCacheStats(cacheName string, groupCacheStats *groupcache.Stats) {
 	}
 	if err := prometheus.Register(c); err != nil {
 		// metrics may be redundantly registered; ignore these errors
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+		if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 			logrus.Infof("error registering prometheus metric: %v", err)
 		}
 	}
@@ -67,7 +69,7 @@ func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 			)
 			if err != nil {
 				// metrics may be redundantly registered; ignore these errors
-				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 					logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
 				}
 			} else {

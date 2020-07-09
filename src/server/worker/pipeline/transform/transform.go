@@ -1,20 +1,19 @@
 package transform
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
-
-// synchronously start job for commit - this will do the initial task creation
-// waits until the number of running jobs
-// asynchronously wait for datums and then merge
-// semaphore/pool to control how many
 
 func getStatsCommit(pipelineInfo *pps.PipelineInfo, commitInfo *pfs.CommitInfo) *pfs.Commit {
 	for _, commitRange := range commitInfo.Subvenance {
@@ -51,11 +50,26 @@ func forEachCommit(
 				} else if ci.Finished == nil {
 					return cb(ci, statsCommit)
 				} else {
-					// Make sure that the job has been correctly finished as the commit has.
-					ji, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true)
+					// Make sure the stats commit has been finished as the output commit has.
+					if statsCommit != nil {
+						if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+							Commit: statsCommit,
+							Empty:  true,
+						}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+							return err
+						}
+					}
+
+					// Make sure that the job has been correctly finished as the commit(s) have.
+					ji, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, false)
 					if err != nil {
+						// If no job was created for the commit, then we are done.
+						if strings.Contains(err.Error(), fmt.Sprintf("job with output commit %s not found", ci.Commit.ID)) {
+							return nil
+						}
 						return err
 					}
+
 					if !ppsutil.IsTerminal(ji.State) {
 						if ci.Trees == nil && ci.Tree == nil {
 							ji.State = pps.JobState_JOB_KILLED

@@ -1,9 +1,10 @@
 package backoff
 
 import (
-	"errors"
 	"log"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func TestRetry(t *testing.T) {

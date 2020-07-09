@@ -72,7 +72,7 @@ func listRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *O
 				continue
 			}
 			if err := f(kv); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -137,7 +137,7 @@ func listSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int64,
 			continue
 		}
 		if err := f(kv); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err

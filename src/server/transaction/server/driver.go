@@ -301,9 +301,7 @@ func (d *driver) appendTransaction(
 		if err == nil {
 			return info, nil
 		}
-		switch err.(type) {
-		case *transactionConflictError: // pass
-		default:
+		if !errors.As(err, &transactionConflictError{}) {
 			return nil, err
 		}
 	}
