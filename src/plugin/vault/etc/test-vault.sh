@@ -9,7 +9,11 @@ export PLUGIN_PATH=$PLUGIN_NAME
 pachctl version
 command -v aws || pip install awscli --upgrade --user
 if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
-  pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)"
+  # Don't print token to stdout
+  # This is very important, or we'd leak it in our CI logs
+  set +x
+  pachctl enterprise activate "$ENT_ACT_CODE"
+  set -x
 fi
 if ! pachctl auth list-admins; then
   yes | pachctl auth activate -u admin
