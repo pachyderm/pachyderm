@@ -23,7 +23,7 @@ etc/deploy/gen_pachd_tls.sh $hostport ""
 etc/deploy/restart_with_tls.sh $hostport ${PWD}/pachd.pem ${PWD}/pachd.key
 
 set +x # Do not log our activation code when running this script in Travis
-pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)" && echo
+pachctl enterprise activate "$ENT_ACT_CODE" && echo
 set -x
 
 # Make sure the pachyderm client can connect, write data, and create pipelines
