@@ -3156,8 +3156,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	// check if the caller is authorized -- they must be an admin
 	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
 		var isAdmin bool
-		for _, s := range me.AdminRoles.Roles {
-			if s == auth.AdminRole_SUPER {
+		for _, s := range me.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER {
 				isAdmin = true
 				break
 			}

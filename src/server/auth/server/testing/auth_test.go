@@ -44,8 +44,8 @@ var (
 // Caller must hold tokenMapMut. Currently only called by getPachClient(),
 // activateAuth (which is only called by getPachClient()) and deleteAll()
 func isAuthActive(tb testing.TB, checkConfig bool) bool {
-	_, err := seedClient.GetAdminsV2(context.Background(),
-		&auth.GetAdminsV2Request{})
+	_, err := seedClient.GetClusterRoleBindings(context.Background(),
+		&auth.GetClusterRoleBindingsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
 		adminClient := getPachClientInternal(tb, admin)
@@ -218,8 +218,8 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	adminClient := getPachClientInternal(tb, admin)
-	getAdminsResp, err := adminClient.GetAdminsV2(adminClient.Ctx(),
-		&auth.GetAdminsV2Request{})
+	getBindingsResp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+		&auth.GetClusterRoleBindingsRequest{})
 
 	// Detect case 2: auth was deactivated during previous test. De/Reactivate
 	// TODO it may may sense to do this between every test, though it would mean
@@ -232,14 +232,14 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 
 		// "admin" may no longer be an admin, so get a list of admins, authorize as
 		// the first admin, and deactivate auth
-		getAdminsResp, err := adminClient.GetAdminsV2(adminClient.Ctx(),
-			&auth.GetAdminsV2Request{})
+		getBindingsResp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+			&auth.GetClusterRoleBindingsRequest{})
 		require.NoError(tb, err)
-		if len(getAdminsResp.Admins) == 0 {
+		if len(getBindingsResp.Bindings) == 0 {
 			panic("it should not be possible to leave a cluster with no admins")
 		}
 		var currentAdmin string
-		for a := range getAdminsResp.Admins {
+		for a := range getBindingsResp.Bindings {
 			currentAdmin = a
 			break
 		}
@@ -254,17 +254,17 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	// Detect case 3: previous change shuffled admins. Reset list to just "admin"
-	if len(getAdminsResp.Admins) == 0 {
+	if len(getBindingsResp.Bindings) == 0 {
 		panic("it should not be possible to leave a cluster with no admins")
 	}
-	_, hasAdmin := getAdminsResp.Admins[admin]
-	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
+	_, hasAdmin := getBindingsResp.Bindings[admin]
+	hasExpectedAdmin := len(getBindingsResp.Bindings) == 1 && hasAdmin
 	if !hasExpectedAdmin {
 		var curAdminClient *client.APIClient
-		for a, roles := range getAdminsResp.Admins {
+		for a, roles := range getBindingsResp.Bindings {
 			var isSuper bool
 			for _, r := range roles.Roles {
-				if r == auth.AdminRole_SUPER {
+				if r == auth.ClusterRole_SUPER {
 					isSuper = true
 					break
 				}
@@ -290,14 +290,14 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 			return nil
 		}
 
-		_, err = curAdminClient.ModifyAdmin(curAdminClient.Ctx(), &auth.ModifyAdminRequest{
+		_, err = curAdminClient.ModifyClusterRoleBinding(curAdminClient.Ctx(), &auth.ModifyClusterRoleBindingRequest{
 			Principal: admin,
-			Roles:     superAdminRole(),
+			Roles:     superClusterRole(),
 		})
 		require.NoError(tb, err)
-		for a := range getAdminsResp.Admins {
+		for a := range getBindingsResp.Bindings {
 			if a != admin {
-				_, err = curAdminClient.ModifyAdmin(curAdminClient.Ctx(), &auth.ModifyAdminRequest{Principal: a})
+				_, err = curAdminClient.ModifyClusterRoleBinding(curAdminClient.Ctx(), &auth.ModifyClusterRoleBindingRequest{Principal: a})
 				require.NoError(tb, err)
 			}
 		}
@@ -309,10 +309,10 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		}
 		// Wait for admin change to take effect
 		require.NoError(tb, backoff.Retry(func() error {
-			getAdminsResp, err = adminClient.GetAdminsV2(adminClient.Ctx(),
-				&auth.GetAdminsV2Request{})
-			_, hasAdmin := getAdminsResp.Admins[admin]
-			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
+			getBindingsResp, err = adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+				&auth.GetClusterRoleBindingsRequest{})
+			_, hasAdmin := getBindingsResp.Bindings[admin]
+			hasExpectedAdmin := len(getBindingsResp.Bindings) == 1 && hasAdmin
 			if !hasExpectedAdmin {
 				return errors.Errorf("cluster admins haven't yet updated")
 			}
@@ -1879,16 +1879,16 @@ func TestDeleteAll(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// admin makes alice an fs admin
-	_, err = adminClient.ModifyAdmin(adminClient.Ctx(),
-		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(admin)(gh(alice)), resp.Admins,
+			admins(admin)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -3114,16 +3114,16 @@ func TestDisableGitHubAuthFSAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	// admin makes alice an fs admin
-	_, err = adminClient.ModifyAdmin(adminClient.Ctx(),
-		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(admin)(gh(alice)), resp.Admins,
+			admins(admin)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -3147,16 +3147,16 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// admin makes alice an fs admin
-	_, err := adminClient.ModifyAdmin(adminClient.Ctx(),
-		&auth.ModifyAdminRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	_, err := adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdminsV2(aliceClient.Ctx(), &auth.GetAdminsV2Request{})
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(admin)(gh(alice)), resp.Admins,
+			admins(admin)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 

@@ -166,7 +166,7 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-enum AdminRole {
+enum ClusterRole {
     UNDEFINED = 0;
 
     // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
@@ -176,18 +176,26 @@ enum AdminRole {
     FS = 2;
   }
 
-// AdminRoles reflects any cluster-wide (admin) permissions a principal has.
-// A principal can have multiple admin roles.
-message AdminRoles {
-  repeated AdminRole roles = 1;
+// ClusterRoles reflects any cluster-wide permissions a principal has.
+// A principal can have multiple cluster roles.
+message ClusterRoles {
+  repeated ClusterRole roles = 1;
 }
 
-// Get the current list of cluster admins
-message GetAdminsV2Request{}
-message GetAdminsV2Response{
-  // admins contains a mapping of principals to admin roles
-  map<string, AdminRoles> admins = 1;
+// Get the current set of principals and roles for the cluster
+message GetClusterRoleBindingsRequest{}
+message GetClusterRoleBindingsResponse{
+  // bindings contains a mapping of principals to cluster roles
+  map<string, ClusterRoles> bindings = 1;
 }
+
+// Set cluster roles for the specified principal. Setting an empty list of roles
+// revokes any roles the principal has.
+message ModifyClusterRoleBindingRequest {
+  string principal = 1;
+  ClusterRoles roles = 2;
+}
+message ModifyClusterRoleBindingResponse {}
 
 // Deprecated. Get the list of cluster super admins.
 message GetAdminsRequest{}
@@ -201,14 +209,6 @@ message ModifyAdminsRequest {
   repeated string remove = 2;
 }
 message ModifyAdminsResponse {}
-
-// Set admin roles for the specified principal. Setting an empty list of roles
-// revokes any admin roles the principal has.
-message ModifyAdminRequest {
-  string principal = 1;
-  AdminRoles roles = 2;
-}
-message ModifyAdminResponse {}
 
 //// Authentication data structures
 
@@ -276,7 +276,7 @@ message WhoAmIResponse {
   string username = 1;
   bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
-  AdminRoles admin_roles = 4;
+  ClusterRoles cluster_roles = 4;
 }
 
 //// Authorization data structures
@@ -556,12 +556,13 @@ service API {
 
   // Deprecated. GetAdmins returns the current list of cluster super admins
   rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
-  // GetAdminsV2 returns the current list of cluster admins
-  rpc GetAdminsV2(GetAdminsV2Request) returns (GetAdminsV2Response) {}
   // Deprecated. ModifyAdmins adds or removes super admins from the cluster
   rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
+  
+// GetClusterRoleBindings returns the current set of cluster role bindings
+  rpc GetClusterRoleBindings(GetClusterRoleBindingsRequest) returns (GetClusterRoleBindingsResponse) {}
   // ModifyAdmin sets the list of admin roles for a principal
-  rpc ModifyAdmin(ModifyAdminRequest) returns (ModifyAdminResponse) {}
+  rpc ModifyClusterRoleBinding(ModifyClusterRoleBindingRequest) returns (ModifyClusterRoleBindingResponse) {}
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
