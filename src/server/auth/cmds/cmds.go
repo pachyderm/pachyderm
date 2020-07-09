@@ -264,8 +264,9 @@ func LogoutCmd() *cobra.Command {
 	return cmdutil.CreateAlias(logout, "auth logout")
 }
 
-// WhoamiCmd returns a cobra.Command that prints information about the currently
-// authenticated user.
+// WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
+// credential, logging you out of your cluster. Note that this is not necessary
+// to do before logging in as another user, but is useful for testing.
 func WhoamiCmd() *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
@@ -284,11 +285,8 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.AdminRoles != nil && len(resp.AdminRoles.Roles) > 0 {
-				fmt.Println("Administrator roles:")
-				for _, role := range resp.AdminRoles.Roles {
-					fmt.Printf("\t- %s\n", role)
-				}
+			if resp.IsAdmin {
+				fmt.Println("You are an administrator of this Pachyderm cluster")
 			}
 			return nil
 		}),
@@ -427,12 +425,12 @@ func ListAdminsCmd() *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			resp, err := c.GetAdminsV2(c.Ctx(), &auth.GetAdminsV2Request{})
+			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			for user, roles := range resp.Admins {
-				fmt.Printf("%s: %s\n", user, roles.Roles)
+			for _, user := range resp.Admins {
+				fmt.Println(user)
 			}
 			return nil
 		}),
@@ -440,43 +438,25 @@ func ListAdminsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(listAdmins, "auth list-admins")
 }
 
-// ModifyAdminCmd returns a cobra command that modifies the set of current
+// ModifyAdminsCmd returns a cobra command that modifies the set of current
 // cluster admins
-func ModifyAdminCmd() *cobra.Command {
-	modifyAdmin := &cobra.Command{
-		Use:   "{{alias}} <user> <roles>",
-		Short: "Set the admin roles for a given user",
-		Long: "Set the cluster admin roles for a given user." +
-			"The first argument is the user to modify, the second is a comma-separated list of roles." +
-			"An empty list removes all admin roles for the user.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			user := args[0]
-			rolesStr := args[1]
+func ModifyAdminsCmd() *cobra.Command {
+	var add []string
+	var remove []string
+	modifyAdmins := &cobra.Command{
+		Short: "Modify the current cluster admins",
+		Long: "Modify the current cluster admins. --add accepts a comma-" +
+			"separated list of users to grant admin status, and --remove accepts a " +
+			"comma-separated list of users to revoke admin status",
+		Run: cmdutil.Run(func([]string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-
-			roles := auth.AdminRoles{
-				Roles: make([]auth.AdminRole, len(rolesStr)),
-			}
-
-			if len(rolesStr) > 0 {
-				for i, role := range strings.Split(rolesStr, ",") {
-					s, ok := auth.AdminRole_value[role]
-					if !ok {
-						return fmt.Errorf("unsupported admin role %q, valid roles are 'SUPER', 'FS'", role)
-					}
-					roles.Roles[i] = auth.AdminRole(s)
-				}
-			} else {
-				fmt.Printf("Removing all admin roles for %q\n", user)
-			}
-
-			_, err = c.ModifyAdmin(c.Ctx(), &auth.ModifyAdminRequest{
-				Principal: user,
-				Roles:     &roles,
+			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
+				Add:    add,
+				Remove: remove,
 			})
 			if auth.IsErrPartiallyActivated(err) {
 				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
@@ -486,7 +466,11 @@ func ModifyAdminCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAlias(modifyAdmin, "auth modify-admin")
+	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
+		"Comma-separated list of users to grant admin status")
+	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
+		"Comma-separated list of users revoke admin status")
+	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }
 
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
@@ -629,7 +613,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, SetScopeCmd())
 	commands = append(commands, GetCmd())
 	commands = append(commands, ListAdminsCmd())
-	commands = append(commands, ModifyAdminCmd())
+	commands = append(commands, ModifyAdminsCmd())
 	commands = append(commands, GetAuthTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
