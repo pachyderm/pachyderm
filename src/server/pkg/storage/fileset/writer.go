@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -165,7 +166,7 @@ func (w *Writer) CopyFile(fr *FileReader) error {
 		return err
 	}
 	var empty bool
-	if _, err := fr.PeekTag(); err == io.EOF {
+	if _, err := fr.PeekTag(); errors.Is(err, io.EOF) {
 		empty = true
 	}
 	w.setupAnnotation(fr.Index().Path, empty)
