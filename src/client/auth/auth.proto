@@ -166,14 +166,44 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-// Get the current list of cluster admins
+enum ClusterRole {
+    UNDEFINED = 0;
+
+    // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
+    SUPER = 1;
+
+    // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
+    FS = 2;
+  }
+
+// ClusterRoles reflects any cluster-wide permissions a principal has.
+// A principal can have multiple cluster roles.
+message ClusterRoles {
+  repeated ClusterRole roles = 1;
+}
+
+// Get the current set of principals and roles for the cluster
+message GetClusterRoleBindingsRequest{}
+message GetClusterRoleBindingsResponse{
+  // bindings contains a mapping of principals to cluster roles
+  map<string, ClusterRoles> bindings = 1;
+}
+
+// Set cluster roles for the specified principal. Setting an empty list of roles
+// revokes any roles the principal has.
+message ModifyClusterRoleBindingRequest {
+  string principal = 1;
+  ClusterRoles roles = 2;
+}
+message ModifyClusterRoleBindingResponse {}
+
+// Deprecated. Get the list of cluster super admins.
 message GetAdminsRequest{}
 message GetAdminsResponse{
-  // admins contains the list of cluster admins
   repeated string admins = 1;
 }
 
-// Add or remove cluster admins
+// Deprecated. Add and remove users from the set of cluster super admins.
 message ModifyAdminsRequest {
   repeated string add = 1;
   repeated string remove = 2;
@@ -246,6 +276,7 @@ message WhoAmIResponse {
   string username = 1;
   bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+  ClusterRoles cluster_roles = 4;
 }
 
 //// Authorization data structures
@@ -523,10 +554,15 @@ service API {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
 
-  // GetAdmins returns the current list of cluster admins
+  // Deprecated. GetAdmins returns the current list of cluster super admins
   rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
-  // ModifyAdmins adds or removes admins from the cluster
+  // Deprecated. ModifyAdmins adds or removes super admins from the cluster
   rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
+  
+// GetClusterRoleBindings returns the current set of cluster role bindings
+  rpc GetClusterRoleBindings(GetClusterRoleBindingsRequest) returns (GetClusterRoleBindingsResponse) {}
+  // ModifyAdmin sets the list of admin roles for a principal
+  rpc ModifyClusterRoleBinding(ModifyClusterRoleBindingRequest) returns (ModifyClusterRoleBindingResponse) {}
 
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}

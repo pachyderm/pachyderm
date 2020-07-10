@@ -39,24 +39,27 @@ func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndA
 
 }
 
-// Equal checks equality of two values.
+// Equal checks the equality of two values
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
+	if err := EqualOrErr(expected, actual); err != nil {
+		fatal(tb, msgAndArgs, err.Error())
+	}
+}
+
+// EqualOrErr checks equality of two values and returns an error if they're not equal
+func EqualOrErr(expected interface{}, actual interface{}) error {
 	eV, aV := reflect.ValueOf(expected), reflect.ValueOf(actual)
 	if eV.Type() != aV.Type() {
-		fatal(
-			tb,
-			msgAndArgs,
-			"Not equal: %T(%#v) (expected)\n"+
-				"        != %T(%#v) (actual)", expected, expected, actual, actual)
+		return errors.Errorf("Not equal: %T(%#v) (expected)\n"+
+			"        != %T(%#v) (actual)", expected, expected, actual, actual)
 	}
 	if !reflect.DeepEqual(expected, actual) {
-		fatal(
-			tb,
-			msgAndArgs,
+		return errors.Errorf(
 			"Not equal: %#v (expected)\n"+
 				"        != %#v (actual)", expected, actual)
 	}
+	return nil
 }
 
 // NotEqual checks inequality of two values.
