@@ -28,6 +28,16 @@ func (a *InactiveAPIServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// GetClusterRoleBindings implements the GetClusterRoleBindings RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetClusterRoleBindings(context.Context, *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// ModifyClusterRoleBinding implements the ModifyClusterRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyClusterRoleBinding(context.Context, *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
 	return nil, auth.ErrNotActivated
