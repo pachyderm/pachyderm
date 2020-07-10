@@ -39,6 +39,8 @@ message Transform {
 
 message BuildSpec {
   string path = 1;
+  string language = 2;
+  string image = 3;
 }
 
 message TFJob {

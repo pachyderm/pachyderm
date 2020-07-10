@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
@@ -1131,6 +1132,12 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			if request.Input == nil {
 				return errors.New("no `input` specified")
 			}
+			if request.Transform.Build.Language == "" && request.Transform.Build.Image == "" {
+				return errors.New("must specify either a build `language` or `image`")
+			}
+			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
+				return errors.New("cannot specify both a build `language` and `image`")
+			}
 			var err error
 			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
 				inputName := ppsclient.InputName(input)
@@ -1303,6 +1310,15 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 
 	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
 
+	image := request.Transform.Build.Image
+	if image == "" {
+		pachctlVersion := version.PrettyPrintVersion(version.Version)
+		image = fmt.Sprintf("pachyderm/%s-build:%s", request.Transform.Build.Language, pachctlVersion)
+	}
+	if request.Transform.Image == "" {
+		request.Transform.Image = image
+	}
+
 	// utility function for creating an input used as part of a build step
 	createBuildPipelineInput := func(name string) *ppsclient.Input {
 		return &ppsclient.Input{
@@ -1323,7 +1339,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	// create the build pipeline
 	if err := pc.CreatePipeline(
 		buildPipelineName,
-		request.Transform.Image,
+		image,
 		[]string{"sh", "./build.sh"},
 		[]string{},
 		&ppsclient.ParallelismSpec{Constant: 1},

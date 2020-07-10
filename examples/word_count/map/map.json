@@ -11,7 +11,9 @@
       "/pfs/scraper/", 
       "/pfs/out"
     ],
-    "build": {}
+    "build": {
+      "language": "go"
+    }
   },
   "input": {
     "pfs": {

@@ -422,20 +422,22 @@ async def main():
     else:
         raise Exception(f"unknown target: {args.target}")
 
-    procs = [
-        run("make", "install"),
+    await asyncio.gather(
         run("make", "docker-build"),
+        run("make", "install"),
         driver.reset(),
-    ]
+    )
 
     builder_images = []
     if args.builders:
-        for language in os.listdir(PIPELINE_BUILD_DIR):
-            builder_image = f"pachyderm/{language}-build"
+        procs = []
+        version = await get_client_version()
+        for language in (d for d in os.listdir(PIPELINE_BUILD_DIR) if os.path.isdir(os.path.join(PIPELINE_BUILD_DIR, d))):
+            builder_image = f"pachyderm/{language}-build:{version}"
             procs.append(run("docker", "build", "-t", builder_image, ".", cwd=os.path.join(PIPELINE_BUILD_DIR, language)))
             builder_images.append(builder_image)
-
-    await asyncio.gather(*procs)
+        await asyncio.gather(*procs)
+    
     await driver.deploy(args.dash, args.ide, builder_images)
 
 if __name__ == "__main__":

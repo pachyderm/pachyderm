@@ -556,8 +556,9 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		    "name": "test-pipeline-build"
 		  },
 		  "transform": {
-		    "image": "pachyderm/%s-build",
-		    "build": {}
+		    "build": {
+		      "language": "%s"
+		    }
 		  },
 		  "input": {
 		    "pfs": {
@@ -600,13 +601,13 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		    "name": "test-pipeline-build"
 		  },
 		  "transform": {
-		    "image": "pachyderm/%s-build",
 		    "cmd": [
 		      "sh",
 		      "/pfs/build/run.sh",
 		      "_"
 		    ],
 		    "build": {
+		      "language": "%s",
 		      "path": "."
 		    }
 		  },
@@ -655,7 +656,7 @@ func TestMissingPipeline(t *testing.T) {
 		pachctl create pipeline <<EOF
 			{
 			  "transform": {
-			    "image": "pachyderm/python-build"
+			    "image": "ubuntu"
 			  },
 			  "input": {
 			    "pfs": {
@@ -678,7 +679,7 @@ func TestUnnamedPipeline(t *testing.T) {
 			{
 			  "pipeline": {},
 			  "transform": {
-			    "image": "pachyderm/python-build"
+			    "image": "ubuntu"
 			  },
 			  "input": {
 			    "pfs": {
@@ -703,8 +704,9 @@ func TestPipelineBuildSpout(t *testing.T) {
 			    "name": "test"
 			  },
 			  "transform": {
-			    "image": "pachyderm/python-build",
-			    "build": {}
+			    "build": {
+			      "language": "go"
+			    }
 			  },
 			  "spout": {}
 			}
@@ -724,8 +726,9 @@ func TestPipelineBuildMissingInput(t *testing.T) {
 			    "name": "test"
 			  },
 			  "transform": {
-			    "image": "pachyderm/python-build",
-			    "build": {}
+			    "build": {
+			      "language": "go"
+			    }
 			  }
 			}
 		EOF
@@ -736,8 +739,8 @@ func TestPipelineBuildBadInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	// should fail because 'build' and 'source' are reserved input names for
-	// when using pipeline builds
+	// should fail because 'build' and 'source' are reserved input names when
+	// using pipeline builds
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
 			{
@@ -745,8 +748,9 @@ func TestPipelineBuildBadInput(t *testing.T) {
 			    "name": "test"
 			  },
 			  "transform": {
-			    "image": "pachyderm/python-build",
-			    "build": {}
+			    "build": {
+			      "language": "go"
+			    }
 			  },
 			  "input": {
 			    "pfs": {
@@ -765,8 +769,9 @@ func TestPipelineBuildBadInput(t *testing.T) {
 			    "name": "test"
 			  },
 			  "transform": {
-			    "image": "pachyderm/python-build",
-			    "build": {}
+			    "build": {
+			      "language": "go"
+			    }
 			  },
 			  "input": {
 			    "pfs": {
@@ -793,8 +798,8 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 			    "name": "test"
 			  },
 			  "transform": {
-			    "image": "pachyderm/python-build",
 			    "build": {
+			      "language": "go",
 			      "path": "/some/path/that/doesnt/exist"
 			    }
 			  },
