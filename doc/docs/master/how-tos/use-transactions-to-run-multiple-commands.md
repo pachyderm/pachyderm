@@ -208,11 +208,7 @@ until all the nested transactions and the main transaction are closed.
 Pachyderm does not support such behavior. Instead, when you open a
 transaction, the transaction ID is written to the Pachyderm configuration
 file. If you begin another transaction while the first one is open, Pachyderm
-suspends the first transaction and overwrites the transaction ID in the
-configuration file. All operations that you add to the ensuing
-transactions will be executed as soon as you close those
-transactions. To resume the initial transaction, you need to run
-`pachctl resume transaction`.
+returns an error.
 
 Every time you add a command to a transaction,
 Pachyderm creates a blueprint of the commit and verifies that the

@@ -99,6 +99,24 @@ func CryptoString(n int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// half is a helper function used to log the first half of OIDC state tokens in
+// logs.
+//
+// Per the description of handleOIDCLogin, we currently don't give error details
+// to callers of Authenticate/handleOIDCCallback, to avoid accidentally leaking
+// sensitive information to untrusted users, and instead log error information
+// from pachd (where only kubernetes administrators can see it) with the state
+// token inline. This way, legitimate users having trouble authenticating can
+// show their state token to a cluster administrator and get error information
+// from them. However, to avoid giving too much user information to Kubernetes
+// cluster administrators, we don't want to log users' private credentials. So
+// this function is used to log part of an OIDC state token--enough to associate
+// error logs with a failing authentication flow, but not enough for a cluster
+// administrator to impersonate a user.
+func half(state string) string {
+	return fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state))
+}
+
 // NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
 func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
 	o := &InternalOIDCProvider{
@@ -182,14 +200,14 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state string) (email string, retErr error) {
 	defer func() {
 		logrus.Infof("converted OIDC state %q to email %q (or err: %v)",
-			state, email, retErr)
+			half(state), email, retErr)
 	}()
 	// reestablish watch in a loop, in case there's a watch error
 	if err := backoff.RetryNotify(func() error {
 		watcher, err := o.States.ReadOnly(ctx).WatchOne(state)
 		if err != nil {
 			logrus.Errorf("error watching OIDC state token %q during authorization: %v",
-				state, err)
+				half(state), err)
 			return errWatchFailed
 		}
 		defer watcher.Close()
@@ -220,7 +238,7 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 		return nil
 	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
 		logrus.Errorf("error watching OIDC state token %q during authorization (retrying in %s): %v",
-			state, d, err)
+			half(state), d, err)
 		if err == errWatchFailed || err == errTokenDeleted || err == errAuthFailed {
 			return err // don't retry, just return the error
 		}
@@ -238,33 +256,27 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 //
 // The error handling from this function is slightly delicate, as callers may
 // have network access to Pachyderm, but may not have an OIDC account or any
-// legitimate access to this cluster, so we want to avoid leaking operational
-// details. In general:
+// legitimate access to this cluster, so we want to avoid accidentally leaking
+// operational details. In general:
 // - This should not return an HTTP error with more information than pachctl
 //   prints. Currently, pachctl only prints the OIDC state token presented by
 //   the user and "Authorization failed" if the token exchange doesn't work
 //   (indicated by SessionInfo.ConversionErr == true).
 // - More information may be included in logs (which should only be accessible
-//   Pachyderm administrators with kubectl access), and logs include any
-//   relevant OIDC state token. Thus if a user is legitimate, they can present
-//   the OIDC state token displayed by pachctl or their browser to a cluster
-//   administrator, the cluster administrator can locate a detailed error in
-//   pachctl's logs, and together they can resolve any authorization issues.
-// - However, this should not log any long-lived credentials that would allow a
-//   kubernetes cluster administrator to impersonate an individual user in
-//   Pachyderm or elsewhere (i.e. an OIDC authorization code or access token, or
-//   a Pachyderm token). Nonce and OIDC state token are OK (for now), as they
-//   are both short-lived and internal to Pachyderm. If needed, Pachyderm
-//   cluster administrators can impersonate users by calling GetAuthToken(),
-//   but that call is logged and auditable.
-// - In particular, because errors returned by handleOIDCExchange are logged,
-//   error messages should not contain long-lived auth credentials
-// TODO(msteffen): OIDC state may not be OK, as an untrusted administrator could
-// cause an Authenticate() request to fail by interfering at the network layer,
-// and then exercise the OIDC state themselves if they act quickly. We could
-// avoid logging OIDC state and log nonce instead, but nonce isn't available in
-// all places below that log. For now, there are larger security holes that need
-// to be patched first.
+//   Pachyderm administrators with kubectl access), and logs include enough
+//   characters of any relevant OIDC state token to identify a particular login
+//   flow. Thus if a user is legitimate, they can present their OIDC state token
+//   (displayed by pachctl or their browser) to a cluster administrator, and the
+//   cluster administrator can locate a detailed error in pachctl's logs.
+//   Together they can resolve any authorization issues.
+// - This should also not log any user credentials that would allow a
+//   kubernetes cluster administrator to impersonate an individual user
+//   undetected in Pachyderm or elsewhere. Where this logs OIDC state tokens, to
+//   correlate authentication flows to error logs, it only logs the first half,
+//   which is not enough to authenticate.
+//
+// If needed, Pachyderm cluster administrators can impersonate users by calling
+// GetAuthToken(), but that call is logged and auditable.
 func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	sp := a.getOIDCSP()
@@ -312,12 +324,12 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 		// Don't give the user specific error information
 		http.Error(w,
 			fmt.Sprintf("authorization failed (OIDC state token: %q; Pachyderm "+
-				"logs may contain more information)", state),
+				"logs may contain more information)", half(state)),
 			http.StatusUnauthorized)
 	case etcdErr != nil:
 		http.Error(w,
 			fmt.Sprintf("temporary error during authorization (OIDC state token: "+
-				"%q; Pachyderm logs may contain more information)", state),
+				"%q; Pachyderm logs may contain more information)", half(state)),
 			http.StatusInternalServerError)
 	default:
 		// Success
@@ -327,11 +339,11 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	// (use two ifs here vs switch in case both are set)
 	if conversionErr != nil {
 		logrus.Errorf("could not convert authorization code (OIDC state: %q) %v",
-			state, conversionErr)
+			half(state), conversionErr)
 	}
 	if etcdErr != nil {
 		logrus.Errorf("error storing OIDC authorization code in etcd (OIDC state: %q): %v",
-			state, etcdErr)
+			half(state), etcdErr)
 	}
 }
 
@@ -341,10 +353,10 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 // response to the user's browser.
 func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *InternalOIDCProvider, authCode, state string) (nonce, email string, retErr error) {
 	// log request, but do not log auth code (short-lived, but senstive user authenticator)
-	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", state)
+	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", half(state))
 	defer func() {
 		logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q, \"nonce\": %q, \"email\": %q }",
-			state, nonce, email)
+			half(state), nonce, email)
 	}()
 	conf := &oauth2.Config{
 		ClientID:     sp.ClientID,
