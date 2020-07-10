@@ -484,16 +484,18 @@ If you want to expose an input repository through an S3 gateway, see
 !!! note "See Also:"
     [Environment Variables](../../deploy-manage/deploy/environment-variables/)
 
-### Input (required)
+### Input
 
 `input` specifies repos that will be visible to the jobs during runtime.
 Commits to these repos will automatically trigger the pipeline to create new
 jobs to process them. Input is a recursive type, there are multiple different
 kinds of inputs which can be combined together. The `input` object is a
 container for the different input types with a field for each, only one of
-these fields be set for any instantiation of the object.
+these fields be set for any instantiation of the object. While most types
+of pipeline specifications require an `input` repository, there are
+exceptions, such as a spout, which does not need an `input`.
 
-```
+```json
 {
     "pfs": pfs_input,
     "union": union_input,

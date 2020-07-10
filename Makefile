@@ -48,6 +48,10 @@ point-release:
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
 release-candidate:
+	@if [ $${VERSION_ADDITIONAL:0:1} != - ]; then \
+	  echo "VERSION_ADDITIONAL must start with a '-'"; \
+	  exit 1; \
+	fi
 	@make release-helper
 	@make release-pachctl-custom
 	@echo "Release completed"
@@ -71,7 +75,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version docker-build docker-push
+release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
@@ -81,15 +85,25 @@ docker-build: enterprise-code-checkin-test
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
-		--progress plain -t pachyderm_build .
+		--progress plain -f Dockerfile.pachd -t pachyderm_build .
+
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
+
 	docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
 		-t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
+
+docker-build-pachctl:
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		--build-arg GC_FLAGS="$(GC_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -136,10 +150,16 @@ docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
+docker-tag-pachctl: install
+	docker tag pachyderm/pachctl pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
+
 docker-push: docker-tag
 	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+
+docker-push-pachctl: docker-tag-pachctl
+	docker push pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -455,6 +475,7 @@ goxc-build:
 	release-helper \
 	release-version \
 	docker-build \
+	docker-build-pachctl \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
@@ -466,6 +487,10 @@ goxc-build:
 	docker-build-test-entrypoint \
 	check-kubectl \
 	check-kubectl-connection \
+	docker-tag \
+	docker-tag-pachctl \
+	docker-push \
+	docker-push-pachctl \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \

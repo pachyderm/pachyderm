@@ -1310,23 +1310,31 @@ underlying volume will not be removed.`)
 }
 
 func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
-	var err error
-	tagVersion := version.PrettyPrintVersion(version.Version)
-	defer func() {
-		if err != nil && !dryRun {
-			fmt.Printf("No updated dash image found for pachctl %v: %v Falling back to dash image %v\n", tagVersion, err, defaultDashImage)
-		}
-	}()
 	if dashImage != "" {
 		// It has been supplied explicitly by version on the command line
 		return dashImage
 	}
 	dashImage = defaultDashImage
-	verCustom := tagVersion
+
+	var err error
+	var relVersion string
+
+	// This is the branch where to look.
+	// When a new dash version needs to be pushed we can just update the compatibility file
+	// in pachyderm repo branch. A (re)deploy will pick it up. To make this work we have to
+	// point the URL to the branch (not tag) in the repo.
+	branch := version.BranchFromVersion(version.Version)
 	if version.IsCustomRelease(version.Version) {
-		verCustom = version.PrettyPrintVersionNoAdditional(version.Version)
+		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
+	} else {
+		relVersion = version.PrettyPrintVersion(version.Version)
 	}
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/v%v/etc/compatibility/%v", tagVersion, verCustom)
+	defer func() {
+		if err != nil && !dryRun {
+			fmt.Printf("No updated dash image found for pachctl in branch %v in release %v: %v Falling back to dash image %v\n", branch, relVersion, err, defaultDashImage)
+		}
+	}()
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/etc/compatibility/%v", branch, relVersion)
 	resp, err := http.Get(compatibleDashVersionsURL)
 	if err != nil {
 		return dashImage
