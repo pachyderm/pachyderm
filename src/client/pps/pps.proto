@@ -86,6 +86,7 @@ message PFSInput {
   string commit = 4;
   string glob = 5;
   string join_on = 8;
+  string group_on = 10;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
@@ -117,13 +118,20 @@ message GitInput {
   string commit = 4;
 }
 
+message Slice {
+  int64 lower = 1;
+  int64 upper = 2;
+}
+
 message Input {
   PFSInput pfs = 6;
   repeated Input join = 7;
   repeated Input cross = 2;
   repeated Input union = 3;
+  repeated Input group = 8;
   CronInput cron = 4;
   GitInput git = 5;
+  Slice slice = 9;
 }
 
 message JobInput {
