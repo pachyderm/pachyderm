@@ -75,7 +75,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl
+release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl docker-build-pipeline-build docker-push-pipeline-build
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
@@ -104,6 +104,9 @@ docker-build-pachctl:
 		--build-arg GC_FLAGS="$(GC_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
 		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
+
+docker-build-pipeline-build:
+	cd etc/pipeline-build && make docker-build
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -160,6 +163,9 @@ docker-push: docker-tag
 
 docker-push-pachctl: docker-tag-pachctl
 	docker push pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
+
+docker-push-pipeline-build:
+	cd etc/pipeline-build && make docker-push
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -476,6 +482,7 @@ goxc-build:
 	release-version \
 	docker-build \
 	docker-build-pachctl \
+	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
@@ -491,6 +498,7 @@ goxc-build:
 	docker-tag-pachctl \
 	docker-push \
 	docker-push-pachctl \
+	docker-push-pipeline-build \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
