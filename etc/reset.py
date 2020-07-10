@@ -8,6 +8,7 @@ import secrets
 import argparse
 import collections
 import http.client
+from pathlib import Path
 
 ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
@@ -19,6 +20,16 @@ DELETABLE_RESOURCES = [
 ]
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
+
+# Path to file used for ensuring minikube doesn't need to be deleted.
+# With newer versions of minikube, cluster state (host paths, pods, etc.) is
+# persisted across host system restarts, but credentials aren't, causing
+# permissions failures on k8s admin calls. We use this file to reference
+# whether minikube has been started since the last host system restart, which
+# will allow us to figure out whether to reset the cluster state so we don't
+# get the permissions errors. It's stored in `/tmp` because that directory
+# is wiped on every system restart, and doesn't require root to write to.
+MINIKUBE_RUN_FILE = Path("/tmp/pachyderm-minikube-reset")
 
 RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
 
@@ -61,7 +72,8 @@ class BaseDriver:
         # cause us to bring up a new pachyderm cluster with access to the old
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
-        return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
+        host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
+        return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
     async def deploy(self, dash, ide):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
@@ -113,18 +125,24 @@ class BaseDriver:
 
 class MinikubeDriver(BaseDriver):
     async def reset(self):
+        is_minikube_running = True
+
         async def minikube_status():
             await run("minikube", "status", capture_output=True)
 
-        is_minikube_running = True
-        try:
-            await minikube_status()
-        except:
+        if MINIKUBE_RUN_FILE.exists():
+            try:
+                await minikube_status()
+            except:
+                is_minikube_running = False
+        else:
+            await run("minikube", "delete")
             is_minikube_running = False
 
         if not is_minikube_running:
             await run("minikube", "start")
             await retry(minikube_status)
+            MINIKUBE_RUN_FILE.touch()
 
         await super().reset()
 
@@ -164,7 +182,7 @@ class GCPDriver(BaseDriver):
 
             await run("gsutil", "mb", f"gs://{self.object_storage_name}")
 
-            docker_config_path = os.path.expanduser("~/.docker/config.json")
+            docker_config_path = Path.home() / ".docker" / "config.json"
             await run("kubectl", "create", "secret", "generic", "regcred",
                 f"--from-file=.dockerconfigjson={docker_config_path}",
                 "--type=kubernetes.io/dockerconfigjson")
@@ -335,16 +353,14 @@ def print_status(status):
 
 async def retry(f, attempts=10, sleep=1.0):
     """
-    Repeatedly retries an operation, ignore exceptions, n times with a given
-    sleep between runs.
+    Repeatedly retries operation up to `attempts` times, with a given `sleep`
+    between runs.
     """
-    count = 0
-    while count < attempts:
+    for i in range(attempts):
         try:
             return await f()
         except:
-            count += 1
-            if count >= attempts:
+            if i == attempts - 1:
                 raise
             await asyncio.sleep(sleep)
 
