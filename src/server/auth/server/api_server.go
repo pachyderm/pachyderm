@@ -835,7 +835,9 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 			Principal: toAdd,
 			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}},
 		})
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, toRemove := range req.Remove {
@@ -843,7 +845,9 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 			Principal: toRemove,
 			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{}},
 		})
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &auth.ModifyAdminsResponse{}, nil
