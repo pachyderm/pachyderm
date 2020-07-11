@@ -11,6 +11,7 @@ VERSION=$(echo "$RELVERSION" | cut -f -1 -d "-")
 
 touch "etc/compatibility/$VERSION"
 go run etc/build/get_dash_version.go >> "etc/compatibility/$VERSION"
+ln -s "etc/compatibility/$VERSION" "etc/compatibility/latest"
 
 echo "--- Updated dash compatibility file for pachctl $VERSION"
 

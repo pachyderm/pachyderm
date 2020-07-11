@@ -53,9 +53,11 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 ```
 
 4) Update dash compatibility version. Commit these changes locally. You will push to GitHub in a later step.
+    - Note: The update to "latest" will cause dash CI to default run with the release pointed to be latest
 ```
 > make dash-compatibility
 > git add etc/compatibility/<VERSION>
+> git add etc/compatibility/latest
 > git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
 ```
 
