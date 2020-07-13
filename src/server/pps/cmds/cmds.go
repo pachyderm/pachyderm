@@ -597,7 +597,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@<branch>[=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If only the branch is given, the head commit of the branch is used to complete the pair. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. The datums that were successfully processed in previous runs will not be processed unless you specify the --reprocess flag.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
