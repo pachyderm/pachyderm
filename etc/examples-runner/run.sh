@@ -2,9 +2,9 @@
 
 set -e
 
-if [ ! -z "$1" ]; then
+if [ -n "$1" ]; then
     pachd_address="$1"
-elif [ ! -z "$PACHD_PEER_SERVICE_HOST" ]; then
+elif [ -n "$PACHD_PEER_SERVICE_HOST" ]; then
     pachd_address="$PACHD_PEER_SERVICE_HOST:$PACHD_PEER_SERVICE_PORT"
 else
     pachd_address="localhost:30650"
