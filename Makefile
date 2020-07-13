@@ -121,6 +121,9 @@ docker-build-kafka:
 docker-build-spout-test:
 	docker build -t spout-test etc/testing/spout
 
+docker-build-examples-runner: install
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/examples-runner etc/examples-runner
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 
@@ -480,6 +483,7 @@ goxc-build:
 	docker-build-netcat \
 	docker-build-gpu \
 	docker-build-spout-test \
+	docker-build-examples-runner \
 	docker-push-gpu \
 	docker-push-gpu-dev \
 	docker-gpu \

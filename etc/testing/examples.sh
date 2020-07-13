@@ -1,7 +1,8 @@
 #!/bin/bash
 
 set -ex
-# Runs various examples ot ensure they don't break. Some examples were
+
+# Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 
 pushd examples/opencv
@@ -140,3 +141,5 @@ pushd examples/ml/iris
         exit 1
     fi
 popd
+
+yes | pachctl delete all
