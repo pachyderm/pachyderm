@@ -44,9 +44,10 @@ environment variables.
 | `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
 | `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
 | `PORT`                 | `650`             | The `pachd` port number. |
-| `HTTP_PORT`             | `652`             | The HTTP port number.   |
-| `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
+| `HTTP_PORT`            | `652`             | The HTTP port number.   |
+| `PEER_PORT`            | `653`             | The port for pachd-to-pachd communication. |
 | `NAMESPACE`            | `deafult`         | The namespace in which Pachyderm is deployed. |
+| `GC_PERCENT`           | `50`              | Controls the garbage collection percentage and is an equivalent of the [GOGC](https://golang.org/pkg/runtime/) environment variable. The default value is `50`, and the larger the number, the less often garbage collection will run. |
 
 **pachd Configuration**
 
