@@ -1370,18 +1370,14 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 
 	// insert the source code
-	commit, err := pc.StartCommit(buildPipelineName, "source")
-	if err != nil {
-		return errors.Wrapf(err, "failed to start commit for source code in build step-enabled pipeline")
-	}
-	if update {
-		if err = pc.DeleteFile(buildPipelineName, commit.ID, "/"); err != nil {
-			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
-		}
-	}
 	pfc, err := pc.NewPutFileClient()
 	if err != nil {
 		return errors.Wrapf(err, "failed to construct put file client for source code in build step-enabled pipeline")
+	}
+	if update {
+		if err = pfc.DeleteFile(buildPipelineName, "source", "/"); err != nil {
+			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+		}
 	}
 	if err := filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
 		if info == nil {
@@ -1411,7 +1407,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 			}
 		}()
 
-		if _, err = pfc.PutFileOverwrite(buildPipelineName, commit.ID, destFilePath, f, 0); err != nil {
+		if _, err = pfc.PutFileOverwrite(buildPipelineName, "source", destFilePath, f, 0); err != nil {
 			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
 		}
 
@@ -1421,10 +1417,6 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 	}
 	if err := pfc.Close(); err != nil {
 		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
-	}
-
-	if err = pc.FinishCommit(buildPipelineName, commit.ID); err != nil {
-		return errors.Wrapf(err, "failed to finish commit for source code in build step-enabled pipeline")
 	}
 
 	// modify the pipeline to use the build assets
