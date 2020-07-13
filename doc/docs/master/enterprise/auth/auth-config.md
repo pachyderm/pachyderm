@@ -14,6 +14,12 @@ can access it by using the following commands:
 * To edit the auth configuration, run:
 
   ```bash
+  pachctl auth set-config -f <config.json>
+  ```
+
+  or:
+
+  ```bash
   pachctl auth set-config <<EOF
   {
     "live_config_version": ${live_config_version},
@@ -67,7 +73,7 @@ authentication file:
  | `oidc`           | A list of parameters related to the OIDC provider configuration. |
  | `issuer`         | The address of the OIDC provider. For example, <br> `http://keycloak.<ip>.nip.io/auth/realms/<realm-name>`. | 
  | `client_id`      | The Pachyderm ID configured in the IdP. For example, <br> `pachyderm`.
- | `client_secret`  | A shared secret with the ID provider. This parameter <br> can be omitted for testing. |
+ | `client_secret`  | A shared secret with the ID provider. If your OIDC provider <br> does not use a secret, which is not recommended, the <br> parameter can be omitted for testing. |
  | `redirect_uri`   | The URI on which the OIDC IdP can access Pachyderm. <br> Depends on your network configuration and must have the following <br> format: `http://<ip>:30657/authorization-code/callback`. |
 
 [View a sample config](../oidc/configure-keycloak/#configure-keycloak)

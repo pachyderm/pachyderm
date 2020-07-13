@@ -160,7 +160,7 @@ step:
     ```bash
     pachctl auth set-config <<EOF
     {
-            "live_config_version": 2,
+            "live_config_version": 1,
             "id_providers": [{
             "name": "keycloak",
             "description": "oidc-based authentication with locally hosted keycloak",

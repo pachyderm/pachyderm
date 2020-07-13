@@ -15,8 +15,6 @@ If you want to configure a SAML IdP, such as Okta, you need
 to create an initial robot admin account by using the
 `--initial-admin=robot:<user>` flag.
 
-For OIDC users, appointing the initial admin is unnecessary.  
-
 To enable access controls, complete the following steps:
 
 1. Verify the status of the Enterprise
