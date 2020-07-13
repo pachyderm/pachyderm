@@ -82,23 +82,23 @@ func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...O
 
 // NewWriter makes a Writer backed by the path `fileSet` in object storage.
 func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
+	fileSet = applyPrefix(fileSet)
 	return s.newWriter(ctx, fileSet, opts...)
+}
+
+func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
+	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
 // NewReader makes a Reader backed by the path `fileSet` in object storage.
 func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return s.newReader(ctx, fileSet, opts...)
-}
-
-func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
 	fileSet = applyPrefix(fileSet)
-	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
+	return s.newReader(ctx, fileSet, opts...)
 }
 
 // TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
 func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	fileSet = applyPrefix(fileSet)
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
@@ -121,7 +121,18 @@ func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
+// NewSource makes a source which will iterate over the prefix fileSet
+func (s *Storage) NewSource(ctx context.Context, fileSet string, opts ...index.Option) FileSource {
+	return &mergeSource{
+		s: s,
+		getReader: func() (*MergeReader, error) {
+			return s.NewMergeReader(ctx, []string{fileSet}, opts...)
+		},
+	}
+}
+
 // ResolveIndexes resolves index entries that are spread across multiple filesets.
+// DEPRECATED: Use NewIndexResolver
 func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
 	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
 	if err != nil {

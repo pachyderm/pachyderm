@@ -1,18 +1,15 @@
 package server
 
 import (
-	"archive/tar"
-	"hash"
 	"io"
 	"log"
 	"path"
-	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -169,18 +166,27 @@ func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(
 	})
 }
 
-// TODO Need to figure out path cleaning.
-func (d *driverV2) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	if err := d.getTarConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
-		return fr.Get(w, true)
-	}); err != nil {
+func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
 		return err
 	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
+	s := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+		return mf(idx.Path)
+	})
+	// TODO: remove absolute paths on the way out?
+	// nonAbsolute := &fileset.HeaderMapper{
+	// 	R: filter,
+	// 	F: func(th *tar.Header) *tar.Header {
+	// 		th.Name = "." + th.Name
+	// 		return th
+	// 	},
+	// }
+	return fileset.WriteTarStream(ctx, w, filter)
 }
 
-func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
+func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfoV2) error) error {
 	ctx := pachClient.Ctx()
 	if err := validateFile(file); err != nil {
 		return err
@@ -188,20 +194,27 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	// TODO: handle children of a directory
-	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
-		return f(fr.Info())
+	name := cleanPath(file.Path)
+	s := NewSource(file.Commit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			if idx.Path == name {
+				return true
+			}
+			if idx.Path == name+"/" {
+				return false
+			}
+			return strings.HasPrefix(idx.Path, name)
+		})
+		return x
 	})
-}
-
-var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
-
-func globLiteralPrefix(glob string) string {
-	idx := globRegex.FindStringIndex(glob)
-	if idx == nil {
-		return glob
-	}
-	return glob[:idx[0]]
+	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+		if pathIsChild(name, cleanPath(fi.File.Path)) {
+			return cb(fi)
+		}
+		return nil
+	})
 }
 
 // TODO Need to figure out path cleaning.
@@ -255,100 +268,6 @@ func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob str
 	}
 	if fr != nil {
 		return f(fr)
-	}
-	return nil
-}
-
-func matchFunc(glob string) (func(string) bool, error) {
-	// TODO Need to do a review of the globbing functionality.
-	var parentG *globlib.Glob
-	parentGlob, baseGlob := path.Split(glob)
-	if len(baseGlob) > 0 {
-		var err error
-		parentG, err = globlib.Compile(parentGlob, '/')
-		if err != nil {
-			return nil, err
-		}
-	}
-	g, err := globlib.Compile(glob, '/')
-	if err != nil {
-		return nil, err
-	}
-	return func(s string) bool {
-		return g.Match(s) && (parentG == nil || !parentG.Match(s))
-	}, nil
-}
-
-// FileReader is a PFS wrapper for a fileset.MergeReader.
-// The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfo and to convert a set of index hashes to a file hash.
-type FileReader struct {
-	file      *pfs.File
-	idx       *index.Index
-	fmr       *fileset.FileMergeReader
-	mr        *fileset.MergeReader
-	fileCount int
-	hash      hash.Hash
-}
-
-func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.DataOp.DataRefs {
-		// TODO Pull from chunk hash.
-		h.Write([]byte(dataRef.Hash))
-	}
-	return &FileReader{
-		file: file,
-		idx:  idx,
-		fmr:  fmr,
-		mr:   mr,
-		hash: h,
-	}
-}
-
-func (fr *FileReader) updateFileInfo(idx *index.Index) {
-	fr.fileCount++
-	for _, dataRef := range idx.DataOp.DataRefs {
-		fr.hash.Write([]byte(dataRef.Hash))
-	}
-}
-
-// Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoV2 {
-	return &pfs.FileInfoV2{
-		File: fr.file,
-		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
-	}
-}
-
-// Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
-	if err := fr.fmr.Get(w); err != nil {
-		return err
-	}
-	for fr.fileCount > 0 {
-		fmr, err := fr.mr.Next()
-		if err != nil {
-			return err
-		}
-		if err := fmr.Get(w); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	if len(noPadding) > 0 && noPadding[0] {
-		return nil
-	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
-}
-
-func (fr *FileReader) drain() error {
-	for fr.fileCount > 0 {
-		if _, err := fr.mr.Next(); err != nil {
-			return err
-		}
-		fr.fileCount--
 	}
 	return nil
 }
@@ -478,9 +397,7 @@ func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputP
 	}))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
-		if err := fsr.Iterate(func(fr *fileset.FileReader) error {
-			return fsw.CopyFile(fr)
-		}); err != nil {
+		if err := fileset.CopyFiles(fsw, fsr); err != nil {
 			return nil, err
 		}
 	}
@@ -533,7 +450,7 @@ func (d *driverV2) compactionWorker() {
 	panic(err)
 }
 
-func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfoV2) error) (retErr error) {
+func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfoV2) error) (retErr error) {
 	// Validate arguments
 	if commit == nil {
 		return errors.New("commit cannot be nil")
@@ -544,8 +461,23 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-
-	return d.getTarConditional(pachClient.Ctx(), commit.Repo.Name, commit.ID, pattern, func(fr *FileReader) error {
-		return f(fr.Info())
+	ctx := pachClient.Ctx()
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
+		return err
+	}
+	s := NewSource(commit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+		x = fileset.NewIndexResolver(x)
+		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return mf(cleanPath(idx.Path))
+		})
 	})
+	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		return cb(fi)
+	})
+}
+
+func compactedCommitPath(commit *pfs.Commit) string {
+	return path.Join(commitKey(commit), fileset.Compacted)
 }
