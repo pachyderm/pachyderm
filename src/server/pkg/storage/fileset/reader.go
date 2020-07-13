@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -93,6 +94,10 @@ func (fr *FileReader) Header() (*tar.Header, error) {
 		}
 		var err error
 		fr.hdr, err = tar.NewReader(buf).Next()
+		if err == io.EOF {
+			fmt.Println(fr.idx)
+			//panic(err)
+		}
 		return fr.hdr, err
 	}
 	return fr.hdr, nil

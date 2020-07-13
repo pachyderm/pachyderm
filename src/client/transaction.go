@@ -401,6 +401,9 @@ func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequ
 func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
 	return nil, unsupportedError("GlobFileV2")
 }
+func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
+	return nil, unsupportedError("DiffFileV2")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")

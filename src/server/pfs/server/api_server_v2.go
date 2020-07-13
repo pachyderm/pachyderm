@@ -250,3 +250,13 @@ func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_Gl
 		return server.Send(fi)
 	})
 }
+
+// DiffFileV2 returns the files only in new or only in old
+func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfoV2) error {
+		return server.Send(&pfs.DiffFileResponseV2{
+			OldFile: oldFi,
+			NewFile: newFi,
+		})
+	})
+}

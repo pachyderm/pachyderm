@@ -623,6 +623,11 @@ func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFile
 	return errV2NotImplemented
 }
 
+// DiffFileV2 not implemented
+func (a *apiServer) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+	return errV2NotImplemented
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {
