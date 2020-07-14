@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "gogoproto/gogo.proto";
+
+
+package graphqlproto.types;
+
+option go_package = "types";
+option (gogoproto.populate_all) = true;
+option (gogoproto.equal_all) = true;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+
+message Timestamp {
+  int64 seconds = 1;
+	int32 nanos = 2;
+}
