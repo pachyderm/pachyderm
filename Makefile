@@ -384,6 +384,7 @@ launch-loki:
 	helm repo add loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
+	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done
 
 clean-launch-loki:
 	helm uninstall loki
