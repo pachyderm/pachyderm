@@ -20,6 +20,8 @@ type GlobalConfiguration struct {
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
+	LokiHost      string `env:"LOKI_SERVICE_HOST"`
+	LokiPort      string `env:"LOKI_SERVICE_PORT"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
@@ -103,6 +105,7 @@ type WorkerSpecificConfiguration struct {
 type FeatureFlags struct {
 	StorageV2                    bool `env:"STORAGE_V2,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
+	LokiLogging                  bool `env:"LOKI_LOGGING,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.
