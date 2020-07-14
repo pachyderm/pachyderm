@@ -25,10 +25,12 @@ for i in $(find src -name "*.proto"); do \
     if ! grep -q 'go_package' "${i}"; then
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
     fi
+    set -x
     protoc \
+        "-I${GOPATH}/src/github.com/bi-foundation/protobuf-graphql-extension" \
         "-I${GOPATH}/src/github.com/gogo/protobuf" \
         -Isrc \
-        --gogofast_out=plugins=grpc,\
+        --gogoopsee_out=plugins=graphql,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
@@ -38,5 +40,17 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
 ":${GOPATH}/src" \
     "${i}" >/dev/stderr
 done
+
+###
+#        --gogofast_out=plugins=grpc,\
+#Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
+#Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
+#Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
+#Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
+#":${GOPATH}/src" \
+###
+# Mgithub.com/bi-foundation/protobuf-graphql-extension/graphqlproto/graphql.proto=github.com/bi-foundation/protobuf-graphql-extension/graphqlproto,\
 
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -
