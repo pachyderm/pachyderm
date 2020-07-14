@@ -97,6 +97,8 @@ func mountCmds() []*cobra.Command {
 				},
 				RepoOptions: repoOpts,
 			}
+			// Prints a warning if we're on macOS
+			printWarning()
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
