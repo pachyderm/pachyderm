@@ -4,6 +4,8 @@
 // their push events.
 package githook
 
+// TODO(ys): remove githook server in pachyderm 2.0
+
 import (
 	"bytes"
 	"encoding/json"

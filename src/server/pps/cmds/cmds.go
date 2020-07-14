@@ -20,10 +20,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -34,6 +36,8 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/ohmyglob"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -597,7 +601,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@<branch>[=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If only the branch is given, the head commit of the branch is used to complete the pair. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If you only specify a branch, Pachyderm uses the HEAD commit to complete the pair. Note: Pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. The datums that were successfully processed in previous runs will not be processed unless you specify the --reprocess flag.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
@@ -1071,16 +1075,22 @@ you can increase the amount of memory used for the bloom filters with the
 	return commands
 }
 
-func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
+func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
+	if build && pushImages {
+		logrus.Warning("`--push-images` is redundant, as it's already enabled with `--build`")
+	}
+
 	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
 	}
-	client, err := pachdclient.NewOnUserMachine("user")
+
+	pc, err := pachdclient.NewOnUserMachine("user")
 	if err != nil {
 		return errors.Wrapf(err, "error connecting to pachd")
 	}
-	defer client.Close()
+	defer pc.Close()
+
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
 		if errors.Is(err, io.EOF) {
@@ -1088,65 +1098,339 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 		} else if err != nil {
 			return err
 		}
+
+		if request.Pipeline == nil {
+			return errors.New("no `pipeline` specified")
+		}
+		if request.Pipeline.Name == "" {
+			return errors.New("no pipeline `name` specified")
+		}
+
 		// Add trace if env var is set
-		if ctx, ok := extended.StartAnyExtendedTrace(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
-			client = client.WithCtx(ctx)
+		if ctx, ok := extended.StartAnyExtendedTrace(pc.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
+			pc = pc.WithCtx(ctx)
 		}
 
 		if update {
 			request.Update = true
 			request.Reprocess = reprocess
 		}
-		if build || pushImages {
-			if build && pushImages {
-				fmt.Fprintln(os.Stderr, "WARNING: `--push-images` is redundant, as it's already enabled with `--build`")
-			}
-			dockerClient, err := docker.NewClientFromEnv()
-			if err != nil {
-				return errors.Wrapf(err, "could not create a docker client from the environment")
-			}
-			authConfig, err := dockerConfig(registry, username)
-			if err != nil {
-				return err
-			}
-			repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
-			if sourceTag == "" {
-				sourceTag = "latest"
-			}
-			destTag := uuid.NewWithoutDashes()
 
-			if build {
-				url, err := url.Parse(pipelinePath)
-				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
-					return errors.Errorf("`--build` can only be used when the pipeline path is local")
-				}
-				dockerfile := request.Transform.Dockerfile
-				if dockerfile == "" {
-					dockerfile = "./Dockerfile"
-				}
-				contextDir, dockerfile := filepath.Split(dockerfile)
-				err = buildImage(dockerClient, repo, contextDir, dockerfile, destTag)
-				if err != nil {
-					return err
-				}
-				// Now that we've built into `destTag`, change the
-				// `sourceTag` to be the same so that the push will work with
-				// the right image
-				sourceTag = destTag
+		isLocal := true
+		url, err := url.Parse(pipelinePath)
+		if pipelinePath != "-" && err == nil && url.Scheme != "" {
+			isLocal = false
+		}
+
+		if request.Transform != nil && request.Transform.Build != nil {
+			if !isLocal {
+				return errors.Errorf("cannot use build step-enabled pipelines that aren't local")
 			}
-			image, err := pushImage(dockerClient, authConfig, repo, sourceTag, destTag)
+			if request.Spout != nil {
+				return errors.New("build step-enabled pipelines do not work with spouts")
+			}
+			if request.Input == nil {
+				return errors.New("no `input` specified")
+			}
+			if request.Transform.Build.Language == "" && request.Transform.Build.Image == "" {
+				return errors.New("must specify either a build `language` or `image`")
+			}
+			if request.Transform.Build.Language != "" && request.Transform.Build.Image != "" {
+				return errors.New("cannot specify both a build `language` and `image`")
+			}
+			var err error
+			ppsclient.VisitInput(request.Input, func(input *ppsclient.Input) {
+				inputName := ppsclient.InputName(input)
+				if inputName == "build" || inputName == "source" {
+					err = errors.New("build step-enabled pipelines cannot have inputs with the name 'build' or 'source', as they are reserved for build assets")
+				}
+			})
 			if err != nil {
 				return err
 			}
-			request.Transform.Image = image
+			pipelineParentPath, _ := filepath.Split(pipelinePath)
+			if err := buildHelper(pc, request, pipelineParentPath, update); err != nil {
+				return err
+			}
+		} else if build || pushImages {
+			if build && !isLocal {
+				return errors.Errorf("cannot build pipeline because it is not local")
+			}
+			if request.Transform == nil {
+				return errors.New("must specify a pipeline `transform`")
+			}
+			pipelineParentPath, _ := filepath.Split(pipelinePath)
+			if err := dockerBuildHelper(request, build, registry, username, pipelineParentPath); err != nil {
+				return err
+			}
 		}
-		if _, err := client.PpsAPIClient.CreatePipeline(
-			client.Ctx(),
+
+		if _, err := pc.PpsAPIClient.CreatePipeline(
+			pc.Ctx(),
 			request,
 		); err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
+
+	return nil
+}
+
+func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, registry, username, pipelineParentPath string) error {
+	// create docker client
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		return errors.Wrapf(err, "could not create a docker client from the environment")
+	}
+
+	var authConfig docker.AuthConfiguration
+	detectedAuthConfig := false
+
+	// try to automatically determine the credentials
+	authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
+	if err == nil {
+		for _, ac := range authConfigs.Configs {
+			u, err := url.Parse(ac.ServerAddress)
+			if err == nil && u.Hostname() == registry && (username == "" || username == ac.Username) {
+				authConfig = ac
+				detectedAuthConfig = true
+				break
+			}
+		}
+	}
+	// if that failed, manually build credentials
+	if !detectedAuthConfig {
+		if username == "" {
+			// request the username if it hasn't been specified yet
+			fmt.Printf("Username for %s: ", registry)
+			reader := bufio.NewReader(os.Stdin)
+			username, err = reader.ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "could not read username")
+			}
+			username = strings.TrimRight(username, "\r\n")
+		}
+
+		// request the password
+		fmt.Printf("Password for %s@%s: ", username, registry)
+		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return errors.Wrapf(err, "could not read password")
+		}
+
+		// print a newline, since `ReadPassword` gobbles the user-inputted one
+		fmt.Println()
+
+		authConfig = docker.AuthConfiguration{
+			Username: username,
+			Password: string(passBytes),
+		}
+	}
+
+	repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
+	if sourceTag == "" {
+		sourceTag = "latest"
+	}
+	destTag := uuid.NewWithoutDashes()
+
+	if build {
+		dockerfile := request.Transform.Dockerfile
+		if dockerfile == "" {
+			dockerfile = "./Dockerfile"
+		}
+
+		contextDir, dockerfile := filepath.Split(dockerfile)
+		if !filepath.IsAbs(contextDir) {
+			contextDir = filepath.Join(pipelineParentPath, contextDir)
+		}
+
+		destImage := fmt.Sprintf("%s:%s", repo, destTag)
+
+		fmt.Printf("Building %q, this may take a while.\n", destImage)
+
+		err := dockerClient.BuildImage(docker.BuildImageOptions{
+			Name:         destImage,
+			ContextDir:   contextDir,
+			Dockerfile:   dockerfile,
+			OutputStream: os.Stdout,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "could not build docker image")
+		}
+
+		// Now that we've built into `destTag`, change the
+		// `sourceTag` to be the same so that the push will work with
+		// the right image
+		sourceTag = destTag
+	}
+
+	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
+	destImage := fmt.Sprintf("%s:%s", repo, destTag)
+
+	fmt.Printf("Tagging/pushing %q, this may take a while.\n", destImage)
+
+	if err := dockerClient.TagImage(sourceImage, docker.TagImageOptions{
+		Repo:    repo,
+		Tag:     destTag,
+		Context: context.Background(),
+	}); err != nil {
+		return errors.Wrapf(err, "could not tag docker image")
+	}
+
+	if err := dockerClient.PushImage(
+		docker.PushImageOptions{
+			Name: repo,
+			Tag:  destTag,
+		},
+		authConfig,
+	); err != nil {
+		return errors.Wrapf(err, "could not push docker image")
+	}
+
+	request.Transform.Image = destImage
+	return nil
+}
+
+// TODO: if transactions ever add support for pipeline creation, use them here
+// to create everything atomically
+func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineRequest, pipelineParentPath string, update bool) error {
+	buildPath := request.Transform.Build.Path
+	if buildPath == "" {
+		buildPath = "."
+	}
+	if !filepath.IsAbs(buildPath) {
+		buildPath = filepath.Join(pipelineParentPath, buildPath)
+	}
+	if _, err := os.Stat(buildPath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("build path %q does not exist", buildPath)
+		}
+		return errors.Wrapf(err, "could not stat build path %q", buildPath)
+	}
+
+	buildPipelineName := fmt.Sprintf("%s_build", request.Pipeline.Name)
+
+	image := request.Transform.Build.Image
+	if image == "" {
+		pachctlVersion := version.PrettyPrintVersion(version.Version)
+		image = fmt.Sprintf("pachyderm/%s-build:%s", request.Transform.Build.Language, pachctlVersion)
+	}
+	if request.Transform.Image == "" {
+		request.Transform.Image = image
+	}
+
+	// utility function for creating an input used as part of a build step
+	createBuildPipelineInput := func(name string) *ppsclient.Input {
+		return &ppsclient.Input{
+			Pfs: &ppsclient.PFSInput{
+				Name:   name,
+				Glob:   "/",
+				Repo:   buildPipelineName,
+				Branch: name,
+			},
+		}
+	}
+
+	// create the source repo
+	if err := pc.UpdateRepo(buildPipelineName); err != nil {
+		return errors.Wrapf(err, "failed to create repo for build step-enabled pipeline")
+	}
+
+	// create the build pipeline
+	if err := pc.CreatePipeline(
+		buildPipelineName,
+		image,
+		[]string{"sh", "./build.sh"},
+		[]string{},
+		&ppsclient.ParallelismSpec{Constant: 1},
+		createBuildPipelineInput("source"),
+		"build",
+		update,
+	); err != nil {
+		return errors.Wrapf(err, "failed to create build pipeline for build step-enabled pipeline")
+	}
+
+	// retrieve ignores (if any)
+	ignores := []*glob.Glob{}
+	ignorePath := filepath.Join(buildPath, ".pachignore")
+	if _, err := os.Stat(ignorePath); err == nil {
+		f, err := os.Open(ignorePath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read build step ignore file %q", ignorePath)
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			g, err := glob.Compile(line)
+			if err != nil {
+				return errors.Wrapf(err, "build step ignore file %q: failed to compile glob %q", ignorePath, line)
+			}
+			ignores = append(ignores, g)
+		}
+	}
+
+	// insert the source code
+	pfc, err := pc.NewPutFileClient()
+	if err != nil {
+		return errors.Wrapf(err, "failed to construct put file client for source code in build step-enabled pipeline")
+	}
+	if update {
+		if err = pfc.DeleteFile(buildPipelineName, "source", "/"); err != nil {
+			return errors.Wrapf(err, "failed to delete existing source code for build step-enabled pipeline")
+		}
+	}
+	if err := filepath.Walk(buildPath, func(srcFilePath string, info os.FileInfo, _ error) (retErr error) {
+		if info == nil {
+			return errors.Errorf("%q doesn't exist", srcFilePath)
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		destFilePath, err := filepath.Rel(buildPath, srcFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to discover relative path for %s", srcFilePath)
+		}
+		for _, g := range ignores {
+			if g.Match(destFilePath) {
+				return nil
+			}
+		}
+
+		f, err := progress.Open(srcFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to open file %q for source code in build step-enabled pipeline", srcFilePath)
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+
+		if _, err = pfc.PutFileOverwrite(buildPipelineName, "source", destFilePath, f, 0); err != nil {
+			return errors.Wrapf(err, "failed to put file %q->%q for source code in build step-enabled pipeline", srcFilePath, destFilePath)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := pfc.Close(); err != nil {
+		return errors.Wrapf(err, "failed to close put file client for source code in build step-enabled pipeline")
+	}
+
+	// modify the pipeline to use the build assets
+	request.Input = &ppsclient.Input{
+		Cross: []*ppsclient.Input{
+			createBuildPipelineInput("source"),
+			createBuildPipelineInput("build"),
+			request.Input,
+		},
+	}
+	if request.Transform.Cmd == nil || len(request.Transform.Cmd) == 0 {
+		request.Transform.Cmd = []string{"sh", "/pfs/build/run.sh"}
+	}
+
 	return nil
 }
 
@@ -1170,92 +1454,4 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	}
 
 	return false
-}
-
-func dockerConfig(registry string, username string) (docker.AuthConfiguration, error) {
-	// try to automatically determine the credentials
-	authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
-	if err == nil {
-		for _, ac := range authConfigs.Configs {
-			u, err := url.Parse(ac.ServerAddress)
-			if err == nil && u.Hostname() == registry && (username == "" || username == ac.Username) {
-				return ac, nil
-			}
-		}
-	}
-
-	// if that failed, manually build credentials
-	if username == "" {
-		// request the username if it hasn't been specified yet
-		fmt.Printf("Username for %s: ", registry)
-		reader := bufio.NewReader(os.Stdin)
-		username, err = reader.ReadString('\n')
-		if err != nil {
-			return docker.AuthConfiguration{}, errors.Wrapf(err, "could not read username")
-		}
-		username = strings.TrimRight(username, "\r\n")
-	}
-	fmt.Printf("Password for %s@%s: ", username, registry)
-	passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return docker.AuthConfiguration{}, errors.Wrapf(err, "could not read password")
-	}
-
-	// print a newline, since `ReadPassword` gobbles the user-inputted one
-	fmt.Println()
-
-	return docker.AuthConfiguration{
-		Username: username,
-		Password: string(passBytes),
-	}, nil
-}
-
-// buildImage builds a new docker image.
-func buildImage(client *docker.Client, repo string, contextDir string, dockerfile string, destTag string) error {
-	destImage := fmt.Sprintf("%s:%s", repo, destTag)
-
-	fmt.Printf("Building %s, this may take a while.\n", destImage)
-
-	err := client.BuildImage(docker.BuildImageOptions{
-		Name:         destImage,
-		ContextDir:   contextDir,
-		Dockerfile:   dockerfile,
-		OutputStream: os.Stdout,
-	})
-
-	if err != nil {
-		return errors.Wrapf(err, "could not build docker image")
-	}
-
-	return nil
-}
-
-// pushImage pushes a docker image.
-func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo string, sourceTag string, destTag string) (string, error) {
-	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
-	destImage := fmt.Sprintf("%s:%s", repo, destTag)
-
-	fmt.Printf("Tagging/pushing %s, this may take a while.\n", destImage)
-
-	if err := client.TagImage(sourceImage, docker.TagImageOptions{
-		Repo:    repo,
-		Tag:     destTag,
-		Context: context.Background(),
-	}); err != nil {
-		err = errors.Wrapf(err, "could not tag docker image")
-		return "", err
-	}
-
-	if err := client.PushImage(
-		docker.PushImageOptions{
-			Name: repo,
-			Tag:  destTag,
-		},
-		authConfig,
-	); err != nil {
-		err = errors.Wrapf(err, "could not push docker image")
-		return "", err
-	}
-
-	return destImage, nil
 }

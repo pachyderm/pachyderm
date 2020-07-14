@@ -64,7 +64,7 @@ pushd examples/word_count
     pachctl create repo urls
     pachctl put file urls@master -f Wikipedia
     pachctl create pipeline -f scraper.json
-    pachctl create pipeline -f map.json
+    pachctl create pipeline -f map/map.json
 
     # wait for everything to finish
     commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)

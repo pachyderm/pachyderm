@@ -78,6 +78,9 @@ func TestPutFileSplit(t *testing.T) {
 }
 
 func TestMountParsing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
 			Branch: "branch",
