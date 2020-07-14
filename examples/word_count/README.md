@@ -66,7 +66,7 @@ In this case, you don't have to build a custom Docker image yourself with this c
 Let's create the `map` pipeline: 
 
 ```
-$ pachctl create pipeline -f map.json
+$ pachctl create pipeline -f map/map.json
 ```
 
 As soon as you create this pipeline, it will start processing data from the `scraper` data repository. For each web page the `map.go` code processes, it writes a file for each encountered word. In our case, the filename for each word is the name of the word itself. To see what I mean, lets run a `pachctl list file` on the map repo:

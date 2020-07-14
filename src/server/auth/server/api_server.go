@@ -48,6 +48,7 @@ const (
 	oneTimePasswordsPrefix = "/auth-codes"
 	aclsPrefix             = "/acls"
 	adminsPrefix           = "/admins"
+	fsAdminsPrefix         = "/fs-admins"
 	membersPrefix          = "/members"
 	groupsPrefix           = "/groups"
 	configPrefix           = "/config"
@@ -138,8 +139,8 @@ type apiServer struct {
 	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
-	adminCache map[string]struct{} // cache of current cluster admins
-	adminMu    sync.Mutex          // guard 'adminCache'
+	adminCache map[string]auth.ClusterRoles // cache of current cluster admins
+	adminMu    sync.Mutex                   // guard 'adminCache'
 
 	// configCache should not be read/written directly--use setCacheConfig and
 	// getCacheConfig
@@ -168,6 +169,9 @@ type apiServer struct {
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
+	// fsAdmins is a collection of username -> Empty mappings (keys indicate which
+	// github users are cluster filesystem admins)
+	fsAdmins col.Collection
 	// members is a collection of username -> groups mappings.
 	members col.Collection
 	// groups is a collection of group -> usernames mappings.
@@ -221,7 +225,7 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API"),
-		adminCache: make(map[string]struct{}),
+		adminCache: make(map[string]auth.ClusterRoles),
 		tokens: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
@@ -254,6 +258,14 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
+		fsAdmins: col.NewCollection(
+			env.GetEtcdClient(),
+			path.Join(etcdPrefix, fsAdminsPrefix),
+			nil,
+			&types.BoolValue{}, // smallest value that etcd actually stores
+			nil,
+			nil,
+		),
 		members: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
@@ -281,7 +293,7 @@ func NewAuthServer(
 		public: public,
 	}
 	go s.retrieveOrGeneratePPSToken()
-	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
+	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix), path.Join(etcdPrefix, fsAdminsPrefix))
 
 	if public {
 		// start SAML and OIDC services
@@ -361,23 +373,48 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	}
 }
 
-func (a *apiServer) watchAdmins(fullAdminPrefix string) {
+func (a *apiServer) watchAdmins(superAdminPrefix, fsAdminPrefix string) {
 	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
 		// stay activated.
-		watcher, err := a.admins.ReadOnly(context.Background()).Watch()
+		superWatcher, err := a.admins.ReadOnly(context.Background()).Watch()
 		if err != nil {
 			return err
 		}
-		defer watcher.Close()
+		defer superWatcher.Close()
+
+		fsWatcher, err := a.fsAdmins.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer fsWatcher.Close()
+
 		// The auth service is activated if we have admins, and not
 		// activated otherwise.
 		for {
-			ev, ok := <-watcher.Watch()
-			if !ok {
-				return errors.New("admin watch closed unexpectedly")
+			var key string
+			var boolProto types.BoolValue
+			var username string
+			var role auth.ClusterRole
+			var ev *watch.Event
+			var ok bool
+			select {
+			case ev, ok = <-superWatcher.Watch():
+				if !ok {
+					return errors.New("admin watch closed unexpectedly")
+				}
+				ev.Unmarshal(&key, &boolProto)
+				role = auth.ClusterRole_SUPER
+				username = strings.TrimPrefix(key, superAdminPrefix+"/")
+			case ev, ok = <-fsWatcher.Watch():
+				if !ok {
+					return errors.New("fs admin watch closed unexpectedly")
+				}
+				ev.Unmarshal(&key, &boolProto)
+				role = auth.ClusterRole_FS
+				username = strings.TrimPrefix(key, fsAdminPrefix+"/")
 			}
 			b.Reset() // event successfully received
 
@@ -386,16 +423,36 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				a.adminMu.Lock()
 				defer a.adminMu.Unlock()
 
-				// Parse event data and potentially update adminCache
-				var key string
-				var boolProto types.BoolValue
-				ev.Unmarshal(&key, &boolProto)
-				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
 				case watch.EventPut:
-					a.adminCache[username] = struct{}{}
+					if existing, ok := a.adminCache[username]; ok {
+						var alreadyGranted bool
+						for _, r := range existing.Roles {
+							if r == role {
+								alreadyGranted = true
+								break
+							}
+						}
+						if !alreadyGranted {
+							a.adminCache[username] = auth.ClusterRoles{Roles: append(existing.Roles, role)}
+						}
+					} else {
+						a.adminCache[username] = auth.ClusterRoles{Roles: []auth.ClusterRole{role}}
+					}
 				case watch.EventDelete:
-					delete(a.adminCache, username)
+					if existing, ok := a.adminCache[username]; ok {
+						newRoles := make([]auth.ClusterRole, 0, len(existing.Roles))
+						for _, r := range existing.Roles {
+							if role != r {
+								newRoles = append(newRoles, r)
+							}
+						}
+						if len(newRoles) > 0 {
+							a.adminCache[username] = auth.ClusterRoles{Roles: newRoles}
+						} else {
+							delete(a.adminCache, username)
+						}
+					}
 				case watch.EventError:
 					return ev.Err
 				}
@@ -604,7 +661,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +674,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
-		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+		a.admins.ReadWrite(stm).DeleteAll()   // watchAdmins() will see the write
+		a.fsAdmins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
 		a.authConfig.ReadWrite(stm).DeleteAll()
@@ -682,6 +740,31 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	admins, err := a.GetClusterRoleBindings(ctx, &auth.GetClusterRoleBindingsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &auth.GetAdminsResponse{
+		Admins: make([]string, 0, len(admins.Bindings)),
+	}
+
+	for admin, roles := range admins.Bindings {
+		for _, role := range roles.Roles {
+			if role == auth.ClusterRole_SUPER {
+				resp.Admins = append(resp.Admins, admin)
+				break
+			}
+		}
+	}
+	return resp, nil
+}
+
+// GetAdmins implements the protobuf auth.GetAdmins RPC
+func (a *apiServer) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest) (resp *auth.GetClusterRoleBindingsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
 	case none:
 		return nil, auth.ErrNotActivated
@@ -700,34 +783,40 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	resp = &auth.GetAdminsResponse{
-		Admins: make([]string, 0, len(a.adminCache)),
+	resp = &auth.GetClusterRoleBindingsResponse{
+		Bindings: make(map[string]*auth.ClusterRoles),
 	}
-	for admin := range a.adminCache {
-		resp.Admins = append(resp.Admins, admin)
+	for admin, roles := range a.adminCache {
+		resp.Bindings[admin] = &auth.ClusterRoles{Roles: roles.Roles}
 	}
+
 	return resp, nil
 }
 
-func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) error {
-	// Check to make sure that req doesn't remove all cluster admins
-	m := make(map[string]struct{})
-	// copy existing admins into m
+func (a *apiServer) validateModifyAdminsRequest(user string, grantSuper bool) error {
+	// Check to make sure that req doesn't remove all cluster SUPER admins
+	m := make(map[string]interface{})
+
+	// copy the set of admins that have the SUPER role into m
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
-		for u := range a.adminCache {
-			m[u] = struct{}{}
+		for u, roles := range a.adminCache {
+			for _, r := range roles.Roles {
+				if r == auth.ClusterRole_SUPER {
+					m[u] = true
+				}
+			}
 		}
 	}()
-	for _, u := range add {
-		m[u] = struct{}{}
-	}
-	for _, u := range remove {
-		delete(m, u)
+
+	if grantSuper {
+		m[user] = true
+	} else {
+		delete(m, user)
 	}
 
-	// Confirm that there will be at least one admin.
+	// Confirm that there will be at least one admin with the SUPER role.
 	//
 	// This is required so that the admin can get the cluster out of any broken
 	// state that it may enter.
@@ -737,8 +826,34 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	return nil
 }
 
-// ModifyAdmins implements the protobuf auth.ModifyAdmins RPC
 func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (resp *auth.ModifyAdminsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	for _, toAdd := range req.Add {
+		_, err := a.ModifyClusterRoleBinding(ctx, &auth.ModifyClusterRoleBindingRequest{
+			Principal: toAdd,
+			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, toRemove := range req.Remove {
+		_, err := a.ModifyClusterRoleBinding(ctx, &auth.ModifyClusterRoleBindingRequest{
+			Principal: toRemove,
+			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{}},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &auth.ModifyAdminsResponse{}, nil
+}
+
+func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest) (resp *auth.ModifyClusterRoleBindingResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
@@ -753,7 +868,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -767,58 +882,62 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	// Canonicalize GitHub usernames in request (must canonicalize before we can
 	// validate, so we know who is actually being added/removed & can confirm
 	// that not all admins are being removed)
-	eg := &errgroup.Group{}
-	canonicalizedToAdd := make([]string, len(req.Add))
-	for i, user := range req.Add {
-		i, user := i, user
-		eg.Go(func() error {
-			user, err = a.canonicalizeSubject(ctx, user)
-			if err != nil {
-				return err
-			}
-			canonicalizedToAdd[i] = user
-			return nil
-		})
-	}
-	canonicalizedToRemove := make([]string, len(req.Remove))
-	for i, user := range req.Remove {
-		i, user := i, user
-		eg.Go(func() error {
-			user, err = a.canonicalizeSubject(ctx, user)
-			if err != nil {
-				return err
-			}
-			canonicalizedToRemove[i] = user
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	err = a.validateModifyAdminsRequest(canonicalizedToAdd, canonicalizedToRemove)
+	canonicalizedUser, err := a.canonicalizeSubject(ctx, req.Principal)
 	if err != nil {
 		return nil, err
 	}
 
+	// Check if the current modify request contains a SUPER role for this principal
+	var grantSuper bool
+	var grantFS bool
+	if req.Roles != nil {
+		for _, role := range req.Roles.Roles {
+			if role == auth.ClusterRole_SUPER {
+				grantSuper = true
+			}
+			if role == auth.ClusterRole_FS {
+				grantFS = true
+			}
+		}
+	}
+
+	err = a.validateModifyAdminsRequest(canonicalizedUser, grantSuper)
+	if err != nil {
+		return nil, err
+	}
+
+	var val types.BoolValue
 	// Update "admins" list (watchAdmins() will update admins cache)
-	for _, user := range canonicalizedToAdd {
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.admins.ReadWrite(stm).Put(user, epsilon)
-		}); err != nil && retErr == nil {
-			retErr = err
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		if grantSuper {
+			a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
+		} else {
+			if err := a.admins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
+				if !col.IsErrNotFound(err) {
+					return err
+				}
+			} else {
+				a.admins.ReadWrite(stm).Delete(canonicalizedUser)
+			}
 		}
-	}
-	for _, user := range canonicalizedToRemove {
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.admins.ReadWrite(stm).Delete(user)
-		}); err != nil && retErr == nil {
-			retErr = err
+
+		if grantFS {
+			a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
+		} else {
+			if err := a.fsAdmins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
+				if !col.IsErrNotFound(err) {
+					return err
+				}
+			} else {
+				a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
+			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	if retErr != nil {
-		return nil, retErr
-	}
-	return &auth.ModifyAdminsResponse{}, nil
+
+	return &auth.ModifyClusterRoleBindingResponse{}, nil
 }
 
 // expiredClusterAdminCheck enforces that if the cluster's enterprise token is
@@ -829,7 +948,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 
-	isAdmin, err := a.isAdmin(ctx, username)
+	isAdmin, err := a.hasClusterRole(ctx, username, auth.ClusterRole_SUPER)
 	if err != nil {
 		return err
 	}
@@ -1032,7 +1151,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1169,7 +1288,8 @@ func (a *apiServer) AuthorizeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
+	// Check for FS admin or SUPER admin role
+	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1246,10 +1366,6 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
-	if err != nil {
-		return nil, err
-	}
 
 	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
@@ -1264,11 +1380,27 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		}
 	}
 
+	a.adminMu.Lock()
+	defer a.adminMu.Unlock()
+	var adminRoles auth.ClusterRoles
+	var isAdmin bool
+
+	if _, ok := a.adminCache[callerInfo.Subject]; ok {
+		adminRoles.Roles = a.adminCache[callerInfo.Subject].Roles
+		for _, role := range adminRoles.Roles {
+			if role == auth.ClusterRole_SUPER {
+				isAdmin = true
+				break
+			}
+		}
+	}
+
 	// return final result
 	return &auth.WhoAmIResponse{
-		Username: callerInfo.Subject,
-		IsAdmin:  isAdmin,
-		TTL:      ttl,
+		Username:     callerInfo.Subject,
+		TTL:          ttl,
+		IsAdmin:      isAdmin,
+		ClusterRoles: &adminRoles,
 	}, nil
 }
 
@@ -1282,14 +1414,19 @@ func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) err
 	return nil
 }
 
-func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
+// hasClusterRole checks if the subject has the specified role _or_ the SUPER admin role, which is a superset of all admin roles
+func (a *apiServer) hasClusterRole(ctx context.Context, subject string, role auth.ClusterRole) (bool, error) {
 	if subject == ppsUser {
 		return true, nil
 	}
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	if _, ok := a.adminCache[subject]; ok {
-		return true, nil
+	if roles, ok := a.adminCache[subject]; ok {
+		for _, r := range roles.Roles {
+			if r == auth.ClusterRole_SUPER || r == role {
+				return true, nil
+			}
+		}
 	}
 
 	// Get scope based on group access
@@ -1298,8 +1435,12 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 		return false, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 	for _, g := range groups {
-		if _, ok := a.adminCache[g]; ok {
-			return true, nil
+		if roles, ok := a.adminCache[g]; ok {
+			for _, r := range roles.Roles {
+				if r == auth.ClusterRole_SUPER || r == role {
+					return true, nil
+				}
+			}
 		}
 	}
 	return false, nil
@@ -1323,7 +1464,7 @@ func (a *apiServer) SetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1457,7 +1598,7 @@ func (a *apiServer) GetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
+	callerIsAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1625,7 +1766,7 @@ func (a *apiServer) SetACLInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1811,7 +1952,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1922,7 +2063,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1988,7 +2129,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2081,7 +2222,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2116,7 +2257,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2226,12 +2367,12 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 
 	// must be admin or user getting your own groups (default value of
 	// req.Username is the caller).
-	// Note: isAdmin(subject) calls getGroups(subject), so getGroups(subject)
-	// must only call isAdmin(caller) when caller != subject, or else we'll have
+	// Note: hasClusterRole(subject) calls getGroups(subject), so getGroups(subject)
+	// must only call hasClusterRole(caller) when caller != subject, or else we'll have
 	// infinite recursion
 	var target string
 	if req.Username != "" && req.Username != callerInfo.Subject {
-		isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+		isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 		if err != nil {
 			return nil, err
 		}
@@ -2268,7 +2409,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2526,7 +2667,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}

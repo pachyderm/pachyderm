@@ -50,6 +50,10 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 else
     make docker-build
+    # push pipeline build images
+    pushd etc/pipeline-build
+        make push-to-minikube
+    popd
 fi
 
 make launch-loki

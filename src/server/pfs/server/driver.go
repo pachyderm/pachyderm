@@ -308,9 +308,15 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	if err != nil {
 		return auth.Scope_NONE, err
 	}
-	if who.IsAdmin {
-		return auth.Scope_OWNER, nil
+
+	if who.ClusterRoles != nil {
+		for _, s := range who.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER || s == auth.ClusterRole_FS {
+				return auth.Scope_OWNER, nil
+			}
+		}
 	}
+
 	resp, err := pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{Repos: []string{repo.Name}})
 	if err != nil {
 		return auth.Scope_NONE, err
