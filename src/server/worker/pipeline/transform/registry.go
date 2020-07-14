@@ -688,7 +688,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		pj.ji.State = pps.JobState_JOB_KILLED
 		pj.ji.Reason = "pipeline has been updated"
 		if err := pj.writeJobInfo(); err != nil {
-			return errors.Wrap(err, "failed to kill stale job")
+			if !ppsserver.IsJobFinishedErr(err) {
+				return errors.Wrap(err, "failed to kill stale job")
+			}
 		}
 		return nil
 	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
