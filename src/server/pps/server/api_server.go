@@ -40,6 +40,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
@@ -523,6 +524,9 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
+	}
+	if ppsutil.IsTerminal(jobPtr.State) {
+		return ppsServer.ErrJobFinished{jobPtr.Job}
 	}
 
 	jobPtr.Restart = request.Restart

@@ -28,6 +28,7 @@ import (
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -155,7 +156,7 @@ func finishJob(
 
 		return writeJobInfo(&builder.APIClient, jobInfo)
 	}); err != nil {
-		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) || ppsserver.IsJobFinishedErr(err) {
 			// For certain types of errors, we want to reattempt these operations
 			// outside of a transaction (in case the job or commits were affected by
 			// some non-transactional code elsewhere, we can attempt to recover)
@@ -214,7 +215,12 @@ func recoverFinishedJob(
 		}
 	}
 
-	return writeJobInfo(pachClient, jobInfo)
+	if err := writeJobInfo(pachClient, jobInfo); err != nil {
+		if !ppsserver.IsJobFinishedErr(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // succeedJob will move a job to the successful state and propagate to any
