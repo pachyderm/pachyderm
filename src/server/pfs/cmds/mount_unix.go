@@ -20,6 +20,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	name = "pfs"
+)
+
 func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
@@ -86,7 +90,9 @@ func mountCmds() []*cobra.Command {
 				Write: write,
 				Fuse: &fs.Options{
 					MountOptions: gofuse.MountOptions{
-						Debug: debug,
+						Debug:  debug,
+						FsName: name,
+						Name:   name,
 					},
 				},
 				RepoOptions: repoOpts,
@@ -109,11 +115,10 @@ func mountCmds() []*cobra.Command {
 			if len(args) == 1 {
 				return syscall.Unmount(args[0], 0)
 			}
-
 			if all {
-				stdin := strings.NewReader(`
-		mount | grep pfs:// | cut -f 3 -d " "
-		`)
+				stdin := strings.NewReader(fmt.Sprintf(`
+		mount | grep fuse.%s | cut -f 3 -d " "
+		`, name))
 				var stdout bytes.Buffer
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
@@ -147,6 +152,8 @@ func mountCmds() []*cobra.Command {
 						}
 					}
 				}
+			} else {
+				return errors.Errorf("nothing to unmount specify a mounted filesystem or --all")
 			}
 			return nil
 		}),
