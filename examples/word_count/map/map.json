@@ -4,12 +4,15 @@
   },
   "description": "A pipeline that tokenizes scraped pages and appends counts of words to corresponding files.",
   "transform": {
-    "image": "pachyderm/wordcount-map",
     "cmd": [
-      "/map", 
+      "sh",
+      "/pfs/build/run.sh",
       "/pfs/scraper/", 
       "/pfs/out"
-    ]
+    ],
+    "build": {
+      "language": "go"
+    }
   },
   "input": {
     "pfs": {

@@ -272,6 +272,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 				if set {
 					return errors.Errorf("multiple input types set")
 				}
+				logrus.Warn("githooks are deprecated and will be removed in a future version - see pipeline build steps for an alternative")
 				set = true
 				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
 					return err
