@@ -924,11 +924,11 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			if len(adminWitnesses) == 0 {
 				return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 			}
-			for admin := range adminWitnesses {
+			for witness := range adminWitnesses {
 				var tmp types.BoolValue
-				if err := admins.Get(admin, &tmp); err != nil {
+				if err := admins.Get(witness, &tmp); err != nil {
 					// return any error *especially including* not found
-					return errors.Wrapf(err, "could not verify %q as surviving super admin, try again momentarily", admin)
+					return errors.Wrapf(err, "could not verify %q as surviving super admin (possible collision with a concurrent admin change)", witness)
 				}
 				break // TODO(msteffen): how to get first element of map?
 			}
