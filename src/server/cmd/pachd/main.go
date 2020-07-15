@@ -101,7 +101,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		}
 	}()
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(50)
+	debug.SetGCPercent(env.GCPercent)
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -289,7 +289,7 @@ func doFullMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(50)
+	debug.SetGCPercent(env.GCPercent)
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -399,6 +399,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Port,
 				env.HTTPPort,
 				env.PeerPort,
+				env.GCPercent,
 			)
 			if err != nil {
 				return err
@@ -586,6 +587,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Port,
 				env.HTTPPort,
 				env.PeerPort,
+				env.GCPercent,
 			)
 			if err != nil {
 				return err
