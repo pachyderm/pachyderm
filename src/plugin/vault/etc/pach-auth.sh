@@ -12,7 +12,7 @@ function activate {
         # Don't print token to stdout
         # This is very important, or we'd leak it in our CI logs
         set +x
-        pachctl enterprise activate $(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)
+        pachctl enterprise activate "$ENT_ACT_CODE"
         set -x
     fi
 
