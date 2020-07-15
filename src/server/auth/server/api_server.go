@@ -905,6 +905,7 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			}
 
 			if grantSuper {
+				adminWitnesses[principal] = true
 				admins.Put(principal, epsilon)
 			} else {
 				delete(adminWitnesses, principal)
@@ -920,7 +921,9 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			}
 
 			// select an arbitrary existential witness to guarantee that that there
-			// are still super admins left at the end of this txn
+			// are still super admins left at the end of this txn. If 'witness' was
+			// added during this txn, they will be in the STM wset. If they're
+			// preexisting they'll be in the stm rset and thus in the txn's cmps.
 			if len(adminWitnesses) == 0 {
 				return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 			}
