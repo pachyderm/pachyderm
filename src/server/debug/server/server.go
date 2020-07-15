@@ -102,6 +102,29 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
 	w := grpcutil.NewStreamingBytesWriter(server)
+	if request.WorkerIP != "" {
+		workerClients, err := workerserver.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix, s.workerGrpcPort, request.WorkerIP)
+		if err != nil {
+			return err
+		}
+		if len(workerClients) == 0 {
+			return errors.Errorf("unable to find worker with IP address %v", request.WorkerIP)
+		}
+		request.WorkerIP = ""
+		profileC, err := workerClients[0].Profile(server.Context(), request)
+		if err != nil {
+			return err
+		}
+		return grpcutil.WriteFromStreamingBytesClient(profileC, w)
+	}
+	if request.Sidecar && s.sidecarClient != nil {
+		request.Sidecar = false
+		profileC, err := s.sidecarClient.DebugClient.Profile(server.Context(), request)
+		if err != nil {
+			return err
+		}
+		return grpcutil.WriteFromStreamingBytesClient(profileC, w)
+	}
 	if request.Profile == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return err

@@ -19,7 +19,7 @@ func (c APIClient) Dump(w io.Writer) error {
 }
 
 // Profile writes a pprof profile for pachd to w.
-func (c APIClient) Profile(profile string, duration time.Duration, w io.Writer) error {
+func (c APIClient) Profile(profile string, duration time.Duration, workerIP string, sidecar bool, w io.Writer) error {
 	var d *types.Duration
 	if duration != 0 {
 		d = types.DurationProto(duration)
@@ -27,6 +27,8 @@ func (c APIClient) Profile(profile string, duration time.Duration, w io.Writer) 
 	profileClient, err := c.DebugClient.Profile(c.Ctx(), &debug.ProfileRequest{
 		Profile:  profile,
 		Duration: d,
+		WorkerIP: workerIP,
+		Sidecar:  sidecar,
 	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)

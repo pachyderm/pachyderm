@@ -16,6 +16,8 @@ message DumpRequest {
 message ProfileRequest {
     string profile = 1;
     google.protobuf.Duration duration = 2; // only meaningful if profile == "cpu"
+    string workerIP = 3;
+    bool sidecar = 4;
 }
 
 message BinaryRequest {

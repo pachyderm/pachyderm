@@ -33,6 +33,8 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
 
 	var duration time.Duration
+	var workerIP string
+	var sidecar bool
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile>",
 		Short: "Return a profile from the server.",
@@ -43,10 +45,12 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			defer client.Close()
-			return client.Profile(args[0], duration, os.Stdout)
+			return client.Profile(args[0], duration, workerIP, sidecar, os.Stdout)
 		}),
 	}
 	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
+	profile.Flags().StringVarP(&workerIP, "worker", "w", "", "Collect the profile from the worker with the given IP address.")
+	profile.Flags().BoolVarP(&sidecar, "sidecar", "s", false, "Collect the profile from the sidecar.")
 	commands = append(commands, cmdutil.CreateAlias(profile, "debug profile"))
 
 	binary := &cobra.Command{
@@ -91,7 +95,7 @@ func Cmds() []*cobra.Command {
 						retErr = err
 					}
 				}()
-				return client.Profile(args[0], duration, f)
+				return client.Profile(args[0], duration, "", false, f)
 			})
 			// Download the binary
 			eg.Go(func() (retErr error) {
