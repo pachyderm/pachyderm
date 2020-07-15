@@ -381,12 +381,21 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Configure Access Controls: enterprise/auth/auth.md
+        - Configure Access Controls:
+            - Overview: enterprise/auth/index.md
+            - Enable Access Controls: enterprise/auth/enable-auth.md
+            - Manage Users and Groups: enterprise/auth/manage-users-groups.md
+            - Manage Authentication Config: enterprise/auth/auth-config.md
+            - Configure a SAML Provider:
+              - Overview: enterprise/auth/saml/saml.md
+              - Configure SAML: enterprise/auth/saml/saml_setup.md
+              - Use SAML: enterprise/auth/saml/saml_usage.md
+            - Configure an OIDC Provider:
+              - Overview: enterprise/auth/oidc/index.md
+              - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
+              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
+              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
         - Advanced Statistics: enterprise/stats.md
-        - Configure Pachyderm with an Access Management Provider:
-            - Overview: enterprise/saml.md
-            - Configure SAML: enterprise/saml_setup.md
-            - Use SAML: enterprise/saml_usage.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md

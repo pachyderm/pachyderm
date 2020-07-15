@@ -51,12 +51,8 @@ sections.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="auth/auth/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="auth/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
             Configure Access Controls
-          </a>
-          </li>
-          <li><a href="saml/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-            Configure Pachyderm with an Access Management Provider
           </a>
           </li>
           <li><a href="stats/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">

@@ -36,6 +36,7 @@ func NewAPIServer(
 	port uint16,
 	httpPort uint16,
 	peerPort uint16,
+	gcPercent int,
 ) (APIServer, error) {
 	apiServer := &apiServer{
 		Logger:                 log.NewLogger("pps.API"),
@@ -62,6 +63,7 @@ func NewAPIServer(
 		port:                   port,
 		httpPort:               httpPort,
 		peerPort:               peerPort,
+		gcPercent:              gcPercent,
 	}
 	apiServer.validateKube()
 	go apiServer.master()

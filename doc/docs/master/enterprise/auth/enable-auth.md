@@ -1,47 +1,19 @@
-# Configure Access Controls
+# Enable Access Controls
 
-If access controls are activated, each data repository, or repo,
-in Pachyderm has an Access Control List (ACL) associated with it.
-The ACL includes:
-
-- `READERs` - users who can read the data versioned in the repo.
-- `WRITERs` - users with `READER` access who can also submit
-additions, deletions, or modifications of data into the repo.
-- `OWNERs` - users with READER and WRITER access who can also
-modify the repo's ACL.
-
-Pachyderm defines the following account types:
-
-* **GitHub user** is a user account that is associated with
-a GitHub account and logs in through the GitHub OAuth flow. If you do not
-use any third-party identity provider, you use this option. When a user tries
-to log in with a GitHub account, Pachyderm verifies the identity and
-sends a Pachyderm token for that account.
-* **Robot user** is a user account that logs in with a pach-generated authentication
-token. Typically, you create a user in simplified workflow scenarios, such
-as initial SAML configuration.
-* **Pipeline** is an account that Pachyderm creates for
-data pipelines. Pipelines inherit access control from its creator.
-* **SAML user** is a user account that is associated with a Security Assertion
-Markup Language (SAML) identity provider.
-When a user tries to log in through a SAML ID provider, the system
-confirms the identity, associates
-that identity with a SAML identity provider account, and responds with
-the SAML identity provider token for that user. Pachyderm verifies the token,
-drops it, and creates a new internal token that encapsulates the information
-about the user.
-
-By default, Pachyderm defines one hardcoded group called `admin`.
-Users in the `admin` group can perform any
-action on the cluster including appointing other admins.
-Furthermore, only the cluster admins can manage a repository
-without ACLs.
-
-## Enable Access Control
-
-Before you enable access controls, make sure that
+Before you can enable access controls, make sure that
 you have activated Pachyderm Enterprise Edition
 as described in [Deploy Enterprise Edition](../deployment.md).
+
+When you initially enable access controls, data access
+is restricted to an *initial admin*, most often yourself.
+This *initial admin* will have `admin` privileges in the
+Pachyderm cluster.
+Then, the `admin` user can configure Pachyderm to work with
+a identity management provider (IdP) of your choice.
+
+If you want to configure a SAML IdP, such as Okta, you need
+to create an initial robot admin account by using the
+`--initial-admin=robot:<user>` flag.
 
 To enable access controls, complete the following steps:
 
@@ -50,22 +22,63 @@ To enable access controls, complete the following steps:
    by running the following `pachctl` command:
 
    ```bash
-   pachctl enterprise get-stat
+   pachctl enterprise get-state
    ```
 
    **System response:**
 
-   ```bashe
+   ```bash
    ACTIVE
    ```
 
 1. Activate the Enterprise access control features by completing
    the steps in one of these sections:
 
-   * [Activate Access Control by Using the Dashboard](#activate-access-controls-by-using-the-dashboard)
-   * [Activate Access Control with pachctl](#activate-access-controls-with-pachctl)
+   * To activate through the CLI, follow the steps in
+   [Activate Access Control with pachctl](#activate-access-controls-with-pachctl).
+   * To activate through the Pachyderm Dashboard, follow the steps in
+   [Activate Access Control by Using the Dashboard](#activate-access-controls-by-using-the-dashboard).
 
-### Activate Access Controls by Using the Dashboard
+## Activate Access Controls with `pachctl`
+
+You can configure any type of supported users through `pachctl`. For
+more information about the types of supported users, see [Account Types](../).
+
+To activate access controls with `pachctl`, complete the following steps:
+
+* If you are authenticating as a `robot`, OIDC, or SAML user, activate
+access controls by specifying a robot user as an initial admin:
+
+  ```bash
+  pachctl auth activate --initial-admin=robot:<user>
+  ```
+
+
+
+  When you authenticate as a `robot` user,
+  Pachyderm generates and returns a Pachyderm auth token
+  that issued to authenticate as the initial robot admin by using
+  `pachctl auth use-auth-token`. Then, follow the steps in the
+  corresponding section to configure a selected type of user:
+
+  * To configure a SAML user, follow the steps in [Configure a SAML Auth Provider]().
+  * To configure a OIDC user, follow the steps in [Configure an OIDC Auth Provider]().
+
+* Activate access controls with a GitHub account:
+
+  ```bash
+  pachctl auth activate
+  ```
+
+  Pachyderm prompts you to log in with your GitHub account. The
+  GitHub account that you sign in with is the only admin until
+  you add more by running `pachctl auth modify-admins`.
+
+## Activate Access Controls by Using the Dashboard
+
+!!! note
+    Currently, you can only configure a GitHub user in the UI.
+    If you want to set up any other type of user, use `pachctl`.
 
 To activate access controls in the Pachyderm dashboard,
 complete the following steps:
@@ -82,34 +95,6 @@ complete the following steps:
    that asks you to log in to Pachyderm:
 
    ![alt tag](../../assets/images/auth_dash2.png)
-
-### Activate Access Controls with `pachctl`
-
-To activate access controls with `pachctl`, choose one of these options:
-
-1. Activate access controls by specifying an initial admin user:
-
-   ```bash
-   pachctl auth activate --initial-admin=<prefix>:<user>
-   ```
-
-   You must prefix the username with the appropriate account
-   type, either `github:<user>` or `robot:<user>`. If you select the
-   latter, Pachyderm generates and returns a Pachyderm auth token
-   that might be used to authenticate as the initial robot admin by using
-   `pachctl auth use-auth-token`. You can use this option when
-   you cannot use GitHub as an identity provider.
-
-
-1. Activate access controls with a GitHub account:
-
-   ```bash
-   pachctl auth activate
-   ```
-
-   Pachyderm prompts you to log in with your GitHub account. The
-   GitHub account that you sign in with is the only admin until
-   you add more by running `pachctl auth modify-admins`.
 
 ## Log in to Pachyderm
 
@@ -147,35 +132,37 @@ To log in to the dashboard, complete the following steps:
 
 To log in to `pachctl`, complete the following steps:
 
-1. Type the following command:
+* To log in with a GitHub user:
 
-   ```bash
-   pachctl auth login
-   ```
+  1. Type the following command:
 
-   When you run this command, `pachctl` provides
-   you with a GitHub link to authenticate as a
-   GitHub user.
+     ```bash
+     pachctl auth login
+     ```
 
-   If you have not previously authorized Pachyderm on GitHub, an option
-   to **Authorize Pachyderm** appears. After you authorize Pachyderm,
-   a Pachyderm user token appears:
+     When you run this command, `pachctl` provides
+     you with a GitHub link to authenticate as a
+     GitHub user.
 
-   ![alt tag](../../assets/images/auth.png)
+     If you have not previously authorized Pachyderm on GitHub, an option
+     to **Authorize Pachyderm** appears. After you authorize Pachyderm,
+     a Pachyderm user token appears:
 
-1. Copy and paste this token back into the terminal and press enter.
+     ![alt tag](../../assets/images/auth.png)
 
-   You are now logged in to Pachyderm!
+  1. Copy and paste this token back into the terminal and press enter.
 
-   1. Alternatively, you can run the command:
+     You are now logged in to Pachyderm!
 
-      ```bash
-      pachctl auth use-auth-token
-      ```
+     1. Alternatively, you can run the command:
 
-   1. Paste an authentication token recieved from
-      `pachctl auth activate --initial-admin=robot:<user>` or
-      `pachctl auth get-auth-token`.
+        ```bash
+        pachctl auth use-auth-token
+        ```
+
+     1. Paste an authentication token received from
+        `pachctl auth activate --initial-admin=robot:<user>` or
+        `pachctl auth get-auth-token`.
 
 ## Manage and update user access
 
