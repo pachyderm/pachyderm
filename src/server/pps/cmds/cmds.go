@@ -440,6 +440,7 @@ each datum.`,
 		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
+		worker      bool
 		follow      bool
 		tail        int64
 	)
@@ -513,9 +514,11 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
 					fmt.Println(buf.String())
-				} else if iter.Message().User {
+				} else if iter.Message().User && !master && !worker {
 					prettyLogsPrinter(iter.Message().Message)
 				} else if iter.Message().Master && master {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if !iter.Message().User && !iter.Message().Master && worker {
 					prettyLogsPrinter(iter.Message().Message)
 				} else if pipelineName == "" && jobID == "" {
 					prettyLogsPrinter(iter.Message().Message)
@@ -534,6 +537,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
 	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
+	getLogs.Flags().BoolVar(&worker, "worker", false, "Return log messages from the worker process.")
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
