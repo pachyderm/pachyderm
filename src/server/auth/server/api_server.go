@@ -2034,7 +2034,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 	sp := a.getOIDCSP()
 	if sp == nil {
-		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
+		return nil, errors.Errorf("OIDC has not been configured or was disabled")
 	}
 
 	authURL, state, err := sp.GetOIDCLoginURL(ctx)
