@@ -875,7 +875,7 @@ func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.Modi
 	if !isAdmin {
 		return nil, &auth.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "ModifyAdmins",
+			AdminOp: "ModifyClusterRoleBinding",
 		}
 	}
 
@@ -906,31 +906,20 @@ func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.Modi
 		return nil, err
 	}
 
-	var val types.BoolValue
 	// Update "admins" list (watchAdmins() will update admins cache)
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		admins := a.admins.ReadWrite(stm)
+		fsAdmins := a.fsAdmins.ReadWrite(stm)
 		if grantSuper {
-			a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		} else {
-			if err := a.admins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
-				if !col.IsErrNotFound(err) {
-					return err
-				}
-			} else {
-				a.admins.ReadWrite(stm).Delete(canonicalizedUser)
-			}
+			admins.Put(canonicalizedUser, epsilon)
+		} else if err := admins.Delete(canonicalizedUser); err != nil && !col.IsErrNotFound(err) {
+			return err
 		}
 
 		if grantFS {
-			a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		} else {
-			if err := a.fsAdmins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
-				if !col.IsErrNotFound(err) {
-					return err
-				}
-			} else {
-				a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
-			}
+			fsAdmins.Put(canonicalizedUser, epsilon)
+		} else if err := fsAdmins.Delete(canonicalizedUser); err != nil && !col.IsErrNotFound(err) {
+			return err
 		}
 		return nil
 	}); err != nil {
