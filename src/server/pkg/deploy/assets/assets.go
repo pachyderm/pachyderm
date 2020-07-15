@@ -643,6 +643,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 		},
 		{
+			Name: client.PPSNamespaceEnv,
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
+				},
+			},
+		},
+		{
 			Name: "PACHD_MEMORY_REQUEST",
 			ValueFrom: &v1.EnvVarSource{
 				ResourceFieldRef: &v1.ResourceFieldSelector{
