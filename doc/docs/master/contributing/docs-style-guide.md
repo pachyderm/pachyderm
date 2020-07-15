@@ -186,3 +186,42 @@ Most of the Pachyderm API documentation, can be found under the
 `client` directory.
 
 I hope you'll have fun with Python Markdown! :smile:
+
+## Change log
+
+Format release notes as a bulletted list with each bullet describing a new
+feature, bug fix or change. Each bullet should contain at most a few sentences,
+the vast majority should be just one, that describes the change. Sentences
+should be present tense, the things they've fixed should be past tense, for
+example:
+
+| Do not use | Use |
+| ---------- | --- |
+| Fixed a bug which causes ... | Fixes a bug which caused ... |
+
+I find it helpful to imagine the name of the release, i.e. "Pachyderm 1.11.0"
+prepended to each change in the log, to check if I'm using the right language.
+
+We use the following verbs for different types of changes:
+
+| Use | Verb |
+| --- | ---- |
+| Bug fix | Fixes |
+| New Feature | Adds |
+| Version update of dependency | Updates |
+| Generic change | Changes |
+
+Almost every line in our changelog starts with one of these words, however
+there are rare cases where it's awkward to explain the change using this
+structure in which case it's fine to ignore it. However if you find yourself
+using synonyms like "Upgrade" those should be replaced with words from the
+above table.
+
+Include the PR(s) that merged the change at the end of the line in parenthesis,
+i.e. (#123). The # is significant because github will turn that into a link.
+Don't include the issue that was closed by the change, that should be linked to
+in the PR. If the change was contributed by an external contributor add
+"thanks to @user" i.e. "(#123, thanks to @user)"
+
+Release notes are published in two places: CHANGELOG.md in this repo, and the
+github release page. Make sure to update both when you publish change logs.
