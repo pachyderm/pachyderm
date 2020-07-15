@@ -25,6 +25,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 const secsInYear = 365 * 24 * 60 * 60
@@ -434,6 +435,75 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
+}
+
+// TestCannotRemoveAllClusterAdminsRace attempts to put the cluster in a
+// no-admin state by rapidly issuing racing calls to swap an admin and a
+// non-admin.
+func TestCannotRemoveAllClusterAdminsRace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// Check that the initial set of admins is just "admin"
+	resp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, admins(admin)(), resp.Bindings)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		for i := 0; i < 1000; i++ {
+			admins, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+			if err != nil {
+				return fmt.Errorf("could not get admins: %v", err)
+			}
+			if len(admins.Admins) != 1 {
+				return fmt.Errorf("expected 1 admin but found %d: %v", len(admins.Admins), admins.Admins)
+			}
+			if _, err = adminClient.ModifyAdmins(adminClient.Ctx(), &auth.ModifyAdminsRequest{
+				Add:    []string{alice},
+				Remove: []string{admin},
+			}); err != nil && !auth.IsErrNotAuthorized(err) && !strings.Contains(err.Error(), "cannot remove all cluster administrators while auth is active") {
+				t.Log(err)
+			}
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		for i := 0; i < 1000; i++ {
+			admins, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+			if err != nil {
+				return fmt.Errorf("could not get admins: %v", err)
+			}
+			if len(admins.Admins) != 1 {
+				return fmt.Errorf("expected 1 admin but found %d: %v", len(admins.Admins), admins.Admins)
+			}
+			if _, err := aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{
+				Add:    []string{admin},
+				Remove: []string{alice},
+			}); err != nil && !auth.IsErrNotAuthorized(err) && !strings.Contains(err.Error(), "cannot remove all cluster administrators while auth is active") {
+				t.Log(err)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, eg.Wait())
+
+	// Make sure there's exactly one cluster admin
+	admins, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(admins.Admins))
+
+	// Try to swap admins as Alice one more time, in case it happened that Alice
+	// is the admin
+	aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{
+		Add:    []string{admin},
+		Remove: []string{alice},
+	})
 }
 
 // TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
