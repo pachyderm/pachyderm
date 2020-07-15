@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
@@ -53,6 +54,23 @@ func TestDryrun(t *testing.T) {
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 	err = jobInfosReadonly.Get("j1", job)
 	require.True(t, IsErrNotFound(err))
+}
+
+func TestDelNonexistant(t *testing.T) {
+	require.NoError(t, testetcd.WithEnv(func(e *testetcd.Env) error {
+		c := e.EtcdClient
+		uuidPrefix := uuid.NewWithoutDashes()
+
+		jobInfos := NewCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+
+		_, err := NewSTM(context.Background(), c, func(stm STM) error {
+			err := jobInfos.ReadWrite(stm).Delete("test")
+			require.True(t, IsErrNotFound(err))
+			return err
+		})
+		require.True(t, IsErrNotFound(err))
+		return nil
+	}))
 }
 
 func TestGetAfterDel(t *testing.T) {
