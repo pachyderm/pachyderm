@@ -36,6 +36,10 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 ## Releasing
 
+The following is the procedure for point releases, rcs, or anything else off
+of master; i.e. for non-custom releases. For custom release instructions, see
+below.
+
 ### Prerequisites
 
 1) Make sure the HEAD commit (that you're about to release) has a passing build on travis.
@@ -142,12 +146,12 @@ git branch <major>.<minor>.x
 git push origin -u <major>.<minor>.x
 ```
 
-## Custom releasing
+## Custom releases
 
-Occasionally we have a need for a custom release off a non master branch. This
+Occasionally we have a need for a custom release off a non-master branch. This
 is usually because some features we need to supply to users that are
 incompatible with features on master, but the features on master we need to
-keep longer term.
+keep longer-term.
 
 Assuming the prerequisites are met, making a custom release should simply be a
 matter of running `make custom-release`. This will create a release like
