@@ -202,7 +202,7 @@ example:
 It is helpful to imagine the name of the release, such as *Pachyderm 1.11.0*,
 prepended to each change in the log.
 
-We use the following verbs for different types of changes:
+Use the following verbs for different types of changes:
 
 | Use | Verb |
 | --- | ---- |
