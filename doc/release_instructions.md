@@ -10,11 +10,12 @@ Types of Releases
 
 ## Requirements
 
-NOTE! At the moment, we require the release script to be run on an ubuntu machine.
+NOTE! At the moment, we require the release script to be run on an ubuntu
+machine.
 
-This is because of a dependency on CGO via [this bug](https://github.com/opencontainers/runc/issues/841)
-
-(We don't want to enable CGO in part because it doesn't play nice with macOS for us)
+This is because of a dependency on CGO via
+[this bug](https://github.com/opencontainers/runc/issues/841), as we don't
+want to enable CGO in part because it doesn't play nice with macOS for us.
 
 You'll need the following credentials / tools:
 
@@ -35,128 +36,136 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 ## Releasing
 
+Prerequisites:
+
 1) Make sure the HEAD commit (that you're about to release) has a passing build on travis.
+2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` will fail if there are any uncommitted changes in the current branch.
 
-2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` (next step) will fail if there are any uncommitted changes in the current branch
+### Update client version
 
-3) Update client version. Commit these changes locally. You will push to GitHub in a later step.
-    - Note: `make VERSION_ADDITIONAL= install` builds new pachctl binary with the correct version string. The pachctl version is used in several steps.
-    - [Required for Major, Minor, and Patch releases]
-      - `src/client/version/client.go` version values
-        - for a major release, increment the MajorVersion and set the MinorVersion and MicroVersion to 0 --> eg. 2.0.0
-        - for a minor release, leave the MajorVersion unchanged, increment the MinorVersion, and set the MicroVersion to 0 --> eg. 1.10.0
-        - for a patch release, leave the MajorVersion and MinorVersion unchanged and increment the MicroVersion --> eg. 1.9.8
-```
-> make VERSION_ADDITIONAL= install
-> git add src/client/version/client.go
-> git commit -m"Increment version for $(pachctl version --client-only) release"
-```
+Update `src/client/version/client.go` version values.
 
-4) Update dash compatibility version. Commit these changes locally. You will push to GitHub in a later step.
-    - Note: The update to "latest" will cause dash CI to default run with the
-    -       release pointed to be latest
-    -       The latest link is only update for Major/Minor/Point releases.
-    -       In order to test a new version of dash with RC/Alpha/Beta/Custom
-    -       release, modify the deployment manifest to test it manually
+- for a major release, increment the MajorVersion and set the MinorVersion and MicroVersion to 0; e.g. `2.0.0`.
+- for a minor release, leave the MajorVersion unchanged, increment the MinorVersion, and set the MicroVersion to 0; e.g. `1.10.0`.
+- for a patch release, leave the MajorVersion and MinorVersion unchanged and increment the MicroVersion; e.g. `1.9.8`.
 
-```
-> make dash-compatibility
-> git add etc/compatibility
-> git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
+Commit these changes locally (you will push to GitHub in a later step):
+
+```bash
+make VERSION_ADDITIONAL= install
+git add src/client/version/client.go
+git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-5) Run `make doc` or `make VERSION_ADDITIONAL=-<rc/version suffix> doc-custom` with the new version values.
-    - This is only done for Major or Minor releases. We don't publish docs for alpha/beta/rc or custom releases
-    - Note in particular:
-        - You can also run just `make release-custom` to use the commit hash as the version suffix.
-        - Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything)
+### Update dash compatibility version
 
-6) At this point, all of our auto-generated documentation should be updated. You will push to GitHub in a later step.
-```
-> git add doc
-> git commit -m"Run make doc for $(pachctl version --client-only)"
+Commit these changes locally (you will push to GitHub in a later step):
+
+```bash
+make dash-compatibility
+git add etc/compatibility
+git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
 ```
 
-7) Regenerate the golden deployment manifests and commit it locally. You will push to GitHub in a later step.
-```
-> make regenerate-test-deploy-manifests
-> git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
+Note: The update to "latest" will cause dash CI to default run with the
+release pointed to be latest The latest link is only update for
+Major/Minor/Point releases. In order to test a new version of dash with
+RC/Alpha/Beta/Custom release, modify the deployment manifest to test it
+manually.
+
+### Rebuild docs
+
+Run `make doc`. Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything):
+
+```bash
+git add doc
+git commit -m"Run make doc for $(pachctl version --client-only)"
 ```
 
-8) Update the change log in the branch and commit it locally. You will push to GitHub in later step.
-    - Copy the release notes text into the CHANGELOG.md file.
-    - [changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md).
-```
-> git commit -a -m"Update change log for $(pachctl version --client-only)"
-```
+### Regenerate golden deployment manifests
 
-9) Push changes to remote branch or master. All changes for the release are in the branch.
-```
-> git push
+```bash
+make regenerate-test-deploy-manifests
+git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
 ```
 
-10) Run `make point-release` or `make VERSION_ADDITIONAL=-rc1 release-candidate`
-    - To make alpha/beta/rc releases use...
-        - `make VERSION_ADDITIONAL=-alpha1 release-candidate` or
-        - `make VERSION_ADDITIONAL=-beta1 release-candidate` or
-        - `make VERSION_ADDITIONAL=-rc1 release-candidate`
+### Update the changelog
 
-11) Update the
-[release's notes](https://github.com/pachyderm/pachyderm/releases)
+Update the changelog in the branch and commit it locally.
 
-12) Post the update on the #users channel.
+### Push changes
+
+```bash
+git push
+```
+
+### Release!
+
+* To release a point version, run `make point-release`
+* To release an alpha version, run e.g. `make VERSION_ADDITIONAL=-alpha1 release-candidate`
+* To release a beta version, run e.g. `make VERSION_ADDITIONAL=-beta1 release-candidate`
+* To release an rc, run e.g. `make VERSION_ADDITIONAL=-rc1 release-candidate`
+
+Then update the [release's notes](https://github.com/pachyderm/pachyderm/releases), and post the update on the #users channel.
 
 ### New major or minor releases
 
 In the case of a new major or minor release (x.0.0 or 1.x.0), you will need
 to make a couple of additional changes:
 
-Make sure you are on master
-```
-> git checkout master
-```
+#### Write up the extract/restore functionality
 
-1) Update `src/client/version/client.go` with the new version.
-```
-> make VERSION_ADDITIONAL= install
-> git add src/client/version/client.go
-> git commit -m"Increment version for $(pachctl version --client-only) release"
-```
+- Copy the protobuf from the prior release into `src/client/admin`.
+- Update `src/client/admin/admin.proto` to include the operations for the prior release.
+- Run `make proto` to rebuild the protos.
+- Add a converter to `src/server/admin/server`, e.g. `convert_1_11.go`.
+- Update the admin client (`src/client/admin.go`) and admin server (`src/server/admin/server/api_server.go`.)
 
-2) Regenerate the golden manifests: `make regenerate-test-deploy-manifests`.
+Look to the extract/restore functionality for other versions as a basis to
+build off of. Frequently, it's just a matter of copy/pasting that code and
+updating some names.
 
-3) Write up the extract/restore functionality:
+Then push the changes:
 
-    - Copy the protobuf from the prior release into `src/client/admin`.
-    - Update `src/client/admin/admin.proto` to include the operations for the
-      prior release.
-    - Run `make proto` to rebuild the protos.
-    - Add a converter to `src/server/admin/server`, e.g. `convert_1_11.go`.
-    - Update the admin client (`src/client/admin.go`) and admin server
-      (`src/server/admin/server/api_server.go`.)
-
-  Look to the extract/restore functionality for other versions as a basis to
-  build off of. Frequently, it's just a matter of copy/pasting that code and
-  updating some names.
-
-```
-> git commit -am "Added placeholder files for extract/restore functionality for <next version>"
-> git push
+```bash
+git commit -am "Added placeholder files for extract/restore functionality for <next version>"
+git push
 ```
 
-4) Create a new branch off master called `<major>.<minor>.x` and push it to
-   origin.
-    - Checkout master to be on the latest and make sure you don't have any local changes
-    - Create the new branch
-    - Push the new branch
+#### Branch off
 
-```
-> git checkout master
-> git branch <major>.<minor>.x
-> git push origin -u <major>.<minor>.x
+Create a new branch off master called `<major>.<minor>.x` and push it to origin:
+
+```bash
+git checkout master
+git branch <major>.<minor>.x
+git push origin -u <major>.<minor>.x
 ```
 
-### If the release failed
+## Custom release
+
+Occasionally we have a need for a custom release off a non master branch. This
+is usually because some features we need to supply to users that are
+incompatible with features on master, but the features on master we need to
+keep longer term.
+
+Assuming the prerequisites are met, making a custom release should simply be a
+matter of running `make custom-release`. This will create a release like
+`v1.2.3-2342345aefda9879e87ad`, which can be installed like:
+
+```bash
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+```
+
+Or for mac/brew:
+
+```bash
+# Where 1.7 is the major.minor version of the release you just did,
+# and you use the right commit SHA as well in the URL
+brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
+```
+
+## If the release failed
 
 You'll need to delete the *release* and the *release tag* in github. Navigate to
 `https://www.github.com/pachyderm/pachyderm` and click on the *Releases* tab.
@@ -182,21 +191,4 @@ All of these can be accomplished by:
 - Delete the tag and GitHub release for the last good release (the one you just checked out)
 - Syncing your local Git tags with the set of tags on Github (either re-clone the Pachyderm repo, or run `git tag -l | xargs git tag -d; git fetch origin master --tags`). This prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
-
-## Custom release
-
-Occasionally we have a need for a custom release off a non master branch. This is usually because some features we need to supply to users that are incompatible with features on master, but the features on master we need to keep longer term.
-
-Assuming the prerequisites are met, making a custom release should simply be a matter of running `make custom-release`. This will create a release like `v1.2.3-2342345aefda9879e87ad`, which can be installed like:
-
-```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
-```
-
-Or for mac/brew:
-
-```
-# Where 1.7 is the major.minor version of the release you just did,
-# and you use the right commit SHA as well in the URL
-$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
-```
+b
