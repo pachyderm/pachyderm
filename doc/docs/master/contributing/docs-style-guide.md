@@ -191,7 +191,7 @@ I hope you'll have fun with Python Markdown! :smile:
 
 Format release notes as a bulleted list with each bullet describing a new
 feature, bug fix, or change. Each bullet point should contain at most a few sentences,
-the vast majority should be just one, that describes the change. Sentences
+and the vast majority should be just one sentence that describes the change. Sentences
 should be present tense, the things they've fixed should be past tense, for
 example:
 
