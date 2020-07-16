@@ -1,6 +1,6 @@
 # Release procedure
 
-Types of Releases
+## Types of releases
 
 |ReleaseType|Example Version|Built off master|Can build off any branch| Updates docs| Can host multiple install versions |
 |---|---|---|---|---|---|
@@ -29,17 +29,17 @@ You'll need the following credentials / tools:
 - S3 credentials
 - A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
 - `silversearcher`
-    - run: `apt-get install -y silversearcher-ag` on Linux
-    -      `brew install the_silver_searcher` on mac
+    - on linux: `apt-get install -y silversearcher-ag`
+    - on mac: `brew install the_silver_searcher`
 
 If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
 
 ## Releasing
 
-Prerequisites:
+### Prerequisites
 
 1) Make sure the HEAD commit (that you're about to release) has a passing build on travis.
-2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` will fail if there are any uncommitted changes in the current branch.
+2) Make sure that you have no uncommitted files in the current branch.
 
 ### Update client version
 
@@ -142,7 +142,7 @@ git branch <major>.<minor>.x
 git push origin -u <major>.<minor>.x
 ```
 
-## Custom release
+## Custom releasing
 
 Occasionally we have a need for a custom release off a non master branch. This
 is usually because some features we need to supply to users that are
@@ -191,4 +191,3 @@ All of these can be accomplished by:
 - Delete the tag and GitHub release for the last good release (the one you just checked out)
 - Syncing your local Git tags with the set of tags on Github (either re-clone the Pachyderm repo, or run `git tag -l | xargs git tag -d; git fetch origin master --tags`). This prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
-b
