@@ -18,7 +18,7 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 - Adds support to allow etcd volumes to be expanded. (Special thanks to @mattrobenolt.) (#4925)
 - Adds experimental support for using Loki as a logging backend rather than k8s. Enable with the `LOKI_LOGGING` feature flag to pachd (#4946)
 - Adds support for copy object in S3 gateway (#4972)
-- Adds a new cluster-admin role, "FS", which grants access to all repos but not other admin-only endpoints (#4975)
+- Adds a new cluster-admin role, "FS", which grants access to all repos but not other admin-only endpoints (#4975) (#5103)
 - Adds support to surface image pull errors in pipeline sidecar containers (#4979)
 - Adds support for colorizing level in `pachctl logs` (Special thanks to @farhaanbukhsh) (#4996)
 - Adds configurable resource limits to the storage side and set default resource limits for the init container (#4999) 
