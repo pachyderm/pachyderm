@@ -199,7 +199,7 @@ example:
 | ---------- | --- |
 | Fixed a bug which causes ... | Fixes a bug which caused ... |
 
-I find it helpful to imagine the name of the release, i.e. "Pachyderm 1.11.0"
+It is helpful to imagine the name of the release, such as *Pachyderm 1.11.0*,
 prepended to each change in the log, to check if I'm using the right language.
 
 We use the following verbs for different types of changes:
