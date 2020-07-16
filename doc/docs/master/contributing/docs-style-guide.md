@@ -211,7 +211,7 @@ Use the following verbs for different types of changes:
 | Version update of dependency | Updates |
 | Generic change | Changes |
 
-Almost every line in our changelog starts with one of these words, however
+Almost every line in our changelog starts with one of these words. However,
 there are rare cases where it's awkward to explain the change using this
 structure in which case it's fine to ignore it. However if you find yourself
 using synonyms like "Upgrade" those should be replaced with words from the
