@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/debug"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/spf13/cobra"
 )
@@ -33,24 +36,30 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
 
 	var duration time.Duration
-	var workerIP string
-	var sidecar bool
+	var workerStr string
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile>",
 		Short: "Return a profile from the server.",
 		Long:  "Return a profile from the server.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			var worker *debug.Worker
+			if workerStr != "" {
+				var err error
+				worker, err = parseWorker(workerStr)
+				if err != nil {
+					return err
+				}
+			}
 			client, err := client.NewOnUserMachine("debug-dump")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			return client.Profile(args[0], duration, workerIP, sidecar, os.Stdout)
+			return client.Profile(args[0], duration, worker, os.Stdout)
 		}),
 	}
 	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
-	profile.Flags().StringVarP(&workerIP, "worker", "w", "", "Collect the profile from the worker with the given IP address.")
-	profile.Flags().BoolVarP(&sidecar, "sidecar", "s", false, "Collect the profile from the sidecar.")
+	profile.Flags().StringVarP(&workerStr, "worker", "w", "", "Collect the profile from the given worker pod and container. (format: <pod>:<container>)")
 	commands = append(commands, cmdutil.CreateAlias(profile, "debug profile"))
 
 	binary := &cobra.Command{
@@ -95,7 +104,7 @@ func Cmds() []*cobra.Command {
 						retErr = err
 					}
 				}()
-				return client.Profile(args[0], duration, "", false, f)
+				return client.Profile(args[0], duration, nil, f)
 			})
 			// Download the binary
 			eg.Go(func() (retErr error) {
@@ -138,4 +147,15 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(debug, "debug"))
 
 	return commands
+}
+
+func parseWorker(worker string) (*debug.Worker, error) {
+	strs := strings.Split(worker, ":")
+	if len(strs) != 2 {
+		return nil, errors.Errorf("error parsing worker string: %v (format: <pod>:<container>)", worker)
+	}
+	return &debug.Worker{
+		Pod:       strs[0],
+		Container: strs[1],
+	}, nil
 }

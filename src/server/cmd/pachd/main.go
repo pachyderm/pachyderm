@@ -261,6 +261,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env.PPSWorkerPort,
 			clusterID,
 			nil,
+			env.GetKubeClient(),
+			env.Namespace,
 		))
 		return nil
 	}); err != nil {
@@ -494,6 +496,8 @@ func doFullMode(config interface{}) (retErr error) {
 				env.PPSWorkerPort,
 				clusterID,
 				nil,
+				env.GetKubeClient(),
+				env.Namespace,
 			))
 			return nil
 		}); err != nil {
