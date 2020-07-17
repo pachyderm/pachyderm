@@ -15,7 +15,7 @@ fi
 # overrides/partials/versions.html. This must be built before running 'mkdocs'
 # itself
 latest_version="$(ls ./docs | grep -Ev 'latest|master|archive' | sort -r -V | head -n 1)"
-cat <<EOF >overrides/partials/versions.html
+cat <<EOF >>material/overrides/partials/versions.html
 <div class="mdl-selectfield">
     <select class="mdl-selectfield__select" id="version-selector" onchange="
         let pathParts = window.location.pathname.split('/');
@@ -34,11 +34,11 @@ for d in docs/*; do
     if [[ "${d}" == "master" ]]; then
          continue
     fi
-    cat <<EOF >>overrides/partials/versions.html
+    cat <<EOF >>material/overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
 done
-cat <<EOF >>overrides/partials/versions.html
+cat <<EOF >>material/overrides/partials/versions.html
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
     <script type="text/javascript">
