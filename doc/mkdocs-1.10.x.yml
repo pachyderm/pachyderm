@@ -15,7 +15,7 @@ copyright: 'Copyright Pachyderm Inc, 2020'
 # Configuration
 theme:
   name: pachydermdocs
-  custom_dir: overrides
+  custom_dir: material
 
   # 404 page
   static_templates:
