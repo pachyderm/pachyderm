@@ -2,32 +2,16 @@ package client
 
 import (
 	"io"
-	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
-// Dump writes debug information from the server to w.
-func (c APIClient) Dump(w io.Writer) error {
-	goroClient, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(goroClient, w))
-}
-
 // Profile writes a pprof profile for pachd to w.
-func (c APIClient) Profile(profile string, duration time.Duration, worker *debug.Worker, w io.Writer) error {
-	var d *types.Duration
-	if duration != 0 {
-		d = types.DurationProto(duration)
-	}
+func (c APIClient) Profile(profile *debug.Profile, worker *debug.Worker, w io.Writer) error {
 	profileClient, err := c.DebugClient.Profile(c.Ctx(), &debug.ProfileRequest{
-		Profile:  profile,
-		Duration: d,
-		Worker:   worker,
+		Profile: profile,
+		Worker:  worker,
 	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -36,10 +20,22 @@ func (c APIClient) Profile(profile string, duration time.Duration, worker *debug
 }
 
 // Binary writes the running pachd binary to w.
-func (c APIClient) Binary(w io.Writer) error {
-	binaryClient, err := c.DebugClient.Binary(c.Ctx(), &debug.BinaryRequest{})
+func (c APIClient) Binary(worker *debug.Worker, w io.Writer) error {
+	binaryClient, err := c.DebugClient.Binary(c.Ctx(), &debug.BinaryRequest{
+		Worker: worker,
+	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(binaryClient, w))
+}
+
+func (c APIClient) SOS(worker *debug.Worker, w io.Writer) error {
+	sosClient, err := c.DebugClient.SOS(c.Ctx(), &debug.SOSRequest{
+		Worker: worker,
+	})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(sosClient, w))
 }

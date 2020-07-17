@@ -6,29 +6,30 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/debug";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 
-message DumpRequest {
-  // Recursed is true if this request is a recursive call from another request.
-  // Callers should leave it unset, it's used to prevent infinite loops of
-  // recursive calls.
-  bool recursed = 1;
+message ProfileRequest {
+    Profile profile = 1;
+    Worker worker = 2;
 }
 
-message ProfileRequest {
-    string profile = 1;
-    google.protobuf.Duration duration = 2; // only meaningful if profile == "cpu"
-    Worker worker = 3;
+message Profile {
+    string name = 1;
+    google.protobuf.Duration duration = 2; // only meaningful if name == "cpu"
 }
 
 message Worker {
    string pod = 1;
-   string container = 2;
 }
 
 message BinaryRequest {
+    Worker worker = 1;
+}
+
+message SOSRequest {
+    Worker worker = 1;
 }
 
 service Debug {
-  rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc SOS(SOSRequest) returns (stream google.protobuf.BytesValue) {}
 }
