@@ -141,7 +141,7 @@ message JobInput {
 }
 
 message ParallelismSpec {
-  reserved 1;
+  reserved 1, 3;
 
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
@@ -149,15 +149,19 @@ message ParallelismSpec {
   // (currently it chooses the number of workers in the cluster)
   uint64 constant = 2;
 
-  // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
-  // where N is the number of nodes in the kubernetes cluster.
-  //
-  // For example, if each Kubernetes node has four CPUs, you might set
-  // 'coefficient' to four, so that there are four Pachyderm workers per
-  // Kubernetes node, and each Pachyderm worker gets one CPU. If you want to
-  // reserve half the nodes in your cluster for other tasks, you might set
-  // 'coefficient' to 0.5.
-  double coefficient = 3;
+  // maximum is the maximum number of workers this pipeline will run
+  // concurrently. A value of 0 means no maximum and should be used with care.
+  int64 maximum = 4;
+
+  // One worker will be spun up for every datums_per_worker datums to be
+  // processed in a job, up to the value of maximum.
+  int64 datums_per_worker = 5;
+
+  // One worker will be spun up for every bytes_per_worker total data to be
+  // processed in a job, up to the value of maximum. Values can be specified
+  // using standard SI units so a value of 1G would give you one worker for
+  // every gigabyte of data.
+  string bytes_per_worker = 6;
 }
 
 // HashTreeSpec sets the number of shards into which pps splits a pipeline's
@@ -736,6 +740,11 @@ message RunPipelineRequest {
 
 message RunCronRequest {
   Pipeline pipeline = 1;
+}
+
+message ScalePipelineRequest {
+  Pipeline pipeline = 1;
+  int64 workers = 2;
 }
 
 message CreateSecretRequest {
