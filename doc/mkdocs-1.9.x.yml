@@ -23,8 +23,8 @@ theme:
   include_search_page: true
   search_index_only: true
   language: en
-  feature:
-    tabs: true
+  features:
+      - tabs:
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
@@ -32,15 +32,12 @@ theme:
     text: Roboto
     code: Roboto Mono
   favicon: assets/images/favicon.png
-  logo:
-    icon: "\uE80C"
+  icon:
+     logo: material/school
 
 # Plugins
 plugins:
   - search
-  - exclude:
-      glob:
-        - archive/*
   - minify:
       minify_html: true
   - git-revision-date-localized
