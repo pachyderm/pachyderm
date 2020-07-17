@@ -113,7 +113,7 @@ git push
 
 ### Release!
 
-* To release a point version, run `make point-release`
+* To release a major, minor, or patch version, run `make point-release`
 * To release an alpha version, run e.g.
   `make VERSION_ADDITIONAL=-alpha1 release-candidate`
 * To release a beta version, run e.g.
