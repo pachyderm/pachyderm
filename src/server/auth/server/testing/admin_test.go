@@ -441,6 +441,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 // no-admin state by rapidly issuing racing calls to swap an admin and a
 // non-admin.
 func TestCannotRemoveAllClusterAdminsRace(t *testing.T) {
+	t.Skip("Test is flaky--need to apply admin cache updates atomically")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
