@@ -207,6 +207,9 @@ Update `convert1_7.go`, around line 309, to reference `convert1_11Objects`.
 
 Finally `make install docker-build` to ensure everything compiles, then commit the updates and push.
 
+
+To see what a complete diff should look like with these changes, see [this PR.](https://github.com/pachyderm/pachyderm/pull/5111)
+
 ## Custom releases
 
 Occasionally we have a need for a custom release off a non-master branch. This
