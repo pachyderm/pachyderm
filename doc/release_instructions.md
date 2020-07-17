@@ -27,12 +27,14 @@ You'll need the following credentials / tools:
 - `sha256sum`
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
-- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
+- A dockerhub account, with write access to
+  [pachyderm](https://hub.docker.com/u/pachyderm/) (run `docker login`)
 - `silversearcher`
     - on linux: `apt-get install -y silversearcher-ag`
     - on mac: `brew install the_silver_searcher`
 
-If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
+If you're doing a custom release (off a branch that isn't master),
+[skip to the section at the bottom](#custom-release)
 
 ## Releasing
 
@@ -42,16 +44,20 @@ below.
 
 ### Prerequisites
 
-1) Make sure the HEAD commit (that you're about to release) has a passing build on travis.
+1) Make sure the HEAD commit (that you're about to release) has a passing
+   build on travis.
 2) Make sure that you have no uncommitted files in the current branch.
 
 ### Update client version
 
 Update `src/client/version/client.go` version values.
 
-- for a major release, increment the MajorVersion and set the MinorVersion and MicroVersion to 0; e.g. `2.0.0`.
-- for a minor release, leave the MajorVersion unchanged, increment the MinorVersion, and set the MicroVersion to 0; e.g. `1.10.0`.
-- for a patch release, leave the MajorVersion and MinorVersion unchanged and increment the MicroVersion; e.g. `1.9.8`.
+- for a major release, increment the MajorVersion and set the MinorVersion and
+  MicroVersion to 0; e.g. `2.0.0`.
+- for a minor release, leave the MajorVersion unchanged, increment the
+  MinorVersion, and set the MicroVersion to 0; e.g. `1.10.0`.
+- for a patch release, leave the MajorVersion and MinorVersion unchanged and
+  increment the MicroVersion; e.g. `1.9.8`.
 
 Commit these changes locally (you will push to GitHub in a later step):
 
@@ -79,7 +85,9 @@ manually.
 
 ### Rebuild docs
 
-Run `make doc`. Make sure you add any newly created (untracked) doc files, in addition to docs that have been updated (`git commit -a` might not get everything):
+Run `make doc`. Make sure you add any newly created (untracked) doc files, in
+addition to docs that have been updated (`git commit -a` might not get
+everything):
 
 ```bash
 git add doc
@@ -106,11 +114,15 @@ git push
 ### Release!
 
 * To release a point version, run `make point-release`
-* To release an alpha version, run e.g. `make VERSION_ADDITIONAL=-alpha1 release-candidate`
-* To release a beta version, run e.g. `make VERSION_ADDITIONAL=-beta1 release-candidate`
+* To release an alpha version, run e.g.
+  `make VERSION_ADDITIONAL=-alpha1 release-candidate`
+* To release a beta version, run e.g.
+  `make VERSION_ADDITIONAL=-beta1 release-candidate`
 * To release an rc, run e.g. `make VERSION_ADDITIONAL=-rc1 release-candidate`
 
-Then update the [release's notes](https://github.com/pachyderm/pachyderm/releases), and post the update on the #users channel.
+Then update the
+[release's notes](https://github.com/pachyderm/pachyderm/releases), and post
+the update on the #users channel.
 
 ### New major or minor releases
 
@@ -143,27 +155,39 @@ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a59
 
 ## If the release failed
 
-You'll need to delete the *release* and the *release tag* in github. Navigate to
-`https://www.github.com/pachyderm/pachyderm` and click on the *Releases* tab.
-Click on the big, blue version number corresponding to the release you want to
-delete, and you should be redirected to a page with just that release, and red
-"Delete" button on the top right. Click the delete button
+You'll need to delete the *release* and the *release tag* in github. Navigate
+to the [pachyderm repo](https://www.github.com/pachyderm/pachyderm) and click
+on the *Releases* tab. Click on the big, blue version number corresponding to
+the release you want to delete, and you should be redirected to a page with
+just that release, and red "Delete" button on the top right. Click the delete
+button.
 
 From here, go back to the list of Pachyderm releases, and click "tags". Click
-on the tag for the release you want to delete, and then click "delete" again to
-delete the tag.
+on the tag for the release you want to delete, and then click "delete" again
+to delete the tag.
 
 At this point, you can re-run the release process when you're ready.
 
 ## Rolling back a release
 
-If a release has a problem and needs to be withdrawn, the steps in rolling back a release are similar to the steps under "If the release failed". In general, you'll need to:
-- Delete the tag and GitHub Release for both the bad release *and the most recent good release*
+If a release has a problem and needs to be withdrawn, the steps in rolling
+back a release are similar to the steps under "If the release failed". In
+general, you'll need to:
+- Delete the tag and GitHub Release for both the bad release *and the most
+  recent good release*
 - Re-release the previous version (to update homebrew)
 
 All of these can be accomplished by:
-- Following the steps under "If the release failed" for deleting the tag and GitHub release for both the bad release
-- Checking out the git commit associated with the most recent good release (`git checkout tags/v<good release>`). Save this commit SHA (`git rev-list tags/v<good> --max-count=1`), in case you need it later, as we'll be deleting the tag.
-- Delete the tag and GitHub release for the last good release (the one you just checked out)
-- Syncing your local Git tags with the set of tags on Github (either re-clone the Pachyderm repo, or run `git tag -l | xargs git tag -d; git fetch origin master --tags`). This prevents the release process from failing with `tag already exists`.
+- Following the steps under "If the release failed" for deleting the tag and
+  GitHub release for both the bad release
+- Checking out the git commit associated with the most recent good release
+  (`git checkout tags/v<good release>`). Save this commit SHA
+  (`git rev-list tags/v<good> --max-count=1`), in case you need it later, as
+  we'll be deleting the tag.
+- Delete the tag and GitHub release for the last good release (the one you
+  just checked out)
+- Syncing your local Git tags with the set of tags on Github (either re-clone
+  the Pachyderm repo, or run
+  `git tag -l | xargs git tag -d; git fetch origin master --tags`). This
+  prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
