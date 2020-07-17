@@ -1,0 +1,40 @@
+{#-
+  This file was automatically generated - do not edit
+-#}
+{% extends "main.html" %}
+{% block tabs %}
+  {{ super() }}
+  <style>.md-header{position:initial}.md-main__inner{margin:0}.md-content{display:none}.tx-container{padding-top:1rem;background:var(--md-primary-bg-color)}.tx-hero{margin:0 .8rem;color:var(--md-primary-fg-color)}.tx-hero h1{margin-bottom:1rem;color:currentColor;font-weight:700}.tx-hero__content{padding-bottom:6rem}.tx-hero .md-button{margin-top:.5rem;margin-right:.5rem;color:var(--md-primary-fg-color);border-radius: 4px;}.tx-hero
+.md-button--primary{background-color:var(--md-primary-fg-color);color:white;border-color:var(--md-primary-fg-color)}.tx-hero .md-button:focus,.tx-hero .md-button:hover{background-color:hsla(291,53%,29%,1.0);color:hsla(0,0%,100%,1);border-color:hsla(291,53%,29%,1.0)}@media screen and (max-width:30em){.tx-hero h1{font-size:1.4rem}}@media screen and
+  (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:30rem;margin-top:3.5rem;padding-bottom:14vw;padding-right:0;margin-right:0}.tx-hero__image{width:90rem;order:1;transform:translateX(4rem);padding-right:5rem}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}.tx-hero__image{transform:translateX(8rem)}}</style>
+  <section class="tx-container">
+    <div class="md-grid md-typeset">
+      <div class="tx-hero">
+          <div class="tx-hero__image">
+           <img src="assets/images/illustration.png" alt="" width="1659" height="1200" draggable="false">
+          </div>
+          <div class="tx-hero__content">
+          <h1>Get Started with Pachyderm</h1>
+          <p>Pachyderm is a platform that enables you to run your data science experiments in a reliable and reproducible way. Deploy locally, in the cloud, or in Pachyderm Hub in minutes.</p>
+          <a href="getting_started/" title="{{ lang.t('source.link.title') }}" class="md-button md-button__primary">
+            Get Started
+          </a>
+          <a href="https://hub.pachyderm.com" title="{{ lang.t('source.link.title') }}" class="md-button md-button--primary">
+            Go to Pachyderm Hub
+          </a>
+          <a href="deploy-manage/" title="{{ lang.t('source.link.title') }}" class="md-button">
+            Deploy in the Cloud
+          </a>
+          <a href="reference/pipeline_spec/" title="{{ lang.t('source.link.title') }}" class="md-button">
+            Pipeline Spec
+          </a>
+          <a href="examples/examples/" title="{{ lang.t('source.link.title') }}" class="md-button">
+            Examples
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+{% block content %}{% endblock %}
+{% block footer %}{% endblock %}

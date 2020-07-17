@@ -15,16 +15,16 @@ copyright: 'Copyright Pachyderm Inc, 2020'
 # Configuration
 theme:
   name: pachydermdocs
-  custom_dir: overrides
+  custom_dir: material
 
   # 404 page
   static_templates:
     - 404.html
-  include_search_page: true
+  include_search_page: false
   search_index_only: true
   language: en
-  feature:
-    tabs: true
+  features:
+    - tabs
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
@@ -32,15 +32,12 @@ theme:
     text: Roboto
     code: Roboto Mono
   favicon: assets/images/favicon.png
-  logo:
-    icon: "\uE80C"
+  icon:
+    logo: material/school
 
 # Plugins
 plugins:
   - search
-  - exclude:
-      glob:
-        - archive/*
   - minify:
       minify_html: true
   - git-revision-date-localized
@@ -48,23 +45,19 @@ plugins:
 # Customization
 extra:
   social:
-    - type: github-alt
+    - icon: fontawesome/brands/github
       link: https://github.com/pachyderm/pachyderm
-    - type: twitter
+    - icon: fontawesome/brands/twitter
       link: https://twitter.com/pachydermio
-    - type: linkedin
+    - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'assets/stylesheets/extra.css'
-extra_javascript:
-    - 'assets/javascripts/extra.js'
+    - stylesheets/extra.css
 
 # Extensions
 markdown_extensions:
   - markdown.extensions.admonition
-  - markdown.extensions.tables
-  - markdown.extensions.attr_list
   - markdown.extensions.codehilite:
       guess_lang: false
   - markdown.extensions.def_list
@@ -72,8 +65,6 @@ markdown_extensions:
   - markdown.extensions.meta
   - markdown.extensions.toc:
       permalink: true
-  - mdx_truly_sane_lists:
-      nested_indent: 2
   - pymdownx.arithmatex
   - pymdownx.betterem:
       smart_enable: all
