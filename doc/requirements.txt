@@ -7,3 +7,4 @@ mkdocs-pachyderm>=1.2.7
 mdx_truly_sane_lists>=1.2
 mkdocs-minify-plugin>=0.3.0
 mkdocs-git-revision-date-localized-plugin>=0.7
+mkdocs-exclude>=1.0.2
