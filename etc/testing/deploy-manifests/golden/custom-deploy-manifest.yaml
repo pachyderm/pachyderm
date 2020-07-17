@@ -365,6 +365,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PPS_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: PACHD_MEMORY_REQUEST
           valueFrom:
             resourceFieldRef:

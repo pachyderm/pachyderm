@@ -100,6 +100,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "PACHD_POD_NAMESPACE",
 		Value: a.namespace,
+	}, {
+		Name:  client.PPSNamespaceEnv,
+		Value: a.namespace,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
