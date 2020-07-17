@@ -45,11 +45,11 @@ plugins:
 # Customization
 extra:
   social:
-    - type: github-alt
+    - icon: fontawesome/brands/github
       link: https://github.com/pachyderm/pachyderm
-    - type: twitter
+    - icon: fontawesome/brands/twitter
       link: https://twitter.com/pachydermio
-    - type: linkedin
+    - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
