@@ -19,7 +19,7 @@ env:
     - AUTH_BUCKETS=2
     - GOPROXY=https://proxy.golang.org
   matrix:
-    # - BUCKET=MISC
+    - BUCKET=MISC
     # If you want to update the number of PPS or auth buckets, you'll neet to
     # update the value of PPS_BUCKETS or AUTH_BUCKETS above
     #- BUCKET=ADMIN
