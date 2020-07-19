@@ -10622,19 +10622,20 @@ func TestSpout(t *testing.T) {
 		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
-		for i := 0; i < 10; i++ {
+		var files []*pfs.FileInfo
+		for i := 0; len(files) < 1000; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
-			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			files, err = c.ListFile(pipeline, commitInfo.Commit.ID, "")
 			t.Logf("List files: [%v] [%d] %d", err, i+1, len(files))
 			require.NoError(t, err)
-			//require.Equal(t, i+1, len(files))
 			var buf bytes.Buffer
 			err = c.GetFile(pipeline, "master", fmt.Sprintf("test%v", i), 0, 0, &buf)
 			if err != nil {
 				t.Errorf("Could not get file %v", err)
 			}
 		}
+		require.Equal(t, 1000, len(files))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
