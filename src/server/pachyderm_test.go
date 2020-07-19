@@ -10626,6 +10626,7 @@ func TestSpout(t *testing.T) {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
 			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			t.Logf("List files: [%s] [%d] %d", err, i+1, len(files))
 			require.NoError(t, err)
 			require.Equal(t, i+1, len(files))
 			var buf bytes.Buffer
