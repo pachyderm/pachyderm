@@ -45,6 +45,7 @@ func main() {
 				// if there's a broken pipe, just give it some time to get ready for the next message
 				time.Sleep(5 * time.Millisecond)
 			}
+			fmt.Println("Wrote File:", name, len(name))
 			return nil
 		}(); err != nil {
 			panic(err)
