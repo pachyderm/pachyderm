@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/rjeczalik/notify"
 )
 
 // TarFile holder structure
@@ -182,6 +183,34 @@ func processFiles(ctx context.Context,
 	return retErr1
 }
 
+func OpenPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
+	p, err := os.Open(pName)
+	if os.IsNotExist(err) {
+		logger.Logf("Named pipe '%s' does not exist", pName)
+	} else if os.IsPermission(err) {
+		logger.Logf("Insufficient permissions to read named pipe '%s': %s", pName, err)
+	} else if err != nil {
+		logger.Logf("Error while opening named pipe '%s': %s", pName, err)
+	}
+	return p, err
+}
+
+func ProcessFilesReceived(
+	ctx context.Context,
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	logger logs.TaggedLogger) error {
+	if fileCnt > 0 {
+		err := processFiles(ctx, pachClient, pipelineInfo, logger)
+		fileList = nil
+		fileCnt = 0
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ReceiveSpout is used by both services and spouts if a spout is defined on the
 // pipeline. ctx is separate from pachClient because services may call this, and
 // they use a cancel function that affects the context but not the pachClient
@@ -193,34 +222,36 @@ func ReceiveSpout(
 	logger logs.TaggedLogger,
 ) error {
 	// open a read connection to the /pfs/out named pipe
-	out, err := os.Open("/pfs/out")
+	out, err := OpenPipeReadOnly("/pfs/out", logger)
 	if err != nil {
 		return err
 	}
 	// and close it when we're done
 	defer out.Close()
+
+	c := make(chan notify.EventInfo, 5)
+	notify.Watch("/pfs/out", c, notify.Write|notify.Remove)
 	for {
-		var buff bytes.Buffer
-		n, err := io.Copy(&buff, out)
-		if err != nil {
-			logger.Logf("Received an EOF", err)
-			break
-		}
-		if n == 0 {
-			// Pipe is still open, but no data
-			if fileCnt > 0 {
-				err = processFiles(ctx, pachClient, pipelineInfo, logger)
-				fileList = nil
-				fileCnt = 0
-				if err != nil {
-					return err
-				}
+		e := <-c
+		switch e.Event() {
+		case notify.Write:
+			var buff bytes.Buffer
+			n, err := io.Copy(&buff, out)
+			if err != nil {
+				logger.Logf("Received an EOF", err)
+				break
 			}
-			continue
+			if n == 0 {
+				continue
+			}
+			logger.Logf("Got data: ", n, buff.Len())
+			TarReader(buff, logger)
+			logger.Logf("Total files", fileCnt)
+			err = ProcessFilesReceived(ctx, pachClient, pipelineInfo, logger)
+		case notify.Remove:
+			logger.Logf("Fatal: pipe /pfs/out removed")
+			return err
 		}
-		logger.Logf("Got data: ", n, buff.Len())
-		TarReader(buff, logger)
-		logger.Logf("Total files", fileCnt)
 	}
-	return err
+	return nil
 }
