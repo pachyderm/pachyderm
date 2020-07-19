@@ -183,7 +183,7 @@ func processFiles(ctx context.Context,
 	return retErr1
 }
 
-func OpenPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
+func openPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
 	p, err := os.Open(pName)
 	if os.IsNotExist(err) {
 		logger.Logf("Named pipe '%s' does not exist", pName)
@@ -195,7 +195,7 @@ func OpenPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) 
 	return p, err
 }
 
-func ProcessFilesReceived(
+func processFilesReceived(
 	ctx context.Context,
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
@@ -222,7 +222,7 @@ func ReceiveSpout(
 	logger logs.TaggedLogger,
 ) error {
 	// open a read connection to the /pfs/out named pipe
-	out, err := OpenPipeReadOnly("/pfs/out", logger)
+	out, err := openPipeReadOnly("/pfs/out", logger)
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ func ReceiveSpout(
 			logger.Logf("Got data: ", n, buff.Len())
 			TarReader(buff, logger)
 			logger.Logf("Total files", fileCnt)
-			err = ProcessFilesReceived(ctx, pachClient, pipelineInfo, logger)
+			processFilesReceived(ctx, pachClient, pipelineInfo, logger)
 		case notify.Remove:
 			logger.Logf("Fatal: pipe /pfs/out removed")
 			return err
