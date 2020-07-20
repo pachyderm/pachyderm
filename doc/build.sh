@@ -8,7 +8,7 @@ cd "$(dirname "${0}")"
 
 # Delete old site/ dir
 if [[ -d site ]]; then
-  rm -rf site
+  rm -rf site overrides/partials/versions.html
 fi
 
 # Add each version of the docs to the dropdown defined by
@@ -38,6 +38,9 @@ for d in docs/*; do
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
 done
+    cat <<EOF >>overrides/partials/versions.html
+        <option style="color:white;background-color:#4b2a5c;" value="${latest_version}/archive">Archive</option>"
+EOF
 cat <<EOF >>overrides/partials/versions.html
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
