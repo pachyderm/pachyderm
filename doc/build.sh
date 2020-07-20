@@ -12,7 +12,7 @@ if [[ -d site ]]; then
 fi
 
 # Add each version of the docs to the dropdown defined by
-# overrides/partials/versions.html. This must be built before running 'mkdocs'
+# material/overrides/partials/versions.html. This must be built before running 'mkdocs'
 # itself
 latest_version="$(ls ./docs | grep -Ev 'latest|master|archive' | sort -r -V | head -n 1)"
 cat <<EOF >>material/overrides/partials/versions.html
