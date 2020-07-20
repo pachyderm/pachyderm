@@ -14,7 +14,7 @@ fi
 # Add each version of the docs to the dropdown defined by
 # material/overrides/partials/versions.html. This must be built before running 'mkdocs'
 # itself
-latest_version="$(ls ./docs | grep -Ev 'latest|master|archive' | sort -r -V | head -n 1)"
+latest_version="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V | head -n 1)"
 cat <<EOF >>overrides/partials/versions.html
 <div class="mdl-selectfield">
     <select class="mdl-selectfield__select" id="version-selector" onchange="
@@ -27,8 +27,8 @@ EOF
 for d in docs/*; do
     d=$(basename "${d}")
 
-    # don't rebuild archive dir
-    if [[ "${d}" == "archive" ]]; then
+    # don't rebuild archived dir
+    if [[ "${d}" == "archived" ]]; then
         continue
     fi
     if [[ "${d}" == "master" ]]; then
@@ -39,7 +39,7 @@ for d in docs/*; do
 EOF
 done
     cat <<EOF >>overrides/partials/versions.html
-        <option style="color:white;background-color:#4b2a5c;" value="latest/archive">Archive</option>"
+        <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
 EOF
 cat <<EOF >>overrides/partials/versions.html
     </select>
@@ -55,8 +55,8 @@ EOF
 for d in docs/*; do
     d=$(basename "${d}")
 
-    # don't rebuild archive dir
-    if [[ "${d}" == "archive" ]]; then
+    # don't rebuild archived dir
+    if [[ "${d}" == "archived" ]]; then
         continue
     fi
     if [[ "${d}" == "master" ]]; then

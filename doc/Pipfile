@@ -12,7 +12,7 @@ Pygments = ">=2.4"
 markdown = ">=3.2"
 mdx_truly_sane_lists = ">=1.2"
 mkdocs-git-revision-date-localized-plugin = "*"
-mkdocs-pachyderm = ">=1.2.7"
+mkdocs-pachyderm = ">=1.2.8"
 mkdocs-minify-plugin = ">=0.2"
 
 [dev-packages]
