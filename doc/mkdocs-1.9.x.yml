@@ -15,7 +15,7 @@ copyright: 'Copyright Pachyderm Inc, 2019'
 # Configuration
 theme:
   name: pachydermdocs
-  custom_dir: material
+  custom_dir: material/overrides
 
   # 404 page
   static_templates:
@@ -24,7 +24,7 @@ theme:
   search_index_only: true
   language: en
   features:
-      - tabs:
+      - tabs
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
@@ -53,7 +53,7 @@ extra:
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'assets/stylesheets/extra.css'
+    - stylesheets/extra.css
 
 # Extensions
 markdown_extensions:

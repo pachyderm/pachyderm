@@ -1,3 +1,37 @@
+:root {
+
+   /* Default color shades */
+   --md-default-fg-color:               hsla(0, 0%, 0%, 0.87);
+   --md-default-fg-color--light:        hsla(0, 0%, 0%, 0.54);
+   --md-default-fg-color--lighter:      hsla(0, 0%, 0%, 0.26);
+   --md-default-fg-color--lightest:     hsla(0, 0%, 0%, 0.07);
+   --md-default-bg-color:               hsla(0, 0%, 100%, 1);
+   --md-default-bg-color--light:        hsla(0, 0%, 100%, 0.7);
+   --md-default-bg-color--lighter:      hsla(0, 0%, 100%, 0.3);
+   --md-default-bg-color--lightest:     hsla(0, 0%, 100%, 0.12);
+
+   /* Primary color shades */
+   --md-primary-fg-color:               hsla(280, 37%, 26%, 1);
+   --md-primary-fg-color--light:        hsla(280, 37%, 26%, 1);
+   --md-primary-fg-color--dark:         hsla(280, 37%, 11%, 0);
+   --md-primary-bg-color:               var(--md-default-bg-color);
+   --md-primary-bg-color--light:        var(--md-default-bg-color--light);
+
+   /* Accent color shades */
+   --md-accent-fg-color:                hsla(#{hex2hsl($clr-indigo-a200)}, 1);
+   --md-accent-fg-color--transparent:   hsla(#{hex2hsl($clr-indigo-a200)}, 0.1);
+   --md-accent-bg-color:                var(--md-default-bg-color);
+   --md-accent-bg-color--light:         var(--md-default-bg-color--light);
+}
+
+:root > * {
+
+   /* Code block color shades */
+   --md-code-bg-color:                  hsla(0, 0%, 96%, 1);
+   --md-code-fg-color:                  hsla(200, 18%, 26%, 1);
+}
+
+
 /* Float two columns side by side */
 .column {
   float: left;
@@ -27,6 +61,7 @@
   clear: both;
 }
 
+
 /* Responsive columns - one column layout (vertical) on small screens */
 @media screen and (max-width: 600px) {
   .column {
@@ -35,6 +70,15 @@
     margin-bottom: 20px;
   }
 }
+
+  @media screen and (max-width: 600px) {
+  .column-2 {
+    width: 100%;
+    display: block;
+    margin-bottom: 20px;
+  }
+}
+
 
 .card-square.mdl-card {
   width: auto;
@@ -644,3 +688,41 @@
   .mdc-component__toolbar .mdc-fab.mdc--theme-secondary.mdc-ripple-upgraded::after {
     background-color: rgba(0, 0, 0, 0.16);
   }
+
+
+details {
+  display: block;
+}
+
+details[open] > summary::before {
+  content: "\25BC";
+}
+
+details summary {
+  display: block;
+  cursor: pointer;
+}
+
+details summary:focus {
+  outline: none;
+}
+
+details summary::before {
+  content: "\25B6";
+  padding-right: 0.5em;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Attach the "no-details" class to details tags
+   in browsers that do not support them to get
+   open/show functionality. */
+details.no-details:not([open]) > * {
+  display: none;
+}
+
+details.no-details:not([open]) summary {
+  display: block;
+}
