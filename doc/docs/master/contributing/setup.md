@@ -111,9 +111,9 @@ make docker-build-test-entrypoint
 
 If you're seeing `ImagePullBackOff` errors about
 `pachyderm/python-build:1.12.0-3b2d509187ecddf447a9ad56ece2e56f9aba23b9`-like
-images is:
+images, try running:
 ```
-pushd etc/pipeline-build && make push-to-minikube && popd
+(cd etc/pipeline-build; make push-to-minikube)
 ```
 
 ## Fully resetting
