@@ -89,32 +89,31 @@ And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 Now that we have a dev cluster, it's nice to be able to run some tests locally
 as we are developing.
 
-Some tests require that we first build and transfer into the minikube docker a
-`pachyderm_entrypoint` container which is used in the tests:
+To run some specific tests, just use `go test` directly, e.g:
+```
+go test -v ./src/server/cmd/pachctl/cmd
+```
+
+We don't recommend trying to run all the tests locally, they take a while. Use
+CI for that.
+
+## Troubleshooting local testing issues
+
+If you're seeing `Back-off pulling image "pachyderm_entrypoint"` errors in
+`kubectl describe po`, some tests require that we first build and transfer into
+the minikube docker a `pachyderm_entrypoint` container which is used in the
+tests:
 
 ```
 make docker-build-test-entrypoint
 ./etc/kube/push-to-minikube.sh pachyderm_entrypoint
 ```
 
-Now you can run some tests; there are various collections, see the Makefile for
-`test-` prefixed make targets.
-
-For example, the command tests are:
+If you're seeing `ImagePullBackOff` errors about
+`pachyderm/python-build:1.12.0-3b2d509187ecddf447a9ad56ece2e56f9aba23b9`-like
+images is:
 ```
-make test-cmds
-```
-
-To run an individual test, just use `go test` directly:
-```
-go test -v ./src/server -run TestSimplePipeline
-```
-
-If you want to run all the test locally, you can, but note these take a while
-and don't correspond exactly to the set of tests that run in CI:
-
-```
-make test
+pushd etc/pipeline-build && make push-to-minikube && popd
 ```
 
 ## Fully resetting
