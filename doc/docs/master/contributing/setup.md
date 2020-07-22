@@ -96,14 +96,30 @@ make docker-build-test-entrypoint
 ./etc/kube/push-to-minikube.sh pachyderm_entrypoint
 ```
 
-Now you can run the tests (warning - these take a while!):
+Now you can run some tests; there are various collections, see the Makefile for
+`test-` prefixed make targets.
+
+For example, the command tests are:
 ```
-make integration-tests
+make test-cmds
 ```
 
 To run an individual test, just use `go test` directly:
 ```
 go test -v ./src/server -run TestSimplePipeline
+```
+
+If you want to run all the test locally, you can, but note these take a while
+and don't correspond exactly to the set of tests that run in CI (so you may see
+some failures):
+
+```
+make test
+```
+
+There is also an integration-tests target:
+```
+make integration-tests
 ```
 
 ## Fully resetting
