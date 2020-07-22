@@ -225,9 +225,6 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-tests:
-	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
-
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
 
@@ -517,7 +514,6 @@ goxc-build:
 	clean-launch \
 	clean-launch-dev \
 	full-clean-launch \
-	integration-tests \
 	test-proto-static \
 	test-deploy-manifests \
 	regenerate-test-deploy-manifests \

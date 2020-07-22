@@ -117,11 +117,6 @@ some failures):
 make test
 ```
 
-There is also an integration-tests target:
-```
-make integration-tests
-```
-
 ## Fully resetting
 
 Instead of running the makefile targets to re-compile `pachctl` and redeploy
