@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1a17796103cb91b172aadddc66a3ddae603bbbe75231194867f68096d89b9b08"
+            "sha256": "4b039fc52ef8452fb07265e97fff12909deb7c2c1745bec41b5ca799cf106ecd"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -207,10 +207,10 @@
         },
         "mkdocs-pachyderm": {
             "hashes": [
-                "sha256:f9ebe3582eebc8ac0746f5d0085f770b8704aa73c89bbc79e0eacd66ac900d10"
+                "sha256:8899eb5faa2f1a669543431495f972d9d6f92649a55fa27b984ebe6eeb5a2ca2"
             ],
             "index": "pypi",
-            "version": "==1.2.7"
+            "version": "==1.2.10"
         },
         "nltk": {
             "hashes": [

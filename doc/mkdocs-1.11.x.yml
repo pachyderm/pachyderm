@@ -39,8 +39,6 @@ theme:
 plugins:
   - search
   - exclude:
-      glob:
-        - archive/*
   - minify:
       minify_html: true
   - git-revision-date-localized
@@ -103,7 +101,6 @@ nav:
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
-        - Archive: archive/index.md
     - Getting Started:
         - Overview: getting_started/index.md
         - Local Installation: getting_started/local_installation.md
