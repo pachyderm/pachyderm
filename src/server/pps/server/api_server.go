@@ -315,13 +315,10 @@ func (a *apiServer) validateKube() {
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
 	pods, err := a.rcPods("pachd")
-	if err != nil {
+	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
-		if len(pods) == 0 {
-			logrus.Errorf("able to access kubernetes pods, but did not find a pachd pod... this is very strange since this code is run from within a pachd pod")
-		}
 		// No need to check all pods since we're just checking permissions.
 		pod := pods[0]
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
