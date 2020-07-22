@@ -793,63 +793,25 @@ func (a *apiServer) GetClusterRoleBindings(ctx context.Context, req *auth.GetClu
 	return resp, nil
 }
 
-func (a *apiServer) validateModifyAdminsRequest(user string, grantSuper bool) error {
-	// Check to make sure that req doesn't remove all cluster SUPER admins
-	m := make(map[string]interface{})
-
-	// copy the set of admins that have the SUPER role into m
-	func() {
-		a.adminMu.Lock()
-		defer a.adminMu.Unlock()
-		for u, roles := range a.adminCache {
-			for _, r := range roles.Roles {
-				if r == auth.ClusterRole_SUPER {
-					m[u] = true
-				}
-			}
-		}
-	}()
-
-	if grantSuper {
-		m[user] = true
-	} else {
-		delete(m, user)
-	}
-
-	// Confirm that there will be at least one admin with the SUPER role.
-	//
-	// This is required so that the admin can get the cluster out of any broken
-	// state that it may enter.
-	if len(m) == 0 {
-		return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
-	}
-	return nil
-}
-
 func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (resp *auth.ModifyAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	roleBindings := make(map[string][]auth.ClusterRole)
 	for _, toAdd := range req.Add {
-		_, err := a.ModifyClusterRoleBinding(ctx, &auth.ModifyClusterRoleBindingRequest{
-			Principal: toAdd,
-			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}},
-		})
-		if err != nil {
-			return nil, err
-		}
+		roleBindings[toAdd] = []auth.ClusterRole{auth.ClusterRole_SUPER}
 	}
 
 	for _, toRemove := range req.Remove {
-		_, err := a.ModifyClusterRoleBinding(ctx, &auth.ModifyClusterRoleBindingRequest{
-			Principal: toRemove,
-			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{}},
-		})
-		if err != nil {
-			return nil, err
+		if _, ok := roleBindings[toRemove]; ok {
+			return nil, errors.Errorf("Invalid Request: %q both added and removed as admin", toRemove)
 		}
+		roleBindings[toRemove] = []auth.ClusterRole{}
 	}
 
+	if err := a.applyClusterRoleBindings(ctx, roleBindings); err != nil {
+		return nil, err
+	}
 	return &auth.ModifyAdminsResponse{}, nil
 }
 
@@ -875,69 +837,110 @@ func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.Modi
 	if !isAdmin {
 		return nil, &auth.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "ModifyAdmins",
+			AdminOp: "ModifyClusterRoleBinding",
 		}
 	}
 
-	// Canonicalize GitHub usernames in request (must canonicalize before we can
-	// validate, so we know who is actually being added/removed & can confirm
-	// that not all admins are being removed)
-	canonicalizedUser, err := a.canonicalizeSubject(ctx, req.Principal)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if the current modify request contains a SUPER role for this principal
-	var grantSuper bool
-	var grantFS bool
+	roles := []auth.ClusterRole{} // make sure map value is non-nil
 	if req.Roles != nil {
-		for _, role := range req.Roles.Roles {
-			if role == auth.ClusterRole_SUPER {
-				grantSuper = true
-			}
-			if role == auth.ClusterRole_FS {
-				grantFS = true
-			}
-		}
+		roles = req.Roles.Roles
 	}
-
-	err = a.validateModifyAdminsRequest(canonicalizedUser, grantSuper)
-	if err != nil {
+	if err := a.applyClusterRoleBindings(ctx, map[string][]auth.ClusterRole{
+		req.Principal: roles,
+	}); err != nil {
 		return nil, err
 	}
+	return &auth.ModifyClusterRoleBindingResponse{}, nil
+}
 
-	var val types.BoolValue
-	// Update "admins" list (watchAdmins() will update admins cache)
-	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		if grantSuper {
-			a.admins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		} else {
-			if err := a.admins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
-				if !col.IsErrNotFound(err) {
-					return err
-				}
-			} else {
-				a.admins.ReadWrite(stm).Delete(canonicalizedUser)
+func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings map[string][]auth.ClusterRole) error {
+	// We need confirm that there will be at least one SUPER admin after applying
+	// all role bindings. We copy the admin cache to an in-memory collection here
+	// and update it below while applying the role bindings. At the end, we
+	// guarantee that there is at least one super admin by selecting an
+	// existential witness from the in-memory collection and reading their value
+	// inside the txn, so that they're part of the transaction's read set.  If
+	// another conflicting transaction removes that admin, then this txn will
+	// fail.
+	//
+	// This is more restrictive than necessary, as there may be another admin that
+	// is not removed by the conflicting transaction, thus leading to an
+	// unnecessary error, but at least it can't happen that the cluster ends up
+	// without admins
+	adminWitnesses := make(map[string]bool)
+	a.adminMu.Lock()
+	for principal, roles := range a.adminCache {
+		for _, role := range roles.Roles {
+			if role == auth.ClusterRole_SUPER {
+				adminWitnesses[principal] = true
 			}
 		}
+	}
+	a.adminMu.Unlock()
 
-		if grantFS {
-			a.fsAdmins.ReadWrite(stm).Put(canonicalizedUser, epsilon)
-		} else {
-			if err := a.fsAdmins.ReadWrite(stm).Get(canonicalizedUser, &val); err != nil {
-				if !col.IsErrNotFound(err) {
+	// Update "admins" list (watchAdmins() will update admins cache)
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		admins := a.admins.ReadWrite(stm)
+		fsAdmins := a.fsAdmins.ReadWrite(stm)
+
+		// apply each roleBinding
+		for principal, roles := range roleBindings {
+			// Canonicalize GitHub usernames in request (must canonicalize before we can
+			// validate, so we know who is actually being added/removed & can confirm
+			// that not all admins are being removed)
+			principal, err := a.canonicalizeSubject(ctx, principal)
+			if err != nil {
+				return err
+			}
+			// Check if the current modify request contains a SUPER role for this principal
+			var grantSuper bool
+			var grantFS bool
+			for _, role := range roles {
+				if role == auth.ClusterRole_SUPER {
+					grantSuper = true
+				}
+				if role == auth.ClusterRole_FS {
+					grantFS = true
+				}
+			}
+
+			if grantSuper {
+				adminWitnesses[principal] = true
+				admins.Put(principal, epsilon)
+			} else {
+				delete(adminWitnesses, principal)
+				if err := admins.Delete(principal); err != nil && !col.IsErrNotFound(err) {
 					return err
 				}
-			} else {
-				a.fsAdmins.ReadWrite(stm).Delete(canonicalizedUser)
+			}
+
+			if grantFS {
+				fsAdmins.Put(principal, epsilon)
+			} else if err := fsAdmins.Delete(principal); err != nil && !col.IsErrNotFound(err) {
+				return err
+			}
+
+			// select an arbitrary existential witness to guarantee that that there
+			// are still super admins left at the end of this txn. If 'witness' was
+			// added during this txn, they will be in the STM wset. If they're
+			// preexisting they'll be in the stm rset and thus in the txn's cmps.
+			if len(adminWitnesses) == 0 {
+				return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
+			}
+			for witness := range adminWitnesses {
+				var tmp types.BoolValue
+				if err := admins.Get(witness, &tmp); err != nil {
+					// return any error *especially including* not found
+					return errors.Wrapf(err, "could not verify %q as surviving super admin (possible collision with a concurrent admin change)", witness)
+				}
+				break // TODO(msteffen): how to get first element of map?
 			}
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return errors.Wrapf(err, "error applying cluster role bindings")
 	}
-
-	return &auth.ModifyClusterRoleBindingResponse{}, nil
+	return nil
 }
 
 // expiredClusterAdminCheck enforces that if the cluster's enterprise token is
@@ -2034,7 +2037,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 	sp := a.getOIDCSP()
 	if sp == nil {
-		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
+		return nil, errors.Errorf("OIDC has not been configured or was disabled")
 	}
 
 	authURL, state, err := sp.GetOIDCLoginURL(ctx)

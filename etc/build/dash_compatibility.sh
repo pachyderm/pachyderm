@@ -16,7 +16,7 @@ go run etc/build/get_dash_version.go >> "etc/compatibility/$VERSION"
 if [ "$RELVERSION" == "$VERSION" ]
 then
     echo "Update latest --> $RELVERSION"
-    ln -s -f "etc/compatibility/$VERSION" "etc/compatibility/latest"
+    ln -s -f "$VERSION" "etc/compatibility/latest"
 fi
 
 echo "--- Updated dash compatibility file for pachctl $VERSION"
