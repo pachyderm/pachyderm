@@ -8,6 +8,7 @@ First, go through the general [Local Installation Instructions](https://docs.pac
 - docker
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
+- shellcheck
 
 ## Bash helpers
 
@@ -85,10 +86,10 @@ And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 
 ## Running tests
 
-Now that we have a dev cluster, it's nice to be able to run some integration
-tests locally as we are developing.
+Now that we have a dev cluster, it's nice to be able to run some tests locally
+as we are developing.
 
-First we need to build and transfer into the minikube docker a
+Some tests require that we first build and transfer into the minikube docker a
 `pachyderm_entrypoint` container which is used in the tests:
 
 ```
@@ -110,8 +111,7 @@ go test -v ./src/server -run TestSimplePipeline
 ```
 
 If you want to run all the test locally, you can, but note these take a while
-and don't correspond exactly to the set of tests that run in CI (so you may see
-some failures):
+and don't correspond exactly to the set of tests that run in CI:
 
 ```
 make test
