@@ -312,6 +312,69 @@ func (d *crossIterator) DatumN(n int) []*common.Input {
 	return result
 }
 
+type groupIterator struct {
+	datums   [][]*common.Input
+	location int
+}
+
+func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterator, error) {
+	om := ordered_map.NewOrderedMap()
+	result := &groupIterator{}
+	defer result.Reset()
+
+	// okay, so we have a slice of pps Inputs
+	for i, input := range group {
+		// turn our inputs into iterators
+		datumIterator, err := NewIterator(pachClient, input)
+		if err != nil {
+			return nil, err
+		}
+		// iterate through each iterator to get the individual datums
+		for datumIterator.Next() {
+			x := datumIterator.Datum()
+			for _, k := range x {
+				// put the datums in an ordered map keyed by GroupBy
+				tuple, _ := om.Get(k.JoinOn)
+
+				om.Set(k.JoinOn, tuple)
+			}
+		}
+	}
+
+	// calculate the group_by
+	// sort everything by the group_by
+	// put each equivalence class into its own datum
+
+	return result, nil
+}
+
+func (d *groupIterator) Reset() {
+	d.location = -1
+}
+
+func (d *groupIterator) Len() int {
+	return len(d.datums)
+}
+
+func (d *groupIterator) Next() bool {
+	if d.location < len(d.datums) {
+		d.location++
+	}
+	return d.location < len(d.datums)
+}
+
+func (d *groupIterator) Datum() []*common.Input {
+	var result []*common.Input
+	result = append(result, d.datums[d.location]...)
+	sortInputs(result)
+	return result
+}
+
+func (d *groupIterator) DatumN(n int) []*common.Input {
+	d.location = n
+	return d.Datum()
+}
+
 type joinIterator struct {
 	datums   [][]*common.Input
 	location int
