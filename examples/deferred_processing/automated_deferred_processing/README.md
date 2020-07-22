@@ -1,42 +1,43 @@
-# Automated Deferred Processing 
+# Automated Deferred Processing
 
 [Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
 is a Pachyderm technique for controlling when data gets processed.
 Deferred processing uses branches to prevent pipelines from triggering on every input commit.
-This example shows how to automate the movement of those branches.
-
-The example here triggers a job periodically, using a cron pipeline.
-The Makefile you'll find in this example,
+This example shows how to automate the movement of those branches,
+by using a cron pipeline.
+The Makefile in this example,
 along with the explanations provided in this document,
 should give you a good start on implementing this in your Pachyderm cluster
-with or without authentication enabled.
+with or without access controls activated.
 
 ## Prerequisites
 
-Before you begin, you should understand deferred processing by reading the documentation
+Before you can start working on this example, make sure you have the following prerequisites:
+
+You should understand deferred processing by reading the documentation
 and trying the [deferred processing example](../deferred_processing_plus_transactions).
 That example is used extensively here.
 
-If you're using a Pachyderm cluster with authentication activated,
-this example will show you how to create a Pachyderm authentication token,
-load the token into a Kubernetes secret provisioned through `pachctl`,
-and use `pod_patch` to mount the secret as a Kubernetes volume
-and create environment variables for use by the pipeline.
+For a Pachyderm cluster with activated access controls,
+this example demonstrates how to create a Pachyderm authentication token,
+load the token into a Kubernetes secret provisioned through `pachctl`, 
+and use `transform.secrets` in the pipeline spec,
+which both mounts the secret as a Kubernetes volume
+and creates an environment variable for use by the pipeline.
 If you are unfamiliar with those things,
-it may be helpful to refer to the following documentation as you work through the example.
-* [Pachyderm authentication documentation](https://docs.pachyderm.com/latest/enterprise/auth/)
-* [Kubernetes documentation on
-Secrets](https://kubernetes.io/docs/concepts/configuration/secret/),
-* [pachctl create secret](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_secret/) command
-* [Pachyderm documentation on adding a volume to a pipeline](https://docs.pachyderm.com/latest/how-tos/mount-volume/) using [pod_patch](https://docs.pachyderm.com/latest/reference/pipeline_spec/#pod-patch-optional)
-* the [jq utility](https://stedolan.github.io/jq/manual/) for transforming json files in shell scripts
+you might want to refer to the following documentation as you work through the example.
 
-You need to have Pachyderm v1.9.8 or later installed on your computer or cloud platform. 
-See [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/).
+* [Pachyderm access controls and authentication documentation](https://docs.pachyderm.com/latest/enterprise/auth/)
+* [Kubernetes documentation on Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
+* The [pachctl create secret](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_secret/) command
+* [transform.secret in the pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/)
 
-It helps to have some understanding of Makefiles, 
-if you plan on using those in your infrastructure.
-Basic Unix shell scripting skills are assumed.
+Before you can start working on this example, make sure you have the following prerequisites:
+
+* You need to have Pachyderm v1.9.8 or later installed on your computer or cloud platform. 
+  See [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/).
+* Basic familiarity with Makefiles and  Unix shell scripting
+* The [jq utility](https://stedolan.github.io/jq/manual/) for transforming json files in shell scripts
 
 ## Pipelines
 
@@ -45,12 +46,17 @@ with the addition of a cron pipeline
 for periodically moving the `dev` branch to `master`.
 
 For details on the deferred processing example DAG,
-please refer to [that example](../deferred_processing_plus_transactions).
+see [the Deferred Processing example](../deferred_processing_plus_transactions).
 
-### Branch mover, without authentication
+### Branch mover without access controls
+
+If you do not have access controls enabled in your Pachyderm cluster, 
+use the instructions in this section. 
+Otherwise, proceed to [Branch mover with access controls](#branch_mover_with_access_controls).
 
 The cron pipeline is called `branch-mover`. 
-It is configured to run, by default, every 1 minute, 
+By default,
+it is configured to run every minute, 
 per its tick input:
 
 ```
@@ -63,30 +69,28 @@ per its tick input:
   },
 ```
 
-The code for moving the branch is very simple, 
-if the Pachyderm cluster does not have authentication activated.
-
-Using the official Pachyderm pachctl image, 
+Using the official Pachyderm `pachctl` image, 
 the transform first updates the default `pachctl` config
 so `pachctl` can talk directly to `pachd` in the cluster.
-It uses the `kubedns` name for `pachd`, 
+It uses the `kubedns` name for `pachd` 
 and the internal Service port of `650`. 
 
 ```
           "echo '{\"pachd_address\": \"grpc://pachd:650\"}' | pachctl config set context default --overwrite",
 ```
 
-The next command moves the `master` branch on `edges_dp` to point to `dev`,
-just like in the deferred processing example.
+Similar to the deferred processing example,
+the next command moves the `master` branch on `edges_dp` to point to `dev`,
+
 
 ```
           "pachctl create branch edges_dp@master --head dev"
 ```
 
 This is all the cron pipeline needs to do, 
-without authentication enabled. 
-The transform in the pipeline spec `branch-mover-no-auth.pipeline`
-ends up looking like this:
+without access controls.
+The `transform` section of the pipeline spec `branch-mover-no-auth.json`
+will look like this:
 
 ```
   "transform": {
@@ -99,43 +103,51 @@ ends up looking like this:
   }
 ```
 
-### Branch mover, with authentication
+### Branch mover with access controls
 
-Adding authentication to the `branch-mover` pipeline requires a few steps.
+Use the instructions in this section
+if you have activated access controls in your Pachyderm cluster.
+Otherwise, go back to  [Branch mover without access controls](#branch_mover_without_access_controls).
 
-1. Creating a Kubernetes Secret containing an authentication token.
-1. Loading that secret into Kubernetes using `pachctl create secret`.
-1. Adding a [pod_patch](https://docs.pachyderm.com/latest/reference/pipeline_spec/#pod-patch-optional) to mount the secret as a volume in the pipeline and create environment variables
-1. Adding a line to the pipeline transform to authenticate using the token prior to moving the branch.
+Adding support for access controls to the `branch-mover` pipeline requires a few steps.
+
+1. Creating a [Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+   containing an authentication token.
+2. Loading that secret into Kubernetes using `pachctl create secret`.
+3. Adding a `.transform.secret` to the pipeline spec 
+   to mount the secret as a volume in the pipeline 
+   and create environment variables from key values.
+4. Adding a line to the pipeline transform to authenticate using the token prior to moving the branch.
 
 Let's go through each of these steps in detail.
 
 #### Creating the authentication token and the secret
 
-Once Pachyderm authentication is activated,
-log in as the user the branch-mover 
+Once Pachyderm access controls are activated,
+log in as the user the `branch-mover` 
 will authenticate as to run this example.
 
-You may want to first test with the `robot:admin`
-configured when authentication was set up,
-or your own credentials,
-but it is a best security practice in production
-to create a Pachyderm user 
-with the [least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege) required to do the task this pipeline requires.
+You may want to test this with the `robot:admin`
+configured when access controls were activated,
+or your own credentials.
+Please see [Using this example in production](#using_this_example_in_production) below
+for information regarding production-level security configuration.
 
-A Pachyderm authentication token is created with the command
+Create a Pachyderm authentication token by running the following command:
+
 ```
 pachctl auth get-auth-token --ttl <some-golang-formatted-duration>
 ```
+
 A golang-formatted duration uses `h` for hours, `m` for minutes, `s` for seconds.
 26 weeks would be `24 * 7 * 26` hours, 
 expressed as `624h`. 
 The token will only be generated for this duration
 if it is *shorter* than the lifetime of the session
-for the user who's logged into the cluster
+for the user who is logged into the cluster
 where the command is run. 
-Otherwise, it's generated the lifetime of the user's current session.
-The expiration of the current session can be determined
+Otherwise, it is generated for the duration of that user's current session.
+The expiration of a user's current session can be determined
 by running `pachctl auth whomai`.
 
 The duration of the token 
@@ -145,14 +157,14 @@ and the pipeline restarted.
 
 Here is a Unix command 
 for generating a token using `pachctl`
-and only outputting the value of the token
+and only outputting the value of the token:
 
 ```
 pachctl auth get-auth-token --ttl "624h" | \
     grep Token | awk '{print $2}' | \
 ```
 
-The command is enhanced to base64 encode the token,
+The command is enhanced to encode the token with the `base64` encoding scheme,
 so it can be used in a Kubernetes secret,
 and trim off unnecessary characters.
 
@@ -165,8 +177,8 @@ pachctl auth get-auth-token --ttl "624h" | \
 Next, that data must be placed into a secret.
 The template for an appropriate secret 
 is in the file `pachyderm-user-secret.secret`.
-The jq utility allows the encoded token 
-to be placed in the proper `data.auth_token` field
+The `jq` utility enables you to place the encoded token 
+in the proper `data.auth_token` field
 in the secret
 by using a subshell to run that command
 and direct the output into a json file,
@@ -182,55 +194,39 @@ jq ".data.auth_token=\"$(pachctl auth get-auth-token --ttl "624h" | \
 
 #### Loading the secret into Kubernetes
 
-Next, that secret must be loaded into Kubernetes.
+Next, let us load the secret into Kubernetes by running the following command:
+
 ```
 pachctl create secret -f pachyderm-user-secret.secret
 ```
 
-.NOTE
-The prior two steps are in the Makefile
-in the  `pachyderm-user-secret.secret` target.
+.NOTE:
+You can run the two previous steps by running
+`make pachyderm-user-secret.secret`.
 
 #### Mounting the secret in the pipeline
 
-The template for the `pod_patch`
-that mounts the secret in a volume
-and makes the token available as an environment variable
-is in the file `json-patch.template`.
-It was created using the process described
-in the Pachyderm documentation on adding a volume to a pipeline. 
-
-The Unix command below will use the Unix `sed` and `tr` utilities
-to format the patch for best practices.
-It will also remove newlines 
-and escape `"` characters,
-required to include it in pipeline specification.
-The sed commands themselves are in `commands.sed`.
-The json patch will be output in JSON 
-to a file with a `jpatch` extension.
+To add the secret to our pipeline,
+we can just use the `transform.secrets` field
+to mount it as a volume
+and expose the `auth_token` key as an environment variable.
+This is `transform.secrets` in the file `branch-mover.json`
 
 ```
-sed -E -f commands.sed json-patch.template | \
-    tr '\n' ' ' > json-patch.jpatch
+      "secrets": [ {
+          "name": "pachyderm-user-secret",
+          "mount_path": "/pachyderm-user-secret"
+      },
+      {
+          "name": "pachyderm-user-secret",
+          "env_var": "PACHYDERM_AUTH_TOKEN",
+          "key": "auth_token"
+      } ]
 ```
 
-.NOTE
-The prior step is in the Makefile
-in the  `json-patch.jpatch` target.
+#### Authenticating to Pachyderm
 
-#### Adding the patch and using it in the pipeline
-To add the json patch to our pipeline,
-we can just paste it in,
-or run the Unix command below to add it
-to an otherwise valid JSON pipeline spec 
-in the file `branch-mover.pipeline`
-
-```
-jq ".pod_patch=\"$(cat json-patch.jpatch)\"" branch-mover.pipeline \
-        > branch-mover.json
-```
-
-That file, `branch-mover.pipeline`, includes one line
+The `branch-mover.json` file includes one line
 that uses the `PACHYDERM_AUTH_TOKEN` environment variable
 to authenticate to Pachyderm. 
 
@@ -239,7 +235,7 @@ to authenticate to Pachyderm.
 ```
 
 That line is inserted prior to creating the branch, 
-making the pipeline transform in `branch-mover.pipeline`
+making the pipeline transform in `branch-mover.json`
 look like this:
 
 ```
@@ -254,28 +250,22 @@ look like this:
   }
 ```
 
-.NOTE
-The prior step is in the Makefile
-in the  `branch-mover.json` target.
+#### Creating the pipeline
 
-#### Create the pipeline
-
-Finally, create the pipeline using that spec
+Finally, create the pipeline using that spec:
 
 ```
 pachctl create pipeline -f branch-mover.json
 ```
 
-.NOTE
-The prior step is in the Makefile
-in the  `create-branch-mover` target.
+.NOTE:
+You can run this step with the command  `make create-branch-mover`.
 
 ## Example run-through
 
-This example can be used with no authentication or with authentication activated.
-The only difference is the command you use to create the pipeline 
+This example can be used with access controls activated or not.
+The only difference is the command that you use to create the pipeline 
 in the second step, below.
-
 
 1. If the DAG
    used by the deferred processing example
@@ -288,61 +278,65 @@ in the second step, below.
    make create-deferred-processing-cluster
    ```
 
-2. If you are not using authentication,
+1. If your Pachyderm cluster does not have access controls activated,
    create the branch-mover cron pipeline
-   using the `create-branch-mover-no-auth` makefile target.
+   using the `create-branch-mover-no-auth` Makefile target.
    
    ```
    make create-branch-mover-no-auth
    ```
-
-   If you have authentication activated,
+   
+   If you have access controls activated,
    create the branch-mover cron pipeline
-   using the `create-branch-mover` makefile target.
+   using the `create-branch-mover` Makefile target.
    
    ```
    make create-branch-mover
    ```
 
-3. Watch pachctl jobs in another terminal window
-   using this command. 
+1. Watch `pachctl jobs` in another terminal window
+   by using this command:
    
    ```
    watch -cn 2 pachctl list job --no-pager
    ```
 
-.NOTE On macOS, you may need to install `watch`, 
+.NOTE:
+On macOS, you may need to install `watch`, 
 which may be installed via [Homebrew](https://brew.sh/)
-using the command `brew install watch`
-   
-4. Every minute, you should see a job triggered on `branch-mover`.
+using the command `brew install watch`.
 
+1. Every minute, you should see a job triggered on `branch-mover`.
+   The very first job will be immediately followed
+   by a job for `montage_dp`, 
+   as existing files are moved to the `edges_dp@master` branch.
+   Subsequent ticks will trigger no jobs in `montage_dp`.
 
-5. Commit data to the `images_dp_1` repo.
+1. Commit data to the `images_dp_1` repo.
 
 ```
 pachctl put file images_dp_1@master:1VqcWw9.jpg -f http://imgur.com/1VqcWw9.jpg
 ```
 
-6. A job will be triggered on `edges_dp`, 
-but no jobs will be triggered on `montage_dp`
-until after `branch-mover` runs
-moving the `edges@dev` branch to `edges@master`.
+   A job will be triggered on `edges_dp`, 
+   but no jobs will be triggered on `montage_dp`
+   until after `branch-mover` runs
+   moving the `edges@dev` branch to `edges@master`.
 
-## Notes on using this in production
+## Using this example in production
 
-When used on production pipelines with authentication enabled,
+When you implement this example on production pipelines with access controls activated,
 you will have to periodically renew the token
 by either running the appropriate make target
 to update the pipeline with a new secret
 or manually updating the secret
 and deleting and recreating the pipeline.
 
+It is a best security practice in production
+to create a Pachyderm user 
+with the [least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege) required to do this pipeline's tasks.
+
 This is a periodic maintenance task
 with security implications
 the automation of which should be reviewed
 by appropropriate engineering personnel.
-
-
-
-

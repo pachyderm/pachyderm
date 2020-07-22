@@ -18,11 +18,6 @@ DEFERRED_PROCESSING_1_FILES = ../deferred_processing_plus_transactions/images.tx
 DEFERRED_PROCESSING_2_FILES = ../deferred_processing_plus_transactions/images3.txt
 
 
-CONTAINER_VERSION := 1.11.0
-DOCKER_ACCOUNT := pachyderm
-CONTAINER_NAME := pachctl
-CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
-
 # The pipeline uses a timed auth token for authentication.
 # The auth token uses a golang duration, which allows h for hours, m for minutes, s for seconds.
 # This default is 26 weeks.
@@ -35,21 +30,6 @@ AUTH_TOKEN_TTL := 624h
 
 # these are used by jq in  rules below to transform manifests and specs
 AUTH_TOKEN_TRANSFORM = ".data.auth_token=\"$$(${PACHCTL} auth get-auth-token --ttl "${AUTH_TOKEN_TTL}" | grep Token | awk '{print $$2}' | base64 -e | tr -d '\r\n')\""
-
-PIPELINE_TRANSFORM := .transform.image=\"$(CONTAINER_TAG)\"
-
-# Create your own json patch using these instructions:
-# https://docs.pachyderm.com/latest/how-tos/mount-volume/
-# This patch adds environment variables in addition to
-# mounting a volume from a secret.
-json-patch.jpatch: json-patch.template commands.sed
-	sed -E -f commands.sed json-patch.template | tr '\n' ' ' > $@
-
-branch-mover.json: branch-mover.pipeline json-patch.jpatch pachyderm-user-secret.secret
-	jq "$(PIPELINE_TRANSFORM)|.pod_patch=\"$$(cat json-patch.jpatch)\"" branch-mover.pipeline > $@
-
-branch-mover-no-auth.json: branch-mover.pipeline 
-	jq "$(PIPELINE_TRANSFORM)" branch-mover.pipeline > $@
 
 create-deferred-processing-cluster: $(DEFERRED_PROCESSING_PIPELINES) $(DEFERRED_PROCESSING_1_FILES) $(DEFERRED_PROCESSING_2_FILES)
 	${PACHCTL} create repo images_dp_1
@@ -71,14 +51,18 @@ delete-deferred-processing-cluster:
 	-@${PACHCTL} delete repo images_dp_1
 	-@${PACHCTL} delete repo images_dp_2
 
-create-branch-mover: branch-mover.json
-	${PACHCTL} create pipeline -f $<
+pachyderm-user-secret.secret: pachyderm-user-secret.clear
+	jq "$(AUTH_TOKEN_TRANSFORM)" $< > $@
+	-${PACHCTL} delete secret $$(jq .metadata.name $@ | tr -d '"')
+	${PACHCTL} create secret -f $@
 
-update-branch-mover: branch-mover.json
-	${PACHCTL} update pipeline -f $<
+create-branch-mover: pachyderm-user-secret.secret branch-mover.json 
+	${PACHCTL} create pipeline -f branch-mover.json
+
+update-branch-mover: pachyderm-user-secret.secret branch-mover.json
+	${PACHCTL} update pipeline -f branch-mover.json
 
 delete-branch-mover:
-	-@rm -f branch-mover.json
 	-@${PACHCTL} delete pipeline branch-mover
 
 create-branch-mover-no-auth: branch-mover-no-auth.json
@@ -88,15 +72,12 @@ update-branch-mover-no-auth: branch-mover-no-auth.json
 	${PACHCTL} update pipeline -f $<
 
 delete-branch-mover-no-auth:
-	-@rm -f branch-mover-no-auth.json
 	-@${PACHCTL} delete pipeline branch-mover
 
-pachyderm-user-secret.secret: pachyderm-user-secret.clear
-	jq "$(AUTH_TOKEN_TRANSFORM)" $< > $@
-	-${PACHCTL} delete secret $$(jq .metadata.name $@ | tr -d '"')
-	${PACHCTL} create secret -f $@
+delete-secret:
+	-@${PACHCTL} delete secret pachyderm-user-secret > /dev/null 2>&1
 
-clean: delete-branch-mover delete-deferred-processing-cluster 
-	-@rm -f  branch-mover*.json pachyderm-user-secret.secret json-patch.jpatch
+clean: delete-branch-mover delete-deferred-processing-cluster delete-secret
+	-@rm -f  pachyderm-user-secret.secret 
 
 
