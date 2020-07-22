@@ -83,6 +83,29 @@ This will install the dev version of `pachctl`:
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 
+## Running tests
+
+Now that we have a dev cluster, it's nice to be able to run some integration
+tests locally as we are developing.
+
+First we need to build and transfer into the minikube docker a
+`pachyderm_entrypoint` container which is used in the tests:
+
+```
+make docker-build-test-entrypoint
+./etc/kube/push-to-minikube.sh pachyderm_entrypoint
+```
+
+Now you can run the tests (warning - these take a while!):
+```
+make integration-tests
+```
+
+To run an individual test, just use `go test` directly:
+```
+go test -v ./src/server -run TestSimplePipeline
+```
+
 ## Fully resetting
 
 Instead of running the makefile targets to re-compile `pachctl` and redeploy
