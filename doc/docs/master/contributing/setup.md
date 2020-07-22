@@ -109,7 +109,6 @@ as we are developing.
 
 To run some specific tests, just use `go test` directly, e.g:
 ```
-(cd etc/pipeline-build; make push-to-minikube)
 go test -v ./src/server/cmd/pachctl/cmd
 ```
 
