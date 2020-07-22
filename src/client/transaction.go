@@ -679,6 +679,6 @@ func (c *debugBuilderClient) Profile(ctx context.Context, req *debug.ProfileRequ
 func (c *debugBuilderClient) Binary(ctx context.Context, req *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
 	return nil, unsupportedError("Binary")
 }
-func (c *debugBuilderClient) SOS(ctx context.Context, req *debug.SOSRequest, opts ...grpc.CallOption) (debug.Debug_SOSClient, error) {
-	return nil, unsupportedError("SOS")
+func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }

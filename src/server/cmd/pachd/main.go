@@ -255,14 +255,10 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Debug", func() error {
 		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
-			"", // no name for pachd servers
-			env.GetEtcdClient(),
-			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-			env.PPSWorkerPort,
-			clusterID,
-			nil,
+			env.PachdPodName,
 			env.GetKubeClient(),
 			env.Namespace,
+			nil,
 		))
 		return nil
 	}); err != nil {
@@ -490,14 +486,10 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Debug", func() error {
 			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
-				"", // no name for pachd servers
-				env.GetEtcdClient(),
-				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-				env.PPSWorkerPort,
-				clusterID,
-				nil,
+				env.PachdPodName,
 				env.GetKubeClient(),
 				env.Namespace,
+				nil,
 			))
 			return nil
 		}); err != nil {

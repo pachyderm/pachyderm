@@ -65,6 +65,8 @@ type PachdSpecificConfiguration struct {
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
+	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
+	PachdPodName string `env:"PACHD_POD_NAME,required"`
 }
 
 // StorageConfiguration contains the storage configuration.

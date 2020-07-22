@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/debug"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/spf13/cobra"
 )
@@ -20,34 +21,16 @@ import (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	var worker string
-	dump := &cobra.Command{
-		Short: "Return a dump of running goroutines.",
-		Long:  "Return a dump of running goroutines.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-dump")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			p := &debug.Profile{Name: "goroutine"}
-			var w *debug.Worker
-			if worker != "" {
-				w = &debug.Worker{Pod: worker}
-			}
-			return client.Profile(p, w, os.Stdout)
-		}),
-	}
-	dump.Flags().StringVarP(&worker, "worker", "w", "", "Collect the dump from the given worker pod.")
-	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
-
 	var duration time.Duration
+	var pachd bool
+	var pipeline string
+	var worker string
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile>",
-		Short: "Return a profile from the server.",
-		Long:  "Return a profile from the server.",
+		Short: "Collect a set of pprof profiles.",
+		Long:  "Collect a set of pprof profiles.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-dump")
+			client, err := client.NewOnUserMachine("debug-profile")
 			if err != nil {
 				return err
 			}
@@ -60,54 +43,60 @@ func Cmds() []*cobra.Command {
 				Name:     args[0],
 				Duration: d,
 			}
-			var w *debug.Worker
-			if worker != "" {
-				w = &debug.Worker{Pod: worker}
+			f, err := createFilter(pachd, pipeline, worker)
+			if err != nil {
+				return err
 			}
-			return client.Profile(p, w, os.Stdout)
+			return client.Profile(p, f, os.Stdout)
 		}),
 	}
 	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
-	profile.Flags().StringVarP(&worker, "worker", "w", "", "Collect the profile from the given worker pod.")
+	profile.Flags().BoolVar(&pachd, "pachd", false, "Only collect the profile from pachd.")
+	profile.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the profile from the worker pods for the given pipeline. (Note: Use the replication controller name.)")
+	profile.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the profile from the given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(profile, "debug profile"))
 
 	binary := &cobra.Command{
-		Short: "Return the binary the server is running.",
-		Long:  "Return the binary the server is running.",
+		Short: "Collect a set of binaries.",
+		Long:  "Collect a set of binaries.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-dump")
+			client, err := client.NewOnUserMachine("debug-binary")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			var w *debug.Worker
-			if worker != "" {
-				w = &debug.Worker{Pod: worker}
+			f, err := createFilter(pachd, pipeline, worker)
+			if err != nil {
+				return err
 			}
-			return client.Binary(w, os.Stdout)
+			return client.Binary(f, os.Stdout)
 		}),
 	}
-	binary.Flags().StringVarP(&worker, "worker", "w", "", "Collect the binary from the given worker pod.")
+	binary.Flags().BoolVar(&pachd, "pachd", false, "Only collect the binary from pachd.")
+	binary.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the binary from the worker pods for the given pipeline. (Note: Use the replication controller name.)")
+	binary.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the binary from the given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
-	sos := &cobra.Command{
-		Short: "Return a standard set of files for debugging.",
-		Long:  "Return a standard set of files for debugging.",
+	dump := &cobra.Command{
+		Short: "Collect a standard set of debugging information.",
+		Long:  "Collect a standard set of debugging information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine("debug-dump")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			var w *debug.Worker
-			if worker != "" {
-				w = &debug.Worker{Pod: worker}
+			f, err := createFilter(pachd, pipeline, worker)
+			if err != nil {
+				return err
 			}
-			return client.SOS(w, os.Stdout)
+			return client.Dump(f, os.Stdout)
 		}),
 	}
-	sos.Flags().StringVarP(&worker, "worker", "w", "", "Collect the sos from the given worker pod.")
-	commands = append(commands, cmdutil.CreateAlias(sos, "debug sos"))
+	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
+	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline. (Note: Use the replication controller name.)")
+	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
+	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
 
 	var profileFile string
 	var binaryFile string
@@ -188,4 +177,24 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(debug, "debug"))
 
 	return commands
+}
+
+func createFilter(pachd bool, pipeline, worker string) (*debug.Filter, error) {
+	var f *debug.Filter
+	if pachd {
+		f = &debug.Filter{Filter: &debug.Filter_Pachd{Pachd: true}}
+	}
+	if pipeline != "" {
+		if f != nil {
+			return nil, errors.Errorf("only one debug filter allowed")
+		}
+		f = &debug.Filter{Filter: &debug.Filter_Pipeline{&debug.Pipeline{Name: pipeline}}}
+	}
+	if worker != "" {
+		if f != nil {
+			return nil, errors.Errorf("only one debug filter allowed")
+		}
+		f = &debug.Filter{Filter: &debug.Filter_Worker{&debug.Worker{Pod: worker}}}
+	}
+	return f, nil
 }

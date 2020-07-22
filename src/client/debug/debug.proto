@@ -7,8 +7,8 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 
 message ProfileRequest {
-    Profile profile = 1;
-    Worker worker = 2;
+  Profile profile = 1;
+  Filter filter = 2;
 }
 
 message Profile {
@@ -16,20 +16,33 @@ message Profile {
     google.protobuf.Duration duration = 2; // only meaningful if name == "cpu"
 }
 
+message Filter {
+  oneof filter {
+    bool pachd = 1;	
+    Pipeline pipeline = 2;	
+    Worker worker = 3;
+  }
+}
+
+message Pipeline {
+  string name = 1;
+}
+
 message Worker {
    string pod = 1;
+   bool redirected = 2;
 }
 
 message BinaryRequest {
-    Worker worker = 1;
+  Filter filter = 1;
 }
 
-message SOSRequest {
-    Worker worker = 1;
+message DumpRequest {
+  Filter filter = 1;
 }
 
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc SOS(SOSRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
 }

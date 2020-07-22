@@ -7,11 +7,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
-// Profile writes a pprof profile for pachd to w.
-func (c APIClient) Profile(profile *debug.Profile, worker *debug.Worker, w io.Writer) error {
+// Profile collects a set of pprof profiles.
+func (c APIClient) Profile(profile *debug.Profile, filter *debug.Filter, w io.Writer) error {
 	profileClient, err := c.DebugClient.Profile(c.Ctx(), &debug.ProfileRequest{
 		Profile: profile,
-		Worker:  worker,
+		Filter:  filter,
 	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -19,10 +19,10 @@ func (c APIClient) Profile(profile *debug.Profile, worker *debug.Worker, w io.Wr
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(profileClient, w))
 }
 
-// Binary writes the running pachd binary to w.
-func (c APIClient) Binary(worker *debug.Worker, w io.Writer) error {
+// Binary collects a set of binaries.
+func (c APIClient) Binary(filter *debug.Filter, w io.Writer) error {
 	binaryClient, err := c.DebugClient.Binary(c.Ctx(), &debug.BinaryRequest{
-		Worker: worker,
+		Filter: filter,
 	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -30,12 +30,13 @@ func (c APIClient) Binary(worker *debug.Worker, w io.Writer) error {
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(binaryClient, w))
 }
 
-func (c APIClient) SOS(worker *debug.Worker, w io.Writer) error {
-	sosClient, err := c.DebugClient.SOS(c.Ctx(), &debug.SOSRequest{
-		Worker: worker,
+// Dump collects a standard set of debugging information.
+func (c APIClient) Dump(filter *debug.Filter, w io.Writer) error {
+	dumpClient, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{
+		Filter: filter,
 	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(sosClient, w))
+	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(dumpClient, w))
 }
