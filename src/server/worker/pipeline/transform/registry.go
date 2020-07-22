@@ -571,24 +571,25 @@ func (reg *registry) getDatumSet(datumsObj *pfs.Object) (_ chain.DatumSet, retEr
 // get the initial state of datumsBase in the registry.
 func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.CommitInfo, error) {
 	pachClient := reg.driver.PachClient()
-	outputCommitID := commitInfo.Commit.ID
-
 	// Walk up the commit chain to find a successfully finished commit
 	for commitInfo.ParentCommit != nil {
-		reg.logger.Logf(
-			"blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID,
-		)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit:     commitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: commitInfo.ParentCommit,
 			})
 		if err != nil {
 			return nil, err
 		}
-		// TODO: should we be checking `.Tree` here as well?
-		if parentCommitInfo.Trees != nil {
+		// If the parent commit isn't finished, then finish it and continue the traversal.
+		// If the parent commit is finished and has output, then return it.
+		if parentCommitInfo.Finished == nil {
+			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: parentCommitInfo.Commit,
+				Empty:  true,
+			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+				return nil, err
+			}
+		} else if parentCommitInfo.Trees != nil {
 			return parentCommitInfo, nil
 		}
 		commitInfo = parentCommitInfo

@@ -101,7 +101,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		}
 	}()
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(50)
+	debug.SetGCPercent(env.GCPercent)
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -289,7 +289,7 @@ func doFullMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(50)
+	debug.SetGCPercent(env.GCPercent)
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -399,6 +399,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Port,
 				env.HTTPPort,
 				env.PeerPort,
+				env.GCPercent,
 			)
 			if err != nil {
 				return err
@@ -586,6 +587,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env.Port,
 				env.HTTPPort,
 				env.PeerPort,
+				env.GCPercent,
 			)
 			if err != nil {
 				return err
@@ -684,7 +686,26 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-		return http.ListenAndServe(fmt.Sprintf(":%v", env.HTTPPort), httpServer)
+		server := http.Server{
+			Addr:    fmt.Sprintf(":%v", env.HTTPPort),
+			Handler: httpServer,
+		}
+
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
+			return server.ListenAndServe()
+		}
+
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
+		}
+
+		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+
+		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))

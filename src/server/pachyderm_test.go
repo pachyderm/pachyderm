@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -4341,22 +4340,24 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// This is put in a backoff because there's the possibility that pod was
 	// evicted from k8s and is being re-initialized, in which case `GetLogs`
-	// will appropriately fail
+	// will appropriately fail. With the loki logging backend enabled the
+	// eviction worry goes away, but is replaced with there being a window when
+	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 		var numLogs int
-		var loglines []string
 		for iter.Next() {
 			if !iter.Message().User {
 				continue
 			}
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4364,13 +4365,13 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
 		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
-		loglines = []string{}
 		for iter.Next() {
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4420,34 +4421,28 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false, 0)
-
 		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
-			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+			havePathLog, haveBase64Log := pathLog.Next(), base64Log.Next()
+			if havePathLog != haveBase64Log {
 				return errors.Errorf("Unequal log lengths")
 			}
 			if !havePathLog {
 				break
 			}
 			numLogs++
-			if pathLog.Message().Message != hexLog.Message().Message ||
-				hexLog.Message().Message != base64Log.Message().Message {
+			if pathLog.Message().Message != base64Log.Message().Message {
 				return errors.Errorf(
-					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					"unequal logs, pathLogs: \"%s\" base64Log: \"%s\"",
 					pathLog.Message().Message,
-					hexLog.Message().Message,
 					base64Log.Message().Message)
 			}
 		}
-		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+		for _, logsiter := range []*client.LogsIter{pathLog, base64Log} {
 			if logsiter.Err() != nil {
 				return logsiter.Err()
 			}
@@ -4492,6 +4487,103 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		return iter.Err()
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestManyLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	numLogs := 10000
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"i=0",
+					fmt.Sprintf("while [ \"$i\" -lt %d ]", numLogs),
+					"do",
+					"	echo $i",
+					"	i=`expr $i + 1`",
+					"done",
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogs("", jis[0].Job.ID, nil, "", false, false, 0)
+		logsReceived := 0
+		for iter.Next() {
+			if iter.Message().User {
+				logsReceived++
+			}
+		}
+		if iter.Err() != nil {
+			return iter.Err()
+		}
+		if numLogs != logsReceived {
+			return fmt.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+		}
+		return nil
+	})
+}
+
+func TestLokiLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"sh"},
+				Stdin: []string{"echo", "foo"},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
+		foundFoo := false
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "foo") {
+				foundFoo = true
+				break
+			}
+		}
+		if iter.Err() != nil {
+			return iter.Err()
+		}
+		if !foundFoo {
+			return fmt.Errorf("did not recieve a log line containing foo")
+		}
+		return nil
+	})
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {

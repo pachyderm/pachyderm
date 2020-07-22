@@ -99,6 +99,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
+	}, {
+		Name:  "GC_PERCENT",
+		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -178,6 +181,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if a.env.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+	}
+	if a.env.LokiLogging {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
 
 	// This only happens in local deployment.  We want the workers to be

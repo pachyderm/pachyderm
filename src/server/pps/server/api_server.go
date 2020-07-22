@@ -32,6 +32,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -116,6 +117,7 @@ type apiServer struct {
 	port                   uint16
 	httpPort               uint16
 	peerPort               uint16
+	gcPercent              int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -273,6 +275,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 				if set {
 					return errors.Errorf("multiple input types set")
 				}
+				logrus.Warn("githooks are deprecated and will be removed in a future version - see pipeline build steps for an alternative")
 				set = true
 				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
 					return err
@@ -313,13 +316,10 @@ func (a *apiServer) validateKube() {
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
 	pods, err := a.rcPods("pachd")
-	if err != nil {
+	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
-		if len(pods) == 0 {
-			logrus.Errorf("able to access kubernetes pods, but did not find a pachd pod... this is very strange since this code is run from within a pachd pod")
-		}
 		// No need to check all pods since we're just checking permissions.
 		pod := pods[0]
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
@@ -1341,6 +1341,9 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	if a.env.LokiLogging || request.UseLokiBackend {
+		return a.getLogsLoki(request, apiGetLogsServer)
+	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
@@ -1573,6 +1576,104 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 		})
 	}
 	return eg.Wait()
+}
+
+func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+	ctx := pachClient.Ctx() // pachClient will propagate auth info
+
+	// Authorize request and get list of pods containing logs we're interested in
+	// (based on pipeline and job filters)
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return err
+	}
+	if request.Pipeline == nil && request.Job == nil {
+		if len(request.DataFilters) > 0 || request.Datum != nil {
+			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
+		}
+		// no authorization is done to get logs from master
+		return lokiutil.QueryRange(loki, `{app="pachd"}`, time.Time{}, time.Now(), func(t time.Time, line string) error {
+			return apiGetLogsServer.Send(&pps.LogMessage{
+				Message: strings.TrimSuffix(line, "\n"),
+			})
+		})
+	}
+
+	// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
+	// RC name
+	var pipelineInfo *pps.PipelineInfo
+	if request.Pipeline != nil {
+		pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
+		}
+	} else if request.Job != nil {
+		// If user provides a job, lookup the pipeline from the job info, and then
+		// get the pipeline RC
+		var jobPtr pps.EtcdJobInfo
+		err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+		if err != nil {
+			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+		}
+		pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
+		}
+	}
+
+	// 2) Check whether the caller is authorized to get logs from this pipeline/job
+	if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+		return err
+	}
+	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+	if request.Master {
+		query += contains("master")
+	}
+	if request.Job != nil {
+		query += contains(request.Job.ID)
+	}
+	if request.Datum != nil {
+		query += contains(request.Datum.ID)
+	}
+	for _, filter := range request.DataFilters {
+		query += contains(filter)
+	}
+	return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+		msg := &pps.LogMessage{}
+		// These filters are almost always unnecessary because we apply
+		// them in the Loki request, but many of them are just done with
+		// string matching so there technically could be some false
+		// positive matches (although it's pretty unlikely), checking here
+		// just makes sure we don't accidentally intersperse unrelated log
+		// messages.
+		if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
+			return nil
+		}
+		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+			return nil
+		}
+		if request.Job != nil && request.Job.ID != msg.JobID {
+			return nil
+		}
+		if request.Datum != nil && request.Datum.ID != msg.DatumID {
+			return nil
+		}
+		if request.Master != msg.Master {
+			return nil
+		}
+		if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+			return nil
+		}
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+		return apiGetLogsServer.Send(msg)
+	})
+}
+
+func contains(s string) string {
+	return fmt.Sprintf(" |= %q", s)
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
