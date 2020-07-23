@@ -9,7 +9,8 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-minikube delete || true  # In case we get a recycled machine
+minikube delete || true      # In case we get a recycled machine
+rm -f .pachyderm/config.json # In case we're retrying on a new cluster
 make launch-kube
 sleep 5
 
