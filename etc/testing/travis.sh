@@ -44,7 +44,8 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     fi
 fi
 
-minikube delete || true              # In case we get a recycled machine
+minikube delete || true              # In case we get a recycled machine, or are retrying
+docker rm -f $(docker ps -aq)        # In case minikube delete doesn't work (see minikube#2519)
 rm -f ${HOME}/.pachyderm/config.json # In case we're retrying on a new cluster
 make launch-kube
 sleep 5
