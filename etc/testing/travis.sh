@@ -1,13 +1,35 @@
 #!/bin/bash
 
-set -ex
-
 # Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
 # `~/cached-deps`, you'll need to explicitly set the path like so:
 #
 #     sudo env "PATH=$PATH" minikube foo
+
+set -ex
+
+# Workaround lack of consistency/reproducibility for PR builds due to
+# https://github.com/travis-ci/travis-ci/issues/10210
+#
+# IOW, we might have ended up with a version of pachctl which is built from
+# the wrong code -- not the commit that this test run is trying to test!
+# Attempt to detect that case and bail out. However, be careful not to
+# break release builds where there is no git hash in `pachctl version` by
+# only applying this check in the case that we're a PR build (which is the
+# only case where it's an issue anyway).
+
+if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
+    echo "Detected PR build, checking for consistency..."
+    if [[ ! $version == *"-${TRAVIS_COMMIT}" ]]; then
+        echo "Detected that we have a version of the code checked out which"
+        echo "is not the same as the version we are trying to test."
+        echo "Bailing."
+        echo
+        echo "See https://github.com/travis-ci/travis-ci/issues/10210"
+        exit 1
+    fi
+fi
 
 minikube delete || true              # In case we get a recycled machine
 rm -f ${HOME}/.pachyderm/config.json # In case we're retrying on a new cluster
@@ -45,6 +67,7 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     # skipped.
     make install
     version=$(pachctl version --client-only)
+
     docker pull "pachyderm/pachd:${version}"
     docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
     docker pull "pachyderm/worker:${version}"
