@@ -8,9 +8,10 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
 
     # Load saved docker image layers, to avoid having to repeatedly apt-get
     # stuff every time we build
-    docker load -i ${HOME}/docker_images/images.tar || true
+    echo "Loading docker images from cache"
+    time docker load -i ${HOME}/docker_images/images.tar || true
 
-    make install docker-build
+    time make install docker-build
     version=$(pachctl version --client-only)
     docker tag "pachyderm/pachd:local" "pachyderm/pachd:${version}"
     docker push "pachyderm/pachd:${version}"
@@ -18,7 +19,9 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker push "pachyderm/worker:${version}"
 
     # Avoid having to rebuild unchanged docker image layers every time
-    docker save -o ${HOME}/docker_images/images.tar $(docker images -a -q)
+    echo "Saving these docker images to cache:"
+    docker images -a -q
+    time docker save -o ${HOME}/docker_images/images.tar $(docker images -a -q)
     ls -alh ${HOME}/docker_images/
 
     # Push pipeline build images
