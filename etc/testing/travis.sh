@@ -19,15 +19,21 @@ set -ex
 # only applying this check in the case that we're a PR build (which is the
 # only case where it's an issue anyway).
 
-if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
-    echo "Detected PR build, checking for consistency..."
-    if [[ ! $version == *"-${TRAVIS_COMMIT}" ]]; then
-        echo "Detected that we have a version of the code checked out which"
-        echo "is not the same as the version we are trying to test."
-        echo "Bailing."
-        echo
-        echo "See https://github.com/travis-ci/travis-ci/issues/10210"
-        exit 1
+if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+    # Build pachctl so we can ask it what version it thinks it is.
+    make install
+    version=$(pachctl version --client-only)
+
+    if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
+        echo "Detected PR build, checking for consistency..."
+        if [[ ! $version == *"-${TRAVIS_COMMIT}" ]]; then
+            echo "Detected that we have a version of the code checked out which"
+            echo "is not the same as the version we are trying to test."
+            echo "Bailing."
+            echo
+            echo "See https://github.com/travis-ci/travis-ci/issues/10210"
+            exit 1
+        fi
     fi
 fi
 
@@ -65,8 +71,6 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     # Pull the pre-built images. This is only done if we have access to the
     # secret env vars, because otherwise the build step would've had to be
     # skipped.
-    make install
-    version=$(pachctl version --client-only)
 
     docker pull "pachyderm/pachd:${version}"
     docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
