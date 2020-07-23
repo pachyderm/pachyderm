@@ -35,8 +35,8 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
             echo "is not the same as the version we are trying to test."
             echo "Bailing."
             echo
-            echo "(pachctl version $version does not have TRAVIS_PULL_REQUEST_SHA"
-            echo "$TRAVIS_PULL_REQUEST_SHA as a suffix)"
+            echo "(pachctl version $version does not have TRAVIS_COMMIT"
+            echo "$TRAVIS_COMMIT as a suffix)"
             echo
             echo "See https://github.com/travis-ci/travis-ci/issues/10210"
             echo "====================================================="
