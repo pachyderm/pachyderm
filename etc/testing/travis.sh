@@ -26,7 +26,7 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
 
     if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
         echo "Detected PR build, checking for consistency..."
-        if [[ ! "$version" == *"-${TRAVIS_COMMIT}" ]]; then
+        if [[ ! "$version" == *"-${TRAVIS_PULL_REQUEST_SHA}" ]]; then
             set +x
             echo "====================================================="
             echo " /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\"
@@ -35,8 +35,8 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
             echo "is not the same as the version we are trying to test."
             echo "Bailing."
             echo
-            echo "(pachctl version $version does not have commit-under-test"
-            echo "$TRAVIS_COMMIT as a suffix)"
+            echo "(pachctl version $version does not have TRAVIS_PULL_REQUEST_SHA"
+            echo "$TRAVIS_PULL_REQUEST_SHA as a suffix)"
             echo
             echo "See https://github.com/travis-ci/travis-ci/issues/10210"
             echo "====================================================="
