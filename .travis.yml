@@ -45,6 +45,13 @@ jobs:
       script: etc/testing/travis_build.sh
 
 before_install:
+  # Make sure we are looking at the commit we're supposed to be testing. It's
+  # possible that we've been fast-forwarded to a newer commit, which causes
+  # weird concurrency issues like trying to pull a docker image that hasn't
+  # been pushed yet. NB: I'm not convinced that this will help, on reflection,
+  # as the pachctl binary may actually come from a cache from a future build.
+  # Hmm.
+  - (cd pachyderm/pachyderm; echo "checking out ${TRAVIS_COMMIT}"; git checkout ${TRAVIS_COMMIT})
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
 install:
