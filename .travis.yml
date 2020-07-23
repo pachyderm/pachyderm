@@ -8,6 +8,8 @@ cache:
     - ${HOME}/cached-deps
     - ${HOME}/gopath/pkg/mod
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
+    - docker_images
+
 language: go
 go:
   - "1.13.1"
@@ -45,6 +47,9 @@ jobs:
 before_install:
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
+  # Load saved docker image layers, to avoid having to repeatedly apt-get stuff
+  # every single time we build
+  - docker load -i docker_images/images.tar || true
 install:
   - etc/testing/travis_install.sh
 script: travis_retry timeout 9m etc/testing/travis.sh || etc/testing/kube_debug.sh
@@ -52,6 +57,9 @@ before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
   - etc/testing/travis_cache.sh
+  # Avoid having to rebuild unchanged docker image layers every time
+  - docker save -o docker_images/images.tar $(docker images -a -q)
+
 after_failure:
   - kubectl version
   - kubectl get all
