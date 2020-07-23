@@ -47,7 +47,7 @@ before_install:
   - etc/testing/travis_cache.sh
 install:
   - etc/testing/travis_install.sh
-script: travis_retry etc/testing/travis.sh
+script: travis_retry timeout 9m etc/testing/travis.sh
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
