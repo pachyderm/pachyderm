@@ -27,6 +27,10 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
         echo "Detected PR build, checking for consistency..."
         if [[ ! "$version" == *"-${TRAVIS_COMMIT}" ]]; then
+            set +x
+            echo "============================================================="
+            echo " /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\"
+            echo "============================================================="
             echo "Detected that we have a version of the code checked out which"
             echo "is not the same as the version we are trying to test."
             echo "Bailing."
@@ -35,11 +39,15 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
             echo "$TRAVIS_COMMIT as a suffix)"
             echo
             echo "See https://github.com/travis-ci/travis-ci/issues/10210"
+            echo "============================================================="
             exit 1
+            set -x
         else
+            set +x
             echo "Determined that Travis and GitHub have deigned to give us the"
             echo "same version of the code to test that we were triggered with."
             echo "Hooray."
+            set -x
         fi
     fi
 fi
