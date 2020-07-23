@@ -7,6 +7,10 @@ This is an ML pipeline for the Boston Housing Dataset. It utilizes pandas datafr
 3. Trains a regression model (with a light grid search) to predict the housing price
 4. Generate a learning curve and performance metrics to estimate the quality of the model
 
+<p align="center">
+  <img src="images/regression_pipeline.png">
+</p>
+
 For simplicity, we'll just train an of Gradient Boosting Regressor ensemble, but we could configure it to train many different types of models
 
 ## Housing prices datasets
@@ -39,6 +43,50 @@ Once everything is up, we can check the setup by running:
 2. `pachctl version` which will show both the `pachctl` and `pachd` versions.
 
 Next, clone this repo and follow the steps below.
+
+## Python code
+The file `structured_data_regression.py` is the key file for the pipeline. 
+```
+$ python structured_data_regression.py --help
+
+usage: structured_data_regression.py [-h] [--input INPUT]
+                                     [--target-col TARGET_COL] [--output DIR]
+
+Structured data regression
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --input INPUT         csv file with all examples
+  --target-col TARGET_COL
+                        column with target values
+  --output DIR          output directory
+  ```
+
+The regression code performs three functions:
+
+1. Exploratory data analysis
+2. Train an ensemble regressor (with a grid search)
+3. Evaluate the model
+
+### Exploratory Data Analysis
+First we create a pairplot that shows the relationship between the features (remember that the M)
+<p align="center">
+  <img width="400" height="300"  src="images/pairplot.png">
+</p>
+
+<p align="center">
+  <img width="320" height="200"  src="images/corr_matrix.png">
+</p>
+
+### Train an ensemble with grid search
+
+### Evaluate the model
+
+<p align="center">
+  <img width="400" height="600"  src="images/cv_reg_output.png">
+</p>
+
+
 
 ## TLDR;
 
@@ -107,6 +155,7 @@ NAME               TYPE SIZE
 $ pachctl get file regression@master:/ --recursive --output .
 ```
 
+## What's going on inside the container? 
 
 
 
