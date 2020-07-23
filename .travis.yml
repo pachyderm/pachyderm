@@ -8,7 +8,7 @@ cache:
     - ${HOME}/cached-deps
     - ${HOME}/gopath/pkg/mod
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
-    - ${HOME}/consistency-check/
+    - ${HOME}/consistency-check
 
 language: go
 go:
