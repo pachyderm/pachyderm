@@ -49,7 +49,7 @@ before_install:
   # possible that we've been fast-forwarded to a newer commit, which causes
   # weird concurrency issues like trying to pull a docker image that hasn't
   # been pushed yet.
-  - (cd pachyderm/pachyderm; echo "checking out ${TRAVIS_COMMIT}"; git checkout ${TRAVIS_COMMIT})
+  - echo "checking out ${TRAVIS_COMMIT}"; git checkout ${TRAVIS_COMMIT}
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
 install:
