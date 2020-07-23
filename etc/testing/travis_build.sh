@@ -18,7 +18,7 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker push "pachyderm/worker:${version}"
 
     # Avoid having to rebuild unchanged docker image layers every time
-    docker save -o docker_images/images.tar $(docker images -a -q)
+    docker save -o ${HOME}/docker_images/images.tar $(docker images -a -q)
     ls -alh ${HOME}/docker_images/
 
     # Push pipeline build images
