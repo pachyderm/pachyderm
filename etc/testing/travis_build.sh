@@ -20,8 +20,14 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
 
     # Avoid having to rebuild unchanged docker image layers every time
     echo "Saving these docker images to cache:"
-    docker images -a
-    time docker save -o ${HOME}/docker_images/images.tar $(docker images -a -q)
+    docker images pachyderm/worker
+    docker images pachyderm/pachd
+    docker images pachyderm_build
+    time docker save -o ${HOME}/docker_images/images.tar $(
+        docker images -q pachyderm/worker
+        docker images -q pachyderm/pachd
+        docker images -q pachyderm_build
+    )
     ls -alh ${HOME}/docker_images/
 
     # Push pipeline build images
