@@ -49,7 +49,7 @@ before_install:
   - etc/testing/travis_cache.sh
 install:
   - etc/testing/travis_install.sh
-script: travis_retry timeout 9m etc/testing/travis.sh || etc/testing/kube_debug.sh
+script: travis_retry timeout 9m etc/testing/travis.sh; status=$?; if [ $status -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
