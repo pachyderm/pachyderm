@@ -28,9 +28,9 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Detected PR build, checking for consistency..."
         if [[ ! "$version" == *"-${TRAVIS_COMMIT}" ]]; then
             set +x
-            echo "============================================================="
+            echo "====================================================="
             echo " /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\"
-            echo "============================================================="
+            echo "====================================================="
             echo "Detected that we have a version of the code checked out which"
             echo "is not the same as the version we are trying to test."
             echo "Bailing."
@@ -39,7 +39,7 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
             echo "$TRAVIS_COMMIT as a suffix)"
             echo
             echo "See https://github.com/travis-ci/travis-ci/issues/10210"
-            echo "============================================================="
+            echo "====================================================="
             exit 1
             set -x
         else

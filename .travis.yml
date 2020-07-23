@@ -44,6 +44,9 @@ jobs:
       script: etc/testing/travis_build.sh
 
 before_install:
+  - pwd
+  - ls
+  - git log |head -n 20
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
 install:
