@@ -55,11 +55,16 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		} else if err != nil {
 			return nil, err
 		}
-		g := glob.MustCompile(input.Glob, '/')
+		g, err := glob.Compile(input.Glob, '/')
+		if err != nil {
+			return nil, err
+		}
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
+		groupBy := g.Replace(fileInfo.File.Path, input.GroupBy)
 		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,
 			JoinOn:     joinOn,
+			GroupBy:    groupBy,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
@@ -318,12 +323,13 @@ type groupIterator struct {
 }
 
 func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterator, error) {
-	om := ordered_map.NewOrderedMap()
+	groupMap := make(map[string][]*common.Input)
+	keys := make([]string, 0, len(group))
 	result := &groupIterator{}
 	defer result.Reset()
 
 	// okay, so we have a slice of pps Inputs
-	for i, input := range group {
+	for _, input := range group {
 		// turn our inputs into iterators
 		datumIterator, err := NewIterator(pachClient, input)
 		if err != nil {
@@ -331,19 +337,25 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 		}
 		// iterate through each iterator to get the individual datums
 		for datumIterator.Next() {
-			x := datumIterator.Datum()
-			for _, k := range x {
-				// put the datums in an ordered map keyed by GroupBy
-				tuple, _ := om.Get(k.JoinOn)
-
-				om.Set(k.JoinOn, tuple)
+			datums := datumIterator.Datum()
+			for _, datum := range datums {
+				// put the datums in an map keyed by GroupBy
+				groupDatums, ok := groupMap[datum.GroupBy]
+				if !ok {
+					keys = append(keys, datum.GroupBy)
+				}
+				groupMap[datum.GroupBy] = append(groupDatums, datum)
 			}
 		}
 	}
 
-	// calculate the group_by
 	// sort everything by the group_by
+	sort.Sort(sort.StringSlice(keys))
+
 	// put each equivalence class into its own datum
+	for _, key := range keys {
+		result.datums = append(result.datums, groupMap[key])
+	}
 
 	return result, nil
 }
