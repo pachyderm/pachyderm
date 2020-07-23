@@ -36,6 +36,10 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
             echo
             echo "See https://github.com/travis-ci/travis-ci/issues/10210"
             exit 1
+        else
+            echo "Determined that Travis and GitHub have deigned to give us the"
+            echo "same version of the code to test that we were triggered with."
+            echo "Hooray."
         fi
     fi
 fi
