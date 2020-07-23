@@ -20,7 +20,7 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
 
     # Avoid having to rebuild unchanged docker image layers every time
     echo "Saving these docker images to cache:"
-    docker images -a -q
+    docker images -a
     time docker save -o ${HOME}/docker_images/images.tar $(docker images -a -q)
     ls -alh ${HOME}/docker_images/
 
