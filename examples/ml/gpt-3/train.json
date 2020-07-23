@@ -1,0 +1,22 @@
+
+{
+    "pipeline": {
+        "name": "train"
+    },
+    "description": "A pipeline that trains the ML model on the tweets gathered by the `tweets` pipeline.",
+    "transform": {
+        "image": "gpt3",
+        "cmd": ["openai-ft", "-t", "/pfs/data/training", "--val", "/pfs/data/evaluate", "-e", "engine", "-m", "ada"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "data",
+            "glob": "/*"
+        }
+    },
+    "secrets": [ {
+        "name": "OPENAI",
+        "env_var": "OPENAI_API_KEY",
+        "key": "KEY"
+    } ]
+}
