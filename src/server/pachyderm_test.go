@@ -10690,6 +10690,45 @@ func TestSpout(t *testing.T) {
 		}
 		require.NoError(t, c.DeleteAll())
 	})
+	t.Run("SpoutManager", func(t *testing.T) {
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutmanager")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Image: "spout-manager:latest",
+					Cmd:   []string{"python", "/spout.py"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 10 succesive commits, and ensure that the each file name we expect appears without any skips
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 10; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			fis, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, i+1, len(fis))
+			for _, fi := range fis {
+				require.Equal(t, uint64(2048), fi.SizeBytes)
+			}
+		}
+
+		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+			if resp.Error != "" {
+				return errors.New(resp.Error)
+			}
+			return nil
+		}))
+		require.NoError(t, c.DeleteAll())
+	})
 }
 
 func TestDeferredProcessing(t *testing.T) {

@@ -1,0 +1,10 @@
+{
+  "pipeline": {
+    "name": "spout"
+  },
+  "transform": {
+    "cmd": [ "python3", "/spout.py" ],
+    "image": "spout_manager"
+  },
+  "spout": {}
+}
