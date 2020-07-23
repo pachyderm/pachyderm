@@ -42,9 +42,7 @@ stages:
 jobs:
   include:
     - stage: build
-      script: mkdir -p ${HOME}/consistency-check; git rev-parse HEAD > ${HOME}/consistency-check/build-time-commit; echo CONSISTENCY CHECK; git rev-parse HEAD
-    - stage: build
-      script: etc/testing/travis_build.sh
+      script: mkdir -p ${HOME}/consistency-check; git rev-parse HEAD > ${HOME}/consistency-check/build-time-commit; echo CONSISTENCY CHECK; git rev-parse HEAD; etc/testing/travis_build.sh
     - stage: test
       script: echo CONSISTENCY CHECK; git rev-parse HEAD; if [ ! "$(git rev-parse HEAD)" == "$(cat ${HOME}/consistency-check/build-time-commit)" ]; then echo "CONSISTENCY CHECK FAILED, GIT REPO CHANGED UNDER OUR FEET BETWEEN BUILD AND TEST, BAILING; $(git rev-parse HEAD) != $(cat ${HOME}/consistency-check/build-time-commit)"; exit 1; else travis_retry bash -c 'timeout 9m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'; fi
 
