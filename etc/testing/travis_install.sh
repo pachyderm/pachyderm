@@ -2,10 +2,6 @@
 
 set -ex
 
-# TODO(lukemarsden): try bumping dist: to bionic in .travis.yml and setting
-# services: - docker to see if docker 18.06 is sufficient, rather than
-# downloading docker every time. Also, why do we use devicemapper?
-
 # install latest version of docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
