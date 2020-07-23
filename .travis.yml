@@ -1,7 +1,5 @@
-dist: bionic
+dist: xenial
 sudo: required
-services:
-  - docker
 cache:
   directories:
     # If any directories are added here, they must also be added to
