@@ -1,0 +1,25 @@
+{
+    "pipeline": {
+        "name": "regression"
+    },
+    "description": "A pipeline that trains produces a regression model for housing prices.",
+    "input": {
+        "pfs": {
+            "glob": "/*",
+            "repo": "data"
+        }
+    },
+    "transform": {
+        "cmd": [
+            "python",
+            "structured_data_regression.py",
+            "--input",
+            "/pfs/data/housing-simplified.csv",
+            "--target-col",
+            "MEDV",
+            "--output",
+            "/pfs/out/"
+        ],
+        "image": "jimmywhitaker/structured_data"
+    }
+}
