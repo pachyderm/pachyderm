@@ -1,56 +1,13 @@
 #!/bin/bash
 
+set -ex
+
 # Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
 # `~/cached-deps`, you'll need to explicitly set the path like so:
 #
 #     sudo env "PATH=$PATH" minikube foo
-
-set -ex
-
-# Workaround lack of consistency/reproducibility for PR builds due to
-# https://github.com/travis-ci/travis-ci/issues/10210
-#
-# IOW, we might have ended up with a version of pachctl which is built from
-# the wrong code -- not the commit that this test run is trying to test!
-# Attempt to detect that case and bail out. However, be careful not to
-# break release builds where there is no git hash in `pachctl version` by
-# only applying this check in the case that we're a PR build (which is the
-# only case where it's an issue anyway).
-
-if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-    # Build pachctl so we can ask it what version it thinks it is.
-    make install
-    version=$(pachctl version --client-only)
-
-    if [ ! "${TRAVIS_PULL_REQUEST}" == "false" ]; then
-        echo "Detected PR build, checking for consistency..."
-        if [[ ! "$version" == *"-${TRAVIS_PULL_REQUEST_SHA}" ]]; then
-            set +x
-            echo "====================================================="
-            echo " /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\ /!\\"
-            echo "====================================================="
-            echo "Detected that we have a version of the code checked out which"
-            echo "is not the same as the version we are trying to test."
-            echo "Bailing."
-            echo
-            echo "(pachctl version $version does not have TRAVIS_COMMIT"
-            echo "$TRAVIS_COMMIT as a suffix)"
-            echo
-            echo "See https://github.com/travis-ci/travis-ci/issues/10210"
-            echo "====================================================="
-            exit 1
-            set -x
-        else
-            set +x
-            echo "Determined that Travis and GitHub have deigned to give us the"
-            echo "same version of the code to test that we were triggered with."
-            echo "Hooray."
-            set -x
-        fi
-    fi
-fi
 
 minikube delete || true              # In case we get a recycled machine, or are retrying
 docker rm -f $(docker ps -aq)        # In case minikube delete doesn't work (see minikube#2519)
@@ -87,6 +44,8 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     # Pull the pre-built images. This is only done if we have access to the
     # secret env vars, because otherwise the build step would've had to be
     # skipped.
+    make install
+    version=$(pachctl version --client-only)
     docker pull "pachyderm/pachd:${version}"
     docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
     docker pull "pachyderm/worker:${version}"
