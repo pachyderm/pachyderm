@@ -42,8 +42,7 @@ stages:
 jobs:
   include:
     - stage: build
-      script: etc/testing/travis_build_check_and_stash.sh
-      # XXX Experiment(lukemarsden): put back ; etc/testing/travis_build.sh
+      script: etc/testing/travis_build_check_and_stash.sh; etc/testing/travis_build.sh
 
 before_install:
   - pwd
@@ -56,8 +55,7 @@ before_install:
 install:
   - etc/testing/travis_install.sh
 
-# XXX Experiment(lukemarsden) - replace true with etc/testing/travis.sh below to put back
-script: etc/testing/travis_test_check_and_pull.sh && travis_retry bash -c 'timeout 9m true; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'
+script: etc/testing/travis_test_check_and_pull.sh && travis_retry bash -c 'timeout 9m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'
 
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
