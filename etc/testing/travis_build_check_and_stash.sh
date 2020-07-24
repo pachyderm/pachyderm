@@ -20,8 +20,6 @@ set -ex
 
 cd /home/travis/gopath/src/github.com/pachyderm/pachyderm
 
-#        if [[ ! "$version" == *"-${TRAVIS_PULL_REQUEST_SHA}" ]]; then
-
 if [ "${TRAVIS_PULL_REQUEST}" == "false" ]; then
     # These shenannigans not needed for release and branch builds, hopefully.
     exit 0
@@ -59,13 +57,21 @@ done
 # commit ID at HEAD, which will break trying to pull docker images tagged with
 # the output of pachctl version).
 
+if [[ ! "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+    echo "Need travis env vars so we can auth to docker hub."
+    exit 1
+fi
+docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+
 cd /home/travis/gopath/src/github.com/pachyderm
 mkdir -p /tmp/save_git_tarball
 tar cf /tmp/save_git_tarball/pachyderm.tar pachyderm
 cd /tmp/save_git_tarball
+
 cat <<EOT >Dockerfile
 FROM ubuntu:xenial
 COPY pachyderm.tar /
 EOT
+
 docker build -t pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER} .
 docker push pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER}
