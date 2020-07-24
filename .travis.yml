@@ -42,7 +42,7 @@ stages:
 jobs:
   include:
     - stage: build
-      script: mkdir -p ${HOME}/consistency-check; git rev-parse HEAD > ${HOME}/consistency-check/build-time-commit; echo CONSISTENCY CHECK; git rev-parse HEAD
+      script: mkdir -p ${HOME}/consistency-check; git rev-parse HEAD > ${HOME}/consistency-check/${TRAVIS_BUILD_NUMBER}-build-time-commit; echo CONSISTENCY CHECK; git rev-parse HEAD; find ${HOME}/consistency-check; cat ${HOME}/consistency-check/${TRAVIS_BUILD_NUMBER}-build-time-commit
       # XXX Experiment(lukemarsden): put back ; etc/testing/travis_build.sh
 
 before_install:
@@ -52,10 +52,13 @@ before_install:
   - env
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
-install:
-  - etc/testing/travis_install.sh
+
+# XXX Experiment(lukemarsden) - uncomment the following to put back
+#install:
+#  - etc/testing/travis_install.sh
+
 # XXX Experiment(lukemarsden) - replace true with etc/testing/travis.sh below to put back
-script: echo CONSISTENCY CHECK; git rev-parse HEAD; if [ ! "$(git rev-parse HEAD)" == "$(cat ${HOME}/consistency-check/build-time-commit)" ]; then echo "CONSISTENCY CHECK FAILED, GIT REPO CHANGED UNDER OUR FEET BETWEEN BUILD AND TEST, BAILING; $(git rev-parse HEAD) != $(cat ${HOME}/consistency-check/build-time-commit)"; exit 1; else travis_retry bash -c 'timeout 9m true; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'; fi
+script: echo CONSISTENCY CHECK; find ${HOME}/consistency-check; cat ${HOME}/consistency-check/${TRAVIS_BUILD_NUMBER}-build-time-commit; git rev-parse HEAD; if [ ! "$(git rev-parse HEAD)" == "$(cat ${HOME}/consistency-check/${TRAVIS_BUILD_NUMBER}-build-time-commit)" ]; then echo "CONSISTENCY CHECK FAILED, GIT REPO CHANGED UNDER OUR FEET BETWEEN BUILD AND TEST, BAILING; $(git rev-parse HEAD) != $(cat ${HOME}/consistency-check/${TRAVIS_BUILD_NUMBER}-build-time-commit)"; exit 1; else travis_retry bash -c 'timeout 9m true; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'; fi
 
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
