@@ -40,7 +40,7 @@ while true; do
         echo "as one of the parents of the HEAD merge preview commit ($parents)"
         break
     else
-        ((tries++))
+        var=$((tries+1))
         if [ "$tries" -gt 60 ]; then
             echo "Gave up waiting for GitHub to give us the right commit";
             exit 1
