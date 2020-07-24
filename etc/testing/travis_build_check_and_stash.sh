@@ -35,12 +35,12 @@ while true; do
     # Check if HEAD is a merge commit with the commit we want to test as one of
     # the parents (the other one would be current main branch HEAD)
     parents=$(git rev-list --parents -n 1 HEAD)
-    if [[ "$TRAVIS_PULL_REQUEST_SHA" == *"$parents"* ]]; then
+    if [[ "$parents" == *"$TRAVIS_PULL_REQUEST_SHA"* ]]; then
         echo "Great, found the commit we're meant to be testing ($TRAVIS_PULL_REQUEST_SHA)"
         echo "as one of the parents of the HEAD merge preview commit ($parents)"
         break
     else
-        var=$((tries+1))
+        tries=$((tries+1))
         if [ "$tries" -gt 60 ]; then
             echo "Gave up waiting for GitHub to give us the right commit";
             exit 1
