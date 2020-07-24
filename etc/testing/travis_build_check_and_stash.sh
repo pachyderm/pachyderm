@@ -18,7 +18,6 @@ set -ex
 # time out, give up. If we succeed, stash that code in a docker image which
 # later tests can use to get it back.
 
-pwd
 cd /home/travis/gopath/src/github.com/pachyderm/pachyderm
 
 #        if [[ ! "$version" == *"-${TRAVIS_PULL_REQUEST_SHA}" ]]; then
@@ -64,7 +63,7 @@ cd /home/travis/gopath/src/github.com/pachyderm
 mkdir -p /tmp/save_git_tarball
 tar cf /tmp/save_git_tarball/pachyderm.tar pachyderm
 cd /tmp/save_git_tarball
-echo <<EOT >Dockerfile
+cat <<EOT >Dockerfile
 FROM ubuntu:xenial
 COPY pachyderm.tar /
 EOT
