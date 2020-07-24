@@ -54,3 +54,19 @@ while true; do
         git checkout -qf FETCH_HEAD
     fi
 done
+
+# Yay, we got a good git state. Save it! Our tests will need it too, and might
+# not be able to get it back then (or might not get it back with the same
+# commit ID at HEAD, which will break trying to pull docker images tagged with
+# the output of pachctl version).
+
+cd /home/travis/gopath/src/github.com/pachyderm
+mkdir -p /tmp/save_git_tarball
+tar cfv /tmp/save_git_tarball/pachyderm.tar pachyderm
+cd /tmp/save_git_tarball
+echo <<EOT >Dockerfile
+FROM ubuntu:xenial
+ADD pachyderm.tar
+EOT
+docker build -t pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER} .
+docker push pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER}
