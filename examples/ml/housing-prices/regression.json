@@ -6,20 +6,20 @@
     "input": {
         "pfs": {
             "glob": "/*",
-            "repo": "data"
+            "repo": "housing_data"
         }
     },
     "transform": {
         "cmd": [
             "python",
-            "structured_data_regression.py",
+            "regression.py",
             "--input",
-            "/pfs/data/housing-simplified.csv",
+            "/pfs/housing_data/",
             "--target-col",
             "MEDV",
             "--output",
             "/pfs/out/"
         ],
-        "image": "jimmywhitaker/structured_data"
+        "image": "jimmywhitaker/housing-prices"
     }
 }
