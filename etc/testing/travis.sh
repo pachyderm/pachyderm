@@ -9,9 +9,15 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-minikube delete || true               # In case we get a recycled machine, or are retrying
-docker rm -f $(docker ps -aq) || true # In case minikube delete doesn't work (see minikube#2519)
-rm -f ${HOME}/.pachyderm/config.json  # In case we're retrying on a new cluster
+# In case we get a recycled machine, or are retrying
+minikube delete || true
+
+# In case minikube delete doesn't work (see minikube#2519)
+for C in $(docker ps -aq); do docker rm -f "$C"; done || true
+
+# In case we're retrying on a new cluster
+rm -f "${HOME}"/.pachyderm/config.json
+
 make launch-kube
 sleep 5
 

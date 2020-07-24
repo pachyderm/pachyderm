@@ -23,7 +23,7 @@ cd /home/travis/gopath/src/github.com/pachyderm/
 mv pachyderm pachyderm.old
 
 docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
-docker run -v $(pwd):/unpack pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER} \
+docker run -v "$(pwd)":/unpack pachyderm/ci_code_bundle:"${TRAVIS_BUILD_NUMBER}" \
     tar xf /pachyderm.tar -C /unpack/
 
 ls -alh pachyderm

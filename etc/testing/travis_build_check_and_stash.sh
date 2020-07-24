@@ -55,7 +55,7 @@ while true; do
         echo "as one of the parents of the HEAD merge preview commit ($parents). Trying again..."
         echo "===================================================================================="
         set -x
-        git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge
+        git fetch origin +refs/pull/"${TRAVIS_PULL_REQUEST}"/merge
         git checkout -qf FETCH_HEAD
     fi
 done
@@ -81,5 +81,5 @@ FROM ubuntu:xenial
 COPY pachyderm.tar /
 EOT
 
-docker build -t pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER} .
-docker push pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER}
+docker build -t pachyderm/ci_code_bundle:"${TRAVIS_BUILD_NUMBER}" .
+docker push pachyderm/ci_code_bundle:"${TRAVIS_BUILD_NUMBER}"
