@@ -55,7 +55,6 @@ before_install:
 
 install:
   - etc/testing/travis_install.sh
-  :-(
 
 # XXX Experiment(lukemarsden) - replace true with etc/testing/travis.sh below to put back
 script: etc/testing/travis_test_check_and_pull.sh && travis_retry bash -c 'timeout 9m true; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'; fi
