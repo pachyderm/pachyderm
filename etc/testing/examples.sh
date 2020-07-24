@@ -5,6 +5,10 @@ set -ex
 # Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 
+# NOTE: this script is run periodically in hub as a coarse-grained end-to-end
+# test. Be careful to ensure changes here work fine on hub. See hub's
+# examples-runner for details.
+
 pushd examples/opencv
     pachctl create repo images
     pachctl create pipeline -f edges.json
