@@ -311,7 +311,7 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
     )
     
     future = proc.communicate(input=stdin.encode("utf8") if stdin is not None else None)
-    result = await future if timeout is None else asyncio.wait_for(future, timeout=timeout)
+    result = await (future if timeout is None else asyncio.wait_for(future, timeout=timeout))
 
     if capture_output:
         stdout, stderr = result
