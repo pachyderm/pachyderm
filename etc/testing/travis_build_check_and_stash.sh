@@ -33,8 +33,12 @@ while true; do
     # the parents (the other one would be current main branch HEAD)
     parents=$(git rev-list --parents -n 1 HEAD)
     if [[ "$parents" == *"$TRAVIS_PULL_REQUEST_SHA"* ]]; then
+        set +x
+        echo "===================================================================================="
         echo "Great, found the commit we're meant to be testing ($TRAVIS_PULL_REQUEST_SHA)"
         echo "as one of the parents of the HEAD merge preview commit ($parents)"
+        echo "===================================================================================="
+        set -x
         break
     else
         tries=$((tries+1))
@@ -45,8 +49,12 @@ while true; do
         # The commit we want to test wasn't found yet, maybe the GitHub API is out
         # of date. Let's wait a second and try to update it, then check again.
         sleep 1
+        set +x
+        echo "===================================================================================="
         echo "GitHub didn't give us the commit we're meant to be testing ($TRAVIS_PULL_REQUEST_SHA)"
         echo "as one of the parents of the HEAD merge preview commit ($parents). Trying again..."
+        echo "===================================================================================="
+        set -x
         git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge
         git checkout -qf FETCH_HEAD
     fi

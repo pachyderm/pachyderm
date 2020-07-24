@@ -33,7 +33,11 @@ cd pachyderm
 # Check that the state we got matches the commit we're supposed to be testing.
 parents=$(git rev-list --parents -n 1 HEAD)
 if [[ ! "$parents" == *"$TRAVIS_PULL_REQUEST_SHA"* ]]; then
+    set +x
+    echo "===================================================================================="
     echo "GitHub didn't give us the commit we're meant to be testing ($TRAVIS_PULL_REQUEST_SHA)"
     echo "as one of the parents of the HEAD merge preview commit ($parents). Giving up!"
+    echo "===================================================================================="
+    set -x
     exit 1
 fi
