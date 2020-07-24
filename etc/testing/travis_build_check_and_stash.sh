@@ -62,11 +62,11 @@ done
 
 cd /home/travis/gopath/src/github.com/pachyderm
 mkdir -p /tmp/save_git_tarball
-tar cfv /tmp/save_git_tarball/pachyderm.tar pachyderm
+tar cf /tmp/save_git_tarball/pachyderm.tar pachyderm
 cd /tmp/save_git_tarball
 echo <<EOT >Dockerfile
 FROM ubuntu:xenial
-ADD pachyderm.tar
+COPY pachyderm.tar /
 EOT
 docker build -t pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER} .
 docker push pachyderm/ci_code_bundle:${TRAVIS_BUILD_NUMBER}
