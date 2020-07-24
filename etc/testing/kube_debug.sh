@@ -8,9 +8,7 @@ kubectl get all --all-namespaces
 # TODO: Extend this to show kubectl describe output for failed pods, this will
 # probably show why things are hanging.
 
-
 kubectl version
-kubectl get all
 kubectl get all --namespace kafka
 kubectl describe pod -l app=pachd
 kubectl describe pod -l suite=pachyderm,app=etcd
