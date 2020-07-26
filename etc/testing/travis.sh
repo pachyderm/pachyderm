@@ -4,6 +4,7 @@ set -ex
 
 (
     # Stop travis from timing us out in 10m when we want to get retried after 20m
+    set +x
     while true; do
         echo "liveness ping $(date)"
         sleep 60
