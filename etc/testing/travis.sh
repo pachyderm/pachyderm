@@ -2,6 +2,14 @@
 
 set -ex
 
+(
+    # Stop travis from timing us out in 10m when we want to get retried after 20m
+    while true; do
+        echo "liveness ping $(date)"
+        sleep 60
+    done
+) &
+
 # Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
