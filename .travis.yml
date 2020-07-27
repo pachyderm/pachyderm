@@ -44,6 +44,10 @@ jobs:
       script: etc/testing/travis_build_check_and_stash.sh && etc/testing/travis_build.sh
 
 before_install:
+  # Get some insight into the system
+  - top -b -n 1|head -n 20
+  - uptime
+  - uname -a
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
 
