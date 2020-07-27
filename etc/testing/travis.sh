@@ -19,10 +19,10 @@ set -ex
 #     sudo env "PATH=$PATH" minikube foo
 
 # In case we get a recycled machine, or are retrying
-sudo minikube delete || true
+sudo $(which minikube) delete || true
 
 # Workaround suggested in minikube#2519
-sudo kubeadm reset || true
+sudo $(which kubeadm) reset || true
 
 # Belt and braces
 sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
