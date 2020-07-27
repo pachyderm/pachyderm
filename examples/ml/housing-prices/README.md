@@ -269,7 +269,6 @@ pachctl list commit regression@master
 REPO       BRANCH COMMIT                           FINISHED       SIZE     PROGRESS DESCRIPTION
 regression master f59a6663073b4e81a2d2ab3b4b7c68fc 2 minutes ago  4.028MiB -
 regression master bc0ecea5a2cd43349a9db3e89933fb42 22 minutes ago 1001KiB  -
-Jimmys-MBP-2:examples jimmy$ pachctl list commit housing-data@master
 ```
 
 We can show exactly what version of the dataset and pipeline created the model by selecting the commmit ID and using the `inspect` command.
