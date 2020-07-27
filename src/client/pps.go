@@ -94,15 +94,16 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			JoinOn: joinOn,
-			Lazy:   lazy,
+			Name:    name,
+			Repo:    repo,
+			Branch:  branch,
+			Glob:    glob,
+			JoinOn:  joinOn,
+			GroupBy: groupBy,
+			Lazy:    lazy,
 		},
 	}
 }
@@ -143,6 +144,15 @@ func NewJoinInput(input ...*pps.Input) *pps.Input {
 func NewUnionInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Union: input,
+	}
+}
+
+// NewGroupInput returns an input which is the Group of other inputs. That
+// means that all datums from any of the inputs will be seen individually by
+// the job / pipeline.
+func NewGroupInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Group: input,
 	}
 }
 

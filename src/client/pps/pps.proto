@@ -131,6 +131,7 @@ message GitInput {
 message Input {
   PFSInput pfs = 6;
   repeated Input join = 7;
+  repeated Input group = 8;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;

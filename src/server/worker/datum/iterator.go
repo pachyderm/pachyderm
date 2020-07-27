@@ -1,6 +1,7 @@
 package datum
 
 import (
+	"fmt"
 	"io"
 	"sort"
 
@@ -342,6 +343,7 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 				// put the datums in an map keyed by GroupBy
 				groupDatums, ok := groupMap[datum.GroupBy]
 				if !ok {
+					fmt.Println(datum.GroupBy)
 					keys = append(keys, datum.GroupBy)
 				}
 				groupMap[datum.GroupBy] = append(groupDatums, datum)
@@ -538,6 +540,8 @@ func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, erro
 		return newCrossIterator(pachClient, input.Cross)
 	case input.Join != nil:
 		return newJoinIterator(pachClient, input.Join)
+	case input.Group != nil:
+		return newGroupIterator(pachClient, input.Group)
 	case input.Cron != nil:
 		return newCronIterator(pachClient, input.Cron)
 	case input.Git != nil:
