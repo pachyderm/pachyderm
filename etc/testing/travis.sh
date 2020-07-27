@@ -18,9 +18,6 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-# In case we get a recycled machine, or are retrying
-sudo -E env "PATH=$PATH" minikube delete --vm-driver=none || true
-
 # In case minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
 
