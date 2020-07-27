@@ -1,4 +1,6 @@
-
+.PHONY: create-branch-mover update-branch-mover delete-branch-mover \
+	create-branch-mover-no-auth update-branch-mover-no-auth delete-branch-mover-no-auth \
+	delete-secret clean
 # The executable paths below are set to generic values.
 # Modify them for your system by setting environment variables, using a command like this
 # to both fetch the version of pachyderm you want to use and execute it.
@@ -28,9 +30,6 @@ DEFERRED_PROCESSING_2_FILES = ../deferred_processing_plus_transactions/images3.t
 # env AUTH_TOKEN_TTL=1h make -e create-branch-mover
 AUTH_TOKEN_TTL := 624h
 
-# these are used by jq in  rules below to transform manifests and specs
-AUTH_TOKEN_TRANSFORM = ".data.auth_token=\"$$(${PACHCTL} auth get-auth-token --ttl "${AUTH_TOKEN_TTL}" | grep Token | awk '{print $$2}' | base64 -e | tr -d '\r\n')\""
-
 create-deferred-processing-cluster: $(DEFERRED_PROCESSING_PIPELINES) $(DEFERRED_PROCESSING_1_FILES) $(DEFERRED_PROCESSING_2_FILES)
 	${PACHCTL} create repo images_dp_1
 	${PACHCTL} create repo images_dp_2
@@ -52,7 +51,8 @@ delete-deferred-processing-cluster:
 	-@${PACHCTL} delete repo images_dp_2
 
 pachyderm-user-secret.secret: pachyderm-user-secret.clear
-	jq "$(AUTH_TOKEN_TRANSFORM)" $< > $@
+	jq ".data.auth_token=\"$$(${PACHCTL} auth get-auth-token --ttl "${AUTH_TOKEN_TTL}" | \
+		grep Token | awk '{print $$2}' | base64 -e | tr -d '\r\n')\"" $< > $@
 	-${PACHCTL} delete secret $$(jq .metadata.name $@ | tr -d '"')
 	${PACHCTL} create secret -f $@
 

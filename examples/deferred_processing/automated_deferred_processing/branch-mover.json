@@ -19,10 +19,6 @@
       "image": "pachyderm/pachctl:1.11.0",
       "secrets": [ {
           "name": "pachyderm-user-secret",
-          "mount_path": "/pachyderm-user-secret"
-      },
-      {
-          "name": "pachyderm-user-secret",
           "env_var": "PACHYDERM_AUTH_TOKEN",
           "key": "auth_token"
       } ]
