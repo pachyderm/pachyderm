@@ -13,6 +13,6 @@ kubectl get all --namespace kafka
 kubectl describe pod -l app=pachd
 kubectl describe pod -l suite=pachyderm,app=etcd
 kubectl logs -l app=pachd | tail -n 100
-sudo dmesg
+sudo dmesg |tail -n 20
 top -b -n 1|head -n 20
 df -h
