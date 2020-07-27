@@ -11,3 +11,7 @@ General questions can usually be answered on our [Documentation Portal](https://
 We'd love to accept your patches! Before we can take them, please sign the [Contributor License Agreement (CLA)](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement/).
 
 You only have to do it once. Once we receive it, we'll be able to accept your pull requests.
+
+## More contributor documentation
+
+See also the [doc/docs/master/contributing](doc/docs/master/contributing) folder.

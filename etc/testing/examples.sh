@@ -1,8 +1,13 @@
 #!/bin/bash
 
 set -ex
-# Runs various examples ot ensure they don't break. Some examples were
+
+# Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
+
+# NOTE: this script is run periodically in hub as a coarse-grained end-to-end
+# test. Be careful to ensure changes here work fine on hub. See hub's
+# examples-runner for details.
 
 pushd examples/opencv
     pachctl create repo images
@@ -19,7 +24,8 @@ pushd examples/opencv
     pachctl inspect file montage@master:montage.png
 popd
 
-yes | pachctl delete all
+pachctl delete pipeline --all
+pachctl delete repo --all
 
 pushd examples/shuffle
     pachctl create repo fruits
@@ -57,7 +63,8 @@ pushd examples/shuffle
     fi
 popd
 
-yes | pachctl delete all
+pachctl delete pipeline --all
+pachctl delete repo --all
 
 pushd examples/word_count
     # note: we do not test reducing because it's slower
@@ -79,7 +86,8 @@ pushd examples/word_count
     fi
 popd
 
-yes | pachctl delete all
+pachctl delete pipeline --all
+pachctl delete repo --all
 
 pushd examples/ml/hyperparameter
     pachctl create repo raw_data
@@ -111,7 +119,8 @@ pushd examples/ml/hyperparameter
     fi
 popd
 
-yes | pachctl delete all
+pachctl delete pipeline --all
+pachctl delete repo --all
 
 pushd examples/ml/iris
     pachctl create repo training
