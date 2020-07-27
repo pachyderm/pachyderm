@@ -6,12 +6,12 @@ This example creates a simple machine learning pipeline in Pachyderm to train a 
   <img width="200" height="300" src="images/regression_pipeline.png">
 </p>
 
-The Pachyderm Pipeline will perform the following:
+The Pachyderm pipeline performs the following actions:
 
-1. Import the structured dataset (`.csv`) with pandas
-2. Perform some light data analysis with scikit-learn
-3. Train a regression model to predict housing prices
-4. Generate a learning curve and performance metrics to estimate the quality of the model
+1. Imports the structured dataset (`.csv`) with `pandas`.
+2. Performs data analysis with `scikit-learn`.
+3. Trains a regression model to predict housing prices.
+4. Generates a learning curve and performance metrics to estimate the quality of the model.
 
 Outline of this Example: 
 
@@ -32,7 +32,7 @@ Outline of this Example:
 
 ## Housing prices datasets
 
-The housing prices dataset used for this example is a reduced version of the original, focusing on a subset of the features. It contains 3 input features (RM, LSTST, and PTRATIO) and the output, or target (MEDV) that we are learning to predict.
+The housing prices dataset used for this example is a reduced version of the original, focusing on a subset of the features. It contains three input features (RM, LSTST, and PTRATIO) and the output, or target (MEDV) that we are learning to predict.
 |Feature| Description|
 |---|---|
 |RM |       Average number of rooms per dwelling|
@@ -63,7 +63,7 @@ Next, clone this repo and follow the steps below.
 
 
 
-## Python code
+## Python Code
 
 The `regression.py` Python file contains the machine learning code for the example. We will give a brief description of it here, but full knowledge of it is not required for the example. 
 
@@ -83,14 +83,14 @@ optional arguments:
   --output DIR          output directory
   ```
 
-The regression code performs three functions:
+The regression code performs the following actions:
 
-1. Data analysis
-2. Train a regressor
-3. Evaluate the model
+1. Analyses the data.
+2. Trains a regressor.
+3. Evaluates the model.
 
 ### Data Analysis
-The first step in the pipeeline creates a pairplot showing the relationship between features. By seeing what features are positively or negatively correlated to the target value (or each other), it can helps us understand what features may be valuable to the model.
+The first step in the pipeline creates a pairplot showing the relationship between features. By seeing what features are positively or negatively correlated to the target value (or each other), it can helps us understand what features may be valuable to the model.
 <p align="center">
   <img width="500" height="400"  src="images/pairplot-1.png">
 </p>
@@ -126,15 +126,15 @@ pachctl create pipeline -f regression.json
 pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-1.csv
 
 # Step 4: Download files once the pipeline has finished
-pachctl get --recursive regression@master
+pachctl get file --recursive regression@master
 
 # Step 5: Update dataset with more data
 pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
 ```
 
-### Step 1: Create input data repository
+### Step 1: Create an input data repository
 
-Once the pachyderm cluster is running, we will create a data repository called `housing_data` where we will put our dataset.
+Once the Pachyderm cluster is running, create a data repository called `housing_data` where we will put our dataset.
 
 ```bash
 $ pachctl create repo housing_data
@@ -179,16 +179,16 @@ For the pipeline **input** we can define what data repo(s) our pipeline is conne
 
 The **image** defines what Docker image will be used for the pipeline, and the **transform** is the command run once a pipeline job starts.
 
-Once this pipeline is created, it will be looking for any changes to its input, if detected it will start a new job to train given the new dataset.
+Once this pipeline is created, it watches for any changes to its input, and if detected, it starts a new job to train given the new dataset.
 
 ```bash
 $ pachctl create pipeline -f regression.json
 ```
 
-The pipeline will write the output to a PFS repo (`/pfs/out/` in the pipeline json) created with the same name as the pipeline.
+The pipeline writes the output to a PFS repo (`/pfs/out/` in the pipeline json) created with the same name as the pipeline.
 
 ### Step 3: Add the housing dataset to the repo
-Now we can add the data which will kick off the processing automatically. If we update the data with a new commit, then the pipeline will automatically re-run. 
+Now we can add the data, which will kick off the processing automatically. If we update the data with a new commit, then the pipeline will automatically re-run. 
 
 ```bash
 $ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-1.csv
@@ -230,10 +230,10 @@ When we inspect the learning curve, we can see that there is a large gap between
   <img width="400" height="350" src="images/learning_curve-1.png">
 </p>
 
-So let's update our dataset with additional examples.
+Now let's update our dataset with additional examples.
 
 ### Step 5: Update Dataset
-Here's where pachyderm truely starts to shine. To update our dataset we can run the following command (note that we could also append new examples to the existing file):
+Here's where Pachyderm truly starts to shine. To update our dataset we can run the following command (note that we could also append new examples to the existing file, but in this example we're simply overwriting our previous file to one with more data):
 
 ```bash
 $ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
