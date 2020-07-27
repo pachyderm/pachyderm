@@ -19,16 +19,13 @@ set -ex
 #     sudo env "PATH=$PATH" minikube foo
 
 # In case we get a recycled machine, or are retrying
-sudo -E env "PATH=$PATH" minikube delete || true
-
-# Workaround suggested in minikube#2519
-sudo -E env "PATH=$PATH" kubeadm reset -f || true
-
-# Belt and braces
-sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
+sudo -E env "PATH=$PATH" minikube delete --vm-driver=none || true
 
 # In case minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
+
+# Belt and braces
+sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
 
 # In case we're retrying on a new cluster
 rm -f "${HOME}"/.pachyderm/config.json
