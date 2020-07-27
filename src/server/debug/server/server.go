@@ -206,6 +206,9 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 			},
 		},
 	})
+	if err != nil {
+		return err
+	}
 	return collectDebugStream(tw, r, workerPrefix)
 }
 
