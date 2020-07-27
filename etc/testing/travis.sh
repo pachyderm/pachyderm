@@ -19,7 +19,13 @@ set -ex
 #     sudo env "PATH=$PATH" minikube foo
 
 # In case we get a recycled machine, or are retrying
-minikube delete || true
+sudo minikube delete || true
+
+# Workaround suggested in minikube#2519
+sudo kubeadm reset
+
+# Belt and braces
+sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
 
 # In case minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
