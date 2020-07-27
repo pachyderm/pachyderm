@@ -37,7 +37,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 		opt(w)
 	}
 	var chunkWriterOpts []chunk.WriterOption
-	if w.indexFunc != nil {
+	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
 	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)

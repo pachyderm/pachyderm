@@ -111,7 +111,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 			return err
 		}
 		// Compact the commit changes into a diff file set.
-		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+		if _, err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 			return err
 		}
 		// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
@@ -125,11 +125,11 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 		if err != nil {
 			return err
 		}
-		if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+		compactRes, err := d.compact(m, compactSpec.Output, compactSpec.Input)
+		if err != nil {
 			return err
 		}
-		// TODO Need to get the size from the compaction process.
-		commitInfo.SizeBytes = uint64(0)
+		commitInfo.SizeBytes = compactRes.OutputSize
 		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
@@ -164,7 +164,8 @@ func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(
 		return err
 	}
 	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		return d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		return err
 	})
 }
 
@@ -352,7 +353,11 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
-func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
+type compactResult struct {
+	OutputSize uint64
+}
+
+func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) (*compactResult, error) {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
 	inputPaths := []string{}
@@ -361,7 +366,7 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			inputPaths = append(inputPaths, inputPath)
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.compactIter(ctx, compactSpec{
@@ -381,7 +386,7 @@ type compactSpec struct {
 
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *compactResult, retErr error) {
 	if len(params.inputPaths) <= params.maxFanIn {
 		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
 	}
@@ -407,13 +412,13 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 		}
 		childOutputPath := path.Join(scratch, strconv.Itoa(i))
 		childOutputPaths = append(childOutputPaths, childOutputPath)
-		if err := d.compactIter(ctx, compactSpec{
+		if _, err := d.compactIter(ctx, compactSpec{
 			master:     params.master,
 			inputPaths: params.inputPaths[start:end],
 			outputPath: childOutputPath,
 			maxFanIn:   params.maxFanIn,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
@@ -423,7 +428,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (ret *compactResult, retErr error) {
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
 		if err := d.storage.Delete(ctx, scratch); retErr == nil {
@@ -450,7 +455,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		shardOutputs = append(shardOutputs, shardOutputPath)
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 		if taskInfo.State == work.State_FAILURE {
@@ -458,24 +463,31 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	return d.concatFileSets(ctx, outputPath, shardOutputs)
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
-	fsw := d.storage.NewWriter(ctx, outputPath)
+func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) (*compactResult, error) {
+	var size int64
+	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
+		size += idx.SizeBytes
+		return nil
+	}))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
 		if err := fsr.Iterate(func(fr *fileset.FileReader) error {
 			return fsw.CopyFile(fr)
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return fsw.Close()
+	if err := fsw.Close(); err != nil {
+		return nil, err
+	}
+	return &compactResult{OutputSize: uint64(size)}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
