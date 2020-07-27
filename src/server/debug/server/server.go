@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -137,7 +138,7 @@ func (s *debugServer) handlePipelineRedirect(
 	})
 }
 
-func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error, prefix ...string) error {
+func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
 	pods, err := s.getWorkerPods(pipelineInfo)
 	if err != nil {
 		return err
@@ -320,12 +321,27 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 }
 
 func (s *debugServer) collectPachdDump(tw *tar.Writer, prefix ...string) error {
+	// Collect the pachd version.
+	if err := s.collectPachdVersion(tw, prefix...); err != nil {
+		return err
+	}
 	// Collect the pachd container logs.
 	if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
 		return err
 	}
 	// Collect the pachd container dump.
 	return collectDump(tw, prefix...)
+}
+
+func (s *debugServer) collectPachdVersion(tw *tar.Writer, prefix ...string) error {
+	return collectDebugFile(tw, "version", func(w io.Writer) error {
+		version, err := s.env.GetPachClient(context.Background()).Version()
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(w, strings.NewReader(version+"\n"))
+		return err
+	}, prefix...)
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
