@@ -22,7 +22,7 @@ set -ex
 sudo minikube delete || true
 
 # Workaround suggested in minikube#2519
-sudo kubeadm reset
+sudo kubeadm reset || true
 
 # Belt and braces
 sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
