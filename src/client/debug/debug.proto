@@ -6,6 +6,8 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/debug";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 
+import "client/pps/pps.proto";
+
 message ProfileRequest {
   Profile profile = 1;
   Filter filter = 2;
@@ -19,13 +21,9 @@ message Profile {
 message Filter {
   oneof filter {
     bool pachd = 1;	
-    Pipeline pipeline = 2;	
+    pps.Pipeline pipeline = 2;	
     Worker worker = 3;
   }
-}
-
-message Pipeline {
-  string name = 1;
 }
 
 message Worker {

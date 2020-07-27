@@ -4,11 +4,8 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
-	"path"
 	"runtime/pprof"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -16,86 +13,137 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
 	defaultDuration = time.Minute
+	pachdPrefix     = "pachd"
+	pipelinePrefix  = "pipelines"
+	podPrefix       = "pods"
 )
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-// TODO: Move over to functional options before this gets too unwieldy.
-func NewDebugServer(name string, kubeClient *kube.Clientset, namespace string, sidecarClient *client.APIClient) debug.DebugServer {
+func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
 	return &debugServer{
+		env:           env,
 		name:          name,
-		kubeClient:    kubeClient,
-		namespace:     namespace,
 		sidecarClient: sidecarClient,
 	}
 }
 
 type debugServer struct {
+	env           *serviceenv.ServiceEnv
 	name          string
-	kubeClient    *kube.Clientset
-	namespace     string
 	sidecarClient *client.APIClient
 }
 
-func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
-	return withTarWriter(grpcutil.NewStreamingBytesWriter(server), func(tw *tar.Writer) error {
+type collectPipelineFunc func(*tar.Writer, *pps.PipelineInfo, ...string) error
+type collectWorkerFunc func(*tar.Writer, *v1.Pod, ...string) error
+type redirectFunc func(debug.DebugClient, *debug.Filter) (io.Reader, error)
+type collectFunc func(*tar.Writer, ...string) error
+
+// TODO: Need to put some thought into the correct handling of a request context.
+func (s *debugServer) handleRedirect(
+	w io.Writer,
+	filter *debug.Filter,
+	collectPachd collectFunc,
+	collectPipeline collectPipelineFunc,
+	collectWorker collectWorkerFunc,
+	redirect redirectFunc,
+	collect collectFunc,
+) error {
+	return withDebugWriter(w, func(tw *tar.Writer) error {
 		// Handle filter.
-		if request.Filter != nil {
-			switch filter := request.Filter.Filter.(type) {
+		pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
+		if filter != nil {
+			switch f := filter.Filter.(type) {
 			case *debug.Filter_Pachd:
-				return collectProfile(tw, path.Join(s.name, "pachd"), request.Profile)
+				return collectPachd(tw, pachdContainerPrefix)
 			case *debug.Filter_Pipeline:
-				return s.collectPipeline(filter.Pipeline, func(pod *v1.Pod) error {
-					return profileRedirect(server.Context(), tw, request.Profile, pod)
-				})
-			case *debug.Filter_Worker:
-				if filter.Worker.Redirected {
-					// Collect the storage container profile.
-					if s.sidecarClient == nil {
-						return collectProfile(tw, client.PPSWorkerSidecarContainerName, request.Profile)
-					}
-					// Collect the user container profile.
-					if err := collectProfile(tw, client.PPSWorkerUserContainerName, request.Profile); err != nil {
-						return err
-					}
-					// Collect the profile from the storage container.
-					profileC, err := s.sidecarClient.DebugClient.Profile(server.Context(), request)
-					if err != nil {
-						return err
-					}
-					return copyTar(tw, tar.NewReader(grpcutil.NewStreamingBytesReader(profileC, nil)))
-				}
-				pod, err := s.kubeClient.CoreV1().Pods(s.namespace).Get(filter.Worker.Pod, metav1.GetOptions{})
+				pipelineInfo, err := s.env.GetPachClient(context.Background()).InspectPipeline(f.Pipeline.Name)
 				if err != nil {
 					return err
 				}
-				return profileRedirect(server.Context(), tw, request.Profile, pod)
+				return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
+			case *debug.Filter_Worker:
+				if f.Worker.Redirected {
+					// Collect the storage container.
+					if s.sidecarClient == nil {
+						return collect(tw, client.PPSWorkerSidecarContainerName)
+					}
+					// Collect the user container.
+					if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
+						return err
+					}
+					// Redirect to the storage container.
+					r, err := redirect(s.sidecarClient.DebugClient, filter)
+					if err != nil {
+						return err
+					}
+					return collectDebugStream(tw, r)
+
+				}
+				pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).Get(f.Worker.Pod, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 			}
 		}
 		// No filter, collect everything.
-		if err := collectProfile(tw, path.Join(s.name, "pachd"), request.Profile); err != nil {
+		if err := collectPachd(tw, pachdContainerPrefix); err != nil {
 			return err
 		}
-		return s.collectPipeline(&debug.Pipeline{Name: ""}, func(pod *v1.Pod) error {
-			return profileRedirect(server.Context(), tw, request.Profile, pod)
-		})
+		pipelineInfos, err := s.env.GetPachClient(context.Background()).ListPipeline()
+		if err != nil {
+			return err
+		}
+		for _, pipelineInfo := range pipelineInfos {
+			if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
-func (s *debugServer) collectPipeline(pipeline *debug.Pipeline, cb func(pod *v1.Pod) error) error {
-	pods, err := s.getWorkerPods(pipeline)
+func (s *debugServer) handlePipelineRedirect(
+	tw *tar.Writer,
+	pipelineInfo *pps.PipelineInfo,
+	collectPipeline collectPipelineFunc,
+	collectWorker collectWorkerFunc,
+	redirect redirectFunc,
+) (retErr error) {
+	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Name)
+	defer func() {
+		if retErr != nil {
+			retErr = writeErrorFile(tw, retErr, prefix)
+		}
+	}()
+	if collectPipeline != nil {
+		if err := collectPipeline(tw, pipelineInfo, prefix); err != nil {
+			return err
+		}
+	}
+	return s.forEachWorker(tw, pipelineInfo, func(pod *v1.Pod) error {
+		return s.handleWorkerRedirect(tw, pod, collectWorker, redirect, prefix)
+	})
+}
+
+func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error, prefix ...string) error {
+	pods, err := s.getWorkerPods(pipelineInfo)
 	if err != nil {
 		return err
 	}
-	if len(pods) == 0 && pipeline.Name != "" {
-		return errors.Errorf("no worker pods found for pipeline %v", pipeline.Name)
+	if len(pods) == 0 {
+		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline.Name)
 	}
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
@@ -105,108 +153,83 @@ func (s *debugServer) collectPipeline(pipeline *debug.Pipeline, cb func(pod *v1.
 	return nil
 }
 
-func (s *debugServer) getWorkerPods(pipeline *debug.Pipeline) ([]v1.Pod, error) {
-	podList, err := s.kubeClient.CoreV1().Pods(s.namespace).List(metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
+func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).List(
+		metav1.ListOptions{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ListOptions",
+				APIVersion: "v1",
+			},
+			LabelSelector: metav1.FormatLabelSelector(
+				metav1.SetAsLabelSelector(
+					map[string]string{
+						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+					},
+				),
+			),
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(getLabel(pipeline))),
-	})
+	)
 	if err != nil {
 		return nil, err
 	}
 	return podList.Items, nil
 }
 
-func getLabel(pipeline *debug.Pipeline) map[string]string {
-	if pipeline.Name == "" {
-		return map[string]string{"component": "worker"}
+func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectWorker collectWorkerFunc, cb redirectFunc, prefix ...string) (retErr error) {
+	workerPrefix := join(podPrefix, pod.Name)
+	if len(prefix) > 0 {
+		workerPrefix = join(prefix[0], workerPrefix)
 	}
-	return map[string]string{"app": pipeline.Name}
-}
-
-func profileRedirect(ctx context.Context, tw *tar.Writer, profile *debug.Profile, pod *v1.Pod) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			retErr = writeErrorFile(tw, pod.Name, retErr)
+			retErr = writeErrorFile(tw, retErr, workerPrefix)
 		}
 	}()
+	if collectWorker != nil {
+		if err := collectWorker(tw, pod, workerPrefix); err != nil {
+			return err
+		}
+	}
+	if pod.Status.Phase != v1.PodRunning {
+		return errors.Errorf("pod in phase %v, must be in phase %v to collect debug information", pod.Status.Phase, v1.PodRunning)
+	}
 	c, err := workerserver.NewClient(pod.Status.PodIP)
 	if err != nil {
 		return err
 	}
-	request := &debug.ProfileRequest{
-		Profile: profile,
-		Filter: &debug.Filter{
-			Filter: &debug.Filter_Worker{
-				Worker: &debug.Worker{
-					Pod:        pod.Name,
-					Redirected: true,
-				},
+	r, err := cb(c.DebugClient, &debug.Filter{
+		Filter: &debug.Filter_Worker{
+			Worker: &debug.Worker{
+				Pod:        pod.Name,
+				Redirected: true,
 			},
 		},
-	}
-	profileC, err := c.Profile(ctx, request)
-	if err != nil {
-		return err
-	}
-	tr := tar.NewReader(grpcutil.NewStreamingBytesReader(profileC, nil))
-	return copyTar(tw, tr, func(name string) string {
-		return strings.TrimPrefix(path.Join(pod.Name, name), "/")
 	})
+	return collectDebugStream(tw, r, workerPrefix)
 }
 
-func withTarWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
-	tw := tar.NewWriter(w)
-	defer func() {
-		if retErr == nil {
-			retErr = tw.Close()
-		}
-	}()
-	return cb(tw)
+func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
+	return s.handleRedirect(
+		grpcutil.NewStreamingBytesWriter(server),
+		request.Filter,
+		collectProfileFunc(request.Profile),
+		nil,
+		nil,
+		redirectProfileFunc(server.Context(), request.Profile),
+		collectProfileFunc(request.Profile),
+	)
 }
 
-func collectProfile(tw *tar.Writer, container string, profile *debug.Profile) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, path.Join(container, profile.Name), retErr)
-		}
-	}()
-	return withTmpFile(func(f *os.File) error {
-		if err := writeProfile(f, profile); err != nil {
-			return err
-		}
-		return writeTarFile(tw, path.Join(container, profile.Name), f)
-	})
-}
-
-func writeErrorFile(tw *tar.Writer, file string, err error) error {
-	return withTmpFile(func(f *os.File) error {
-		if _, err := io.Copy(f, strings.NewReader(err.Error())); err != nil {
-			return err
-		}
-		return writeTarFile(tw, file+"-error", f)
-	})
-}
-
-func withTmpFile(cb func(*os.File) error) (retErr error) {
-	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return err
+func collectProfileFunc(profile *debug.Profile) collectFunc {
+	return func(tw *tar.Writer, prefix ...string) error {
+		return collectProfile(tw, profile, prefix...)
 	}
-	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_debug")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.Remove(f.Name()); retErr == nil {
-			retErr = err
-		}
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return cb(f)
+}
+
+func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
+	return collectDebugFile(tw, profile.Name, func(w io.Writer) error {
+		return writeProfile(w, profile)
+	}, prefix...)
 }
 
 func writeProfile(w io.Writer, profile *debug.Profile) error {
@@ -233,255 +256,131 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 	return p.WriteTo(w, 2)
 }
 
-func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
-	fi, err := os.Stat(f.Name())
-	if err != nil {
-		return err
-	}
-	hdr := &tar.Header{
-		Name: strings.TrimPrefix(name, "/"),
-		Size: fi.Size(),
-		Mode: 0777,
-	}
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-	_, err = io.Copy(tw, f)
-	return err
-}
-
-func copyTar(tw *tar.Writer, tr *tar.Reader, transform ...func(string) string) error {
-	for {
-		hdr, err := tr.Next()
+func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFunc {
+	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+		profileC, err := c.Profile(ctx, &debug.ProfileRequest{
+			Profile: profile,
+			Filter:  filter,
+		})
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
+			return nil, err
 		}
-		if len(transform) > 0 {
-			hdr.Name = transform[0](hdr.Name)
-		}
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		_, err = io.Copy(tw, tr)
-		if err != nil {
-			return err
-		}
+		return grpcutil.NewStreamingBytesReader(profileC, nil), nil
 	}
 }
 
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) error {
-	return withTarWriter(grpcutil.NewStreamingBytesWriter(server), func(tw *tar.Writer) error {
-		// Handle filter.
-		if request.Filter != nil {
-			switch filter := request.Filter.Filter.(type) {
-			case *debug.Filter_Pachd:
-				return collectBinary(tw, path.Join(s.name, "pachd"))
-			case *debug.Filter_Pipeline:
-				return s.collectPipeline(filter.Pipeline, func(pod *v1.Pod) error {
-					return binaryRedirect(server.Context(), tw, pod)
-				})
-			case *debug.Filter_Worker:
-				if filter.Worker.Redirected {
-					// Collect the storage container binary.
-					if s.sidecarClient == nil {
-						return collectBinary(tw, client.PPSWorkerSidecarContainerName)
-					}
-					// Collect the user container binary.
-					if err := collectBinary(tw, client.PPSWorkerUserContainerName); err != nil {
-						return err
-					}
-					// Collect the binary from the storage container.
-					binaryC, err := s.sidecarClient.DebugClient.Binary(server.Context(), request)
-					if err != nil {
-						return err
-					}
-					return copyTar(tw, tar.NewReader(grpcutil.NewStreamingBytesReader(binaryC, nil)))
-				}
-				pod, err := s.kubeClient.CoreV1().Pods(s.namespace).Get(filter.Worker.Pod, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				return binaryRedirect(server.Context(), tw, pod)
-			}
-		}
-		// No filter, collect everything.
-		if err := collectBinary(tw, path.Join(s.name, "pachd")); err != nil {
+	return s.handleRedirect(
+		grpcutil.NewStreamingBytesWriter(server),
+		request.Filter,
+		collectBinary,
+		nil,
+		nil,
+		redirectBinaryFunc(server.Context()),
+		collectBinary,
+	)
+}
+
+func collectBinary(tw *tar.Writer, prefix ...string) error {
+	return collectDebugFile(tw, "binary", func(w io.Writer) (retErr error) {
+		f, err := os.Open(os.Args[0])
+		if err != nil {
 			return err
 		}
-		return s.collectPipeline(&debug.Pipeline{Name: ""}, func(pod *v1.Pod) error {
-			return binaryRedirect(server.Context(), tw, pod)
-		})
-	})
+		defer func() {
+			if err := f.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = io.Copy(w, f)
+		return err
+	}, prefix...)
 }
 
-func binaryRedirect(ctx context.Context, tw *tar.Writer, pod *v1.Pod) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, pod.Name, retErr)
+func redirectBinaryFunc(ctx context.Context) redirectFunc {
+	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+		binaryC, err := c.Binary(ctx, &debug.BinaryRequest{Filter: filter})
+		if err != nil {
+			return nil, err
 		}
-	}()
-	c, err := workerserver.NewClient(pod.Status.PodIP)
-	if err != nil {
-		return err
+		return grpcutil.NewStreamingBytesReader(binaryC, nil), nil
 	}
-	request := &debug.BinaryRequest{
-		Filter: &debug.Filter{
-			Filter: &debug.Filter_Worker{
-				Worker: &debug.Worker{
-					Pod:        pod.Name,
-					Redirected: true,
-				},
-			},
-		},
-	}
-	binaryC, err := c.Binary(ctx, request)
-	if err != nil {
-		return err
-	}
-	tr := tar.NewReader(grpcutil.NewStreamingBytesReader(binaryC, nil))
-	return copyTar(tw, tr, func(name string) string {
-		return strings.TrimPrefix(path.Join(pod.Name, name), "/")
-	})
-}
-
-func collectBinary(tw *tar.Writer, container string) (retErr error) {
-	f, err := os.Open(os.Args[0])
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return writeTarFile(tw, path.Join(container, "binary"), f)
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
-	return withTarWriter(grpcutil.NewStreamingBytesWriter(server), func(tw *tar.Writer) error {
-		// Handle filter.
-		if request.Filter != nil {
-			switch filter := request.Filter.Filter.(type) {
-			case *debug.Filter_Pachd:
-				return s.collectPachdDump(tw)
-			case *debug.Filter_Pipeline:
-				return s.collectPipeline(filter.Pipeline, func(pod *v1.Pod) error {
-					return s.dumpRedirect(server.Context(), tw, pod)
-				})
-			case *debug.Filter_Worker:
-				if filter.Worker.Redirected {
-					// Collect the storage container dump.
-					if s.sidecarClient == nil {
-						return collectDump(tw, client.PPSWorkerSidecarContainerName)
-					}
-					// Collect the user container dump.
-					if err := collectDump(tw, client.PPSWorkerUserContainerName); err != nil {
-						return err
-					}
-					// Collect the dump from the storage container.
-					dumpC, err := s.sidecarClient.DebugClient.Dump(server.Context(), request)
-					if err != nil {
-						return err
-					}
-					return copyTar(tw, tar.NewReader(grpcutil.NewStreamingBytesReader(dumpC, nil)))
-				}
-				pod, err := s.kubeClient.CoreV1().Pods(s.namespace).Get(filter.Worker.Pod, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				return s.dumpRedirect(server.Context(), tw, pod)
-			}
-		}
-		// No filter, collect everything.
-		if err := s.collectPachdDump(tw); err != nil {
-			return err
-		}
-		return s.collectPipeline(&debug.Pipeline{Name: ""}, func(pod *v1.Pod) error {
-			return s.dumpRedirect(server.Context(), tw, pod)
-		})
-	})
+	return s.handleRedirect(
+		grpcutil.NewStreamingBytesWriter(server),
+		request.Filter,
+		s.collectPachdDump,
+		s.collectPipelineSpec,
+		s.collectWorkerDump,
+		redirectDumpFunc(server.Context()),
+		collectDump,
+	)
 }
 
-func (s *debugServer) collectPachdDump(tw *tar.Writer) error {
+func (s *debugServer) collectPachdDump(tw *tar.Writer, prefix ...string) error {
 	// Collect the pachd container logs.
-	if err := s.collectLogs(tw, s.name, "pachd"); err != nil {
+	if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
 		return err
 	}
 	// Collect the pachd container dump.
-	return collectDump(tw, path.Join(s.name, "pachd"))
+	return collectDump(tw, prefix...)
 }
 
-func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, path.Join(pod, container, "logs"), retErr)
-		}
-	}()
-	stream, err := s.kubeClient.CoreV1().Pods(s.namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := stream.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return withTmpFile(func(f *os.File) error {
-		if _, err := io.Copy(f, stream); err != nil {
+func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
+	return collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		if err != nil {
 			return err
 		}
-		return writeTarFile(tw, path.Join(pod, container, "logs"), f)
-	})
+		defer func() {
+			if err := stream.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = io.Copy(w, stream)
+		return err
+	}, prefix...)
 }
 
-func collectDump(tw *tar.Writer, container string) error {
-	if err := collectProfile(tw, container, &debug.Profile{Name: "goroutine"}); err != nil {
+func collectDump(tw *tar.Writer, prefix ...string) error {
+	if err := collectProfile(tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
 	}
-	return collectProfile(tw, container, &debug.Profile{Name: "heap"})
+	return collectProfile(tw, &debug.Profile{Name: "heap"}, prefix...)
 }
 
-func (s *debugServer) dumpRedirect(ctx context.Context, tw *tar.Writer, pod *v1.Pod) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, pod.Name, retErr)
+func (s *debugServer) collectPipelineSpec(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+	return collectDebugFile(tw, "spec", func(w io.Writer) error {
+		fullPipelineInfo, err := s.env.GetPachClient(context.Background()).InspectPipeline(pipelineInfo.Pipeline.Name)
+		if err != nil {
+			return err
 		}
-	}()
+		return pretty.PrintDetailedPipelineInfo(w, pretty.NewPrintablePipelineInfo(fullPipelineInfo))
+	}, prefix...)
+}
+
+func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
 	// Collect the worker user and storage container logs.
-	if err := s.collectLogs(tw, pod.Name, client.PPSWorkerUserContainerName); err != nil {
+	userPrefix := client.PPSWorkerUserContainerName
+	sidecarPrefix := client.PPSWorkerSidecarContainerName
+	if len(prefix) > 0 {
+		userPrefix = join(prefix[0], userPrefix)
+		sidecarPrefix = join(prefix[0], sidecarPrefix)
+	}
+	if err := s.collectLogs(tw, pod.Name, client.PPSWorkerUserContainerName, userPrefix); err != nil {
 		return err
 	}
-	if err := s.collectLogs(tw, pod.Name, client.PPSWorkerSidecarContainerName); err != nil {
-		return err
+	return s.collectLogs(tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+}
+
+func redirectDumpFunc(ctx context.Context) redirectFunc {
+	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+		dumpC, err := c.Dump(ctx, &debug.DumpRequest{Filter: filter})
+		if err != nil {
+			return nil, err
+		}
+		return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
 	}
-	// Redirect the dump request to the worker pod (user container).
-	c, err := workerserver.NewClient(pod.Status.PodIP)
-	if err != nil {
-		return err
-	}
-	request := &debug.DumpRequest{
-		Filter: &debug.Filter{
-			Filter: &debug.Filter_Worker{
-				Worker: &debug.Worker{
-					Pod:        pod.Name,
-					Redirected: true,
-				},
-			},
-		},
-	}
-	dumpC, err := c.Dump(ctx, request)
-	if err != nil {
-		return err
-	}
-	tr := tar.NewReader(grpcutil.NewStreamingBytesReader(dumpC, nil))
-	return copyTar(tw, tr, func(name string) string {
-		return strings.TrimPrefix(path.Join(pod.Name, name), "/")
-	})
 }

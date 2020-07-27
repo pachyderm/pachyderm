@@ -139,7 +139,9 @@ func NewClient(address string) (Client, error) {
 	if err != nil {
 		return Client{}, err
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", address, port),
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
 		return Client{}, err

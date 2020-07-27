@@ -255,9 +255,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Debug", func() error {
 		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
+			env,
 			env.PachdPodName,
-			env.GetKubeClient(),
-			env.Namespace,
 			nil,
 		))
 		return nil
@@ -487,9 +486,8 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if err := logGRPCServerSetup("Debug", func() error {
 			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
+				env,
 				env.PachdPodName,
-				env.GetKubeClient(),
-				env.Namespace,
 				nil,
 			))
 			return nil
