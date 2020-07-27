@@ -235,7 +235,8 @@ func TestCompaction(t *testing.T) {
 		// Get the file hashes.
 		getHashes(t, fileSets, files, msg)
 		// Compact the files.
-		require.NoError(t, fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath}), msg)
+		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath})
+		require.NoError(t, err, msg)
 		// Check the files.
 		r := fileSets.newReader(context.Background(), path.Join(testPath, Compacted))
 		require.NoError(t, r.Iterate(func(fr *FileReader) error {

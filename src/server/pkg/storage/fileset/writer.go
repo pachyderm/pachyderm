@@ -24,6 +24,7 @@ type Writer struct {
 	cw        *chunk.Writer
 	iw        *index.Writer
 	idx       *index.Index
+	noUpload  bool
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
 	priorFile bool
@@ -120,6 +121,8 @@ func (w *Writer) callback() chunk.WriterFunc {
 					return err
 				}
 			}
+		}
+		if w.noUpload {
 			return nil
 		}
 		return w.iw.WriteIndexes(idxs)
@@ -198,15 +201,19 @@ func (w *Writer) Close() error {
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
-		if w.indexFunc != nil {
-			if err := w.indexFunc(w.lastIdx); err != nil {
+		idx := w.lastIdx
+		if !w.noUpload {
+			if err := w.iw.WriteIndexes([]*index.Index{idx}); err != nil {
 				return err
 			}
-		} else if err := w.iw.WriteIndexes([]*index.Index{w.lastIdx}); err != nil {
-			return err
+		}
+		if w.indexFunc != nil {
+			if err := w.indexFunc(idx); err != nil {
+				return err
+			}
 		}
 	}
-	if w.indexFunc != nil {
+	if w.noUpload {
 		return nil
 	}
 	// Close the index writer.

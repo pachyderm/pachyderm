@@ -65,7 +65,14 @@ type WriterOption func(w *Writer)
 // WithNoUpload sets the writer to no upload (will not upload chunks).
 func WithNoUpload(f func(*index.Index) error) WriterOption {
 	return func(w *Writer) {
+		w.noUpload = true
 		w.indexFunc = f
+	}
+}
+
+func WithIndexCallback(cb func(*index.Index) error) WriterOption {
+	return func(w *Writer) {
+		w.indexFunc = cb
 	}
 }
 
