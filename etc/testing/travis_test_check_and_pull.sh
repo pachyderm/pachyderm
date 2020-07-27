@@ -15,20 +15,20 @@ if [ "${TRAVIS_PULL_REQUEST}" == "false" ]; then
 fi
 
 if [[ ! "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-    echo "Need travis env vars so we can auth to docker hub."
-    exit 1
+    echo "Not trying to fetch pachyderm.tar as we are running for an external"
+    echo "contributor"
+else
+    cd /home/travis/gopath/src/github.com/pachyderm/
+    mv pachyderm pachyderm.old
+
+    docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+    docker run -v "$(pwd)":/unpack pachyderm/ci_code_bundle:"${TRAVIS_BUILD_NUMBER}" \
+        tar xf /pachyderm.tar -C /unpack/
+
+    ls -alh pachyderm
+    sudo chown -R "${USER}:${USER}" pachyderm
+    cd pachyderm
 fi
-
-cd /home/travis/gopath/src/github.com/pachyderm/
-mv pachyderm pachyderm.old
-
-docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
-docker run -v "$(pwd)":/unpack pachyderm/ci_code_bundle:"${TRAVIS_BUILD_NUMBER}" \
-    tar xf /pachyderm.tar -C /unpack/
-
-ls -alh pachyderm
-sudo chown -R "${USER}:${USER}" pachyderm
-cd pachyderm
 
 # Check that the state we got matches the commit we're supposed to be testing.
 parents=$(git rev-list --parents -n 1 HEAD)

@@ -66,9 +66,11 @@ done
 # the output of pachctl version).
 
 if [[ ! "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-    echo "Need travis env vars so we can auth to docker hub."
-    exit 1
+    echo "Not trying to push pachyderm.tar to docker hub, as we're running for"
+    echo "an external contribution."
+    exit 0
 fi
+
 docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
 
 cd /home/travis/gopath/src/github.com/pachyderm
