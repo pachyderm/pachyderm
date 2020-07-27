@@ -1,22 +1,25 @@
-
 {
     "pipeline": {
         "name": "train"
     },
-    "description": "A pipeline that trains the ML model on the tweets gathered by the `tweets` pipeline.",
+    "description": "A pipeline that trains runs a fine tuning job against OpenAI's API.",
     "transform": {
         "image": "gpt3",
-        "cmd": ["openai-ft", "-t", "/pfs/data/training", "--val", "/pfs/data/evaluate", "-e", "engine", "-m", "ada"]
+        "cmd": ["/train.sh"],
+        "secrets": [ {
+            "name": "openai",
+            "env_var": "OPENAI_API_KEY",
+            "key": "key"
+        }, {
+            "name": "openai",
+            "env_var": "ENGINE",
+            "key": "engine"
+        } ]
     },
     "input": {
         "pfs": {
             "repo": "data",
-            "glob": "/*"
+            "glob": "/"
         }
-    },
-    "secrets": [ {
-        "name": "OPENAI",
-        "env_var": "OPENAI_API_KEY",
-        "key": "KEY"
-    } ]
+    }
 }
