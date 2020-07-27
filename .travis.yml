@@ -46,6 +46,8 @@ jobs:
 before_install:
   # Get some insight into the system
   - top -b -n 1|head -n 20
+  - uptime
+  - uname -a
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
 
