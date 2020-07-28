@@ -4,6 +4,17 @@ set -e
 
 GIT_REPO_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" 2>&1 > /dev/null && git rev-parse --show-toplevel)
 
+echo "============================="
+echo "Running build & lint"
+echo "pwd: $(pwd)"
+echo "GIT_REPO_DIR: $GIT_REPO_DIR"
+echo "============================="
+
+# go build will install go modules as needed. golint, however, won't, and will complain:
+# -: could not analyze dependency github.com/pachyderm/pachyderm/src/client [github.com/pachyderm/pachyderm/src/client.test] of github.com/pachyderm/pachyderm/src/client.test (compile)
+
+go build ./...
+
 go get -u golang.org/x/lint/golint
 for file in $(find "${GIT_REPO_DIR}/src" -name '*.go' | grep -v '\.pb\.go'); do
     if [[ $file == *fileset/tar* ]]; then
