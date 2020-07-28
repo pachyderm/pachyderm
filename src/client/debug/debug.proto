@@ -20,8 +20,8 @@ message Profile {
 
 message Filter {
   oneof filter {
-    bool pachd = 1;	
-    pps.Pipeline pipeline = 2;	
+    bool pachd = 1;
+    pps.Pipeline pipeline = 2;
     Worker worker = 3;
   }
 }
