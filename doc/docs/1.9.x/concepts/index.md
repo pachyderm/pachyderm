@@ -33,7 +33,7 @@ This section describes the following Pachyderm concepts:
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="data-concepts/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="data-concepts/" class="md-typeset md-link">
             Versioned Data Concepts Overview
             </a>
             </li>
@@ -52,7 +52,7 @@ This section describes the following Pachyderm concepts:
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="pipeline-concepts/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="pipeline-concepts/" class="md-typeset md-link">
             Pipeline Concepts Overview
            </a>
           </li>

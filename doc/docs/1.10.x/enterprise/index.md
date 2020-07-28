@@ -8,7 +8,7 @@ purchasing Pachyderm Enterprise, contact our sales team.
 
 <div class="btn">
   <div class="center-screen">
-    <a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt">Contact Sales</a>
+    <a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt" "class="md-typeset md-link"">Contact Sales</a>
   </div>
 </div>
 
@@ -27,11 +27,11 @@ sections.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="overview/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="overview/" class="md-typeset md-link">
             Features Overview
           </a>
           </li>
-          <li><a href="deployment/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="deployment/" class="md-typeset md-link">
             Deploy Enterprise Edition
           </a>
           </li>
@@ -51,15 +51,15 @@ sections.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="auth/auth/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="auth/auth/" class="md-typeset md-link">
             Configure Access Controls
           </a>
           </li>
-          <li><a href="saml/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="saml/" class="md-typeset md-link">
             Configure Pachyderm with an Access Management Provider
           </a>
           </li>
-          <li><a href="stats/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="stats/" class="md-typeset md-link">
             Advanced Statistics
           </a>
           </li>

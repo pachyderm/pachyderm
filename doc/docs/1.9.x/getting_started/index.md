@@ -16,14 +16,14 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../pachub/pachub_getting_started/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="../pachub/pachub_getting_started/" class="md-typeset md-link">
           Getting Started with PacHub
           </a>
           </li>
-          <li><a href="beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="beginner_tutorial/" class="md-typeset md-link">
           Beginner Tutorial
           </a>
-          <li><a href="https://hub.pachyderm.com" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="https://hub.pachyderm.com" class="md-typeset md-link">
           Go to PacHub
           </a>
         </li>
@@ -42,11 +42,11 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="local_installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
           </li>
-          <li><a href="beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="beginner_tutorial/" class="md-typeset md-link">
           Beginner Tutorial
           </a>
           </li>
