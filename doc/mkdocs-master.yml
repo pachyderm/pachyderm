@@ -29,7 +29,7 @@ theme:
     primary: #4B2A5C
     accent: #4B2A5C
   font:
-    text: Roboto
+    text: Robotol
     code: Roboto Mono
   favicon: assets/images/favicon.png
   icon:
@@ -72,7 +72,8 @@ markdown_extensions:
   - pymdownx.critic
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:pymdownx.emoji.to_svg  
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg 
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink

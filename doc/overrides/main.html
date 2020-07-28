@@ -11,6 +11,8 @@
     gtag('config', 'UA-158483597-1');
   </script>
 
+  <link href=https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
+
   <!-- Determine title -->
   {% set title = config.site_name %}
   {% if page and page.title and not page.is_homepage %}
@@ -40,10 +42,17 @@
 
 {% endblock %}
 
+.md-link {color:var(--md-primary-fg-color);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: .685rem;
+    line-height: 24px
+ }
  <!-- Announcement bar -->
 {% block announce %}
-   <style>.md-announce a,.md-announce a:focus,.md-announce a:hover{color:currentColor}.md-announce strong{white-space:nowrap}.md-announce .twitter{margin-left:.2em;color:#00acee}</style>
-   <a href="https://github.com/pachyderm/pachyderm/releases/tag/v1.11.0">
+   <style>.md-announce a,.md-announce a:focus,.md-announce a:hover{color:currentColor}.md-announce strong{white-space:nowrap}.md-announce .twitter{margin-left:.2em;color:#00acee}.md-announce .md-link1{font-family:'Montserrat', sans-serif;color:white;font-weight:400;text-decoration:none;font-size:.685rem;line-height:24px;background:transparent;}</style>
+   <a href="https://github.com/pachyderm/pachyderm/releases/tag/v1.11.0" class="md-announce md-link1">
      Pachyderm 1.11.0 is out! Download <strong>here.</strong>
    </a>
 {% endblock %}
