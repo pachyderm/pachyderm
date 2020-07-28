@@ -69,6 +69,8 @@ func WithNoUpload() WriterOption {
 	}
 }
 
+// WithIndexCallback sets a function to be called after each index is written.
+// If WithNoUpload is set, the function is called after the index would have been written.
 func WithIndexCallback(cb func(*index.Index) error) WriterOption {
 	return func(w *Writer) {
 		w.indexFunc = cb
