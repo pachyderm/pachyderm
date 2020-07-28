@@ -35,3 +35,7 @@ go get honnef.co/go/tools/cmd/staticcheck
 staticcheck "${GIT_REPO_DIR}/..."
 # shellcheck disable=SC2046
 shellcheck -e SC2010 -e SC2181 -e SC2004 -e SC2219 $(find . -path ./etc/plugin -prune -o -name "*.sh" -print)
+
+echo "============================="
+echo "Lint passed."
+echo "============================="
