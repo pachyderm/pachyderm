@@ -644,6 +644,19 @@
                 "value": "false"
               },
               {
+                "name": "PACHD_POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "PPS_WORKER_GRPC_PORT",
+                "value": "80"
+              },
+              {
                 "name": "GOOGLE_BUCKET",
                 "valueFrom": {
                   "secretKeyRef": {

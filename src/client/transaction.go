@@ -673,12 +673,12 @@ func (c *transactionBuilderClient) DeleteAll(ctx context.Context, req *transacti
 	return nil, unsupportedError("DeleteAll")
 }
 
-func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
-}
 func (c *debugBuilderClient) Profile(ctx context.Context, req *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
 	return nil, unsupportedError("Profile")
 }
 func (c *debugBuilderClient) Binary(ctx context.Context, req *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
 	return nil, unsupportedError("Binary")
+}
+func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }
