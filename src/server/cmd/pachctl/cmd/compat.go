@@ -72,7 +72,6 @@ func applyCommandCompat1_8(rootCmd *cobra.Command) {
 		"debug dump":               "debug-dump",
 		"debug profile":            "debug-profile",
 		"debug binary":             "debug-binary",
-		"debug pprof":              "debug-pprof",
 		"delete all":               "delete-all",
 		"deploy storage amazon":    "deploy storage aws",
 		"deploy storage microsoft": "deploy storage azure",
