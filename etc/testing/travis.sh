@@ -24,7 +24,8 @@ for V in $(docker volume ls -q); do docker volume rm "$V"; done || true
 sleep 5
 
 # Belt and braces
-sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
+sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube \
+    /tmp/hostpath-provisioner /tmp/hostpath_pv
 
 # In case we're retrying on a new cluster
 rm -f "${HOME}"/.pachyderm/config.json
