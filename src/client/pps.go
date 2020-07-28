@@ -147,9 +147,9 @@ func NewUnionInput(input ...*pps.Input) *pps.Input {
 	}
 }
 
-// NewGroupInput returns an input which is the Group of other inputs. That
-// means that all datums from any of the inputs will be seen individually by
-// the job / pipeline.
+// NewGroupInput returns an input which groups the inputs by the GroupBy pattern.
+// That means that it will return a datum for each group of input datums matching
+// a particular GroupBy pattern
 func NewGroupInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Group: input,

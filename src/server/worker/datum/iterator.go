@@ -1,7 +1,6 @@
 package datum
 
 import (
-	"fmt"
 	"io"
 	"sort"
 
@@ -343,7 +342,6 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 				// put the datums in an map keyed by GroupBy
 				groupDatums, ok := groupMap[datum.GroupBy]
 				if !ok {
-					fmt.Println(datum.GroupBy)
 					keys = append(keys, datum.GroupBy)
 				}
 				groupMap[datum.GroupBy] = append(groupDatums, datum)
@@ -353,7 +351,6 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 
 	// sort everything by the group_by
 	sort.Sort(sort.StringSlice(keys))
-
 	// put each equivalence class into its own datum
 	for _, key := range keys {
 		result.datums = append(result.datums, groupMap[key])
