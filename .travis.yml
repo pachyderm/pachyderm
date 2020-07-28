@@ -41,7 +41,7 @@ stages:
 jobs:
   include:
     - stage: build
-      script: etc/testing/travis_build_check_and_stash.sh && make lint && etc/testing/travis_build.sh
+      script: etc/testing/travis_build_check_and_stash.sh && etc/testing/travis_build.sh
 
 before_install:
   # Get some insight into the system
