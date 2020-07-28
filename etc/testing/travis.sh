@@ -12,7 +12,7 @@ set -ex
 ) &
 
 # Stop kubelet
-systemctl stop kubelet || true
+sudo systemctl stop kubelet || true
 
 # Workaround for minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
