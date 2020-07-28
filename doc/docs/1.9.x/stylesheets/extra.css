@@ -96,6 +96,10 @@
         color: black;
 }
 
+body, input {
+    font-family: 'Montserrat', sans-serif;
+}
+
 .md-typeset .md-link{
   color:var(--md-primary-fg-color);
   font-family: 'Montserrat', sans-serif;
