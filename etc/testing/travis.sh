@@ -17,6 +17,9 @@ sudo systemctl stop kubelet || true
 # Workaround for minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
 
+# Delete docker volumes as well in case some state is lurking there
+for V in $(docker volume ls -q); do docker volume rm "$V"; done || true
+
 # Give apiserver a chance to unbind the port
 sleep 5
 
