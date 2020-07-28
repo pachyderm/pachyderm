@@ -63,10 +63,9 @@ func WithRoot(root string) Option {
 type WriterOption func(w *Writer)
 
 // WithNoUpload sets the writer to no upload (will not upload chunks).
-func WithNoUpload(f func(*index.Index) error) WriterOption {
+func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
-		w.indexFunc = f
 	}
 }
 

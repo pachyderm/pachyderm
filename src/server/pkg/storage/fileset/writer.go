@@ -115,6 +115,11 @@ func (w *Writer) callback() chunk.WriterFunc {
 		}
 		// Don't write out the last file index (it may have more content in the next chunk).
 		idxs = idxs[:len(idxs)-1]
+		if !w.noUpload {
+			if err := w.iw.WriteIndexes(idxs); err != nil {
+				return err
+			}
+		}
 		if w.indexFunc != nil {
 			for _, idx := range idxs {
 				if err := w.indexFunc(idx); err != nil {
@@ -122,10 +127,7 @@ func (w *Writer) callback() chunk.WriterFunc {
 				}
 			}
 		}
-		if w.noUpload {
-			return nil
-		}
-		return w.iw.WriteIndexes(idxs)
+		return nil
 	}
 }
 
