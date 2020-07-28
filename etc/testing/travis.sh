@@ -11,15 +11,14 @@ set -ex
     done
 ) &
 
-# Note that we update the `PATH` to include
-# `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
-# calls using `sudo`. If you need to make a `sudo` call to a binary in
-# `~/cached-deps`, you'll need to explicitly set the path like so:
-#
-#     sudo env "PATH=$PATH" minikube foo
+# Stop kubelet
+systemctl stop kubelet || true
 
-# In case minikube delete doesn't work (see minikube#2519)
+# Workaround for minikube delete doesn't work (see minikube#2519)
 for C in $(docker ps -aq); do docker rm -f "$C"; done || true
+
+# Give apiserver a chance to unbind the port
+sleep 5
 
 # Belt and braces
 sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
