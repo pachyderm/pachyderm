@@ -1,7 +1,5 @@
 package client
 
-!
-
 import (
 	"crypto/x509"
 	"encoding/base64"
