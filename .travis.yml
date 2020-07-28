@@ -1,20 +1,11 @@
 dist: xenial
 sudo: required
-cache:
-  directories:
-    # If any directories are added here, they must also be added to
-    # etc/testing/travis_cache.sh
-    - ${HOME}/.cache
-    - ${HOME}/cached-deps
-    - ${HOME}/gopath/pkg/mod
-    - "$(python3 -c 'import site; print(site.USER_BASE)')"
 
 language: go
 go:
   - "1.13.1"
 env:
   global:
-    - PATH="${HOME}/cached-deps:$(python3 -c 'import site; print(site.USER_BASE)')/bin:${PATH}"
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
     - GOPROXY=https://proxy.golang.org
@@ -49,19 +40,12 @@ before_install:
   - uptime
   - uname -a
   - cat /proc/cpuinfo
-  # Make sure cache dirs exist and are writable
-  - etc/testing/travis_cache.sh
 
 install:
   - etc/testing/travis_install.sh
 
 # NB: Have to switch directories because travis_test_check_and_pull.sh moves the build dir out under our feet
 script: etc/testing/travis_test_check_and_pull.sh && cd /home/travis/gopath/src/github.com/pachyderm/pachyderm && travis_retry bash -c 'timeout 20m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'
-
-before_cache:
-  # Make sure cache dirs have the necessary permissions for Travis to traverse
-  # & copy them all elsewhere
-  - etc/testing/travis_cache.sh
 
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
