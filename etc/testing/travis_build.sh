@@ -2,11 +2,6 @@
 
 set -ex
 
-# Lint as basically the first thing we do, this catches a lot of errors that
-# are otherwise buried deep in the Travis logs and gives developers faster
-# feedback than waiting ~20 minutes and then digging through the logs.
-make lint
-
 # We can't run the build step if there's no access to the secret env vars
 if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker login -u pachydermbuildbot -p "${DOCKER_PWD}"

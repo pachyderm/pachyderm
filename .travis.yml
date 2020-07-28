@@ -32,7 +32,13 @@ stages:
 jobs:
   include:
     - stage: build
-      script: etc/testing/travis_build_check_and_stash.sh && etc/testing/travis_build.sh
+      # Go to some effort to make sure that we lint as soon as we know we're
+      # operating on the right version of the code. Linting as quickly as
+      # possible in the build step (even before we've installed docker) catches
+      # a lot of errors that are otherwise buried deep in the Travis logs and
+      # gives developers faster feedback than waiting ~20 minutes and then
+      # digging through the logs.
+      script: etc/testing/travis_build_check.sh && etc/testing/lint.sh && etc/testing/travis_install.sh && etc/testing/travis_build_stash.sh && etc/testing/travis_build.sh
 
 before_install:
   # Get some insight into the system
@@ -41,11 +47,13 @@ before_install:
   - uname -a
   - cat /proc/cpuinfo
 
-install:
-  - etc/testing/travis_install.sh
-
-# NB: Have to switch directories because travis_test_check_and_pull.sh moves the build dir out under our feet
-script: etc/testing/travis_test_check_and_pull.sh && cd /home/travis/gopath/src/github.com/pachyderm/pachyderm && travis_retry bash -c 'timeout 20m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'
+# NB: Have to switch directories because travis_test_check_and_pull.sh moves
+# the build dir out under our feet.
+#
+# NB: we install here (rather than in a global install: branch) so that we can
+# do stuff (like linting) in the build step before doing the slow install step
+# (we don't need docker to lint the code).
+script: etc/testing/travis_install.sh && etc/testing/travis_test_check_and_pull.sh && cd /home/travis/gopath/src/github.com/pachyderm/pachyderm && travis_retry bash -c 'timeout 20m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/kube_debug.sh; fi; exit $status'
 
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
