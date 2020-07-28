@@ -11,15 +11,11 @@
     },
     "transform": {
         "cmd": [
-            "python",
-            "regression.py",
-            "--input",
-            "/pfs/housing_data/",
-            "--target-col",
-            "MEDV",
-            "--output",
-            "/pfs/out/"
+            "python", "regression.py",
+            "--input", "/pfs/housing_data/",
+            "--target-col", "MEDV",
+            "--output", "/pfs/out/"
         ],
-        "image": "jimmywhitaker/housing-prices"
+        "image": "pachyderm/housing-prices:v0.1"
     }
 }

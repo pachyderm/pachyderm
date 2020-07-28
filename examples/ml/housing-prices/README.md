@@ -37,8 +37,8 @@ The housing prices dataset used for this example is a reduced version of the ori
 |Feature| Description|
 |---|---|
 |RM |       Average number of rooms per dwelling|
-|LSTAT |    Proportion of population that is lower status (socioeconomic measurement of the area, proportion of adults without some high school education and proportion of male workers classified as laborers). |
-|PTRATIO |  Pupil-teacher ratio by town (measures public sector benefits in each town, a low pupil-teacher ratio would imply that each student recieves more individual attention).|
+|LSTAT |    A measurement of the socioeconomic status of people living in the area|
+|PTRATIO |  Pupil-teacher ratio by town - approximation of the local education system's quality|
 |MEDV |     Median value of owner-occupied homes in $1000's|
 
 Sample:
@@ -58,7 +58,7 @@ Before you can deploy this example you need to have the following components:
 
 Verify that your environment is accessible by running `pachctl version` which will show both the `pachctl` and `pachd` versions.
 ```bash
-pachctl version
+$ pachctl version
 COMPONENT           VERSION
 pachctl             1.11.0
 pachd               1.11.0
@@ -69,7 +69,7 @@ pachd               1.11.0
 The `regression.py` Python file contains the machine learning code for the example. We will give a brief description of it here, but full knowledge of it is not required for the example. 
 
 ```
-python regression.py --help
+$ python regression.py --help
 
 usage: regression.py [-h] [--input INPUT] [--target-col TARGET_COL]
                      [--output DIR]
@@ -143,8 +143,8 @@ pachctl list commit regression@master
 Once the Pachyderm cluster is running, create a data repository called `housing_data` where we will put our dataset.
 
 ```bash
-pachctl create repo housing_data
-pachctl list repo
+$ pachctl create repo housing_data
+$ pachctl list repo
 NAME                CREATED             SIZE
 housing_data        3 seconds ago       0 B
 ```
@@ -168,16 +168,12 @@ We can now connect a pipeline to watch the data repo. Pipelines are defined in `
     },
     "transform": {
         "cmd": [
-            "python",
-            "regression.py",
-            "--input",
-            "/pfs/housing_data/",
-            "--target-col",
-            "MEDV",
-            "--output",
-            "/pfs/out/"
+            "python", "regression.py",
+            "--input", "/pfs/housing_data/",
+            "--target-col", "MEDV",
+            "--output", "/pfs/out/"
         ],
-        "image": "jimmywhitaker/housing-prices"
+        "image": "pachyderm/housing-prices:v0.1"
     }
 }
 ```
@@ -189,7 +185,7 @@ The **image** defines what Docker image will be used for the pipeline, and the *
 Once this pipeline is created, it watches for any changes to its input, and if detected, it starts a new job to train given the new dataset.
 
 ```bash
-pachctl create pipeline -f regression.json
+$ pachctl create pipeline -f regression.json
 ```
 
 The pipeline writes the output to a PFS repo (`/pfs/out/` in the pipeline json) created with the same name as the pipeline.
@@ -198,13 +194,13 @@ The pipeline writes the output to a PFS repo (`/pfs/out/` in the pipeline json) 
 Now we can add the data, which will kick off the processing automatically. If we update the data with a new commit, then the pipeline will automatically re-run. 
 
 ```bash
-pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-1.csv
+$ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-1.csv
 ```
 
 We can inspect that the data is in the repository by looking at the files in the repository.
 
 ```bash
-pachctl list file housing_data@master
+$ pachctl list file housing_data@master
 NAME                    TYPE SIZE
 /housing-simplified.csv file 12.14KiB
 ```
@@ -212,7 +208,7 @@ NAME                    TYPE SIZE
 We can see that the pipeline is running by looking at the status of the job(s). 
 
 ```bash
-pachctl list job
+$ pachctl list job
 ID                               PIPELINE   STARTED        DURATION   RESTART PROGRESS  DL       UL      STATE
 299b4f36535e47e399e7df7fc6ee2f7f regression 23 seconds ago 18 seconds 0       1 + 0 / 1 2.482KiB 1002KiB success
 ```
@@ -221,14 +217,14 @@ ID                               PIPELINE   STARTED        DURATION   RESTART PR
 Once the pipeline is completed, we can download the files that were created.
 
 ```bash
-pachctl list file regression@master
+$ pachctl list file regression@master
 NAME               TYPE SIZE
 /housing-simplified_corr_matrix.png   file 18.66KiB
 /housing-simplified_cv_reg_output.png file 62.19KiB
 /housing-simplified_final_model.sav   file 1.007KiB
 /housing-simplified_pairplot.png      file 207.5KiB
 
-pachctl get file regression@master:/ --recursive --output .
+$ pachctl get file regression@master:/ --recursive --output .
 ```
 
 When we inspect the learning curve, we can see that there is a large gap between the training score and the validation score. This typically indicates that our model could benefit from the addition of more data. 
@@ -243,7 +239,7 @@ Now let's update our dataset with additional examples.
 Here's where Pachyderm truly starts to shine. To update our dataset we can run the following command (note that we could also append new examples to the existing file, but in this example we're simply overwriting our previous file to one with more data):
 
 ```bash
-pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
+$ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
 ```
 
 The new commit of data to the `housing_data` repository automatically kicks off a job on the `regression` pipeline without us having to do anything. 
@@ -260,22 +256,21 @@ Note that because versions all of our input and output data automatically, we ca
 We can list out the commits to any repository by using the `list commit` commandand.
 
 ```bash
-pachctl list commit housing_data@master
+$ pachctl list commit housing_data@master
 REPO         BRANCH COMMIT                           FINISHED       SIZE     PROGRESS DESCRIPTION
 housing_data master a186886de0bf430ebf6fce4d538d4db7 3 minutes ago  12.14KiB ▇▇▇▇▇▇▇▇
 housing_data master bbe5ce248aa44522a012f1967295ccdd 23 minutes ago 2.482KiB ▇▇▇▇▇▇▇▇
 
-pachctl list commit regression@master
+$ pachctl list commit regression@master
 REPO       BRANCH COMMIT                           FINISHED       SIZE     PROGRESS DESCRIPTION
 regression master f59a6663073b4e81a2d2ab3b4b7c68fc 2 minutes ago  4.028MiB -
 regression master bc0ecea5a2cd43349a9db3e89933fb42 22 minutes ago 1001KiB  -
-Jimmys-MBP-2:examples jimmy$ pachctl list commit housing-data@master
 ```
 
 We can show exactly what version of the dataset and pipeline created the model by selecting the commmit ID and using the `inspect` command.
 
 ```bash
-pachctl inspect commit regression@f59a6663073b4e81a2d2ab3b4b7c68fc
+$ pachctl inspect commit regression@f59a6663073b4e81a2d2ab3b4b7c68fc
 Commit: regression@f59a6663073b4e81a2d2ab3b4b7c68fc
 Original Branch: master
 Parent: bc0ecea5a2cd43349a9db3e89933fb42
@@ -288,7 +283,7 @@ Provenance:  __spec__@5b17c425a8d54026a6daaeaf8721707a (regression)  housing_dat
 Additionally, can also show the downstream provenance of a commit by using the `flush` command, showing us everything that was run and produced from a commit.
 
 ```bash
-pachctl flush commit housing_data@bbe5ce248aa44522a012f1967295ccdd
+$ pachctl flush commit housing_data@bbe5ce248aa44522a012f1967295ccdd
 REPO       BRANCH COMMIT                           FINISHED       SIZE    PROGRESS DESCRIPTION
 regression master bc0ecea5a2cd43349a9db3e89933fb42 31 minutes ago 1001KiB -
 ```
