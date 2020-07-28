@@ -36,7 +36,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/ohmyglob"
+	glob "github.com/pachyderm/ohmyglob"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -683,7 +683,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				PipelineInfo:   pipelineInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedPipelineInfo(pi)
+			return pretty.PrintDetailedPipelineInfo(os.Stdout, pi)
 		}),
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
