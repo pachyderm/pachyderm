@@ -69,7 +69,7 @@ func WithWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func Iterate(r io.Reader, cb func(File) error) (retErr error) {
+func Iterate(r io.Reader, cb func(File) error) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()

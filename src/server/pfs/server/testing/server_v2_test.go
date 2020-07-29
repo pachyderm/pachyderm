@@ -386,7 +386,7 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 			}
 			state.sizeLeft -= size
 		})
-		file := tarutil.NewFile(name, chunk.RandSeq(size))
+		file := tarutil.NewFile("/"+name, chunk.RandSeq(size))
 		if err := tarutil.WriteFile(tw, file); err != nil {
 			return nil, err
 		}
@@ -584,7 +584,7 @@ func (v *validator) recordFileSet(files fileSetSpec) {
 	}
 }
 
-func (v *validator) validate(r io.Reader) error {
+func (v *validator) validate(r io.Reader) (retErr error) {
 	var namesSorted []string
 	for name := range v.files {
 		namesSorted = append(namesSorted, name)
@@ -593,9 +593,24 @@ func (v *validator) validate(r io.Reader) error {
 	if len(namesSorted) > 0 {
 		namesSorted = append([]string{"/"}, namesSorted...)
 	}
+	defer func() {
+		if retErr == nil {
+			if len(namesSorted) != 0 {
+				retErr = errors.Errorf("got back less files than expected")
+			}
+		}
+	}()
 	return tarutil.Iterate(r, func(file tarutil.File) error {
 		if len(namesSorted) == 0 {
 			return errors.Errorf("got back more files than expected")
+		}
+		hdr, err := file.Header()
+		if err != nil {
+			return err
+		}
+		if hdr.Name == "/" && namesSorted[0] == "/" {
+			namesSorted = namesSorted[1:]
+			return nil
 		}
 		ok, err := tarutil.Equal(v.files[namesSorted[0]], file)
 		if err != nil {
