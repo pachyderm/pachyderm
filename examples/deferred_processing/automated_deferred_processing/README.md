@@ -219,16 +219,11 @@ pachctl create secret -f pachyderm-user-secret.secret
 
 To add the secret to our pipeline,
 we can just use the `transform.secrets` field
-to mount it as a volume
-and expose the `auth_token` key as an environment variable.
+to expose the `auth_token` key as an environment variable.
 This is `transform.secrets` in the file `branch-mover.json`
 
 ```
       "secrets": [ {
-          "name": "pachyderm-user-secret",
-          "mount_path": "/pachyderm-user-secret"
-      },
-      {
           "name": "pachyderm-user-secret",
           "env_var": "PACHYDERM_AUTH_TOKEN",
           "key": "auth_token"
