@@ -1,0 +1,694 @@
+/* Float two columns side by side */
+.column {
+  float: left;
+  width: 33%;
+  padding: 0px 10px;
+  margin-bottom: 20px;
+}
+
+.column-2 {
+   float: left;
+   width: 50%;
+   padding: 0px 10px;
+   margin-bottom: 20px;
+ }
+
+/* Remove extra left and right margins, due to padding in columns */
+.row {
+  margin: 0 -5px;
+  border-bottom: 20px;
+}
+
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+
+/* Responsive columns - one column layout (vertical) on small screens */
+@media screen and (max-width: 600px) {
+  .column {
+    width: 100%;
+    display: block;
+    margin-bottom: 20px;
+  }
+}
+
+  @media screen and (max-width: 600px) {
+  .column-2 {
+    width: 100%;
+    display: block;
+    margin-bottom: 20px;
+  }
+}
+
+
+.card-square.mdl-card {
+  width: auto;
+  height: 260px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.card-square > .mdl-card__title {
+  color: #fff;
+  background: #4B2A5C;
+  padding-left: 10px;
+}
+
+.mdl-card__actions {
+  line-height: 1.4;
+}
+
+.mdc-components {
+  box-sizing: border-box;
+  display: flex;
+  font-family: Roboto;
+  margin: 64px auto;
+  width: 1664px;
+}
+.mdc-components__section {
+  display: flex;
+}
+.mdc-components .flex {
+  flex: 1;
+  box-sizing: border-box;
+}
+.mdc-components p {
+  color: #616161;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.mdc-component > p {
+  color: #616161;
+  font-size: 14px;
+  font-weight: 400;
+  padding-bottom: 0;
+}
+.mdc-component__section {
+  align-items: center;
+  background-color: #EEEEEE;
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+  position: relative;
+  overflow: hidden;
+  width: 400px;
+}
+.mdc-component__section--size-narrow {
+  height: 152px;
+}
+.mdc-component__section__content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 30px;
+}
+.mdc-component__section__content__frame {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+.mdc-component__section--size-full {
+  height: 620px;
+}
+.mdc-component__containers {
+  align-items: flex-start;
+  display: flex;
+  height: 292px;
+  flex-direction: row;
+}
+.mdc-component__containers__primary__only p {
+  display: none;
+}
+.mdc-component__containers__primary, .mdc-component__containers__secondary {
+  display: flex;
+  align-items: center;
+}
+.mdc-component__containers__primary > p, .mdc-component__containers__secondary > p {
+  color: #616161;
+  font-size: 11px;
+  font-weight: bold;
+}
+.mdc-component__containers__primary__only {
+  margin-top: 40px;
+}
+.mdc-component__containers__secondary {
+  margin-left: 80px;
+}
+.mdc-component__containers__primary, .mdc-component__containers__secondary {
+  flex-direction: column;
+}
+.mdc-component__containers__primary > p, .mdc-component__containers__secondary > p {
+  margin: 25px 0 15px;
+}
+.mdc-component__containers__primary > *[class^="mdc-"]:not(:nth-child(2)), .mdc-component__containers__secondary > *[class^="mdc-"]:not(:nth-child(2)) {
+  margin-top: 40px;
+}
+.mdc-component__containers[dir-horizontal] {
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.mdc-component__containers[dir-horizontal] .mdc-component__containers__primary__only {
+  margin-top: 0;
+}
+.mdc-component__containers[dir-horizontal] .mdc-component__containers__secondary {
+  margin-left: 0;
+  margin-top: 12px;
+}
+.mdc-component__containers[dir-horizontal] .mdc-component__containers__primary, .mdc-component__containers[dir-horizontal] .mdc-component__containers__secondary {
+  flex-direction: row;
+}
+.mdc-component__containers[dir-horizontal] .mdc-component__containers__primary > p, .mdc-component__containers[dir-horizontal] .mdc-component__containers__secondary > p {
+  margin: 0 16px 0 0;
+  text-align: right;
+  width: 60px;
+}
+.mdc-component__containers[dir-horizontal] .mdc-component__containers__primary > *[class^="mdc-"], .mdc-component__containers[dir-horizontal] .mdc-component__containers__secondary > *[class^="mdc-"] {
+  margin-top: 0;
+  margin-right: 60px;
+}
+*, :after, :before {
+  box-sizing: inherit;
+}
+@media all and (max-width: 1712px) {
+  .mdc-components {
+    margin: 32px auto;
+    width: 832px;
+  }
+  .mdc-components__section {
+    flex-direction: column;
+  }
+  .mdc-components__column {
+    margin-bottom: 64px;
+  }
+}
+@media all and (max-width: 880px) {
+  .mdc-components {
+    flex-direction: column;
+    width: 416px;
+  }
+}
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button,
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-fab {
+      background-color: #4B2A5C;
+      color: #ffffff;
+    }
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button--plain,
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-fab--plain {
+      background-color: transparent;
+      color: #4B2A5C;
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button,
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-fab {
+      background-color: #CC6769;
+      color: #000000;
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button--plain,
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-fab--plain {
+      background-color: transparent;
+      color: #CC6769;
+    }
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button--raised.mdc-ripple-upgraded::before,
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button--raised.mdc-ripple-upgraded::after {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button--plain.mdc-ripple-upgraded::before,
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-button--plain.mdc-ripple-upgraded::after {
+      background-color: rgba(75, 42, 92, 0.06);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-fab.mdc-ripple-upgraded::after {
+      background-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__primary .mdc-fab--plain.mdc-ripple-upgraded::after {
+      background-color: rgba(75, 42, 92, 0.16);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button--raised.mdc-ripple-upgraded::before,
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button--raised.mdc-ripple-upgraded::after {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button--plain.mdc-ripple-upgraded::before,
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-button--plain.mdc-ripple-upgraded::after {
+      background-color: rgba(204, 103, 105, 0.06);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-fab.mdc-ripple-upgraded::after {
+      background-color: rgba(0, 0, 0, 0.16);
+    }
+
+    .mdc-component__buttons .mdc-component__containers__secondary .mdc-fab--plain.mdc-ripple-upgraded::after {
+      background-color: rgba(204, 103, 105, 0.16);
+    }
+
+  .mdc-component__selection .mdc-component__containers__primary__only .mdc-snackbar {
+    transform: translate(-50%,-100%);
+  }
+
+  .mdc-component__selection .mdc-snackbar {
+    left: auto !important;
+    transform: translate(-28%,-164%);
+    position: absolute;
+    min-width: 240px;
+    margin-left: -16px;
+    width: 240px;
+  }
+
+  .mdc-component__selection .mdc-snackbar__secondary {
+    transform: translate(-28%,-40%);
+  }
+
+  .mdc-component__selection .mdc-snackbar__text,
+  .mdc-component__selection .mdc-snackbar__action-button {
+    opacity: 1;
+    font-size: 12px;
+  }
+
+    .mdc-component__switches .mdc-component__containers__primary .mdc-checkbox__native-control:checked:not(:disabled) ~ .mdc-checkbox__background,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-checkbox__native-control:indeterminate:not(:disabled) ~ .mdc-checkbox__background,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-radio__native-control:checked+.mdc-radio__background .mdc-radio__inner-circle {
+      background-color: #4B2A5C;
+      border-color: #4B2A5C;
+    }
+
+    .mdc-component__switches .mdc-component__containers__primary .mdc-switch__native-control:checked~.mdc-switch__background::before,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-switch__native-control:checked~.mdc-switch__background .mdc-switch__knob::before,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-switch__native-control:checked~.mdc-switch__background .mdc-switch__knob {
+      background-color: #4B2A5C;
+    }
+
+    .mdc-component__switches .mdc-component__containers__primary .mdc-radio__native-control:checked+.mdc-radio__background .mdc-radio__outer-circle {
+      border-color: #4B2A5C;
+    }
+
+    .mdc-component__switches .mdc-component__containers__primary .mdc-checkbox__background::before,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-radio__background::before {
+      background-color: #4B2A5C;
+    }
+
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-checkbox__native-control:checked:not(:disabled) ~ .mdc-checkbox__background,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-checkbox__native-control:indeterminate:not(:disabled) ~ .mdc-checkbox__background,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-radio__native-control:checked+.mdc-radio__background .mdc-radio__inner-circle {
+      background-color: #CC6769;
+      border-color: #CC6769;
+    }
+
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-switch__native-control:checked~.mdc-switch__background::before,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-switch__native-control:checked~.mdc-switch__background .mdc-switch__knob::before,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-switch__native-control:checked~.mdc-switch__background .mdc-switch__knob {
+      background-color: #CC6769;
+    }
+
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-radio__native-control:checked+.mdc-radio__background .mdc-radio__outer-circle {
+      border-color: #CC6769;
+    }
+
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-checkbox__background::before,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-radio__background::before {
+      background-color: #CC6769;
+    }
+
+    .mdc-component__switches .mdc-component__containers__primary .mdc-checkbox.mdc-ripple-upgraded--unbounded::before,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-checkbox.mdc-ripple-upgraded--unbounded::after,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-radio.mdc-ripple-upgraded--unbounded::before,
+    .mdc-component__switches .mdc-component__containers__primary .mdc-radio.mdc-ripple-upgraded--unbounded::after {
+      background-color: rgba(75, 42, 92, 0.14);
+    }
+
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-checkbox.mdc-ripple-upgraded--unbounded::before,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-checkbox.mdc-ripple-upgraded--unbounded::after,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-radio.mdc-ripple-upgraded--unbounded::before,
+    .mdc-component__switches .mdc-component__containers__secondary .mdc-radio.mdc-ripple-upgraded--unbounded::after {
+      background-color: rgba(204, 103, 105, 0.14);
+    }
+
+  .mdc-component__cards .mdc-card {
+    background-color: #ffffff;
+    height: 316px;
+    width: 262px;
+  }
+
+  .mdc-component__cards .mdc-card__title,
+  .mdc-component__cards .mdc-card__subtitle {
+    font-size: 11px;
+    line-height: 17px;
+  }
+
+  .mdc-component__cards .mdc-card__subtitle {
+    color: #707070;
+  }
+
+  .mdc-component__cards .mdc-card__header {
+    align-items: center;
+    display: flex;
+    height: 40px;
+    padding: 0 16px 20px;
+  }
+
+  .mdc-component__cards .demo-card__avatar {
+    background: #bdbdbd;
+    height: 40px;
+    width: 40px;
+    margin-right: 12px;
+    border-radius: 50%;
+  }
+
+  .mdc-component__cards .mdc-card__supporting-text {
+    font-size: 10px;
+  }
+
+  .mdc-component__cards .demo-card--with-avatar .mdc-card__title,
+  .mdc-component__cards .demo-card--with-avatar .mdc-card__subtitle {
+    margin-left: 56px;
+  }
+
+  .mdc-component__cards .mdc-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 16px 16px 16px;
+  }
+
+  .mdc-component__cards .mdc-card__media {
+    height: 140px;
+    overflow: hidden;
+    padding: 0
+  }
+
+  .mdc-component__cards .mdc-card__media .material-image {
+    top: 64px;
+    position: relative;
+  }
+
+  .mdc-component__cards .mdc--theme-primary {
+    background-color: #4B2A5C;
+    color: #ffffff;
+  }
+
+  .mdc-component__cards .mdc--theme-secondary {
+    background-color: #CC6769;
+    color: #000000;
+  }
+
+  .mdc-component__cards .material-image .material-image__background {
+    fill: #210232;
+  }
+
+  .mdc-component__cards .material-image .material-image--shape-circle,
+  .mdc-component__cards .material-image .material-image--shape-triangle {
+    fill: #4B2A5C;
+  }
+
+  .mdc-component__cards .material-image .material-image--shape-intersection {
+    fill: #210232;
+  }
+
+  .mdc-component__cards .mdc-button--raised.mdc--theme-primary.mdc-ripple-upgraded::after {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .mdc-component__cards .mdc-button--raised.mdc--theme-secondary.mdc-ripple-upgraded::after {
+    background-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .mdc-component__menu .mdc-toolbar {
+    background-color: #CC6769;
+    z-index: 1;
+  }
+
+  .mdc-component__menu .mdc-toolbar {
+    height: 56px;
+    padding: 16px;
+  }
+
+  .mdc-component__menu .mdc-permanent-drawer {
+    border-right: none;
+    left: 0;
+    position: absolute;
+    top: 0;
+    z-index: 3;
+  }
+
+  .mdc-component__menu .mdc-backdrop {
+    background-color: rgba(0, 0, 0, .50);
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    left: 0;
+  }
+
+  .mdc-component__menu .nav-header {
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mdc-component__menu .nav-header .material-image {
+    position: relative;
+    top: -50px;
+  }
+
+  .mdc-component__menu .mdc-permanent-drawer {
+    box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14), 0 3px 14px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .mdc-component__menu .mdc-list-item {
+    font-weight: 400;
+  }
+
+  .mdc-component__menu .mdc-list-item.mdc-ripple-upgraded {
+    left: 0;
+  }
+
+  .mdc-component__menu .mdc-list-item.mdc-ripple-upgraded::before,
+  .mdc-component__menu .mdc-list-item.mdc-ripple-upgraded::after {
+    background-color: rgba(75, 42, 92, 0.06);
+  }
+
+  .mdc-component__menu .mdc-permanent-drawer .mdc-permanent-drawer--selected::before,
+  .mdc-component__menu .mdc-permanent-drawer .mdc-list-item:active::before {
+    background-color: #4B2A5C;
+    opacity: .16;
+  }
+
+  .mdc-component__menu .mdc-permanent-drawer--selected.mdc-list-item .mdc-list-item__start-detail,
+  .mdc-component__menu .mdc-permanent-drawer .mdc-permanent-drawer--selected {
+    color: inherit;
+  }
+
+  .mdc-component__menu .material-image__background {
+    fill: #210232;
+  }
+
+  .mdc-component__menu .material-image--shape-circle,
+  .mdc-component__menu .material-image--shape-triangle {
+    fill: #4B2A5C;
+  }
+
+  .mdc-component__menu .material-image--shape-intersection {
+    fill: #210232;
+  }
+
+  .mdc-component__textfield .mdc-component__containers {
+    margin-top: 40px;
+  }
+
+  .mdc-component__textfield .mdc-component__containers__secondary {
+    padding: 17px 0;
+  }
+
+  .mdc-component__textfield .mdc-component__containers p {
+    padding-bottom: 20px;
+  }
+
+  .mdc-component__textfield .mdc-textfield {
+    margin-right: 14px !important;
+  }
+
+  .mdc-component__textfield .mdc-textfield__input {
+    width: 264px;
+  }
+
+  .mdc-component__textfield .mdc-textfield__label {
+    bottom: 12px;
+  }
+
+  .mdc-component__textfield .mdc-textfield--theme-primary .mdc-textfield__label {
+    color: #4B2A5C;
+  }
+
+  .mdc-component__textfield .mdc-textfield--theme-primary .mdc-textfield:not(.mdc-textfield--upgraded) .mdc-textfield__input:focus {
+    border-color: #4B2A5C;
+  }
+
+  .mdc-component__textfield .mdc-textfield--theme-secondary .mdc-textfield__label {
+    color: #CC6769;
+  }
+
+  .mdc-component__textfield .mdc-textfield--theme-secondary .mdc-textfield:not(.mdc-textfield--upgraded) .mdc-textfield__input:focus {
+    border-color: #CC6769;
+  }
+
+  .mdc-component__toolbar .app-bar {
+    background-color: #210232;
+    display: block;
+    height: 20px;
+    width: 100%;
+  }
+
+  .mdc-component__toolbar .mdc-toolbar {
+    height: 56px;
+    padding: 16px;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .mdc-component__toolbar .mdc-toolbar__section {
+    align-items: center;
+  }
+
+  .mdc-component__toolbar .mdc-toolbar__title {
+    padding-left: 8px;
+  }
+
+  .mdc-component__toolbar .material-icons {
+    color: #ffffff;
+  }
+
+  .mdc-component__toolbar .material-image {
+    position: relative;
+    top: -64px;
+  }
+
+  .mdc-component__toolbar main {
+    background-color: white;
+    height: calc(100% - 48px);
+  }
+
+  .mdc-component__toolbar .cover-image__frame {
+    display: block;
+    height: 220px;
+    position: relative;
+    width: 100%;
+  }
+
+  .mdc-component__toolbar .cover-image {
+    display: block;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mdc-component__toolbar .mdc-fab {
+    position: absolute;
+    bottom: -25px;
+    right: 28px;
+  }
+
+  .mdc-component__toolbar .content {
+    font-size: 13px;
+    line-height: 20px;
+    padding: 50px 35px;
+  }
+
+  .mdc-component__toolbar .mdc-component__section__content__frame::before {
+    bottom: 0;
+    content: "";
+    background-image: url(//storage.googleapis.com/demos-in-spec/images/android-bottom.png);
+    background-repeat: no-repeat;
+    height: 48px;
+    position: absolute;
+    width: 100%;
+    z-index: 9999999;
+  }
+
+  .mdc-component__toolbar .mdc--theme-primary {
+    background-color: #4B2A5C;
+    color: #ffffff;
+  }
+
+  .mdc-component__toolbar .mdc--theme-secondary {
+    background-color: #CC6769;
+    color: #000000;
+  }
+
+  .mdc-component__toolbar .material-image .material-image__background {
+    fill: #97393e;
+  }
+
+  .mdc-component__toolbar .material-image .material-image--shape-circle,
+  .mdc-component__toolbar .material-image .material-image--shape-triangle {
+    fill: #ff9797;
+  }
+
+  .mdc-component__toolbar .material-image .material-image--shape-intersection {
+    fill: #97393e;
+  }
+
+  .mdc-component__toolbar .mdc-icon-toggle::before,
+  .mdc-component__toolbar .mdc-icon-toggle::after {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .mdc-component__toolbar .mdc-fab.mdc--theme-primary.mdc-ripple-upgraded::after {
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .mdc-component__toolbar .mdc-fab.mdc--theme-secondary.mdc-ripple-upgraded::after {
+    background-color: rgba(0, 0, 0, 0.16);
+  }
+
+
+details {
+  display: block;
+}
+
+details[open] > summary::before {
+  content: "\25BC";
+}
+
+details summary {
+  display: block;
+  cursor: pointer;
+}
+
+details summary:focus {
+  outline: none;
+}
+
+details summary::before {
+  content: "\25B6";
+  padding-right: 0.5em;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Attach the "no-details" class to details tags
+   in browsers that do not support them to get
+   open/show functionality. */
+details.no-details:not([open]) > * {
+  display: none;
+}
+
+details.no-details:not([open]) summary {
+  display: block;
+}

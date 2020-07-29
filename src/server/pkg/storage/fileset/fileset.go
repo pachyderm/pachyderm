@@ -7,7 +7,8 @@ import (
 	"path"
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // TODO Might want to rework this a bit later or add some additional validation.
@@ -69,7 +70,7 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 	for {
 		hdr, err := tr.Next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -80,7 +81,7 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 			n, err := io.CopyN(mf, tr, f.memAvailable)
 			f.memAvailable -= n
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return err

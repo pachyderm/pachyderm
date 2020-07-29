@@ -28,6 +28,7 @@ import (
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -155,7 +156,7 @@ func finishJob(
 
 		return writeJobInfo(&builder.APIClient, jobInfo)
 	}); err != nil {
-		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) || ppsserver.IsJobFinishedErr(err) {
 			// For certain types of errors, we want to reattempt these operations
 			// outside of a transaction (in case the job or commits were affected by
 			// some non-transactional code elsewhere, we can attempt to recover)
@@ -214,7 +215,12 @@ func recoverFinishedJob(
 		}
 	}
 
-	return writeJobInfo(pachClient, jobInfo)
+	if err := writeJobInfo(pachClient, jobInfo); err != nil {
+		if !ppsserver.IsJobFinishedErr(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // succeedJob will move a job to the successful state and propagate to any
@@ -308,7 +314,7 @@ func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Ta
 			return err
 		}
 		if err := cb(response.Tag, response.Object); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -565,24 +571,25 @@ func (reg *registry) getDatumSet(datumsObj *pfs.Object) (_ chain.DatumSet, retEr
 // get the initial state of datumsBase in the registry.
 func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.CommitInfo, error) {
 	pachClient := reg.driver.PachClient()
-	outputCommitID := commitInfo.Commit.ID
-
 	// Walk up the commit chain to find a successfully finished commit
 	for commitInfo.ParentCommit != nil {
-		reg.logger.Logf(
-			"blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID,
-		)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit:     commitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: commitInfo.ParentCommit,
 			})
 		if err != nil {
 			return nil, err
 		}
-		// TODO: should we be checking `.Tree` here as well?
-		if parentCommitInfo.Trees != nil {
+		// If the parent commit isn't finished, then finish it and continue the traversal.
+		// If the parent commit is finished and has output, then return it.
+		if parentCommitInfo.Finished == nil {
+			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: parentCommitInfo.Commit,
+				Empty:  true,
+			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+				return nil, err
+			}
+		} else if parentCommitInfo.Trees != nil {
 			return parentCommitInfo, nil
 		}
 		commitInfo = parentCommitInfo
@@ -682,7 +689,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		pj.ji.State = pps.JobState_JOB_KILLED
 		pj.ji.Reason = "pipeline has been updated"
 		if err := pj.writeJobInfo(); err != nil {
-			return errors.Wrap(err, "failed to kill stale job")
+			if !ppsserver.IsJobFinishedErr(err) {
+				return errors.Wrap(err, "failed to kill stale job")
+			}
 		}
 		return nil
 	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:

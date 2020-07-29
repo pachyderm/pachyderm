@@ -31,8 +31,19 @@ DETECTIMAGES := .input.cross[0].pfs.repo="object-images"|.input.cross[0].pfs.nam
 HYPERPSPLIT := .input.cross[0].pfs.repo="hp-split"|.input.cross[0].pfs.name="split"
 HYPERPMODEL := .input.cross[1].pfs.repo="hp-model"|.input.cross[1].pfs.name="model"
 HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
+IRISMODEL := .input.pfs.repo="iris-training"|.input.pfs.name="training"|.pipeline.name="iris-model"
+IRISINFERENCENAME := .pipeline.name="iris-inference"
+IRISINFERENCEINPUT0 := .input.cross[0].pfs.repo="iris-attributes"|.input.cross[0].pfs.name="attributes"
+IRISINFERENCEINPUT1 := .input.cross[1].pfs.repo="iris-model"|.input.cross[0].pfs.name="model"
 
-opencv-testing: 
+iris-testing-base:
+	$(PACHCTL) create repo iris-training
+	$(PACHCTL) create repo iris-attributes
+	jq "$(IRISMODEL)" ml/iris/$(IRIS_FLAVOR)_train.json  | $(PACHCTL) create pipeline -f -
+	jq "$(IRISINFERENCENAME)|$(IRISINFERENCEINPUT0)|$(IRISINFERENCEINPUT1)" ml/iris/$(IRIS_FLAVOR)_infer.json | \
+           $(PACHCTL) create pipeline -f -
+
+opencv-testing:
 	$(PACHCTL) create repo images
 	jq "$(STATS)" opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
 	jq "$(STATS)" opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
@@ -96,7 +107,7 @@ testing-delete: gatk-testing-delete hyperparameter-testing-delete object-detecti
 
 testing: opencv-testing object-detection-testing hyperparameter-testing gatk-testing
 
-dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.pb object-detection-testing-base hyperparameter-testing-base  $(GATK_GERMLINE_FILES) gatk-base
+dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.pb object-detection-testing-base hyperparameter-testing-base  $(GATK_GERMLINE_FILES) gatk-base iris-testing-base
 	until [[ `../etc/examples/pipeline-status.sh edges` = True && \
 		`../etc/examples/pipeline-status.sh montage` = True && \
 		`../etc/examples/pipeline-status.sh object-model` = True && \
@@ -169,7 +180,20 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 		$(ECHO) -e "Error: could not create commit in samples@master." ; \
 		exit 1 ; \
 	fi
-	../etc/examples/wait-for-jobs.sh succeeded-only "All jobs finished. Inspect output above to determine if cluster ready for testing."
+	$(ECHO) -e "Adding data to iris."
+	$(PACHCTL) start transaction
+	$(PACHCTL) start commit iris-training@master
+	$(PACHCTL) start commit iris-attributes@master
+	$(PACHCTL) finish transaction
+	$(PACHCTL) put file iris-training@master:iris.csv -f ml/iris/data/iris.csv
+	$(PACHCTL) finish commit iris-training@master
+	$(PACHCTL) put file iris-attributes@master:1.csv  -f ml/iris/data/test/1.csv
+	$(PACHCTL) finish commit iris-attributes@master
+	$(PACHCTL) put file iris-attributes@master:2.csv  -f ml/iris/data/test/2.csv
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done adding iris data."
+	$(ECHO) -e "All jobs finished. Inspect output above to determine if cluster ready for testing."
+
+
 
 
 

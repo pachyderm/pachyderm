@@ -256,7 +256,7 @@ func (s *stm) commit() *v3.TxnResponse {
 	cmps := s.cmps()
 	writes := s.writes()
 	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
-	if err == rpctypes.ErrTooManyOps {
+	if errors.Is(err, rpctypes.ErrTooManyOps) {
 		panic(stmError{
 			errors.Errorf(
 				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
@@ -411,7 +411,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	txn := s.client.Txn(ctx).If(cmps...).Then(writes...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
-	if err == rpctypes.ErrTooManyOps {
+	if errors.Is(err, rpctypes.ErrTooManyOps) {
 		panic(stmError{
 			errors.Errorf(
 				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+

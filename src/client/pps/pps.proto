@@ -34,6 +34,13 @@ message Transform {
   string user = 10;
   string working_dir = 11;
   string dockerfile = 12;
+  BuildSpec build = 15;
+}
+
+message BuildSpec {
+  string path = 1;
+  string language = 2;
+  string image = 3;
 }
 
 message TFJob {
@@ -563,6 +570,11 @@ message GetLogsRequest {
   // tail applies per container, so you will get tail * <number of pods> total
   // lines back.
   int64 tail = 8;
+
+  // UseLokiBackend causes the logs request to go through the loki backend
+  // rather than through kubernetes. This behavior can also be achieved by
+  // setting the LOKI_LOGGING feature flag.
+  bool use_loki_backend = 9;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata

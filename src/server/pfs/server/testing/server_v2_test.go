@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"archive/tar"
 	"bytes"
 	"fmt"
 	"io"
@@ -21,6 +20,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -124,7 +125,7 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				return err
 			}
 			for _, gen := range config.putTarGens {
-				fs := make(map[string][]byte)
+				fs := make(map[string]tarutil.File)
 				r, err := gen(state, fs)
 				if err != nil {
 					return err
@@ -314,24 +315,23 @@ func newPutTarGenerator(opts ...putTarGeneratorOption) putTarGenerator {
 		opt(config)
 	}
 	return func(state *loadState, files fileSetSpec) (io.Reader, error) {
-		putTarBuf := &bytes.Buffer{}
-		fileBuf := &bytes.Buffer{}
-		tw := tar.NewWriter(io.MultiWriter(putTarBuf, fileBuf))
-		for i := 0; i < config.count; i++ {
-			for _, gen := range config.fileGens {
-				name, err := gen(tw, state)
-				if err != nil {
-					return nil, err
+		buf := &bytes.Buffer{}
+		if err := tarutil.WithWriter(buf, func(tw *tar.Writer) error {
+			for i := 0; i < config.count; i++ {
+				for _, gen := range config.fileGens {
+					file, err := gen(tw, state)
+					if err != nil {
+						return err
+					}
+					// Record serialized tar entry for validation.
+					files.recordFile(file)
 				}
-				// Record serialized tar entry for validation.
-				files.recordFile(name, fileBuf)
-				fileBuf.Reset()
 			}
-		}
-		if err := tw.Close(); err != nil {
+			return nil
+		}); err != nil {
 			return nil, err
 		}
-		return putTarBuf, nil
+		return buf, nil
 	}
 }
 
@@ -354,7 +354,7 @@ func withFileGenerator(gen fileGenerator) putTarGeneratorOption {
 	}
 }
 
-type fileGenerator func(*tar.Writer, *loadState) (string, error)
+type fileGenerator func(*tar.Writer, *loadState) (tarutil.File, error)
 
 func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 	config := &randomFileConfig{
@@ -364,7 +364,7 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 		opt(config)
 	}
 	// TODO Might want some validation for the file size buckets (total prob adds up to 1.0)
-	return func(tw *tar.Writer, state *loadState) (string, error) {
+	return func(tw *tar.Writer, state *loadState) (tarutil.File, error) {
 		name := uuid.NewWithoutDashes()
 		var totalProb float64
 		sizeProb := rand.Float64()
@@ -386,7 +386,11 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 			}
 			state.sizeLeft -= size
 		})
-		return name, writeFile(tw, name, chunk.RandSeq(size))
+		file := tarutil.NewFile(name, chunk.RandSeq(size))
+		if err := tarutil.WriteFile(tw, file); err != nil {
+			return nil, err
+		}
+		return file, nil
 	}
 }
 
@@ -447,21 +451,6 @@ func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 	return func(config *randomFileConfig) {
 		config.fileSizeBuckets = buckets
 	}
-}
-
-func writeFile(tw *tar.Writer, name string, data []byte) error {
-	hdr := &tar.Header{
-		Name: "/" + name,
-		Size: int64(len(data)),
-	}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-	_, err := tw.Write(data)
-	if err != nil {
-		return err
-	}
-	return tw.Flush()
 }
 
 func TestLoad(t *testing.T) {
@@ -584,75 +573,71 @@ type validator struct {
 
 func newValidator() *validator {
 	return &validator{
-		files:      make(map[string][]byte),
+		files:      make(map[string]tarutil.File),
 		sampleProb: 1.0,
 	}
 }
 
 func (v *validator) recordFileSet(files fileSetSpec) {
-	for file, data := range files {
-		v.files.recordFile(file, bytes.NewReader(data))
+	for _, file := range files {
+		v.files.recordFile(file)
 	}
 }
 
 func (v *validator) validate(r io.Reader) error {
-	hdr, err := tar.NewReader(r).Next()
-	if err != nil {
-		// We expect an empty tar stream if no files were uploaded.
-		if err == io.EOF && len(v.files) == 0 {
-			return nil
+	var namesSorted []string
+	for name := range v.files {
+		namesSorted = append(namesSorted, name)
+	}
+	sort.Strings(namesSorted)
+	if len(namesSorted) > 0 {
+		namesSorted = append([]string{"/"}, namesSorted...)
+	}
+	return tarutil.Iterate(r, func(file tarutil.File) error {
+		if len(namesSorted) == 0 {
+			return errors.Errorf("got back more files than expected")
 		}
-		return err
-	}
-	if hdr.Name != "/" {
-		return errors.Errorf("expected root header, got %v", hdr.Name)
-	}
-	var filesSorted []string
-	for file := range v.files {
-		filesSorted = append(filesSorted, file)
-	}
-	sort.Strings(filesSorted)
-	for _, file := range filesSorted {
-		buf := &bytes.Buffer{}
-		if _, err := io.CopyN(buf, r, int64(len(v.files[file]))); err != nil {
+		ok, err := tarutil.Equal(v.files[namesSorted[0]], file)
+		if err != nil {
 			return err
 		}
-		if !bytes.Equal(v.files[file], buf.Bytes()) {
-			return errors.Errorf("file %v's header and/or content is incorrect", file)
+		if !ok {
+			return errors.Errorf("file %v's header and/or content is incorrect", namesSorted[0])
 		}
-	}
-	return nil
+		namesSorted = namesSorted[1:]
+		return nil
+	})
 }
 
 func (v *validator) deleteRandomFile() string {
-	for file := range v.files {
-		delete(v.files, file)
-		return file
+	for name := range v.files {
+		delete(v.files, name)
+		return name
 	}
 	return ""
 }
 
-type fileSetSpec map[string][]byte
+type fileSetSpec map[string]tarutil.File
 
-func (fs fileSetSpec) recordFile(name string, r io.Reader) error {
-	buf := &bytes.Buffer{}
-	_, err := io.Copy(buf, r)
+func (fs fileSetSpec) recordFile(file tarutil.File) error {
+	hdr, err := file.Header()
 	if err != nil {
 		return err
 	}
-	fs[name] = buf.Bytes()
+	fs[hdr.Name] = file
 	return nil
 }
 
 func (fs fileSetSpec) makeTarStream() io.Reader {
 	buf := &bytes.Buffer{}
-	tw := tar.NewWriter(buf)
-	for name, data := range fs {
-		if err := writeFile(tw, name, data); err != nil {
-			panic(err)
+	if err := tarutil.WithWriter(buf, func(tw *tar.Writer) error {
+		for _, file := range fs {
+			if err := tarutil.WriteFile(tw, file); err != nil {
+				panic(err)
+			}
 		}
-	}
-	if err := tw.Close(); err != nil {
+		return nil
+	}); err != nil {
 		panic(err)
 	}
 	return buf
@@ -679,12 +664,11 @@ func TestListFileV2(t *testing.T) {
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		fsSpec := fileSetSpec{
-			"dir1/file1.1": []byte{},
-			"dir1/file1.2": []byte{},
-			"dir2/file2.1": []byte{},
-			"dir2/file2.2": []byte{},
-		}
+		fsSpec := fileSetSpec{}
+		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir1/file1.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir1/file1.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir2/file2.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir2/file2.2", []byte{})))
 		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
 		require.NoError(t, err)
 
@@ -723,12 +707,17 @@ func TestCompaction(t *testing.T) {
 		for i := 0; i < nFileSets; i++ {
 			fsSpec := fileSetSpec{}
 			for j := 0; j < filesPer; j++ {
+				name := fmt.Sprintf("file%02d", j)
 				data, err := ioutil.ReadAll(randomReader(fileSetSize))
 				if err != nil {
 					return err
 				}
-
-				fsSpec[fmt.Sprintf("file%02d", j)] = data
+				file := tarutil.NewFile(name, data)
+				hdr, err := file.Header()
+				if err != nil {
+					return err
+				}
+				fsSpec[hdr.Name] = file
 			}
 			if err := env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
 				return err

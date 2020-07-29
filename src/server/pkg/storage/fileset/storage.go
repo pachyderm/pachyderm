@@ -105,10 +105,14 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 // NewMergeReader returns a merge reader for a set for filesets.
 func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	fileSets = applyPrefixes(fileSets)
+	return s.newMergeReader(ctx, fileSets, opts...)
+}
+
+func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	var rs []*Reader
 	for _, fileSet := range fileSets {
 		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-			rs = append(rs, s.NewReader(ctx, name, opts...))
+			rs = append(rs, s.newReader(ctx, name, opts...))
 			return nil
 		}); err != nil {
 			return nil, err
@@ -118,12 +122,12 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 }
 
 // ResolveIndexes resolves index entries that are spread across multiple filesets.
-func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(*index.Index) error, opts ...index.Option) error {
+func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
 	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
 	if err != nil {
 		return err
 	}
-	w := s.newWriter(ctx, "", WithNoUpload(f))
+	w := s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(cb))
 	if err := mr.WriteTo(w); err != nil {
 		return err
 	}
@@ -135,26 +139,38 @@ func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
 	fileSets = applyPrefixes(fileSets)
-	mr, err := s.NewMergeReader(ctx, fileSets)
+	mr, err := s.newMergeReader(ctx, fileSets)
 	if err != nil {
 		return err
 	}
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// CompactStats contains information about what was compacted.
+type CompactStats struct {
+	OutputSize int64
+}
+
 // Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
-	w := s.newWriter(ctx, outputFileSet)
-	mr, err := s.NewMergeReader(ctx, inputFileSets, opts...)
+	var size int64
+	w := s.newWriter(ctx, outputFileSet, WithIndexCallback(func(idx *index.Index) error {
+		size += idx.SizeBytes
+		return nil
+	}))
+	mr, err := s.newMergeReader(ctx, inputFileSets, opts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := mr.WriteTo(w); err != nil {
-		return err
+		return nil, err
 	}
-	return w.Close()
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return &CompactStats{OutputSize: size}, nil
 }
 
 // CompactSpec specifies the input and output for a compaction operation.

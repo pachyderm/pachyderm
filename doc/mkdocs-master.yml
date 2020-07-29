@@ -143,7 +143,11 @@ nav:
         - Individual Developer Workflow: how-tos/individual-developer-workflow.md
         - Team Developer Workflow: how-tos/team-developer-workflow.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
-        - Export Your Data From Pachyderm: how-tos/export-data-out-pachyderm.md
+        - Export Your Data From Pachyderm:
+            - Overview: how-tos/export-data-out-pachyderm/index.md
+            - Export Your Data with pachctl: how-tos/export-data-out-pachyderm/export-data-pachctl.md
+            - Export Your Data with egress: how-tos/export-data-out-pachyderm/export-data-egress.md
+            - Mount a Repo to a Local Computer: how-tos/export-data-out-pachyderm/mount-repo-to-local-computer.md
         - Split Data:
             - Overview: how-tos/splitting-data/index.md
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
@@ -377,12 +381,21 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Configure Access Controls: enterprise/auth/auth.md
+        - Configure Access Controls:
+            - Overview: enterprise/auth/index.md
+            - Enable Access Controls: enterprise/auth/enable-auth.md
+            - Manage Users and Groups: enterprise/auth/manage-users-groups.md
+            - Manage Authentication Config: enterprise/auth/auth-config.md
+            - Configure a SAML Provider:
+              - Overview: enterprise/auth/saml/saml.md
+              - Configure SAML: enterprise/auth/saml/saml_setup.md
+              - Use SAML: enterprise/auth/saml/saml_usage.md
+            - Configure an OIDC Provider:
+              - Overview: enterprise/auth/oidc/index.md
+              - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
+              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
+              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
         - Advanced Statistics: enterprise/stats.md
-        - Configure Pachyderm with an Access Management Provider:
-            - Overview: enterprise/saml.md
-            - Configure SAML: enterprise/saml_setup.md
-            - Use SAML: enterprise/saml_usage.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md

@@ -8,10 +8,12 @@ import secrets
 import argparse
 import collections
 import http.client
+from pathlib import Path
 
 ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
 IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
+PIPELINE_BUILD_DIR = "etc/pipeline-build"
 
 DELETABLE_RESOURCES = [
     "roles.rbac.authorization.k8s.io",
@@ -19,6 +21,16 @@ DELETABLE_RESOURCES = [
 ]
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
+
+# Path to file used for ensuring minikube doesn't need to be deleted.
+# With newer versions of minikube, cluster state (host paths, pods, etc.) is
+# persisted across host system restarts, but credentials aren't, causing
+# permissions failures on k8s admin calls. We use this file to reference
+# whether minikube has been started since the last host system restart, which
+# will allow us to figure out whether to reset the cluster state so we don't
+# get the permissions errors. It's stored in `/tmp` because that directory
+# is wiped on every system restart, and doesn't require root to write to.
+MINIKUBE_RUN_FILE = Path("/tmp/pachyderm-minikube-reset")
 
 RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
 
@@ -61,9 +73,10 @@ class BaseDriver:
         # cause us to bring up a new pachyderm cluster with access to the old
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
-        return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
+        host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
+        return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
 
-    async def deploy(self, dash, ide):
+    async def deploy(self, dash, ide, builder_images):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
         if not dash:
             deploy_args.append("--no-dashboard")
@@ -85,7 +98,7 @@ class BaseDriver:
             pull_images.append(run("docker", "pull", grpc_proxy_spec["image"]))
         await asyncio.gather(*pull_images)
 
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
+        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", *builder_images]
         if dash_spec is not None:
             push_images.append(dash_spec["image"])
         if grpc_proxy_spec is not None:
@@ -113,28 +126,44 @@ class BaseDriver:
 
 class MinikubeDriver(BaseDriver):
     async def reset(self):
+        is_minikube_running = True
+
         async def minikube_status():
             await run("minikube", "status", capture_output=True)
 
-        is_minikube_running = True
-        try:
-            await minikube_status()
-        except:
+        if MINIKUBE_RUN_FILE.exists():
+            try:
+                await minikube_status()
+            except:
+                is_minikube_running = False
+        else:
+            await run("minikube", "delete")
             is_minikube_running = False
 
         if not is_minikube_running:
             await run("minikube", "start")
             await retry(minikube_status)
+            MINIKUBE_RUN_FILE.touch()
 
         await super().reset()
 
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
-    async def deploy(self, dash, ide):
-        await super().deploy(dash, ide)
+    async def deploy(self, dash, ide, builder_images):
+        await super().deploy(dash, ide, builder_images)
+
+        # enable direct connect
         ip = (await capture("minikube", "ip")).strip()
         await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
+
+        # the config update above will cause subsequent deploys to create a
+        # new context, so to prevent the config from growing in size on every
+        # deploy, we'll go ahead and delete any "orphaned" contexts now
+        for line in (await capture("pachctl", "config", "list", "context")).strip().split("\n")[1:]:
+            context = line.strip()
+            if context.startswith("local"):
+                await run("pachctl", "config", "delete", "context", context)
 
 class GCPDriver(BaseDriver):
     def __init__(self, project_id, cluster_name=None):
@@ -164,7 +193,7 @@ class GCPDriver(BaseDriver):
 
             await run("gsutil", "mb", f"gs://{self.object_storage_name}")
 
-            docker_config_path = os.path.expanduser("~/.docker/config.json")
+            docker_config_path = Path.home() / ".docker" / "config.json"
             await run("kubectl", "create", "secret", "generic", "regcred",
                 f"--from-file=.dockerconfigjson={docker_config_path}",
                 "--type=kubernetes.io/dockerconfigjson")
@@ -241,9 +270,11 @@ class HubDriver:
                 self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
                 self.old_cluster_names.append(pach["attributes"]["name"])
 
-    async def deploy(self, dash, ide):
+    async def deploy(self, dash, ide, builder_images):
         if ide:
             raise Exception("cannot deploy IDE in hub")
+        if len(builder_images):
+            raise Exception("cannot deploy builder images")
 
         await asyncio.gather(
             self.push_image("pachyderm/pachd:local"),
@@ -281,7 +312,7 @@ class HubDriver:
 
         await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
 
-async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
+async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None, cwd=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
     print_status("running: `{}`".format(" ".join(print_args)))
 
@@ -290,13 +321,11 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
         stdin=asyncio.subprocess.PIPE if stdin is not None else None,
         stdout=asyncio.subprocess.PIPE if capture_output else None,
         stderr=asyncio.subprocess.PIPE if capture_output else None,
+        cwd=cwd,
     )
     
-    if timeout is None:
-        stdin = stdin.encode("utf8") if stdin is not None else None
-        result = await proc.communicate(input=stdin)
-    else:
-        result = await asyncio.wait_for(proc.communicate(input=stdin), timeout=timeout)
+    future = proc.communicate(input=stdin.encode("utf8") if stdin is not None else None)
+    result = await (future if timeout is None else asyncio.wait_for(future, timeout=timeout))
 
     if capture_output:
         stdout, stderr = result
@@ -335,16 +364,14 @@ def print_status(status):
 
 async def retry(f, attempts=10, sleep=1.0):
     """
-    Repeatedly retries an operation, ignore exceptions, n times with a given
-    sleep between runs.
+    Repeatedly retries operation up to `attempts` times, with a given `sleep`
+    between runs.
     """
-    count = 0
-    while count < attempts:
+    for i in range(attempts):
         try:
             return await f()
         except:
-            count += 1
-            if count >= attempts:
+            if i == attempts - 1:
                 raise
             await asyncio.sleep(sleep)
 
@@ -356,6 +383,7 @@ async def main():
     parser.add_argument("--target", default="", help="Where to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
+    parser.add_argument("--builders", action="store_true", help="Deploy images used in pipeline builds")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -408,12 +436,22 @@ async def main():
         raise Exception(f"unknown target: {args.target}")
 
     await asyncio.gather(
-        run("make", "install"),
         run("make", "docker-build"),
+        run("make", "install"),
         driver.reset(),
     )
 
-    await driver.deploy(args.dash, args.ide)
+    builder_images = []
+    if args.builders:
+        procs = []
+        version = await get_client_version()
+        for language in (d for d in os.listdir(PIPELINE_BUILD_DIR) if os.path.isdir(os.path.join(PIPELINE_BUILD_DIR, d))):
+            builder_image = f"pachyderm/{language}-build:{version}"
+            procs.append(run("docker", "build", "-t", builder_image, ".", cwd=os.path.join(PIPELINE_BUILD_DIR, language)))
+            builder_images.append(builder_image)
+        await asyncio.gather(*procs)
+    
+    await driver.deploy(args.dash, args.ide, builder_images)
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)

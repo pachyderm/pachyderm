@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -235,7 +235,8 @@ func TestCompaction(t *testing.T) {
 		// Get the file hashes.
 		getHashes(t, fileSets, files, msg)
 		// Compact the files.
-		require.NoError(t, fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath}), msg)
+		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath})
+		require.NoError(t, err, msg)
 		// Check the files.
 		r := fileSets.newReader(context.Background(), path.Join(testPath, Compacted))
 		require.NoError(t, r.Iterate(func(fr *FileReader) error {

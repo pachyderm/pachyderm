@@ -105,7 +105,7 @@ to have pachctl installed on your machine by following these steps:
    ```bash
    $ pachctl version --client-only
    COMPONENT           VERSION
-   pachctl             1.9.8
+   pachctl             1.9.11
    ```
 
    If you run `pachctl version` without `--client-only`, the command times
@@ -167,8 +167,8 @@ all Pachyderm pods must be in the **Running** status.
    ```bash
    $ pachctl version
    COMPONENT           VERSION
-   pachctl             1.9.5
-   pachd               1.9.5
+   pachctl             1.9.11
+   pachd               1.9.11
    ```
 
 1. Open a new terminal window.

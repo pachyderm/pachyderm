@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -64,7 +63,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commitInfos
 		}
 		require.NoError(t, err)
@@ -2636,7 +2635,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
+	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
 	jobInfos, err := c.ListJob("", nil, nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
@@ -3037,7 +3036,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 					require.NoError(t, err)
 					_, err = iter.Next()
 					if err != nil {
-						if err == io.EOF {
+						if errors.Is(err, io.EOF) {
 							return errors.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
 						}
 						return err
@@ -4341,22 +4340,24 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// This is put in a backoff because there's the possibility that pod was
 	// evicted from k8s and is being re-initialized, in which case `GetLogs`
-	// will appropriately fail
+	// will appropriately fail. With the loki logging backend enabled the
+	// eviction worry goes away, but is replaced with there being a window when
+	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 		var numLogs int
-		var loglines []string
 		for iter.Next() {
 			if !iter.Message().User {
 				continue
 			}
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4364,13 +4365,13 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
 		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
-		loglines = []string{}
 		for iter.Next() {
 			numLogs++
 			require.True(t, iter.Message().Message != "")
-			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("didn't get enough log lines")
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4420,34 +4421,28 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false, 0)
-
 		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
-			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+			havePathLog, haveBase64Log := pathLog.Next(), base64Log.Next()
+			if havePathLog != haveBase64Log {
 				return errors.Errorf("Unequal log lengths")
 			}
 			if !havePathLog {
 				break
 			}
 			numLogs++
-			if pathLog.Message().Message != hexLog.Message().Message ||
-				hexLog.Message().Message != base64Log.Message().Message {
+			if pathLog.Message().Message != base64Log.Message().Message {
 				return errors.Errorf(
-					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					"unequal logs, pathLogs: \"%s\" base64Log: \"%s\"",
 					pathLog.Message().Message,
-					hexLog.Message().Message,
 					base64Log.Message().Message)
 			}
 		}
-		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+		for _, logsiter := range []*client.LogsIter{pathLog, base64Log} {
 			if logsiter.Err() != nil {
 				return logsiter.Err()
 			}
@@ -4492,6 +4487,103 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		return iter.Err()
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestManyLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	numLogs := 10000
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"i=0",
+					fmt.Sprintf("while [ \"$i\" -lt %d ]", numLogs),
+					"do",
+					"	echo $i",
+					"	i=`expr $i + 1`",
+					"done",
+				},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogs("", jis[0].Job.ID, nil, "", false, false, 0)
+		logsReceived := 0
+		for iter.Next() {
+			if iter.Message().User {
+				logsReceived++
+			}
+		}
+		if iter.Err() != nil {
+			return iter.Err()
+		}
+		if numLogs != logsReceived {
+			return fmt.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+		}
+		return nil
+	})
+}
+
+func TestLokiLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"sh"},
+				Stdin: []string{"echo", "foo"},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
+		foundFoo := false
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "foo") {
+				foundFoo = true
+				break
+			}
+		}
+		if iter.Err() != nil {
+			return iter.Err()
+		}
+		if !foundFoo {
+			return fmt.Errorf("did not recieve a log line containing foo")
+		}
+		return nil
+	})
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
@@ -10003,7 +10095,7 @@ func TestSpout(t *testing.T) {
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
@@ -10020,6 +10112,13 @@ func TestSpout(t *testing.T) {
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
+
+		// check that the spec commit for the pipeline has the correct subvenance -
+		// there should be one entry for the output commit in the spout pipeline,
+		// and one for the propagated commit in the downstream pipeline
+		commitInfo, err := c.InspectCommit("__spec__", pipeline)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfo.Subvenance))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -10397,7 +10496,7 @@ func TestSpout(t *testing.T) {
 			t.Errorf("Could not get file %v", err)
 		}
 		xs := 0
-		for err != io.EOF {
+		for !errors.Is(err, io.EOF) {
 			line := ""
 			line, err = buf.ReadString('\n')
 
@@ -10449,7 +10548,7 @@ func TestSpout(t *testing.T) {
 		if err != nil {
 			t.Errorf("Could not get file %v", err)
 		}
-		for err != io.EOF {
+		for !errors.Is(err, io.EOF) {
 			line := ""
 			line, err = buf.ReadString('\n')
 
@@ -10934,7 +11033,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil // expected--with no output repo, FlushCommit can't return anything
 		}
 		return errors.Wrapf(err, "unexpected error value")
@@ -11544,6 +11643,187 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
+// Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
+func TestMalformedPipeline(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	pipelineName := tu.UniqueString("MalformedPipeline")
+
+	var err error
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "invalid pipeline spec", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pipelineName)},
+	)
+	require.YesError(t, err)
+	require.Matches(t, "must specify a transform", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:        client.NewPipeline(pipelineName),
+		Transform:       &pps.Transform{},
+		Service:         &pps.Service{},
+		ParallelismSpec: &pps.ParallelismSpec{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:     client.NewPipeline(pipelineName),
+		Transform:    &pps.Transform{},
+		HashtreeSpec: &pps.HashtreeSpec{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "HashtreeSpec.Constant must be > 0", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+
+	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a repo", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Repo: dataRepo}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a glob", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     client.NewPFSInput("out", "/*"),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named \"out\"", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named \"out\"", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data", Repo: "dne", Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "dne not found", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input: client.NewCrossInput(
+			client.NewPFSInput("foo", "/*"),
+			client.NewPFSInput("foo", "/*"),
+		),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "name \"foo\" was used more than once", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "Empty spec string", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL is missing \\(", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL is missing .git suffix", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Git: &pps.GitInput{URL: "foobar.git"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "clone URL must use https protocol", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cross: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Union: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Join: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
@@ -11558,7 +11838,7 @@ func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
 	var objects []*pfs.Object
-	for object, err := objectsClient.Recv(); err != io.EOF; object, err = objectsClient.Recv() {
+	for object, err := objectsClient.Recv(); !errors.Is(err, io.EOF); object, err = objectsClient.Recv() {
 		require.NoError(t, err)
 		objects = append(objects, object.Object)
 	}
@@ -11569,7 +11849,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
 	require.NoError(t, err)
 	var tags []string
-	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
+	for resp, err := tagsClient.Recv(); !errors.Is(err, io.EOF); resp, err = tagsClient.Recv() {
 		require.NoError(t, err)
 		tags = append(tags, resp.Tag.Name)
 	}

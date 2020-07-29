@@ -44,8 +44,8 @@ var (
 // Caller must hold tokenMapMut. Currently only called by getPachClient(),
 // activateAuth (which is only called by getPachClient()) and deleteAll()
 func isAuthActive(tb testing.TB, checkConfig bool) bool {
-	_, err := seedClient.GetAdmins(context.Background(),
-		&auth.GetAdminsRequest{})
+	_, err := seedClient.GetClusterRoleBindings(context.Background(),
+		&auth.GetClusterRoleBindingsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
 		adminClient := getPachClientInternal(tb, admin)
@@ -218,8 +218,8 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	adminClient := getPachClientInternal(tb, admin)
-	getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
-		&auth.GetAdminsRequest{})
+	getBindingsResp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+		&auth.GetClusterRoleBindingsRequest{})
 
 	// Detect case 2: auth was deactivated during previous test. De/Reactivate
 	// TODO it may may sense to do this between every test, though it would mean
@@ -232,13 +232,18 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 
 		// "admin" may no longer be an admin, so get a list of admins, authorize as
 		// the first admin, and deactivate auth
-		getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
-			&auth.GetAdminsRequest{})
+		getBindingsResp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+			&auth.GetClusterRoleBindingsRequest{})
 		require.NoError(tb, err)
-		if len(getAdminsResp.Admins) == 0 {
+		if len(getBindingsResp.Bindings) == 0 {
 			panic("it should not be possible to leave a cluster with no admins")
 		}
-		adminClient = getPachClientInternal(tb, getAdminsResp.Admins[0])
+		var currentAdmin string
+		for a := range getBindingsResp.Bindings {
+			currentAdmin = a
+			break
+		}
+		adminClient = getPachClientInternal(tb, currentAdmin)
 		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 		require.NoError(tb, err)
 
@@ -249,25 +254,52 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	}
 
 	// Detect case 3: previous change shuffled admins. Reset list to just "admin"
-	if len(getAdminsResp.Admins) == 0 {
+	if len(getBindingsResp.Bindings) == 0 {
 		panic("it should not be possible to leave a cluster with no admins")
 	}
-	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+	_, hasAdmin := getBindingsResp.Bindings[admin]
+	hasExpectedAdmin := len(getBindingsResp.Bindings) == 1 && hasAdmin
 	if !hasExpectedAdmin {
 		var curAdminClient *client.APIClient
-		modifyRequest := &auth.ModifyAdminsRequest{
-			Add: []string{admin},
-		}
-		for _, a := range getAdminsResp.Admins {
-			if strings.HasPrefix(a, auth.GitHubPrefix) {
-				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
+		for a, roles := range getBindingsResp.Bindings {
+			var isSuper bool
+			for _, r := range roles.Roles {
+				if r == auth.ClusterRole_SUPER {
+					isSuper = true
+					break
+				}
 			}
-			if a == admin {
-				// nothing to add, just don't remove "admin"
-				modifyRequest.Add = nil
+			if !isSuper {
 				continue
 			}
-			modifyRequest.Remove = append(modifyRequest.Remove, a)
+
+			if strings.HasPrefix(a, auth.GitHubPrefix) {
+				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
+				break
+			}
+			if a == admin {
+				curAdminClient = getPachClientInternal(tb, a) // use admin robot
+				break
+			}
+		}
+
+		if curAdminClient == nil {
+			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+			// staticcheck does not realize tb.Fatal will not return (because it is an
+			// interface), see https://github.com/dominikh/go-tools/issues/635
+			return nil
+		}
+
+		_, err = curAdminClient.ModifyClusterRoleBinding(curAdminClient.Ctx(), &auth.ModifyClusterRoleBindingRequest{
+			Principal: admin,
+			Roles:     superClusterRole(),
+		})
+		require.NoError(tb, err)
+		for a := range getBindingsResp.Bindings {
+			if a != admin {
+				_, err = curAdminClient.ModifyClusterRoleBinding(curAdminClient.Ctx(), &auth.ModifyClusterRoleBindingRequest{Principal: a})
+				require.NoError(tb, err)
+			}
 		}
 		if curAdminClient == nil {
 			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
@@ -275,14 +307,12 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 			// interface), see https://github.com/dominikh/go-tools/issues/635
 			return nil
 		}
-		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
-		require.NoError(tb, err)
-
 		// Wait for admin change to take effect
 		require.NoError(tb, backoff.Retry(func() error {
-			getAdminsResp, err = adminClient.GetAdmins(adminClient.Ctx(),
-				&auth.GetAdminsRequest{})
-			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+			getBindingsResp, err = adminClient.GetClusterRoleBindings(adminClient.Ctx(),
+				&auth.GetClusterRoleBindingsRequest{})
+			_, hasAdmin := getBindingsResp.Bindings[admin]
+			hasExpectedAdmin := len(getBindingsResp.Bindings) == 1 && hasAdmin
 			if !hasExpectedAdmin {
 				return errors.Errorf("cluster admins haven't yet updated")
 			}
@@ -1273,7 +1303,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		for { // flushCommit yields two output commits (one from the prev pipeline)
 			_, err = iter.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			} else if err != nil {
 				return err
@@ -1835,6 +1865,7 @@ func TestDeleteAll(t *testing.T) {
 	}
 	deleteAll(t)
 	defer deleteAll(t)
+
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -1844,6 +1875,25 @@ func TestDeleteAll(t *testing.T) {
 
 	// alice calls DeleteAll, but it fails
 	err := aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admin makes alice an fs admin
+	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Bindings,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice calls DeleteAll but it fails because she's only an fs admin
+	err = aliceClient.DeleteAll()
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -2921,7 +2971,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		_, err := iter.Next()
-		if err != io.EOF {
+		if !errors.Is(err, io.EOF) {
 			return err
 		}
 		return nil
@@ -3039,4 +3089,79 @@ func TestDisableGitHubAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	// clean up
+}
+
+// TestDisableGitHubAuthFSAdmin tests that users with the FS admin role can't disable auth
+func TestDisableGitHubAuthFSAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// confirm config is set to default config
+	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, cfg.GetConfiguration())
+
+	// confirm GH auth works by default
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "alice",
+	})
+	require.NoError(t, err)
+
+	// admin makes alice an fs admin
+	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Bindings,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice tries to set config to no GH, but doesn't have permission
+	configNoGitHub := &auth.AuthConfig{
+		LiveConfigVersion: 1,
+	}
+	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: configNoGitHub,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
+func TestDeactivateFSAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// admin makes alice an fs admin
+	_, err := adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
+		&auth.ModifyClusterRoleBindingRequest{Principal: gh(alice), Roles: fsClusterRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Bindings,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice tries to deactivate, but doesn't have permission as an FS admin
+	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
 }

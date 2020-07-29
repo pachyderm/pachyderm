@@ -308,9 +308,15 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	if err != nil {
 		return auth.Scope_NONE, err
 	}
-	if who.IsAdmin {
-		return auth.Scope_OWNER, nil
+
+	if who.ClusterRoles != nil {
+		for _, s := range who.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER || s == auth.ClusterRole_FS {
+				return auth.Scope_OWNER, nil
+			}
+		}
 	}
+
 	resp, err := pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{Repos: []string{repo.Name}})
 	if err != nil {
 		return auth.Scope_NONE, err
@@ -1079,17 +1085,18 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
+	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
-	branch string, provenance []*pfs.CommitProvenance,
+	branch string, origin *pfs.CommitOrigin, provenance []*pfs.CommitProvenance,
 	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object,
 	started, finished time.Time, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", started, finished, sizeBytes)
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, origin, provenance, tree, trees,
+			datums, nil, nil, "", started, finished, sizeBytes)
 		return err
 	})
 	return commit, err
@@ -1112,6 +1119,7 @@ func (d *driver) makeCommit(
 	ID string,
 	parent *pfs.Commit,
 	branch string,
+	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
 	treeRef *pfs.Object,
 	treesRefs []*pfs.Object,
@@ -1141,9 +1149,12 @@ func (d *driver) makeCommit(
 	if newCommit.ID == "" {
 		newCommit.ID = uuid.NewWithoutDashes()
 	}
+	if origin == nil {
+		origin = &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}
+	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
-		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Origin:      origin,
 		Description: description,
 	}
 	if branch != "" {
@@ -1332,6 +1343,35 @@ func (d *driver) makeCommit(
 		}
 	}
 
+	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+	// newCommit to parent's ChildCommits
+	if parent.ID != "" {
+		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+		// happen if 'branch' is new and diverges from the existing branch in
+		// 'parent.ID')
+		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parent commit not found")
+		}
+		// fail if the parent commit has not been finished
+		if parentCommitInfo.Finished == nil {
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
+		}
+		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parent
+			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
+			if newCommitInfo.Branch == nil {
+				newCommitInfo.Branch = parentCommitInfo.Branch
+			}
+			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+			return nil
+		}); err != nil {
+			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+			// missing/invalid commit ID
+			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
+		}
+	}
+
 	// keep track of which branches are represented in the commit provenance
 	provenantBranches := make(map[string]bool)
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
@@ -1363,35 +1403,6 @@ func (d *driver) makeCommit(
 			return nil
 		}); err != nil {
 			return nil, err
-		}
-	}
-
-	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
-	// newCommit to parent's ChildCommits
-	if parent.ID != "" {
-		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
-		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent.ID')
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
-		if err != nil {
-			return nil, errors.Wrapf(err, "parent commit not found")
-		}
-		// fail if the parent commit has not been finished
-		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
-		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parent
-			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
-			if newCommitInfo.Branch == nil {
-				newCommitInfo.Branch = parentCommitInfo.Branch
-			}
-			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-			return nil
-		}); err != nil {
-			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-			// missing/invalid commit ID
-			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
 		}
 	}
 
@@ -1851,6 +1862,9 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
+	if userCommit.Repo == nil {
+		return nil, errors.Errorf("cannot resolve commit with no repo")
+	}
 	if userCommit.ID == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
@@ -2048,7 +2062,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 				return err
 			}
 			if err := f(&commitInfo); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -2184,7 +2198,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		}
 		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			} else if auth.IsErrNotAuthorized(err) {
 				continue // again, just skip (we can't wait on commits we can't access)
@@ -2200,7 +2214,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, commit := range fromCommits {
 		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			}
 			return err
@@ -2869,7 +2883,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -2978,7 +2992,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					if header == nil {
 						header = sqlReader.Header
 					} else {
@@ -3003,7 +3017,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					EOF = true
 				} else {
 					return nil, err
@@ -3302,7 +3316,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -3887,7 +3901,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 	for {
 		_fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+			if errors.As(err, &pfsserver.ErrFileNotFound{}) {
 				return f(fi)
 			}
 			return err
@@ -4151,7 +4165,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -4329,8 +4343,7 @@ func isNotFoundErr(err error) bool {
 }
 
 func isNoHeadErr(err error) bool {
-	_, ok := err.(pfsserver.ErrNoHead)
-	return ok
+	return errors.As(err, &pfsserver.ErrNoHead{})
 }
 
 func commitKey(commit *pfs.Commit) string {

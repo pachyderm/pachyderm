@@ -8,6 +8,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -191,7 +192,7 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 		if atomic.LoadInt64(&count) == 0 {
 			cancel()
 		}
-		if err := eg.Wait(); retErr == nil && ctx.Err() != context.Canceled {
+		if err := eg.Wait(); retErr == nil && !errors.Is(ctx.Err(), context.Canceled) {
 			retErr = err
 		}
 		if err := m.deleteSubtasks(); err != nil {
@@ -280,7 +281,7 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 			return nil
 		}
 		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
-			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && taskEntry.ctx.Err() != context.Canceled {
+			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && !errors.Is(taskEntry.ctx.Err(), context.Canceled) {
 				fmt.Printf("errored in task callback: %v\n", err)
 			}
 		})
@@ -344,7 +345,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 				subtask := subtaskInfo.Task
 				defer func() {
 					// If the task context was canceled or the claim was lost, just return with no error.
-					if claimCtx.Err() == context.Canceled {
+					if errors.Is(claimCtx.Err(), context.Canceled) {
 						retErr = nil
 						return
 					}
@@ -372,8 +373,8 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			})
 		}(); err != nil {
 			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.
-			if ctx.Err() == context.Canceled ||
-				col.IsErrNotFound(err) || err == col.ErrNotClaimed {
+			if errors.Is(ctx.Err(), context.Canceled) ||
+				col.IsErrNotFound(err) || errors.Is(err, col.ErrNotClaimed) {
 				return
 			}
 			fmt.Printf("errored in subtask callback: %v\n", err)

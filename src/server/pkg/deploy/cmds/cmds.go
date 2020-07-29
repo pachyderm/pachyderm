@@ -287,6 +287,7 @@ func standardDeployCmds() []*cobra.Command {
 	var putFileConcurrencyLimit int
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
+	var workerServiceAccountName string
 	appendGlobalFlags := func(cmd *cobra.Command) {
 		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
@@ -312,6 +313,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
+		cmd.Flags().StringVar(&workerServiceAccountName, "worker-service-account", assets.DefaultWorkerServiceAccountName, "The Kubernetes service account for workers to use when creating S3 gateways.")
 
 		// Flags for setting pachd resource requests. These should rarely be set --
 		// only if we get the defaults wrong, or users have an unusual access pattern
@@ -418,6 +420,7 @@ func standardDeployCmds() []*cobra.Command {
 			ExposeObjectAPI:            exposeObjectAPI,
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
+			WorkerServiceAccountName:   workerServiceAccountName,
 		}
 		if tlsCertKey != "" {
 			// TODO(msteffen): If either the cert path or the key path contains a
@@ -595,6 +598,9 @@ If <object store backend> is \"s3\", then the arguments are:
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
 			}
+			if isS3V2 {
+				fmt.Printf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version\n\n")
+			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
 			if err := assets.WriteCustomAssets(
@@ -628,7 +634,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
-	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
+	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client (DEPRECATED)")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -1304,19 +1310,31 @@ underlying volume will not be removed.`)
 }
 
 func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
-	var err error
-	version := version.PrettyPrintVersion(version.Version)
-	defer func() {
-		if err != nil && !dryRun {
-			fmt.Printf("No updated dash image found for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
-		}
-	}()
 	if dashImage != "" {
 		// It has been supplied explicitly by version on the command line
 		return dashImage
 	}
 	dashImage = defaultDashImage
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/compatibility/%v", version)
+
+	var err error
+	var relVersion string
+
+	// This is the branch where to look.
+	// When a new dash version needs to be pushed we can just update the compatibility file
+	// in pachyderm repo branch. A (re)deploy will pick it up. To make this work we have to
+	// point the URL to the branch (not tag) in the repo.
+	branch := version.BranchFromVersion(version.Version)
+	if version.IsCustomRelease(version.Version) {
+		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
+	} else {
+		relVersion = version.PrettyPrintVersion(version.Version)
+	}
+	defer func() {
+		if err != nil && !dryRun {
+			fmt.Printf("No updated dash image found for pachctl in branch %v in release %v: %v Falling back to dash image %v\n", branch, relVersion, err, defaultDashImage)
+		}
+	}()
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/etc/compatibility/%v", branch, relVersion)
 	resp, err := http.Get(compatibleDashVersionsURL)
 	if err != nil {
 		return dashImage

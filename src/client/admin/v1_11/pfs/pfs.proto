@@ -1,0 +1,779 @@
+syntax = "proto3";
+
+package pfs_1_11;
+option go_package = "github.com/pachyderm/pachyderm/src/client/admin/v1_11/pfs";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+import "gogoproto/gogo.proto";
+
+import "client/admin/v1_11/auth/auth.proto";
+
+////  PFS Data structures (stored in etcd)
+
+message Repo {
+  string name = 1;
+}
+
+message Branch {
+  Repo repo = 1;
+  string name = 2;
+}
+
+message BranchInfo {
+  Branch branch = 4;
+  Commit head = 2;
+  repeated Branch provenance = 3;
+  repeated Branch subvenance = 5;
+  repeated Branch direct_provenance = 6;
+
+  // Deprecated field left for backward compatibility.
+  string name = 1;
+}
+
+message BranchInfos {
+  repeated BranchInfo branch_info = 1;
+}
+
+message File {
+  Commit commit = 1;
+  string path = 2;
+}
+
+message Block {
+  string hash = 1;
+}
+
+message Object {
+  string hash = 1;
+}
+
+message Tag {
+  string name = 1;
+}
+
+// RepoInfo is the main data structure representing a Repo in etcd
+message RepoInfo {
+  reserved 4;
+  Repo repo = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size_bytes = 3;
+  string description = 5;
+  repeated Branch branches = 7;
+
+  // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
+  // not stored in etcd. To set a user's auth scope for a repo, use the
+  // Pachyderm Auth API (in src/client/auth/auth_1_11.proto)
+  RepoAuthInfo auth_info = 6;
+}
+
+// RepoAuthInfo includes the caller's access scope for a repo, and is returned
+// by ListRepo and InspectRepo but not persisted in etcd. It's used by the
+// Pachyderm dashboard to render repo access appropriately. To set a user's auth
+// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth_1_11.proto)
+message RepoAuthInfo {
+  // The callers access level to the relevant repo (e.g. may be OWNER even if
+  // the user isn't an OWNER of the repo, if they're an admin for the cluster)
+  auth_1_11.Scope access_level = 1;
+}
+
+// These are the different places where a commit may be originated from
+enum OriginKind {
+  USER = 0;
+  AUTO = 1;
+  FSCK = 2;
+}
+
+message CommitOrigin {
+  OriginKind kind = 1;
+}
+// Commit is a reference to a commit (e.g. the collection of branches and the
+// collection of currently-open commits in etcd are collections of Commit
+// protos)
+message Commit {
+  Repo repo = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
+}
+
+// CommitRange represents chain of commits with Lower being an ancestor of
+// Upper or, in the case of a range of size 1, the same commit.
+message CommitRange {
+  Commit lower = 1;
+  Commit upper = 2;
+}
+
+// CommitProvenance keeps track of where (i.e. which branch) a certain commit
+// originated from. A commit's provenance consists of the commits of
+// the commits which are in its causal history.
+message CommitProvenance {
+  Commit commit = 1;
+  Branch branch = 2;
+}
+
+// CommitInfo is the main data structure representing a commit in etcd
+message CommitInfo {
+  reserved 6, 10;
+  Commit commit = 1;
+  Branch branch = 15;
+  CommitOrigin origin = 17;
+  // description is a user-provided script describing this commit
+  string description = 8;
+  Commit parent_commit = 2;
+  repeated Commit child_commits = 11;
+  google.protobuf.Timestamp started = 3;
+  google.protobuf.Timestamp finished = 4;
+  uint64 size_bytes = 5;
+
+  // the commits and their original branches on which this commit is provenant
+  repeated CommitProvenance provenance = 16;
+
+  // ReadyProvenance is the number of provenant commits which have been
+  // finished, if ReadyProvenance == len(Provenance) then the commit is ready
+  // to be processed by pps.
+  int64 ready_provenance = 12;
+
+  repeated CommitRange subvenance = 9;
+  // this is the block that stores the serialized form of a tree that
+  // represents the entire file system hierarchy of the repo at this commit
+  // If this is nil, then the commit is either open (in which case 'finished'
+  // will also be nil) or is the output commit of a failed job (in which case
+  // 'finished' will have a value -- the end time of the job)
+  Object tree = 7;
+  repeated Object trees = 13;
+  Object datums = 14;
+
+  int64 subvenant_commits_success = 18;
+  int64 subvenant_commits_failure = 19;
+  int64 subvenant_commits_total = 20;
+}
+
+enum FileType {
+  RESERVED = 0;
+  FILE = 1;
+  DIR = 2;
+}
+
+message FileInfo {
+  File file = 1;
+  FileType file_type = 2;
+  uint64 size_bytes = 3;
+  google.protobuf.Timestamp committed = 10;
+  // the base names (i.e. just the filenames, not the full paths) of
+  // the children
+  repeated string children = 6;
+  repeated Object objects = 8;
+  repeated BlockRef blockRefs = 9;
+  bytes hash = 7;
+}
+
+message ByteRange {
+  uint64 lower = 1;
+  uint64 upper = 2;
+}
+
+message BlockRef {
+  Block block = 1;
+  ByteRange range = 2;
+}
+
+message ObjectInfo {
+  Object object = 1;
+  BlockRef block_ref = 2;
+}
+
+message Compaction {
+  repeated string input_prefixes = 2;
+}
+
+message Shard {
+  Compaction compaction = 1;
+  PathRange range = 2;
+  string output_path = 3;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+// PFS API
+
+message CreateRepoRequest {
+  reserved 2;
+  Repo repo = 1;
+  string description = 3;
+  bool update = 4;
+}
+
+message InspectRepoRequest {
+  Repo repo = 1;
+}
+
+message ListRepoRequest {
+  reserved 1;
+}
+
+message ListRepoResponse {
+  repeated RepoInfo repo_info = 1;
+}
+
+message DeleteRepoRequest {
+  Repo repo = 1;
+  bool force = 2;
+  bool all = 3;
+}
+
+// CommitState describes the states a commit can be in.
+// The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
+enum CommitState {
+  STARTED = 0; // The commit has been started, all commits satisfy this state.
+  READY = 1; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHED = 2; // The commit has been finished.
+}
+
+message StartCommitRequest {
+  reserved 2;
+  // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
+  // If branch is empty, or if branch does not exist, the commit will have no parent.
+  Commit parent = 1;
+  // description is a user-provided string describing this commit
+  string description = 4;
+  string branch = 3;
+  repeated CommitProvenance provenance = 5;
+}
+
+message BuildCommitRequest {
+  reserved 2;
+  Commit parent = 1;
+  string branch = 4;
+  CommitOrigin origin = 12;
+  repeated CommitProvenance provenance = 6;
+  Object tree = 3;
+  repeated Object trees = 7;
+  Object datums = 8;
+  // ID sets the ID of the created commit.
+  string ID = 5;
+  uint64 size_bytes = 9;
+  // 'started' and 'finished' are set by Restore() when repopulating old
+  // commits. If 'finished' is set, the commit being built is always marked
+  // finished.
+  google.protobuf.Timestamp started = 10;
+  google.protobuf.Timestamp finished = 11;
+}
+
+message FinishCommitRequest {
+  Commit commit = 1;
+  // description is a user-provided string describing this commit. Setting this
+  // will overwrite the description set in StartCommit
+  string description = 2;
+
+  Object tree = 3;
+  repeated Object trees = 5;
+  Object datums = 7;
+  uint64 size_bytes = 6;
+  // If set, 'commit' will be closed (its 'finished' field will be set to the
+  // current time) but its 'tree' will be left nil.
+  bool empty = 4;
+}
+
+message InspectCommitRequest {
+  Commit commit = 1;
+  // BlockState causes inspect commit to block until the commit is in the desired state.
+  CommitState block_state = 2;
+}
+
+message ListCommitRequest {
+  Repo repo = 1;
+  Commit from = 2;
+  Commit to = 3;
+  uint64 number = 4;
+  bool reverse = 5;  // Return commits oldest to newest
+}
+
+message CommitInfos {
+  repeated CommitInfo commit_info = 1;
+}
+
+message CreateBranchRequest {
+  Commit head = 1;
+  // s_branch matches the field number and type of SetBranchRequest.Branch in
+  // Pachyderm 1.6--so that operations (generated by pachyderm 1.6's
+  // Admin.Export) can be deserialized by pachyderm 1.7 correctly
+  string s_branch = 2;
+  Branch branch = 3;
+  repeated Branch provenance = 4;
+}
+
+message InspectBranchRequest {
+  Branch branch = 1;
+}
+
+message ListBranchRequest {
+  Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
+}
+
+message DeleteBranchRequest {
+  Branch branch = 1;
+  bool force = 2;
+}
+
+message DeleteCommitRequest {
+  Commit commit = 1;
+}
+
+message FlushCommitRequest {
+  repeated Commit commits = 1;
+  repeated Repo to_repos = 2;
+}
+
+message SubscribeCommitRequest {
+  Repo repo = 1;
+  string branch = 2;
+  CommitProvenance prov = 5;
+  // only commits created since this commit are returned
+  Commit from = 3;
+  // Don't return commits until they're in (at least) the desired state.
+  CommitState state = 4;
+}
+
+message GetFileRequest {
+  File file = 1;
+  int64 offset_bytes = 2;
+  int64 size_bytes = 3;
+}
+
+enum Delimiter {
+  NONE = 0;
+  JSON = 1;
+  LINE = 2;
+  SQL = 3;
+  CSV = 4;
+}
+
+// An OverwriteIndex specifies the index of objects from which new writes
+// are applied to.  Existing objects starting from the index are deleted.
+// We want a separate message for ObjectIndex because we want to be able to
+// distinguish between a zero index and a non-existent index.
+message OverwriteIndex {
+  int64 index = 1;
+}
+
+message PutFileRequest {
+  reserved 2, 4;
+  File file = 1;
+  bytes value = 3;
+  string url = 5;
+  // applies only to URLs that can be recursively walked, for example s3:// URLs
+  bool recursive = 6;
+  // Delimiter causes data to be broken up into separate files with File.Path
+  // as a prefix.
+  Delimiter delimiter = 7;
+  // TargetFileDatums specifies the target number of datums in each written
+  // file it may be lower if data does not split evenly, but will never be
+  // higher, unless the value is 0.
+  int64 target_file_datums = 8;
+  // TargetFileBytes specifies the target number of bytes in each written
+  // file, files may have more or fewer bytes than the target.
+  int64 target_file_bytes = 9;
+  // header_records is an option for splitting data when 'delimiter' is not NONE
+  // (or SQL). It specifies the number of records that are converted to a
+  // header and applied to all file shards.
+  //
+  // This is particularly useful for CSV files, where the first row often
+  // contains column titles; if 'header_records' is set to one in that case,
+  // the first row will be associated with the directory that contains the rest
+  // of the split-up csv rows as files, and if any data is retrieved from that
+  // directory by GetFile, it will appear to begin with that first row of
+  // column labels (including in pipeline workers).
+  //
+  // Note that SQL files have their own logic for determining headers (their
+  // header is not a number of records, but a collection of SQL commands that
+  // create the relevant tables and such). This way, SQL files retrieved by
+  // GetFile can be passed to psql, and they will set up the appropriate tables
+  // before inserting the records in the files that were retrieved.
+  int64 header_records = 11;
+  // overwrite_index is the object index where the write starts from.  All
+  // existing objects starting from the index are deleted.
+  OverwriteIndex overwrite_index = 10;
+  // delete indicates that the file should be deleted, this is redundant with
+  // DeleteFile, but is necessary because it allows you to send file deletes
+  // atomically with other PutFile operations.
+  bool delete = 12;
+}
+
+// PutFileRecord is used to record PutFile requests in etcd temporarily.
+message PutFileRecord {
+  int64 size_bytes = 1;
+  string object_hash = 2;
+  OverwriteIndex overwrite_index = 3;
+  BlockRef block_ref = 4;
+}
+
+message PutFileRecords {
+  bool split = 1;
+  repeated PutFileRecord records = 2;
+  bool tombstone = 3;
+  PutFileRecord header = 4;
+  PutFileRecord footer = 5;
+}
+
+message CopyFileRequest {
+  File src = 1;
+  File dst = 2;
+  bool overwrite = 3;
+}
+
+message InspectFileRequest {
+  File file = 1;
+}
+
+message ListFileRequest {
+  // File is the parent directory of the files we want to list. This sets the
+  // repo, the commit/branch, and path prefix of files we're interested in
+  // If the "path" field is omitted, a list of files at the top level of the repo
+  // is returned
+  File file = 1;
+
+  // Full indicates whether the result should include file contents, which may
+  // be large (i.e. the list of children for directories, and the list of object
+  // references for regular files)
+  bool full = 2;
+
+  // History indicates how many historical versions you want returned. Its
+  // semantics are:
+  // 0: Return the files as they are at the commit in `file`. FileInfo.File
+  //    will equal File in this request.
+  // 1: Return the files as they are in the last commit they were modified in.
+  //    (This will have the same hash as if you'd passed 0, but
+  //    FileInfo.File.Commit will be different.
+  // 2: Return the above and the files as they are in the next-last commit they
+  //    were modified in.
+  // 3: etc.
+  //-1: Return all historical versions.
+  int64 history = 3;
+}
+
+message WalkFileRequest {
+    File file = 1;
+}
+
+message GlobFileRequest {
+  Commit commit = 1;
+  string pattern = 2;
+}
+
+// FileInfos is the result of both ListFile and GlobFile
+message FileInfos {
+  repeated FileInfo file_info = 1;
+}
+
+message DiffFileRequest {
+  File new_file = 1;
+  // OldFile may be left nil in which case the same path in the parent of
+  // NewFile's commit will be used.
+  File old_file = 2;
+  bool shallow = 3;
+}
+
+message DiffFileResponse {
+  repeated FileInfo new_files = 1;
+  repeated FileInfo old_files = 2;
+}
+
+message DeleteFileRequest {
+  File file = 1;
+}
+
+message FsckRequest {
+  bool fix = 1;
+}
+
+message FsckResponse {
+  string fix = 1;
+  string error = 2;
+}
+
+// Messages specific to Pachyderm 2.
+
+message FileInfoV2 {
+  File file = 1;
+  string hash = 2;
+}
+
+// PutTar Protocol:
+//   Client sends an initial request with only the commit field set.
+//   For each tar stream to put:
+//     If the client wants to tag the tar stream:
+//       Client sends a request with the tag field set (the first batch
+//       of data can be optionally sent with this request).
+//     For bytes in the tar stream:
+//       Client sends a request with the bytes stored in the data field.
+//     Client sends a request with the EOF field set to true.
+//   Client connection is closed.
+
+message FileOperationRequestV2 {
+  Commit commit = 1;
+  oneof operation {
+    PutTarRequestV2 put_tar = 2;
+    DeleteFilesRequestV2 delete_files = 3;
+  }
+}
+
+message PutTarRequestV2 {
+  string tag = 1;
+  bytes data = 2;
+  bool EOF = 3;
+}
+
+message DeleteFilesRequestV2 {
+  repeated string files = 1; 
+  string tag = 2;
+}
+
+message GetTarRequestV2 {
+  File file = 1;
+}
+
+// GetTarConditional Protocol:
+//   Client sends an initial request that is similar to a GetTar request.
+//   For files that match the request:
+//     Server sends a response with the file info for the file.
+//     If the client wants to skip the file content:
+//       Client sends a request with the skip field set to true.
+//     Else
+//       Client sends a request with the skip field set to false.
+//       For file content:
+//         Server sends a response with file content in the data field.
+//       Server sends a response with the EOF field set to true.
+//   Server connection is closed by returning from handler.
+
+message GetTarConditionalRequestV2 {
+  File file = 1;
+  bool skip = 2;
+}
+
+message GetTarConditionalResponseV2 {
+  FileInfoV2 file_info = 1;
+  bytes data = 2;
+  bool EOF = 3;
+}
+
+service API {
+  // Repo rpcs
+  // CreateRepo creates a new repo.
+  // An error is returned if the repo already exists.
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+
+  // Commit rpcs
+  // StartCommit creates a new write commit from a parent commit.
+  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // FinishCommit turns a write commit into a read commit.
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits. This is deprecated in favor of
+  // ListCommitStream.
+  rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // ListCommitStream is like ListCommit, but returns its results in a GRPC stream
+  rpc ListCommitStream(ListCommitRequest) returns (stream CommitInfo) {}
+  // DeleteCommit deletes a commit.
+  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // FlushCommit waits for downstream commits to finish
+  rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
+  // SubscribeCommit subscribes for new commits on a given branch
+  rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
+  // BuildCommit builds a commit that's backed by the given tree
+  rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
+
+  // CreateBranch creates a new branch
+  rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
+  // InspectBranch returns info about a branch.
+  rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
+  // DeleteBranch deletes a branch; note that the commits still exist.
+  rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
+
+  // File rpcs
+  // PutFile writes the specified file to pfs.
+  rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
+  // CopyFile copies the contents of one file to another.
+  rpc CopyFile(CopyFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns a byte stream of the contents of the file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files. This is deprecated in favor of
+  // ListFileStream
+  rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // ListFileStream is a streaming version of ListFile
+  // TODO(msteffen): When the dash has been updated to use ListFileStream,
+  // replace ListFile with this RPC (https://github.com/pachyderm/dash/issues/201)
+  rpc ListFileStream(ListFileRequest) returns (stream FileInfo) {}
+  // WalkFile walks over all the files under a directory, including children of children.
+  rpc WalkFile(WalkFileRequest) returns (stream FileInfo) {}
+  // GlobFile returns info about all files. This is deprecated in favor of
+  // GlobFileStream
+  rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
+  // GlobFileStream is a streaming version of GlobFile
+  // TODO(msteffen): When the dash has been updated to use GlobFileStream,
+  // replace GlobFile with this RPC (https://github.com/pachyderm/dash/issues/201)
+  rpc GlobFileStream(GlobFileRequest) returns (stream FileInfo) {}
+  // DiffFile returns the differences between 2 paths at 2 commits.
+  rpc DiffFile(DiffFileRequest) returns (DiffFileResponse) {}
+  // DeleteFile deletes a file.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+
+  // DeleteAll deletes everything
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // Fsck does a file system consistency check for pfs
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
+
+  // RPCs specific to Pachyderm 2.
+  rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
+  rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
+  // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
+  rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
+  rpc ListFileV2(ListFileRequest) returns (stream FileInfoV2) {}
+  rpc GlobFileV2(GlobFileRequest) returns (stream FileInfoV2) {}
+}
+
+message PutObjectRequest {
+  bytes value = 1;
+  repeated Tag tags = 2;
+  Block block = 3;
+}
+
+message CreateObjectRequest {
+  Object object = 1;
+  BlockRef block_ref = 2;
+}
+
+message GetObjectsRequest {
+  repeated Object objects = 1;
+  uint64 offset_bytes = 2;
+  // The number of bytes requested.
+  uint64 size_bytes = 3;
+  // The total amount of bytes in these objects.  It's OK if it's not
+  // entirely accurate or if it's unknown (in which case it'd be set to 0).
+  // It's used primarily as a hint for cache eviction.
+  uint64 total_size = 4;
+}
+
+message PutBlockRequest {
+  Block block = 1;
+  bytes value = 2;
+}
+
+message GetBlockRequest {
+  Block block = 1;
+}
+
+message GetBlocksRequest {
+  repeated BlockRef blockRefs = 1;
+  uint64 offset_bytes = 2;
+  // The number of bytes requested.
+  uint64 size_bytes = 3;
+  // The total amount of bytes in these blocks.  It's OK if it's not
+  // entirely accurate or if it's unknown (in which case it'd be set to 0).
+  // It's used primarily as a hint for cache eviction.
+  uint64 total_size = 4;
+}
+
+message ListBlockRequest {}
+
+message TagObjectRequest {
+  Object object = 1;
+  repeated Tag tags = 2;
+}
+
+message ListObjectsRequest {}
+
+message ListTagsRequest {
+  string prefix = 1;
+  bool include_object = 2;
+}
+
+message ListTagsResponse {
+  Tag tag = 1;
+  Object object = 2;
+}
+
+message DeleteObjectsRequest {
+  repeated Object objects = 1;
+}
+
+message DeleteObjectsResponse {}
+
+message DeleteTagsRequest {
+  repeated Tag tags = 1;
+}
+
+message DeleteTagsResponse {}
+
+message CheckObjectRequest {
+  Object object = 1;
+}
+
+message CheckObjectResponse {
+  bool exists = 1;
+}
+
+message Objects {
+  repeated Object objects = 1;
+}
+
+message PutObjDirectRequest {
+    string obj = 1;
+    bytes value = 2;
+}
+
+message GetObjDirectRequest {
+    string obj = 1;
+}
+
+service ObjectAPI {
+  rpc PutObject(stream PutObjectRequest) returns (Object) {}
+  rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
+  rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
+  rpc CreateObject(CreateObjectRequest) returns (google.protobuf.Empty) {}
+  rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
+  rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc PutBlock(stream PutBlockRequest) returns (google.protobuf.Empty) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc ListBlock(ListBlockRequest) returns (stream Block) {}
+  rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
+  rpc InspectObject(Object) returns (ObjectInfo) {}
+  // CheckObject checks if an object exists in the blob store without
+  // actually reading the object.
+  rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
+  rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
+  rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectTag(Tag) returns (ObjectInfo) {}
+  rpc ListTags(ListTagsRequest) returns (stream ListTagsResponse) {}
+  rpc DeleteTags(DeleteTagsRequest) returns (DeleteTagsResponse) {}
+  rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // PutObjDirect puts an obj directly into object store, bypassing the content
+  // addressing layer.
+  rpc PutObjDirect(stream PutObjDirectRequest) returns (google.protobuf.Empty) {}
+  // GetObjDirect gets an obj directly out of object store, bypassing the
+  // content addressing layer.
+  rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
+}
+
+message ObjectIndex {
+  map<string, BlockRef> objects = 1;
+  map<string, Object> tags = 2;
+}
+
