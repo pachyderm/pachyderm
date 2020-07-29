@@ -24,6 +24,7 @@ type Writer struct {
 	cw        *chunk.Writer
 	iw        *index.Writer
 	idx       *index.Index
+	noUpload  bool
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
 	priorFile bool
@@ -36,7 +37,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 		opt(w)
 	}
 	var chunkWriterOpts []chunk.WriterOption
-	if w.indexFunc != nil {
+	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
 	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
@@ -114,15 +115,19 @@ func (w *Writer) callback() chunk.WriterFunc {
 		}
 		// Don't write out the last file index (it may have more content in the next chunk).
 		idxs = idxs[:len(idxs)-1]
+		if !w.noUpload {
+			if err := w.iw.WriteIndexes(idxs); err != nil {
+				return err
+			}
+		}
 		if w.indexFunc != nil {
 			for _, idx := range idxs {
 				if err := w.indexFunc(idx); err != nil {
 					return err
 				}
 			}
-			return nil
 		}
-		return w.iw.WriteIndexes(idxs)
+		return nil
 	}
 }
 
@@ -198,15 +203,19 @@ func (w *Writer) Close() error {
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
-		if w.indexFunc != nil {
-			if err := w.indexFunc(w.lastIdx); err != nil {
+		idx := w.lastIdx
+		if !w.noUpload {
+			if err := w.iw.WriteIndexes([]*index.Index{idx}); err != nil {
 				return err
 			}
-		} else if err := w.iw.WriteIndexes([]*index.Index{w.lastIdx}); err != nil {
-			return err
+		}
+		if w.indexFunc != nil {
+			if err := w.indexFunc(idx); err != nil {
+				return err
+			}
 		}
 	}
-	if w.indexFunc != nil {
+	if w.noUpload {
 		return nil
 	}
 	// Close the index writer.
