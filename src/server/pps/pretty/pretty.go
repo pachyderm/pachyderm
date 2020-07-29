@@ -451,10 +451,51 @@ func ShorthandInput(input *ppsclient.Input) string {
 			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⋈ ") + ")"
+	case input.Group != nil:
+		var subInput []string
+		for _, input := range input.Group {
+			subInput = append(subInput, ShorthandInputGroup(input))
+		}
+		return "( Group: " + strings.Join(subInput, ", ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union {
 			subInput = append(subInput, ShorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " ∪ ") + ")"
+	case input.Cron != nil:
+		return fmt.Sprintf("%s:%s", input.Cron.Name, input.Cron.Spec)
+	}
+	return ""
+}
+
+// ShorthandInputGroup renders a pps.Input as a short, readable string with the group by's included
+func ShorthandInputGroup(input *ppsclient.Input) string {
+	switch {
+	case input.Pfs != nil:
+		return fmt.Sprintf("%s:%s by %s", input.Pfs.Repo, input.Pfs.Glob, input.Pfs.GroupBy)
+	case input.Cross != nil:
+		var subInput []string
+		for _, input := range input.Cross {
+			subInput = append(subInput, ShorthandInputGroup(input))
+		}
+		return "(" + strings.Join(subInput, " ⨯ ") + ")"
+	case input.Join != nil:
+		var subInput []string
+		for _, input := range input.Join {
+			subInput = append(subInput, ShorthandInputGroup(input))
+		}
+		return "(" + strings.Join(subInput, " ⋈ ") + ")"
+	case input.Group != nil:
+		var subInput []string
+		for _, input := range input.Group {
+			subInput = append(subInput, ShorthandInputGroup(input))
+		}
+		return "( Group: " + strings.Join(subInput, ", ") + ")"
+	case input.Union != nil:
+		var subInput []string
+		for _, input := range input.Union {
+			subInput = append(subInput, ShorthandInputGroup(input))
 		}
 		return "(" + strings.Join(subInput, " ∪ ") + ")"
 	case input.Cron != nil:

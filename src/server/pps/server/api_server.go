@@ -168,6 +168,12 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Group != nil:
+		for _, input := range input.Group {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
 	case input.Git != nil:
 		if names[input.Git.Name] {
 			return errors.Errorf(`name "%s" was used more than once`, input.Git.Name)
@@ -246,6 +252,17 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					// are not yet clear, and we see no use case for them yet, so block
 					// them until we know how they should work
 					return errors.Errorf("S3 inputs in join expressions are not supported")
+				}
+			}
+			if input.Group != nil {
+				if set {
+					return errors.Errorf("multiple input types set")
+				}
+				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// See above for "joins"; block s3 inputs in group expressions until
+					// we know how they should work
+					return errors.Errorf("S3 inputs in group expressions are not supported")
 				}
 			}
 			if input.Union != nil {
