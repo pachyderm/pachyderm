@@ -18,9 +18,8 @@ In this example, we will cover:
 
 ## Prerequisites
 
-Before you can start working on this example, make sure you have the following prerequisites:
-
-You should understand deferred processing by reading the documentation
+Before you start working on this example, 
+you should understand deferred processing by reading the documentation
 and trying the [deferred processing example](../deferred_processing_plus_transactions).
 That example is used extensively here.
 
@@ -315,8 +314,8 @@ in the second step, below.
 
 !!! note
     On macOS, you may need to install `watch`, 
-    which may be installed via [Homebrew](https://brew.sh/)
-    using the command `brew install watch`.
+        which may be installed via [Homebrew](https://brew.sh/)
+        using the command `brew install watch`.
 
 1. Every minute, you should see a job triggered on `branch-mover`.
    The very first job will be immediately followed
