@@ -10,6 +10,12 @@ along with the explanations provided in this document,
 should give you a good start on implementing this in your Pachyderm cluster
 with or without access controls activated.
 
+In this example, we will cover:
+
+1. Creating a cron pipeline that will move the master branch to the commit in another repo periodically
+1. Adding an authentication token to allow it to work when access controls are activated
+
+
 ## Prerequisites
 
 Before you can start working on this example, make sure you have the following prerequisites:
@@ -18,6 +24,12 @@ You should understand deferred processing by reading the documentation
 and trying the [deferred processing example](../deferred_processing_plus_transactions).
 That example is used extensively here.
 
+To create and update branch labels, 
+the `branch-mover` pipeline uses `pachctl` to send commands to Pachyderm's `pachd`.
+The `branch-mover` pipeline, since it's embedded in Pachyderm itself, 
+will need a configuration to talk to `pachd` 
+and, if access controls are activated, credentials to authenticate itself.
+ 
 For a Pachyderm cluster with activated access controls,
 this example demonstrates how to create a Pachyderm authentication token,
 load the token into a Kubernetes secret provisioned through `pachctl`, 
@@ -200,9 +212,9 @@ Next, let us load the secret into Kubernetes by running the following command:
 pachctl create secret -f pachyderm-user-secret.secret
 ```
 
-.NOTE:
-You can run the two previous steps by running
-`make pachyderm-user-secret.secret`.
+!!! note
+    You can run the two previous steps by running
+    `make pachyderm-user-secret.secret`.
 
 #### Mounting the secret in the pipeline
 
@@ -258,8 +270,8 @@ Finally, create the pipeline using that spec:
 pachctl create pipeline -f branch-mover.json
 ```
 
-.NOTE:
-You can run this step with the command  `make create-branch-mover`.
+!!! note
+    You can run this step with the command  `make create-branch-mover`.
 
 ## Example run-through
 
@@ -301,10 +313,10 @@ in the second step, below.
    watch -cn 2 pachctl list job --no-pager
    ```
 
-.NOTE:
-On macOS, you may need to install `watch`, 
-which may be installed via [Homebrew](https://brew.sh/)
-using the command `brew install watch`.
+!!! note
+    On macOS, you may need to install `watch`, 
+    which may be installed via [Homebrew](https://brew.sh/)
+    using the command `brew install watch`.
 
 1. Every minute, you should see a job triggered on `branch-mover`.
    The very first job will be immediately followed
