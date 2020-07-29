@@ -173,7 +173,7 @@ We can now connect a pipeline to watch the data repo. Pipelines are defined in `
             "--target-col", "MEDV",
             "--output", "/pfs/out/"
         ],
-        "image": "pachyderm/housing-prices:v0.1"
+        "image": "pachyderm/housing-prices:1.11.0"
     }
 }
 ```

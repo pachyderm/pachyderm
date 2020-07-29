@@ -16,6 +16,6 @@
             "--target-col", "MEDV",
             "--output", "/pfs/out/"
         ],
-        "image": "pachyderm/housing-prices:v0.1"
+        "image": "pachyderm/housing-prices:1.11.0"
     }
 }
