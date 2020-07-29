@@ -350,7 +350,7 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 	}
 
 	// sort everything by the group_by
-	sort.Sort(sort.StringSlice(keys))
+	sort.Strings(keys)
 	// put each equivalence class into its own datum
 	for _, key := range keys {
 		result.datums = append(result.datums, groupMap[key])
