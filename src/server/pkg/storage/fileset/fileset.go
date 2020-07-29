@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // TODO Might want to rework this a bit later or add some additional validation.
