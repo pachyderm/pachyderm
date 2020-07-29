@@ -9,5 +9,4 @@ openai-ft \
 -m ada \
 --batch-size 4 \
 --val-batch-size 4 \
---num-epochs 10 \
--k $OPENAI_API_KEY
+--num-epochs 10
