@@ -11,8 +11,8 @@
    --md-default-bg-color--lightest:     hsla(0, 0%, 100%, 0.12);
 
    /* Primary color shades */
-   --md-primary-fg-color:               hsla(280, 37%, 26%, 1);
-   --md-primary-fg-color--light:        hsla(280, 37%, 26%, 1);
+   --md-primary-fg-color:               hsla(281, 39%, 30%, 1);
+   --md-primary-fg-color--light:        hsla(281, 39%, 30%,1);
    --md-primary-fg-color--dark:         hsla(280, 37%, 11%, 0);
    --md-primary-bg-color:               var(--md-default-bg-color);
    --md-primary-bg-color--light:        var(--md-default-bg-color--light);
