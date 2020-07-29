@@ -1,11 +1,11 @@
 {
     "pipeline": {
-        "name": "train"
+        "name": "generate"
     },
-    "description": "Finetunes the gpt-3 model.",
+    "description": "Generates gpt-3 completions using finetuned model.",
     "transform": {
         "image": "gpt3",
-        "cmd": ["/train.sh"],
+        "cmd": ["/generate.sh"],
         "secrets": [ {
             "name": "openai",
             "env_var": "OPENAI_API_KEY",
@@ -18,8 +18,8 @@
     },
     "input": {
         "pfs": {
-            "repo": "data",
-            "glob": "/"
+            "repo": "prompts",
+            "glob": "/*"
         }
     }
 }
