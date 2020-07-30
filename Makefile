@@ -348,8 +348,8 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
-dash-compatibility:
-	./etc/build/dash_compatibility.sh
+compatibility:
+	./etc/build/compatibility.sh
 
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
@@ -546,6 +546,7 @@ goxc-build:
 	clean \
 	doc-custom \
 	doc \
+	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
 	clean-launch-stats \

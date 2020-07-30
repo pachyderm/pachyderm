@@ -67,18 +67,24 @@ git add src/client/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Update dash compatibility version
+### Update dash, IDE versions
+
+If you want to update the version of the Pachyderm dash or IDE associated with
+this release, change `defaultDashVersion` or `defaultIDEVersion` respectively in
+`./src/server/pkg/deploy/cmds/cmds.go`.
+
+### Update compatibility versions
 
 Commit these changes locally (you will push to GitHub in a later step):
 
 ```bash
-make dash-compatibility
+make compatibility
 git add etc/compatibility
-git commit -m"Update dash compatibility for $(pachctl version --client-only) release"
+git commit -m"Update compatibility for $(pachctl version --client-only) release"
 ```
 
 Note: The update to "latest" will cause dash CI to default run with the
-release pointed to be latest The latest link is only update for
+release pointed to be latest. The latest link is only update for
 Major/Minor/Point releases. In order to test a new version of dash with
 RC/Alpha/Beta/Custom release, modify the deployment manifest to test it
 manually.
