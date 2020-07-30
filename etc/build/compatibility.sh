@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ ! -f "$GOPATH/bin/pachctl" ]
 then
     echo "$GOPATH/bin/pachctl not found."
