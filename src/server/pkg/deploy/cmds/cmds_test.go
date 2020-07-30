@@ -20,7 +20,7 @@ const FakeAWSAccessKeyID = "MADEUPAWSACCESSKEYID"
 const FakeAWSSecret = "YIUo7lLijgheOTbSR57DCv8eGVklj8UHUQb9aTDf"
 
 func TestDashImageExists(t *testing.T) {
-	c := exec.Command("docker", "pull", fmt.Sprintf("pachyderm/dash:%s", defaultDashVersion))
+	c := exec.Command("docker", "pull", fmt.Sprintf("%s:%s", defaultDashImage, defaultDashVersion))
 	require.NoError(t, c.Run())
 }
 

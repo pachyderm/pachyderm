@@ -48,6 +48,7 @@ var (
 )
 
 const (
+	defaultDashImage   = "pachyderm/dash"
 	defaultDashVersion = "0.5.48"
 
 	defaultIDEHubImage     = "pachyderm/ide-hub"
@@ -389,7 +390,7 @@ func standardDeployCmds() []*cobra.Command {
 		}
 
 		if dashImage != "" {
-			dashImage = fmt.Sprintf("pachyderm/dash:%s", getCompatibleVersion("dash", "", defaultDashVersion))
+			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
 		}
 
 		opts = &assets.AssetOpts{
@@ -1313,7 +1314,7 @@ underlying volume will not be removed.`)
 			var buf bytes.Buffer
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
-				DashImage: fmt.Sprintf("pachyderm/dash:%s", getCompatibleVersion("dash", "", defaultDashVersion)),
+				DashImage: fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion)),
 			}
 			if err := assets.WriteDashboardAssets(
 				encoder(updateDashOutputFormat, &buf), opts,
