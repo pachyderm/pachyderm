@@ -112,12 +112,7 @@ class BaseDriver:
         if ide:
             await asyncio.gather(*[self.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
 
-            enterprise_token = await capture(
-                "aws", "s3", "cp",
-                "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
-                "-"
-            )
-            await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
+            await run("pachctl", "enterprise", "activate", RedactedString(os.environ["PACH_ENTERPRISE_KEY"]))
             await run("pachctl", "auth", "activate", stdin="admin\n")
             await run("pachctl", "deploy", "ide", 
                 "--user-image", self.image(IDE_USER_IMAGE),
@@ -390,6 +385,8 @@ async def main():
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
+    if args.ide and "PACH_ENTERPRISE_KEY" not in os.environ:
+        raise Exception("Must set PACH_ENTERPRISE_KEY")
 
     driver = None
 
