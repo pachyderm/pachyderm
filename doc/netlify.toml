@@ -17,6 +17,12 @@
   force = true
 
 [[redirects]]
+  from = "/*/archive/*"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/"
   to = "/latest/"
   status = 301
