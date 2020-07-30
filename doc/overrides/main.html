@@ -20,7 +20,7 @@
   {% endif %}
 
   <!-- The image needs to have an absolute URL -->
-  {% set image = config.site_url ~ 'assets/images/Pachyderm-Character_stacked--1200.png' %}
+  {% set image = config.site_url ~ 'assets/images/favicon-32x32.png' %}
 
   <!-- Open graph meta tags -->
   <meta property="og:type" content="website" />
@@ -39,6 +39,12 @@
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ config.site_description }}" />
   <meta name="twitter:image" content="{{ image }}" />
+
+  <!-- Extra stylesheets -->
+  <link
+    rel="stylesheet"
+    href="{{ 'assets/stylesheets/overrides.css' | url }}"
+  />
 
 {% endblock %}
 

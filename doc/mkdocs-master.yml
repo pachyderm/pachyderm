@@ -285,6 +285,7 @@ nav:
             - reference/pachctl/pachctl_deploy_custom.md
             - reference/pachctl/pachctl_deploy_export-images.md
             - reference/pachctl/pachctl_deploy_google.md
+            - reference/pachctl/pachctl_deploy_ide.md
             - reference/pachctl/pachctl_deploy_import-images.md
             - reference/pachctl/pachctl_deploy_list-images.md
             - reference/pachctl/pachctl_deploy_local.md
@@ -300,6 +301,7 @@ nav:
             - reference/pachctl/pachctl_enterprise.md
             - reference/pachctl/pachctl_enterprise_activate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
+            - reference/pachctl/pachctl_exit.md
             - reference/pachctl/pachctl_extract.md
             - reference/pachctl/pachctl_extract_pipeline.md
             - reference/pachctl/pachctl_finish.md
