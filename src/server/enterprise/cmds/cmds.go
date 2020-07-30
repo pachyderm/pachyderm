@@ -15,7 +15,7 @@ import (
 
 // Unfortunately, Go's pre-defined format strings for parsing RFC-3339-compliant
 // timestamps aren't exhaustive. This method attempts to parse a larger set of
-// of ISO-8601-compatible timestampts (which are themselves a subset of RFC-3339
+// of ISO-8601-compatible timestamps (which are themselves a subset of RFC-3339
 // timestamps)
 func parseISO8601(s string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, s)
