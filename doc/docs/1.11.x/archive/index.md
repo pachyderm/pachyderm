@@ -9,6 +9,6 @@ documentation archive.
 
 The following table includes the links to earlier Pachyderm versions.
 
-| Version | Link |
+| Version | URL |
 | ------- | ---- |
 | 1.9.8 and earlier | http://docs-archive.pachyderm.com/en/v1.9.8/ |
