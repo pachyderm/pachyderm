@@ -111,14 +111,21 @@ func (reg *registryV2) killJob(pj *pendingJobV2, reason string) error {
 
 func (reg *registryV2) initializeJobChain(metaCommit *pfs.Commit) error {
 	if reg.jobChain == nil {
+		h := &hasherV2{
+			name: reg.driver.PipelineInfo().Pipeline.Name,
+			salt: reg.driver.PipelineInfo().Salt,
+		}
 		pachClient := reg.driver.PachClient()
 		metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit:     metaCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: metaCommit,
 			})
 		if err != nil {
 			return err
+		}
+		if metaCommitInfo.ParentCommit == nil {
+			reg.jobChain = chain.NewJobChainV2(h)
+			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
@@ -128,19 +135,11 @@ func (reg *registryV2) initializeJobChain(metaCommit *pfs.Commit) error {
 		if err != nil {
 			return err
 		}
-		h := &hasherV2{
-			name: reg.driver.PipelineInfo().Pipeline.Name,
-			salt: reg.driver.PipelineInfo().Salt,
-		}
-		if parentMetaCommitInfo != nil {
-			commit := parentMetaCommitInfo.Commit
-			reg.jobChain = chain.NewJobChainV2(
-				h,
-				datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
-			)
-			return nil
-		}
-		reg.jobChain = chain.NewJobChainV2(h)
+		commit := parentMetaCommitInfo.Commit
+		reg.jobChain = chain.NewJobChainV2(
+			h,
+			datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
+		)
 	}
 	return nil
 }
@@ -412,11 +411,11 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	pachClient := reg.driver.PachClient()
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
-	defer close(subtasks)
 	// Setup goroutine for creating datum set subtasks.
 	// TODO: When the datum set spec is not set, evenly distribute the datums.
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
 	eg.Go(func() error {
+		defer close(subtasks)
 		storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 		return datum.CreateSets(pj.jdit, storageRoot, func(upload func(datum.PutTarClient) error) error {
 			subtask, err := createDatumSetSubtask(pachClient, pj, upload)
@@ -446,7 +445,10 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 			)
 		})
 	})
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return reg.succeedJob(pj)
 }
 
 func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, upload func(ptc datum.PutTarClient) error) (*work.Task, error) {
@@ -474,7 +476,7 @@ func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, uploa
 
 // TODO: this should be replaced with a proper implementation of temporary filesets with keepalives in pfs.
 const (
-	tmpRepo = "/tmp"
+	tmpRepo = "tmp"
 )
 
 func createTemporaryFileSet(pachClient *client.APIClient, upload func(ptc datum.PutTarClient) error) (_ string, retErr error) {

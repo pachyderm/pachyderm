@@ -30,12 +30,8 @@ func TarToLocal(file *pfs.File, storageRoot string, r io.Reader) error {
 			}
 			return err
 		}
-		basePath, err := filepath.Rel(file.Path, hdr.Name)
-		if err != nil {
-			return err
-		}
 		// TODO: Use the tar header metadata.
-		fullPath := path.Join(storageRoot, basePath)
+		fullPath := path.Join(storageRoot, hdr.Name)
 		if hdr.Typeflag == tar.TypeDir {
 			if err := os.MkdirAll(fullPath, 0700); err != nil {
 				return err
@@ -49,6 +45,9 @@ func TarToLocal(file *pfs.File, storageRoot string, r io.Reader) error {
 }
 
 func WriteFile(filePath string, r io.Reader) (retErr error) {
+	if err := os.MkdirAll(path.Dir(filePath), 0700); err != nil {
+		return err
+	}
 	f, err := os.Create(filePath)
 	if err != nil {
 		return err

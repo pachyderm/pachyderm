@@ -3,7 +3,6 @@ package chain
 import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
-	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 type DatumHasherV2 interface {
@@ -50,7 +49,6 @@ type JobDatumIteratorV2 struct {
 	jc             *JobChainV2
 	parent         *JobDatumIteratorV2
 	jobID          string
-	logger         logs.TaggedLogger
 	dit, outputDit datum.IteratorV2
 	done           chan struct{}
 	deleter        func(*datum.Meta) error
@@ -69,20 +67,16 @@ func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 		return jdi.dit.Iterate(cb)
 	}
 	// Generate datum sets for the new datums (datums that do not exist in the parent job).
-	if err := jdi.logger.LogStep("computing new datums for subtasks", func() error {
-		return datum.Merge([]datum.IteratorV2{jdi.dit, jdi.parent.dit}, func(metas []*datum.Meta) error {
-			return jdi.maybeSkip(metas, cb)
-
-		})
+	// TODO: Logging?
+	if err := datum.Merge([]datum.IteratorV2{jdi.dit, jdi.parent.dit}, func(metas []*datum.Meta) error {
+		return jdi.maybeSkip(metas, cb)
 	}); err != nil {
 		return err
 	}
 	<-jdi.parent.done
 	// Generate datum sets for the skipped datums that were not processed by the parent (failed, recovered, etc.).
-	return jdi.logger.LogStep("resolving skipped datums for subtasks", func() error {
-		return datum.Merge([]datum.IteratorV2{jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
-			return jdi.maybeSkip(metas, cb)
-		})
+	return datum.Merge([]datum.IteratorV2{jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
+		return jdi.maybeSkip(metas, cb)
 	})
 }
 
@@ -91,8 +85,10 @@ func (jdi *JobDatumIteratorV2) maybeSkip(metas []*datum.Meta, cb func(*datum.Met
 	if len(metas) > 1 {
 		// If the hashes are not equal, then delete the datum and process it.
 		if jdi.jc.hasher.Hash(metas[0].Inputs) != jdi.jc.hasher.Hash(metas[1].Inputs) {
-			if err := jdi.deleter(metas[1]); err != nil {
-				return err
+			if jdi.deleter != nil {
+				if err := jdi.deleter(metas[1]); err != nil {
+					return err
+				}
 			}
 			return cb(metas[0])
 		}
@@ -105,7 +101,10 @@ func (jdi *JobDatumIteratorV2) maybeSkip(metas []*datum.Meta, cb func(*datum.Met
 	}
 	// Handle the case when the datum only appears in one stream.
 	if metas[0].JobID != jdi.jobID {
-		return jdi.deleter(metas[0])
+		if jdi.deleter != nil {
+			return jdi.deleter(metas[0])
+		}
+		return nil
 	}
 	return cb(metas[0])
 }

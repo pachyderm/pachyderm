@@ -21,12 +21,13 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 )
 
-func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
+func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	if pipelineInfo.Input == nil || pipelineInfo.Input.Pfs == nil {
 		return errors.New("invalid pipeline, only a single PFS input is supported")
@@ -89,6 +90,17 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			return err
 		}
 
+		if len(customConfig) > 0 && customConfig[0].StorageV2 {
+			if err := env.PachClient.CreateBranch(
+				pipelineInfo.Pipeline.Name,
+				"stats",
+				"",
+				[]*pfs.Branch{client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)},
+			); err != nil {
+				return err
+			}
+		}
+
 		// Put the pipeline info into etcd (which is read by the master)
 		if _, err = env.driver.NewSTM(func(stm col.STM) error {
 			etcdPipelineInfo := &pps.EtcdPipelineInfo{
@@ -102,7 +114,12 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		}
 
 		eg.Go(func() error {
-			err := Run(env.driver, env.logger)
+			var err error
+			if len(customConfig) > 0 && customConfig[0].StorageV2 {
+				err = RunV2(env.driver, env.logger)
+			} else {
+				err = Run(env.driver, env.logger)
+			}
 			if err != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
@@ -115,6 +132,9 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 					env.driver.PachClient().Ctx(),
 					func(ctx context.Context, subtask *work.Task) error {
 						status := &Status{}
+						if len(customConfig) > 0 && customConfig[0].StorageV2 {
+							return WorkerV2(env.driver, env.logger, subtask, status)
+						}
 						return Worker(env.driver, env.logger, subtask, status)
 					},
 				)
@@ -129,7 +149,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		})
 
 		return cb(env)
-	})
+	}, customConfig...)
 
 	workerSpawnerErr := eg.Wait()
 	if workerSpawnerErr != nil && errors.Is(workerSpawnerErr, context.Canceled) {

@@ -281,35 +281,6 @@ func (r *getTarConditionalReader) drain() error {
 	}
 }
 
-// ListFileV2 returns info about all files in a commit under path, calling cb with each FileInfoV2.
-func (c APIClient) ListFileV2(repo string, commit string, path string, cb func(*pfs.FileInfoV2) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
-	defer cancel()
-	req := &pfs.ListFileRequest{
-		File: NewFile(repo, commit, path),
-	}
-	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
-	if err != nil {
-		return err
-	}
-	for {
-		fi, err := client.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if err := cb(fi); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // GlobFileV2 returns info about all files in a commit that match pattern, calling cb with each FileInfoV2.
 func (c APIClient) GlobFileV2(repo string, commit string, pattern string, cb func(*pfs.FileInfoV2) error) (retErr error) {
 	defer func() {

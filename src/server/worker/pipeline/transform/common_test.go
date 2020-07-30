@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -18,7 +19,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd:        []string{"cp", "inputRepo/*", "out"},
+			Cmd:        []string{"cp", "inputRepo/file", "out/file"},
 			WorkingDir: client.PPSInputPrefix,
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
@@ -48,7 +49,7 @@ type testEnv struct {
 
 // withTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
+func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	return testpachd.WithRealEnv(func(realEnv *testpachd.RealEnv) error {
 		logger := logs.NewMockLogger()
 		workerDir := filepath.Join(realEnv.Directory, "worker")
@@ -77,5 +78,5 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 		}
 
 		return cb(env)
-	})
+	}, customConfig...)
 }

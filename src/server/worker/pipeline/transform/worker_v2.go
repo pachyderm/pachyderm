@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -72,7 +73,7 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 					}
 					return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
 						return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-							return status.withDatum(inputs, cancel, func() error {
+							return status.withDatum(inputs, cancel, func() (retErr error) {
 								return driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout)
 							})
 						})
@@ -88,6 +89,9 @@ func inputV2ToV1(inputs []*common.InputV2) []*common.Input {
 	var result []*common.Input
 	for _, input := range inputs {
 		result = append(result, &common.Input{
+			FileInfo: &pfs.FileInfo{
+				File: input.FileInfo.File,
+			},
 			ParentCommit: input.ParentCommit,
 			Name:         input.Name,
 			JoinOn:       input.JoinOn,
