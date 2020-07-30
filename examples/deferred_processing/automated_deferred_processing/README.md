@@ -126,8 +126,7 @@ Adding support for access controls to the `branch-mover` pipeline requires a few
    containing an authentication token.
 2. Loading that secret into Kubernetes using `pachctl create secret`.
 3. Adding a `.transform.secret` to the pipeline spec 
-   to mount the secret as a volume in the pipeline 
-   and create environment variables from key values.
+   to create an environment variable from a key value in the secret.
 4. Adding a line to the pipeline transform to authenticate using the token prior to moving the branch.
 
 Let's go through each of these steps in detail.
