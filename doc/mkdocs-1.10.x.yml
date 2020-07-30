@@ -31,7 +31,7 @@ theme:
   font:
     text: Montserrat
     code: Roboto Mono
-  favicon: assets/images/Pachyderm-Character_stacked--1200.png
+  favicon: assets/images/favicon-32x32.png
   icon:
      logo: material/school
 
