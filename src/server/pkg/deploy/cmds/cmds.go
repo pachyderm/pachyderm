@@ -389,7 +389,7 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
-		if dashImage != "" {
+		if dashImage == "" {
 			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
 		}
 
