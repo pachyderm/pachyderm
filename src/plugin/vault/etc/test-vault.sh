@@ -12,7 +12,7 @@ if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was fou
   # Don't print token to stdout
   # This is very important, or we'd leak it in our CI logs
   set +x
-  pachctl enterprise activate "$ENT_ACT_CODE"
+  echo "$ENT_ACT_CODE" | pachctl enterprise activate
   set -x
 fi
 if ! pachctl auth list-admins; then

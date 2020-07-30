@@ -41,14 +41,20 @@ func ActivateCmd() *cobra.Command {
 			"code",
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// request the enterprise key
+			key, err := cmdutil.ReadPassword("Enterprise key: ")
+			if err != nil {
+				return errors.Wrapf(err, "could not read enterprise key")
+			}
+
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			req := &enterprise.ActivateRequest{}
-			req.ActivationCode = args[0]
+			req.ActivationCode = key
 			if expires != "" {
 				t, err := parseISO8601(expires)
 				if err != nil {
