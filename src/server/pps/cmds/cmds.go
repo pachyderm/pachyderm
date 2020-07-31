@@ -1169,6 +1169,22 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			}
 		}
 
+		// Don't warn if transform.build is set because latest is almost always
+		// legit for build-enabled pipelines.
+		if request.Transform != nil && request.Transform.Build == nil && request.Transform.Image != "" {
+			if !strings.Contains(request.Transform.Image, ":") {
+				fmt.Fprintf(os.Stderr,
+					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
+						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
+						"reproducibility of your pipelines.\n")
+			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
+				fmt.Fprintf(os.Stderr,
+					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
+						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
+						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n")
+			}
+		}
+
 		if _, err := pc.PpsAPIClient.CreatePipeline(
 			pc.Ctx(),
 			request,

@@ -835,17 +835,22 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 // 	require.NoError(t, rootCmd().Execute())
 // }
 
-func TestWarningLatestTag(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// should emit a warning because user specified latest tag on docker image
+func runPipelineWithImageGetStderr(t *testing.T, image string) string {
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
 
-	cmd := exec.Command("/bin/bash", "-c", `
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
 		pachctl create pipeline <<EOF
 			{
+			  "pipeline": {
+				"name": "first"
+			  },
 			  "transform": {
-				"image": "ubuntu:latest"
+				"image": "%s"
 			  },
 			  "input": {
 			    "pfs": {
@@ -855,13 +860,22 @@ func TestWarningLatestTag(t *testing.T) {
 			  }
 			}
 EOF
-	`)
+	`, image))
 	buf := &bytes.Buffer{}
 	cmd.Stderr = buf
+	// cmd.Stdout = os.Stdout // uncomment for debugging
 	cmd.Env = os.Environ()
 	cmd.Run()
 	stderr := buf.String()
+	return stderr
+}
 
+func TestWarningLatestTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified latest tag on docker image
+	stderr := runPipelineWithImageGetStderr(t, "ubuntu:latest")
 	if !strings.Contains(stderr, "WARNING") {
 		t.Logf(
 			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
@@ -877,42 +891,28 @@ func TestWarningEmptyTag(t *testing.T) {
 	}
 	// should emit a warning because user specified empty tag, equivalent to
 	// :latest
-	require.YesError(t, tu.BashCmd(`
-		pachctl create pipeline <<EOF
-			{
-			  "transform": {
-			    "image": "ubuntu"
-			  },
-			  "input": {
-			    "pfs": {
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
-		EOF
-	`).Run())
+	stderr := runPipelineWithImageGetStderr(t, "ubuntu")
+	if !strings.Contains(stderr, "WARNING") {
+		t.Logf(
+			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
+			stderr,
+		)
+		t.Fail()
+	}
 }
 
 func TestNoWarningTagSpecified(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	// should not emit a warning because user specified non-empty, non-latest
-	// tag
-	require.YesError(t, tu.BashCmd(`
-		pachctl create pipeline <<EOF
-			{
-			  "transform": {
-			    "image": "ubuntu"
-			  },
-			  "input": {
-			    "pfs": {
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
-		EOF
-	`).Run())
+	// should not emit a warning (note _lack_ of ! on strings.Contains) because
+	// user specified non-empty, non-latest tag
+	stderr := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	if strings.Contains(stderr, "WARNING") {
+		t.Logf(
+			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
+			stderr,
+		)
+		t.Fail()
+	}
 }
