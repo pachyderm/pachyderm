@@ -25,7 +25,11 @@
 package cmds
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -830,3 +834,85 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 // 	os.Args = []string{"pachctl", "create", "pipeline", "--push-images", "-f", "test-push-images.json"}
 // 	require.NoError(t, rootCmd().Execute())
 // }
+
+func TestWarningLatestTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified latest tag on docker image
+
+	cmd := exec.Command("/bin/bash", "-c", `
+		pachctl create pipeline <<EOF
+			{
+			  "transform": {
+				"image": "ubuntu:latest"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+EOF
+	`)
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	cmd.Env = os.Environ()
+	cmd.Run()
+	stderr := buf.String()
+
+	if !strings.Contains(stderr, "WARNING") {
+		t.Logf(
+			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
+			stderr,
+		)
+		t.Fail()
+	}
+}
+
+func TestWarningEmptyTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified empty tag, equivalent to
+	// :latest
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "transform": {
+			    "image": "ubuntu"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestNoWarningTagSpecified(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should not emit a warning because user specified non-empty, non-latest
+	// tag
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "transform": {
+			    "image": "ubuntu"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
