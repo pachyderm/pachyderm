@@ -1334,20 +1334,6 @@ underlying volume will not be removed.`)
 // getCompatibleVersion gets the compatible version of another piece of
 // software, or falls back to a default
 func getCompatibleVersion(displayName, subpath, defaultValue string) string {
-	latestVersion, err := fetchCompatibleVersion(subpath)
-	if err != nil {
-		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
-		return defaultValue
-	} else if latestVersion == "" {
-		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
-		return defaultValue
-	}
-	return latestVersion
-}
-
-// fetchCompatibleVersion is a utility function for getting the compatible
-// version of software that works with this version of pachyderm.
-func fetchCompatibleVersion(subpath string) (string, error) {
 	var relVersion string
 	// This is the branch where to look.
 	// When a new version needs to be pushed we can just update the
@@ -1362,32 +1348,30 @@ func fetchCompatibleVersion(subpath string) (string, error) {
 	}
 
 	url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/compatibility%s/etc/%s/%s", branch, subpath, relVersion)
-
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
+		return defaultValue
 	}
 
-	// Handle non-200's. This isn't totally proper, but for the set of
-	// requests we're making, 200 is the only OK state.
+	// Error on non-200; for the requests we're making, 200 is the only OK
+	// state
 	if resp.StatusCode != 200 {
-		// try to read the body into an error
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", fmt.Errorf("unexpected return code: %d", resp.StatusCode)
-		}
-		return "", errors.New(string(body))
+		log.Warningf("error looking up compatible version of %s, falling back to %s: unexpected return code %d", displayName, defaultValue, resp.StatusCode)
+		return defaultValue
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
+		return defaultValue
 	}
 
 	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
 	if len(allVersions) < 1 {
-		return "", nil
+		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
+		return defaultValue
 	}
 	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
-	return latestVersion, nil
+	return latestVersion
 }
