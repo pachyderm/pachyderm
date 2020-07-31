@@ -9,6 +9,8 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// ReadPassword reads a password from stdin. If stdin is a TTY, a password
+// prompt will be displayed and the input will be obscured.
 func ReadPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
 
