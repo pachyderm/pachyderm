@@ -149,7 +149,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 	return err
 }
 
-func LocalToTar(storageRoot string, w io.Writer) {
+func LocalToTar(storageRoot string, w io.Writer) error {
 	return WithWriter(w, func(tw *tar.Writer) error {
 		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
 			if err != nil {
