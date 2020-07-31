@@ -19,7 +19,8 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd:        []string{"cp", "inputRepo/file", "out/file"},
+			Cmd:        []string{"bash"},
+			Stdin:      []string{"cp inputRepo/* out"},
 			WorkingDir: client.PPSInputPrefix,
 		},
 		ParallelismSpec: &pps.ParallelismSpec{

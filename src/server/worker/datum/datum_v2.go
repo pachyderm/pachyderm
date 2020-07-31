@@ -109,7 +109,7 @@ func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, 
 		})
 	}, &backoff.ZeroBackOff{}, func(err error, _ time.Duration) error {
 		// TODO: Tagged logger here?
-		fmt.Println("withDatum: ", err)
+		fmt.Println("withDatum:", err)
 		return nil
 	})
 }

@@ -99,8 +99,9 @@ func (jdi *JobDatumIteratorV2) maybeSkip(metas []*datum.Meta, cb func(*datum.Met
 		// If the hashes are equal and the datum was processed, then skip it.
 		return nil
 	}
-	// Handle the case when the datum only appears in one stream.
-	if metas[0].JobID != jdi.jobID {
+	// Handle the case when the datum only exists in the parent.
+	// TODO: Use job id not set as sentinel for current job datum iterator?
+	if metas[0].JobID != "" {
 		if jdi.deleter != nil {
 			return jdi.deleter(metas[0])
 		}

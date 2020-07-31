@@ -238,7 +238,8 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 	// TODO: we should NOT start the job this way if it is in EGRESSING
 	// TODO: This could probably be scoped to a callback, and we could move job specific features
 	// in the chain package (timeouts for example).
-	pachClient := pj.driver.PachClient()
+	// TODO: I use the registry pachclient for the iterators, so I can reuse across jobs for skipping.
+	pachClient := reg.driver.PachClient()
 	dit, err := datum.NewIteratorV2(pachClient, pj.ji.Input)
 	if err != nil {
 		return err
@@ -408,7 +409,7 @@ func (reg *registryV2) processJobStarting(pj *pendingJobV2) error {
 // Need to put some more thought into the context use.
 // Datum stats collection.
 func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
-	pachClient := reg.driver.PachClient()
+	pachClient := pj.driver.PachClient()
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
 	// Setup goroutine for creating datum set subtasks.
@@ -577,6 +578,7 @@ func finishJobV2(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, p
 		// reattempt later
 		return err
 	}
+	// TODO: How to handle errors without causing subsequent jobs to get stuck.
 	pj.jdit.Finish()
 	return nil
 }

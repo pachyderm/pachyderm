@@ -14,19 +14,12 @@ import (
 )
 
 func TestJobSuccessV2(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	pi := defaultPipelineInfo()
-	pi.EnableStats = true
-	require.NoError(t, withWorkerSpawnerPair(pi, func(env *testEnv) error {
-		// Create temporary repo for temporary filesets.
-		require.NoError(t, env.PachClient.CreateRepo("tmp"))
+	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		fileName := "/file"
-		fileContent := []byte("foobar")
-		tarFile := tarutil.NewFile(fileName, fileContent)
-		triggerJobV2(t, env, pi, []tarutil.File{tarFile})
+		tarFiles := []tarutil.File{
+			tarutil.NewFile("/file", []byte("foobar")),
+		}
+		triggerJobV2(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
@@ -41,22 +34,29 @@ func TestJobSuccessV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
-		r, err := env.PachClient.GetTarV2(pi.Pipeline.Name, outputCommitID, fileName)
+		r, err := env.PachClient.GetTarV2(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
-			hdr, err := file.Header()
-			if err != nil {
-				return err
-			}
-			require.Equal(t, fileName, hdr.Name)
-			buf := &bytes.Buffer{}
-			if err := file.Content(buf); err != nil {
-				return err
-			}
-			require.True(t, bytes.Equal(fileContent, buf.Bytes()))
+			ok, err := tarutil.Equal(tarFiles[0], file)
+			require.NoError(t, err)
+			require.True(t, ok)
+			tarFiles = tarFiles[1:]
 			return nil
 		}))
 		return nil
+	})
+}
+
+func V2Test(t *testing.T, cb func(*pps.PipelineInfo, *testEnv) error) {
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	pi := defaultPipelineInfo()
+	pi.EnableStats = true
+	require.NoError(t, withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		// Create temporary repo for temporary filesets.
+		require.NoError(t, env.PachClient.CreateRepo("tmp"))
+		return cb(pi, env)
 	}, pfstesting.NewPachdConfig()))
 }
 
@@ -74,4 +74,101 @@ func triggerJobV2(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 	}))
 	require.NoError(t, env.PachClient.PutTarV2(pi.Input.Pfs.Repo, commit.ID, buf))
 	require.NoError(t, env.PachClient.FinishCommit(pi.Input.Pfs.Repo, commit.ID))
+}
+
+// TODO: Need datum stats to handle failed datum.
+//func TestJobFailedDatum(t *testing.T) {
+//	pi := defaultPipelineInfo()
+//	pi.EnableStats = true
+//	pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
+//	require.NoError(t, withWorkerSpawnerPair(pi, func(env *testEnv) error {
+//		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+//		fileName := "/file"
+//		fileContent := []byte("foobar")
+//		tarFile := tarutil.NewFile(fileName, fileContent)
+//		triggerJobV2(t, env, pi, tarFile)
+//		ctx = withTimeout(ctx, 10*time.Second)
+//		<-ctx.Done()
+//		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
+//		// TODO: check job stats
+//		return nil
+//	}))
+//}
+
+func TestJobMultiDatumV2(t *testing.T) {
+	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		tarFiles := []tarutil.File{
+			tarutil.NewFile("/a", []byte("foobar")),
+			tarutil.NewFile("/b", []byte("barfoo")),
+		}
+		triggerJobV2(t, env, pi, tarFiles)
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful.
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Get the output files.
+		r, err := env.PachClient.GetTarV2(pi.Pipeline.Name, outputCommitID, "/*")
+		require.NoError(t, err)
+		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
+			ok, err := tarutil.Equal(tarFiles[0], file)
+			require.NoError(t, err)
+			require.True(t, ok)
+			tarFiles = tarFiles[1:]
+			return nil
+		}))
+		return nil
+	})
+}
+
+func TestJobSerialV2(t *testing.T) {
+	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		tarFiles := []tarutil.File{
+			tarutil.NewFile("/a", []byte("foobar")),
+			tarutil.NewFile("/b", []byte("barfoo")),
+		}
+		triggerJobV2(t, env, pi, tarFiles[:1])
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		triggerJobV2(t, env, pi, tarFiles[1:])
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Get the output files.
+		r, err := env.PachClient.GetTarV2(pi.Pipeline.Name, outputCommitID, "/*")
+		require.NoError(t, err)
+		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
+			ok, err := tarutil.Equal(tarFiles[0], file)
+			require.NoError(t, err)
+			require.True(t, ok)
+			tarFiles = tarFiles[1:]
+			return nil
+		}))
+		return nil
+	})
 }

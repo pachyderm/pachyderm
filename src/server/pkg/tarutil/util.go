@@ -93,19 +93,38 @@ func Iterate(r io.Reader, cb func(File) error) error {
 	}
 }
 
-func Equal(file1, file2 File) (bool, error) {
+func Equal(file1, file2 File, full ...bool) (bool, error) {
 	buf1, buf2 := &bytes.Buffer{}, &bytes.Buffer{}
-	tw1, tw2 := tar.NewWriter(buf1), tar.NewWriter(buf2)
-	if err := WriteFile(tw1, file1); err != nil {
+	if len(full) > 0 && full[0] {
+		// Check the serialized tar entries.
+		tw1, tw2 := tar.NewWriter(buf1), tar.NewWriter(buf2)
+		if err := WriteFile(tw1, file1); err != nil {
+			return false, err
+		}
+		if err := WriteFile(tw2, file2); err != nil {
+			return false, err
+		}
+		return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
+	}
+	// Check the header name and content.
+	hdr1, err := file1.Header()
+	if err != nil {
 		return false, err
 	}
-	if err := WriteFile(tw2, file2); err != nil {
+	hdr2, err := file2.Header()
+	if err != nil {
 		return false, err
 	}
-	if !bytes.Equal(buf1.Bytes(), buf2.Bytes()) {
+	if hdr1.Name != hdr2.Name {
 		return false, nil
 	}
-	return true, nil
+	if err := file1.Content(buf1); err != nil {
+		return false, err
+	}
+	if err := file2.Content(buf2); err != nil {
+		return false, err
+	}
+	return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
 }
 
 func TarToLocal(storageRoot string, r io.Reader) error {
