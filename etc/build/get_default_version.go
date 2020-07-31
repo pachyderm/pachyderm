@@ -1,6 +1,11 @@
 package main
 
-// I'm sorry.
+// Parses the deploy cmds file to figure out what version of other software
+// (e.g. dash) we're pinning to.
+// TODO: This is pretty hackey, at some point we should build out a more
+// robust way of dealing with compatibility matrices. See RFC #17
+// (https://github.com/pachyderm/rfcs/pull/17) for one proposal, though it was
+// initially rejected due to trade-offs in ops complexity.
 
 import (
 	"fmt"
