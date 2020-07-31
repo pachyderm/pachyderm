@@ -1,43 +1,6 @@
 {% extends "base.html" %}
 
-{% block site_meta %}
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="x-ua-compatible" content="ie=edge">
-  {% if page and page.meta and page.meta.description %}
-    <meta name="description" content="{{ page.meta.description }}">
-  {% elif config.site_description %}
-    <meta name="description" content="{{ config.site_description }}">
-  {% endif %}
-  {% if page and page.meta and page.meta.redirect %}
-    <script>var anchor=window.location.hash.substr(1);location.href="{{ page.meta.redirect }}"+(anchor?"#"+anchor:"")</script>
-    <meta http-equiv="refresh" content="0; url={{ page.meta.redirect }}">
-    <meta name="robots" content="noindex">
-    <link rel="canonical" href="{{ page.meta.redirect }}">
-  {% elif page.canonical_url %}
-    <link rel="canonical" href="{{ page.canonical_url }}">
-  {% endif %}
-  {% if page and page.meta and page.meta.author %}
-    <meta name="author" content="{{ page.meta.author | first }}">
-  {% elif config.site_author %}
-    <meta name="author" content="{{ config.site_author }}">
-  {% endif %}
-  {% for key in [
-    "clipboard.copy",
-    "clipboard.copied",
-    "search.language",
-    "search.pipeline.stopwords",
-    "search.pipeline.trimmer",
-    "search.result.none",
-    "search.result.one",
-    "search.result.other",
-    "search.tokenizer"
-  ] %}
-    <meta name="lang:{{ key }}" content="{{ lang.t(key) }}">
-  {% endfor %}
-  <link rel="shortcut icon" href="{{ config.theme.favicon | url }}">
-  <meta name="generator" content="mkdocs-{{ mkdocs_version }}, mkdocs-pachyderm-1.0.2">
-
+{% block extrahead %}
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=UA-158483597-1"></script>
   <script>
@@ -47,9 +10,8 @@
 
     gtag('config', 'UA-158483597-1');
   </script>
-{% endblock %}
 
-{% block extrahead %}
+  <link href=https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
 
   <!-- Determine title -->
   {% set title = config.site_name %}
@@ -58,7 +20,7 @@
   {% endif %}
 
   <!-- The image needs to have an absolute URL -->
-  {% set image = config.site_url ~ 'latest/assets/images/Pachyderm-Character_stacked--1200.png' %}
+  {% set image = config.site_url ~ 'assets/images/favicon-32x32.png' %}
 
   <!-- Open graph meta tags -->
   <meta property="og:type" content="website" />
@@ -78,4 +40,25 @@
   <meta name="twitter:description" content="{{ config.site_description }}" />
   <meta name="twitter:image" content="{{ image }}" />
 
+  <!-- Extra stylesheets -->
+  <link
+    rel="stylesheet"
+    href="{{ 'assets/stylesheets/overrides.css' | url }}"
+  />
+
+{% endblock %}
+
+.md-link {color:var(--md-primary-fg-color);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: .685rem;
+    line-height: 24px
+ }
+ <!-- Announcement bar -->
+{% block announce %}
+   <style>.md-announce a,.md-announce a:focus,.md-announce a:hover{color:currentColor}.md-announce strong{white-space:nowrap}.md-announce .twitter{margin-left:.2em;color:#00acee}.md-announce .md-link1{font-family:'Montserrat', sans-serif;color:white;font-weight:400;text-decoration:none;font-size:.685rem;line-height:24px;background:transparent;}</style>
+   <a href="https://github.com/pachyderm/pachyderm/releases/tag/v1.11.0" class="md-announce md-link1">
+     Pachyderm 1.11.0 is out! Download <strong>here.</strong>
+   </a>
 {% endblock %}

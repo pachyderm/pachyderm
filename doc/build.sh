@@ -8,14 +8,14 @@ cd "$(dirname "${0}")"
 
 # Delete old site/ dir
 if [[ -d site ]]; then
-  rm -rf site
+  rm -rf site overrides/partials/versions.html
 fi
 
 # Add each version of the docs to the dropdown defined by
-# overrides/partials/versions.html. This must be built before running 'mkdocs'
+# material/overrides/partials/versions.html. This must be built before running 'mkdocs'
 # itself
-latest_version="$(ls ./docs | grep -Ev 'latest|master|archive' | sort -r -V | head -n 1)"
-cat <<EOF >overrides/partials/versions.html
+latest_version="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V | head -n 1)"
+cat <<EOF >>overrides/partials/versions.html
 <div class="mdl-selectfield">
     <select class="mdl-selectfield__select" id="version-selector" onchange="
         let pathParts = window.location.pathname.split('/');
@@ -27,8 +27,8 @@ EOF
 for d in docs/*; do
     d=$(basename "${d}")
 
-    # don't rebuild archive dir
-    if [[ "${d}" == "archive" ]]; then
+    # don't rebuild archived dir
+    if [[ "${d}" == "archived" ]]; then
         continue
     fi
     if [[ "${d}" == "master" ]]; then
@@ -38,6 +38,9 @@ for d in docs/*; do
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
 done
+    cat <<EOF >>overrides/partials/versions.html
+        <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
+EOF
 cat <<EOF >>overrides/partials/versions.html
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
@@ -52,8 +55,8 @@ EOF
 for d in docs/*; do
     d=$(basename "${d}")
 
-    # don't rebuild archive dir
-    if [[ "${d}" == "archive" ]]; then
+    # don't rebuild archived dir
+    if [[ "${d}" == "archived" ]]; then
         continue
     fi
     if [[ "${d}" == "master" ]]; then
@@ -80,6 +83,6 @@ fi
 cp -Rl "site/${latest_version}" site/latest
 
 # Add custom 404
-ln site/latest/404.html site/404.html
-cp -Rl site/latest/assets site/assets
+ln site/${latest_version}/404.html site/404.html
+cp -Rl site/${latest_version}/assets site/assets
 

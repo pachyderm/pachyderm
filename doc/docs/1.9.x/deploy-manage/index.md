@@ -19,7 +19,7 @@ and others.
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="deploy/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="deploy/" class="md-typeset md-link">
             Deploy Pachyderm
             </a>
             </li>
@@ -38,7 +38,7 @@ and others.
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="manage/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="manage/" class="md-typeset md-link">
             Manage Pachyderm
            </a>
           </li>
