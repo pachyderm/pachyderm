@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -56,7 +57,7 @@ func TestSet(t *testing.T) {
 					return di.Iterate(func(meta *Meta) error {
 						allInputs = append(allInputs, meta.Inputs)
 						return s.WithDatum(context.Background(), meta, func(d *Datum) error {
-							return copyFile(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
+							return copyFiles(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
 								return []byte("output")
 							})
 						})
@@ -101,34 +102,39 @@ func writeFile(w *tar.Writer, f *testFile) error {
 	return err
 }
 
-func copyFile(outputPrefix, inputPath string, cb func([]byte) []byte) (retErr error) {
-	buf := &bytes.Buffer{}
-	inputF, err := os.Open(inputPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := inputF.Close(); retErr == nil {
-			retErr = err
+func copyFiles(outputDir, inputDir string, cb func([]byte) []byte) error {
+	return filepath.Walk(inputDir, func(file string, fi os.FileInfo, err error) (retErr error) {
+		if file == inputDir {
+			return nil
 		}
-	}()
-	if _, err := io.Copy(buf, inputF); err != nil {
-		return err
-	}
-	data := cb(buf.Bytes())
-	outputName := path.Base(inputPath)
-	outputPath := path.Join(outputPrefix, outputName)
-	outputF, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := outputF.Close(); retErr == nil {
-			retErr = err
+		buf := &bytes.Buffer{}
+		inputF, err := os.Open(file)
+		if err != nil {
+			return err
 		}
-	}()
-	_, err = outputF.Write(data)
-	return err
+		defer func() {
+			if err := inputF.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		if _, err := io.Copy(buf, inputF); err != nil {
+			return err
+		}
+		data := cb(buf.Bytes())
+		outputName := path.Base(file)
+		outputPath := path.Join(outputDir, outputName)
+		outputF, err := os.Create(outputPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := outputF.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = outputF.Write(data)
+		return err
+	})
 }
 
 func withTmpDir(cb func(string) error) (retErr error) {

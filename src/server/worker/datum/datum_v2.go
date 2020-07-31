@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
@@ -194,7 +196,7 @@ func (d *Datum) uploadMetaOutput() (retErr error) {
 			return err
 		}
 		fullPath := path.Join(d.MetaStorageRoot(), MetaFileName)
-		if err := sync.WriteFile(fullPath, buf); err != nil {
+		if err := ioutil.WriteFile(fullPath, buf.Bytes(), 0700); err != nil {
 			return err
 		}
 		return d.upload(d.set.metaOutputClient, d.storageRoot)
@@ -220,7 +222,7 @@ func (d *Datum) upload(ptc PutTarClient, storageRoot string) error {
 	if err != nil {
 		return err
 	}
-	if err := sync.LocalToTar(storageRoot, f); err != nil {
+	if err := tarutil.LocalToTar(storageRoot, f); err != nil {
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {

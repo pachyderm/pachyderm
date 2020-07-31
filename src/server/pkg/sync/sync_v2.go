@@ -1,14 +1,9 @@
 package sync
 
 import (
-	"archive/tar"
-	"io"
-	"os"
-	"path"
-	"path/filepath"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 
 func PullV2(pachClient *client.APIClient, file *pfs.File, storageRoot string) error {
@@ -16,92 +11,5 @@ func PullV2(pachClient *client.APIClient, file *pfs.File, storageRoot string) er
 	if err != nil {
 		return err
 	}
-	return TarToLocal(file, storageRoot, r)
-}
-
-// TODO: refactor these helper functions into a utility package.
-func TarToLocal(file *pfs.File, storageRoot string, r io.Reader) error {
-	tr := tar.NewReader(r)
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		// TODO: Use the tar header metadata.
-		fullPath := path.Join(storageRoot, hdr.Name)
-		if hdr.Typeflag == tar.TypeDir {
-			if err := os.MkdirAll(fullPath, 0700); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := WriteFile(fullPath, tr); err != nil {
-			return err
-		}
-	}
-}
-
-func WriteFile(filePath string, r io.Reader) (retErr error) {
-	if err := os.MkdirAll(path.Dir(filePath), 0700); err != nil {
-		return err
-	}
-	f, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	_, err = io.Copy(f, r)
-	return err
-}
-
-func LocalToTar(storageRoot string, w io.Writer) (retErr error) {
-	tw := tar.NewWriter(w)
-	defer func() {
-		if err := tw.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if file == storageRoot {
-			return nil
-		}
-		// TODO: link name?
-		hdr, err := tar.FileInfoHeader(fi, "")
-		if err != nil {
-			return err
-		}
-		hdr.Name, err = filepath.Rel(storageRoot, file)
-		if err != nil {
-			return err
-		}
-		// TODO: Hack to match glob, need consistent canonicalization.
-		hdr.Name = filepath.Join("/", hdr.Name)
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if hdr.Typeflag == tar.TypeDir {
-			return nil
-		}
-		f, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := f.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-		_, err = io.Copy(tw, f)
-		return err
-	})
+	return tarutil.TarToLocal(storageRoot, r)
 }
