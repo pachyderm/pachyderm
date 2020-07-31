@@ -80,7 +80,7 @@ release-helper: release-version docker-build docker-push docker-build-pachctl do
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
-docker-build: enterprise-code-checkin-test
+docker-build:
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
