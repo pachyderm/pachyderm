@@ -183,7 +183,7 @@ type CompactSpec struct {
 // compacted filesets) and output fileset.
 func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (*CompactSpec, error) {
 	if len(compactedFileSet) > 1 {
-		return nil, errors.WithStack(errors.Errorf("multiple compacted FileSets"))
+		return nil, errors.Errorf("multiple compacted FileSets")
 	}
 	// Internal vs external path transforms
 	fileSet = applyPrefix(fileSet)
@@ -299,9 +299,10 @@ func removePrefix(fileSet string) string {
 	return fileSet[len(prefix):]
 }
 
-func removePrefixes(xs []string) (ys []string) {
-	for i := range xs {
-		ys = append(ys, removePrefix(xs[i]))
+func removePrefixes(xs []string) []string {
+	var ys []string
+	for _, x := range xs {
+		ys = append(ys, removePrefix(x))
 	}
 	return ys
 }
