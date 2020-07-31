@@ -12,6 +12,8 @@ import (
 func ReadPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
 
+	// If stdin is a attached to the TTY (rather than being piped in), use a
+	// terminal password prompt, which will hide the input
 	if terminal.IsTerminal(syscall.Stdin) {
 		pass, err := terminal.ReadPassword(syscall.Stdin)
 		if err != nil {
@@ -22,5 +24,6 @@ func ReadPassword(prompt string) (string, error) {
 		return string(pass), nil
 	}
 
+	// If stdin is being piped in, just read it until newline
 	return bufio.NewReader(os.Stdin).ReadString('\n')
 }
