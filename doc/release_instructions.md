@@ -197,3 +197,21 @@ All of these can be accomplished by:
   `git tag -l | xargs git tag -d; git fetch origin master --tags`). This
   prevents the release process from failing with `tag already exists`.
 - Run `make point-release` (or follow the release process for custom releases)
+
+## Custom release
+
+Occasionally we have a need for a custom release off a non master branch. This is usually because some features we need to supply to users that are incompatible with features on master, but the features on master we need to keep longer term.
+
+Assuming the prerequisites are met, making a custom release should simply be a matter of running `make custom-release`. This will create a release like `v1.2.3-2342345aefda9879e87ad`, which can be installed like:
+
+```
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.1/pachctl_1.11.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+```
+
+Or for mac/brew:
+
+```
+# Where 1.7 is the major.minor version of the release you just did,
+# and you use the right commit SHA as well in the URL
+$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
+```

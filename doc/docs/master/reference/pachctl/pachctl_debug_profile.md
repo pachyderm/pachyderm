@@ -1,13 +1,13 @@
 ## pachctl debug profile
 
-Return a profile from the server.
+Collect a set of pprof profiles.
 
 ### Synopsis
 
-Return a profile from the server.
+Collect a set of pprof profiles.
 
 ```
-pachctl debug profile <profile> [flags]
+pachctl debug profile <profile> <file> [flags]
 ```
 
 ### Options
@@ -15,6 +15,9 @@ pachctl debug profile <profile> [flags]
 ```
   -d, --duration duration   Duration to run a CPU profile for. (default 1m0s)
   -h, --help                help for profile
+      --pachd               Only collect the profile from pachd.
+  -p, --pipeline string     Only collect the profile from the worker pods for the given pipeline.
+  -w, --worker string       Only collect the profile from the given worker pod.
 ```
 
 ### Options inherited from parent commands
