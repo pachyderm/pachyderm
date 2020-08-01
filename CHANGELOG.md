@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1
+- Fixed a race condition that updated a job state after it is finished (#5099)
+- Fixes a bug that would prevent successful initialization (#5130)
+- Changes to `debug dump` command to capture debug info from pachd and all worker pods by default. Debug info includes logs, goroutines, profiles, and specs (#5150)
+
 ## 1.11.0
 
 Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will reach end-of-life in 1.12.0. Users who are using S3V4-capable storage should make sure their deployment is using the supported storage backend by redeploying without `--isS3V2` flag. If you need help, please reach out to Pachyderm support.
