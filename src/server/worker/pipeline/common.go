@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	//"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+
 	"github.com/rjeczalik/notify"
 )
 
@@ -32,7 +32,7 @@ type TarFile struct {
 
 var fileList []TarFile
 var curr TarFile
-var fileCnt int
+var fileCount int
 
 // SkipTarPadding return number of bytes skipped from a tar stream and an EOF
 func SkipTarPadding(r *bytes.Reader) (int64, error) {
@@ -56,7 +56,7 @@ func SkipTarPadding(r *bytes.Reader) (int64, error) {
 }
 
 // TarReader is the heart of tar state machine. It return the list of tar files received on the pipe
-// It reads the buffer from the pipe, processes all the byte
+// It reads the buffer from the pipe, processes all the bytes
 // if there is an incomplete buffer, it goes around to read from the pipe
 // TDOD: only read the header from the ReadAll then read the size from the hdr
 //       That's the only way to make sure we don't buffer too much
@@ -77,7 +77,7 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
 			curr.hdr = hdr
 		}
 		var bBytes int = int(curr.hdr.Size) - len(curr.body)
-		var body []byte = make([]byte, bBytes)
+		var body = make([]byte, bBytes)
 		_, err := tr.Read(body)
 		if err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -91,7 +91,7 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
 			// Read the entire body
 			fileList = append(fileList, curr)
 			logger.Logf("Received file %s of len %d\n", curr.hdr.Name, curr.hdr.Size)
-			fileCnt++
+			fileCount++
 			curr.hdr = nil
 			curr.body = nil
 		}
@@ -100,7 +100,7 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
 		SkipTarPadding(r)
 	}
 
-	logger.Logf("Received %d tar files\n", fileCnt)
+	logger.Logf("Received %d tar files\n", fileCount)
 }
 
 // RunUserCode will run the pipeline's user code until canceled by the context
@@ -200,10 +200,10 @@ func processFilesReceived(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger) error {
-	if fileCnt > 0 {
+	if fileCount > 0 {
 		err := processFiles(ctx, pachClient, pipelineInfo, logger)
 		fileList = nil
-		fileCnt = 0
+		fileCount = 0
 		if err != nil {
 			return err
 		}
@@ -229,13 +229,16 @@ func ReceiveSpout(
 	// and close it when we're done
 	defer out.Close()
 
+	// set up a channel to watch if the pipe has been written to or removed
 	c := make(chan notify.EventInfo, 5)
 	notify.Watch("/pfs/out", c, notify.Write|notify.Remove)
 	for {
+		// wait for the pipe to be written to (or removed)
 		e := <-c
 		switch e.Event() {
 		case notify.Write:
 			var buff bytes.Buffer
+			// copy pipe contents to buffer
 			n, err := io.Copy(&buff, out)
 			if err != nil {
 				logger.Logf("Received an EOF", err)
@@ -245,8 +248,10 @@ func ReceiveSpout(
 				continue
 			}
 			logger.Logf("Got data: ", n, buff.Len())
+			// send the contents to the tar reader
 			TarReader(buff, logger)
-			logger.Logf("Total files", fileCnt)
+			// and process any new files received
+			logger.Logf("Total files", fileCount)
 			processFilesReceived(ctx, pachClient, pipelineInfo, logger)
 		case notify.Remove:
 			logger.Logf("Fatal: pipe /pfs/out removed")
