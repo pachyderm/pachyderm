@@ -835,7 +835,7 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 // 	require.NoError(t, rootCmd().Execute())
 // }
 
-func runPipelineWithImageGetStderr(t *testing.T, image string) string {
+func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 	// reset and create some test input
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
@@ -865,9 +865,9 @@ EOF
 	cmd.Stderr = buf
 	// cmd.Stdout = os.Stdout // uncomment for debugging
 	cmd.Env = os.Environ()
-	cmd.Run()
+	err := cmd.Run()
 	stderr := buf.String()
-	return stderr
+	return stderr, err
 }
 
 func TestWarningLatestTag(t *testing.T) {
@@ -875,7 +875,11 @@ func TestWarningLatestTag(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	// should emit a warning because user specified latest tag on docker image
-	stderr := runPipelineWithImageGetStderr(t, "ubuntu:latest")
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if !strings.Contains(stderr, "WARNING") {
 		t.Logf(
 			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
@@ -891,7 +895,11 @@ func TestWarningEmptyTag(t *testing.T) {
 	}
 	// should emit a warning because user specified empty tag, equivalent to
 	// :latest
-	stderr := runPipelineWithImageGetStderr(t, "ubuntu")
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if !strings.Contains(stderr, "WARNING") {
 		t.Logf(
 			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
@@ -907,7 +915,11 @@ func TestNoWarningTagSpecified(t *testing.T) {
 	}
 	// should not emit a warning (note _lack_ of ! on strings.Contains) because
 	// user specified non-empty, non-latest tag
-	stderr := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if strings.Contains(stderr, "WARNING") {
 		t.Logf(
 			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
