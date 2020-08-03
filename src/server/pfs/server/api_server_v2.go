@@ -140,11 +140,10 @@ func (a *apiServerV2) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetT
 		if !a.env.StorageV2 {
 			return 0, errors.Errorf("new storage layer disabled")
 		}
-		repo := request.File.Commit.Repo.Name
-		commit := request.File.Commit.ID
+		commit := request.File.Commit
 		glob := request.File.Path
 		gtw := newGetTarWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getTar(server.Context(), repo, commit, glob, gtw)
+		err := a.driver.getTar(server.Context(), commit, glob, gtw)
 		return gtw.bytesWritten, err
 	})
 }
