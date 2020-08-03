@@ -55,6 +55,30 @@ const (
 	defaultIDEUserImage    = "pachyderm/ide-user"
 	defaultIDEVersion      = "1.0.0"
 	defaultIDEChartVersion = "0.8.2" // see https://jupyterhub.github.io/helm-chart/
+
+	ideNotes = `
+Thanks for installing the Pachyderm IDE!
+
+It may take a few minutes for all of the pods to spin up. If you have kubectl
+access, you can check progress with:
+
+  kubectl get pod -l release=pachyderm-ide
+
+Once all of the pods are in the 'Ready' status, you can access the IDE in the
+following manners:
+
+* If you're on docker for mac, it should be accessible on 'localhost'.
+* If you're on minikube, run 'minikube service proxy-public --url' -- one or
+  both of the URLs printed should reach the IDE.
+* If you're on a cloud deployment, use the external IP of
+  'kubectl get service proxy-public'.
+
+For more information about the Pachyderm IDE, see these resources:
+
+* Our how-tos: https://docs.pachyderm.com/latest/how-tos/use-pachyderm-ide/
+* The Z2JH docs, which the IDE builds off of:
+  https://zero-to-jupyterhub.readthedocs.io/en/latest/
+`
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -1115,7 +1139,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
-			rel, err := helm.Deploy(
+			_, err = helm.Deploy(
 				activeContext,
 				"jupyterhub",
 				"https://jupyterhub.github.io/helm-chart/",
@@ -1128,7 +1152,7 @@ func Cmds() []*cobra.Command {
 				return errors.Wrapf(err, "failed to deploy Pachyderm IDE")
 			}
 
-			fmt.Println(rel.Info.Notes)
+			fmt.Println(ideNotes)
 			return nil
 		}),
 	}
