@@ -267,29 +267,6 @@ func validateSparseEntries(sp []sparseEntry, size int64) bool {
 	return true
 }
 
-// alignSparseEntries mutates src and returns dst where each fragment's
-// starting offset is aligned up to the nearest block edge, and each
-// ending offset is aligned down to the nearest block edge.
-//
-// Even though the Go tar Reader and the BSD tar utility can handle entries
-// with arbitrary offsets and lengths, the GNU tar utility can only handle
-// offsets and lengths that are multiples of blockSize.
-// lint:ignore U1000 false positive from staticcheck
-func alignSparseEntries(src []sparseEntry, size int64) []sparseEntry {
-	dst := src[:0]
-	for _, s := range src {
-		pos, end := s.Offset, s.endOffset()
-		pos += blockPadding(+pos) // Round-up to nearest blockSize
-		if end != size {
-			end -= blockPadding(-end) // Round-down to nearest blockSize
-		}
-		if pos < end {
-			dst = append(dst, sparseEntry{Offset: pos, Length: end - pos})
-		}
-	}
-	return dst
-}
-
 // invertSparseEntries converts a sparse map from one form to the other.
 // If the input is sparseHoles, then it will output sparseDatas and vice-versa.
 // The input must have been already validated.
