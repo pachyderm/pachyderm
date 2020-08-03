@@ -714,6 +714,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
+	pj.ji.State = pps.JobState_JOB_RUNNING
+	pj.ji.DataTotal = pj.jdit.MaxLen()
+	if err := pj.writeJobInfo(); err != nil {
+		return err
+	}
+
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
@@ -922,8 +928,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		}
 	}
 
-	pj.ji.State = pps.JobState_JOB_RUNNING
-	return pj.writeJobInfo()
+	return nil
 }
 
 // Iterator fulfills the chain.JobData interface for pendingJob
