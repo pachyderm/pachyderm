@@ -122,7 +122,7 @@ func (fr *FileReader) Get(w io.Writer) error {
 	return fr.cr.Get(w)
 }
 
-// GetContents writes the contents of the file excluding the header to w.
+// Content writes the contents of the file excluding the header to w.
 func (fr *FileReader) Content(w io.Writer) error {
 	return errors.New("FileReader.GetContents not implemented")
 }

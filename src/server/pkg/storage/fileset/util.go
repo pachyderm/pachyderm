@@ -18,14 +18,15 @@ func WithLocalStorage(f func(*Storage) error) error {
 	})
 }
 
-func CopyFiles(w *Writer, r FileSource) error {
-	switch r := r.(type) {
+// CopyFiles iterates over s and writes all the Files to w
+func CopyFiles(w *Writer, s FileSource) error {
+	switch s := s.(type) {
 	case *Reader:
-		return r.iterate(func(fr *FileReader) error {
+		return s.iterate(func(fr *FileReader) error {
 			return w.CopyFile(fr)
 		})
 	default:
-		return errors.Errorf("CopyFiles does not support reader type: %T", r)
+		return errors.Errorf("CopyFiles does not support reader type: %T", s)
 	}
 }
 

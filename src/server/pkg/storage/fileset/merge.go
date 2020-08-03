@@ -278,7 +278,7 @@ func (fmr *FileMergeReader) Get(w io.Writer) error {
 	return tw.Flush()
 }
 
-// GetContent writes the content of the current file excluding the header to w
+// Content writes the content of the current file excluding the header to w
 func (fmr *FileMergeReader) Content(w io.Writer) error {
 	return fmr.tsmr.Get(w)
 }
