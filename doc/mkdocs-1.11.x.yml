@@ -20,27 +20,25 @@ theme:
   # 404 page
   static_templates:
     - 404.html
-  include_search_page: true
+  include_search_page: false
   search_index_only: true
   language: en
-  feature:
-    tabs: true
+  features:
+    - tabs
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
   font:
     text: Roboto
     code: Roboto Mono
-  favicon: assets/images/favicon.png
-  logo:
-    icon: "\uE80C"
+  favicon: assets/images/favicon-32x32.png
+  icon:
+    logo: material/school
 
 # Plugins
 plugins:
   - search
   - exclude:
-      glob:
-        - archive/*
   - minify:
       minify_html: true
   - git-revision-date-localized
@@ -48,23 +46,21 @@ plugins:
 # Customization
 extra:
   social:
-    - type: github-alt
+    - icon: fontawesome/brands/github
       link: https://github.com/pachyderm/pachyderm
-    - type: twitter
+    - icon: fontawesome/brands/twitter
       link: https://twitter.com/pachydermio
-    - type: linkedin
+    - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'assets/stylesheets/extra.css'
+    - stylesheets/extra.css
 extra_javascript:
-    - 'assets/javascripts/extra.js'
+    - assets/javascripts/extra.js
 
 # Extensions
 markdown_extensions:
   - markdown.extensions.admonition
-  - markdown.extensions.tables
-  - markdown.extensions.attr_list
   - markdown.extensions.codehilite:
       guess_lang: false
   - markdown.extensions.def_list
@@ -81,7 +77,8 @@ markdown_extensions:
   - pymdownx.critic
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:pymdownx.emoji.to_svg  
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink
@@ -96,7 +93,7 @@ markdown_extensions:
 # Page tree
 nav:
     - Home:
-        - Welcome: index.md
+        - Welcome: index.md  
         - Contributing:
             - Setup for Contributors: contributing/setup.md
             - Gcloud Cluster Setup: contributing/gcloud-setup.md
@@ -293,6 +290,7 @@ nav:
             - reference/pachctl/pachctl_deploy_custom.md
             - reference/pachctl/pachctl_deploy_export-images.md
             - reference/pachctl/pachctl_deploy_google.md
+            - reference/pachctl/pachctl_deploy_ide.md
             - reference/pachctl/pachctl_deploy_import-images.md
             - reference/pachctl/pachctl_deploy_list-images.md
             - reference/pachctl/pachctl_deploy_local.md
@@ -308,6 +306,7 @@ nav:
             - reference/pachctl/pachctl_enterprise.md
             - reference/pachctl/pachctl_enterprise_activate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
+            - reference/pachctl/pachctl_exit.md  
             - reference/pachctl/pachctl_extract.md
             - reference/pachctl/pachctl_extract_pipeline.md
             - reference/pachctl/pachctl_finish.md
