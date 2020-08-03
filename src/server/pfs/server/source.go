@@ -95,7 +95,7 @@ type Source struct {
 	computeHashes bool
 }
 
-// Creates a Reader which emits FileInfoV2s with the information from commit, and the entries from readers
+// NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
 func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *Source {
 	return &Source{
@@ -105,6 +105,8 @@ func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.
 	}
 }
 
+// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// during iteration, and the File.
 func (s *Source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
