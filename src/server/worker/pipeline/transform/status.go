@@ -15,13 +15,14 @@ import (
 // its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
-	mutex     sync.Mutex
-	jobID     string
-	stats     *pps.ProcessStats
-	queueSize *int64
-	datum     []*pps.InputFile
-	cancel    func()
-	started   time.Time
+	mutex           sync.Mutex
+	jobID           string
+	stats           *pps.ProcessStats
+	queueSize       *int64
+	dataUncommitted *int64
+	datum           []*pps.InputFile
+	cancel          func()
+	started         time.Time
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -53,15 +54,17 @@ func (s *Status) withJob(jobID string, cb func() error) error {
 	return cb()
 }
 
-func (s *Status) withStats(stats *pps.ProcessStats, queueSize *int64, cb func() error) error {
+func (s *Status) withStats(stats *pps.ProcessStats, queueSize *int64, dataUncommitted *int64, cb func() error) error {
 	s.withLock(func() {
 		s.stats = stats
 		s.queueSize = queueSize
+		s.dataUncommitted = dataUncommitted
 	})
 
 	defer s.withLock(func() {
 		s.stats = nil
 		s.queueSize = nil
+		s.dataUncommitted = nil
 	})
 
 	return cb()
@@ -98,11 +101,17 @@ func (s *Status) GetStatus() (*pps.WorkerStatus, error) {
 		queueSize = atomic.LoadInt64(s.queueSize)
 	}
 
+	var dataUncommitted int64
+	if s.dataUncommitted != nil {
+		dataUncommitted = atomic.LoadInt64(s.dataUncommitted)
+	}
+
 	return &pps.WorkerStatus{
-		JobID:     s.jobID,
-		Data:      s.datum,
-		Started:   started,
-		QueueSize: queueSize,
+		JobID:           s.jobID,
+		Data:            s.datum,
+		Started:         started,
+		QueueSize:       queueSize,
+		DataUncommitted: dataUncommitted,
 	}, nil
 }
 

@@ -228,6 +228,7 @@ message WorkerStatus {
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
   int64 queue_size = 6;
+  int64 data_uncommitted = 7;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -309,6 +310,7 @@ message JobInfo {
   int64 data_skipped = 30;
   int64 data_failed = 40;
   int64 data_recovered = 46;
+  int64 data_uncommitted = 49;
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
