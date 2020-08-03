@@ -269,9 +269,10 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 		}
 
 		queueSize := int64(0)
+		dataUncommitted := int64(0)
 		// TODO: the status.GetStatus call may read the process stats without having a lock, it this ~ok?
 		if err := logger.LogStep("processing datums", func() error {
-			return status.withStats(data.Stats.ProcessStats, &queueSize, func() error {
+			return status.withStats(data.Stats.ProcessStats, &queueSize, &dataUncommitted, func() error {
 				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
 				defer cancel()
 
@@ -303,6 +304,9 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 							return err
 						}
 						recoveredDatums = append(recoveredDatums, subRecovered...)
+						if len(recoveredDatums) == 0 {
+							atomic.AddInt64(&dataUncommitted, 1)
+						}
 						return statsErr
 					})
 					return nil

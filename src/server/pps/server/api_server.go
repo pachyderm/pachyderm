@@ -666,6 +666,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			for _, status := range workerStatus {
 				if status.JobID == jobInfo.Job.ID {
 					jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+					jobInfo.DataUncommitted += status.DataUncommitted
 				}
 			}
 		}
