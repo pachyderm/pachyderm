@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
@@ -40,7 +39,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 )
 
@@ -1216,18 +1214,14 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 		}
 
 		// request the password
-		fmt.Printf("Password for %s@%s: ", username, registry)
-		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+		password, err := cmdutil.ReadPassword(fmt.Sprintf("Password for %s@%s: ", username, registry))
 		if err != nil {
 			return errors.Wrapf(err, "could not read password")
 		}
 
-		// print a newline, since `ReadPassword` gobbles the user-inputted one
-		fmt.Println()
-
 		authConfig = docker.AuthConfiguration{
 			Username: username,
-			Password: string(passBytes),
+			Password: password,
 		}
 	}
 
