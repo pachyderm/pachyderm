@@ -1,0 +1,21 @@
+{
+    "pipeline": {
+        "name": "regression"
+    },
+    "description": "A pipeline that trains produces a regression model for housing prices.",
+    "input": {
+        "pfs": {
+            "glob": "/*",
+            "repo": "housing_data"
+        }
+    },
+    "transform": {
+        "cmd": [
+            "python", "regression.py",
+            "--input", "/pfs/housing_data/",
+            "--target-col", "MEDV",
+            "--output", "/pfs/out/"
+        ],
+        "image": "pachyderm/housing-prices:1.11.0"
+    }
+}

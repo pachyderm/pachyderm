@@ -22,3 +22,8 @@ func WithPrefix(prefix string) Option {
 		r.filter = &pathFilter{prefix: prefix}
 	}
 }
+
+// WithExact adds a path filter that matches a single path
+func WithExact(key string) Option {
+	return WithRange(&PathRange{Upper: key, Lower: key})
+}

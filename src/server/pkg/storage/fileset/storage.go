@@ -6,10 +6,10 @@ import (
 	"io"
 	"math"
 	"path"
-	"strconv"
 	"strings"
 
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -82,33 +82,37 @@ func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...O
 
 // NewWriter makes a Writer backed by the path `fileSet` in object storage.
 func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
+	fileSet = applyPrefix(fileSet)
 	return s.newWriter(ctx, fileSet, opts...)
+}
+
+func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
+	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
 // NewReader makes a Reader backed by the path `fileSet` in object storage.
 func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return s.newReader(ctx, fileSet, opts...)
-}
-
-func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
 	fileSet = applyPrefix(fileSet)
-	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
+	return s.newReader(ctx, fileSet, opts...)
 }
 
 // TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
 func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	fileSet = applyPrefix(fileSet)
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
 // NewMergeReader returns a merge reader for a set for filesets.
 func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	fileSets = applyPrefixes(fileSets)
+	return s.newMergeReader(ctx, fileSets, opts...)
+}
+
+func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	var rs []*Reader
 	for _, fileSet := range fileSets {
 		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-			rs = append(rs, s.NewReader(ctx, name, opts...))
+			rs = append(rs, s.newReader(ctx, name, opts...))
 			return nil
 		}); err != nil {
 			return nil, err
@@ -117,13 +121,24 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
+// NewSource makes a source which will iterate over the prefix fileSet
+func (s *Storage) NewSource(ctx context.Context, fileSet string, opts ...index.Option) FileSource {
+	return &mergeSource{
+		s: s,
+		getReader: func() (*MergeReader, error) {
+			return s.NewMergeReader(ctx, []string{fileSet}, opts...)
+		},
+	}
+}
+
 // ResolveIndexes resolves index entries that are spread across multiple filesets.
-func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(*index.Index) error, opts ...index.Option) error {
+// DEPRECATED: Use NewIndexResolver
+func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
 	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
 	if err != nil {
 		return err
 	}
-	w := s.newWriter(ctx, "", WithNoUpload(f))
+	w := s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(cb))
 	if err := mr.WriteTo(w); err != nil {
 		return err
 	}
@@ -135,26 +150,38 @@ func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
 	fileSets = applyPrefixes(fileSets)
-	mr, err := s.NewMergeReader(ctx, fileSets)
+	mr, err := s.newMergeReader(ctx, fileSets)
 	if err != nil {
 		return err
 	}
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// CompactStats contains information about what was compacted.
+type CompactStats struct {
+	OutputSize int64
+}
+
 // Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
-	w := s.newWriter(ctx, outputFileSet)
-	mr, err := s.NewMergeReader(ctx, inputFileSets, opts...)
+	var size int64
+	w := s.newWriter(ctx, outputFileSet, WithIndexCallback(func(idx *index.Index) error {
+		size += idx.SizeBytes
+		return nil
+	}))
+	mr, err := s.newMergeReader(ctx, inputFileSets, opts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := mr.WriteTo(w); err != nil {
-		return err
+		return nil, err
 	}
-	return w.Close()
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return &CompactStats{OutputSize: size}, nil
 }
 
 // CompactSpec specifies the input and output for a compaction operation.
@@ -166,7 +193,22 @@ type CompactSpec struct {
 // CompactSpec returns a compaction specification that determines the input filesets (the diff file set and potentially
 // compacted filesets) and output fileset.
 func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (*CompactSpec, error) {
+	if len(compactedFileSet) > 1 {
+		return nil, errors.Errorf("multiple compacted FileSets")
+	}
+	// Internal vs external path transforms
 	fileSet = applyPrefix(fileSet)
+	compactedFileSet = applyPrefixes(compactedFileSet)
+	spec, err := s.compactSpec(ctx, fileSet, compactedFileSet...)
+	if err != nil {
+		return nil, err
+	}
+	spec.Input = removePrefixes(spec.Input)
+	spec.Output = removePrefix(spec.Output)
+	return spec, nil
+}
+
+func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
 	idx, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
 	if err != nil {
 		return nil, err
@@ -178,52 +220,44 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 	var level int
 	// Handle first commit being compacted.
 	if len(compactedFileSet) == 0 {
-		for size > s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
+		for size > s.levelSize(level) {
 			level++
 		}
-		spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
+		spec.Output = path.Join(fileSet, Compacted, levelName(level))
 		return spec, nil
 	}
-	// Handle commits with a parent commit.
-	compactedFileSet[0] = applyPrefix(compactedFileSet[0])
-	if err := s.objC.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(name string) error {
-		nextLevel, err := strconv.Atoi(path.Base(name))
+	// While we can't fit it all in the current level
+	for {
+		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
+		idx, err := index.GetTopLevelIndex(ctx, s.objC, levelPath)
+		if err != nil {
+			if !s.objC.IsNotExist(err) {
+				return nil, err
+			}
+		} else {
+			spec.Input = append(spec.Input, levelPath)
+			size += idx.SizeBytes
+		}
+		if size <= s.levelSize(level) {
+			break
+		}
+		level++
+	}
+	// Now we know the output level
+	spec.Output = path.Join(fileSet, Compacted, levelName(level))
+	// Copy the other levels that may exist
+	if err := s.objC.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
+		lName := path.Base(src)
+		l, err := parseLevel(lName)
 		if err != nil {
 			return err
 		}
-		// Handle levels that are non-empty.
-		if nextLevel == level {
-			idx, err := index.GetTopLevelIndex(ctx, s.objC, name)
-			if err != nil {
+		if l > level {
+			dst := path.Join(fileSet, Compacted, levelName(l))
+			if err := copyObject(ctx, s.objC, src, dst); err != nil {
 				return err
 			}
-			size += idx.SizeBytes
-			// If the output level has not been determined yet, then the current level will be an input
-			// to the compaction.
-			// If the output level has been determined, then the current level will be copied.
-			// The copied levels are above the output level.
-			if spec.Output == "" {
-				spec.Input = append(spec.Input, name)
-			} else {
-				w, err := s.objC.Writer(ctx, path.Join(fileSet, Compacted, strconv.Itoa(level)))
-				if err != nil {
-					return err
-				}
-				r, err := s.objC.Reader(ctx, name, 0, 0)
-				if err != nil {
-					return err
-				}
-				if _, err := io.Copy(w, r); err != nil {
-					return err
-				}
-			}
 		}
-		// If the output level has not been determined yet and the compaction size is less than the threshold for
-		// the current level, then the current level becomes the output level.
-		if spec.Output == "" && size <= s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
-			spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
-		}
-		level++
 		return nil
 	}); err != nil {
 		return nil, err
@@ -249,6 +283,10 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 	})
 }
 
+func (s *Storage) levelSize(i int) int64 {
+	return s.levelZeroSize * int64(math.Pow(float64(s.levelSizeBase), float64(i)))
+}
+
 func applyPrefix(fileSet string) string {
 	fileSet = strings.TrimLeft(fileSet, "/")
 	if strings.HasPrefix(fileSet, prefix) {
@@ -272,7 +310,44 @@ func removePrefix(fileSet string) string {
 	return fileSet[len(prefix):]
 }
 
+func removePrefixes(xs []string) []string {
+	var ys []string
+	for _, x := range xs {
+		ys = append(ys, removePrefix(x))
+	}
+	return ys
+}
+
+const subFileSetFmt = "%020d"
+
 // SubFileSetStr returns the string representation of a subfileset.
 func SubFileSetStr(subFileSet int64) string {
-	return fmt.Sprintf("%020d", subFileSet)
+	return fmt.Sprintf(subFileSetFmt, subFileSet)
+}
+
+func levelName(i int) string {
+	return fmt.Sprintf(subFileSetFmt, i)
+}
+
+func parseLevel(x string) (int, error) {
+	var y int
+	_, err := fmt.Sscanf(x, subFileSetFmt, &y)
+	return y, err
+}
+
+func copyObject(ctx context.Context, objC obj.Client, src, dst string) error {
+	w, err := objC.Writer(ctx, dst)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	r, err := objC.Reader(ctx, src, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	if _, err := io.Copy(w, r); err != nil {
+		return err
+	}
+	return w.Close()
 }

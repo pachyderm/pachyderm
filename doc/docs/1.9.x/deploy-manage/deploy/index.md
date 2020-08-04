@@ -18,11 +18,11 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../pachub/pachub_getting_started/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="../../pachub/pachub_getting_started/" class="md-typeset md-link">
           Getting Started with Pachyderm Hub
           </a>
           </li>
-          <li><a href="../../getting_started/local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
           </li>
@@ -41,19 +41,19 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="google_cloud_platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="google_cloud_platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
           </li>
-          <li><a href="amazon_web_services/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="amazon_web_services/" class="md-typeset md-link">
           Deploy on AWS
           </a>
           </li>
-          <li><a href="azure/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="azure/" class="md-typeset md-link">
           Deploy on Azure
           </a>
           </li>
-          <li><a href="openshift/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="openshift/" class="md-typeset md-link">
           Deploy on OpenShift
           </a>
           </li>
@@ -74,19 +74,19 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="deploy_custom/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="deploy_custom/" class="md-typeset md-link">
            Create a Custom Deployment
            </a>
            </li>
-           <li><a href="namespaces/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="namespaces/" class="md-typeset md-link">
            Deploy in a Custom Namespace
            </a>
            </li>
-           <li><a href="non-cloud-object-stores/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="non-cloud-object-stores/" class="md-typeset md-link">
            Deploy On-Premises With Non-Cloud Object Stores
            </a>
            </li>
-           <li><a href="rbac/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="rbac/" class="md-typeset md-link">
            Configure RBAC
            </a>
            </li>
@@ -105,7 +105,7 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="connect-to-cluster/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="connect-to-cluster/" class="md-typeset md-link">
            Connect to a Pachyderm cluster
            </a>
            </li>

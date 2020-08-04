@@ -41,6 +41,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
@@ -315,13 +316,10 @@ func (a *apiServer) validateKube() {
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
 	pods, err := a.rcPods("pachd")
-	if err != nil {
+	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
-		if len(pods) == 0 {
-			logrus.Errorf("able to access kubernetes pods, but did not find a pachd pod... this is very strange since this code is run from within a pachd pod")
-		}
 		// No need to check all pods since we're just checking permissions.
 		pod := pods[0]
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
@@ -526,6 +524,9 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
+	}
+	if ppsutil.IsTerminal(jobPtr.State) {
+		return ppsServer.ErrJobFinished{jobPtr.Job}
 	}
 
 	jobPtr.Restart = request.Restart

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
@@ -190,7 +190,7 @@ func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo
 }
 
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
-func PrintDetailedPipelineInfo(pipelineInfo *PrintablePipelineInfo) error {
+func PrintDetailedPipelineInfo(w io.Writer, pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .FullTimestamps }}
@@ -226,7 +226,7 @@ Job Counts:
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, pipelineInfo)
+	err = template.Execute(w, pipelineInfo)
 	if err != nil {
 		return err
 	}

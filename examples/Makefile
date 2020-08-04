@@ -101,6 +101,20 @@ object-detection-delete: object-detection-delete
 	-$(PACHCTL) delete repo training
 	-$(PACHCTL) delete repo images
 
+housing-prices-base:
+	$(PACHCTL) create repo housing_data
+	$(PACHCTL) create pipeline -f ml/housing-prices/regression.json
+
+housing-prices-1:
+	$(PACHCTL) put file housing_data@master:housing-simplified.csv -f ml/housing-prices/data/housing-simplified-1.csv
+
+housing-prices-2:
+	$(PACHCTL) put file housing_data@master:housing-simplified.csv -f ml/housing-prices/data/housing-simplified-2.csv --overwrite
+
+housing-prices-delete:
+		$(PACHCTL) delete pipeline regression
+		$(PACHCTL) delete repo housing_data 
+
 hyperparameter-common:
 	$(PACHCTL) create repo raw_data
 	$(PACHCTL) create repo parameters

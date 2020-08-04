@@ -2,6 +2,15 @@
 
 set -ex
 
+(
+    # Stop Travis from timing us out in 10m when we want to get retried after 20m
+    set +x
+    while true; do
+        echo "liveness ping $(date)"
+        sleep 60
+    done
+) &
+
 # Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
@@ -9,7 +18,15 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-minikube delete || true  # In case we get a recycled machine
+# In case minikube delete doesn't work (see minikube#2519)
+for C in $(docker ps -aq); do docker rm -f "$C"; done || true
+
+# Belt and braces
+sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
+
+# In case we're retrying on a new cluster
+rm -f "${HOME}"/.pachyderm/config.json
+
 make launch-kube
 sleep 5
 

@@ -1,18 +1,15 @@
 package server
 
 import (
-	"archive/tar"
-	"hash"
 	"io"
 	"log"
 	"path"
-	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -111,7 +108,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 			return err
 		}
 		// Compact the commit changes into a diff file set.
-		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+		if _, err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 			return err
 		}
 		// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
@@ -125,11 +122,11 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 		if err != nil {
 			return err
 		}
-		if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+		compactRes, err := d.compact(m, compactSpec.Output, compactSpec.Input)
+		if err != nil {
 			return err
 		}
-		// TODO Need to get the size from the compaction process.
-		commitInfo.SizeBytes = uint64(0)
+		commitInfo.SizeBytes = uint64(compactRes.OutputSize)
 		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
@@ -164,22 +161,32 @@ func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(
 		return err
 	}
 	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		return d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		return err
 	})
 }
 
-// TODO Need to figure out path cleaning.
-func (d *driverV2) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	if err := d.getTarConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
-		return fr.Get(w, true)
-	}); err != nil {
+func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
 		return err
 	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
+	s := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+		return mf(idx.Path)
+	})
+	// TODO: remove absolute paths on the way out?
+	// nonAbsolute := &fileset.HeaderMapper{
+	// 	R: filter,
+	// 	F: func(th *tar.Header) *tar.Header {
+	// 		th.Name = "." + th.Name
+	// 		return th
+	// 	},
+	// }
+	return fileset.WriteTarStream(ctx, w, filter)
 }
 
-func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
+func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfoV2) error) error {
 	ctx := pachClient.Ctx()
 	if err := validateFile(file); err != nil {
 		return err
@@ -187,20 +194,27 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	// TODO: handle children of a directory
-	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
-		return f(fr.Info())
+	name := cleanPath(file.Path)
+	s := NewSource(file.Commit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			if idx.Path == name {
+				return true
+			}
+			if idx.Path == name+"/" {
+				return false
+			}
+			return strings.HasPrefix(idx.Path, name)
+		})
+		return x
 	})
-}
-
-var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
-
-func globLiteralPrefix(glob string) string {
-	idx := globRegex.FindStringIndex(glob)
-	if idx == nil {
-		return glob
-	}
-	return glob[:idx[0]]
+	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+		if pathIsChild(name, cleanPath(fi.File.Path)) {
+			return cb(fi)
+		}
+		return nil
+	})
 }
 
 // TODO Need to figure out path cleaning.
@@ -258,101 +272,11 @@ func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob str
 	return nil
 }
 
-func matchFunc(glob string) (func(string) bool, error) {
-	// TODO Need to do a review of the globbing functionality.
-	var parentG *globlib.Glob
-	parentGlob, baseGlob := path.Split(glob)
-	if len(baseGlob) > 0 {
-		var err error
-		parentG, err = globlib.Compile(parentGlob, '/')
-		if err != nil {
-			return nil, err
-		}
-	}
-	g, err := globlib.Compile(glob, '/')
-	if err != nil {
-		return nil, err
-	}
-	return func(s string) bool {
-		return g.Match(s) && (parentG == nil || !parentG.Match(s))
-	}, nil
+type compactStats struct {
+	OutputSize int64
 }
 
-// FileReader is a PFS wrapper for a fileset.MergeReader.
-// The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfo and to convert a set of index hashes to a file hash.
-type FileReader struct {
-	file      *pfs.File
-	idx       *index.Index
-	fmr       *fileset.FileMergeReader
-	mr        *fileset.MergeReader
-	fileCount int
-	hash      hash.Hash
-}
-
-func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.DataOp.DataRefs {
-		// TODO Pull from chunk hash.
-		h.Write([]byte(dataRef.Hash))
-	}
-	return &FileReader{
-		file: file,
-		idx:  idx,
-		fmr:  fmr,
-		mr:   mr,
-		hash: h,
-	}
-}
-
-func (fr *FileReader) updateFileInfo(idx *index.Index) {
-	fr.fileCount++
-	for _, dataRef := range idx.DataOp.DataRefs {
-		fr.hash.Write([]byte(dataRef.Hash))
-	}
-}
-
-// Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoV2 {
-	return &pfs.FileInfoV2{
-		File: fr.file,
-		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
-	}
-}
-
-// Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
-	if err := fr.fmr.Get(w); err != nil {
-		return err
-	}
-	for fr.fileCount > 0 {
-		fmr, err := fr.mr.Next()
-		if err != nil {
-			return err
-		}
-		if err := fmr.Get(w); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	if len(noPadding) > 0 && noPadding[0] {
-		return nil
-	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
-}
-
-func (fr *FileReader) drain() error {
-	for fr.fileCount > 0 {
-		if _, err := fr.mr.Next(); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	return nil
-}
-
-func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
+func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) (*compactStats, error) {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
 	inputPaths := []string{}
@@ -361,7 +285,7 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			inputPaths = append(inputPaths, inputPath)
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.compactIter(ctx, compactSpec{
@@ -381,7 +305,7 @@ type compactSpec struct {
 
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *compactStats, retErr error) {
 	if len(params.inputPaths) <= params.maxFanIn {
 		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
 	}
@@ -407,13 +331,13 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 		}
 		childOutputPath := path.Join(scratch, strconv.Itoa(i))
 		childOutputPaths = append(childOutputPaths, childOutputPath)
-		if err := d.compactIter(ctx, compactSpec{
+		if _, err := d.compactIter(ctx, compactSpec{
 			master:     params.master,
 			inputPaths: params.inputPaths[start:end],
 			outputPath: childOutputPath,
 			maxFanIn:   params.maxFanIn,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
@@ -423,7 +347,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (_ *compactStats, retErr error) {
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
 		if err := d.storage.Delete(ctx, scratch); retErr == nil {
@@ -450,7 +374,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		shardOutputs = append(shardOutputs, shardOutputPath)
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 		if taskInfo.State == work.State_FAILURE {
@@ -458,24 +382,29 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	return d.concatFileSets(ctx, outputPath, shardOutputs)
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
-	fsw := d.storage.NewWriter(ctx, outputPath)
+func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) (*compactStats, error) {
+	var size int64
+	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
+		size += idx.SizeBytes
+		return nil
+	}))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
-		if err := fsr.Iterate(func(fr *fileset.FileReader) error {
-			return fsw.CopyFile(fr)
-		}); err != nil {
-			return err
+		if err := fileset.CopyFiles(fsw, fsr); err != nil {
+			return nil, err
 		}
 	}
-	return fsw.Close()
+	if err := fsw.Close(); err != nil {
+		return nil, err
+	}
+	return &compactStats{OutputSize: size}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -510,7 +439,8 @@ func (d *driverV2) compactionWorker() {
 				Lower: shard.Range.Lower,
 				Upper: shard.Range.Upper,
 			}
-			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
@@ -520,7 +450,7 @@ func (d *driverV2) compactionWorker() {
 	panic(err)
 }
 
-func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfoV2) error) (retErr error) {
+func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfoV2) error) (retErr error) {
 	// Validate arguments
 	if commit == nil {
 		return errors.New("commit cannot be nil")
@@ -531,8 +461,23 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-
-	return d.getTarConditional(pachClient.Ctx(), commit.Repo.Name, commit.ID, pattern, func(fr *FileReader) error {
-		return f(fr.Info())
+	ctx := pachClient.Ctx()
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
+		return err
+	}
+	s := NewSource(commit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+		x = fileset.NewIndexResolver(x)
+		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return mf(cleanPath(idx.Path))
+		})
 	})
+	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		return cb(fi)
+	})
+}
+
+func compactedCommitPath(commit *pfs.Commit) string {
+	return path.Join(commitKey(commit), fileset.Compacted)
 }
