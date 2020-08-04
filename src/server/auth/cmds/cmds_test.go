@@ -7,6 +7,7 @@ package cmds
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -31,7 +32,7 @@ func activateEnterprise(t *testing.T) {
 	if string(out) != "ACTIVE" {
 		// Enterprise not active in the cluster. Activate it.
 		cmd := tu.Cmd("pachctl", "enterprise", "activate")
-		cmd.Stdin = strings.NewReader(tu.GetTestEnterpriseCode(t))
+		cmd.Stdin = strings.NewReader(fmt.Sprintf("%s\n", tu.GetTestEnterpriseCode(t)))
 		require.NoError(t, cmd.Run())
 	}
 }
