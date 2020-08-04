@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
