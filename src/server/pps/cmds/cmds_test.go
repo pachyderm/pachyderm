@@ -876,17 +876,8 @@ func TestWarningLatestTag(t *testing.T) {
 	}
 	// should emit a warning because user specified latest tag on docker image
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !strings.Contains(stderr, "WARNING") {
-		t.Logf(
-			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
-			stderr,
-		)
-		t.Fail()
-	}
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
 }
 
 func TestWarningEmptyTag(t *testing.T) {
@@ -896,35 +887,17 @@ func TestWarningEmptyTag(t *testing.T) {
 	// should emit a warning because user specified empty tag, equivalent to
 	// :latest
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !strings.Contains(stderr, "WARNING") {
-		t.Logf(
-			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
-			stderr,
-		)
-		t.Fail()
-	}
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
 }
 
 func TestNoWarningTagSpecified(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	// should not emit a warning (note _lack_ of ! on strings.Contains) because
-	// user specified non-empty, non-latest tag
+	// should not emit a warning (stderr should be empty) because user
+	// specified non-empty, non-latest tag
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if strings.Contains(stderr, "WARNING") {
-		t.Logf(
-			"pachctl create pipeline failed to emit a WARNING to stderr, got %s",
-			stderr,
-		)
-		t.Fail()
-	}
+	require.NoError(t, err)
+	require.Equal(t, "", stderr)
 }
