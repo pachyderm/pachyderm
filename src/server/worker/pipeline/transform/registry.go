@@ -702,10 +702,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
-	if err := pj.logger.LogStep("waiting for job inputs", func() error {
-		return reg.processJobStarting(pj)
-	}); err != nil {
-		return err
+	if pj.ji.State == pps.JobState_JOB_STARTING {
+		if err := pj.logger.LogStep("waiting for job inputs", func() error {
+			return reg.processJobStarting(pj)
+		}); err != nil {
+			return err
+		}
 	}
 
 	// TODO: we should NOT start the job this way if it is in EGRESSING
@@ -714,7 +716,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
-	pj.ji.State = pps.JobState_JOB_RUNNING
 	pj.ji.DataTotal = pj.jdit.MaxLen()
 	if err := pj.writeJobInfo(); err != nil {
 		return err
@@ -928,6 +929,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		}
 	}
 
+	pj.ji.State = pps.JobState_JOB_RUNNING
 	return nil
 }
 
