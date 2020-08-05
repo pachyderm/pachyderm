@@ -8,7 +8,7 @@ Here are some common issues by symptom along with steps to resolve them.
   - [Cannot connect via `pachctl` - context deadline exceeded](#cannot-connect-via-pachctl-context-deadline-exceeded)
   - [Certificate error when using `kubectl`](#certificate-error-when-using-kubectl)
   - [Uploads and Downloads are slow](#uploads-and-downloads-are-slow)
-
+  - [Naming a Repo with an Unsupported Symbol](#naming-a-repo-with-an-unsupported-symbol)
 
 ---
 
@@ -94,3 +94,30 @@ signify the end of options and tell the shell to process the
 rest arguments as filenames and objects.
 
 For more information, see `man bash`.
+
+### Failed Uploads
+
+#### Symptom
+
+A file upload, particularly a recursive one of many files, fails. You may see a log messages containing the following in either pipeline logs, pachd logs, or from the pachctl command locally:
+- pachctl errror: ``an error occurred forwarding XXXXX -> 650: error forwarding port 650``
+- pachctl error: ``EOF``
+- pachd or worker: ``all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp  127.0.0.1:653: connect: connection refused\"; retrying in XXXX.XXXXXs"}``
+
+#### Recourse
+
+Either ``pachd`` or your pipeline's worker sidecar may be getting OOM killed as it grows while getting data from object storage. There are a couple of levers you can manipulate to get the storage container to stay within limits you set.
+
+One of the ways you can give storage more resources is by increasing the ``cache_size`` parameter in your pipeline spec. Increase it to what you can afford; its default is 64M.(If you’re using a release prior to 1.10.0 and you have cluster-wide or namepace policies on resource limits, you may need to manually edit the pipeline RC.)
+
+If it still gets oomkilled by k8s, there are a couple of environment variables you can set on your pachd deployment to limit the amount of memory that sidecar and pachd use.
+
+``STORAGE_UPLOAD_CONCURRENCY_LIMIT`` limits the parallelism to put files into the storage backend. Default is 100.
+``STORAGE_PUT_FILE_CONCURRENCY_LIMIT`` limits the number of parallel downloads pachd will initiate. Default is also 100.
+You may use a binary search technique to hone in on a value appropriate for a production pipeline:
+
+for ``cache_size``, max it out. If it works, halve it. If it oomkills, increase that value by 50%. and so on
+for the ``CONCURRENCY_LIMITS``, halve and increase by 50% until you get a value that works.
+
+
+
