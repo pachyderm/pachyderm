@@ -51,8 +51,8 @@ const (
 	defaultDashImage   = "pachyderm/dash"
 	defaultDashVersion = "0.5.48"
 
-	defaultIDEHubImage     = "pachyderm/ide-hub"
-	defaultIDEUserImage    = "pachyderm/ide-user"
+	defaultIDEHubImage  = "pachyderm/ide-hub"
+	defaultIDEUserImage = "pachyderm/ide-user"
 
 	defaultIDEVersion      = "1.1.0"
 	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
