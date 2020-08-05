@@ -3,6 +3,7 @@ syntax = "proto3";
 package pachyderm.worker.datum;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker/datum";
 
+import "client/pps/pps.proto";
 import "server/worker/common/common.proto";
 
 import "gogoproto/gogo.proto";
@@ -19,9 +20,14 @@ message Meta {
   string hash = 3;
   State state = 4;
   string reason = 5;
-  Stats stats = 6;
+  pps.ProcessStats stats = 6;
 }
 
 message Stats {
+  pps.ProcessStats process_stats = 1;
+  int64 processed = 2;
+  int64 skipped = 3;
+  int64 failed = 4;
+  int64 recovered = 5;
+  string failed_id = 6 [(gogoproto.customname) = "FailedID"];
 }
-

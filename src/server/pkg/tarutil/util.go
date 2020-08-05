@@ -127,7 +127,7 @@ func Equal(file1, file2 File, full ...bool) (bool, error) {
 	return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
 }
 
-func TarToLocal(storageRoot string, r io.Reader) error {
+func TarToLocal(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -136,6 +136,11 @@ func TarToLocal(storageRoot string, r io.Reader) error {
 				return nil
 			}
 			return err
+		}
+		if len(cb) > 0 {
+			if err := cb[0](hdr); err != nil {
+				return err
+			}
 		}
 		// TODO: Use the tar header metadata.
 		fullPath := path.Join(storageRoot, hdr.Name)
@@ -168,7 +173,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 	return err
 }
 
-func LocalToTar(storageRoot string, w io.Writer) error {
+func LocalToTar(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) error {
 	return WithWriter(w, func(tw *tar.Writer) error {
 		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
 			if err != nil {
@@ -188,6 +193,11 @@ func LocalToTar(storageRoot string, w io.Writer) error {
 			}
 			// TODO: Remove when path cleaning is in.
 			hdr.Name = filepath.Join("/", hdr.Name)
+			if len(cb) > 0 {
+				if err := cb[0](hdr); err != nil {
+					return err
+				}
+			}
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
 			}

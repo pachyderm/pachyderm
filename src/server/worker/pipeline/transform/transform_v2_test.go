@@ -76,24 +76,21 @@ func triggerJobV2(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 	require.NoError(t, env.PachClient.FinishCommit(pi.Input.Pfs.Repo, commit.ID))
 }
 
-// TODO: Need datum stats to handle failed datum.
-//func TestJobFailedDatum(t *testing.T) {
-//	pi := defaultPipelineInfo()
-//	pi.EnableStats = true
-//	pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
-//	require.NoError(t, withWorkerSpawnerPair(pi, func(env *testEnv) error {
-//		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-//		fileName := "/file"
-//		fileContent := []byte("foobar")
-//		tarFile := tarutil.NewFile(fileName, fileContent)
-//		triggerJobV2(t, env, pi, tarFile)
-//		ctx = withTimeout(ctx, 10*time.Second)
-//		<-ctx.Done()
-//		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
-//		// TODO: check job stats
-//		return nil
-//	}))
-//}
+func TestJobFailedDatumV2(t *testing.T) {
+	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
+		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		tarFiles := []tarutil.File{
+			tarutil.NewFile("/file", []byte("foobar")),
+		}
+		triggerJobV2(t, env, pi, tarFiles)
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
+		// TODO: check job stats
+		return nil
+	})
+}
 
 func TestJobMultiDatumV2(t *testing.T) {
 	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {

@@ -195,9 +195,17 @@ func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats
 	return nil
 }
 
+func (md *MockDriver) RunUserCodeV2(context.Context, logs.TaggedLogger, []string) error {
+	return nil
+}
+
 // RunUserErrorHandlingCode does nothing.  Inherit and shadow this if you
 // actually want to do something for user error-handling code
 func (md *MockDriver) RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
+	return nil
+}
+
+func (md *MockDriver) RunUserErrorHandlingCodeV2(context.Context, logs.TaggedLogger, []string) error {
 	return nil
 }
 

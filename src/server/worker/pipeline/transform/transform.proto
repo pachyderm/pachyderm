@@ -8,6 +8,7 @@ import "gogoproto/gogo.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "server/worker/common/common.proto";
+import "server/worker/datum/datum.proto";
 
 // DatumInputs is the message contained in the object pointed to by the
 // DatumData.datums field.
@@ -95,5 +96,5 @@ message DatumSetV2 {
   pfs.Commit meta_commit = 4;
 
   // Outputs
-  DatumStats stats = 5;
+  datum.Stats stats = 5;
 }

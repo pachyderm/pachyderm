@@ -37,6 +37,7 @@ func (jc *JobChainV2) CreateJob(jobID string, dit, outputDit datum.IteratorV2) *
 		jc:        jc,
 		parent:    jc.prevJob,
 		jobID:     jobID,
+		stats:     &datum.Stats{},
 		dit:       dit,
 		outputDit: outputDit,
 		done:      make(chan struct{}),
@@ -49,6 +50,7 @@ type JobDatumIteratorV2 struct {
 	jc             *JobChainV2
 	parent         *JobDatumIteratorV2
 	jobID          string
+	stats          *datum.Stats
 	dit, outputDit datum.IteratorV2
 	done           chan struct{}
 	deleter        func(*datum.Meta) error
@@ -76,7 +78,11 @@ func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 	<-jdi.parent.done
 	// Generate datum sets for the skipped datums that were not processed by the parent (failed, recovered, etc.).
 	return datum.Merge([]datum.IteratorV2{jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
-		return jdi.maybeSkip(metas, cb)
+		jdi.stats.Skipped++
+		return jdi.maybeSkip(metas, func(meta *datum.Meta) error {
+			jdi.stats.Skipped--
+			return cb(meta)
+		})
 	})
 }
 
@@ -108,6 +114,10 @@ func (jdi *JobDatumIteratorV2) maybeSkip(metas []*datum.Meta, cb func(*datum.Met
 		return nil
 	}
 	return cb(metas[0])
+}
+
+func (jdi *JobDatumIteratorV2) Stats() *datum.Stats {
+	return jdi.stats
 }
 
 func (jdi *JobDatumIteratorV2) Finish() {

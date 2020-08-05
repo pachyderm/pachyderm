@@ -11,9 +11,12 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
@@ -69,12 +72,14 @@ type Set struct {
 	pachClient                        *client.APIClient
 	storageRoot                       string
 	metaOutputClient, pfsOutputClient PutTarClient
+	stats                             *Stats
 }
 
 func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
 		pachClient:  pachClient,
 		storageRoot: storageRoot,
+		stats:       &Stats{ProcessStats: &pps.ProcessStats{}},
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -93,19 +98,18 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 // TODO: Handle datum concurrency here, and potentially move symlinking here.
 func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, opts ...DatumOption) error {
 	d := newDatum(s, meta, opts...)
-	attemptsLeft := d.numRetries + 1
 	cancelCtx, cancel := context.WithCancel(ctx)
+	attemptsLeft := d.numRetries + 1
 	return backoff.RetryUntilCancel(cancelCtx, func() error {
-		return d.withData(func() error {
-			if err := cb(d); err != nil {
-				if attemptsLeft == 0 {
-					cancel()
-					return d.handleFailedDatum(err)
-				}
+		return d.withData(func() (retErr error) {
+			defer func() {
 				attemptsLeft--
-				return err
-			}
-			return d.uploadOutput()
+				if retErr == nil || attemptsLeft == 0 {
+					retErr = d.finish(retErr)
+					cancel()
+				}
+			}()
+			return cb(d)
 		})
 	}, &backoff.ZeroBackOff{}, func(err error, _ time.Duration) error {
 		// TODO: Tagged logger here?
@@ -121,6 +125,8 @@ type Datum struct {
 	storageRoot      string
 	numRetries       int
 	recoveryCallback func() error
+	stats            *pps.ProcessStats
+	timeout          time.Duration
 }
 
 func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
@@ -132,6 +138,7 @@ func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
 		ID:          ID,
 		storageRoot: path.Join(set.storageRoot, ID),
 		numRetries:  defaultNumRetries,
+		stats:       &pps.ProcessStats{},
 	}
 	for _, opt := range opts {
 		opt(d)
@@ -147,12 +154,32 @@ func (d *Datum) MetaStorageRoot() string {
 	return path.Join(d.storageRoot, MetaPrefix, d.ID)
 }
 
-func (d *Datum) handleFailedDatum(err error) error {
+func (d *Datum) finish(err error) (retErr error) {
+	defer func() {
+		if err := mergeProcessStats(d.set.stats.ProcessStats, d.stats); retErr == nil {
+			retErr = err
+		}
+	}()
+	if err != nil {
+		return d.handleFailed(err)
+	}
+	d.set.stats.Processed++
+	return d.uploadOutput()
+}
+
+func (d *Datum) handleFailed(err error) error {
 	d.meta.State = State_FAILED
 	if d.recoveryCallback != nil {
 		err = d.recoveryCallback()
 		if err == nil {
 			d.meta.State = State_RECOVERED
+			d.set.stats.Recovered++
+		}
+	}
+	if d.meta.State == State_FAILED {
+		d.set.stats.Failed++
+		if d.set.stats.FailedID == "" {
+			d.set.stats.FailedID = d.ID
 		}
 	}
 	// TODO: Store error in meta.
@@ -171,12 +198,36 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 	}()
 	// Download input files.
 	// TODO: Move to copy file for inputs to datum file set.
+	if err := d.downloadData(); err != nil {
+		return err
+	}
+	return cb()
+}
+
+func (d *Datum) downloadData() error {
+	start := time.Now()
+	d.stats.DownloadBytes = 0
+	defer func() {
+		d.stats.DownloadTime = types.DurationProto(time.Since(start))
+	}()
 	for _, input := range d.meta.Inputs {
-		if err := sync.PullV2(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name)); err != nil {
+		if err := sync.PullV2(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name), func(hdr *tar.Header) error {
+			d.stats.DownloadBytes += uint64(hdr.Size)
+			return nil
+		}); err != nil {
 			return err
 		}
 	}
-	return cb()
+	return nil
+}
+
+func (d *Datum) Run(ctx context.Context, cb func(ctx context.Context) error) error {
+	if d.timeout > 0 {
+		timeoutCtx, cancel := context.WithTimeout(ctx, d.timeout)
+		defer cancel()
+		return cb(timeoutCtx)
+	}
+	return cb(ctx)
 }
 
 func (d *Datum) uploadMetaOutput() (retErr error) {
@@ -209,20 +260,28 @@ func (d *Datum) uploadOutput() error {
 		return err
 	}
 	if d.set.pfsOutputClient != nil {
-		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix)); err != nil {
+		start := time.Now()
+		d.stats.UploadBytes = 0
+		defer func() {
+			d.stats.UploadTime = types.DurationProto(time.Since(start))
+		}()
+		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix), func(hdr *tar.Header) error {
+			d.stats.UploadBytes += uint64(hdr.Size)
+			return nil
+		}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *Datum) upload(ptc PutTarClient, storageRoot string) error {
+func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Header) error) error {
 	// TODO: Might make more sense to convert to tar on the fly.
 	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
 	if err != nil {
 		return err
 	}
-	if err := tarutil.LocalToTar(storageRoot, f); err != nil {
+	if err := tarutil.LocalToTar(storageRoot, f, cb...); err != nil {
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {

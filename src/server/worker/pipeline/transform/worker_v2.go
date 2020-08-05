@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -46,8 +47,7 @@ func WorkerV2(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task
 func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSetV2, status *Status) error {
 	pachClient := driver.PachClient()
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-	// TODO: Unify these stats with datum.Stats
-	processStats := &pps.ProcessStats{}
+	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
 	metaCommit := datumSet.MetaCommit
 	return pachClient.WithFileOperationClientV2(metaCommit.Repo.Name, metaCommit.ID, func(focMeta *client.FileOperationClient) error {
@@ -64,22 +64,32 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 					driver := driver.WithContext(ctx)
 					inputs := inputV2ToV1(meta.Inputs)
 					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
-					opts := []datum.DatumOption{}
+					var opts []datum.DatumOption
+					if driver.PipelineInfo().DatumTimeout != nil {
+						timeout, err := types.DurationFromProto(driver.PipelineInfo().DatumTimeout)
+						if err != nil {
+							return err
+						}
+						opts = append(opts, datum.WithTimeout(timeout))
+					}
 					if driver.PipelineInfo().Transform.ErrCmd != nil {
 						opts = append(opts, datum.WithRecoveryCallback(func() error {
 							// TODO: Datum timeout should be an functional option on a datum.
-							return driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout)
+							return driver.RunUserErrorHandlingCodeV2(ctx, logger, env)
 						}))
 					}
 					return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
-						return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-							return status.withDatum(inputs, cancel, func() (retErr error) {
-								return driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout)
+						return status.withDatum(inputs, cancel, func() error {
+							return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+								return d.Run(ctx, func(runCtx context.Context) error {
+									return driver.RunUserCodeV2(runCtx, logger, env)
+								})
 							})
 						})
 					}, opts...)
+
 				})
-			}, datum.WithMetaOutput(focMeta), datum.WithPFSOutput(focPFS))
+			}, datum.WithMetaOutput(focMeta), datum.WithPFSOutput(focPFS), datum.WithStats(datumSet.Stats))
 		})
 	})
 }

@@ -53,6 +53,16 @@ func (pj *pendingJobV2) writeJobInfo() error {
 	return writeJobInfo(pj.driver.PachClient(), pj.ji)
 }
 
+// TODO: The job info should eventually just have a field with type *datum.Stats
+func (pj *pendingJobV2) saveJobStats(stats *datum.Stats) {
+	pj.ji.Stats = stats.ProcessStats
+	pj.ji.DataProcessed += stats.Processed
+	pj.ji.DataSkipped += stats.Skipped
+	pj.ji.DataFailed += stats.Failed
+	pj.ji.DataRecovered += stats.Recovered
+	pj.ji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
+}
+
 type registryV2 struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
@@ -412,6 +422,7 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	pachClient := pj.driver.PachClient()
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup goroutine for creating datum set subtasks.
 	// TODO: When the datum set spec is not set, evenly distribute the datums.
 	eg, _ := errgroup.WithContext(pachClient.Ctx())
@@ -436,18 +447,22 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 					if taskInfo.State == work.State_FAILURE {
 						return errors.Errorf("datum set subtask failed: %s", taskInfo.Reason)
 					}
-					// TODO: Datum stats
-					//data, err := deserializeDatumSet(taskInfo.Task.Data)
-					//if err != nil {
-					//	return err
-					//}
-					return nil
+					data, err := deserializeDatumSetV2(taskInfo.Task.Data)
+					if err != nil {
+						return err
+					}
+					return datum.MergeStats(stats, data.Stats)
 				},
 			)
 		})
 	})
 	if err := eg.Wait(); err != nil {
 		return err
+	}
+	pj.saveJobStats(pj.jdit.Stats())
+	pj.saveJobStats(stats)
+	if stats.FailedID != "" {
+		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
 	return reg.succeedJob(pj)
 }
