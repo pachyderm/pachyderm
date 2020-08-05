@@ -48,10 +48,13 @@ var (
 )
 
 const (
-	defaultDashImage       = "pachyderm/dash:0.5.48"
-	defaultIDEHubImage     = "pachyderm/ide-hub:1.0.0"
-	defaultIDEUserImage    = "pachyderm/ide-user:1.0.0"
-	jupyterhubChartVersion = "0.8.2"
+	defaultDashImage   = "pachyderm/dash"
+	defaultDashVersion = "0.5.48"
+
+	defaultIDEHubImage     = "pachyderm/ide-hub"
+	defaultIDEUserImage    = "pachyderm/ide-user"
+	defaultIDEVersion      = "1.0.0"
+	defaultIDEChartVersion = "0.8.2" // see https://jupyterhub.github.io/helm-chart/
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -386,7 +389,10 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
-		dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
+		if dashImage == "" {
+			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
+		}
+
 		opts = &assets.AssetOpts{
 			FeatureFlags: assets.FeatureFlags{
 				NewStorageLayer: newStorageLayer,
@@ -984,6 +990,7 @@ func Cmds() []*cobra.Command {
 	var lbTLSEmail string
 	var dryRun bool
 	var outputFormat string
+	var jupyterhubChartVersion string
 	var hubImage string
 	var userImage string
 	deployIDE := &cobra.Command{
@@ -1032,6 +1039,19 @@ func Cmds() []*cobra.Command {
 			})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get an auth token")
+			}
+
+			if jupyterhubChartVersion == "" {
+				jupyterhubChartVersion = getCompatibleVersion("jupyterhub", "/jupyterhub", defaultIDEChartVersion)
+			}
+			if hubImage == "" || userImage == "" {
+				ideVersion := getCompatibleVersion("ide", "/ide", defaultIDEVersion)
+				if hubImage == "" {
+					hubImage = fmt.Sprintf("%s:%s", defaultIDEHubImage, ideVersion)
+				}
+				if userImage == "" {
+					userImage = fmt.Sprintf("%s:%s", defaultIDEUserImage, ideVersion)
+				}
 			}
 
 			hubImageName, hubImageTag := docker.ParseRepositoryTag(hubImage)
@@ -1116,8 +1136,9 @@ func Cmds() []*cobra.Command {
 	deployIDE.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the load balancer")
 	deployIDE.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy, instead just print the Helm config.")
 	deployIDE.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	deployIDE.Flags().StringVar(&hubImage, "hub-image", defaultIDEHubImage, "Image for IDE hub")
-	deployIDE.Flags().StringVar(&userImage, "user-image", defaultIDEUserImage, "Image for IDE user environments")
+	deployIDE.Flags().StringVar(&jupyterhubChartVersion, "jupyterhub-chart-version", "", "Version of the underlying Zero to JupyterHub with Kubernetes helm chart to use. By default this value is automatically derived.")
+	deployIDE.Flags().StringVar(&hubImage, "hub-image", "", "Image for IDE hub. By default this value is automatically derived.")
+	deployIDE.Flags().StringVar(&userImage, "user-image", "", "Image for IDE user environments. By default this value is automatically derived.")
 	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
@@ -1288,11 +1309,12 @@ underlying volume will not be removed.`)
 					return err
 				}
 			}
+
 			// Redeploy the dash
 			var buf bytes.Buffer
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
-				DashImage: getDefaultOrLatestDashImage("", updateDashDryRun),
+				DashImage: fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion)),
 			}
 			if err := assets.WriteDashboardAssets(
 				encoder(updateDashOutputFormat, &buf), opts,
@@ -1309,49 +1331,47 @@ underlying volume will not be removed.`)
 	return commands
 }
 
-func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
-	if dashImage != "" {
-		// It has been supplied explicitly by version on the command line
-		return dashImage
-	}
-	dashImage = defaultDashImage
-
-	var err error
+// getCompatibleVersion gets the compatible version of another piece of
+// software, or falls back to a default
+func getCompatibleVersion(displayName, subpath, defaultValue string) string {
 	var relVersion string
-
 	// This is the branch where to look.
-	// When a new dash version needs to be pushed we can just update the compatibility file
-	// in pachyderm repo branch. A (re)deploy will pick it up. To make this work we have to
-	// point the URL to the branch (not tag) in the repo.
+	// When a new version needs to be pushed we can just update the
+	// compatibility file in pachyderm repo branch. A (re)deploy will pick it
+	// up. To make this work we have to point the URL to the branch (not tag)
+	// in the repo.
 	branch := version.BranchFromVersion(version.Version)
 	if version.IsCustomRelease(version.Version) {
 		relVersion = version.PrettyPrintVersionNoAdditional(version.Version)
 	} else {
 		relVersion = version.PrettyPrintVersion(version.Version)
 	}
-	defer func() {
-		if err != nil && !dryRun {
-			fmt.Printf("No updated dash image found for pachctl in branch %v in release %v: %v Falling back to dash image %v\n", branch, relVersion, err, defaultDashImage)
-		}
-	}()
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/etc/compatibility/%v", branch, relVersion)
-	resp, err := http.Get(compatibleDashVersionsURL)
+
+	url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/compatibility%s/etc/%s/%s", branch, subpath, relVersion)
+	resp, err := http.Get(url)
 	if err != nil {
-		return dashImage
+		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
+		return defaultValue
 	}
+
+	// Error on non-200; for the requests we're making, 200 is the only OK
+	// state
+	if resp.StatusCode != 200 {
+		log.Warningf("error looking up compatible version of %s, falling back to %s: unexpected return code %d", displayName, defaultValue, resp.StatusCode)
+		return defaultValue
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return dashImage
+		log.Warningf("error looking up compatible version of %s, falling back to %s: %v", displayName, defaultValue, err)
+		return defaultValue
 	}
-	if resp.StatusCode != 200 {
-		err = errors.New(string(body))
-		return dashImage
-	}
+
 	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
 	if len(allVersions) < 1 {
-		return dashImage
+		log.Warningf("no compatible version of %s found, falling back to %s", displayName, defaultValue)
+		return defaultValue
 	}
 	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
-
-	return fmt.Sprintf("pachyderm/dash:%v", latestVersion)
+	return latestVersion
 }
