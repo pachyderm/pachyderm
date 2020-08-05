@@ -41,9 +41,6 @@ async def get_client_version():
         client_version = (await capture("pachctl", "version", "--client-only")).strip()
     return client_version
 
-class RedactedString(str):
-    pass
-
 class BaseDriver:
     def image(self, name):
         return name
@@ -112,7 +109,7 @@ class BaseDriver:
         if ide:
             await asyncio.gather(*[self.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
 
-            await run("pachctl", "enterprise", "activate", RedactedString(os.environ["PACH_ENTERPRISE_KEY"]))
+            await run("pachctl", "enterprise", "activate", stdin=os.environ["PACH_ENTERPRISE_KEY"])
             await run("pachctl", "auth", "activate", stdin="admin\n")
             await run("pachctl", "deploy", "ide", 
                 "--user-image", self.image(IDE_USER_IMAGE),
@@ -308,8 +305,7 @@ class HubDriver:
         await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None, cwd=None):
-    print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
-    print_status("running: `{}`".format(" ".join(print_args)))
+    print_status("running: `{} {}`".format(cmd, " ".join(args)))
 
     proc = await asyncio.create_subprocess_exec(
         cmd, *args,
@@ -319,11 +315,8 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
         cwd=cwd,
     )
     
-    if timeout is None:
-        stdin = stdin.encode("utf8") if stdin is not None else None
-        result = await proc.communicate(input=stdin)
-    else:
-        result = await asyncio.wait_for(proc.communicate(input=stdin), timeout=timeout)
+    future = proc.communicate(input=stdin.encode("utf8") if stdin is not None else None)
+    result = await (future if timeout is None else asyncio.wait_for(future, timeout=timeout))
 
     if capture_output:
         stdout, stderr = result

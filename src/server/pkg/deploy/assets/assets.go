@@ -692,6 +692,21 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
 		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},
+		{
+			Name: "PACHD_POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
+			},
+		},
+		// TODO: Setting the default explicitly to ensure the environment variable is set since we pull directly
+		// from it for setting up the worker client. Probably should not be pulling directly from environment variables.
+		{
+			Name:  client.PPSWorkerPortEnv,
+			Value: "80",
+		},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)

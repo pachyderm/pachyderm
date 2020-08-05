@@ -137,7 +137,7 @@ func TestWriteThenRead(t *testing.T) {
 			// Read the files from the fileset, checking against the recorded files.
 			r := fileSets.newReader(context.Background(), fileSet)
 			filesIter := files
-			require.NoError(t, r.Iterate(func(fr *FileReader) error {
+			require.NoError(t, r.iterate(func(fr *FileReader) error {
 				checkFile(t, fr, filesIter[0], msg)
 				filesIter = filesIter[1:]
 				return nil
@@ -181,13 +181,13 @@ func TestCopy(t *testing.T) {
 		r := fileSets.newReader(context.Background(), originalPath)
 		copyPath := path.Join(testPath, "copy")
 		wCopy := fileSets.newWriter(context.Background(), copyPath)
-		require.NoError(t, r.Iterate(func(fr *FileReader) error {
+		require.NoError(t, r.iterate(func(fr *FileReader) error {
 			return wCopy.CopyFile(fr)
 		}), msg)
 		require.NoError(t, wCopy.Close(), msg)
 		// Compare initial fileset and copy fileset.
 		rCopy := fileSets.newReader(context.Background(), copyPath)
-		require.NoError(t, rCopy.Iterate(func(fr *FileReader) error {
+		require.NoError(t, rCopy.iterate(func(fr *FileReader) error {
 			checkFile(t, fr, files[0], msg)
 			files = files[1:]
 			return nil
@@ -235,10 +235,11 @@ func TestCompaction(t *testing.T) {
 		// Get the file hashes.
 		getHashes(t, fileSets, files, msg)
 		// Compact the files.
-		require.NoError(t, fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath}), msg)
+		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath})
+		require.NoError(t, err, msg)
 		// Check the files.
-		r := fileSets.newReader(context.Background(), path.Join(testPath, Compacted))
-		require.NoError(t, r.Iterate(func(fr *FileReader) error {
+		r := fileSets.NewReader(context.Background(), path.Join(testPath, Compacted))
+		require.NoError(t, r.iterate(func(fr *FileReader) error {
 			checkFile(t, fr, files[0], msg)
 			files = files[1:]
 			return nil
@@ -301,7 +302,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 func getHashes(t *testing.T, fileSets *Storage, files []*testFile, msg string) {
 	writeFileSet(t, fileSets, path.Join(scratchPath, Compacted), files, msg)
 	r := fileSets.newReader(context.Background(), path.Join(scratchPath, Compacted))
-	require.NoError(t, r.Iterate(func(fr *FileReader) error {
+	require.NoError(t, r.iterate(func(fr *FileReader) error {
 		files[0].hashes = dataRefsToHashes(fr.Index().DataOp.DataRefs)
 		files = files[1:]
 		return nil

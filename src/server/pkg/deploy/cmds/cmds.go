@@ -53,8 +53,9 @@ const (
 
 	defaultIDEHubImage     = "pachyderm/ide-hub"
 	defaultIDEUserImage    = "pachyderm/ide-user"
-	defaultIDEVersion      = "1.0.0"
-	defaultIDEChartVersion = "0.8.2" // see https://jupyterhub.github.io/helm-chart/
+
+	defaultIDEVersion      = "1.1.0"
+	defaultIDEChartVersion = "0.9.1" // see https://jupyterhub.github.io/helm-chart/
 
 	ideNotes = `
 Thanks for installing the Pachyderm IDE!
@@ -1088,8 +1089,7 @@ func Cmds() []*cobra.Command {
 						"tag":  hubImageTag,
 					},
 					"extraConfig": map[string]interface{}{
-						"jupyterlab": "c.Spawner.cmd = ['jupyter-labhub']",
-						"templates":  "c.JupyterHub.template_paths = ['/app/templates']",
+						"templates": "c.JupyterHub.template_paths = ['/app/templates']",
 					},
 				},
 				"singleuser": map[string]interface{}{

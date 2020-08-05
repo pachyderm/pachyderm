@@ -1,0 +1,29 @@
+{
+  "pipeline": {
+    "name": "branch-mover"
+  },
+  "input": {
+    "cron": {
+        "name": "tick",
+        "spec": "@every 1m",
+        "overwrite": true
+    }
+  },
+  "transform": {
+      "cmd": ["sh" ],
+      "stdin": [
+          "echo '{\"pachd_address\": \"grpc://pachd:650\"}' | pachctl config set context default --overwrite",
+          "echo ${PACHYDERM_AUTH_TOKEN} | pachctl auth use-auth-token",
+          "pachctl create branch edges_dp@master --head dev"
+      ],
+      "image": "pachyderm/pachctl:1.11.0",
+      "secrets": [ {
+          "name": "pachyderm-user-secret",
+          "env_var": "PACHYDERM_AUTH_TOKEN",
+          "key": "auth_token"
+      } ]
+  }
+
+}
+
+
