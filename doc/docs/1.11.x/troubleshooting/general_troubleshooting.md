@@ -112,8 +112,9 @@ One of the ways you can give storage more resources is by increasing the ``cache
 
 If it still gets oomkilled by k8s, there are a couple of environment variables you can set on your pachd deployment to limit the amount of memory that sidecar and pachd use.
 
-``STORAGE_UPLOAD_CONCURRENCY_LIMIT`` limits the parallelism to put files into the storage backend. Default is 100.
-``STORAGE_PUT_FILE_CONCURRENCY_LIMIT`` limits the number of parallel downloads pachd will initiate. Default is also 100.
+- ``STORAGE_UPLOAD_CONCURRENCY_LIMIT`` limits the parallelism to put files into the storage backend. Default is 100.
+- ``STORAGE_PUT_FILE_CONCURRENCY_LIMIT`` limits the number of parallel downloads pachd will initiate. Default is also 100.
+
 You may use a binary search technique to hone in on a value appropriate for a production pipeline:
 
 for ``cache_size``, max it out. If it works, halve it. If it oomkills, increase that value by 50%. and so on
