@@ -9,7 +9,7 @@ Here are some common issues by symptom along with steps to resolve them.
   - [Certificate error when using `kubectl`](#certificate-error-when-using-kubectl)
   - [Uploads and Downloads are slow](#uploads-and-downloads-are-slow)
   - [Naming a Repo with an Unsupported Symbol](#naming-a-repo-with-an-unsupported-symbol)
-
+  - [Failed Uploads](#failed-uploads)
 ---
 
 ## Connecting to a Pachyderm Cluster
