@@ -99,7 +99,7 @@ For more information, see `man bash`.
 
 #### Symptom
 
-A file upload, particularly a recursive one of many files, fails. You may see a log messages containing the following in either pipeline logs, pachd logs, or from the pachctl command locally:
+A file upload, particularly a recursive one of many files, fails. You may see log messages containing the following in either pipeline logs, pachd logs, or from the pachctl command locally:
 - pachctl errror: ``an error occurred forwarding XXXXX -> 650: error forwarding port 650``
 - pachctl error: ``EOF``
 - pachd or worker: ``all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp  127.0.0.1:653: connect: connection refused\"; retrying in XXXX.XXXXXs"}``
