@@ -4,7 +4,7 @@ This section describes an example of how you can
 incorporate Pachyderm into your existing enterprise
 infrastructure. If you are just starting to use Pachyderm
 and not setting up automation for your Pachyderm build
-processes, see [Individual Developer Workflow](../how-tos/individual-developer-workflow.md).
+processes, see [Working with Data and Pipelines](../how-tos/working-with-data-and-pipelines.md).
 
 Pachyderm is a powerful system for providing data
 provenance and scalable processing to data

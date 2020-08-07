@@ -132,8 +132,9 @@ nav:
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
         - Overview: how-tos/index.md
-        - Individual Developer Workflow: how-tos/individual-developer-workflow.md
-        - Team Developer Workflow: how-tos/team-developer-workflow.md
+        - Working With Data and Pipelines: how-tos/working-with-data-and-pipelines.md
+        - Enhanced Pipeline Workflow: how-tos/enhanced-pipeline-workflow.md
+        - CI/CD Integration: how-tos/ci-cd-integration.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
         - Export Your Data From Pachyderm:
             - Overview: how-tos/export-data-out-pachyderm/index.md

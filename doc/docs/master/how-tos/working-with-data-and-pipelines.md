@@ -1,4 +1,4 @@
-# Individual Developer Workflow
+# Working with Data and Pipelines
 
 A typical Pachyderm workflow involves multiple iterations of
 experimenting with your code and pipeline specs.
@@ -14,6 +14,22 @@ Working with Pachyderm includes multiple iterations of the
 following steps:
 
 ![Developer workflow](../assets/images/d_steps_analysis_pipeline.svg)
+
+
+## Data Workflow - Load Your Data into Pachyderm
+
+You need to add your data to Pachyderm so that your pipeline runs your code
+against it. You can do so by using one of the following methods:
+
+* By using the `pachctl put file` command
+* By using a special type of pipeline, such as a spout or cron
+* By using one of the Pachyderm's [language clients](../reference/clients/)
+* By using a compatible S3 client
+* By using the Pachyderm UI (Enterprise version or free trial)
+
+For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
+
+## Pipeline Workflow
 
 ## Step 1: Write Your Analysis Code
 
@@ -69,15 +85,6 @@ The reason is that Pachyderm cannot execute your code immediately when
 your container starts, so it runs a shim process in your container
 instead, and then, it calls your pipeline specification's `cmd` from there.
 
-After building your image, you need to upload the image into
-a public or private image registry, such as
-[DockerHub](https://hub.docker.com) or other.
-
-Alternatively, you can use the Pachyderm's built-in functionality to
-tag, build, and push images by running the `pachctl update pipeline` command
-with the `--build` and `--push-images` flags. For more information, see
-[Update a pipelines](updating_pipelines.md).
-
 !!! note
     The `Dockerfile` example below is provided for your reference
     only. Your `Dockerfile` might look completely different.
@@ -88,6 +95,26 @@ To build a Docker image, complete the following steps:
 If you decide to use DockerHub, follow the [Docker Hub Quickstart](https://docs.docker.com/docker-hub/) to
 create a repository for your project.
 1. Create a `Dockerfile` for your project. See the [OpenCV example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/Dockerfile).
+1. Build a new image from the `Dockerfile` by specifying a tag:
+
+   ```bash
+   docker build -t <IMAGE>:<TAG> .
+   ```
+
+For more information about building Docker images, see
+[Docker documentation](https://docs.docker.com/engine/tutorials/dockerimages/).
+
+## Step 3: Push Your Docker Image to a Registry
+
+After building your image, you need to upload the image into
+a public or private image registry, such as
+[DockerHub](https://hub.docker.com) or other.
+
+Alternatively, you can use the Pachyderm's built-in functionality to
+tag, build, and push images by running the `pachctl update pipeline` command
+with the `--build` and `--push-images` flags. For more information, see
+[Update a pipelines](updating_pipelines.md).
+
 1. Log in to an image registry.
 
    * If you use DockerHub, run:
@@ -95,12 +122,6 @@ create a repository for your project.
      ```bash
      docker login --username=<dockerhub-username> --password=<dockerhub-password> <dockerhub-fqdn>
      ```
-
-1. Build a new image from the `Dockerfile` by specifying a tag:
-
-   ```bash
-   docker build -t <IMAGE>:<TAG> .
-   ```
 
 1. Push your image to your image registry.
 
@@ -110,32 +131,14 @@ create a repository for your project.
      docker push <image>:tag
      ```
 
-For more information about building Docker images, see
-[Docker documentation](https://docs.docker.com/engine/tutorials/dockerimages/).
+!!! note
+    TODO Pipelines require a unique tag
 
-## Step 3: Load Your Data to Pachyderm
-
-You need to add your data to Pachyderm so that your pipeline runs your code
-against it. You can do so by using one of the following methods:
-
-* By using the `pachctl put file` command
-* By using a special type of pipeline, such as a spout or cron
-* By using one of the Pachyderm's [language clients](../reference/clients/)
-* By using a compatible S3 client
-* By using the Pachyderm UI (Enterprise version or free trial)
-
-For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
-
-## Step 4: Create a Pipeline
+## Step 4: Create/Edit the Pipeline Config
 
 Pachyderm's pipeline specifications store the configuration information
 about the Docker image and code that Pachyderm should run. Pipeline
-specifications are stored in JSON format. As soon as you create a pipeline,
-Pachyderm immediately spins a pod or pods on a Kubernetes worker node
-in which the pipeline code runs. By default, after the pipeline finishes
-running, the pods continue to run while waiting for the new data to be
-committed into the Pachyderm input repository. You can configure this
-parameter, as well as many others, in the pipeline specification.
+specifications are stored in JSON format. 
 
 A standard pipeline specification must include the following
 parameters:
@@ -164,7 +167,7 @@ To create a Pipeline, complete the following steps:
        "name": "my-pipeline"
      },
      "transform": {
-       "image": "my-pipeline-image",
+       "image": "<image>:<tag>",
        "cmd": ["/binary", "/pfs/data", "/pfs/out"]
      },
      "input": {
@@ -176,6 +179,18 @@ To create a Pipeline, complete the following steps:
    }
    ```
 
+!!! note "See Also:"
+    - [Pipeline Specification](../reference/pipeline_spec.md)
+
+## Step 5: Deploy/Update the Pipeline
+
+As soon as you create a pipeline,
+Pachyderm immediately spins a pod or pods on a Kubernetes worker node
+in which the pipeline code runs. By default, after the pipeline finishes
+running, the pods continue to run while waiting for the new data to be
+committed into the Pachyderm input repository. You can configure this
+parameter, as well as many others, in the pipeline specification.
+
 1. Create a Pachyderm pipeline from the spec:
 
    ```bash
@@ -185,8 +200,13 @@ To create a Pipeline, complete the following steps:
    You can specify a local file or a file stored in a remote
    location, such as a GitHub repository. For example,
    `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+1. If your pipeline specification changes, you can update the pipeline 
+   by running
+
+   ```bash
+   pachctl create pipeline -f my-pipeline.json
+   ```
 
 !!! note "See Also:"
-    - [Pipeline Specification](../reference/pipeline_spec.md)
-
+  - [Updating Pipelines](../reference/updating_pipelines.md)
 <!-- - [Running Pachyderm in Production](TBA)-->
