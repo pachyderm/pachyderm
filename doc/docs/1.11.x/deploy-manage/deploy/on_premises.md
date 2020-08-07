@@ -165,8 +165,8 @@ We're prefixing each item with how we'll refer to it further on.
 
 1. `OS_ENDPOINT`: The access endpoint.
    For example, MinIO's endpoints are usually something like `minio-server:9000`. 
-   Don't begin it with the protocol; it's an endpoint, not an url. Also, check if your local instance of e.g. MinIO is using SSL/TLS
-   and consider using `--disable-ssl` if not.
+   Don't begin it with the protocol; it's an endpoint, not an url. Also, check if your object store (e.g. MinIO) is using SSL/TLS.
+   If not, disable it using `--disable-ssl`.
 1. `OS_BUCKET_NAME`: The bucket name you're dedicating to Pachyderm. Pachyderm will need exclusive access to this bucket.
 1. `OS_ACCESS_KEY_ID`: The access key id for the object store.  This is like a user name for logging into the object store.
 1. `OS_SECRET_KEY`: The secret key for the object store.  This is like the above user's password.
@@ -183,4 +183,3 @@ Once you have Kubernetes deployed, your persistent volume created, and your obje
 - [EMC ECS](./non-cloud-object-stores.md#emc-ecs)
 - [MinIO](./non-cloud-object-stores.md#minio)
 - [SwiftStack](./non-cloud-object-stores.md#swiftstack)
-
