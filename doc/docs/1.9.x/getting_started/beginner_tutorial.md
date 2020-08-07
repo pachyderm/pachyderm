@@ -1,7 +1,7 @@
 # Beginner Tutorial
 
 Welcome to the beginner tutorial for Pachyderm! If you have already installed
-Pachyderm, this tutorial should take about 15. This tutorial
+Pachyderm, this tutorial should take about 15 minutes to complete. This tutorial
 introduces basic Pachyderm concepts.
 
 ## Image processing with OpenCV

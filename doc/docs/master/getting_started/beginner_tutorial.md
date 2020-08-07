@@ -1,7 +1,7 @@
 # Beginner Tutorial
 
 Welcome to the beginner tutorial for Pachyderm! If you have already installed
-Pachyderm, this tutorial should take about 15. This tutorial
+Pachyderm, this tutorial should take about 15 minutes to complete. This tutorial
 introduces basic Pachyderm concepts.
 
 !!! tip
@@ -501,7 +501,7 @@ change this pipeline. You can also dig in and learn more details about:
 
 - [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
 - [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
-- [Individual Developer Workflow](../how-tos/individual-developer-workflow.md)
+- [Working with Data and Pipelines](../how-tos/working-with-data-and-pipelines.md)
 
 We'd love to help and see what you come up with, so submit any
 issues/questions you come across on
