@@ -1004,14 +1004,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if data.RecoveredDatumsTag != "" {
 						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
 					}
-					return nil
+					// propagate the stats to etcd
+					pj.saveJobStats(stats)
+					return pj.writeJobInfo()
 				},
 			)
 		})
 	})
 
 	err := eg.Wait()
-	pj.saveJobStats(stats)
 	if err != nil {
 		// If these was no failed datum, we can reattempt later
 		return errors.Wrap(err, "process datum error")
