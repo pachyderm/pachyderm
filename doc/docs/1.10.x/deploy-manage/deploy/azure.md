@@ -37,12 +37,12 @@ Install the following prerequisites:
  * To install on macOS by using `brew`, run the following command:
 
    ```bash
-   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.11
+   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
    ```
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
