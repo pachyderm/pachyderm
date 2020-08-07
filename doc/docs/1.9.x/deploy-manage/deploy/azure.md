@@ -5,9 +5,12 @@ Service environment and use Azure's resource to run your Pachyderm
 workloads. 
 To deploy Pachyderm to AKS, you need to:
 
-1. [Install Prerequisites](#install-prerequisites)
-2. [Deploy Kubernetes](#deploy-kubernetes)
-3. [Deploy Pachyderm](#deploy-pachyderm)
+- [Azure](#azure)
+  - [Install Prerequisites](#install-prerequisites)
+    - [Install `pachctl`](#install-pachctl)
+  - [Deploy Kubernetes](#deploy-kubernetes)
+  - [Add storage resources](#add-storage-resources)
+  - [Deploy Pachyderm](#deploy-pachyderm)
 
 ## Install Prerequisites
 
@@ -270,7 +273,8 @@ To create these resources, follow these steps:
    $ az storage account list
    ```
 
-1. Build a Microsoft tool for creating Azure VMs from an image:
+1. Obtain the key for the storage account (`STORAGE_ACCOUNT`) and the resource group to be used to deploy Pachyderm:
+
 
    ```bash
    $ STORAGE_KEY="$(az storage account keys list \
