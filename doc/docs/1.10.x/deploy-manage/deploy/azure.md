@@ -5,12 +5,9 @@ Service environment and use Azure's resource to run your Pachyderm
 workloads. 
 To deploy Pachyderm to AKS, you need to:
 
-- [Azure](#azure)
-  - [Install Prerequisites](#install-prerequisites)
-    - [Install `pachctl`](#install-pachctl)
-  - [Deploy Kubernetes](#deploy-kubernetes)
-  - [Add storage resources](#add-storage-resources)
-  - [Deploy Pachyderm](#deploy-pachyderm)
+1. [Install Prerequisites](#install-prerequisites)
+2. [Deploy Kubernetes](#deploy-kubernetes)
+3. [Deploy Pachyderm](#deploy-pachyderm)
 
 ## Install Prerequisites
 
@@ -40,12 +37,12 @@ Install the following prerequisites:
  * To install on macOS by using `brew`, run the following command:
 
    ```bash
-   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
+   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.11
    ```
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
@@ -298,7 +295,6 @@ To create these resources, follow these steps:
    ```
 
 1. Obtain the key for the storage account (`STORAGE_ACCOUNT`) and the resource group to be used to deploy Pachyderm:
-
 
    ```bash
    STORAGE_KEY="$(az storage account keys list \
