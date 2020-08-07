@@ -144,7 +144,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
 For an on-premises deployment, 
 it's not advisable to use a cloud-based storage mechanism.
-Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services/index.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md). Don't get confused that the command line parameters for the object store (`--object-store`) are specifying `s3` - in this case, the argument is referring to the S3 protocol (which is also used by solutions such as MinIO and the likes) and not the Amazon product with the same name.
+Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services/index.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md). Note that the command line parameters for the object store (`--object-store`) are specifying `s3` in reference to the S3 protocol (which is used by solutions such as MinIO and the like) and not the Amazon product with the same name.
 
 #### Object store prerequisites
 
@@ -183,5 +183,4 @@ Once you have Kubernetes deployed, your persistent volume created, and your obje
 - [EMC ECS](./non-cloud-object-stores.md#emc-ecs)
 - [MinIO](./non-cloud-object-stores.md#minio)
 - [SwiftStack](./non-cloud-object-stores.md#swiftstack)
-
 
