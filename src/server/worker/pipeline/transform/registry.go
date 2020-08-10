@@ -1043,17 +1043,22 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
 	pj.ji.State = pps.JobState_JOB_MERGING
+	pj.finalizeJobStats()
 	return pj.writeJobInfo()
 }
 
 func (pj *pendingJob) saveJobStats(stats *DatumStats) {
 	// Any unaccounted-for datums were skipped in the job datum iterator
-	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - stats.DatumsProcessed - stats.DatumsFailed - stats.DatumsRecovered
+	pj.ji.DataSkipped = stats.DatumsSkipped
 	pj.ji.DataProcessed = stats.DatumsProcessed
 	pj.ji.DataFailed = stats.DatumsFailed
 	pj.ji.DataRecovered = stats.DatumsRecovered
 	pj.ji.DataTotal = int64(pj.jdit.MaxLen())
 	pj.ji.Stats = stats.ProcessStats
+}
+
+func (pj *pendingJob) finalizeJobStats() {
+	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - pj.ji.DataProcessed - pj.ji.DataFailed - pj.ji.DataRecovered
 }
 
 func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) error {
