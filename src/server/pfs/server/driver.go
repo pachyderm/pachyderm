@@ -2836,10 +2836,6 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func (d *driver) checkFilePath(path string) error {
-	return checkFilePath(path)
-}
-
 func checkFilePath(path string) error {
 	path = filepath.Clean(path)
 	if strings.HasPrefix(path, "../") {
