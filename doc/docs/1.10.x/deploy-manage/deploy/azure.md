@@ -294,7 +294,7 @@ To create these resources, follow these steps:
    az storage account list
    ```
 
-1. Build a Microsoft tool for creating Azure VMs from an image:
+1. Obtain the key for the storage account (`STORAGE_ACCOUNT`) and the resource group to be used to deploy Pachyderm:
 
    ```bash
    STORAGE_KEY="$(az storage account keys list \
