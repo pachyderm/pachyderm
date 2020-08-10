@@ -1,4 +1,4 @@
-# Team Developer Workflow
+# CI/CD Integration
 
 This section describes an example of how you can
 incorporate Pachyderm into your existing enterprise
@@ -40,13 +40,14 @@ code before creating the build.
 * Flexibility in tagging Docker images, such as specifying a custom name
 and tag or using the commit SHA for tagging.
 
-
 The following diagram demonstrates automated Pachyderm
 development workflow:
 
 ![Developer Workflow](../assets/images/d_developer_workflow102.svg)
 
-The automated developer workflow includes the following steps:
+## CI Workflow
+
+The CI workflow includes the following steps:
 
 1. A new commit triggers a Git hook.
 
@@ -85,3 +86,11 @@ The automated developer workflow includes the following steps:
    When the production pipeline is updated with the `pipeline.json`
    file that has the correct image tag in it, Pachyderm restarts all pods
    for this pipeline with the new image automatically.
+
+
+## GitHub Actions
+[GitHub actions](github.com/features/actions) are a convenient way to kick off workflows and perform integration. You can incorporate Pachyderm GitHub actions into your CI system.
+To get started with GitHub actions, check out our [example](https://github.com/pachyderm/pachyderm/tree/workflows/examples/workflows/github-actions).
+
+
+<!-- ## Jenkins Integration -->

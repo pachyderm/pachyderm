@@ -10,8 +10,13 @@ experimenting with your code and pipeline specs.
 
 ## How it works
 
-Working with Pachyderm includes multiple iterations of the
-following steps:
+In general, the developer workflow for Pachyderm involves adding 
+data to a versioned data repository and adding a pipeline that 
+reads from that data repository to execute your code against that data. 
+Both the data and pipeline can be iterated on independenly with Pachyderm
+handling the code execution according to the pipeline specfication. The 
+The workflow steps are shown below. 
+
 
 ![Developer workflow](../assets/images/d_steps_analysis_pipeline.svg)
 
@@ -23,13 +28,15 @@ against it. You can do so by using one of the following methods:
 
 * By using the `pachctl put file` command
 * By using a special type of pipeline, such as a spout or cron
-* By using one of the Pachyderm's [language clients](../reference/clients/)
+* By using one of the Pachyderm's [language clients](../../reference/clients/)
 * By using a compatible S3 client
 * By using the Pachyderm UI (Enterprise version or free trial)
 
 For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
 
 ## Pipeline Workflow
+
+Working with Pachyderm pipelines includes multiple iterations of the following steps:
 
 ## Step 1: Write Your Analysis Code
 
@@ -138,7 +145,7 @@ with the `--build` and `--push-images` flags. For more information, see
 
 Pachyderm's pipeline specifications store the configuration information
 about the Docker image and code that Pachyderm should run. Pipeline
-specifications are stored in JSON format. 
+specifications are stored in JSON format.
 
 A standard pipeline specification must include the following
 parameters:
@@ -208,5 +215,5 @@ parameter, as well as many others, in the pipeline specification.
    ```
 
 !!! note "See Also:"
-  - [Updating Pipelines](../reference/updating_pipelines.md)
+  - [Updating Pipelines](updating_pipelines.md)
 <!-- - [Running Pachyderm in Production](TBA)-->
