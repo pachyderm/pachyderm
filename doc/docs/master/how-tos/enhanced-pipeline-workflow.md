@@ -55,7 +55,7 @@ When submitted, the following actions occur:
 1. Creates (or updates if it already exists) the running pipeline `<pipeline name>` with the the newly creates source files and built assets. 
 
 !!! note
-      You can optionally specify a `.pachignore` file to prevent certain files from getting pushed to this repo. 
+      You can optionally specify a `.pachignore` file, which uses [ohmyglob](https://github.com/pachyderm/ohmyglob) entries to prevent certain files from getting pushed to this repo.
 
 The updated pipeline contains the following PFS repos mapped in as inputs:
 
@@ -66,9 +66,15 @@ The updated pipeline contains the following PFS repos mapped in as inputs:
 1. `/pfs/<input(s)>` - any inputs specified in the pipeline specification.
 
 ### Builders
-Either `language` or `image` must be specified in the pipeline spec. The langauge parameter informs the pipeline of what base image to use and already contain implementations for `build.sh` and `run.sh`. Go and Python "builders" have a standarized implementation, only requiring setting the `language` parameter in the pipeline specification.  
+The builder is responsible for determining what Docker image is used for the base image and what steps to run during the pipeline build and deployment. If a builder has a standard implementation (currently `python` and `go`), then only the `transform.build.language` needs to be set, as it has impelmentations for `build.sh` and `run.sh`. The order of preference is:
 
-If `language` is not specified, then the build pipeline uses the `transform.image` container (if `transform.image` is not specified the builder image is used). Similarly, if `transform.cmd` is not specified, it will default to running `sh /pfs/build/run.sh`, which should be provided via the build pipeline.
+1. `transform.build.language`
+1. `transform.build.image`
+1. `transform.image`
+
+If `transform.buil.language` is not specified, then the build pipeline is non-standard and uses the `transform.build.image` container (and subsequently the `transform.build` if `transform.build.image` is not provided). In a non-standard implementation, the convention is to provide `build.sh` and `run.sh` scripts to fulfill the build pipeline requirements. 
+
+Similarly, a build pipeline by default will run `sh /pfs/build/run.sh` by default. If a `transform.cmd` is specified, it will take precedence over `run.sh`.
 
 #### Python Builder
 
@@ -78,9 +84,8 @@ The Python builder requires a file structure similar to the following:
 ./map
 ├── source
 │   ├── requirements.txt
-│   ├── main.py
-│   ├── build.sh (optional)
-│   └── run.sh (optional)
+│   └── main.py
+└── build-pipeline.json
 ```
 There must exist a `main.py` which acts as the entrypoint for the pipeline. Optionally, a `requirements.txt` can be used to specify pip packages that will be installed during the build process. 
 
@@ -94,16 +99,27 @@ The Go Builder follows the same format as the [Python Builder](#python-builder).
 
 For languages other than Python and Go, or customizations to the official builders, users can author their own builders. Builders are somewhat similar to buildpacks in design, and follow a convention over configuration approach. A builder needs 3 things:
 
-- A Dockerfile to bake the image.
+- A Dockerfile to bake the image specified in the build pipeline spec.
 - A `build.sh` in the image workdir, which acts as the entry-point for the build pipeline.
 - A `run.sh`, injected into `/pfs/out` via `build.sh`. This will act as the entry-point for the executing pipeline. By convention, `run.sh` should take an arbitrary number of arguments and forward them to whatever executes the actual user code.
 
-A custom builder can be used by setting `transform.build.image` in a pipeline spec. The official builders can be used for reference; they're located in `etc/pipeline-build`.
+The build file structure would have the following format: 
+```tree
+./project
+├── source
+│   ├── requirements.txt
+│   ├── main.py
+│   ├── build.sh
+│   └── run.sh
+└── build-pipeline.json
+```
+
+A custom builder can be used by setting `transform.build.image` in a pipeline spec. The official builders can be used for reference; they're located in [here](github.com/pachyderm/pachyderm/tree/master/etc/pipeline-build).
 
 ## --build 
 In addition to Build Pipelines, the `--build` flag is another way to improve development speed when working with pipelines. While build pipelines avoid rebuilding the docker image, the `--build` flag builds, tags and pushes the new Docker image. This feature can be particularly useful while iterating on the Docker image itself, as it can be difficult to keep up with changing image tags and ensure the image is pushed before updating the pipeline (Steps 2-5 in the [general pipeline workflow](../how-tos/working-with-data-and-pipelines.md)).
 
-The `--build` flag performs the following steps: 
+The `--build` flag performs the following steps:
 
 1. Builds the Docker image specified in the pipeline
 1. Gives the images a unique tag
@@ -111,7 +127,8 @@ The `--build` flag performs the following steps:
 1. Updates the image tag in the pipeline
 1. Submits the updated pipeline Pachyderm cluster.
 
-The usage of the flag is shown below: 
+The usage of the flag is shown below:
+
    ```bash
    pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
    ```
