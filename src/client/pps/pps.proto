@@ -775,6 +775,15 @@ message GarbageCollectResponse {}
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+// Messages specific to Pachyderm 2.
+
+message DatumInfoV2 {
+  Datum datum = 1;
+  DatumState state = 2;
+  ProcessStats stats = 3;
+  repeated pfs.FileInfoV2 data = 4;
+}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -821,4 +830,8 @@ service API {
 
   // An internal call used to move a job from one state to another
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
+
+  // RPCs specific to Pachyderm 2.
+  rpc InspectDatumV2(InspectDatumRequest) returns (DatumInfoV2) {}
+  rpc ListDatumV2(ListDatumRequest) returns (stream DatumInfoV2) {}
 }

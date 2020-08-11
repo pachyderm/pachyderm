@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package pachyderm.worker.datum;
+package datum;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker/datum";
+
+import "gogoproto/gogo.proto";
 
 import "client/pps/pps.proto";
 import "server/worker/common/common.proto";
-
-import "gogoproto/gogo.proto";
 
 enum State {
   PROCESSED = 0;

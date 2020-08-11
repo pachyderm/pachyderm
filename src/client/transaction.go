@@ -550,6 +550,12 @@ func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSe
 func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
 	return nil, unsupportedError("ListSecret")
 }
+func (c *ppsBuilderClient) InspectDatumV2(ctx context.Context, request *pps.InspectDatumRequest, opt ...grpc.CallOption) (*pps.DatumInfoV2, error) {
+	return nil, unsupportedError("InspectDatumV2")
+}
+func (c *ppsBuilderClient) ListDatumV2(ctx context.Context, request *pps.ListDatumRequest, opt ...grpc.CallOption) (pps.API_ListDatumV2Client, error) {
+	return nil, unsupportedError("ListDatumV2")
+}
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")

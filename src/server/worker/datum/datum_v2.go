@@ -156,7 +156,7 @@ func (d *Datum) MetaStorageRoot() string {
 
 func (d *Datum) finish(err error) (retErr error) {
 	defer func() {
-		if err := mergeProcessStats(d.set.stats.ProcessStats, d.stats); retErr == nil {
+		if err := MergeProcessStats(d.set.stats.ProcessStats, d.stats); retErr == nil {
 			retErr = err
 		}
 	}()

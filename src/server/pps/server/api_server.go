@@ -3708,3 +3708,13 @@ func now() *types.Timestamp {
 	}
 	return t
 }
+
+var errV2NotImplemented = errors.Errorf("v2 method not implemented")
+
+func (a *apiServer) InspectDatumV2(_ context.Context, _ *pps.InspectDatumRequest) (*pps.DatumInfoV2, error) {
+	return nil, errV2NotImplemented
+}
+
+func (a *apiServer) ListDatumV2(_ *pps.ListDatumRequest, _ pps.API_ListDatumV2Server) error {
+	return errV2NotImplemented
+}

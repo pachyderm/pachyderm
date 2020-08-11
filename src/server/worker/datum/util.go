@@ -8,7 +8,7 @@ import (
 )
 
 func MergeStats(x, y *Stats) error {
-	if err := mergeProcessStats(x.ProcessStats, y.ProcessStats); err != nil {
+	if err := MergeProcessStats(x.ProcessStats, y.ProcessStats); err != nil {
 		return err
 	}
 	x.Processed += y.Processed
@@ -21,7 +21,7 @@ func MergeStats(x, y *Stats) error {
 	return nil
 }
 
-func mergeProcessStats(x, y *pps.ProcessStats) error {
+func MergeProcessStats(x, y *pps.ProcessStats) error {
 	var err error
 	if x.DownloadTime, err = plusDuration(x.DownloadTime, y.DownloadTime); err != nil {
 		return err
