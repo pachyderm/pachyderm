@@ -5,7 +5,7 @@
     the concepts described in [File](../../concepts/data-concepts/file.md),
     [Glob Pattern](../../concepts/pipeline-concepts/datum/glob-pattern.md),
     [Pipeline Specification](../../reference/pipeline_spec.md), and
-    [Working with Data and Pipelines](../working-with-data-and-pipelines.md).
+    [Developer Workflow](../developer-workflow/).
 
 Unlike source code version-control systems, such as Git, that mostly
 store and version text files, Pachyderm does not perform intra-file
