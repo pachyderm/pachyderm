@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )
@@ -37,7 +38,7 @@ func (jc *JobChainV2) CreateJob(jobID string, dit, outputDit datum.IteratorV2) *
 		jc:        jc,
 		parent:    jc.prevJob,
 		jobID:     jobID,
-		stats:     &datum.Stats{},
+		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
 		dit:       dit,
 		outputDit: outputDit,
 		done:      make(chan struct{}),

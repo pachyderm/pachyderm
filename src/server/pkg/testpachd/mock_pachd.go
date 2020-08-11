@@ -789,6 +789,8 @@ type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
+type inspectDatumV2Func func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfoV2, error)
+type listDatumV2Func func(*pps.ListDatumRequest, pps.API_ListDatumV2Server) error
 
 type mockCreateJob struct{ handler createJobFunc }
 type mockInspectJob struct{ handler inspectJobFunc }
@@ -818,6 +820,8 @@ type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockGarbageCollect struct{ handler garbageCollectFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
+type mockInspectDatumV2 struct{ handler inspectDatumV2Func }
+type mockListDatumV2 struct{ handler listDatumV2Func }
 
 func (mock *mockCreateJob) Use(cb createJobFunc)             { mock.handler = cb }
 func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
@@ -847,6 +851,8 @@ func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb
 func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
 func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)   { mock.handler = cb }
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc) { mock.handler = cb }
+func (mock *mockInspectDatumV2) Use(cb inspectDatumV2Func)   { mock.handler = cb }
+func (mock *mockListDatumV2) Use(cb listDatumV2Func)         { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -882,6 +888,8 @@ type mockPPSServer struct {
 	GetLogs         mockGetLogs
 	GarbageCollect  mockGarbageCollect
 	ActivateAuth    mockActivateAuthPPS
+	InspectDatumV2  mockInspectDatumV2
+	ListDatumV2     mockListDatumV2
 }
 
 func (api *ppsServerAPI) CreateJob(ctx context.Context, req *pps.CreateJobRequest) (*pps.Job, error) {
@@ -1051,6 +1059,18 @@ func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuth
 		return api.mock.ActivateAuth.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.ActivateAuth")
+}
+func (api *ppsServerAPI) InspectDatumV2(ctx context.Context, req *pps.InspectDatumRequest) (*pps.DatumInfoV2, error) {
+	if api.mock.InspectDatumV2.handler != nil {
+		return api.mock.InspectDatumV2.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectDatumV2")
+}
+func (api *ppsServerAPI) ListDatumV2(req *pps.ListDatumRequest, serv pps.API_ListDatumV2Server) error {
+	if api.mock.ListDatumV2.handler != nil {
+		return api.mock.ListDatumV2.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.ListDatumV2")
 }
 
 /* Transaction Server Mocks */

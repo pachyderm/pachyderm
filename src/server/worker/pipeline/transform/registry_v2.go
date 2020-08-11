@@ -55,6 +55,10 @@ func (pj *pendingJobV2) writeJobInfo() error {
 
 // TODO: The job info should eventually just have a field with type *datum.Stats
 func (pj *pendingJobV2) saveJobStats(stats *datum.Stats) {
+	// TODO: Need to clean up the setup of process stats.
+	if pj.ji.Stats == nil {
+		pj.ji.Stats = &pps.ProcessStats{}
+	}
 	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
 	pj.ji.DataProcessed += stats.Processed
 	pj.ji.DataSkipped += stats.Skipped
