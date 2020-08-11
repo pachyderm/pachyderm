@@ -110,7 +110,7 @@ Either ``pachd`` or your pipeline's worker sidecar may be getting OOM killed as 
 
 One of the ways you can give storage more resources is by increasing the ``cache_size`` parameter in your pipeline spec. Increase it to what you can afford; its default is 64M.(If you’re using a release prior to 1.10.0 and you have cluster-wide or namepace policies on resource limits, you may need to manually edit the pipeline RC.)
 
-If it still gets oomkilled by k8s, there are a couple of environment variables you can set on your pachd deployment to limit the amount of memory that sidecar and pachd use.
+If it still gets OOM killed by k8s, there are a couple of environment variables you can set in your pachd deployment to limit the amount of memory the sidecar and pachd use.
 
 - ``STORAGE_UPLOAD_CONCURRENCY_LIMIT`` limits the parallelism to put files into the storage backend. Default is 100.
 - ``STORAGE_PUT_FILE_CONCURRENCY_LIMIT`` limits the number of parallel downloads pachd will initiate. Default is also 100.
@@ -119,6 +119,5 @@ You may use a binary search technique to hone in on a value appropriate for a pr
 
 for ``cache_size``, max it out. If it works, halve it. If it oomkills, increase that value by 50%. and so on
 for the ``CONCURRENCY_LIMITS``, halve and increase by 50% until you get a value that works.
-
 
 
