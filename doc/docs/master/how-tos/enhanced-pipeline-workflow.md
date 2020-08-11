@@ -11,11 +11,11 @@ A build pipeline is a useful feature when iterating on the code in your pipeline
 
 Functionally, the build pipeline uses a base Docker image that remains unchanged during the development process. The code is copied into this pipeline at runtime from a PFS repository. The build pipeline installs requirements and updates the code in the pipeline before running running it.
 
-Build pipelines require a modification to the pipeline spec's transform object with options for the following fields:
+Build pipelines require a modification to the pipeline spec's `transform` object with options for the following fields:
 
-- path: An optional string specifying where the source code is relative to the pipeline spec path (or the cwd if the pipeline is fed into pachctl via stdin.)
-- language: A string specifying what language builder to use (see below.) Only works with official builders.
-- image: A string specifying what builder image to use, if a non-official builder is desired.
+- `path`: An optional string specifying where the source code is relative to the pipeline spec path (or the cwd if the pipeline is fed into `pachctl` via stdin.)
+- `language`: An optional string specifying what language builder to use (see below.) Only works with official builders. If unspecified, `image` will be used instead.
+- image: An optional string specifying what builder image to use, if a non-official builder is desired. If unspecified, the `transform` object's `image` will be used instead.
 
 Below is a Python example of a build pipline.
 
@@ -63,7 +63,7 @@ The updated pipeline contains the following PFS repos mapped in as inputs:
 
 1. `/pfs/build` - any artifacts resulting from the build process. 
 
-1. `/pfs/<input(s)>` - any inputs specified in the pipeline specification
+1. `/pfs/<input(s)>` - any inputs specified in the pipeline specification.
 
 ### Builders
 Either `language` or `image` must be specified in the pipeline spec. The langauge parameter informs the pipeline of what base image to use and already contain implementations for `build.sh` and `run.sh`. Go and Python "builders" have a standarized implementation, only requiring setting the `language` parameter in the pipeline specification.  
@@ -95,10 +95,10 @@ The Go Builder follows the same format as the [Python Builder](#python-builder).
 For languages other than Python and Go, or customizations to the official builders, users can author their own builders. Builders are somewhat similar to buildpacks in design, and follow a convention over configuration approach. A builder needs 3 things:
 
 - A Dockerfile to bake the image.
-- A build.sh in the image workdir, which acts as the entry-point for the build pipeline.
+- A `build.sh` in the image workdir, which acts as the entry-point for the build pipeline.
 - A `run.sh`, injected into `/pfs/out` via `build.sh`. This will act as the entry-point for the executing pipeline. By convention, `run.sh` should take an arbitrary number of arguments and forward them to whatever executes the actual user code.
 
-A custom builder can be used by setting transform.build.image in a pipeline spec. The official builders can be used for reference; they're located in etc/pipeline-build.
+A custom builder can be used by setting `transform.build.image` in a pipeline spec. The official builders can be used for reference; they're located in `etc/pipeline-build`.
 
 ## --build 
 In addition to Build Pipelines, the `--build` flag is another way to improve development speed when working with pipelines. While build pipelines avoid rebuilding the docker image, the `--build` flag builds, tags and pushes the new Docker image. This feature can be particularly useful while iterating on the Docker image itself, as it can be difficult to keep up with changing image tags and ensure the image is pushed before updating the pipeline (Steps 2-5 in the [general pipeline workflow](../how-tos/working-with-data-and-pipelines.md)).
@@ -118,4 +118,3 @@ The usage of the flag is shown below:
 
 !!! note
       For more details on the `--build` flag, see [Update a Pipeline](../updating_pipelines/#update-the-code-in-a-pipeline).
-
