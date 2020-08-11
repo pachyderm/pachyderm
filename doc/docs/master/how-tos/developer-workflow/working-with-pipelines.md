@@ -1,4 +1,4 @@
-# Working with Data and Pipelines
+# Working with Pipelines
 
 A typical Pachyderm workflow involves multiple iterations of
 experimenting with your code and pipeline specs.
@@ -6,37 +6,7 @@ experimenting with your code and pipeline specs.
 !!! info
     Before you read this section, make sure that you
     understand basic Pachyderm pipeline concepts described in
-    [Concepts](../concepts/pipeline-concepts/index.md).
-
-## How it works
-
-In general, the developer workflow for Pachyderm involves adding 
-data to a versioned data repository and adding a pipeline that 
-reads from that data repository to execute your code against that data. 
-Both the data and pipeline can be iterated on independenly with Pachyderm
-handling the code execution according to the pipeline specfication. The 
-The workflow steps are shown below. 
-
-
-![Developer workflow](../assets/images/d_steps_analysis_pipeline.svg)
-
-
-## Data Workflow - Load Your Data into Pachyderm
-
-You need to add your data to Pachyderm so that your pipeline runs your code
-against it. You can do so by using one of the following methods:
-
-* By using the `pachctl put file` command
-* By using a special type of pipeline, such as a spout or cron
-* By using one of the Pachyderm's [language clients](../../reference/clients/)
-* By using a compatible S3 client
-* By using the Pachyderm UI (Enterprise version or free trial)
-
-For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
-
-## Pipeline Workflow
-
-Working with Pachyderm pipelines includes multiple iterations of the following steps:
+    [Concepts](../../concepts/pipeline-concepts/index.md).
 
 ## Step 1: Write Your Analysis Code
 
@@ -120,7 +90,7 @@ a public or private image registry, such as
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, build, and push images by running the `pachctl update pipeline` command
 with the `--build` or `--push-images` flag. For more information, see
-[Update a pipelines](updating_pipelines.md).
+[Update a pipelines](../updating_pipelines.md).
 
 1. Log in to an image registry.
 
@@ -187,7 +157,7 @@ To create a Pipeline, complete the following steps:
    ```
 
 !!! note "See Also:"
-    - [Pipeline Specification](../reference/pipeline_spec.md)
+    - [Pipeline Specification](../../reference/pipeline_spec.md)
 
 ## Step 5: Deploy/Update the Pipeline
 
@@ -213,5 +183,5 @@ parameter, as well as many others, in the pipeline specification.
    ```
 
 !!! note "See Also:"
-  - [Updating Pipelines](updating_pipelines.md)
+  - [Updating Pipelines](../updating_pipelines.md)
 <!-- - [Running Pachyderm in Production](TBA)-->
