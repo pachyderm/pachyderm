@@ -119,7 +119,7 @@ a public or private image registry, such as
 
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, build, and push images by running the `pachctl update pipeline` command
-with the `--build` and `--push-images` flags. For more information, see
+with the `--build` or `--push-images` flag. For more information, see
 [Update a pipelines](updating_pipelines.md).
 
 1. Log in to an image registry.
@@ -191,9 +191,7 @@ To create a Pipeline, complete the following steps:
 
 ## Step 5: Deploy/Update the Pipeline
 
-As soon as you create a pipeline,
-Pachyderm immediately spins a pod or pods on a Kubernetes worker node
-in which the pipeline code runs. By default, after the pipeline finishes
+As soon as you create a pipeline, Pachyderm immediately spins up one or more Kubernetes pods in which the pipeline code runs. By default, after the pipeline finishes
 running, the pods continue to run while waiting for the new data to be
 committed into the Pachyderm input repository. You can configure this
 parameter, as well as many others, in the pipeline specification.
