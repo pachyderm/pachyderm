@@ -1,5 +1,4 @@
-
-# The build flag
+# The Build Flag
 
 The `--build` flag is another way to improve development speed when working with pipelines. While [build pipelines](build-pipelines.md) avoid rebuilding the docker image, the `--build` flag builds/re-builds, tags and pushes the new Docker image. This feature can be particularly useful while iterating on the Docker image itself, as it can be difficult to keep up with changing image tags and ensure the image is pushed before updating the pipeline (Steps 2-5 in the [pipeline workflow](working-with-pipelines.md)).
 
