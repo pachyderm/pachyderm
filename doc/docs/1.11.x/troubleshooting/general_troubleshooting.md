@@ -117,5 +117,5 @@ If it still gets OOM killed by k8s, there are a couple of environment variables 
 
 You may use a binary search technique to hone in on a value appropriate for a production pipeline:
 
-for ``cache_size``, max it out. If it works, halve it. If it oomkills, increase that value by 50%. and so on
+for ``cache_size``, max it out. If it works, halve it. If its OOM killed, increase the value by 50%. and so on
 for the ``CONCURRENCY_LIMITS``, halve and increase by 50% until you get a value that works.
