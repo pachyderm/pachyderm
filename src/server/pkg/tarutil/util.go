@@ -48,6 +48,31 @@ func (f *file) Content(w io.Writer) error {
 	return err
 }
 
+type streamFile struct {
+	hdr *tar.Header
+	r   io.Reader
+}
+
+func NewStreamFile(name string, size int64, r io.Reader) File {
+	return newStreamFile(NewHeader(name, size), r)
+}
+
+func newStreamFile(hdr *tar.Header, r io.Reader) File {
+	return &streamFile{
+		hdr: hdr,
+		r:   r,
+	}
+}
+
+func (sf *streamFile) Header() (*tar.Header, error) {
+	return sf.hdr, nil
+}
+
+func (sf *streamFile) Content(w io.Writer) error {
+	_, err := io.Copy(w, sf.r)
+	return err
+}
+
 func WriteFile(tw *tar.Writer, file File) error {
 	hdr, err := file.Header()
 	if err != nil {
@@ -72,7 +97,7 @@ func WithWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func Iterate(r io.Reader, cb func(File) error) error {
+func Iterate(r io.Reader, cb func(File) error, stream ...bool) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -81,6 +106,12 @@ func Iterate(r io.Reader, cb func(File) error) error {
 				return nil
 			}
 			return err
+		}
+		if len(stream) > 0 && stream[0] {
+			if err := cb(newStreamFile(hdr, tr)); err != nil {
+				return err
+			}
+			continue
 		}
 		buf := &bytes.Buffer{}
 		_, err = io.Copy(buf, tr)

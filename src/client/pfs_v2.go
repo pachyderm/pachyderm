@@ -4,11 +4,72 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
+
+// TODO: Change this to not buffer the file locally.
+// We will want to move to a model where we buffer in chunk storage.
+func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
+	return withTmpFile(func(tarF *os.File) error {
+		if err := withTmpFile(func(f *os.File) error {
+			size, err := io.Copy(f, r)
+			if err != nil {
+				return err
+			}
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+			return tarutil.WithWriter(tarF, func(tw *tar.Writer) error {
+				return tarutil.WriteFile(tw, tarutil.NewStreamFile(path, size, f))
+			})
+		}); err != nil {
+			return err
+		}
+		_, err := tarF.Seek(0, 0)
+		if err != nil {
+			return err
+		}
+		return c.PutTarV2(repo, commit, tarF)
+	})
+}
+
+// TODO: refactor into utility package, also exists in debug util.
+func withTmpFile(cb func(*os.File) error) (retErr error) {
+	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
+		return err
+	}
+	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_put_file")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(f.Name()); retErr == nil {
+			retErr = err
+		}
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(f)
+}
+
+func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Writer) error {
+	r, err := c.GetTarV2(repo, commit, path)
+	if err != nil {
+		return err
+	}
+	return tarutil.Iterate(r, func(f tarutil.File) error {
+		return f.Content(w)
+	}, true)
+}
 
 // PutTarV2 puts a tar stream into PFS.
 func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) error {
