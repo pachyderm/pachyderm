@@ -429,7 +429,13 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	eg.Go(func() error {
 		defer close(subtasks)
 		storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-		return datum.CreateSets(pj.jdit, storageRoot, func(upload func(datum.PutTarClient) error) error {
+		var setSpec *datum.SetSpec
+		if pj.driver.PipelineInfo().ChunkSpec != nil {
+			setSpec = &datum.SetSpec{
+				Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
+			}
+		}
+		return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.PutTarClient) error) error {
 			subtask, err := createDatumSetSubtask(pachClient, pj, upload)
 			if err != nil {
 				return err

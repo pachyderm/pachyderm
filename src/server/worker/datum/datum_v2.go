@@ -34,14 +34,21 @@ type PutTarClient interface {
 	PutTar(io.Reader, ...string) error
 }
 
-// TODO:
-// Implement chunk spec configuration (hardcoded just for testing).
-func CreateSets(dit IteratorV2, storageRoot string, upload func(func(PutTarClient) error) error) error {
+const defaultDatumsPerSet = 10
+
+type SetSpec struct {
+	Number int
+}
+
+func CreateSets(dit IteratorV2, storageRoot string, setSpec *SetSpec, upload func(func(PutTarClient) error) error) error {
 	var metas []*Meta
+	datumsPerSet := defaultDatumsPerSet
+	if setSpec != nil {
+		datumsPerSet = setSpec.Number
+	}
 	if err := dit.Iterate(func(meta *Meta) error {
 		metas = append(metas, meta)
-		// TODO: Hardcoded just for testing, datum set creation configuration will be applied here.
-		if len(metas) > 10 {
+		if len(metas) >= datumsPerSet {
 			if err := createSet(metas, storageRoot, upload); err != nil {
 				return err
 			}
