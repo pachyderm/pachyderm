@@ -82,10 +82,11 @@ The Python builder requires a file structure similar to the following:
 ./map
 ├── source
 │   ├── requirements.txt
+│   ├── ...
 │   └── main.py
 └── build-pipeline.json
 ```
-There must exist a `main.py` which acts as the entrypoint for the pipeline. Optionally, a `requirements.txt` can be used to specify pip packages that will be installed during the build process. 
+There must exist a `main.py` which acts as the entrypoint for the pipeline. Optionally, a `requirements.txt` can be used to specify pip packages that will be installed during the build process. Other supporting files in the directory will also be copied and available in the pipeline if they are not excluded by the `.pachignore`.
 
 The `build.sh` and `run.sh` files are optional, as the Python Builder already contains these scripts. However, if the base image is modified, they must be provided.
 
