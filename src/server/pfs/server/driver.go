@@ -1406,6 +1406,31 @@ func (d *driver) makeCommit(
 		}
 	}
 
+	// this isn't necessary here, but is done for consistency with commits created by propagateCommits
+	// it ensures that the last commit to appear from a specific branch is the latest one on that branch
+	sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+		// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+		// the provenance by repo name and branch name
+		if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+			return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+		} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+			return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+		}
+
+		// we need to check the commit info of the 'j' provenance commit to get the parent
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, newCommitInfo.Provenance[j].Commit)
+		if err != nil {
+			// not really anything to do at this point
+			return true
+		}
+		// the parent commit of 'j' should precede it
+		if provCommitInfo.ParentCommit != nil &&
+			newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+			return true
+		}
+		return false
+	})
+
 	// Finally, create the commit
 	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 		return nil, err
@@ -1777,6 +1802,31 @@ nextSubvBI:
 				return err
 			}
 		}
+
+		// this ensures that the job's output commit uses the latest commit on the branch, by ensuring it is the
+		// last commit to appear in the provenance slice
+		sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+			// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+			// the provenance by repo name and branch name
+			if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+				return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+			} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+				return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+			}
+
+			// we need to check the commit info of the 'j' provenance commit to get the parent
+			provCommitInfo, err := d.resolveCommit(stm, newCommitInfo.Provenance[j].Commit)
+			if err != nil {
+				// not really anything to do at this point
+				return true
+			}
+			// the parent commit of 'j' should precede it
+			if provCommitInfo.ParentCommit != nil &&
+				newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+				return true
+			}
+			return false
+		})
 
 		// finally create open 'commit'
 		if err := stmCommits.Create(newCommit.ID, newCommitInfo); err != nil {

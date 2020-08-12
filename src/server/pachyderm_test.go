@@ -10692,6 +10692,7 @@ func TestSpout(t *testing.T) {
 	})
 }
 
+// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/issues/5172
 func TestDeferredCross(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -10724,6 +10725,8 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.PutFile(dataSet, "master", "file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	_, err = c.PutFile(dataSet, "master", "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataSet, "master", "file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataSet, "master")}, nil)
@@ -10764,6 +10767,7 @@ func TestDeferredCross(t *testing.T) {
 	require.Equal(t, len(jobs), 1)
 
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master")
 	require.NoError(t, err)
@@ -10835,42 +10839,6 @@ func TestDeferredProcessing(t *testing.T) {
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-
-	pipeline3 := tu.UniqueString("TestDeferredProcessing3")
-	require.NoError(t, c.CreatePipeline(
-		pipeline3,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("for a in /pfs/%s/*", pipeline1),
-			"do",
-			fmt.Sprintf("for b in /pfs/%s/*", pipeline2),
-			"do",
-			"touch /pfs/out/$(basename $a)_$(basename $b)",
-			"done",
-			"done",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewCrossInput(
-			client.NewPFSInput(pipeline1, "/*"),
-			client.NewPFSInput(pipeline2, "/*"),
-		),
-		"",
-		false,
-	))
-
-	_, err = c.PutFile(dataRepo, "master", "a", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	_, err = c.PutFile(dataRepo, "master", "b", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	commit = client.NewCommit(dataRepo, "staging")
-	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-
 }
 
 func TestPipelineHistory(t *testing.T) {
