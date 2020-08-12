@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -85,4 +86,31 @@ func (a *apiServerV2) collectDatums(ctx context.Context, job *pps.Job, cb func(*
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	return datum.NewFileSetIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID).Iterate(cb)
+}
+
+var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+
+func (a *apiServerV2) ListDatum(_ context.Context, _ *pps.ListDatumRequest) (*pps.ListDatumResponse, error) {
+	return nil, errV1NotImplemented
+}
+
+func (a *apiServerV2) ListDatumStream(_ *pps.ListDatumRequest, _ pps.API_ListDatumStreamServer) error {
+	return errV1NotImplemented
+}
+
+func (a *apiServerV2) InspectDatum(_ context.Context, _ *pps.InspectDatumRequest) (*pps.DatumInfo, error) {
+	return nil, errV1NotImplemented
+}
+
+func (a *apiServerV2) GetLogs(_ *pps.GetLogsRequest, _ pps.API_GetLogsServer) error {
+	return errV1NotImplemented
+}
+
+func (a *apiServerV2) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (*types.Empty, error) {
+	// TODO: catch unsupported features, apply transformations (always enable stats)
+	return a.apiServer.CreatePipeline(ctx, request)
+}
+
+func (a *apiServerV2) GarbageCollect(_ context.Context, _ *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error) {
+	return nil, errV1NotImplemented
 }
