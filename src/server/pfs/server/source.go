@@ -210,8 +210,8 @@ type errOnEmpty struct {
 	err    error
 }
 
-// InsertNotFound causes iterate to return a not found error if there are no items to iterate over
-func ErrOnEmpty(s Source, err error) Source {
+// NewErrOnEmpty causes iterate to return a not found error if there are no items to iterate over
+func NewErrOnEmpty(s Source, err error) Source {
 	return &errOnEmpty{source: s, err: err}
 }
 

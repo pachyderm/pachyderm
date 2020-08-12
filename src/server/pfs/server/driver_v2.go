@@ -489,7 +489,7 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 		return x
 	})
 	var ret *pfs.FileInfoV2
-	s = ErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
+	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
 		p2 := fi.File.Path
 		if p2 == p || p2 == p+"/" {
@@ -519,7 +519,7 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 		})
 		return x
 	})
-	s = ErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
+	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
 		return cb(fi)
 	})
