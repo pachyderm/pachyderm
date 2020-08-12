@@ -129,7 +129,6 @@ Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
-Uncommitted: {{.DataUncommitted}}
 Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
 Recovered: {{.DataRecovered}}
