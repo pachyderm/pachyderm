@@ -623,6 +623,16 @@ func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFile
 	return errV2NotImplemented
 }
 
+// InspectFileV2 not implemented
+func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+	return nil, errV2NotImplemented
+}
+
+// WalkFileV2 not implemented
+func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
+	return errV2NotImplemented
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {
