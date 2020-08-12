@@ -15,7 +15,7 @@ You need to add your data to Pachyderm so that your pipeline runs your code
 against it. You can do so by using one of the following methods:
 
 * By using the `pachctl put file` command
-* By using a special type of pipeline, such as a spout or cron
+* By using a special type of pipeline, such as a [spout](../../concepts/pipeline-concepts/pipeline/spout/) or [cron](../../concepts/pipeline-concepts/pipeline/cron/) 
 * By using one of the Pachyderm's [language clients](../../../reference/clients/)
 * By using a compatible S3 client
 * By using the Pachyderm UI (Enterprise version or free trial)

@@ -8,6 +8,12 @@ experimenting with your code and pipeline specs.
     understand basic Pachyderm pipeline concepts described in
     [Concepts](../../concepts/pipeline-concepts/index.md).
 
+In general, there are five steps to working with a pipeline. The stages can be summarized in the image below. 
+
+![Developer workflow](../../assets/images/d_steps_analysis_pipeline.svg)
+
+We'll walk through each of the stages in detail.
+
 ## Step 1: Write Your Analysis Code
 
 Because Pachyderm is completely language-agnostic, the code
