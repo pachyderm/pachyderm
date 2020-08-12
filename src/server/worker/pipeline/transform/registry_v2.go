@@ -539,38 +539,37 @@ func deserializeDatumSetV2(any *types.Any) (*DatumSetV2, error) {
 
 func failedInputsV2(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	return nil, nil
-	// TODO: Decide what failed inputs should look like.
-	//var failed []string
-	//var vistErr error
-	//blockCommit := func(name string, commit *pfs.Commit) {
-	//	ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-	//		&pfs.InspectCommitRequest{
-	//			Commit:     commit,
-	//			BlockState: pfs.CommitState_FINISHED,
-	//		})
-	//	if err != nil {
-	//		if vistErr == nil {
-	//			vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
-	//				commit.Repo.Name, commit.ID)
-	//		}
-	//		return
-	//	}
-	//	if ci.Killed {
-	//		failed = append(failed, name)
-	//	}
-	//}
-	//pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
-	//	if input.Pfs != nil && input.Pfs.Commit != "" {
-	//		blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Commit))
-	//	}
-	//	if input.Cron != nil && input.Cron.Commit != "" {
-	//		blockCommit(input.Cron.Name, client.NewCommit(input.Cron.Repo, input.Cron.Commit))
-	//	}
-	//	if input.Git != nil && input.Git.Commit != "" {
-	//		blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Commit))
-	//	}
-	//})
-	//return failed, vistErr
+	var failed []string
+	var vistErr error
+	blockCommit := func(name string, commit *pfs.Commit) {
+		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
+			&pfs.InspectCommitRequest{
+				Commit:     commit,
+				BlockState: pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			if vistErr == nil {
+				vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
+					commit.Repo.Name, commit.ID)
+			}
+			return
+		}
+		if strings.Contains(ci.Description, pfs.EmptyStr) {
+			failed = append(failed, name)
+		}
+	}
+	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
+		if input.Pfs != nil && input.Pfs.Commit != "" {
+			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Commit))
+		}
+		if input.Cron != nil && input.Cron.Commit != "" {
+			blockCommit(input.Cron.Name, client.NewCommit(input.Cron.Repo, input.Cron.Commit))
+		}
+		if input.Git != nil && input.Git.Commit != "" {
+			blockCommit(input.Git.Name, client.NewCommit(input.Git.Name, input.Git.Commit))
+		}
+	})
+	return failed, vistErr
 }
 
 // TODO: Errors that can occur while finishing jobs needs more thought.

@@ -241,6 +241,12 @@ func (a *apiServerV2) FinishCommitInTransaction(
 	request *pfs.FinishCommitRequest,
 ) error {
 	return metrics.ReportRequest(func() error {
+		// TODO: This is kind of a hack, but it gives us an easy to handle the V1 semantics of empty commits
+		// without actually throwing away the data. We will want to replace this with clients setting the description
+		// appropriately or by exposing some more robust notion of user defined metadata associated with a commit.
+		if request.Empty {
+			request.Description += pfs.EmptyStr
+		}
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }

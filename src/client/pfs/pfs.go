@@ -11,6 +11,7 @@ import (
 var (
 	// ChunkSize is the size of file chunks when resumable upload is used
 	ChunkSize = int64(512 * 1024 * 1024) // 512 MB
+	EmptyStr  = "(empty)"
 )
 
 // FullID prints repoName/CommitID
