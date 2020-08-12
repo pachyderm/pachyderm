@@ -37,7 +37,7 @@ func (d *Differ) IterateDiff(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo
 	// iterate over b
 	eg.Go(func() error {
 		defer close(bInfos)
-		return d.a.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+		return d.b.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -71,15 +71,17 @@ func (d *Differ) IterateDiff(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo
 				bFi, bOpen = <-bInfos
 			}
 		}
-		for aFi = range aInfos {
+		for aOpen {
 			if err := cb(aFi, nil); err != nil {
 				return err
 			}
+			aFi, aOpen = <-aInfos
 		}
-		for bFi = range bInfos {
+		for bOpen {
 			if err := cb(nil, bFi); err != nil {
 				return err
 			}
+			bFi, bOpen = <-bInfos
 		}
 		return nil
 	})
