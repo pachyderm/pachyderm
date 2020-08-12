@@ -1,17 +1,19 @@
 # Build Pipelines
 
-A build pipeline is a useful feature when iterating on the code in your pipeline. They allow you to bypass the Docker build process and submit your code directly to the pipeline (without having to re-build the Docker image). In essence, build pipelines automate Steps 1, 4, and 5 of the [pipeline workflow](working-with-pipelines.md).
+A build pipeline is a useful feature when iterating on the code in your pipeline. They allow you to bypass the Docker build process and submit your code directly to the pipeline. In essence, build pipelines automate Steps 2-5 of the [pipeline workflow](working-with-pipelines.md). A diagram of the build pipeline process is shown below.
+
+![Developer workflow](../../assets/images/d_steps_build_pipeline.svg)
 
 !!! note
       Build pipelines are not currently supported in Pachyderm Hub.
 
-Functionally, the build pipeline uses a base Docker image that remains unchanged during the development process. The code is copied into this pipeline at runtime from a PFS repository. The build pipeline installs requirements and updates the code in the pipeline before running running it.
+Functionally, the build pipeline relies on a base Docker image that remains unchanged during the development process. Any code written for the pipeline is copied into this container, installs requirements and updates the code in the pipeline before running it.
 
-Build pipelines require a modification to the pipeline spec's `transform` object with options for the following fields:
+Using this feature requires a modification of the pipeline spec's `transform` object with options for the following fields:
 
 - `path`: An optional string specifying where the source code is relative to the pipeline spec path (or the cwd if the pipeline is fed into `pachctl` via stdin.)
 - `language`: An optional string specifying what language builder to use (see below.) Only works with official builders. If unspecified, `image` will be used instead.
-- image: An optional string specifying what builder image to use, if a non-official builder is desired. If unspecified, the `transform` object's `image` will be used instead.
+- `image`: An optional string specifying what builder image to use, if a non-official builder is desired. If unspecified, the `transform` object's `image` will be used instead.
 
 Below is a Python example of a build pipline.
 
@@ -48,9 +50,9 @@ When submitted, the following actions occur:
 
 1. All files (code, etc.) are copied from the build path to a PFS repository, `<pipeline name>_build`, which we can think of as the source code repository. In the case above, everything in `./source` would be copied to to the PFS `<pipeline name>_build` repository.
 
-1. Starts a pipeline called `<pipeline name>_build` that reads the files uploaded and runs the `build.sh` script to pull dependencies and compile any requirements from the source code. 
+1. Starts a pipeline called `<pipeline name>_build` that reads the files uploaded and runs the `build.sh` script to pull dependencies and compile any requirements from the source code.
 
-1. Creates (or updates if it already exists) the running pipeline `<pipeline name>` with the the newly creates source files and built assets. 
+1. Creates (or updates if it already exists) the running pipeline `<pipeline name>` with the the newly creates source files and built assets.
 
 !!! note
       You can optionally specify a `.pachignore` file, which uses [ohmyglob](https://github.com/pachyderm/ohmyglob) entries to prevent certain files from getting pushed to this repo.
@@ -59,7 +61,7 @@ The updated pipeline contains the following PFS repos mapped in as inputs:
 
 1. `/pfs/source` - source code that is required for running the pipeline. There are language-specific requirements on the structure of this source code mentioned in the [Python Builder](#python-builder) section.
 
-1. `/pfs/build` - any artifacts resulting from the build process. 
+1. `/pfs/build` - any artifacts resulting from the build process.
 
 1. `/pfs/<input(s)>` - any inputs specified in the pipeline specification.
 
