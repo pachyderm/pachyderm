@@ -1,6 +1,6 @@
 # Build Pipelines
 
-A build pipeline is a useful feature when iterating on the code in your pipeline. They allow you to bypass the Docker build process and submit your code directly to the pipeline. In essence, build pipelines automate Steps 2-5 of the [pipeline workflow](working-with-pipelines.md). A diagram of the build pipeline process is shown below.
+A build pipeline is a useful feature when iterating on the code in your pipeline. They allow you to bypass the Docker build process and submit your code directly to the pipeline. In essence, build pipelines automate Steps 2-4 of the [pipeline workflow](working-with-pipelines.md). A diagram of the build pipeline process is shown below.
 
 ![Developer workflow](../../assets/images/d_steps_build_pipeline.svg)
 
@@ -50,9 +50,9 @@ When submitted, the following actions occur:
 
 1. All files (code, etc.) are copied from the build path to a PFS repository, `<pipeline name>_build`, which we can think of as the source code repository. In the case above, everything in `./source` would be copied to to the PFS `<pipeline name>_build` repository.
 
-1. Starts a pipeline called `<pipeline name>_build` that reads the files uploaded and runs the `build.sh` script to pull dependencies and compile any requirements from the source code.
+1. A pipeline called `<pipeline name>_build` starts, reading reading files from the `<pipeline name>_build` repo and runs the `build.sh` script to pull dependencies and compile any requirements from the source code.
 
-1. Creates (or updates if it already exists) the running pipeline `<pipeline name>` with the the newly creates source files and built assets.
+1. The running pipeline, `<pipeline name>`, is updated (or created if it doesn't already exist) with the the new source files and built assets.
 
 !!! note
       You can optionally specify a `.pachignore` file, which uses [ohmyglob](https://github.com/pachyderm/ohmyglob) entries to prevent certain files from getting pushed to this repo.
