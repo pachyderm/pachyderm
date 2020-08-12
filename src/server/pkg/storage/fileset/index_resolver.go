@@ -49,8 +49,5 @@ func (mr *mergeResolver) Iterate(ctx context.Context, cb func(File) error, stopB
 	if err := mr1.WriteTo(w); err != nil {
 		return err
 	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return nil
+	return w.Close()
 }

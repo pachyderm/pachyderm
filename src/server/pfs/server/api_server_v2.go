@@ -253,7 +253,7 @@ func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileReq
 // WalkFileV2 walks over all the files under a directory, including children of children.
 func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.walkFile(pachClient, req.File, func(fin *pfs.FileInfoV2) error {
-		return server.Send(fin)
+	return a.driver.walkFile(pachClient, req.File, func(fi *pfs.FileInfoV2) error {
+		return server.Send(fi)
 	})
 }

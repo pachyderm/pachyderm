@@ -10,22 +10,22 @@ import (
 	"golang.org/x/net/context"
 )
 
-var _ APIServer = &valAPIServer{}
+var _ APIServer = &validatedAPIServer{}
 
-type valAPIServer struct {
+type validatedAPIServer struct {
 	APIServer
 	env *serviceenv.ServiceEnv
 }
 
-func newValidated(inner APIServer, env *serviceenv.ServiceEnv) *valAPIServer {
-	return &valAPIServer{
+func newValidatedAPIServer(inner APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
+	return &validatedAPIServer{
 		APIServer: inner,
 		env:       env,
 	}
 }
 
 // InspectFileV2 returns info about a file.
-func (a *valAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
 	if err := validateFile(req.File); err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (a *valAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRe
 }
 
 // WalkFileV2 walks over all the files under a directory, including children of children.
-func (a *valAPIServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
+func (a *validatedAPIServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
 	file := req.File
 	// Validate arguments
 	if file == nil {
@@ -54,7 +54,7 @@ func (a *valAPIServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkF
 	return a.APIServer.WalkFileV2(req, server)
 }
 
-func (a *valAPIServer) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
+func (a *validatedAPIServer) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
 	commit := request.Commit
 	// Validate arguments
 	if commit == nil {
@@ -69,7 +69,7 @@ func (a *valAPIServer) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_G
 	return a.APIServer.GlobFileV2(request, server)
 }
 
-func (a *valAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
+func (a *validatedAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	if err := validateFile(req.File); err != nil {
 		return err
 	}
@@ -79,11 +79,11 @@ func (a *valAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListF
 	return a.APIServer.ListFileV2(req, server)
 }
 
-func (a *valAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
+func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
 	return a.env.GetPachClient(ctx)
 }
 
-func (a *valAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
+func (a *validatedAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
 	client := a.getAuth(ctx)
 	me, err := client.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {

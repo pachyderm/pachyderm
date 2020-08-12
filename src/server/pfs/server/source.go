@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
@@ -206,19 +205,19 @@ func computeFileHash(idx *index.Index) []byte {
 	return h.Sum(nil)
 }
 
-type insertNotFound struct {
+type errOnEmpty struct {
 	source Source
-	file   *pfs.File
+	err    error
 }
 
 // InsertNotFound causes iterate to return a not found error if there are no items to iterate over
-func InsertNotFound(s Source, file *pfs.File) Source {
-	return &insertNotFound{source: s, file: file}
+func ErrOnEmpty(s Source, err error) Source {
+	return &errOnEmpty{source: s, err: err}
 }
 
 // Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
 // during iteration, and the File.
-func (s *insertNotFound) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
 	empty := true
 	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
 		empty = false
@@ -227,7 +226,7 @@ func (s *insertNotFound) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, f
 		return err
 	}
 	if empty {
-		return &pfsserver.ErrFileNotFound{File: s.file}
+		return s.err
 	}
 	return nil
 }

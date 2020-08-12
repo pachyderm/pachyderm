@@ -42,7 +42,7 @@ func NewAPIServer(
 		if err != nil {
 			return nil, err
 		}
-		return newValidated(a, env), nil
+		return newValidatedAPIServer(a, env), nil
 	}
 	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
