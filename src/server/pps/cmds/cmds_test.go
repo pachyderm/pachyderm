@@ -524,7 +524,7 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	testPipelineBuildLifecycle(t, "python")
+	testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
 	// intended behavior here
@@ -536,11 +536,15 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	`).Run())
 }
 
-func TestPipelineBuildLifecycleGo(t *testing.T) {
-	testPipelineBuildLifecycle(t, "go")
+func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
-func testPipelineBuildLifecycle(t *testing.T, lang string) {
+func TestPipelineBuildLifecycleGo(t *testing.T) {
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -574,30 +578,31 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 
 	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl create pipeline <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "0")
 
 	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "0")
 
+	// update the pipeline with a custom cmd and verify results
 	spec = fmt.Sprintf(`
 		{
 		  "pipeline": {
@@ -623,15 +628,14 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		}
 	`, lang)
 
-	// update the pipeline with a custom cmd and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline --reprocess <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "_")
