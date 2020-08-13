@@ -191,10 +191,10 @@ func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(i
 	if err := fsw.Close(); err != nil {
 		return err
 	}
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-		return err
-	})
+	// There is no need to queue this because we just wrote to one place.  We expect the storage layer
+	// to handle the single file case efficiently.
+	_, err := d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	return err
 }
 
 func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
