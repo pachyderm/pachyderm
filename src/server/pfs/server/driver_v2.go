@@ -139,11 +139,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 
 func (d *driverV2) getSubFileSet() int64 {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	n := d.subFileSet
-	d.subFileSet++
-	return n
+	return time.Now().UnixNano()
 }
 
 // TODO Need commit validation and handling of branch names.
