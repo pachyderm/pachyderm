@@ -16,8 +16,8 @@ func ReadPassword(prompt string) (string, error) {
 
 	// If stdin is a attached to the TTY (rather than being piped in), use a
 	// terminal password prompt, which will hide the input
-	if terminal.IsTerminal(syscall.Stdin) {
-		pass, err := terminal.ReadPassword(syscall.Stdin)
+	if terminal.IsTerminal(int(syscall.Stdin)) {
+		pass, err := terminal.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return "", err
 		}
