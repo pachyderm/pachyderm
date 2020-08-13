@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"path"
@@ -515,7 +514,6 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 	ctx := pachClient.Ctx()
 	oldCommit := oldFile.Commit
 	newCommit := newFile.Commit
-	fmt.Println("diffing", oldCommit, newCommit)
 	oldName := cleanPath(oldFile.Path)
 	if oldName == "/" {
 		oldName = ""
