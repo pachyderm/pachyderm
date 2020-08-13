@@ -144,7 +144,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
 For an on-premises deployment, 
 it's not advisable to use a cloud-based storage mechanism.
-Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services/index.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md).
+Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services/index.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md). Note that the command line parameters for the object store (`--object-store`) are specifying `s3` in reference to the S3 protocol (which is used by solutions such as MinIO and the like) and not the Amazon product with the same name.
 
 #### Object store prerequisites
 
@@ -165,7 +165,8 @@ We're prefixing each item with how we'll refer to it further on.
 
 1. `OS_ENDPOINT`: The access endpoint.
    For example, MinIO's endpoints are usually something like `minio-server:9000`. 
-   Don't begin it with the protocol; it's an endpoint, not an url.
+   Don't begin it with the protocol; it's an endpoint, not an url. Also, check if your object store (e.g. MinIO) is using SSL/TLS.
+   If not, disable it using `--disable-ssl`.
 1. `OS_BUCKET_NAME`: The bucket name you're dedicating to Pachyderm. Pachyderm will need exclusive access to this bucket.
 1. `OS_ACCESS_KEY_ID`: The access key id for the object store.  This is like a user name for logging into the object store.
 1. `OS_SECRET_KEY`: The secret key for the object store.  This is like the above user's password.
@@ -182,5 +183,3 @@ Once you have Kubernetes deployed, your persistent volume created, and your obje
 - [EMC ECS](./non-cloud-object-stores.md#emc-ecs)
 - [MinIO](./non-cloud-object-stores.md#minio)
 - [SwiftStack](./non-cloud-object-stores.md#swiftstack)
-
-

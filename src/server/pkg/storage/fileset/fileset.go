@@ -6,6 +6,7 @@ import (
 	"io"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -33,7 +34,6 @@ func (mf *memFile) Write(data []byte) (int, error) {
 type FileSet struct {
 	ctx                        context.Context
 	storage                    *Storage
-	root                       string
 	memAvailable, memThreshold int64
 	name                       string
 	defaultTag                 string
@@ -75,7 +75,11 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 			}
 			return err
 		}
-		hdr.Name = path.Join(f.root, hdr.Name)
+		hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+		if hdr.Typeflag == tar.TypeDir {
+			f.createParent(hdr.Name, tag)
+			continue
+		}
 		mf := f.createFile(hdr, tag)
 		for {
 			n, err := io.CopyN(mf, tr, f.memAvailable)
@@ -120,6 +124,9 @@ func (f *FileSet) getDataOp(name string) *dataOp {
 }
 
 func (f *FileSet) createParent(name string, tag string) {
+	if name == "" {
+		return
+	}
 	name, _ = path.Split(name)
 	if _, ok := f.fs[name]; ok {
 		return
@@ -127,20 +134,19 @@ func (f *FileSet) createParent(name string, tag string) {
 	mf := &memFile{
 		hdr: &tar.Header{
 			Typeflag: tar.TypeDir,
-			Name:     name,
+			Name:     CleanTarPath(name, true),
 		},
 		tag:  tag,
 		data: &bytes.Buffer{},
 	}
 	dataOp := f.getDataOp(name)
 	dataOp.memFiles[tag] = mf
+	name = strings.TrimRight(name, "/")
 	f.createParent(name, tag)
 }
 
 // Delete deletes a file from the file set.
 func (f *FileSet) Delete(name string, customTag ...string) {
-	// TODO This should be a cleaning function.
-	name = path.Join(f.root, "/", name)
 	var tag string
 	if len(customTag) > 0 {
 		tag = customTag[0]

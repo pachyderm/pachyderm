@@ -25,7 +25,10 @@
 package cmds
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -830,3 +833,70 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 // 	os.Args = []string{"pachctl", "create", "pipeline", "--push-images", "-f", "test-push-images.json"}
 // 	require.NoError(t, rootCmd().Execute())
 // }
+
+func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
+
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+				"name": "first"
+			  },
+			  "transform": {
+				"image": "%s"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+EOF
+	`, image))
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	// cmd.Stdout = os.Stdout // uncomment for debugging
+	cmd.Env = os.Environ()
+	err := cmd.Run()
+	stderr := buf.String()
+	return stderr, err
+}
+
+func TestWarningLatestTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified latest tag on docker image
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestWarningEmptyTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified empty tag, equivalent to
+	// :latest
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestNoWarningTagSpecified(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should not emit a warning (stderr should be empty) because user
+	// specified non-empty, non-latest tag
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	require.NoError(t, err)
+	require.Equal(t, "", stderr)
+}

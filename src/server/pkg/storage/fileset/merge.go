@@ -1,6 +1,7 @@
 package fileset
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 
@@ -29,8 +30,7 @@ func newMergeReader(rs []*Reader) *MergeReader {
 	return &MergeReader{pq: newPriorityQueue(fileStreams)}
 }
 
-// Iterate iterates over the file merge readers in the merged fileset.
-func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
+func (mr *MergeReader) iterate(f func(*FileMergeReader) error) error {
 	return mr.pq.iterate(func(ss []stream, _ ...string) error {
 		// Convert generic streams to file streams.
 		var fss []*fileStream
@@ -133,7 +133,7 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 		}
 		// Copy single file stream.
 		if len(fss) == 1 {
-			return fss[0].r.Iterate(func(fr *FileReader) error {
+			return fss[0].r.iterate(func(fr *FileReader) error {
 				return w.CopyFile(fr)
 			}, next...)
 		}
@@ -159,14 +159,13 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 // Get writes the merged fileset.
 func (mr *MergeReader) Get(w io.Writer) error {
 	// Write a tar entry for each file merge reader.
-	if err := mr.Iterate(func(fmr *FileMergeReader) error {
+	if err := mr.iterate(func(fmr *FileMergeReader) error {
 		return fmr.Get(w)
 	}); err != nil {
 		return err
 	}
 	// Close a tar writer to create tar EOF padding.
 	return tar.NewWriter(w).Close()
-
 }
 
 type fileStream struct {
@@ -277,6 +276,11 @@ func (fmr *FileMergeReader) Get(w io.Writer) error {
 		return err
 	}
 	return tw.Flush()
+}
+
+// Content writes the content of the current file excluding the header to w
+func (fmr *FileMergeReader) Content(w io.Writer) error {
+	return fmr.tsmr.Get(w)
 }
 
 // TagSetMergeReader returns the tagset merge reader for the file.
@@ -495,7 +499,7 @@ type ShardFunc func(*index.PathRange) error
 func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 	var size int64
 	pathRange := &index.PathRange{}
-	if err := mr.Iterate(func(fmr *FileMergeReader) error {
+	if err := mr.iterate(func(fmr *FileMergeReader) error {
 		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= shardThreshold {
 			pathRange.Upper = fmr.Index().Path
@@ -513,4 +517,29 @@ func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 		return err
 	}
 	return f(pathRange)
+}
+
+type mergeSource struct {
+	getReader func() (*MergeReader, error)
+	s         *Storage
+}
+
+func (ms *mergeSource) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
+	mr, err := ms.getReader()
+	if err != nil {
+		return err
+	}
+	for {
+		f, err := mr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(f); err != nil {
+			return err
+		}
+	}
+	return nil
 }

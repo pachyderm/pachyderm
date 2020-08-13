@@ -15,15 +15,15 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="individual-developer-workflow/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="individual-developer-workflow/" class="md-typeset md-link">
           Individual Developer Workflow
           </a>
           </li>
-          <li><a href="team-developer-workflow/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="team-developer-workflow/" class="md-typeset md-link">
           Team Developer Workflow
           </a>
           </li>
-          <li><a href="create-ml-workflow/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="create-ml-workflow/" class="md-typeset md-link">
           Create a Machine Learning Workflow
           </a>
           </li>
@@ -43,19 +43,19 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="load-data-into-pachyderm/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="load-data-into-pachyderm/" class="md-typeset md-link">
           Load Your Data Into Pachyderm
           </a>
           </li>
-          <li><a href="export-data-out-pachyderm/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="export-data-out-pachyderm/" class="md-typeset md-link">
           Export Your Data From Pachyderm
           </a>
           </li>
-          <li><a href="removing_data_from_pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="removing_data_from_pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
           </li>
-          <li><a href="ingressing_from_diff_cloud/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="ingressing_from_diff_cloud/" class="md-typeset md-link">
           Ingress and Egress Data from an External Object Store
           </a>
           </li>
@@ -75,19 +75,19 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="create-pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="create-pipeline/" class="md-typeset md-link">
             Create a Pipeline
            </a>
            </li>
-           <li><a href="updating_pipelines/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="updating_pipelines/" class="md-typeset md-link">
            Update a Pipeline
            </a>
            </li>
-           <li><a href="run_pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="run_pipeline/" class="md-typeset md-link">
            Run a Pipeline on a Specific Commit
            </a>
            </li>
-           <li><a href="delete-pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="delete-pipeline/" class="md-typeset md-link">
            Delete a Pipeline
            </a>
            </li>
@@ -107,20 +107,20 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="splitting-data/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="splitting-data/" class="md-typeset md-link">
            Split Data
            </a>
            </li>
-           <li><a href="time_windows/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           <li><a href="time_windows/" class="md-typeset md-link">
            Processing Time-Windowed Data
            </a>
           </li>
           </li>
-           <li><a href="use-transactions-to-run-multiple-commands/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           <li><a href="use-transactions-to-run-multiple-commands/" class="md-typeset md-link">
            Use Transactions
            </a>
           </li>
-           <li><a href="err_cmd/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           <li><a href="err_cmd/" class="md-typeset md-link">
            Skip Failed Datums
            </a>
           </li>

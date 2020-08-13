@@ -57,9 +57,6 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		if err != nil {
 			return 0, err
 		}
-		if !a.env.StorageV2 {
-			return 0, errors.Errorf("new storage layer disabled")
-		}
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
 		var bytesRead int64
@@ -137,14 +134,10 @@ func (a *apiServerV2) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetT
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
-		if !a.env.StorageV2 {
-			return 0, errors.Errorf("new storage layer disabled")
-		}
-		repo := request.File.Commit.Repo.Name
-		commit := request.File.Commit.ID
+		commit := request.File.Commit
 		glob := request.File.Path
 		gtw := newGetTarWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getTar(server.Context(), repo, commit, glob, gtw)
+		err := a.driver.getTar(server.Context(), commit, glob, gtw)
 		return gtw.bytesWritten, err
 	})
 }
@@ -248,6 +241,19 @@ func (a *apiServerV2) FinishCommitInTransaction(
 func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfoV2) error {
+		return server.Send(fi)
+	})
+}
+
+// InspectFileV2 returns info about a file.
+func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)
+}
+
+// WalkFileV2 walks over all the files under a directory, including children of children.
+func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
+	pachClient := a.env.GetPachClient(server.Context())
+	return a.driver.walkFile(pachClient, req.File, func(fi *pfs.FileInfoV2) error {
 		return server.Send(fi)
 	})
 }

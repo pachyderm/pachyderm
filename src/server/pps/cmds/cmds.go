@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
@@ -40,7 +39,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 )
 
@@ -1169,6 +1167,22 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 			}
 		}
 
+		// Don't warn if transform.build is set because latest is almost always
+		// legit for build-enabled pipelines.
+		if request.Transform != nil && request.Transform.Build == nil && request.Transform.Image != "" {
+			if !strings.Contains(request.Transform.Image, ":") {
+				fmt.Fprintf(os.Stderr,
+					"WARNING: please specify a tag for the docker image in your transform.image spec.\n"+
+						"For example, change 'python' to 'python:3' or 'bash' to 'bash:5'. This improves\n"+
+						"reproducibility of your pipelines.\n")
+			} else if strings.HasSuffix(request.Transform.Image, ":latest") {
+				fmt.Fprintf(os.Stderr,
+					"WARNING: please do not specify the ':latest' tag for the docker image in your\n"+
+						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
+						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n")
+			}
+		}
+
 		if _, err := pc.PpsAPIClient.CreatePipeline(
 			pc.Ctx(),
 			request,
@@ -1216,18 +1230,14 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 		}
 
 		// request the password
-		fmt.Printf("Password for %s@%s: ", username, registry)
-		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+		password, err := cmdutil.ReadPassword(fmt.Sprintf("Password for %s@%s: ", username, registry))
 		if err != nil {
 			return errors.Wrapf(err, "could not read password")
 		}
 
-		// print a newline, since `ReadPassword` gobbles the user-inputted one
-		fmt.Println()
-
 		authConfig = docker.AuthConfiguration{
 			Username: username,
-			Password: string(passBytes),
+			Password: password,
 		}
 	}
 

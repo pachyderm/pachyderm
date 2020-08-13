@@ -2836,7 +2836,7 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func (d *driver) checkFilePath(path string) error {
+func checkFilePath(path string) error {
 	path = filepath.Clean(path)
 	if strings.HasPrefix(path, "../") {
 		return errors.Errorf("path (%s) invalid: traverses above root", path)
@@ -2849,7 +2849,7 @@ func (d *driver) checkFilePath(path string) error {
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
 	cleanedPath := path.Clean("/" + file.Path)
-	if err := d.checkFilePath(cleanedPath); err != nil {
+	if err := checkFilePath(cleanedPath); err != nil {
 		return "", err
 	}
 	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
@@ -2914,7 +2914,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return nil, err
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
@@ -3207,7 +3207,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(dst.Path); err != nil {
+	if err := checkFilePath(dst.Path); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -4149,7 +4149,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return err
 	}
 	branch := ""
