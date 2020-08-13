@@ -742,6 +742,57 @@ func TestGetSetReverse(t *testing.T) {
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 }
 
+func TestCreateAndUpdateRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// create repo, and check that alice is the owner of the new repo
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.ElementsEqual(t,
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
+
+	// Add data to repo (alice can write). Make sure alice can read also.
+	_, err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/file", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+
+	/// alice adds bob to the ACL as a reader (alice can modify ACL)
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     dataRepo,
+		Username: bob,
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t,
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, dataRepo))
+	// bob can read
+	buf.Reset()
+	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+
+	/// alice updates the repo
+	_, err = aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
+		Repo:   client.NewRepo(dataRepo),
+		Update: true,
+	})
+	require.NoError(t, err)
+	// entries haven't changed
+	require.ElementsEqual(t,
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, dataRepo))
+	// bob can still read
+	buf.Reset()
+	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+}
+
 func TestCreateAndUpdatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

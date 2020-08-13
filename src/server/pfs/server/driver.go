@@ -242,7 +242,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	}
 
 	// Create ACL for new repo
-	if authIsActivated {
+	if authIsActivated && !update {
 		// auth is active, and user is logged in. Make user an owner of the new
 		// repo (and clear any existing ACL under this name that might have been
 		// created by accident)
