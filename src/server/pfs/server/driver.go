@@ -2038,6 +2038,9 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
 					return err
 				}
 				lastRev = createRev
@@ -2048,7 +2051,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			return err
 		}
 		// Call sendCis one last time to send whatever's pending in 'cis'
-		if err := sendCis(); err != nil {
+		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
 		}
 	} else {
