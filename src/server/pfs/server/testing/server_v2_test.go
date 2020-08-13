@@ -918,68 +918,49 @@ func TestDiffFileV2(t *testing.T) {
 		// Write bar
 		c3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		putFile(repo, "master", "bar", []byte("bar\n"))
+		putFile(repo, c3.ID, "/bar", []byte("bar\n"))
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, c3.ID))
 
 		newFiles, oldFiles = diffFile(repo, c3.ID, "", "", "", "", false)
-		require.Equal(t, 1, len(newFiles))
-		require.Equal(t, "bar", newFiles[0].File.Path)
-		require.Equal(t, 0, len(oldFiles))
+		require.Equal(t, 2, len(newFiles))
+		require.Equal(t, "/bar", newFiles[1].File.Path)
+		require.Equal(t, 1, len(oldFiles))
 
 		// Delete bar
-		_, err = env.PachClient.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.DeleteFile(repo, "master", "bar"))
+		// c4, err := env.PachClient.StartCommit(repo, "master")
+		// require.NoError(t, err)
+		// require.NoError(t, env.PachClient.DeleteFile(repo, c4.ID, "bar"))
+		// require.NoError(t, env.PachClient.FinishCommit(repo, c4.ID))
 
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.Equal(t, 0, len(newFiles))
-		require.Equal(t, 1, len(oldFiles))
-		require.Equal(t, "bar", oldFiles[0].File.Path)
-
-		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.Equal(t, 0, len(newFiles))
-		require.Equal(t, 1, len(oldFiles))
-		require.Equal(t, "bar", oldFiles[0].File.Path)
+		// newFiles, oldFiles = diffFile(repo, c4.ID, "", "", "", "", false)
+		// require.Equal(t, 1, len(newFiles))
+		// require.Equal(t, 2, len(oldFiles))
+		// require.Equal(t, "bar", oldFiles[1].File.Path)
 
 		// Write dir/fizz and dir/buzz
-		_, err = env.PachClient.StartCommit(repo, "master")
+		c5, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		putFile(repo, "master", "dir/fizz", []byte("fizz\n"))
-		putFile(repo, "master", "dir/buzz", []byte("buzz\n"))
+		putFile(repo, c5.ID, "/dir/fizz", []byte("fizz\n"))
+		putFile(repo, c5.ID, "/dir/buzz", []byte("buzz\n"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, c5.ID))
 
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(newFiles))
-		require.Equal(t, 0, len(oldFiles))
-
-		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.Equal(t, 2, len(newFiles))
-		require.Equal(t, 0, len(oldFiles))
+		newFiles, oldFiles = diffFile(repo, c5.ID, "", "", "", "", false)
+		require.Equal(t, 4, len(newFiles))
+		require.Equal(t, 1, len(oldFiles))
 
 		// Modify dir/fizz
-		_, err = env.PachClient.StartCommit(repo, "master")
+		c6, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		putFile(repo, "master", "dir/fizz", []byte("fizz\n"))
+		putFile(repo, c6.ID, "/dir/fizz", []byte("fizz\n"))
 		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, c6.ID))
 
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.Equal(t, 1, len(newFiles))
-		require.Equal(t, "dir/fizz", newFiles[0].File.Path)
-		require.Equal(t, 1, len(oldFiles))
-		require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
-
-		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		newFiles, oldFiles = diffFile(repo, "master", "", "", "", "", false)
-		require.Equal(t, 1, len(newFiles))
-		require.Equal(t, "dir/fizz", newFiles[0].File.Path)
-		require.Equal(t, 1, len(oldFiles))
-		require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
+		newFiles, oldFiles = diffFile(repo, c6.ID, "", "", "", "", false)
+		require.Equal(t, 3, len(newFiles))
+		require.Equal(t, "/dir/fizz", newFiles[2].File.Path)
+		require.Equal(t, 3, len(oldFiles))
+		require.Equal(t, "/dir/fizz", oldFiles[2].File.Path)
 
 		return nil
 	}, config)
