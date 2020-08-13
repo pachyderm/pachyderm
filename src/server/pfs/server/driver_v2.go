@@ -542,5 +542,5 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 		return x
 	})
 	diff := NewDiffer(old, new)
-	return diff.IterateDiff(pachClient.Ctx(), cb)
+	return diff.Iterate(pachClient.Ctx(), cb)
 }

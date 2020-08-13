@@ -12,17 +12,21 @@ type Differ struct {
 	a, b Source
 }
 
+// NewDiffer creates an iterator over the differences between Sources a and b
 func NewDiffer(a, b Source) *Differ {
 	return &Differ{a: a, b: b}
 }
 
-func (d *Differ) IterateDiff(ctx context.Context, cb func(aFi, bFi *pfs.FileInfoV2) error) error {
+// Iterate compares the entries from `a` and `b` path wise.
+// If one side is missing a path, cb is called with the info for the side that has the path
+// If both sides have a path, but the content is different, cb is called with the info for both sides at once.
+// If both sides have a path, and the content is the same, cb is not called. The info is not part of the diff.
+func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfoV2) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	aInfos := make(chan *pfs.FileInfoV2)
 	bInfos := make(chan *pfs.FileInfoV2)
 	eg, ctx := errgroup.WithContext(ctx)
-	// iterate over a
 	eg.Go(func() error {
 		defer close(aInfos)
 		return d.a.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
@@ -34,7 +38,6 @@ func (d *Differ) IterateDiff(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo
 			}
 		})
 	})
-	// iterate over b
 	eg.Go(func() error {
 		defer close(bInfos)
 		return d.b.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
@@ -71,17 +74,15 @@ func (d *Differ) IterateDiff(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo
 				bFi, bOpen = <-bInfos
 			}
 		}
-		for aOpen {
+		for ; aOpen; aFi, aOpen = <-aInfos {
 			if err := cb(aFi, nil); err != nil {
 				return err
 			}
-			aFi, aOpen = <-aInfos
 		}
-		for bOpen {
+		for ; bOpen; bFi, bOpen = <-bInfos {
 			if err := cb(nil, bFi); err != nil {
 				return err
 			}
-			bFi, bOpen = <-bInfos
 		}
 		return nil
 	})
