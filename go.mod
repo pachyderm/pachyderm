@@ -51,6 +51,7 @@ require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jinzhu/gorm v1.9.12
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
+	github.com/juju/fslock v0.0.0-20160525022230-4d5c94c67b4b
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
