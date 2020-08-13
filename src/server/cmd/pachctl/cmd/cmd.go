@@ -552,7 +552,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return errors.New("could not determine user config directory")
 			}
-			lockfilePath := filepath.Join(configDir, fmt.Sprintf("port-forward.%s.lock", context.ClusterDeploymentID))
+			lockfilePath := filepath.Join(configDir, ".pachyderm", fmt.Sprintf("port-forward.%s.lock", context.ClusterDeploymentID))
 			lockfile := fslock.New(lockfilePath)
 
 			if err := lockfile.TryLock(); err != nil {
