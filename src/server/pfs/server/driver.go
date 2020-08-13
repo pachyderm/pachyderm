@@ -279,8 +279,8 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else {
 		// New repo case
 		if authIsActivated {
-			// Create ACL for new repo. Make caller the sole owner (and clear any
-			// existing ACL under this name that might have been created by accident).
+			// Create ACL for new repo. Make caller the sole owner. If the ACL already
+			// exists with a different owner, this will fail.
 			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
 				Repo: repo.Name,
 				Entries: []*auth.ACLEntry{{
