@@ -1037,6 +1037,13 @@ func TestCopyFile2(t *testing.T) {
 			})
 			require.NoError(t, err)
 		}
+		_, err = env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
+			File: &pfs.File{
+				Commit: otherCommit,
+				Path:   "file0",
+			},
+		})
+		require.NoError(t, err)
 		return nil
 	}, conf)
 	require.NoError(t, err)
