@@ -136,7 +136,6 @@ func NewStatlessLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 // worker master goroutine. The 'User' flag is set to false to maintain the
 // invariant that 'User' and 'Master' are mutually exclusive, which is done to
 // make it easier to query for specific logs.
-func (logger *taggedLogger) WithUserCode() TaggedLogger {
 func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 	result := newLogger(pipelineInfo) // master loggers don't log stats
 	result.template.Master = true
