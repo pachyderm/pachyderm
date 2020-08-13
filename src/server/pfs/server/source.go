@@ -88,8 +88,12 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
+type Source interface {
+	Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error
+}
+
 // Source iterates over FileInfoV2s generated from a fileset.Source
-type Source struct {
+type source struct {
 	commit        *pfs.Commit
 	getReader     func() fileset.FileSource
 	computeHashes bool
@@ -97,8 +101,8 @@ type Source struct {
 
 // NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *Source {
-	return &Source{
+func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *source {
+	return &source{
 		commit:        commit,
 		getReader:     getReader,
 		computeHashes: computeHashes,
@@ -107,7 +111,7 @@ func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.
 
 // Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
 // during iteration, and the File.
-func (s *Source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	fs1 := s.getReader()
@@ -252,4 +256,10 @@ func (s *stream) Next() (fileset.File, error) {
 
 func indexIsDir(idx *index.Index) bool {
 	return strings.HasSuffix(idx.Path, "/")
+}
+
+type emptySource struct{}
+
+func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+	return nil
 }

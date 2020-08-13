@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"path"
@@ -506,26 +507,35 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 		return err
 	}
 	if oldFile == nil {
-		oldFile = &pfs.File{}
-		// ParentCommit may be nil, that's fine because getTreeForCommit
-		// handles nil
-		oldFile.Commit = newCommitInfo.ParentCommit
-		oldFile.Path = newFile.Path
+		oldFile = &pfs.File{
+			Commit: newCommitInfo.ParentCommit,
+			Path:   newFile.Path,
+		}
 	}
 	ctx := pachClient.Ctx()
 	oldCommit := oldFile.Commit
 	newCommit := newFile.Commit
+	fmt.Println("diffing", oldCommit, newCommit)
 	oldName := cleanPath(oldFile.Path)
+	if oldName == "/" {
+		oldName = ""
+	}
 	newName := cleanPath(newFile.Path)
-	old := NewSource(oldCommit, true, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
-		x = fileset.NewIndexResolver(x)
-		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
+	if newName == "/" {
+		newName = ""
+	}
+	var old Source = emptySource{}
+	if oldCommit != nil {
+		old = NewSource(oldCommit, true, func() fileset.FileSource {
+			x := d.storage.NewSource(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
+			x = fileset.NewIndexResolver(x)
+			x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+				return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
+			})
+			return x
 		})
-		return x
-	})
-	new := NewSource(oldCommit, true, func() fileset.FileSource {
+	}
+	new := NewSource(newCommit, true, func() fileset.FileSource {
 		x := d.storage.NewSource(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {

@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"time"
 
@@ -57,9 +56,6 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		if err != nil {
 			return 0, err
-		}
-		if !a.env.StorageV2 {
-			return 0, errors.Errorf("new storage layer disabled")
 		}
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
@@ -255,7 +251,6 @@ func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_Gl
 // DiffFileV2 returns the files only in new or only in old
 func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
 	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfoV2) error {
-		fmt.Println("asdf", oldFi, newFi)
 		return server.Send(&pfs.DiffFileResponseV2{
 			OldFile: oldFi,
 			NewFile: newFi,

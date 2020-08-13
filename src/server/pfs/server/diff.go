@@ -9,10 +9,10 @@ import (
 
 // Differ compares two sources and iterates over the items that are not equal.
 type Differ struct {
-	a, b *Source
+	a, b Source
 }
 
-func NewDiffer(a, b *Source) *Differ {
+func NewDiffer(a, b Source) *Differ {
 	return &Differ{a: a, b: b}
 }
 
