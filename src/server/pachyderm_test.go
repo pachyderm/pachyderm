@@ -10702,10 +10702,10 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 
 	// make repo for our dataset
-	dataSet := "dataset"
+	dataSet := tu.UniqueString("dataset")
 	require.NoError(t, c.CreateRepo(dataSet))
 
-	downstreamPipeline := "downstream"
+	downstreamPipeline := tu.UniqueString("downstream")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -10736,7 +10736,7 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 
 	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
-	impPipeline := "imputed"
+	impPipeline := tu.UniqueString("imputed")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
