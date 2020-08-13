@@ -727,6 +727,8 @@ func TestGetSetReverse(t *testing.T) {
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 }
 
+// TestCreateAndUpdateRepo tests that if CreateRepo(foo, update=true) is
+// called, and foo exists, then the ACL for foo won't be modified.
 func TestCreateAndUpdateRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -775,6 +777,37 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	// bob can still read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+}
+
+// TestCreateRepoWithUpdateFlag tests that if CreateRepo(foo, update=true) is
+// called, and foo doesn't exist, then the ACL for foo will still be created and
+// initialized to the correct value
+func TestCreateRepoWithUpdateFlag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// create repo, and check that alice is the owner of the new repo
+	dataRepo := tu.UniqueString(t.Name())
+	/// alice creates the repo with Update set
+	_, err := aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
+		Repo:   client.NewRepo(dataRepo),
+		Update: true,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t,
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
+
+	// Add data to repo (alice can write). Make sure alice can read also.
+	_, err = aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/file", 0, 0, buf))
 	require.Equal(t, "1", buf.String())
 }
 
