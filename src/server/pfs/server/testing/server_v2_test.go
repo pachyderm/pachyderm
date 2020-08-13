@@ -644,7 +644,6 @@ func (v *validator) validate(r io.Reader) error {
 	for _, file := range filesSorted {
 		buf := &bytes.Buffer{}
 		if _, err := io.CopyN(buf, r, int64(len(v.files[file]))); err != nil {
-			fmt.Println("missing", file)
 			return err
 		}
 		if !bytes.Equal(v.files[file], buf.Bytes()) {

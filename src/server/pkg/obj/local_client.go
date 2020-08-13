@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -38,11 +37,9 @@ func (c *localClient) normPath(path string) string {
 	return path
 }
 
-func (c *localClient) Writer(_ context.Context, p string) (io.WriteCloser, error) {
-	fullPath := c.normPath(p)
-	if path.Clean(fullPath) == path.Clean(c.root) {
-		return nil, errors.New("cannot write an object to the root")
-	}
+func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, error) {
+	fullPath := c.normPath(path)
+
 	// Create the directory since it may not exist
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -52,6 +49,7 @@ func (c *localClient) Writer(_ context.Context, p string) (io.WriteCloser, error
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return file, nil
 }
 
@@ -114,7 +112,6 @@ func (c *localClient) IsRetryable(err error) bool {
 }
 
 func (c *localClient) IsNotExist(err error) bool {
-	err = errors.Unwrap(err)
 	return strings.Contains(err.Error(), "no such file or directory") ||
 		strings.Contains(err.Error(), "cannot find the file specified")
 }
