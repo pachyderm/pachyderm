@@ -48,6 +48,31 @@ func (f *file) Content(w io.Writer) error {
 	return err
 }
 
+type streamFile struct {
+	hdr *tar.Header
+	r   io.Reader
+}
+
+func NewStreamFile(name string, size int64, r io.Reader) File {
+	return newStreamFile(NewHeader(name, size), r)
+}
+
+func newStreamFile(hdr *tar.Header, r io.Reader) File {
+	return &streamFile{
+		hdr: hdr,
+		r:   r,
+	}
+}
+
+func (sf *streamFile) Header() (*tar.Header, error) {
+	return sf.hdr, nil
+}
+
+func (sf *streamFile) Content(w io.Writer) error {
+	_, err := io.Copy(w, sf.r)
+	return err
+}
+
 func WriteFile(tw *tar.Writer, file File) error {
 	hdr, err := file.Header()
 	if err != nil {
@@ -72,7 +97,7 @@ func WithWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
-func Iterate(r io.Reader, cb func(File) error) error {
+func Iterate(r io.Reader, cb func(File) error, stream ...bool) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -81,6 +106,12 @@ func Iterate(r io.Reader, cb func(File) error) error {
 				return nil
 			}
 			return err
+		}
+		if len(stream) > 0 && stream[0] {
+			if err := cb(newStreamFile(hdr, tr)); err != nil {
+				return err
+			}
+			continue
 		}
 		buf := &bytes.Buffer{}
 		_, err = io.Copy(buf, tr)
@@ -93,22 +124,41 @@ func Iterate(r io.Reader, cb func(File) error) error {
 	}
 }
 
-func Equal(file1, file2 File) (bool, error) {
+func Equal(file1, file2 File, full ...bool) (bool, error) {
 	buf1, buf2 := &bytes.Buffer{}, &bytes.Buffer{}
-	tw1, tw2 := tar.NewWriter(buf1), tar.NewWriter(buf2)
-	if err := WriteFile(tw1, file1); err != nil {
+	if len(full) > 0 && full[0] {
+		// Check the serialized tar entries.
+		tw1, tw2 := tar.NewWriter(buf1), tar.NewWriter(buf2)
+		if err := WriteFile(tw1, file1); err != nil {
+			return false, err
+		}
+		if err := WriteFile(tw2, file2); err != nil {
+			return false, err
+		}
+		return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
+	}
+	// Check the header name and content.
+	hdr1, err := file1.Header()
+	if err != nil {
 		return false, err
 	}
-	if err := WriteFile(tw2, file2); err != nil {
+	hdr2, err := file2.Header()
+	if err != nil {
 		return false, err
 	}
-	if !bytes.Equal(buf1.Bytes(), buf2.Bytes()) {
+	if hdr1.Name != hdr2.Name {
 		return false, nil
 	}
-	return true, nil
+	if err := file1.Content(buf1); err != nil {
+		return false, err
+	}
+	if err := file2.Content(buf2); err != nil {
+		return false, err
+	}
+	return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
 }
 
-func TarToLocal(storageRoot string, r io.Reader) error {
+func TarToLocal(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -117,6 +167,11 @@ func TarToLocal(storageRoot string, r io.Reader) error {
 				return nil
 			}
 			return err
+		}
+		if len(cb) > 0 {
+			if err := cb[0](hdr); err != nil {
+				return err
+			}
 		}
 		// TODO: Use the tar header metadata.
 		fullPath := path.Join(storageRoot, hdr.Name)
@@ -149,7 +204,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 	return err
 }
 
-func LocalToTar(storageRoot string, w io.Writer) error {
+func LocalToTar(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) error {
 	return WithWriter(w, func(tw *tar.Writer) error {
 		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
 			if err != nil {
@@ -169,6 +224,11 @@ func LocalToTar(storageRoot string, w io.Writer) error {
 			}
 			// TODO: Remove when path cleaning is in.
 			hdr.Name = filepath.Join("/", hdr.Name)
+			if len(cb) > 0 {
+				if err := cb[0](hdr); err != nil {
+					return err
+				}
+			}
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
 			}
