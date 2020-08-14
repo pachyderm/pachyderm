@@ -766,11 +766,16 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	require.Equal(t, "1", buf.String())
 
 	/// alice updates the repo
+	description := "This request updates the description to force a write"
 	_, err = aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:   client.NewRepo(dataRepo),
-		Update: true,
+		Repo:        client.NewRepo(dataRepo),
+		Description: description,
+		Update:      true,
 	})
 	require.NoError(t, err)
+	repoInfo, err := aliceClient.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, description, repoInfo.Description)
 	// entries haven't changed
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, dataRepo))
