@@ -29,7 +29,7 @@ func githubLogin() (string, error) {
 		"paste here, which will give you an externally verified account in " +
 		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
 		"from GitHub here:")
-	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	token, err := cmdutil.ReadPassword("")
 	if err != nil {
 		return "", errors.Wrapf(err, "error reading token")
 	}
@@ -186,8 +186,7 @@ func LoginCmd() *cobra.Command {
 			var authErr error
 			if useOTP {
 				// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
-				fmt.Println("Please enter your Pachyderm One-Time Password:")
-				code, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				code, err := cmdutil.ReadPassword("One-Time Password:")
 				if err != nil {
 					return errors.Wrapf(err, "error reading One-Time Password")
 				}
@@ -536,7 +535,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			"current user's Pachyderm config file",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			fmt.Println("Please paste your Pachyderm auth token:")
-			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			token, err := cmdutil.ReadPassword("")
 			if err != nil {
 				return errors.Wrapf(err, "error reading token")
 			}
