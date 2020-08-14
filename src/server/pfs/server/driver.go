@@ -237,42 +237,52 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	err = repos.Get(repo.Name, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
-	} else if err == nil && !update {
-		return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
-	}
-
-	// Create ACL for new repo
-	if authIsActivated {
-		// auth is active, and user is logged in. Make user an owner of the new
-		// repo (and clear any existing ACL under this name that might have been
-		// created by accident)
-		_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-			Repo: repo.Name,
-			Entries: []*auth.ACLEntry{{
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
-			}},
-		})
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+	} else if err == nil {
+		// Existing repo case--just update the repo description.
+		if !update {
+			return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 		}
-	}
 
-	repoInfo := &pfs.RepoInfo{
-		Repo:        repo,
-		Created:     types.TimestampNow(),
-		Description: description,
+		if existingRepoInfo.Description == description {
+			// Don't overwrite the stored proto with an identical value. This
+			// optimization is impactful because pps will frequently update the __spec__
+			// repo to make sure it exists.
+			return nil
+		}
+
+		// Check if the caller is authorized to modify this repo
+		// Note, we don't do this before checking if the description changed because
+		// there is client code that calls CreateRepo(R, update=true) as an
+		// idempotent way to ensure that R exists. By permitting these calls when
+		// they don't actually change anything, even if the caller doesn't have
+		// WRITER access, we make the pattern more generally useful.
+		if err := d.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_WRITER); err != nil {
+			return errors.Wrapf(err, "could not update description of %q", repo)
+		}
+		existingRepoInfo.Description = description
+		return repos.Put(repo.Name, &existingRepoInfo)
+	} else {
+		// New repo case
+		if authIsActivated {
+			// Create ACL for new repo. Make caller the sole owner. If the ACL already
+			// exists with a different owner, this will fail.
+			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
+				Repo: repo.Name,
+				Entries: []*auth.ACLEntry{{
+					Username: whoAmI.Username,
+					Scope:    auth.Scope_OWNER,
+				}},
+			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+			}
+		}
+		return repos.Create(repo.Name, &pfs.RepoInfo{
+			Repo:        repo,
+			Created:     types.TimestampNow(),
+			Description: description,
+		})
 	}
-	if update && existingRepoInfo.Created != nil {
-		repoInfo.Created = existingRepoInfo.Created
-	}
-	// Only Put the new repoInfo if something has changed.  This
-	// optimization is impactful because pps will frequently update the
-	// __spec__ repo to make sure it exists.
-	if !proto.Equal(repoInfo, &existingRepoInfo) {
-		return repos.Put(repo.Name, repoInfo)
-	}
-	return nil
 }
 
 func (d *driver) inspectRepo(
