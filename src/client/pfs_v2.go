@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 
 // PutTarV2 puts a tar stream into PFS.
@@ -266,4 +270,105 @@ func (r *getTarConditionalReader) drain() error {
 			return err
 		}
 	}
+}
+
+// TODO: Change this to not buffer the file locally.
+// We will want to move to a model where we buffer in chunk storage.
+func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
+	return withTmpFile(func(tarF *os.File) error {
+		if err := withTmpFile(func(f *os.File) error {
+			size, err := io.Copy(f, r)
+			if err != nil {
+				return err
+			}
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+			return tarutil.WithWriter(tarF, func(tw *tar.Writer) error {
+				return tarutil.WriteFile(tw, tarutil.NewStreamFile(path, size, f))
+			})
+		}); err != nil {
+			return err
+		}
+		_, err := tarF.Seek(0, 0)
+		if err != nil {
+			return err
+		}
+		return c.PutTarV2(repo, commit, tarF)
+	})
+}
+
+// TODO: refactor into utility package, also exists in debug util.
+func withTmpFile(cb func(*os.File) error) (retErr error) {
+	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
+		return err
+	}
+	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_put_file")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(f.Name()); retErr == nil {
+			retErr = err
+		}
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(f)
+}
+
+func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Writer) error {
+	r, err := c.GetTarV2(repo, commit, path)
+	if err != nil {
+		return err
+	}
+	return tarutil.Iterate(r, func(f tarutil.File) error {
+		return f.Content(w)
+	}, true)
+}
+
+var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+
+type putFileClientV2 struct {
+	c APIClient
+}
+
+func (c APIClient) newPutFileClientV2() PutFileClient {
+	return &putFileClientV2{c: c}
+}
+
+func (pfc *putFileClientV2) PutFileWriter(repo, commit, path string) (io.WriteCloser, error) {
+	return nil, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileSplitWriter(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
+	return nil, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFile(repo, commit, path string, r io.Reader) (int, error) {
+	return 0, pfc.c.PutFileV2(repo, commit, path, r)
+}
+
+func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, reader io.Reader, overwriteIndex int64) (int, error) {
+	return 0, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileSplit(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, r io.Reader) (int, error) {
+	// TODO: Add split support.
+	return 0, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileURL(repo, commit, path, url string, recursive bool, overwrite bool) error {
+	// TODO: Add URL support.
+	return errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) DeleteFile(repo, commit, path string) error {
+	return pfc.c.DeleteFilesV2(repo, commit, []string{path})
+}
+
+func (pfc *putFileClientV2) Close() error {
+	return nil
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"io"
 	"log"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -58,8 +59,15 @@ func newDriverV2(
 	if err != nil {
 		return nil, err
 	}
-	// (bryce) local db for testing.
-	db, err := gc.NewLocalDB()
+	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+	if !ok {
+		return nil, errors.Errorf("postgres service host not found")
+	}
+	postgresPort, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	if !ok {
+		return nil, errors.Errorf("postgres service port not found")
+	}
+	db, err := gc.NewDB(postgresHost, postgresPort)
 	if err != nil {
 		return nil, err
 	}

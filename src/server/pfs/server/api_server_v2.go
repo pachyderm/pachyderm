@@ -257,3 +257,21 @@ func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFi
 		return server.Send(fi)
 	})
 }
+
+var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+
+func (a *apiServerV2) Fsck(_ *pfs.FsckRequest, _ pfs.API_FsckServer) error {
+	return errV1NotImplemented
+}
+
+func (a *apiServerV2) PutFile(_ pfs.API_PutFileServer) error {
+	return errV1NotImplemented
+}
+
+func (a *apiServerV2) ListFileStream(_ *pfs.ListFileRequest, _ pfs.API_ListFileStreamServer) error {
+	return errV1NotImplemented
+}
+
+func (a *apiServerV2) GlobFileStream(_ *pfs.GlobFileRequest, _ pfs.API_GlobFileStreamServer) error {
+	return errV1NotImplemented
+}

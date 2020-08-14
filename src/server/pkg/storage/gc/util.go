@@ -16,13 +16,13 @@ import (
 
 const (
 	defaultPostgresHost = "localhost"
-	defaultPostgresPort = 32228
+	defaultPostgresPort = "32228"
 )
 
-// NewLocalDB creates a local database client.
+// NewDB creates a database client.
 // TODO The code for setting up a postgres client should be refactored into a db package similar to obj.
-func NewLocalDB() (*gorm.DB, error) {
-	db, err := gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", defaultPostgresHost, defaultPostgresPort))
+func NewDB(host, port string) (*gorm.DB, error) {
+	db, err := gorm.Open("postgres", fmt.Sprintf("host=%s port=%s dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func NewLocalDB() (*gorm.DB, error) {
 // WithLocalDB creates a local database client for testing during the lifetime of
 // the callback.
 func WithLocalDB(f func(*gorm.DB) error) (retErr error) {
-	db, err := NewLocalDB()
+	db, err := NewDB(defaultPostgresHost, defaultPostgresPort)
 	if err != nil {
 		return err
 	}
