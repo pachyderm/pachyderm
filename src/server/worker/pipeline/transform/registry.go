@@ -737,10 +737,13 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		if err != nil {
 			return err
 		}
+<<<<<<< HEAD
 		pj.ji.DataTotal = pj.jdit.MaxLen()
 		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}
+=======
+>>>>>>> Move egress out of standard job flow to fix early cancellation (#5201)
 	}
 
 	asyncEg.Go(func() error {
