@@ -37,10 +37,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/cache"
@@ -145,6 +147,8 @@ type Driver interface {
 	// for datums and one for datum stats. The lifetime of these caches will be
 	// bound to the callback, and any resources will be cleaned up upon return.
 	WithDatumCache(func(*hashtree.MergeCache, *hashtree.MergeCache) error) error
+
+	Egress(commit *pfs.Commit, egressURL string) error
 }
 
 type driver struct {
@@ -1279,4 +1283,21 @@ func (d *driver) UserCodeEnv(
 	}
 
 	return result
+}
+
+func (d *driver) Egress(commit *pfs.Commit, egressURL string) error {
+	// copy the pach client (preserving auth info) so we can set a different
+	// number of concurrent streams
+	pachClient := d.PachClient().WithCtx(d.PachClient().Ctx())
+	pachClient.SetMaxConcurrentStreams(100)
+
+	url, err := obj.ParseURL(egressURL)
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewClientFromURLAndSecret(url, false)
+	if err != nil {
+		return err
+	}
+	return pfssync.PushObj(pachClient, commit, objClient, url.Object)
 }

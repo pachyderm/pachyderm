@@ -23,9 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -1394,28 +1392,12 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 }
 
 func (reg *registry) egress(pj *pendingJob) error {
-	// copy the pach client (preserving auth info) so we can set a different
-	// number of concurrent streams
-	pachClient := pj.driver.PachClient().WithCtx(pj.driver.PachClient().Ctx())
-	pachClient.SetMaxConcurrentStreams(100)
-
 	var egressFailureCount int
 	return backoff.RetryNotify(func() (retErr error) {
 		if pj.ji.Egress != nil {
-			pj.logger.Logf("Starting egress upload")
-			start := time.Now()
-			url, err := obj.ParseURL(pj.ji.Egress.URL)
-			if err != nil {
-				return err
-			}
-			objClient, err := obj.NewClientFromURLAndSecret(url, false)
-			if err != nil {
-				return err
-			}
-			if err := pfssync.PushObj(pachClient, pj.ji.OutputCommit, objClient, url.Object); err != nil {
-				return err
-			}
-			pj.logger.Logf("Completed egress upload, duration (%v)", time.Since(start))
+			return pj.logger.LogStep("egress upload", func() error {
+				return pj.driver.Egress(pj.ji.OutputCommit, pj.ji.Egress.URL)
+			})
 		}
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
