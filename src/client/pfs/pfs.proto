@@ -561,6 +561,10 @@ message GetTarConditionalResponseV2 {
   bool EOF = 3;
 }
 
+message ClearCommitRequest {
+  Commit commit = 1;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -649,6 +653,8 @@ service API {
   rpc InspectFileV2(InspectFileRequest) returns (FileInfoV2) {}
   // WalkFileV2 walks over all the files under a directory, including children of children.
   rpc WalkFileV2(WalkFileRequest) returns (stream FileInfoV2) {}
+  // ClearCommit removes all data from the commit.
+  rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {
