@@ -268,8 +268,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 			ProcessStats: &pps.ProcessStats{},
 		}
 
-		queueSize := int64(0)
-		var dataProcessed, dataRecovered int64
+		var queueSize, dataProcessed, dataRecovered int64
 		// TODO: the status.GetStatus call may read the process stats without having a lock, it this ~ok?
 		if err := logger.LogStep("processing datums", func() error {
 			return status.withStats(data.Stats.ProcessStats, &queueSize, &dataProcessed, &dataRecovered, func() error {
