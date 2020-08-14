@@ -23,9 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -275,7 +273,10 @@ func (reg *registry) failJob(
 		return err
 	}
 
-	return reg.jobChain.Fail(pj)
+	// Disregard job chain errors when failing the job - in case of egress, the
+	// pending job should already have been removed from the chain.
+	reg.jobChain.Fail(pj)
+	return nil
 }
 
 func (reg *registry) killJob(
@@ -708,12 +709,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
-	// TODO: we should NOT start the job this way if it is in EGRESSING
-	pj.jdit, err = reg.jobChain.Start(pj)
-	if err != nil {
-		return err
-	}
-
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
@@ -730,6 +725,18 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
 	pj.driver = reg.driver.WithContext(jobCtx)
 
+	// Use a separate context for egress - it should not be canceled when the
+	// output commit is closed.
+	egressCtx, egressCancel := context.WithCancel(reg.driver.PachClient().Ctx())
+
+	// If the job is already in egressing, we need to skip the job chain
+	if pj.ji.State != pps.JobState_JOB_EGRESSING {
+		pj.jdit, err = reg.jobChain.Start(pj)
+		if err != nil {
+			return err
+		}
+	}
+
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 
@@ -737,16 +744,27 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
 				reg.killJob(pj, "job timed out")
+
+				// We cancel egress after the timeout, but we don't cancel egress if the
+				// job's output commit is closed - that is both how jobs complete and
+				// how they are killed by user action, but there's no way to distinguish
+				// the two at the moment.
+				egressCancel()
 			})
 			defer timer.Stop()
 		}
 
-		return backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		// We don't cancel the errgroup if the supervise fails because the job will
+		// be canceled anyway, and this makes it easier to filter out spurious
+		// errors when waiting on the errgroup.
+		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 			return reg.superviseJob(pj)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("error in superviseJob: %v, retrying in %+v", err, d)
 			return nil
 		})
+
+		return nil
 	})
 
 	asyncEg.Go(func() error {
@@ -764,6 +782,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 				var err error
 				for err == nil {
 					err = reg.processJob(pj)
+				}
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
 				}
 				return err
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -804,7 +825,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 				return nil
 			})
 			pj.logger.Logf("master done running processJobs")
-			// TODO: make sure that all paths close the commit correctly
 		}); err != nil {
 			return err
 		}
@@ -822,6 +842,17 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 
 		if err := asyncEg.Wait(); err != nil {
 			pj.logger.Logf("fatal job error: %v", err)
+		}
+
+		if pj.ji.State == pps.JobState_JOB_EGRESSING {
+			// Set up the driver for the egress context, which has different cancel conditions
+			pj.driver = reg.driver.WithContext(egressCtx)
+
+			// If egress fails, there isn't much we can do - the output commit is
+			// already done, so the job is 'complete' regardless.
+			pj.logger.LogStep("egressing job data", func() error {
+				return reg.processJobEgress(pj)
+			})
 		}
 	}()
 
@@ -874,7 +905,6 @@ func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
 	switch {
 	case ppsutil.IsTerminal(state):
-		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
@@ -887,11 +917,8 @@ func (reg *registry) processJob(pj *pendingJob) error {
 			return reg.processJobMerging(pj)
 		})
 	case state == pps.JobState_JOB_EGRESSING:
-		return pj.logger.LogStep("egressing job data", func() error {
-			return reg.processJobEgress(pj)
-		})
+		return errutil.ErrBreak
 	}
-	pj.cancel()
 	return errors.Errorf("unknown job state: %v", state)
 }
 
@@ -1365,28 +1392,12 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 }
 
 func (reg *registry) egress(pj *pendingJob) error {
-	// copy the pach client (preserving auth info) so we can set a different
-	// number of concurrent streams
-	pachClient := pj.driver.PachClient().WithCtx(pj.driver.PachClient().Ctx())
-	pachClient.SetMaxConcurrentStreams(100)
-
 	var egressFailureCount int
 	return backoff.RetryNotify(func() (retErr error) {
 		if pj.ji.Egress != nil {
-			pj.logger.Logf("Starting egress upload")
-			start := time.Now()
-			url, err := obj.ParseURL(pj.ji.Egress.URL)
-			if err != nil {
-				return err
-			}
-			objClient, err := obj.NewClientFromURLAndSecret(url, false)
-			if err != nil {
-				return err
-			}
-			if err := pfssync.PushObj(pachClient, pj.ji.OutputCommit, objClient, url.Object); err != nil {
-				return err
-			}
-			pj.logger.Logf("Completed egress upload, duration (%v)", time.Since(start))
+			return pj.logger.LogStep("egress upload", func() error {
+				return pj.driver.Egress(pj.ji.OutputCommit, pj.ji.Egress.URL)
+			})
 		}
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
