@@ -412,7 +412,7 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 			}
 			state.sizeLeft -= size
 		})
-		file := tarutil.NewFile("/"+name, chunk.RandSeq(size))
+		file := tarutil.NewMemFile("/"+name, chunk.RandSeq(size))
 		if err := tarutil.WriteFile(tw, file); err != nil {
 			return nil, err
 		}
@@ -708,10 +708,10 @@ func TestListFileV2(t *testing.T) {
 		require.NoError(t, err)
 
 		fsSpec := fileSetSpec{}
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir1/file1.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir1/file1.2", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir2/file2.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("dir2/file2.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir1/file1.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir1/file1.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir2/file2.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir2/file2.2", []byte{})))
 		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
 		require.NoError(t, err)
 
@@ -751,10 +751,10 @@ func TestGlobFileV2(t *testing.T) {
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		fsSpec := fileSetSpec{}
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir1/file1.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir1/file1.2", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir2/file2.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir2/file2.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.2", []byte{})))
 		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
 		require.NoError(t, err)
 		err = env.PachClient.FinishCommit(repo, commit1.ID)
@@ -793,10 +793,10 @@ func TestWalkFileV2(t *testing.T) {
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		fsSpec := fileSetSpec{}
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir1/file1.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir1/file1.2", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir2/file2.1", []byte{})))
-		require.NoError(t, fsSpec.recordFile(tarutil.NewFile("/dir2/file2.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.2", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.1", []byte{})))
+		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.2", []byte{})))
 		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
 		require.NoError(t, err)
 		err = env.PachClient.FinishCommit(repo, commit1.ID)
@@ -850,7 +850,7 @@ func TestCompaction(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				file := tarutil.NewFile(name, data)
+				file := tarutil.NewMemFile(name, data)
 				hdr, err := file.Header()
 				if err != nil {
 					return err
@@ -898,7 +898,7 @@ func TestInspectFileV2(t *testing.T) {
 		ctx := env.Context
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsSpec := fileSetSpec{}
-			fsSpec.recordFile(tarutil.NewFile(path, data))
+			fsSpec.recordFile(tarutil.NewMemFile(path, data))
 			return env.PachClient.PutTarV2(repo, commit, fsSpec.makeTarStream())
 		}
 		repo := "test"
