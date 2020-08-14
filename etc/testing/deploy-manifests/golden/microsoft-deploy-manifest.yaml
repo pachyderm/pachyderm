@@ -343,16 +343,16 @@ spec:
           value: MICROSOFT
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.12.0
+          value: pachyderm/worker:1.11.0
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.12.0
+          value: pachyderm/pachd:1.11.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: WORKER_SERVICE_ACCOUNT
           value: pachyderm-worker
         - name: PACHD_VERSION
-          value: 1.12.0
+          value: 1.11.0
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -566,7 +566,7 @@ spec:
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: "100"
-        image: pachyderm/pachd:1.12.0
+        image: pachyderm/pachd:1.11.0
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
