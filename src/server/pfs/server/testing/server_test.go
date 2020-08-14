@@ -388,6 +388,28 @@ func TestCreateDeletedRepo(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Make sure that commits of deleted repos do not resurface
+func TestListCommitLimit(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "repo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		_, err := env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+		require.NoError(t, err)
+
+		_, err = env.PachClient.PutFile(repo, "master", "bar", strings.NewReader("bar"))
+		require.NoError(t, err)
+
+		commitInfos, err := env.PachClient.ListCommit(repo, "", "", 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(commitInfos))
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 // The DAG looks like this before the update:
 // prov1 prov2
 //   \    /

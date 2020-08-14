@@ -25,7 +25,10 @@
 package cmds
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -521,7 +524,7 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	testPipelineBuildLifecycle(t, "python")
+	testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
 	// intended behavior here
@@ -533,11 +536,15 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	`).Run())
 }
 
-func TestPipelineBuildLifecycleGo(t *testing.T) {
-	testPipelineBuildLifecycle(t, "go")
+func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
-func testPipelineBuildLifecycle(t *testing.T, lang string) {
+func TestPipelineBuildLifecycleGo(t *testing.T) {
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -571,30 +578,31 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 
 	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl create pipeline <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "0")
 
 	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "0")
 
+	// update the pipeline with a custom cmd and verify results
 	spec = fmt.Sprintf(`
 		{
 		  "pipeline": {
@@ -620,15 +628,14 @@ func testPipelineBuildLifecycle(t *testing.T, lang string) {
 		}
 	`, lang)
 
-	// update the pipeline with a custom cmd and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.lang}}
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline --reprocess <<EOF
 			{{.spec}}
 		EOF
 		pachctl flush commit test-pipeline-build@master
 		`,
-		"lang", lang,
+		"dir", dir,
 		"spec", spec,
 	).Run())
 	verifyPipelineBuildOutput(t, "_")
@@ -830,3 +837,70 @@ func TestPipelineBuildMissingPath(t *testing.T) {
 // 	os.Args = []string{"pachctl", "create", "pipeline", "--push-images", "-f", "test-push-images.json"}
 // 	require.NoError(t, rootCmd().Execute())
 // }
+
+func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
+
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+				"name": "first"
+			  },
+			  "transform": {
+				"image": "%s"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+EOF
+	`, image))
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	// cmd.Stdout = os.Stdout // uncomment for debugging
+	cmd.Env = os.Environ()
+	err := cmd.Run()
+	stderr := buf.String()
+	return stderr, err
+}
+
+func TestWarningLatestTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified latest tag on docker image
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestWarningEmptyTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified empty tag, equivalent to
+	// :latest
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestNoWarningTagSpecified(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should not emit a warning (stderr should be empty) because user
+	// specified non-empty, non-latest tag
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	require.NoError(t, err)
+	require.Equal(t, "", stderr)
+}

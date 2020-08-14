@@ -41,9 +41,6 @@ async def get_client_version():
         client_version = (await capture("pachctl", "version", "--client-only")).strip()
     return client_version
 
-class RedactedString(str):
-    pass
-
 class BaseDriver:
     def image(self, name):
         return name
@@ -81,7 +78,7 @@ class BaseDriver:
         if not dash:
             deploy_args.append("--no-dashboard")
         if os.environ.get("STORAGE_V2") == "true":
-            deployment_args.append("--new-storage-layer")
+            deploy_args.append("--new-storage-layer")
 
         deployments_str = await capture(*deploy_args)
         deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
@@ -112,12 +109,7 @@ class BaseDriver:
         if ide:
             await asyncio.gather(*[self.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
 
-            enterprise_token = await capture(
-                "aws", "s3", "cp",
-                "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
-                "-"
-            )
-            await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
+            await run("pachctl", "enterprise", "activate", stdin=os.environ["PACH_ENTERPRISE_KEY"])
             await run("pachctl", "auth", "activate", stdin="admin\n")
             await run("pachctl", "deploy", "ide", 
                 "--user-image", self.image(IDE_USER_IMAGE),
@@ -313,8 +305,7 @@ class HubDriver:
         await run("pachctl", "auth", "login", "--one-time-password", stdin=f"{otp}\n")
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None, cwd=None):
-    print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
-    print_status("running: `{}`".format(" ".join(print_args)))
+    print_status("running: `{} {}`".format(cmd, " ".join(args)))
 
     proc = await asyncio.create_subprocess_exec(
         cmd, *args,
@@ -390,6 +381,8 @@ async def main():
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
+    if args.ide and "PACH_ENTERPRISE_KEY" not in os.environ:
+        raise Exception("Must set PACH_ENTERPRISE_KEY")
 
     driver = None
 

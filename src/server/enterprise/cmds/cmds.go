@@ -15,7 +15,7 @@ import (
 
 // Unfortunately, Go's pre-defined format strings for parsing RFC-3339-compliant
 // timestamps aren't exhaustive. This method attempts to parse a larger set of
-// of ISO-8601-compatible timestampts (which are themselves a subset of RFC-3339
+// of ISO-8601-compatible timestamps (which are themselves a subset of RFC-3339
 // timestamps)
 func parseISO8601(s string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, s)
@@ -36,19 +36,25 @@ func parseISO8601(s string) (time.Time, error) {
 func ActivateCmd() *cobra.Command {
 	var expires string
 	activate := &cobra.Command{
-		Use: "{{alias}} <activation-code>",
+		Use: "{{alias}}",
 		Short: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// request the enterprise key
+			key, err := cmdutil.ReadPassword("Enterprise key: ")
+			if err != nil {
+				return errors.Wrapf(err, "could not read enterprise key")
+			}
+
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			req := &enterprise.ActivateRequest{}
-			req.ActivationCode = args[0]
+			req.ActivationCode = key
 			if expires != "" {
 				t, err := parseISO8601(expires)
 				if err != nil {

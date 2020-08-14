@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -44,7 +45,13 @@ func (r *Reader) Next() (*FileReader, error) {
 
 // Iterate iterates over the file readers in the fileset.
 // pathBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
-func (r *Reader) Iterate(f func(*FileReader) error, pathBound ...string) error {
+func (r *Reader) Iterate(ctx context.Context, f func(File) error, pathBound ...string) error {
+	return r.iterate(func(fr *FileReader) error {
+		return f(fr)
+	})
+}
+
+func (r *Reader) iterate(f func(*FileReader) error, pathBound ...string) error {
 	return r.ir.Iterate(func(idx *index.Index) error {
 		r.cr.NextDataRefs(idx.DataOp.DataRefs)
 		return f(newFileReader(idx, r.cr))
@@ -53,7 +60,7 @@ func (r *Reader) Iterate(f func(*FileReader) error, pathBound ...string) error {
 
 // Get writes the fileset.
 func (r *Reader) Get(w io.Writer) error {
-	return r.Iterate(func(fr *FileReader) error {
+	return r.iterate(func(fr *FileReader) error {
 		return fr.Get(w)
 	})
 }
@@ -84,9 +91,14 @@ func (fr *FileReader) Header() (*tar.Header, error) {
 		if err := fr.cr.NextTagReader().Get(buf); err != nil {
 			return nil, err
 		}
-		var err error
-		fr.hdr, err = tar.NewReader(buf).Next()
-		return fr.hdr, err
+		hdr, err := tar.NewReader(buf).Next()
+		if err != nil {
+			return nil, err
+		}
+		if !IsCleanTarPath(hdr.Name, hdr.FileInfo().IsDir()) {
+			return nil, errors.Errorf("uncleaned tar header name: %s", hdr.Name)
+		}
+		fr.hdr = hdr
 	}
 	return fr.hdr, nil
 }
@@ -109,5 +121,13 @@ func (fr *FileReader) Iterate(f func(*chunk.DataReader) error, tagUpperBound ...
 
 // Get writes the file.
 func (fr *FileReader) Get(w io.Writer) error {
+	if _, err := fr.Header(); err != nil {
+		return err
+	}
 	return fr.cr.Get(w)
+}
+
+// Content writes the contents of the file excluding the header to w.
+func (fr *FileReader) Content(w io.Writer) error {
+	return errors.New("FileReader.GetContents not implemented")
 }
