@@ -4,12 +4,10 @@ A build pipeline is a useful feature when iterating on the code in your pipeline
 
 ![Developer workflow](../../assets/images/d_steps_build_pipeline.svg)
 
-!!! note
-      Build pipelines are not currently supported in Pachyderm Hub.
 
-Functionally, the build pipeline relies on a base Docker image that remains unchanged during the development process. Any code written for the pipeline is copied into this container, installs requirements and updates the code in the pipeline before running it.
+Functionally, a build pipeline relies on a base Docker image that remains unchanged during the development process. Code and build assets are stored in Pachyderm itself, and copied into the pipeline pod when it executes.
 
-Using this feature requires a modification of the pipeline spec's `transform` object with options for the following fields:
+To enable this feature, add a `build` object to the pipeline spec's `transform` object, with the following fields:
 
 - `path`: An optional string specifying where the source code is relative to the pipeline spec path (or the cwd if the pipeline is fed into `pachctl` via stdin.)
 - `language`: An optional string specifying what language builder to use (see below.) Only works with official builders. If unspecified, `image` will be used instead.
@@ -48,22 +46,22 @@ pachctl update pipeline -f <pipeline name>
 
 When submitted, the following actions occur:
 
-1. All files (code, etc.) are copied from the build path to a PFS repository, `<pipeline name>_build`, which we can think of as the source code repository. In the case above, everything in `./source` would be copied to to the PFS `<pipeline name>_build` repository.
+1. All files (code, etc.) are copied from the build path to a PFS repository, `<pipeline name>_build`, which we can think of as the source code repository. In the case above, everything in `./source` would be copied to to the PFS `map_build` repository.
 
-1. A pipeline called `<pipeline name>_build` starts, reading reading files from the `<pipeline name>_build` repo and runs the `build.sh` script to pull dependencies and compile any requirements from the source code.
+1. A pipeline that uses the same repo but a different branch starts, reading the source code and creating build assets (i.e. pulling in dependencies and/or compiling) by running a `build.sh` script.
 
 1. The running pipeline, `<pipeline name>`, is updated (or created if it doesn't already exist) with the the new source files and built assets.
 
 !!! note
-      You can optionally specify a `.pachignore` file, which uses [ohmyglob](https://github.com/pachyderm/ohmyglob) entries to prevent certain files from getting pushed to this repo.
+      You can optionally specify a `.pachignore` file in the source root directory, which uses [ohmyglob](https://github.com/pachyderm/ohmyglob) entries to prevent certain files from getting pushed to this repo.
 
 The updated pipeline contains the following PFS repos mapped in as inputs:
 
-1. `/pfs/source` - source code that is required for running the pipeline. There are language-specific requirements on the structure of this source code mentioned in the [Python Builder](#python-builder) section.
+1. `/pfs/source` - source code that is required for running the pipeline.
 
 1. `/pfs/build` - any artifacts resulting from the build process.
 
-1. `/pfs/<input(s)>` - any inputs specified in the pipeline specification.
+1. `/pfs/<input(s)>` - any inputs specified in the pipeline spec.
 
 ## Builders
 The builder is responsible for determining what Docker image is used for the base image and what steps to run during the pipeline build and deployment. If a builder has a standard implementation (currently `python` and `go`), then only the `transform.build.language` needs to be set, as it has impelmentations for `build.sh` and `run.sh`. The order of preference is:
@@ -72,13 +70,13 @@ The builder is responsible for determining what Docker image is used for the bas
 1. `transform.build.image`
 1. `transform.image`
 
-If `transform.buil.language` is not specified, then the build pipeline is non-standard and uses the `transform.build.image` container (and subsequently the `transform.build` if `transform.build.image` is not provided). In a non-standard implementation, the convention is to provide `build.sh` and `run.sh` scripts to fulfill the build pipeline requirements. 
+If `transform.build.language` is not specified, then the build pipeline is non-standard and uses the `transform.build.image` container (and subsequently the `transform.build` if `transform.build.image` is not provided). In a non-standard implementation, the convention is to provide `build.sh` and `run.sh` scripts to fulfill the build pipeline requirements. 
 
 Similarly, a build pipeline by default will run `sh /pfs/build/run.sh` by default. If a `transform.cmd` is specified, it will take precedence over `run.sh`.
 
 ### Python Builder
 
-The Python builder requires a file structure similar to the following:
+The Python builder relies on a file structure similar to the following:
 
 ```tree
 ./map
