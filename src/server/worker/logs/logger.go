@@ -133,10 +133,13 @@ func NewStatlessLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 
 // NewMasterLogger constructs a TaggedLogger for the given pipeline that
 // includes the 'Master' flag.  This is typically used for all logging from the
-// worker master goroutine.
+// worker master goroutine. The 'User' flag is set to false to maintain the
+// invariant that 'User' and 'Master' are mutually exclusive, which is done to
+// make it easier to query for specific logs.
 func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 	result := newLogger(pipelineInfo) // master loggers don't log stats
 	result.template.Master = true
+	result.template.User = false
 	return result
 }
 
@@ -168,10 +171,13 @@ func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 }
 
 // WithUserCode clones the current logger and returns a new one that will
-// include the 'User' flag in log statement metadata.
+// include the 'User' flag in log statement metadata. The 'Master' flag is set
+// to false to maintain the invariant that 'User' and 'Master' are mutually
+// exclusive, which is done to make it easier to query for specific logs.
 func (logger *taggedLogger) WithUserCode() TaggedLogger {
 	result := logger.clone()
 	result.template.User = true
+	result.template.Master = false
 	return result
 }
 
