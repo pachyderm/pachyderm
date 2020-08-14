@@ -433,14 +433,10 @@ func TestJobEgress(t *testing.T) {
 	pi := defaultPipelineInfo()
 	pi.Egress = &pps.Egress{URL: "http://example.com"}
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
-		logBuffer := &bytes.Buffer{}
-		env.logger.Writer = logBuffer
-
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar")})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		fmt.Printf("Logger:\n%s\n", logBuffer.String())
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
 
 		// Ensure the output commit is successful
@@ -456,11 +452,9 @@ func TestJobEgress(t *testing.T) {
 		// Find the output file in the output branch
 		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
 		require.NoError(t, err)
-		require.Equal(t, 2, len(files))
+		require.Equal(t, 1, len(files))
 		require.Equal(t, "/a", files[0].File.Path)
 		require.Equal(t, uint64(6), files[0].SizeBytes)
-		require.Equal(t, "/b", files[1].File.Path)
-		require.Equal(t, uint64(6), files[1].SizeBytes)
 
 		buffer := &bytes.Buffer{}
 		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/a", 0, 0, buffer)
