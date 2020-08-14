@@ -123,7 +123,7 @@ func TestWriteThenRead(t *testing.T) {
 		for _, fileName := range fileNames {
 			data := chunk.RandSeq(rand.Intn(max))
 			files = append(files, &testFile{
-				name: fileName,
+				name: "/" + fileName,
 				data: data,
 				tags: generateTags(len(data)),
 			})
@@ -165,7 +165,7 @@ func TestCopy(t *testing.T) {
 		for _, fileName := range fileNames {
 			data := chunk.RandSeq(rand.Intn(max))
 			files = append(files, &testFile{
-				name: fileName,
+				name: "/" + fileName,
 				data: data,
 				tags: generateTags(len(data)),
 			})
@@ -259,7 +259,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 	for i, fileName := range fileNames {
 		data := chunk.RandSeq(rand.Intn(max))
 		files = append(files, &testFile{
-			name: fileName,
+			name: "/" + fileName,
 			data: data,
 			tags: generateTags(len(data)),
 		})

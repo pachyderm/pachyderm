@@ -3,9 +3,9 @@ package fileset
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -91,9 +91,14 @@ func (fr *FileReader) Header() (*tar.Header, error) {
 		if err := fr.cr.NextTagReader().Get(buf); err != nil {
 			return nil, err
 		}
-		var err error
-		fr.hdr, err = tar.NewReader(buf).Next()
-		return fr.hdr, err
+		hdr, err := tar.NewReader(buf).Next()
+		if err != nil {
+			return nil, err
+		}
+		if !IsCleanTarPath(hdr.Name, hdr.FileInfo().IsDir()) {
+			return nil, errors.Errorf("uncleaned tar header name: %s", hdr.Name)
+		}
+		fr.hdr = hdr
 	}
 	return fr.hdr, nil
 }

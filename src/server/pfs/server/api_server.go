@@ -628,6 +628,16 @@ func (a *apiServer) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFile
 	return errV2NotImplemented
 }
 
+// InspectFileV2 not implemented
+func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+	return nil, errV2NotImplemented
+}
+
+// WalkFileV2 not implemented
+func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
+	return errV2NotImplemented
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {

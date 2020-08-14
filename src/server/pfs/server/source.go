@@ -88,11 +88,13 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
+// Source iterates over FileInfoV2s generated from a fileset.Source
 type Source interface {
+	// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+	// during iteration, and the File.
 	Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error
 }
 
-// Source iterates over FileInfoV2s generated from a fileset.Source
 type source struct {
 	commit        *pfs.Commit
 	getReader     func() fileset.FileSource
@@ -101,7 +103,7 @@ type source struct {
 
 // NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *source {
+func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) Source {
 	return &source{
 		commit:        commit,
 		getReader:     getReader,
@@ -201,6 +203,32 @@ func computeFileHash(idx *index.Index) []byte {
 		}
 	}
 	return h.Sum(nil)
+}
+
+type errOnEmpty struct {
+	source Source
+	err    error
+}
+
+// NewErrOnEmpty causes iterate to return a not found error if there are no items to iterate over
+func NewErrOnEmpty(s Source, err error) Source {
+	return &errOnEmpty{source: s, err: err}
+}
+
+// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// during iteration, and the File.
+func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+	empty := true
+	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		empty = false
+		return cb(fi, f)
+	}); err != nil {
+		return err
+	}
+	if empty {
+		return s.err
+	}
+	return nil
 }
 
 type stream struct {
