@@ -91,11 +91,11 @@ For more information about building Docker images, see
 
 After building your image, you need to upload the image into
 a public or private image registry, such as
-[DockerHub](https://hub.docker.com) or other.
+[DockerHub](https://hub.docker.com).
 
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, build, and push images by running the `pachctl update pipeline` command
-with the `--build` or `--push-images` flag. For more information, see
+with the `--build` flag. For more information, see
 [Update a pipelines](../updating_pipelines.md).
 
 1. Log in to an image registry.
