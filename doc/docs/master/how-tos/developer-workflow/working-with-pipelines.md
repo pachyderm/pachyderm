@@ -115,7 +115,7 @@ with the `--build` flag. For more information, see
      ```
 
 !!! note
-    TODO Pipelines require a unique tag
+    Pipelines require a unique tag to ensure the appropriate image is pulled. If a floating tag, such as `latest`, is used, the Kubernetes cluster may become out of sync with the Docker registry, concluding it already has the `latest` image.
 
 ## Step 4: Create/Edit the Pipeline Config
 

@@ -1,11 +1,11 @@
 # Developer Workflow
 
 In general, the developer workflow for Pachyderm involves adding 
-data to a versioned data repository and adding a pipeline that 
-reads from that data repository to execute your code against that data. 
+data to versioned data repositories and adding a pipelines that 
+read from data repositories to execute your code against that data. 
 Both the data and pipeline can be iterated on independently with Pachyderm
 handling the code execution according to the pipeline specfication.
-The workflow steps are shown below. 
+The workflow steps are shown below.
 
 ![Developer workflow](../../assets/images/d_steps_analysis_pipeline.svg)
 
