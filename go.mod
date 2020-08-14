@@ -68,6 +68,7 @@ require (
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
+	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect

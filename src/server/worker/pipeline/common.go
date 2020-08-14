@@ -26,17 +26,13 @@ import (
 
 // TarFile holder structure
 type TarFile struct {
-	hdr  *tar.Header
-	body []byte
+	header *tar.Header
+	body   []byte
 }
-
-var fileList []TarFile
-var curr TarFile
-var fileCount int
 
 // SkipTarPadding return number of bytes skipped from a tar stream and an EOF
 func SkipTarPadding(r *bytes.Reader) (int64, error) {
-	var n int64 = 0
+	var n int64
 	for {
 		c, err := r.ReadByte()
 		if err != nil {
@@ -51,38 +47,38 @@ func SkipTarPadding(r *bytes.Reader) (int64, error) {
 		}
 		n++
 	}
-	// unreachable
-	return n, nil
 }
 
 // TarReader is the heart of tar state machine. It return the list of tar files received on the pipe
 // It reads the buffer from the pipe, processes all the bytes
 // if there is an incomplete buffer, it goes around to read from the pipe
-// TDOD: only read the header from the ReadAll then read the size from the hdr
+// TDOD: only read the header from the ReadAll then read the size from the header
 //       That's the only way to make sure we don't buffer too much
-func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
+func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) []TarFile {
+	var curr TarFile
+	fileList := make([]TarFile, 0)
 	r := bytes.NewReader(buff.Bytes())
 	for r.Len() > 0 {
 		tr := tar.NewReader(r)
-		if curr.hdr == nil {
+		if curr.header == nil {
 			// We are reading this file for the first time
-			hdr, err := tr.Next()
+			header, err := tr.Next()
 			if err != nil {
 				if err == io.EOF {
-					curr.hdr = hdr
+					curr.header = header
 				}
 				logger.Logf("Error in reading tar header", err)
-				return
+				return nil
 			}
-			curr.hdr = hdr
+			curr.header = header
 		}
-		var bBytes int = int(curr.hdr.Size) - len(curr.body)
+		var bBytes int = int(curr.header.Size) - len(curr.body)
 		var body = make([]byte, bBytes)
 		_, err := tr.Read(body)
 		if err != nil {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
 				logger.Logf("Error in reading tar file", err)
-				return
+				return nil
 			}
 		}
 		logger.Logf("Read body", len(body))
@@ -90,9 +86,8 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
 		if err == io.EOF {
 			// Read the entire body
 			fileList = append(fileList, curr)
-			logger.Logf("Received file %s of len %d\n", curr.hdr.Name, curr.hdr.Size)
-			fileCount++
-			curr.hdr = nil
+			logger.Logf("Received file %s of len %d\n", curr.header.Name, curr.header.Size)
+			curr.header = nil
 			curr.body = nil
 		}
 
@@ -100,7 +95,8 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) {
 		SkipTarPadding(r)
 	}
 
-	logger.Logf("Received %d tar files\n", fileCount)
+	logger.Logf("Received %d tar files\n", len(fileList))
+	return fileList
 }
 
 // RunUserCode will run the pipeline's user code until canceled by the context
@@ -125,6 +121,7 @@ func RunUserCode(
 func processFiles(ctx context.Context,
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
+	fileList []TarFile,
 	logger logs.TaggedLogger) (retErr1 error) {
 	repo := pipelineInfo.Pipeline.Name
 	var commit *pfs.Commit
@@ -151,7 +148,7 @@ func processFiles(ctx context.Context,
 		}
 		r := bytes.NewReader(f.body)
 		// put files into pachyderm
-		if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(f.hdr.Name), pipelineInfo.Spout.Marker) {
+		if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(f.header.Name), pipelineInfo.Spout.Marker) {
 			// we'll check that this is the latest version of the spout, and then commit to it
 			// we need to do this atomically because we otherwise might hit a subtle race condition
 
@@ -163,24 +160,40 @@ func processFiles(ctx context.Context,
 			if spec != nil && len(spec.ChildCommits) != 0 {
 				return errors.New("outdated spout, now shutting down")
 			}
-			_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, f.hdr.Name, r, 0)
+			_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, f.header.Name, r, 0)
 			if err != nil {
 				return err
 			}
 
 		} else if pipelineInfo.Spout.Overwrite {
-			_, err = pachClient.PutFileOverwrite(repo, commit.ID, f.hdr.Name, r, 0)
+			_, err = pachClient.PutFileOverwrite(repo, commit.ID, f.header.Name, r, 0)
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = pachClient.PutFile(repo, commit.ID, f.hdr.Name, r)
+			_, err = pachClient.PutFile(repo, commit.ID, f.header.Name, r)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	return retErr1
+}
+
+func processFilesReceived(
+	ctx context.Context,
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	fileList []TarFile,
+	logger logs.TaggedLogger) error {
+	if len(fileList) > 0 {
+		err := processFiles(ctx, pachClient, pipelineInfo, fileList, logger)
+		fileList = nil
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func openPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
@@ -195,22 +208,6 @@ func openPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) 
 	return p, err
 }
 
-func processFilesReceived(
-	ctx context.Context,
-	pachClient *client.APIClient,
-	pipelineInfo *pps.PipelineInfo,
-	logger logs.TaggedLogger) error {
-	if fileCount > 0 {
-		err := processFiles(ctx, pachClient, pipelineInfo, logger)
-		fileList = nil
-		fileCount = 0
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // ReceiveSpout is used by both services and spouts if a spout is defined on the
 // pipeline. ctx is separate from pachClient because services may call this, and
 // they use a cancel function that affects the context but not the pachClient
@@ -221,41 +218,50 @@ func ReceiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) error {
-	// open a read connection to the /pfs/out named pipe
-	out, err := openPipeReadOnly("/pfs/out", logger)
-	if err != nil {
-		return err
-	}
-	// and close it when we're done
-	defer out.Close()
-
-	// set up a channel to watch if the pipe has been written to or removed
-	c := make(chan notify.EventInfo, 5)
-	notify.Watch("/pfs/out", c, notify.Write|notify.Remove)
-	for {
-		// wait for the pipe to be written to (or removed)
-		e := <-c
-		switch e.Event() {
-		case notify.Write:
-			var buff bytes.Buffer
-			// copy pipe contents to buffer
-			n, err := io.Copy(&buff, out)
-			if err != nil {
-				logger.Logf("Received an EOF", err)
-				break
-			}
-			if n == 0 {
-				continue
-			}
-			logger.Logf("Got data: ", n, buff.Len())
-			// send the contents to the tar reader
-			TarReader(buff, logger)
-			// and process any new files received
-			logger.Logf("Total files", fileCount)
-			processFilesReceived(ctx, pachClient, pipelineInfo, logger)
-		case notify.Remove:
-			logger.Logf("Fatal: pipe /pfs/out removed")
+	timesRemoved := 0
+	// try reopening the pipe three times before erroring
+ReopenPipe:
+	for timesRemoved < 3 {
+		// open a read connection to the /pfs/out named pipe
+		out, err := openPipeReadOnly("/pfs/out", logger)
+		if err != nil {
 			return err
+		}
+		// and close it when we're done
+		defer out.Close()
+
+		// set up a channel to watch if the pipe has been written to or removed
+		c := make(chan notify.EventInfo, 5)
+		notify.Watch("/pfs/out", c, notify.Write|notify.Remove)
+		for {
+			// wait for the pipe to be written to (or removed)
+			e := <-c
+			switch e.Event() {
+			case notify.Write:
+				var buff bytes.Buffer
+				// copy pipe contents to buffer
+				n, err := io.Copy(&buff, out)
+				if err != nil {
+					logger.Logf("Received an EOF", err)
+					break
+				}
+				if n == 0 {
+					continue
+				}
+				logger.Logf("Received %v bytes from /pfs/out pipe", n)
+				// send the contents to the tar reader
+				fileList := TarReader(buff, logger)
+				// and process any new files received
+				logger.Logf("Spout is processing %v tar files", len(fileList))
+				processFilesReceived(ctx, pachClient, pipelineInfo, fileList, logger)
+			case notify.Remove:
+				logger.Logf("Fatal: pipe /pfs/out removed")
+				timesRemoved++
+				if timesRemoved < 3 {
+					continue ReopenPipe
+				}
+				return err
+			}
 		}
 	}
 	return nil
