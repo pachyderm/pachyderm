@@ -1408,6 +1408,7 @@ func (d *driver) makeCommit(
 
 	// this isn't necessary here, but is done for consistency with commits created by propagateCommits
 	// it ensures that the last commit to appear from a specific branch is the latest one on that branch
+	var sortErr error
 	sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
 		// to make sure the parent relationship is respected during sort, we need to make sure that we organize
 		// the provenance by repo name and branch name
@@ -1418,10 +1419,10 @@ func (d *driver) makeCommit(
 		}
 
 		// we need to check the commit info of the 'j' provenance commit to get the parent
-		var provCommitInfo *pfs.CommitInfo
-		provCommitInfo, err = d.resolveCommit(txnCtx.Stm, newCommitInfo.Provenance[j].Commit)
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, newCommitInfo.Provenance[j].Commit)
 		if err != nil {
-			// not really anything to do at this point, error will be captured after
+			// capture error
+			sortErr = err
 			return true
 		}
 		// the parent commit of 'j' should precede it
@@ -1432,8 +1433,8 @@ func (d *driver) makeCommit(
 		return false
 	})
 	// capture any errors during sorting
-	if err != nil {
-		return nil, err
+	if sortErr != nil {
+		return nil, sortErr
 	}
 
 	// Finally, create the commit
@@ -1810,7 +1811,7 @@ nextSubvBI:
 
 		// this ensures that the job's output commit uses the latest commit on the branch, by ensuring it is the
 		// last commit to appear in the provenance slice
-		var err error
+		var sortErr error
 		sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
 			// to make sure the parent relationship is respected during sort, we need to make sure that we organize
 			// the provenance by repo name and branch name
@@ -1821,10 +1822,10 @@ nextSubvBI:
 			}
 
 			// we need to check the commit info of the 'j' provenance commit to get the parent
-			var provCommitInfo *pfs.CommitInfo
-			provCommitInfo, err = d.resolveCommit(stm, newCommitInfo.Provenance[j].Commit)
+			provCommitInfo, err := d.resolveCommit(stm, newCommitInfo.Provenance[j].Commit)
 			if err != nil {
-				// not really anything to do at this point, error will be captured after
+				// capture error
+				sortErr = err
 				return true
 			}
 			// the parent commit of 'j' should precede it
@@ -1835,8 +1836,8 @@ nextSubvBI:
 			return false
 		})
 		// capture any errors during sorting
-		if err != nil {
-			return err
+		if sortErr != nil {
+			return sortErr
 		}
 
 		// finally create open 'commit'
