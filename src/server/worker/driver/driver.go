@@ -42,7 +42,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/cache"
@@ -1299,5 +1298,5 @@ func (d *driver) Egress(commit *pfs.Commit, egressURL string) error {
 	if err != nil {
 		return err
 	}
-	return pfssync.PushObj(pachClient, commit, objClient, url.Object)
+	return filesync.PushObj(pachClient, commit, objClient, url.Object)
 }
