@@ -245,6 +245,16 @@ func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_Gl
 	})
 }
 
+// CopyFile implements the protobuf pfs.CopyFile RPC
+func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // InspectFileV2 returns info about a file.
 func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)

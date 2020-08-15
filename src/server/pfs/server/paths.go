@@ -2,11 +2,13 @@ package server
 
 import (
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
@@ -74,4 +76,12 @@ func cleanPath(x string) string {
 
 func compactedCommitPath(commit *pfs.Commit) string {
 	return path.Join(commitKey(commit), fileset.Compacted)
+}
+
+func checkFilePath(path string) error {
+	path = filepath.Clean(path)
+	if strings.HasPrefix(path, "../") {
+		return errors.Errorf("path (%s) invalid: traverses above root", path)
+	}
+	return nil
 }

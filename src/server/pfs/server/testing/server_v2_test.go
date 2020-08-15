@@ -985,3 +985,66 @@ func TestInspectFileV2(t *testing.T) {
 		return nil
 	}, config))
 }
+
+func TestCopyFile2(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	conf := newPachdConfig()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		ctx := env.Context
+		putFile := func(repo, commit, path string, data []byte) error {
+			fsspec := fileSetSpec{
+				path: data,
+			}
+			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
+		}
+		repo := tu.UniqueString("TestCopyFile")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		masterCommit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		numFiles := 5
+		for i := 0; i < numFiles; i++ {
+			err = putFile(repo, masterCommit.ID, fmt.Sprintf("files/%d", i), []byte(fmt.Sprintf("foo %d\n", i)))
+			require.NoError(t, err)
+		}
+		require.NoError(t, env.PachClient.FinishCommit(repo, masterCommit.ID))
+
+		for i := 0; i < numFiles; i++ {
+			_, err = env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
+				File: &pfs.File{
+					Commit: masterCommit,
+					Path:   fmt.Sprintf("files/%d", i),
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		otherCommit, err := env.PachClient.StartCommit(repo, "other")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files", repo, otherCommit.ID, "files", false))
+		require.NoError(t, env.PachClient.CopyFile(repo, masterCommit.ID, "files/0", repo, otherCommit.ID, "file0", false))
+		require.NoError(t, env.PachClient.FinishCommit(repo, otherCommit.ID))
+
+		for i := 0; i < numFiles; i++ {
+			_, err = env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
+				File: &pfs.File{
+					Commit: otherCommit,
+					Path:   fmt.Sprintf("files/%d", i),
+				},
+			})
+			require.NoError(t, err)
+		}
+		_, err = env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
+			File: &pfs.File{
+				Commit: otherCommit,
+				Path:   "file0",
+			},
+		})
+		require.NoError(t, err)
+		return nil
+	}, conf)
+	require.NoError(t, err)
+}

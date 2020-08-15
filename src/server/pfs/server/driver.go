@@ -2911,14 +2911,6 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
-	}
-	return nil
-}
-
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.

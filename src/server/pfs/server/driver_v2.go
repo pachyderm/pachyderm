@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -171,6 +173,28 @@ func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, cb func
 		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
 		return err
 	})
+}
+
+func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
+	n := d.getSubFileSet()
+	subFileSetStr := fileset.SubFileSetStr(n)
+	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
+	fsw := d.storage.NewWriter(ctx, path.Join(tmpPrefix, subFileSetPath))
+	defer func() {
+		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := cb(n, fsw); err != nil {
+		return err
+	}
+	if err := fsw.Close(); err != nil {
+		return err
+	}
+	// There is no need to queue this because we just wrote to one place.  We expect the storage layer
+	// to handle the single file case efficiently.
+	_, err := d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	return err
 }
 
 func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
@@ -470,6 +494,49 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 	})
 	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
 		return cb(fi)
+	})
+}
+
+func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return err
+	}
+	if overwrite {
+		// TODO: after delete merging is sorted out add overwrite support
+		return errors.New("overwrite not yet supported")
+	}
+	srcPath := cleanPath(src.Path)
+	dstPath := cleanPath(dst.Path)
+	pathTransform := func(x string) string {
+		relPath, err := filepath.Rel(srcPath, x)
+		if err != nil {
+			panic("cannot apply path transform")
+		}
+		return path.Join(dstPath, relPath)
+	}
+	s := d.storage.NewSource(ctx, compactedCommitPath(src.Commit), index.WithPrefix(srcPath))
+	s = fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
+	})
+	s = fileset.NewHeaderMapper(s, func(th *tar.Header) *tar.Header {
+		th.Name = pathTransform(th.Name)
+		return th
+	})
+	s = fileset.NewDirInserter(s)
+	return d.withWriter(ctx, dst.Commit, func(n int64, dst *fileset.Writer) error {
+		return s.Iterate(ctx, func(f fileset.File) error {
+			hdr, err := f.Header()
+			if err != nil {
+				return err
+			}
+			if err := dst.WriteHeader(hdr); err != nil {
+				return err
+			}
+			dst.Tag(fileset.SubFileSetStr(n))
+			return f.Content(dst)
+		})
 	})
 }
 
