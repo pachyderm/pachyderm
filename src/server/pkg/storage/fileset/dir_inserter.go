@@ -14,10 +14,13 @@ type dirInserter struct {
 	x FileSource
 }
 
+// NewDirInserter returns a FileSource which will include all directories on the path
+// from the root to a leaf (regular file).
 func NewDirInserter(x FileSource) FileSource {
 	return &dirInserter{x: x}
 }
 
+// Iterate calls cb once for every file in lexicographical order by path
 func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
 	lastPath := ""
 	var emit func(p string, f File) error
