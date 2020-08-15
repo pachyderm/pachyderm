@@ -220,6 +220,8 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
 	key := path.Join
+	// for a given branch, the commit assigned to it will be the latest commit on that branch
+	// this is ensured by the way we sort the commit provenance when creating the outputCommit
 	for _, prov := range outputCommitInfo.Provenance {
 		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
 	}
