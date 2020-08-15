@@ -272,10 +272,7 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 		if err := s.objC.Delete(ctx, name); err != nil {
 			return err
 		}
-		if err := s.chunks.DeleteSemanticReference(ctx, name); err != nil {
-			return err
-		}
-		return nil
+		return s.chunks.DeleteSemanticReference(ctx, name)
 	})
 }
 
