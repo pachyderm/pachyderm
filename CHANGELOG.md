@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.11.2
+- Changes to create/update pipeline to warn users about using the “latest” tag in their images (#5164)
+- Fixes a bug that mistagged user logs messages for spouts and services as master log messages (#5187)
+- Fixed a bug that would return an error when listing commits and the list reaches the user-specified limit (#5190)
+- Fixes `create_python_pipeline` in the python client library when auth is enabled (#5194)
+- Fixes a bug that fails to execute a pipeline if the build pipeline does not any wheels (#5197)
+- Fixes a bug that would immediately cancel job egress (#5201)
+- Fixes a bug that prevented progress counts from being updated. In addition, make progress counts update more granularly in `inspect job` (#5206)
+- Fixes a bug that would cause certain kinds of jobs to pick an incorrect commit if there were multiple commits on the same branch in the provenance (#5207)
+
 ## 1.11.1
 - Fixed a race condition that updated a job state after it is finished (#5099)
 - Fixes a bug that would prevent successful initialization (#5130)
