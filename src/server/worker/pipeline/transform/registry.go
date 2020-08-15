@@ -703,10 +703,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
-	if err := pj.logger.LogStep("waiting for job inputs", func() error {
-		return reg.processJobStarting(pj)
-	}); err != nil {
-		return err
+	if pj.ji.State == pps.JobState_JOB_STARTING {
+		if err := pj.logger.LogStep("waiting for job inputs", func() error {
+			return reg.processJobStarting(pj)
+		}); err != nil {
+			return err
+		}
 	}
 
 	var afterTime time.Duration
@@ -733,6 +735,10 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 	if pj.ji.State != pps.JobState_JOB_EGRESSING {
 		pj.jdit, err = reg.jobChain.Start(pj)
 		if err != nil {
+			return err
+		}
+		pj.ji.DataTotal = pj.jdit.MaxLen()
+		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}
 	}
@@ -950,7 +956,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 	}
 
 	pj.ji.State = pps.JobState_JOB_RUNNING
-	return pj.writeJobInfo()
+	return nil
 }
 
 // Iterator fulfills the chain.JobData interface for pendingJob
@@ -1024,14 +1030,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if data.RecoveredDatumsTag != "" {
 						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
 					}
-					return nil
+					// propagate the stats to etcd
+					pj.saveJobStats(stats)
+					return pj.writeJobInfo()
 				},
 			)
 		})
 	})
 
 	err := eg.Wait()
-	pj.saveJobStats(stats)
 	if err != nil {
 		// If these was no failed datum, we can reattempt later
 		return errors.Wrap(err, "process datum error")
@@ -1062,17 +1069,22 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
 	pj.ji.State = pps.JobState_JOB_MERGING
+	pj.finalizeJobStats()
 	return pj.writeJobInfo()
 }
 
 func (pj *pendingJob) saveJobStats(stats *DatumStats) {
 	// Any unaccounted-for datums were skipped in the job datum iterator
-	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - stats.DatumsProcessed - stats.DatumsFailed - stats.DatumsRecovered
+	pj.ji.DataSkipped = stats.DatumsSkipped
 	pj.ji.DataProcessed = stats.DatumsProcessed
 	pj.ji.DataFailed = stats.DatumsFailed
 	pj.ji.DataRecovered = stats.DatumsRecovered
 	pj.ji.DataTotal = int64(pj.jdit.MaxLen())
 	pj.ji.Stats = stats.ProcessStats
+}
+
+func (pj *pendingJob) finalizeJobStats() {
+	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - pj.ji.DataProcessed - pj.ji.DataFailed - pj.ji.DataRecovered
 }
 
 func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) error {
