@@ -7,7 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // WithLocalStorage constructs a local storage instance for testing during the lifetime of

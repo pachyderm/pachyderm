@@ -6,9 +6,10 @@ import (
 	"io"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // TODO Might want to rework this a bit later or add some additional validation.
@@ -74,6 +75,11 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 			}
 			return err
 		}
+		hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+		if hdr.Typeflag == tar.TypeDir {
+			f.createParent(hdr.Name, tag)
+			continue
+		}
 		mf := f.createFile(hdr, tag)
 		for {
 			n, err := io.CopyN(mf, tr, f.memAvailable)
@@ -95,7 +101,6 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 }
 
 func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
-	hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
 	f.createParent(hdr.Name, tag)
 	hdr.Size = 0
 	mf := &memFile{
@@ -119,6 +124,9 @@ func (f *FileSet) getDataOp(name string) *dataOp {
 }
 
 func (f *FileSet) createParent(name string, tag string) {
+	if name == "" {
+		return
+	}
 	name, _ = path.Split(name)
 	if _, ok := f.fs[name]; ok {
 		return
@@ -133,6 +141,7 @@ func (f *FileSet) createParent(name string, tag string) {
 	}
 	dataOp := f.getDataOp(name)
 	dataOp.memFiles[tag] = mf
+	name = strings.TrimRight(name, "/")
 	f.createParent(name, tag)
 }
 

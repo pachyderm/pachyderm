@@ -6,7 +6,7 @@ GIT_REPO_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" 2>&1 > /dev/null && git rev
 
 go get -u golang.org/x/lint/golint
 for file in $(find "${GIT_REPO_DIR}/src" -name '*.go' | grep -v '\.pb\.go'); do
-    if [[ $file == *fileset/tar* ]]; then
+    if [[ $file == *pkg/tar* ]]; then
         continue
     fi
     golint -set_exit_status "$file";
