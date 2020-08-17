@@ -888,12 +888,142 @@ func randomReader(n int) io.Reader {
 	return io.LimitReader(getRand(), int64(n))
 }
 
+func TestDiffFileV2(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	config := newPachdConfig()
+	config.StorageV2 = true
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		if testing.Short() {
+			t.Skip("Skipping integration tests in short mode")
+		}
+		repo := tu.UniqueString("TestDiff")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		putFile := func(repo, commit, fileName string, data []byte) {
+			fsspec := fileSetSpec{
+				fileName: tarutil.NewMemFile(fileName, data),
+			}
+			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
+			require.NoError(t, err)
+		}
+
+		diffFile := func(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool) (newFiles, oldFiles []*pfs.FileInfo) {
+			newFile := &pfs.File{
+				Commit: &pfs.Commit{ID: newCommit, Repo: &pfs.Repo{Name: newRepo}},
+				Path:   newPath,
+			}
+			var oldFile *pfs.File
+			if oldRepo != "" {
+				oldFile = &pfs.File{
+					Commit: &pfs.Commit{ID: oldCommit, Repo: &pfs.Repo{Name: oldRepo}},
+					Path:   oldPath,
+				}
+			}
+			client, err := env.PachClient.DiffFileV2(env.Context, &pfs.DiffFileRequest{
+				NewFile: newFile,
+				OldFile: oldFile,
+			})
+			defer client.CloseSend()
+			require.NoError(t, err)
+			for res, err := client.Recv(); err != io.EOF; res, err = client.Recv() {
+				require.NoError(t, err)
+				if res.NewFile != nil {
+					newFiles = append(newFiles, res.NewFile)
+				}
+				if res.OldFile != nil {
+					oldFiles = append(oldFiles, res.OldFile)
+				}
+			}
+			return newFiles, oldFiles
+		}
+
+		// Write foo
+		c1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		putFile(repo, c1.ID, "foo", []byte("foo\n"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, c1.ID))
+
+		newFiles, oldFiles := diffFile(repo, c1.ID, "", "", "", "", false)
+		require.Equal(t, 2, len(newFiles))
+		require.Equal(t, "/foo", newFiles[1].File.Path)
+		require.Equal(t, 0, len(oldFiles))
+
+		// Change the value of foo
+		c2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, c2.ID, []string{"/foo"}))
+		putFile(repo, c2.ID, "foo", []byte("not foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, c2.ID))
+
+		newFiles, oldFiles = diffFile(repo, c2.ID, "", "", "", "", false)
+		require.Equal(t, 2, len(newFiles))
+		require.Equal(t, "/foo", newFiles[1].File.Path)
+		require.Equal(t, 2, len(oldFiles))
+		require.Equal(t, "/foo", oldFiles[1].File.Path)
+
+		// Write bar
+		c3, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		putFile(repo, c3.ID, "/bar", []byte("bar\n"))
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, c3.ID))
+
+		newFiles, oldFiles = diffFile(repo, c3.ID, "", "", "", "", false)
+		require.Equal(t, 2, len(newFiles))
+		require.Equal(t, "/bar", newFiles[1].File.Path)
+		require.Equal(t, 1, len(oldFiles))
+
+		// Delete bar
+		c4, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, c4.ID, []string{"/bar"}))
+		require.NoError(t, env.PachClient.FinishCommit(repo, c4.ID))
+
+		newFiles, oldFiles = diffFile(repo, c4.ID, "", "", "", "", false)
+		require.Equal(t, 1, len(newFiles))
+		require.Equal(t, 2, len(oldFiles))
+		require.Equal(t, "/bar", oldFiles[1].File.Path)
+
+		// Write dir/fizz and dir/buzz
+		c5, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		putFile(repo, c5.ID, "/dir/fizz", []byte("fizz\n"))
+		putFile(repo, c5.ID, "/dir/buzz", []byte("buzz\n"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, c5.ID))
+
+		newFiles, oldFiles = diffFile(repo, c5.ID, "", "", "", "", false)
+		require.Equal(t, 4, len(newFiles))
+		require.Equal(t, 1, len(oldFiles))
+
+		// Modify dir/fizz
+		c6, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		putFile(repo, c6.ID, "/dir/fizz", []byte("fizz\n"))
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, c6.ID))
+
+		newFiles, oldFiles = diffFile(repo, c6.ID, "", "", "", "", false)
+		require.Equal(t, 3, len(newFiles))
+		require.Equal(t, "/dir/fizz", newFiles[2].File.Path)
+		require.Equal(t, 3, len(oldFiles))
+		require.Equal(t, "/dir/fizz", oldFiles[2].File.Path)
+
+		return nil
+	}, config)
+	require.NoError(t, err)
+}
+
 func TestInspectFileV2(t *testing.T) {
 	// TODO: remove once postgres runs in CI
 	if os.Getenv("CI") == "true" {
 		t.SkipNow()
 	}
 	config := newPachdConfig()
+	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		ctx := env.Context
 		putFile := func(repo, commit, path string, data []byte) error {

@@ -433,6 +433,7 @@ type getTarConditionalFuncV2 func(pfs.API_GetTarConditionalV2Server) error
 type listFileV2Func func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
 type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
 type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
+type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
 type walkFileFuncV2 func(*pfs.WalkFileRequest, pfs.API_WalkFileV2Server) error
 
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -470,6 +471,7 @@ type mockGetTarV2 struct{ handler getTarFuncV2 }
 type mockGetTarConditionalV2 struct{ handler getTarConditionalFuncV2 }
 type mockListFileV2 struct{ handler listFileV2Func }
 type mockGlobFileV2 struct{ handler globFileV2Func }
+type mockDiffFileV2 struct{ handler diffFileV2Func }
 type mockInspectFileV2 struct{ handler inspectFileFuncV2 }
 type mockWalkFileV2 struct{ handler walkFileFuncV2 }
 
@@ -508,6 +510,7 @@ func (mock *mockGetTarV2) Use(cb getTarFuncV2)                       { mock.hand
 func (mock *mockGetTarConditionalV2) Use(cb getTarConditionalFuncV2) { mock.handler = cb }
 func (mock *mockListFileV2) Use(cb listFileV2Func)                   { mock.handler = cb }
 func (mock *mockGlobFileV2) Use(cb globFileV2Func)                   { mock.handler = cb }
+func (mock *mockDiffFileV2) Use(cb diffFileV2Func)                   { mock.handler = cb }
 func (mock *mockInspectFileV2) Use(cb inspectFileFuncV2)             { mock.handler = cb }
 func (mock *mockWalkFileV2) Use(cb walkFileFuncV2)                   { mock.handler = cb }
 
@@ -554,6 +557,7 @@ type mockPFSServer struct {
 	InspectFileV2       mockInspectFileV2
 	WalkFileV2          mockWalkFileV2
 	GlobFileV2          mockGlobFileV2
+	DiffFileV2          mockDiffFileV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -765,6 +769,12 @@ func (api *pfsServerAPI) GlobFileV2(req *pfs.GlobFileRequest, serv pfs.API_GlobF
 		return api.mock.GlobFileV2.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GlobFileV2")
+}
+func (api *pfsServerAPI) DiffFileV2(req *pfs.DiffFileRequest, serv pfs.API_DiffFileV2Server) error {
+	if api.mock.DiffFileV2.handler != nil {
+		return api.mock.DiffFileV2.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.DiffFileV2")
 }
 func (api *pfsServerAPI) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFileV2.handler != nil {
