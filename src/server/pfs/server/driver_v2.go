@@ -536,7 +536,74 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 	})
 }
 
-func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
+func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfoV2) error) error {
+	// TODO: move validation to the Validating API Server
+	// Validation
+	if newFile == nil {
+		return errors.New("file cannot be nil")
+	}
+	if newFile.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if newFile.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+	// Do READER authorization check for both newFile and oldFile
+	if oldFile != nil && oldFile.Commit != nil {
+		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+			return err
+		}
+	}
+	if newFile != nil && newFile.Commit != nil {
+		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+			return err
+		}
+	}
+	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if oldFile == nil {
+		oldFile = &pfs.File{
+			Commit: newCommitInfo.ParentCommit,
+			Path:   newFile.Path,
+		}
+	}
+	ctx := pachClient.Ctx()
+	oldCommit := oldFile.Commit
+	newCommit := newFile.Commit
+	oldName := cleanPath(oldFile.Path)
+	if oldName == "/" {
+		oldName = ""
+	}
+	newName := cleanPath(newFile.Path)
+	if newName == "/" {
+		newName = ""
+	}
+	var old Source = emptySource{}
+	if oldCommit != nil {
+		old = NewSource(oldCommit, true, func() fileset.FileSource {
+			x := d.storage.NewSource(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
+			x = fileset.NewIndexResolver(x)
+			x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+				return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
+			})
+			return x
+		})
+	}
+	new := NewSource(newCommit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
+		})
+		return x
+	})
+	diff := NewDiffer(old, new)
+	return diff.Iterate(pachClient.Ctx(), cb)
+}
+
+func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfoV2, error) {
 	ctx := pachClient.Ctx()
 	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
 	if err != nil {

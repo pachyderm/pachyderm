@@ -285,3 +285,9 @@ func (s *stream) Next() (fileset.File, error) {
 func indexIsDir(idx *index.Index) bool {
 	return strings.HasSuffix(idx.Path, "/")
 }
+
+type emptySource struct{}
+
+func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+	return nil
+}

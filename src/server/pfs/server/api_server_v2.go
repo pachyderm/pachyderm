@@ -255,6 +255,16 @@ func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest
 	return &types.Empty{}, nil
 }
 
+// DiffFileV2 returns the files only in new or only in old
+func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfoV2) error {
+		return server.Send(&pfs.DiffFileResponseV2{
+			OldFile: oldFi,
+			NewFile: newFi,
+		})
+	})
+}
+
 // InspectFileV2 returns info about a file.
 func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)
