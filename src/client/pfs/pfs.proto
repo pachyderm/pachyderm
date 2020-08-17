@@ -498,11 +498,6 @@ message FsckResponse {
 
 // Messages specific to Pachyderm 2.
 
-message FileInfoV2 {
-  File file = 1;
-  string hash = 2;
-}
-
 // PutTar Protocol:
 //   Client sends an initial request with only the commit field set.
 //   For each tar stream to put:
@@ -556,7 +551,7 @@ message GetTarConditionalRequestV2 {
 }
 
 message GetTarConditionalResponseV2 {
-  FileInfoV2 file_info = 1;
+  FileInfo file_info = 1;
   bytes data = 2;
   bool EOF = 3;
 }
@@ -647,12 +642,12 @@ service API {
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
   rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
-  rpc ListFileV2(ListFileRequest) returns (stream FileInfoV2) {}
-  rpc GlobFileV2(GlobFileRequest) returns (stream FileInfoV2) {}
+  rpc ListFileV2(ListFileRequest) returns (stream FileInfo) {}
+  rpc GlobFileV2(GlobFileRequest) returns (stream FileInfo) {}
   // InspectFileV2 returns info about a file.
-  rpc InspectFileV2(InspectFileRequest) returns (FileInfoV2) {}
+  rpc InspectFileV2(InspectFileRequest) returns (FileInfo) {}
   // WalkFileV2 walks over all the files under a directory, including children of children.
-  rpc WalkFileV2(WalkFileRequest) returns (stream FileInfoV2) {}
+  rpc WalkFileV2(WalkFileRequest) returns (stream FileInfo) {}
   // ClearCommit removes all data from the commit.
   rpc ClearCommit(ClearCommitRequest) returns (google.protobuf.Empty) {}
 }

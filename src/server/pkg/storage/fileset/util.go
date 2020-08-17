@@ -7,7 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // WithLocalStorage constructs a local storage instance for testing during the lifetime of
@@ -19,7 +19,7 @@ func WithLocalStorage(f func(*Storage) error) error {
 }
 
 // CopyFiles iterates over s and writes all the Files to w
-func CopyFiles(ctx context.Context, w *Writer, s FileSource) error {
+func CopyFiles(ctx context.Context, w *Writer, s FileSet) error {
 	switch s := s.(type) {
 	case *Reader:
 		return s.iterate(func(fr *FileReader) error {
@@ -57,7 +57,7 @@ func WriteTarEntry(w io.Writer, f File) error {
 
 // WriteTarStream writes an entire tar stream to w
 // It will contain an entry for each File in fs
-func WriteTarStream(ctx context.Context, w io.Writer, fs FileSource) error {
+func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
 		return WriteTarEntry(w, f)
 	}); err != nil {

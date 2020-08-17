@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"golang.org/x/net/context"
 )
 
@@ -25,8 +26,43 @@ func newValidatedAPIServer(inner APIServer, env *serviceenv.ServiceEnv) *validat
 	}
 }
 
+// CopyFile implements the protobuf pfs.CopyFile RPC
+func (a *validatedAPIServer) CopyFile(ctx context.Context, req *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	src, dst := req.Src, req.Dst
+	// Validate arguments
+	if src == nil {
+		return nil, errors.New("src cannot be nil")
+	}
+	if src.Commit == nil {
+		return nil, errors.New("src commit cannot be nil")
+	}
+	if src.Commit.Repo == nil {
+		return nil, errors.New("src commit repo cannot be nil")
+	}
+	if dst == nil {
+		return nil, errors.New("dst cannot be nil")
+	}
+	if dst.Commit == nil {
+		return nil, errors.New("dst commit cannot be nil")
+	}
+	if dst.Commit.Repo == nil {
+		return nil, errors.New("dst commit repo cannot be nil")
+	}
+	// authorization
+	if err := a.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
+		return nil, err
+	}
+	if err := a.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
+	if err := checkFilePath(dst.Path); err != nil {
+		return nil, err
+	}
+	return a.APIServer.CopyFile(ctx, req)
+}
+
 // InspectFileV2 returns info about a file.
-func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if err := validateFile(req.File); err != nil {
 		return nil, err
 	}
@@ -90,6 +126,40 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 	return a.APIServer.ClearCommit(ctx, req)
 }
 
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) DeleteRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteRepoRequest,
+) error {
+	repo := request.Repo
+	// Check if the caller is authorized to delete this repo
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
+		return err
+	}
+	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
+}
+
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) DeleteCommitInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteCommitRequest,
+) error {
+	userCommit := request.Commit
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	return a.APIServer.DeleteCommitInTransaction(txnCtx, request)
+}
+
 func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
 	return a.env.GetPachClient(ctx)
 }
@@ -102,6 +172,23 @@ func (a *validatedAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo,
 	}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
 	resp, err := client.Authorize(ctx, req)
+	if err != nil {
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
+	}
+	if !resp.Authorized {
+		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
+	}
+	return nil
+}
+
+func (a *validatedAPIServer) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
+	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	if auth.IsErrNotActivated(err) {
+		return nil
+	}
+
+	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
+	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}

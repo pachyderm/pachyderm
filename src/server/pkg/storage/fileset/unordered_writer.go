@@ -6,9 +6,10 @@ import (
 	"io"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // TODO Might want to rework this a bit later or add some additional validation.
@@ -28,9 +29,9 @@ func (mf *memFile) Write(data []byte) (int, error) {
 	return mf.data.Write(data)
 }
 
-// FileSet is a set of files.
+// UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
 // This may be a full filesystem or a subfilesystem (e.g. datum / datum set / shard).
-type FileSet struct {
+type UnorderedWriter struct {
 	ctx                        context.Context
 	storage                    *Storage
 	memAvailable, memThreshold int64
@@ -40,11 +41,11 @@ type FileSet struct {
 	subFileSet                 int64
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) (*FileSet, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
-	f := &FileSet{
+	f := &UnorderedWriter{
 		ctx:          ctx,
 		storage:      storage,
 		memAvailable: memThreshold,
@@ -60,7 +61,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
-func (f *FileSet) Put(r io.Reader, customTag ...string) error {
+func (f *UnorderedWriter) Put(r io.Reader, customTag ...string) error {
 	tag := f.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
@@ -73,6 +74,11 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 				return nil
 			}
 			return err
+		}
+		hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+		if hdr.Typeflag == tar.TypeDir {
+			f.createParent(hdr.Name, tag)
+			continue
 		}
 		mf := f.createFile(hdr, tag)
 		for {
@@ -94,8 +100,7 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 	}
 }
 
-func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
-	hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+func (f *UnorderedWriter) createFile(hdr *tar.Header, tag string) *memFile {
 	f.createParent(hdr.Name, tag)
 	hdr.Size = 0
 	mf := &memFile{
@@ -108,7 +113,7 @@ func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
 	return mf
 }
 
-func (f *FileSet) getDataOp(name string) *dataOp {
+func (f *UnorderedWriter) getDataOp(name string) *dataOp {
 	if _, ok := f.fs[name]; !ok {
 		f.fs[name] = &dataOp{
 			deleteTags: make(map[string]struct{}),
@@ -118,7 +123,10 @@ func (f *FileSet) getDataOp(name string) *dataOp {
 	return f.fs[name]
 }
 
-func (f *FileSet) createParent(name string, tag string) {
+func (f *UnorderedWriter) createParent(name string, tag string) {
+	if name == "" {
+		return
+	}
 	name, _ = path.Split(name)
 	if _, ok := f.fs[name]; ok {
 		return
@@ -133,11 +141,12 @@ func (f *FileSet) createParent(name string, tag string) {
 	}
 	dataOp := f.getDataOp(name)
 	dataOp.memFiles[tag] = mf
+	name = strings.TrimRight(name, "/")
 	f.createParent(name, tag)
 }
 
 // Delete deletes a file from the file set.
-func (f *FileSet) Delete(name string, customTag ...string) {
+func (f *UnorderedWriter) Delete(name string, customTag ...string) {
 	var tag string
 	if len(customTag) > 0 {
 		tag = customTag[0]
@@ -158,7 +167,7 @@ func (f *FileSet) Delete(name string, customTag ...string) {
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
-func (f *FileSet) serialize() error {
+func (f *UnorderedWriter) serialize() error {
 	// Sort names.
 	names := make([]string, len(f.fs))
 	i := 0
@@ -224,8 +233,8 @@ func getSortedTags(tags map[string]struct{}) []string {
 	return tgs
 }
 
-// Close closes the file set.
-func (f *FileSet) Close() error {
+// Close closes the writer.
+func (f *UnorderedWriter) Close() error {
 	defer f.storage.filesetSem.Release(1)
 	return f.serialize()
 }

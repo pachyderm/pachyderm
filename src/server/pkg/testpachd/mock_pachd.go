@@ -432,7 +432,7 @@ type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
 type getTarConditionalFuncV2 func(pfs.API_GetTarConditionalV2Server) error
 type listFileV2Func func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
 type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
-type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfoV2, error)
+type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type walkFileFuncV2 func(*pfs.WalkFileRequest, pfs.API_WalkFileV2Server) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 
@@ -770,7 +770,7 @@ func (api *pfsServerAPI) GlobFileV2(req *pfs.GlobFileRequest, serv pfs.API_GlobF
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GlobFileV2")
 }
-func (api *pfsServerAPI) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (api *pfsServerAPI) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFileV2.handler != nil {
 		return api.mock.InspectFileV2.handler(ctx, req)
 	}

@@ -60,7 +60,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
 		var bytesRead int64
-		if err := a.driver.withFileSet(server.Context(), repo, commit, func(fs *fileset.FileSet) error {
+		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
 			for {
 				req, err := server.Recv()
 				if err != nil {
@@ -90,12 +90,12 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 	})
 }
 
-func putTar(fs *fileset.FileSet, server pfs.API_FileOperationV2Server, req *pfs.PutTarRequestV2) (int64, error) {
+func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, req *pfs.PutTarRequestV2) (int64, error) {
 	ptr := &putTarReader{
 		server: server,
 		r:      bytes.NewReader(req.Data),
 	}
-	err := fs.Put(ptr, req.Tag)
+	err := uw.Put(ptr, req.Tag)
 	return ptr.bytesRead, err
 }
 
@@ -123,7 +123,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func deleteFiles(fs *fileset.FileSet, req *pfs.DeleteFilesRequestV2) error {
+func deleteFiles(fs *fileset.UnorderedWriter, req *pfs.DeleteFilesRequestV2) error {
 	for _, file := range req.Files {
 		fs.Delete(file, req.Tag)
 	}
@@ -222,7 +222,7 @@ func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
 
 func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoV2) error {
+	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfo) error {
 		return server.Send(finfo)
 	})
 }
@@ -240,20 +240,30 @@ func (a *apiServerV2) FinishCommitInTransaction(
 
 func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfoV2) error {
+	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		return server.Send(fi)
 	})
 }
 
+// CopyFile implements the protobuf pfs.CopyFile RPC
+func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // InspectFileV2 returns info about a file.
-func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)
 }
 
 // WalkFileV2 walks over all the files under a directory, including children of children.
 func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.walkFile(pachClient, req.File, func(fi *pfs.FileInfoV2) error {
+	return a.driver.walkFile(pachClient, req.File, func(fi *pfs.FileInfo) error {
 		return server.Send(fi)
 	})
 }
@@ -261,4 +271,41 @@ func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFi
 // ClearCommit deletes all data in the commit.
 func (a *apiServerV2) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
 	return nil, a.driver.clearCommit(a.env.GetPachClient(ctx), req.Commit)
+}
+
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteRepoRequest,
+) error {
+	if request.All {
+		return a.driver.deleteAll(txnCtx)
+	}
+	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+}
+
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteCommitInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteCommitRequest,
+) error {
+	return a.driver.deleteCommit(txnCtx, request.Commit)
+}
+
+// DeleteAll implements the protobuf pfs.DeleteAll RPC
+func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.deleteAll(txnCtx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// BuildCommit is not implemented in v2
+func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
+	return nil, errors.New("v2 does not implement BuildCommit")
 }

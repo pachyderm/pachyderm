@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -49,7 +49,9 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 func (w *Writer) WriteHeader(hdr *tar.Header) error {
-	hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+	if err := w.checkPath(hdr.Name); err != nil {
+		return err
+	}
 	// Finish prior file.
 	if err := w.finishPriorFile(); err != nil {
 		return err
@@ -221,4 +223,17 @@ func (w *Writer) Close() error {
 	}
 	// Close the index writer.
 	return w.iw.Close()
+}
+
+func (w *Writer) checkPath(p string) error {
+	if w.idx != nil {
+		if w.idx.Path > p {
+			return errors.Errorf("can't write path (%s) after (%s)", p, w.idx.Path)
+		}
+		parent := parentOf(p)
+		if w.idx.Path < parent {
+			return errors.Errorf("cannot write path (%s) without first writing parent (%s)", p, parent)
+		}
+	}
+	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // File represents a file in a fileset
@@ -21,10 +21,10 @@ type File interface {
 var _ File = &FileMergeReader{}
 var _ File = &FileReader{}
 
-// FileSource is a source of Files.
-type FileSource interface {
+// FileSet is a source of Files.
+type FileSet interface {
 	// Iterate calls cb for each File in the FileSource in lexigraphical order.
 	Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error
 }
 
-var _ FileSource = &mergeSource{}
+var _ FileSet = &mergeSource{}
