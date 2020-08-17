@@ -49,10 +49,10 @@ func (fr *FileReader) updateFileInfo(idx *index.Index) {
 }
 
 // Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoV2 {
-	return &pfs.FileInfoV2{
+func (fr *FileReader) Info() *pfs.FileInfo {
+	return &pfs.FileInfo{
 		File: fr.file,
-		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
+		Hash: fr.hash.Sum(nil),
 	}
 }
 
@@ -88,22 +88,22 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
-// Source iterates over FileInfoV2s generated from a fileset.Source
+// Source iterates over FileInfos generated from a fileset.Source
 type Source interface {
-	// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+	// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 	// during iteration, and the File.
-	Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error
+	Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error
 }
 
 type source struct {
 	commit        *pfs.Commit
-	getReader     func() fileset.FileSource
+	getReader     func() fileset.FileSet
 	computeHashes bool
 }
 
-// NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
+// NewSource creates a Source which emits FileInfos with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) Source {
+func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSet) Source {
 	return &source{
 		commit:        commit,
 		getReader:     getReader,
@@ -111,9 +111,9 @@ func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.
 	}
 }
 
-// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 // during iteration, and the File.
-func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	fs1 := s.getReader()
@@ -122,7 +122,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.F
 	cache := make(map[string][]byte)
 	return fs1.Iterate(ctx, func(fr fileset.File) error {
 		idx := fr.Index()
-		fi := &pfs.FileInfoV2{
+		fi := &pfs.FileInfo{
 			File: client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
 		}
 		if s.computeHashes {
@@ -136,7 +136,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.F
 			} else {
 				hashBytes = computeFileHash(idx)
 			}
-			fi.Hash = pfs.EncodeHash(hashBytes)
+			fi.Hash = hashBytes
 		}
 		if err := cb(fi, fr); err != nil {
 			return err
@@ -215,11 +215,11 @@ func NewErrOnEmpty(s Source, err error) Source {
 	return &errOnEmpty{source: s, err: err}
 }
 
-// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 // during iteration, and the File.
-func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	empty := true
-	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		empty = false
 		return cb(fi, f)
 	}); err != nil {
@@ -237,7 +237,7 @@ type stream struct {
 	errChan  chan error
 }
 
-func newStream(ctx context.Context, source fileset.FileSource) *stream {
+func newStream(ctx context.Context, source fileset.FileSet) *stream {
 	fileChan := make(chan fileset.File)
 	errChan := make(chan error, 1)
 	go func() {

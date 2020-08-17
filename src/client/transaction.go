@@ -401,7 +401,7 @@ func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequ
 func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
 	return nil, unsupportedError("GlobFileV2")
 }
-func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfoV2, error) {
+func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
 	return nil, unsupportedError("InspectFileV2")
 }
 func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {

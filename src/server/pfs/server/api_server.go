@@ -624,7 +624,7 @@ func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFile
 }
 
 // InspectFileV2 not implemented
-func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	return nil, errV2NotImplemented
 }
 
