@@ -9,7 +9,7 @@ import (
 
 // NewIndexResolver ensures the indexes in the FileSource are correct
 // based on the content
-func NewIndexResolver(x FileSource) FileSource {
+func NewIndexResolver(x FileSet) FileSet {
 	switch x := x.(type) {
 	case *mergeSource:
 		return &mergeResolver{

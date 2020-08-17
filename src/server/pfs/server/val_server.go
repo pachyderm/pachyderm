@@ -62,7 +62,7 @@ func (a *validatedAPIServer) CopyFile(ctx context.Context, req *pfs.CopyFileRequ
 }
 
 // InspectFileV2 returns info about a file.
-func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
+func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if err := validateFile(req.File); err != nil {
 		return nil, err
 	}

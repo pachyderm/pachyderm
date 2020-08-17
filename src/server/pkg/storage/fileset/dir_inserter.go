@@ -11,12 +11,12 @@ import (
 )
 
 type dirInserter struct {
-	x FileSource
+	x FileSet
 }
 
 // NewDirInserter returns a FileSource which will include all directories on the path
 // from the root to a leaf (regular file).
-func NewDirInserter(x FileSource) FileSource {
+func NewDirInserter(x FileSet) FileSet {
 	return &dirInserter{x: x}
 }
 

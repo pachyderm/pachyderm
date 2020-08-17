@@ -153,7 +153,7 @@ func (d *driverV2) getSubFileSet() int64 {
 }
 
 // TODO Need commit validation and handling of branch names.
-func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, cb func(*fileset.FileSet) error) (retErr error) {
+func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error) (retErr error) {
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
@@ -206,7 +206,7 @@ func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, 
 	if err != nil {
 		return err
 	}
-	s := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
 	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
 		return mf(idx.Path)
 	})
@@ -221,11 +221,11 @@ func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, 
 	return fileset.WriteTarStream(ctx, w, filter)
 }
 
-func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfoV2) error) error {
+func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
 	name := cleanPath(file.Path)
-	s := NewSource(file.Commit, true, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
+	s := NewSource(file.Commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			if idx.Path == "/" {
@@ -241,7 +241,7 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 		})
 		return x
 	})
-	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
 		}
@@ -483,20 +483,20 @@ func (d *driverV2) compactionWorker() {
 	panic(err)
 }
 
-func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfoV2) error) (retErr error) {
+func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	indexOpt, mf, err := parseGlob(cleanPath(glob))
 	if err != nil {
 		return err
 	}
-	s := NewSource(commit, true, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(commit), indexOpt)
+	s := NewSource(commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
 		x = fileset.NewIndexResolver(x)
 		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return mf(cleanPath(idx.Path))
 		})
 	})
-	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
 	})
 }
@@ -520,7 +520,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 		}
 		return path.Join(dstPath, relPath)
 	}
-	s := d.storage.NewSource(ctx, compactedCommitPath(src.Commit), index.WithPrefix(srcPath))
+	s := d.storage.OpenFileSet(ctx, compactedCommitPath(src.Commit), index.WithPrefix(srcPath))
 	s = fileset.NewIndexFilter(s, func(idx *index.Index) bool {
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
@@ -544,24 +544,24 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 	})
 }
 
-func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfoV2, error) {
+func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
 	ctx := pachClient.Ctx()
 	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
 	if err != nil {
 		return nil, err
 	}
 	p := cleanPath(file.Path)
-	s := NewSource(file.Commit, true, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+	s := NewSource(file.Commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 		})
 		return x
 	})
-	var ret *pfs.FileInfoV2
+	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
-	if err := s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		p2 := fi.File.Path
 		if p2 == p || p2 == p+"/" {
 			ret = fi
@@ -573,7 +573,7 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 	return ret, nil
 }
 
-func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfoV2) error) (retErr error) {
+func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
 	if err != nil {
@@ -583,15 +583,15 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	if p == "/" {
 		p = ""
 	}
-	s := NewSource(file.Commit, false, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+	s := NewSource(file.Commit, false, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 		})
 		return x
 	})
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
-	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)
 	})
 }
