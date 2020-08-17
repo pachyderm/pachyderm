@@ -288,6 +288,6 @@ func indexIsDir(idx *index.Index) bool {
 
 type emptySource struct{}
 
-func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	return nil
 }

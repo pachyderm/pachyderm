@@ -536,7 +536,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 	})
 }
 
-func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfoV2) error) error {
+func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
 	// TODO: move validation to the Validating API Server
 	// Validation
 	if newFile == nil {
@@ -582,8 +582,8 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		old = NewSource(oldCommit, true, func() fileset.FileSource {
-			x := d.storage.NewSource(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
+		old = NewSource(oldCommit, true, func() fileset.FileSet {
+			x := d.storage.OpenFileSet(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
 			x = fileset.NewIndexResolver(x)
 			x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 				return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
@@ -591,8 +591,8 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 			return x
 		})
 	}
-	new := NewSource(newCommit, true, func() fileset.FileSource {
-		x := d.storage.NewSource(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
+	new := NewSource(newCommit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
@@ -603,7 +603,7 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 	return diff.Iterate(pachClient.Ctx(), cb)
 }
 
-func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfoV2, error) {
+func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
 	ctx := pachClient.Ctx()
 	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
 	if err != nil {

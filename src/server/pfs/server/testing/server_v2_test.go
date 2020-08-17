@@ -904,13 +904,13 @@ func TestDiffFileV2(t *testing.T) {
 
 		putFile := func(repo, commit, fileName string, data []byte) {
 			fsspec := fileSetSpec{
-				fileName: data,
+				fileName: tarutil.NewMemFile(fileName, data),
 			}
 			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
 			require.NoError(t, err)
 		}
 
-		diffFile := func(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool) (newFiles, oldFiles []*pfs.FileInfoV2) {
+		diffFile := func(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool) (newFiles, oldFiles []*pfs.FileInfo) {
 			newFile := &pfs.File{
 				Commit: &pfs.Commit{ID: newCommit, Repo: &pfs.Repo{Name: newRepo}},
 				Path:   newPath,

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"golang.org/x/net/context"
@@ -21,15 +23,15 @@ func NewDiffer(a, b Source) *Differ {
 // If one side is missing a path, cb is called with the info for the side that has the path
 // If both sides have a path, but the content is different, cb is called with the info for both sides at once.
 // If both sides have a path, and the content is the same, cb is not called. The info is not part of the diff.
-func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfoV2) error) error {
+func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
-	aInfos := make(chan *pfs.FileInfoV2)
-	bInfos := make(chan *pfs.FileInfoV2)
+	aInfos := make(chan *pfs.FileInfo)
+	bInfos := make(chan *pfs.FileInfo)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer close(aInfos)
-		return d.a.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+		return d.a.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -40,7 +42,7 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfoV2) 
 	})
 	eg.Go(func() error {
 		defer close(bInfos)
-		return d.b.Iterate(ctx, func(fi *pfs.FileInfoV2, _ fileset.File) error {
+		return d.b.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -89,6 +91,6 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfoV2) 
 	return eg.Wait()
 }
 
-func equalFileInfos(aFi, bFi *pfs.FileInfoV2) bool {
-	return aFi.Hash == bFi.Hash
+func equalFileInfos(aFi, bFi *pfs.FileInfo) bool {
+	return bytes.Equal(aFi.Hash, bFi.Hash)
 }
