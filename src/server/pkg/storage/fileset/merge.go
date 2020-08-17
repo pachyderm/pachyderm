@@ -61,11 +61,15 @@ func applyFullDeletes(frs []*FileReader) []*FileReader {
 	// Filter out the file readers with lower priority than the highest priority file reader that contains a full file deletion.
 	for _, fr := range frs {
 		result = append(result, fr)
-		if len(fr.Index().DataOp.DeleteTags) > 0 && fr.Index().DataOp.DeleteTags[0].Id == headerTag {
+		if isFullDelete(fr.Index()) {
 			return result
 		}
 	}
 	return result
+}
+
+func isFullDelete(idx *index.Index) bool {
+	return len(idx.DataOp.DeleteTags) > 0 && idx.DataOp.DeleteTags[0].Id == headerTag
 }
 
 func computeContentTags(frs []*FileReader) map[string]int64 {
@@ -224,7 +228,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
 		for _, fr := range fmr.frs {
-			if fr.Index().DataOp.DataRefs != nil {
+			if len(fr.Index().DataOp.DataRefs) > 0 {
 				_, err := fr.Header()
 				if err != nil {
 					return nil, err
@@ -235,7 +239,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 		// reader and update the size.
 		// TODO Deep copy the header?
 		for _, fr := range fmr.frs {
-			if fr.Index().DataOp.DataRefs != nil {
+			if len(fr.Index().DataOp.DataRefs) > 0 {
 				var err error
 				fmr.hdr, err = fr.Header()
 				if err != nil {
@@ -262,12 +266,11 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	// Propagate delete tags.
 	var allDeleteTags []string
 	for _, fr := range fmr.frs {
-		deleteTags := fr.Index().DataOp.DeleteTags
-		if len(deleteTags) > 0 && deleteTags[0].Id == headerTag {
+		if isFullDelete(fr.Index()) {
 			allDeleteTags = []string{headerTag}
-			continue
+			break
 		}
-		for _, tag := range deleteTags {
+		for _, tag := range fr.Index().DataOp.DeleteTags {
 			allDeleteTags = append(allDeleteTags, tag.Id)
 		}
 	}
