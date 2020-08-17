@@ -686,7 +686,7 @@ func (fs fileSetSpec) makeTarStream() io.Reader {
 	return buf
 }
 
-func finfosToPaths(finfos []*pfs.FileInfoV2) (paths []string) {
+func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 	for _, finfo := range finfos {
 		paths = append(paths, finfo.File.Path)
 	}
@@ -718,16 +718,16 @@ func TestListFileV2(t *testing.T) {
 		err = env.PachClient.FinishCommit(repo, commit1.ID)
 		require.NoError(t, err)
 		// should list a directory but not siblings
-		finfos := []*pfs.FileInfoV2{}
-		err = env.PachClient.ListFileV2(repo, commit1.ID, "/dir1", func(finfo *pfs.FileInfoV2) error {
+		finfos := []*pfs.FileInfo{}
+		err = env.PachClient.ListFileV2(repo, commit1.ID, "/dir1", func(finfo *pfs.FileInfo) error {
 			finfos = append(finfos, finfo)
 			return nil
 		})
 		require.NoError(t, err)
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(finfos))
 		// should list the root
-		finfos = []*pfs.FileInfoV2{}
-		err = env.PachClient.ListFileV2(repo, commit1.ID, "/", func(finfo *pfs.FileInfoV2) error {
+		finfos = []*pfs.FileInfo{}
+		err = env.PachClient.ListFileV2(repo, commit1.ID, "/", func(finfo *pfs.FileInfo) error {
 			finfos = append(finfos, finfo)
 			return nil
 		})

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	semanticPrefix = "pfs"
+	semanticPrefix = "root"
 	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
 	// lexicographical ordering of file content tags.
 	// headerTag is the tag used for the tar header bytes.
@@ -76,9 +76,9 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) (*FileSet, error) {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
 	fileSet = applyPrefix(fileSet)
-	return newFileSet(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
+	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
 // NewWriter makes a Writer backed by the path `fileSet` in object storage.
@@ -122,8 +122,8 @@ func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
-// NewSource makes a source which will iterate over the prefix fileSet
-func (s *Storage) NewSource(ctx context.Context, fileSet string, opts ...index.Option) FileSource {
+// OpenFileSet makes a source which will iterate over the prefix fileSet
+func (s *Storage) OpenFileSet(ctx context.Context, fileSet string, opts ...index.Option) FileSet {
 	return &mergeSource{
 		s: s,
 		getReader: func() (*MergeReader, error) {

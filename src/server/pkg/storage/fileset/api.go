@@ -21,10 +21,10 @@ type File interface {
 var _ File = &FileMergeReader{}
 var _ File = &FileReader{}
 
-// FileSource is a source of Files.
-type FileSource interface {
+// FileSet is a source of Files.
+type FileSet interface {
 	// Iterate calls cb for each File in the FileSource in lexigraphical order.
 	Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error
 }
 
-var _ FileSource = &mergeSource{}
+var _ FileSet = &mergeSource{}

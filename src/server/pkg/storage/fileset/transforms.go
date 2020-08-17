@@ -8,15 +8,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
-var _ FileSource = &headerFilter{}
+var _ FileSet = &headerFilter{}
 
 type headerFilter struct {
 	pred func(th *tar.Header) bool
-	x    FileSource
+	x    FileSet
 }
 
 // NewHeaderFilter filters x using pred
-func NewHeaderFilter(x FileSource, pred func(th *tar.Header) bool) FileSource {
+func NewHeaderFilter(x FileSet, pred func(th *tar.Header) bool) FileSet {
 	return &headerFilter{x: x, pred: pred}
 }
 
@@ -33,15 +33,15 @@ func (hf *headerFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 	}, stopBefore...)
 }
 
-var _ FileSource = &indexFilter{}
+var _ FileSet = &indexFilter{}
 
 type indexFilter struct {
 	pred func(idx *index.Index) bool
-	x    FileSource
+	x    FileSet
 }
 
 // NewIndexFilter filters x using pred
-func NewIndexFilter(x FileSource, pred func(idx *index.Index) bool) FileSource {
+func NewIndexFilter(x FileSet, pred func(idx *index.Index) bool) FileSet {
 	return &indexFilter{x: x, pred: pred}
 }
 
@@ -55,15 +55,15 @@ func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 	})
 }
 
-var _ FileSource = &headerMapper{}
+var _ FileSet = &headerMapper{}
 
 type headerMapper struct {
 	fn func(th *tar.Header) *tar.Header
-	x  FileSource
+	x  FileSet
 }
 
 // NewHeaderMapper filters x using pred
-func NewHeaderMapper(x FileSource, fn func(*tar.Header) *tar.Header) FileSource {
+func NewHeaderMapper(x FileSet, fn func(*tar.Header) *tar.Header) FileSet {
 	return &headerMapper{x: x, fn: fn}
 }
 
