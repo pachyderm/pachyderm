@@ -10692,6 +10692,93 @@ func TestSpout(t *testing.T) {
 	})
 }
 
+// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/issues/5172
+func TestDeferredCross(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// make repo for our dataset
+	dataSet := tu.UniqueString("dataset")
+	require.NoError(t, c.CreateRepo(dataSet))
+
+	downstreamPipeline := tu.UniqueString("downstream")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(downstreamPipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%v/* /pfs/out", dataSet),
+				},
+			},
+			Input: client.NewPFSInput(dataSet, "master"),
+
+			OutputBranch: "master",
+		})
+	require.NoError(t, err)
+
+	_, err = c.PutFile(dataSet, "master", "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataSet, "master", "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataSet, "master", "file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataSet, "master")}, nil)
+	require.NoError(t, err)
+
+	err = c.CreateBranch(downstreamPipeline, "other", "master^", nil)
+	require.NoError(t, err)
+
+	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
+	impPipeline := tu.UniqueString("imputed")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(impPipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"true",
+				},
+			},
+			Input: client.NewCrossInput(
+				client.NewUnionInput(
+					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", false),
+					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", false),
+				),
+				client.NewPFSInput(dataSet, "/"),
+			),
+			OutputBranch: "master",
+		})
+	require.NoError(t, err)
+
+	// after all this, the imputation job should be using the master commit of the dataset repo
+	_, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataSet, "master")}, nil)
+	require.NoError(t, err)
+
+	jobs, err := c.ListJob(impPipeline, nil, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, len(jobs), 1)
+
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+	require.NoError(t, err)
+
+	headCommit, err := c.InspectCommit(dataSet, "master")
+	require.NoError(t, err)
+
+	pps.VisitInput(jobInfo.Input, func(i *pps.Input) {
+		if i.Pfs != nil && i.Pfs.Repo == dataSet {
+			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
+		}
+	})
+}
+
 func TestDeferredProcessing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

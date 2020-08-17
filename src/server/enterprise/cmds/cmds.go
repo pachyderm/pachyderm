@@ -36,7 +36,7 @@ func parseISO8601(s string) (time.Time, error) {
 func ActivateCmd() *cobra.Command {
 	var expires string
 	activate := &cobra.Command{
-		Use: "{{alias}} <activation-code>",
+		Use: "{{alias}}",
 		Short: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Long: "Activate the enterprise features of Pachyderm with an activation " +

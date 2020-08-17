@@ -96,17 +96,6 @@ func (hm headerMap) Header() (*tar.Header, error) {
 	return hm.header, nil
 }
 
-func (hm headerMap) Get(w io.Writer) error {
-	tw := tar.NewWriter(w)
-	if err := tw.WriteHeader(hm.header); err != nil {
-		return err
-	}
-	if err := hm.inner.Content(w); err != nil {
-		return err
-	}
-	return tw.Flush()
-}
-
 func (hm headerMap) Content(w io.Writer) error {
 	return hm.inner.Content(w)
 }

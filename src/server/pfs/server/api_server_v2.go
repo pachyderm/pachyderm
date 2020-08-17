@@ -245,6 +245,16 @@ func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_Gl
 	})
 }
 
+// CopyFile implements the protobuf pfs.CopyFile RPC
+func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // InspectFileV2 returns info about a file.
 func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfoV2, error) {
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)
@@ -258,20 +268,61 @@ func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFi
 	})
 }
 
-var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteRepoRequest,
+) error {
+	if request.All {
+		return a.driver.deleteAll(txnCtx)
+	}
+	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+}
 
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteCommitInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteCommitRequest,
+) error {
+	return a.driver.deleteCommit(txnCtx, request.Commit)
+}
+
+// DeleteAll implements the protobuf pfs.DeleteAll RPC
+func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.deleteAll(txnCtx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+var errV1NotImplemented = errors.Errorf("V1 method not implemented")
+
+// BuildCommit is not implemented in V2.
+func (a *apiServerV2) BuildCommit(_ context.Context, _ *pfs.BuildCommitRequest) (*pfs.Commit, error) {
+	return nil, errV1NotImplemented
+}
+
+// Fsck is not implemented in V2.
 func (a *apiServerV2) Fsck(_ *pfs.FsckRequest, _ pfs.API_FsckServer) error {
 	return errV1NotImplemented
 }
 
+// PutFile is not implemented in V2.
 func (a *apiServerV2) PutFile(_ pfs.API_PutFileServer) error {
 	return errV1NotImplemented
 }
 
+// ListFileStream is not implemented in V2.
 func (a *apiServerV2) ListFileStream(_ *pfs.ListFileRequest, _ pfs.API_ListFileStreamServer) error {
 	return errV1NotImplemented
 }
 
+// GlobFileStream is not implemented in V2.
 func (a *apiServerV2) GlobFileStream(_ *pfs.GlobFileRequest, _ pfs.API_GlobFileStreamServer) error {
 	return errV1NotImplemented
 }

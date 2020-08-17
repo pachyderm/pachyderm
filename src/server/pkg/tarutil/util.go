@@ -16,17 +16,17 @@ type File interface {
 	Content(io.Writer) error
 }
 
-type file struct {
+type memFile struct {
 	hdr  *tar.Header
 	data []byte
 }
 
-func NewFile(name string, data []byte) File {
-	return newFile(NewHeader(name, int64(len(data))), data)
+func NewMemFile(name string, data []byte) File {
+	return newMemFile(NewHeader(name, int64(len(data))), data)
 }
 
-func newFile(hdr *tar.Header, data []byte) File {
-	return &file{
+func newMemFile(hdr *tar.Header, data []byte) File {
+	return &memFile{
 		hdr:  hdr,
 		data: data,
 	}
@@ -39,12 +39,12 @@ func NewHeader(name string, size int64) *tar.Header {
 	}
 }
 
-func (f *file) Header() (*tar.Header, error) {
-	return f.hdr, nil
+func (mf *memFile) Header() (*tar.Header, error) {
+	return mf.hdr, nil
 }
 
-func (f *file) Content(w io.Writer) error {
-	_, err := w.Write(f.data)
+func (mf *memFile) Content(w io.Writer) error {
+	_, err := w.Write(mf.data)
 	return err
 }
 
@@ -118,7 +118,7 @@ func Iterate(r io.Reader, cb func(File) error, stream ...bool) error {
 		if err != nil {
 			return err
 		}
-		if err := cb(newFile(hdr, buf.Bytes())); err != nil {
+		if err := cb(newMemFile(hdr, buf.Bytes())); err != nil {
 			return err
 		}
 	}
@@ -158,7 +158,7 @@ func Equal(file1, file2 File, full ...bool) (bool, error) {
 	return bytes.Equal(buf1.Bytes(), buf2.Bytes()), nil
 }
 
-func TarToLocal(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) error {
+func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) error {
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -204,7 +204,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 	return err
 }
 
-func LocalToTar(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) error {
+func Export(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) error {
 	return WithWriter(w, func(tw *tar.Writer) error {
 		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
 			if err != nil {
