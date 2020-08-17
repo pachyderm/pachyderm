@@ -319,6 +319,7 @@ func removePrefixes(xs []string) []string {
 }
 
 const subFileSetFmt = "%020d"
+const levelFmt = "level_" + subFileSetFmt
 
 // SubFileSetStr returns the string representation of a subfileset.
 func SubFileSetStr(subFileSet int64) string {
@@ -326,12 +327,12 @@ func SubFileSetStr(subFileSet int64) string {
 }
 
 func levelName(i int) string {
-	return fmt.Sprintf(subFileSetFmt, i)
+	return fmt.Sprintf(levelFmt, i)
 }
 
 func parseLevel(x string) (int, error) {
 	var y int
-	_, err := fmt.Sscanf(x, subFileSetFmt, &y)
+	_, err := fmt.Sscanf(x, levelFmt, &y)
 	return y, err
 }
 
