@@ -121,7 +121,7 @@ with the `--build` flag. For more information, see
 
 Pachyderm's pipeline specifications store the configuration information
 about the Docker image and code that Pachyderm should run. Pipeline
-specifications are stored in JSON format.
+specifications are stored in JSON or YAML format.
 
 A standard pipeline specification must include the following
 parameters:
