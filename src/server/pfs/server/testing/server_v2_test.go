@@ -985,7 +985,7 @@ func TestCopyFile2(t *testing.T) {
 		ctx := env.Context
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsspec := fileSetSpec{
-				path: data,
+				path: tarutil.NewMemFile(path, data),
 			}
 			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
 		}
