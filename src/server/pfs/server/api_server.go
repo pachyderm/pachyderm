@@ -633,6 +633,11 @@ func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFile
 	return errV2NotImplemented
 }
 
+// ClearCommit not implemented
+func (a *apiServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
+	return nil, errV2NotImplemented
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {

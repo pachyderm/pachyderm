@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -77,6 +78,16 @@ func (a *validatedAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API
 		return err
 	}
 	return a.APIServer.ListFileV2(req, server)
+}
+
+func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
+	if req.Commit == nil {
+		return nil, errors.Errorf("commit cannot be nil")
+	}
+	if err := a.checkIsAuthorized(ctx, req.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
+	return a.APIServer.ClearCommit(ctx, req)
 }
 
 func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
