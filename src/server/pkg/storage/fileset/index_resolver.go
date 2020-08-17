@@ -36,6 +36,10 @@ func (mr *mergeResolver) Iterate(ctx context.Context, cb func(File) error, stopB
 		return err
 	}
 	w := mr.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
+		// Index entries that do not reference any data are for propagating deletes.
+		if idx.DataOp.DataRefs == nil {
+			return nil
+		}
 		fmr, err := mr2.Next()
 		if err != nil {
 			return err

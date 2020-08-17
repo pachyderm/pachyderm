@@ -964,7 +964,7 @@ func TestDiffFileV2(t *testing.T) {
 		// Change the value of foo
 		c2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.DeleteFile(repo, c2.ID, "foo"))
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, c2.ID, []string{"/foo"}))
 		putFile(repo, c2.ID, "foo", []byte("not foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, c2.ID))
@@ -990,13 +990,13 @@ func TestDiffFileV2(t *testing.T) {
 		// Delete bar
 		c4, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, env.PachClient.DeleteFile(repo, c4.ID, "bar"))
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, c4.ID, []string{"/bar"}))
 		require.NoError(t, env.PachClient.FinishCommit(repo, c4.ID))
 
 		newFiles, oldFiles = diffFile(repo, c4.ID, "", "", "", "", false)
 		require.Equal(t, 1, len(newFiles))
 		require.Equal(t, 2, len(oldFiles))
-		require.Equal(t, "bar", oldFiles[1].File.Path)
+		require.Equal(t, "/bar", oldFiles[1].File.Path)
 
 		// Write dir/fizz and dir/buzz
 		c5, err := env.PachClient.StartCommit(repo, "master")

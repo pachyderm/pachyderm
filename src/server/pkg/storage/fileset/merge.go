@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -57,6 +58,7 @@ func (mr *MergeReader) iterate(f func(*FileMergeReader) error) error {
 
 func applyFullDeletes(frs []*FileReader) []*FileReader {
 	var result []*FileReader
+	// Filter out the file readers with lower priority than the highest priority file reader that contains a full file deletion.
 	for _, fr := range frs {
 		result = append(result, fr)
 		if len(fr.Index().DataOp.DeleteTags) > 0 && fr.Index().DataOp.DeleteTags[0].Id == headerTag {
@@ -68,8 +70,8 @@ func applyFullDeletes(frs []*FileReader) []*FileReader {
 
 func computeContentTags(frs []*FileReader) map[string]int64 {
 	tags := make(map[string]int64)
-	for _, fr := range frs {
-		dataOp := fr.Index().DataOp
+	for i := len(frs) - 1; i >= 0; i-- {
+		dataOp := frs[i].Index().DataOp
 		for _, tag := range dataOp.DeleteTags {
 			delete(tags, tag.Id)
 		}
@@ -222,20 +224,27 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
 		for _, fr := range fmr.frs {
-			_, err := fr.Header()
-			if err != nil {
-				return nil, err
+			if fr.Index().DataOp.DataRefs != nil {
+				_, err := fr.Header()
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		// Use the header from the highest priority file
 		// reader and update the size.
 		// TODO Deep copy the header?
-		var err error
-		fmr.hdr, err = fmr.frs[len(fmr.frs)-1].Header()
-		if err != nil {
-			return nil, err
+		for _, fr := range fmr.frs {
+			if fr.Index().DataOp.DataRefs != nil {
+				var err error
+				fmr.hdr, err = fr.Header()
+				if err != nil {
+					return nil, err
+				}
+				fmr.hdr.Size = fmr.size
+				break
+			}
 		}
-		fmr.hdr.Size = fmr.size
 	}
 	return fmr.hdr, nil
 }
@@ -250,10 +259,21 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	if err := w.WriteHeader(hdr); err != nil {
 		return err
 	}
-	deleteTags := fmr.frs[len(fmr.frs)-1].Index().DataOp.DeleteTags
-	if len(deleteTags) > 0 && deleteTags[0].Id == headerTag {
-		w.DeleteTag(headerTag)
-		return nil
+	// Propagate delete tags.
+	var allDeleteTags []string
+	for _, fr := range fmr.frs {
+		deleteTags := fr.Index().DataOp.DeleteTags
+		if len(deleteTags) > 0 && deleteTags[0].Id == headerTag {
+			allDeleteTags = []string{headerTag}
+			continue
+		}
+		for _, tag := range deleteTags {
+			allDeleteTags = append(allDeleteTags, tag.Id)
+		}
+	}
+	sort.Strings(allDeleteTags)
+	for _, tag := range allDeleteTags {
+		w.DeleteTag(tag)
 	}
 	// Write merged content.
 	return fmr.tsmr.WriteTo(w)
