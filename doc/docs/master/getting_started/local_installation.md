@@ -151,7 +151,7 @@ deploy Pachyderm by following these steps:
      pachctl deploy local --dry-run > pachyderm.json
      ```
 
-  1. Copy the `pachyderm.json` file into your Pachyderm directory.
+  1. Copy the `pachyderm.json` file into your working directory.
   1. From the same directory, run:
 
      ```bash
