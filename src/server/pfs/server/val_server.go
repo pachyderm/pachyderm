@@ -37,6 +37,23 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionC
 	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
 }
 
+// FinishCommitInTransaction is identical to FinishCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+	userCommit := request.Commit
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
+}
+
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {

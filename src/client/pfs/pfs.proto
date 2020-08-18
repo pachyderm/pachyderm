@@ -532,30 +532,6 @@ message GetTarRequestV2 {
   File file = 1;
 }
 
-// GetTarConditional Protocol:
-//   Client sends an initial request that is similar to a GetTar request.
-//   For files that match the request:
-//     Server sends a response with the file info for the file.
-//     If the client wants to skip the file content:
-//       Client sends a request with the skip field set to true.
-//     Else
-//       Client sends a request with the skip field set to false.
-//       For file content:
-//         Server sends a response with file content in the data field.
-//       Server sends a response with the EOF field set to true.
-//   Server connection is closed by returning from handler.
-
-message GetTarConditionalRequestV2 {
-  File file = 1;
-  bool skip = 2;
-}
-
-message GetTarConditionalResponseV2 {
-  FileInfo file_info = 1;
-  bytes data = 2;
-  bool EOF = 3;
-}
-
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -636,8 +612,6 @@ service API {
   // RPCs specific to Pachyderm 2.
   rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
-  // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
-  rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
 }
 
 message PutObjectRequest {

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"hash"
 	"io"
 	"strings"
 
@@ -10,83 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"golang.org/x/net/context"
 )
-
-// FileReader is a PFS wrapper for a fileset.MergeReader.
-// The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfo and to convert a set of index hashes to a file hash.
-type FileReader struct {
-	file      *pfs.File
-	idx       *index.Index
-	fmr       *fileset.FileMergeReader
-	mr        *fileset.MergeReader
-	fileCount int
-	hash      hash.Hash
-}
-
-func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.DataOp.DataRefs {
-		// TODO Pull from chunk hash.
-		h.Write([]byte(dataRef.Hash))
-	}
-	return &FileReader{
-		file: file,
-		idx:  idx,
-		fmr:  fmr,
-		mr:   mr,
-		hash: h,
-	}
-}
-
-func (fr *FileReader) updateFileInfo(idx *index.Index) {
-	fr.fileCount++
-	for _, dataRef := range idx.DataOp.DataRefs {
-		fr.hash.Write([]byte(dataRef.Hash))
-	}
-}
-
-// Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfo {
-	return &pfs.FileInfo{
-		File: fr.file,
-		Hash: fr.hash.Sum(nil),
-	}
-}
-
-// Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
-	if err := fr.fmr.Get(w); err != nil {
-		return err
-	}
-	for fr.fileCount > 0 {
-		fmr, err := fr.mr.Next()
-		if err != nil {
-			return err
-		}
-		if err := fmr.Get(w); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	if len(noPadding) > 0 && noPadding[0] {
-		return nil
-	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
-}
-
-func (fr *FileReader) drain() error {
-	for fr.fileCount > 0 {
-		if _, err := fr.mr.Next(); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	return nil
-}
 
 // Source iterates over FileInfos generated from a fileset.Source
 type Source interface {

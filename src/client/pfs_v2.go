@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
@@ -149,95 +148,6 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
-}
-
-// GetTarConditionalV2 functions similarly to GetTar with the key difference being that each file's content can be conditionally downloaded.
-// GetTarConditional takes a callback that will be called for each file that matched the path.
-// The callback will receive the file information for the file and a reader that will lazily download a tar stream that contains the file.
-func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, cb func(*pfs.FileInfo, io.Reader) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.GetTarConditionalV2(c.Ctx())
-	if err != nil {
-		return err
-	}
-	if err := client.Send(&pfs.GetTarConditionalRequestV2{File: NewFile(repoName, commitID, path)}); err != nil {
-		return err
-	}
-	for {
-		resp, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		r := &getTarConditionalReader{
-			client: client,
-			first:  true,
-		}
-		if err := cb(resp.FileInfo, r); err != nil {
-			return err
-		}
-		if r.first {
-			if err := client.Send(&pfs.GetTarConditionalRequestV2{Skip: true}); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := r.drain(); err != nil {
-			return err
-		}
-	}
-}
-
-type getTarConditionalReader struct {
-	client     pfs.API_GetTarConditionalV2Client
-	r          *bytes.Reader
-	first, EOF bool
-}
-
-func (r *getTarConditionalReader) Read(data []byte) (int, error) {
-	if r.first {
-		if err := r.client.Send(&pfs.GetTarConditionalRequestV2{Skip: false}); err != nil {
-			return 0, err
-		}
-		r.first = false
-	}
-	if r.r == nil || r.r.Len() == 0 {
-		if err := r.nextResponse(); err != nil {
-			return 0, err
-		}
-	}
-	return r.r.Read(data)
-}
-
-func (r *getTarConditionalReader) nextResponse() error {
-	if r.EOF {
-		return io.EOF
-	}
-	resp, err := r.client.Recv()
-	if err != nil {
-		return err
-	}
-	if resp.EOF {
-		r.EOF = true
-		return io.EOF
-	}
-	r.r = bytes.NewReader(resp.Data)
-	return nil
-}
-
-func (r *getTarConditionalReader) drain() error {
-	for {
-		if err := r.nextResponse(); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-	}
 }
 
 // TODO: Change this to not buffer the file locally.

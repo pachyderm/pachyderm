@@ -608,11 +608,6 @@ func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTar
 	return errV2NotImplemented
 }
 
-// GetTarConditionalV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	return errV2NotImplemented
-}
-
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"time"
@@ -46,10 +45,7 @@ func newAPIServerV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, e
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteRepoRequest,
-) error {
+func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	if request.All {
 		return a.driver.deleteAll(txnCtx)
 	}
@@ -58,10 +54,7 @@ func (a *apiServerV2) DeleteRepoInTransaction(
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) FinishCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.FinishCommitRequest,
-) error {
+func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
@@ -69,10 +62,7 @@ func (a *apiServerV2) FinishCommitInTransaction(
 
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteCommitRequest,
-) error {
+func (a *apiServerV2) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
 	return a.driver.deleteCommit(txnCtx, request.Commit)
 }
 
@@ -176,10 +166,8 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		if err != nil {
 			return 0, err
 		}
-		repo := request.Commit.Repo.Name
-		commit := request.Commit.ID
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.withUnorderedWriter(a.env.GetPachClient(server.Context()), request.Commit, func(fs *fileset.UnorderedWriter) error {
 			for {
 				request, err := server.Recv()
 				if err != nil {
@@ -256,7 +244,7 @@ func (a *apiServerV2) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetT
 		commit := request.File.Commit
 		glob := request.File.Path
 		gtw := newGetTarWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getTar(server.Context(), commit, glob, gtw)
+		err := a.driver.getTar(a.env.GetPachClient(server.Context()), commit, glob, gtw)
 		return gtw.bytesWritten, err
 	})
 }
@@ -274,64 +262,4 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	n, err := gtw.w.Write(data)
 	gtw.bytesWritten += int64(n)
 	return n, err
-}
-
-func (a *apiServerV2) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	request, err := server.Recv()
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return metrics.ReportRequestWithThroughput(func() (int64, error) {
-		if err != nil {
-			return 0, err
-		}
-		repo := request.File.Commit.Repo.Name
-		commit := request.File.Commit.ID
-		glob := request.File.Path
-		var bytesWritten int64
-		err := a.driver.getTarConditional(server.Context(), repo, commit, glob, func(fr *FileReader) error {
-			if err := server.Send(&pfs.GetTarConditionalResponseV2{FileInfo: fr.Info()}); err != nil {
-				return err
-			}
-			request, err := server.Recv()
-			if err != nil {
-				return err
-			}
-			// Skip to the next file (client does not want the file content).
-			if request.Skip {
-				return nil
-			}
-			gtcw := newGetTarConditionalWriter(server)
-			defer func() {
-				bytesWritten += gtcw.bytesWritten
-			}()
-			w := bufio.NewWriterSize(gtcw, grpcutil.MaxMsgSize)
-			if err := fr.Get(w); err != nil {
-				return err
-			}
-			if err := w.Flush(); err != nil {
-				return err
-			}
-			return server.Send(&pfs.GetTarConditionalResponseV2{EOF: true})
-		})
-		return bytesWritten, err
-	})
-}
-
-type getTarConditionalWriter struct {
-	server       pfs.API_GetTarConditionalV2Server
-	bytesWritten int64
-}
-
-func newGetTarConditionalWriter(server pfs.API_GetTarConditionalV2Server) *getTarConditionalWriter {
-	return &getTarConditionalWriter{
-		server: server,
-	}
-}
-
-func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
-	if err := w.server.Send(&pfs.GetTarConditionalResponseV2{Data: data}); err != nil {
-		return 0, err
-	}
-	w.bytesWritten += int64(len(data))
-	return len(data), nil
 }

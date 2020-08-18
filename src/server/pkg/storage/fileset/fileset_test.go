@@ -203,29 +203,6 @@ func TestCopy(t *testing.T) {
 	}))
 }
 
-func TestResolveIndexes(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := testutil.SeedRand()
-		numFileSets := 5
-		// Generate filesets.
-		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
-		// Get the file hashes.
-		getHashes(t, fileSets, files, msg)
-		// Merge and check the files.
-		mr, err := fileSets.NewMergeReader(context.Background(), []string{testPath})
-		require.NoError(t, err)
-		require.NoError(t, fileSets.ResolveIndexes(context.Background(), []string{testPath}, func(idx *index.Index) error {
-			fmr, err := mr.Next()
-			require.NoError(t, err)
-			fmr.fullIdx = idx
-			checkFile(t, fmr, files[0], msg)
-			files = files[1:]
-			return nil
-		}), msg)
-		return nil
-	}))
-}
-
 func TestCompaction(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
 		msg := testutil.SeedRand()

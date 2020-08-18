@@ -46,14 +46,7 @@ type driverV2 struct {
 }
 
 // newDriver is used to create a new Driver instance
-func newDriverV2(
-	env *serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	treeCache *hashtree.Cache,
-	storageRoot string,
-	memoryRequest int64,
-) (*driverV2, error) {
+func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driverV2, error) {
 	d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
@@ -97,16 +90,14 @@ func newDB() (*gorm.DB, error) {
 }
 
 func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
-	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commit}
+		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
+	commit = commitInfo.Commit
 	if description != "" {
 		commitInfo.Description = description
 	}
@@ -160,15 +151,23 @@ func (d *driverV2) getSubFileSet() int64 {
 }
 
 // TODO Need commit validation and handling of branch names.
-func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+	}
+	commit = commitInfo.Commit
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
-	subFileSetPath := path.Join(repo, commit, subFileSetStr)
+	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
 	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
 			retErr = err
@@ -186,7 +185,16 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string,
 	})
 }
 
-func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
+func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+	}
+	commit = commitInfo.Commit
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
@@ -204,11 +212,20 @@ func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(i
 	}
 	// There is no need to queue this because we just wrote to one place.  We expect the storage layer
 	// to handle the single file case efficiently.
-	_, err := d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	_, err = d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
 	return err
 }
 
-func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
+func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob string, w io.Writer) error {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished == nil {
+		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	commit = commitInfo.Commit
 	indexOpt, mf, err := parseGlob(cleanPath(glob))
 	if err != nil {
 		return err
@@ -230,9 +247,17 @@ func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, 
 
 func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished == nil {
+		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	commit := commitInfo.Commit
 	name := cleanPath(file.Path)
-	s := NewSource(file.Commit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
+	s := NewSource(commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(name))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			if idx.Path == "/" {
@@ -254,62 +279,6 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 		}
 		return nil
 	})
-}
-
-// TODO Need to figure out path cleaning.
-func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
-	glob = cleanPath(glob)
-	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
-	prefix := globLiteralPrefix(glob)
-	mr, err := d.storage.NewMergeReader(ctx, compactedPaths, index.WithPrefix(prefix))
-	if err != nil {
-		return err
-	}
-	mf, err := matchFunc(glob)
-	if err != nil {
-		return err
-	}
-	var fr *FileReader
-	nextFileReader := func(idx *index.Index) error {
-		fmr, err := mr.Next()
-		if err != nil {
-			return err
-		}
-		if !mf(idx.Path) {
-			return nil
-		}
-		fr = newFileReader(client.NewFile(repo, commit, idx.Path), idx, fmr, mr)
-		return nil
-	}
-	if err := d.storage.ResolveIndexes(ctx, compactedPaths, func(idx *index.Index) error {
-		// Ignore index entries for deleted files.
-		if len(idx.DataOp.DataRefs) == 0 {
-			return nil
-		}
-		if fr == nil {
-			return nextFileReader(idx)
-		}
-		dir := path.Dir(idx.Path)
-		if dir == fr.file.Path {
-			fr.updateFileInfo(idx)
-			return nil
-		}
-		if err := f(fr); err != nil {
-			return err
-		}
-		if err := fr.drain(); err != nil {
-			return err
-		}
-		fr = nil
-		return nextFileReader(idx)
-
-	}, index.WithPrefix(prefix)); err != nil {
-		return err
-	}
-	if fr != nil {
-		return f(fr)
-	}
-	return nil
 }
 
 type compactStats struct {
@@ -492,6 +461,14 @@ func (d *driverV2) compactionWorker() {
 
 func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) (retErr error) {
 	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished == nil {
+		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	commit = commitInfo.Commit
 	indexOpt, mf, err := parseGlob(cleanPath(glob))
 	if err != nil {
 		return err
@@ -510,10 +487,22 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 
 func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
 	ctx := pachClient.Ctx()
-	_, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_FINISHED)
+	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
+	if srcCommitInfo.Finished == nil {
+		return pfsserver.ErrCommitNotFinished{srcCommitInfo.Commit}
+	}
+	srcCommit := srcCommitInfo.Commit
+	dstCommitInfo, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if dstCommitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{dstCommitInfo.Commit}
+	}
+	dstCommit := dstCommitInfo.Commit
 	if overwrite {
 		// TODO: after delete merging is sorted out add overwrite support
 		return errors.New("overwrite not yet supported")
@@ -527,7 +516,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 		}
 		return path.Join(dstPath, relPath)
 	}
-	s := d.storage.OpenFileSet(ctx, compactedCommitPath(src.Commit), index.WithPrefix(srcPath))
+	s := d.storage.OpenFileSet(ctx, compactedCommitPath(srcCommit), index.WithPrefix(srcPath))
 	s = fileset.NewIndexFilter(s, func(idx *index.Index) bool {
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
@@ -536,7 +525,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 		return th
 	})
 	s = fileset.NewDirInserter(s)
-	return d.withWriter(ctx, dst.Commit, func(n int64, dst *fileset.Writer) error {
+	return d.withWriter(pachClient, dstCommit, func(n int64, dst *fileset.Writer) error {
 		return s.Iterate(ctx, func(f fileset.File) error {
 			hdr, err := f.Header()
 			if err != nil {
@@ -553,13 +542,17 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 
 func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
 	ctx := pachClient.Ctx()
-	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, err
 	}
+	if commitInfo.Finished == nil {
+		return nil, pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	commit := commitInfo.Commit
 	p := cleanPath(file.Path)
-	s := NewSource(file.Commit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+	s := NewSource(commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(p))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
@@ -582,16 +575,20 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 
 func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
 	ctx := pachClient.Ctx()
-	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
+	if commitInfo.Finished == nil {
+		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	commit := commitInfo.Commit
 	p := cleanPath(file.Path)
 	if p == "/" {
 		p = ""
 	}
-	s := NewSource(file.Commit, false, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+	s := NewSource(commit, false, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(p))
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
 			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 		})
