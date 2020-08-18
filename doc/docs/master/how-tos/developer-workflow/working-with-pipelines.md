@@ -81,7 +81,7 @@ create a repository for your project.
 1. Build a new image from the `Dockerfile` by specifying a tag:
 
    ```bash
-   docker build -t <IMAGE>:<TAG> .
+   docker build -t <image>:<tag> .
    ```
 
 For more information about building Docker images, see

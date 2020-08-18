@@ -11,8 +11,7 @@ The workflow steps are shown below.
 
 ## Data Workflow - Load Your Data into Pachyderm
 
-You need to add your data to Pachyderm so that your pipeline runs your code
-against it. You can do so by using one of the following methods:
+Adding data to Pachyderm is the first step towards building data-driven pipelines. There are multiple ways to add data to a Pachyderm repository:
 
 * By using the `pachctl put file` command
 * By using a special type of pipeline, such as a [spout](../../concepts/pipeline-concepts/pipeline/spout/) or [cron](../../concepts/pipeline-concepts/pipeline/cron/) 
