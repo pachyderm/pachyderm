@@ -155,7 +155,7 @@ deploy Pachyderm by following these steps:
   1. From the same directory, run:
 
      ```bash
-     kubectl create -f .\pachyderm.json
+     kubectl create -f ./pachyderm.json
      ```
 
   Because Pachyderm needs to pull the Pachyderm Docker image
