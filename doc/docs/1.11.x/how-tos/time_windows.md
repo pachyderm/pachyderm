@@ -6,7 +6,7 @@
 
     - [Datum](../concepts/pipeline-concepts/datum/index.md)
     - [Distributed Computing](../concepts/advanced-concepts/distributed_computing.md)
-    - [Individual Developer Worflow](individual-developer-workflow.md)
+    - [Working with Pipelines](../how-tos/developer-workflow/working-with-pipelines.md)
 
 If you are analyzing data that is changing over time, you might
 need to analyze historical data. For example, you might need to

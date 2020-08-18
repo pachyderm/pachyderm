@@ -133,11 +133,11 @@ nav:
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 
-            - Overview: how-tos/developer-workflow/
+            - Overview: how-tos/developer-workflow/index.md
             - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
             - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
             - Build Flag: how-tos/developer-workflow/build-flag.md
-            - CI/CD Integration: how-tos/ci-cd-integration.md
+            - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
         - Export Your Data From Pachyderm:
             - Overview: how-tos/export-data-out-pachyderm/index.md
