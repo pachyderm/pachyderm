@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -155,7 +154,7 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 // GetTarConditionalV2 functions similarly to GetTar with the key difference being that each file's content can be conditionally downloaded.
 // GetTarConditional takes a callback that will be called for each file that matched the path.
 // The callback will receive the file information for the file and a reader that will lazily download a tar stream that contains the file.
-func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfo, r io.Reader) error) (retErr error) {
+func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, cb func(*pfs.FileInfo, io.Reader) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -178,7 +177,7 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 			client: client,
 			first:  true,
 		}
-		if err := f(resp.FileInfo, r); err != nil {
+		if err := cb(resp.FileInfo, r); err != nil {
 			return err
 		}
 		if r.first {
@@ -191,37 +190,6 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 			return err
 		}
 	}
-}
-
-// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfo.
-func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfo) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
-	defer cancel()
-	req := &pfs.ListFileRequest{
-		File: NewFile(repoName, commitID, path),
-		Full: true,
-	}
-	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
-	if err != nil {
-		return err
-	}
-	for {
-		finfo, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
-		}
-
-		if err := f(finfo); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 type getTarConditionalReader struct {

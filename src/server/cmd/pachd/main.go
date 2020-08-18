@@ -148,19 +148,21 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	txnEnv := &txnenv.TransactionEnv{}
-	blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-	if err != nil {
-		return errors.Wrapf(err, "units.RAMInBytes")
-	}
-	if err := logGRPCServerSetup("Block API", func() error {
-		blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+	if !env.StorageV2 {
+		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 		if err != nil {
+			return errors.Wrapf(err, "units.RAMInBytes")
+		}
+		if err := logGRPCServerSetup("Block API", func() error {
+			blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+			return nil
+		}); err != nil {
 			return err
 		}
-		pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
-		return nil
-	}); err != nil {
-		return err
 	}
 	memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 	if err != nil {
@@ -406,22 +408,24 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if env.ExposeObjectAPI {
-			if err := logGRPCServerSetup("Block API", func() error {
-				// Generally the object API should not be exposed publicly, but
-				// TestGarbageCollection uses it and it may help with debugging
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(
-					env.StorageRoot,
-					0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-					etcdAddress,
-					true /* duplicate */)
-				if err != nil {
+		if !env.StorageV2 {
+			if env.ExposeObjectAPI {
+				if err := logGRPCServerSetup("Block API", func() error {
+					// Generally the object API should not be exposed publicly, but
+					// TestGarbageCollection uses it and it may help with debugging
+					blockAPIServer, err := pfs_server.NewBlockAPIServer(
+						env.StorageRoot,
+						0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
+						etcdAddress,
+						true /* duplicate */)
+					if err != nil {
+						return err
+					}
+					pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
+					return nil
+				}); err != nil {
 					return err
 				}
-				pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
-				return nil
-			}); err != nil {
-				return err
 			}
 		}
 		var authAPIServer authserver.APIServer
@@ -522,20 +526,22 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 		}()
 		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
-		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-		if err != nil {
-			return errors.Wrapf(err, "units.RAMInBytes")
-		}
-		if err := logGRPCServerSetup("Block API", func() error {
-			blockAPIServer, err := pfs_server.NewBlockAPIServer(
-				env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+		if !env.StorageV2 {
+			blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 			if err != nil {
+				return errors.Wrapf(err, "units.RAMInBytes")
+			}
+			if err := logGRPCServerSetup("Block API", func() error {
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(
+					env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+				if err != nil {
+					return err
+				}
+				pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
+				return nil
+			}); err != nil {
 				return err
 			}
-			pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
-			return nil
-		}); err != nil {
-			return err
 		}
 		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 		if err != nil {

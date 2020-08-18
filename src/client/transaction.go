@@ -395,18 +395,6 @@ func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV
 func (c *pfsBuilderClient) GetTarConditionalV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_GetTarConditionalV2Client, error) {
 	return nil, unsupportedError("GetTarConditionalV2")
 }
-func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileV2Client, error) {
-	return nil, unsupportedError("ListFileV2")
-}
-func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
-	return nil, unsupportedError("GlobFileV2")
-}
-func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
-	return nil, unsupportedError("InspectFileV2")
-}
-func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
-	return nil, unsupportedError("WalkFileV2")
-}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")

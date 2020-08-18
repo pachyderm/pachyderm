@@ -36,10 +36,15 @@ func NewDB(host, port string) (*gorm.DB, error) {
 	return db, nil
 }
 
+// NewLocalDB creates a local database client.
+func NewLocalDB() (*gorm.DB, error) {
+	return NewDB(defaultPostgresHost, defaultPostgresPort)
+}
+
 // WithLocalDB creates a local database client for testing during the lifetime of
 // the callback.
 func WithLocalDB(f func(*gorm.DB) error) (retErr error) {
-	db, err := NewDB(defaultPostgresHost, defaultPostgresPort)
+	db, err := NewLocalDB()
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/jinzhu/gorm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -62,15 +63,7 @@ func newDriverV2(
 	if err != nil {
 		return nil, err
 	}
-	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-	if !ok {
-		return nil, errors.Errorf("postgres service host not found")
-	}
-	postgresPort, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-	if !ok {
-		return nil, errors.Errorf("postgres service port not found")
-	}
-	db, err := gc.NewDB(postgresHost, postgresPort)
+	db, err := newDB()
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +80,20 @@ func newDriverV2(
 	go d2.master(env, objClient, db)
 	go d2.compactionWorker()
 	return d2, nil
+}
+
+func newDB() (*gorm.DB, error) {
+	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+	if !ok {
+		// TODO: Probably not the right long term approach here, but this is necessary to handle the mock pachd instance used in tests.
+		// It does not run in kubernetes, so we need to fallback on setting up a local database.
+		return gc.NewLocalDB()
+	}
+	postgresPort, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	if !ok {
+		return nil, errors.Errorf("postgres service port not found")
+	}
+	return gc.NewDB(postgresHost, postgresPort)
 }
 
 func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {

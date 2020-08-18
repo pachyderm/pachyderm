@@ -598,6 +598,11 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 // V2 Methods
 var errV2NotImplemented = errors.Errorf("v2 method not implemented")
 
+// FileOperationV2 not implemented by v1 apiServer
+func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) error {
+	return errV2NotImplemented
+}
+
 // GetTarV2 not implemented by v1 apiServer
 func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
 	return errV2NotImplemented
@@ -605,31 +610,6 @@ func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTar
 
 // GetTarConditionalV2 not implemented by v1 apiServer
 func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	return errV2NotImplemented
-}
-
-// FileOperationV2 not implemented by v1 apiServer
-func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) error {
-	return errV2NotImplemented
-}
-
-// ListFileV2 not implemented by v1 apiServer
-func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	return errV2NotImplemented
-}
-
-// GlobFileV2 not implemented
-func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) error {
-	return errV2NotImplemented
-}
-
-// InspectFileV2 not implemented
-func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
-	return nil, errV2NotImplemented
-}
-
-// WalkFileV2 not implemented
-func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
 	return errV2NotImplemented
 }
 
