@@ -434,7 +434,7 @@ type listFileV2Func func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
 type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
 type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type walkFileFuncV2 func(*pfs.WalkFileRequest, pfs.API_WalkFileV2Server) error
-type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
+type clearCommitV2Func func(context.Context, *pfs.ClearCommitRequestV2) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -473,7 +473,7 @@ type mockListFileV2 struct{ handler listFileV2Func }
 type mockGlobFileV2 struct{ handler globFileV2Func }
 type mockInspectFileV2 struct{ handler inspectFileFuncV2 }
 type mockWalkFileV2 struct{ handler walkFileFuncV2 }
-type mockClearCommit struct{ handler clearCommitFunc }
+type mockClearCommitV2 struct{ handler clearCommitV2Func }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                   { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)                 { mock.handler = cb }
@@ -512,7 +512,7 @@ func (mock *mockListFileV2) Use(cb listFileV2Func)                   { mock.hand
 func (mock *mockGlobFileV2) Use(cb globFileV2Func)                   { mock.handler = cb }
 func (mock *mockInspectFileV2) Use(cb inspectFileFuncV2)             { mock.handler = cb }
 func (mock *mockWalkFileV2) Use(cb walkFileFuncV2)                   { mock.handler = cb }
-func (mock *mockClearCommit) Use(cb clearCommitFunc)                 { mock.handler = cb }
+func (mock *mockClearCommitV2) Use(cb clearCommitV2Func)             { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -557,7 +557,7 @@ type mockPFSServer struct {
 	InspectFileV2       mockInspectFileV2
 	WalkFileV2          mockWalkFileV2
 	GlobFileV2          mockGlobFileV2
-	ClearCommit         mockClearCommit
+	ClearCommitV2       mockClearCommitV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -782,9 +782,9 @@ func (api *pfsServerAPI) WalkFileV2(req *pfs.WalkFileRequest, serv pfs.API_WalkF
 	}
 	return errors.Errorf("unhandled pachd mock pfs.WalkFileV2")
 }
-func (api *pfsServerAPI) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
-	if api.mock.ClearCommit.handler != nil {
-		return api.mock.ClearCommit.handler(ctx, req)
+func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	if api.mock.ClearCommitV2.handler != nil {
+		return api.mock.ClearCommitV2.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommit")
 }

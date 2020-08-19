@@ -407,7 +407,7 @@ func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFi
 func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
 	return nil, unsupportedError("WalkFileV2")
 }
-func (c *pfsBuilderClient) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("ClearCommit")
 }
 
