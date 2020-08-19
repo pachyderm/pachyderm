@@ -163,7 +163,6 @@ func (w *Writer) DeleteFile(name string, tags ...string) error {
 
 // DeleteTag deletes a tag in the current file.
 func (w *Writer) DeleteTag(id string) {
-	// TODO Might want this to be a map, then convert to slice.
 	w.idx.DataOp.DeleteTags = append(w.idx.DataOp.DeleteTags, &chunk.Tag{Id: id})
 }
 

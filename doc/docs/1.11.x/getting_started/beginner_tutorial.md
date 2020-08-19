@@ -501,7 +501,7 @@ change this pipeline. You can also dig in and learn more details about:
 
 - [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
 - [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
-- [Individual Developer Workflow](../how-tos/individual-developer-workflow.md)
+- [Working with Pipelines](../how-tos/developer-workflow/working-with-pipelines.md)
 
 We'd love to help and see what you come up with, so submit any
 issues/questions you come across on
