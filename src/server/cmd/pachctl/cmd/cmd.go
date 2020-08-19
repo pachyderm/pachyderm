@@ -579,7 +579,7 @@ This resets the cluster to its initial state.`,
 			}
 
 			fmt.Println("Forwarding the OIDC ACS port...")
-			port, err = fw.RunForSAMLACS(oidcPort)
+			port, err = fw.RunForOIDCACS(oidcPort)
 			if err != nil {
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
