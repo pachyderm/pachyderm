@@ -150,7 +150,6 @@ func (d *driverV2) getSubFileSet() int64 {
 	return n
 }
 
-// TODO Need commit validation and handling of branch names.
 func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
@@ -551,6 +550,9 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 	}
 	commit := commitInfo.Commit
 	p := cleanPath(file.Path)
+	if p == "/" {
+		p = ""
+	}
 	s := NewSource(commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(p))
 		x = fileset.NewIndexResolver(x)
