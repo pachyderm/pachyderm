@@ -278,9 +278,9 @@ func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFi
 	})
 }
 
-// ClearCommit deletes all data in the commit.
+// ClearCommitV2 deletes all data in the commit.
 func (a *apiServerV2) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
-	return nil, a.driver.clearCommit(a.env.GetPachClient(ctx), req.Commit)
+	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), req.Commit)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run

@@ -796,7 +796,7 @@ func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommit
 	if api.mock.ClearCommitV2.handler != nil {
 		return api.mock.ClearCommitV2.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommitV2")
 }
 
 /* PPS Server Mocks */

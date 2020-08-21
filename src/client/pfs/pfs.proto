@@ -656,7 +656,7 @@ service API {
   rpc InspectFileV2(InspectFileRequest) returns (FileInfo) {}
   // WalkFileV2 walks over all the files under a directory, including children of children.
   rpc WalkFileV2(WalkFileRequest) returns (stream FileInfo) {}
-  // ClearCommit removes all data from the commit.
+  // ClearCommitV2 removes all data from the commit.
   rpc ClearCommitV2(ClearCommitRequestV2) returns (google.protobuf.Empty) {}
 }
 

@@ -655,7 +655,7 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	})
 }
 
-func (d *driverV2) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) error {
+func (d *driverV2) clearCommitV2(pachClient *client.APIClient, commit *pfs.Commit) error {
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {

@@ -411,7 +411,7 @@ func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequ
 	return nil, unsupportedError("WalkFileV2")
 }
 func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ClearCommit")
+	return nil, unsupportedError("ClearCommitV2")
 }
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
