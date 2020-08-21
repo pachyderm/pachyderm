@@ -655,6 +655,18 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	})
 }
 
+func (d *driverV2) clearCommitV2(pachClient *client.APIClient, commit *pfs.Commit) error {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return errors.Errorf("cannot clear finished commit")
+	}
+	return d.storage.Delete(ctx, commitPath(commit))
+}
+
 func (d *driverV2) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
 	ctx := txnCtx.ClientContext
 	if err := d.storage.WalkFileSet(ctx, repo.Name, func(p string) error {

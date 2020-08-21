@@ -74,8 +74,12 @@ func cleanPath(x string) string {
 	return "/" + strings.Trim(x, "/")
 }
 
+func commitPath(commit *pfs.Commit) string {
+	return commitKey(commit)
+}
+
 func compactedCommitPath(commit *pfs.Commit) string {
-	return path.Join(commitKey(commit), fileset.Compacted)
+	return path.Join(commitPath(commit), fileset.Compacted)
 }
 
 func checkFilePath(path string) error {

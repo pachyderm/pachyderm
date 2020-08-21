@@ -116,6 +116,16 @@ func (a *validatedAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API
 	return a.APIServer.ListFileV2(req, server)
 }
 
+func (a *validatedAPIServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	if req.Commit == nil {
+		return nil, errors.Errorf("commit cannot be nil")
+	}
+	if err := a.checkIsAuthorized(ctx, req.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
+	return a.APIServer.ClearCommitV2(ctx, req)
+}
+
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *validatedAPIServer) DeleteRepoInTransaction(
