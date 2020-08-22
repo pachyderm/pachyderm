@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -19,20 +20,80 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+
+	"github.com/rjeczalik/notify"
 )
 
-func openAndWait() error {
-	// at the end of file, we open the pipe again, since this blocks until something is written to the pipe
-	openAndWait, err := os.Open("/pfs/out")
-	if err != nil {
-		return err
+// TarFile holder structure
+type TarFile struct {
+	header *tar.Header
+	body   []byte
+}
+
+// SkipTarPadding return number of bytes skipped from a tar stream and an EOF
+func SkipTarPadding(r *bytes.Reader) (int64, error) {
+	var n int64
+	for {
+		c, err := r.ReadByte()
+		if err != nil {
+			// Read byte should succeed unless it reaches EOF
+			return n, err
+		}
+		if c != 0 {
+			// Found a non-zero byte. This is start of a new stream
+			// Unread the byte
+			r.UnreadByte()
+			return n, nil
+		}
+		n++
 	}
-	// and then we immediately close this reader of the pipe, so that the main reader can continue its standard behavior
-	err = openAndWait.Close()
-	if err != nil {
-		return err
+}
+
+// TarReader is the heart of tar state machine. It return the list of tar files received on the pipe
+// It reads the buffer from the pipe, processes all the bytes
+// if there is an incomplete buffer, it goes around to read from the pipe
+// TDOD: only read the header from the ReadAll then read the size from the header
+//       That's the only way to make sure we don't buffer too much
+func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) []TarFile {
+	var curr TarFile
+	fileList := make([]TarFile, 0)
+	r := bytes.NewReader(buff.Bytes())
+	for r.Len() > 0 {
+		tr := tar.NewReader(r)
+		if curr.header == nil {
+			// We are reading this file for the first time
+			header, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					curr.header = header
+				}
+				logger.Logf("Error in reading tar header", err)
+				return nil
+			}
+			curr.header = header
+		}
+		var bBytes int = int(curr.header.Size) - len(curr.body)
+		var body = make([]byte, bBytes)
+		_, err := tr.Read(body)
+		if err != nil {
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				logger.Logf("Error in reading tar file", err)
+				return nil
+			}
+		}
+		curr.body = append(curr.body, body...)
+		if err == io.EOF {
+			// Read the entire body
+			fileList = append(fileList, curr)
+			curr.header = nil
+			curr.body = nil
+		}
+
+		// skip all the padding
+		SkipTarPadding(r)
 	}
-	return nil
+
+	return fileList
 }
 
 // RunUserCode will run the pipeline's user code until canceled by the context
@@ -54,6 +115,85 @@ func RunUserCode(
 	})
 }
 
+func processFiles(ctx context.Context,
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	fileList []TarFile,
+	logger logs.TaggedLogger) (retErr1 error) {
+	if len(fileList) > 0 {
+		repo := pipelineInfo.Pipeline.Name
+		var commit *pfs.Commit
+		var err error
+		for _, f := range fileList {
+			if commit == nil {
+				// start commit
+				commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+					Parent:     client.NewCommit(repo, ""),
+					Branch:     pipelineInfo.OutputBranch,
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+				})
+				if err != nil {
+					return err
+				}
+
+				// finish the commit even if there was an issue
+				defer func() {
+					if err := pachClient.FinishCommit(repo, commit.ID); err != nil {
+						// this lets us pass the error through if FinishCommit fails
+						retErr1 = err
+					}
+				}()
+			}
+			r := bytes.NewReader(f.body)
+			// put files into pachyderm
+			if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(f.header.Name), pipelineInfo.Spout.Marker) {
+				// we'll check that this is the latest version of the spout, and then commit to it
+				// we need to do this atomically because we otherwise might hit a subtle race condition
+
+				// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
+				spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
+				if err != nil && !errutil.IsNotFoundError(err) {
+					return err
+				}
+				if spec != nil && len(spec.ChildCommits) != 0 {
+					return errors.New("outdated spout, now shutting down")
+				}
+				_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, f.header.Name, r, 0)
+				if err != nil {
+					return err
+				}
+
+			} else if pipelineInfo.Spout.Overwrite {
+				_, err = pachClient.PutFileOverwrite(repo, commit.ID, f.header.Name, r, 0)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = pachClient.PutFile(repo, commit.ID, f.header.Name, r)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	// reset the fileList now that we've finished processing
+	fileList = nil
+
+	return retErr1
+}
+
+func openPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
+	p, err := os.Open(pName)
+	if os.IsNotExist(err) {
+		logger.Logf("Named pipe '%s' does not exist", pName)
+	} else if os.IsPermission(err) {
+		logger.Logf("Insufficient permissions to read named pipe '%s': %s", pName, err)
+	} else if err != nil {
+		logger.Logf("Error while opening named pipe '%s': %s", pName, err)
+	}
+	return p, err
+}
+
 // ReceiveSpout is used by both services and spouts if a spout is defined on the
 // pipeline. ctx is separate from pachClient because services may call this, and
 // they use a cancel function that affects the context but not the pachClient
@@ -63,100 +203,54 @@ func ReceiveSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-) (retErr1 error) {
-	return backoff.RetryUntilCancel(ctx, func() error {
-		repo := pipelineInfo.Pipeline.Name
+) error {
+	timesRemoved := 0
+	// try reopening the pipe three times before erroring
+ReopenPipe:
+	for timesRemoved < 3 {
 		// open a read connection to the /pfs/out named pipe
-		out, err := os.Open("/pfs/out")
+		out, err := openPipeReadOnly("/pfs/out", logger)
 		if err != nil {
 			return err
 		}
 		// and close it when we're done
-		defer func() {
-			if err := out.Close(); err != nil && retErr1 == nil {
-				// this lets us pass the error through if Close fails
-				retErr1 = err
-			}
-		}()
+		defer out.Close()
+
+		// set up a channel to watch if the pipe has been written to or removed
+		c := make(chan notify.EventInfo, 5)
+		notify.Watch("/pfs/out", c, notify.Write|notify.Remove)
 		for {
-			// this extra closure is so that we can scope the defer for FinishCommit
-
-			if err := func() (retErr2 error) {
-
-				// create a new tar reader
-				outTar := tar.NewReader(out)
-
-				var commit *pfs.Commit
-
-				// this loops through all the files in the tar that we've read from /pfs/out
-				for {
-					fileHeader, err := outTar.Next()
-					if errors.Is(err, io.EOF) {
-						err = openAndWait()
-						if err != nil {
-							return err
-						}
-						break
-					}
-					if err != nil {
-						return err
-					}
-					if commit == nil {
-						// start commit
-						commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-							Parent:     client.NewCommit(repo, ""),
-							Branch:     pipelineInfo.OutputBranch,
-							Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
-						})
-						if err != nil {
-							return err
-						}
-
-						// finish the commit even if there was an issue
-						defer func() {
-							if err := pachClient.FinishCommit(repo, commit.ID); err != nil && retErr2 == nil {
-								// this lets us pass the error through if FinishCommit fails
-								retErr2 = err
-							}
-						}()
-					}
-					// put files into pachyderm
-					if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), pipelineInfo.Spout.Marker) {
-						// we'll check that this is the latest version of the spout, and then commit to it
-						// we need to do this atomically because we otherwise might hit a subtle race condition
-
-						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
-						spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
-						if err != nil && !errutil.IsNotFoundError(err) {
-							return err
-						}
-						if spec != nil && len(spec.ChildCommits) != 0 {
-							return errors.New("outdated spout, now shutting down")
-						}
-						_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
-						if err != nil {
-							return err
-						}
-
-					} else if pipelineInfo.Spout.Overwrite {
-						_, err = pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
-						if err != nil {
-							return err
-						}
-					} else {
-						_, err = pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
-						if err != nil {
-							return err
-						}
-					}
+			// wait for the pipe to be written to (or removed)
+			e := <-c
+			switch e.Event() {
+			case notify.Write:
+				var buff bytes.Buffer
+				// copy pipe contents to buffer
+				n, err := io.Copy(&buff, out)
+				if err != nil {
+					break
 				}
-				return nil
-			}(); err != nil {
+				if n == 0 {
+					continue
+				}
+				// send the contents to the tar reader
+				fileList := TarReader(buff, logger)
+				// and process any new files received
+				err = processFiles(ctx, pachClient, pipelineInfo, fileList, logger)
+				if err != nil {
+					return err
+				}
+				// after a succesful round, we want to reset the timesRemoved counter
+				timesRemoved = 0
+			case notify.Remove:
+				logger.Logf("Error: pipe /pfs/out removed")
+				timesRemoved++
+				if timesRemoved < 3 {
+					continue ReopenPipe
+				}
 				return err
 			}
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("error in receiveSpout: %+v, retrying in: %+v", err, d)
-		return nil
-	})
+	}
+	return nil
 }
