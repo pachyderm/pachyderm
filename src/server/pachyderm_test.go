@@ -10623,6 +10623,7 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 
 		var files []*pfs.FileInfo
+		// the test image generated from ./etc/testing/spout/main.go sends 1000 files
 		for i := 0; len(files) < 1000; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)

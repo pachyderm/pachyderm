@@ -81,12 +81,10 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) []TarFile {
 				return nil
 			}
 		}
-		logger.Logf("Read body", len(body))
 		curr.body = append(curr.body, body...)
 		if err == io.EOF {
 			// Read the entire body
 			fileList = append(fileList, curr)
-			logger.Logf("Received file %s of len %d\n", curr.header.Name, curr.header.Size)
 			curr.header = nil
 			curr.body = nil
 		}
@@ -95,7 +93,6 @@ func TarReader(buff bytes.Buffer, logger logs.TaggedLogger) []TarFile {
 		SkipTarPadding(r)
 	}
 
-	logger.Logf("Received %d tar files\n", len(fileList))
 	return fileList
 }
 
@@ -123,77 +120,66 @@ func processFiles(ctx context.Context,
 	pipelineInfo *pps.PipelineInfo,
 	fileList []TarFile,
 	logger logs.TaggedLogger) (retErr1 error) {
-	repo := pipelineInfo.Pipeline.Name
-	var commit *pfs.Commit
-	var err error
-	for _, f := range fileList {
-		if commit == nil {
-			// start commit
-			commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-				Parent:     client.NewCommit(repo, ""),
-				Branch:     pipelineInfo.OutputBranch,
-				Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
-			})
-			if err != nil {
-				return err
-			}
-
-			// finish the commit even if there was an issue
-			defer func() {
-				if err := pachClient.FinishCommit(repo, commit.ID); err != nil {
-					// this lets us pass the error through if FinishCommit fails
-					retErr1 = err
-				}
-			}()
-		}
-		r := bytes.NewReader(f.body)
-		// put files into pachyderm
-		if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(f.header.Name), pipelineInfo.Spout.Marker) {
-			// we'll check that this is the latest version of the spout, and then commit to it
-			// we need to do this atomically because we otherwise might hit a subtle race condition
-
-			// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
-			spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
-			if err != nil && !errutil.IsNotFoundError(err) {
-				return err
-			}
-			if spec != nil && len(spec.ChildCommits) != 0 {
-				return errors.New("outdated spout, now shutting down")
-			}
-			_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, f.header.Name, r, 0)
-			if err != nil {
-				return err
-			}
-
-		} else if pipelineInfo.Spout.Overwrite {
-			_, err = pachClient.PutFileOverwrite(repo, commit.ID, f.header.Name, r, 0)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err = pachClient.PutFile(repo, commit.ID, f.header.Name, r)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return retErr1
-}
-
-func processFilesReceived(
-	ctx context.Context,
-	pachClient *client.APIClient,
-	pipelineInfo *pps.PipelineInfo,
-	fileList []TarFile,
-	logger logs.TaggedLogger) error {
 	if len(fileList) > 0 {
-		err := processFiles(ctx, pachClient, pipelineInfo, fileList, logger)
-		fileList = nil
-		if err != nil {
-			return err
+		repo := pipelineInfo.Pipeline.Name
+		var commit *pfs.Commit
+		var err error
+		for _, f := range fileList {
+			if commit == nil {
+				// start commit
+				commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+					Parent:     client.NewCommit(repo, ""),
+					Branch:     pipelineInfo.OutputBranch,
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+				})
+				if err != nil {
+					return err
+				}
+
+				// finish the commit even if there was an issue
+				defer func() {
+					if err := pachClient.FinishCommit(repo, commit.ID); err != nil {
+						// this lets us pass the error through if FinishCommit fails
+						retErr1 = err
+					}
+				}()
+			}
+			r := bytes.NewReader(f.body)
+			// put files into pachyderm
+			if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(f.header.Name), pipelineInfo.Spout.Marker) {
+				// we'll check that this is the latest version of the spout, and then commit to it
+				// we need to do this atomically because we otherwise might hit a subtle race condition
+
+				// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
+				spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
+				if err != nil && !errutil.IsNotFoundError(err) {
+					return err
+				}
+				if spec != nil && len(spec.ChildCommits) != 0 {
+					return errors.New("outdated spout, now shutting down")
+				}
+				_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, f.header.Name, r, 0)
+				if err != nil {
+					return err
+				}
+
+			} else if pipelineInfo.Spout.Overwrite {
+				_, err = pachClient.PutFileOverwrite(repo, commit.ID, f.header.Name, r, 0)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = pachClient.PutFile(repo, commit.ID, f.header.Name, r)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
-	return nil
+	// reset the fileList now that we've finished processing
+	fileList = nil
+
+	return retErr1
 }
 
 func openPipeReadOnly(pName string, logger logs.TaggedLogger) (*os.File, error) {
@@ -242,20 +228,22 @@ ReopenPipe:
 				// copy pipe contents to buffer
 				n, err := io.Copy(&buff, out)
 				if err != nil {
-					logger.Logf("Received an EOF", err)
 					break
 				}
 				if n == 0 {
 					continue
 				}
-				logger.Logf("Received %v bytes from /pfs/out pipe", n)
 				// send the contents to the tar reader
 				fileList := TarReader(buff, logger)
 				// and process any new files received
-				logger.Logf("Spout is processing %v tar files", len(fileList))
-				processFilesReceived(ctx, pachClient, pipelineInfo, fileList, logger)
+				err = processFiles(ctx, pachClient, pipelineInfo, fileList, logger)
+				if err != nil {
+					return err
+				}
+				// after a succesful round, we want to reset the timesRemoved counter
+				timesRemoved = 0
 			case notify.Remove:
-				logger.Logf("Fatal: pipe /pfs/out removed")
+				logger.Logf("Error: pipe /pfs/out removed")
 				timesRemoved++
 				if timesRemoved < 3 {
 					continue ReopenPipe
