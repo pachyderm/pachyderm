@@ -97,7 +97,40 @@ func (a *apiServerV2) ListDatum(_ context.Context, _ *pps.ListDatumRequest) (*pp
 }
 
 func (a *apiServerV2) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (*types.Empty, error) {
-	// TODO: catch unsupported features, apply transformations (always enable stats)
+	if request.TFJob != nil {
+		return nil, errors.Errorf("TFJob not implemented")
+	}
+	if request.HashtreeSpec != nil {
+		return nil, errors.Errorf("HashtreeSpec not implemented")
+	}
+	if request.Egress != nil {
+		return nil, errors.Errorf("Egress not implemented")
+	}
+	if request.S3Out {
+		return nil, errors.Errorf("S3Out not implemented")
+	}
+	var err error
+	pps.VisitInput(request.Input, func(input *pps.Input) {
+		if input.Join != nil {
+			err = errors.Errorf("Join input not implemented")
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	if request.CacheSize != "" {
+		return nil, errors.Errorf("CacheSize not implemented")
+	}
+	request.EnableStats = true
+	if request.MaxQueueSize != 0 {
+		return nil, errors.Errorf("MaxQueueSize not implemented")
+	}
+	if request.Service != nil {
+		return nil, errors.Errorf("Service not implemented")
+	}
+	if request.Spout != nil {
+		return nil, errors.Errorf("Spout not implemented")
+	}
 	return a.apiServer.CreatePipeline(ctx, request)
 }
 
