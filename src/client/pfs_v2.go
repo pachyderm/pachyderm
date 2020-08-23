@@ -220,7 +220,7 @@ func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Write
 	}, true)
 }
 
-var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+var errV1NotImplemented = errors.Errorf("V1 method not implemented")
 
 type putFileClientV2 struct {
 	c APIClient

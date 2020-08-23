@@ -90,7 +90,7 @@ func (a *apiServerV2) collectDatums(ctx context.Context, job *pps.Job, cb func(*
 	return datum.NewFileSetIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID).Iterate(cb)
 }
 
-var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+var errV1NotImplemented = errors.Errorf("V1 method not implemented")
 
 func (a *apiServerV2) ListDatum(_ context.Context, _ *pps.ListDatumRequest) (*pps.ListDatumResponse, error) {
 	return nil, errV1NotImplemented
