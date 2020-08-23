@@ -7,7 +7,7 @@ import (
 )
 
 type DatumHasherV2 interface {
-	Hash([]*common.InputV2) string
+	Hash([]*common.Input) string
 }
 
 // TODO: We should probably pipe a context through here.

@@ -62,6 +62,11 @@ type ErrOutputCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrCommitNotFinished represents an error where the commit has not been finished.
+type ErrCommitNotFinished struct {
+	Commit *pfs.Commit
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo.Name, e.File.Commit.ID)
 }
@@ -103,6 +108,10 @@ func (e ErrOutputCommitNotFinished) Error() string {
 	return fmt.Sprintf("output commit %v not finished", e.Commit.ID)
 }
 
+func (e ErrCommitNotFinished) Error() string {
+	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
+}
+
 // ByteRangeSize returns byteRange.Upper - byteRange.Lower.
 func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
@@ -117,6 +126,7 @@ var (
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
+	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -189,4 +199,13 @@ func IsOutputCommitNotFinishedErr(err error) bool {
 		return false
 	}
 	return outputCommitNotFinishedRe.MatchString(err.Error())
+}
+
+// IsCommitNotFinishedErr returns true if the err is due to an attempt at performing
+// an operation that only applies to finished commits on an unfinished commit.
+func IsCommitNotFinishedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitNotFinishedRe.MatchString(err.Error())
 }

@@ -1,6 +1,5 @@
 #!/bin/sh
 set -e
-cd /pfs/build
-pip install ./*.whl
 cd /pfs/source
+test -f requirements.txt && pip install /pfs/build/*.whl
 python main.py "$@"

@@ -6,11 +6,9 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -62,7 +60,7 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 					ctx, cancel := context.WithCancel(pachClient.Ctx())
 					defer cancel()
 					driver := driver.WithContext(ctx)
-					inputs := inputV2ToV1(meta.Inputs)
+					inputs := meta.Inputs
 					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
 					var opts []datum.DatumOption
 					if driver.PipelineInfo().DatumTimeout != nil {
@@ -92,25 +90,4 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 			}, datum.WithMetaOutput(focMeta), datum.WithPFSOutput(focPFS), datum.WithStats(datumSet.Stats))
 		})
 	})
-}
-
-// TODO: temporary hack to workaround refactoring WithActiveData
-func inputV2ToV1(inputs []*common.InputV2) []*common.Input {
-	var result []*common.Input
-	for _, input := range inputs {
-		result = append(result, &common.Input{
-			FileInfo: &pfs.FileInfo{
-				File: input.FileInfo.File,
-			},
-			ParentCommit: input.ParentCommit,
-			Name:         input.Name,
-			JoinOn:       input.JoinOn,
-			Lazy:         input.Lazy,
-			Branch:       input.Branch,
-			GitURL:       input.GitURL,
-			EmptyFiles:   input.EmptyFiles,
-			S3:           input.S3,
-		})
-	}
-	return result
 }

@@ -17,28 +17,46 @@
   force = true
 
 [[redirects]]
+  from = "/*/archive/*"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/"
   to = "/latest/"
   status = 301
   force = true
 
-#[[redirects]]
-#  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-#  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
-#  status = 301
-#  force = true
+[[redirects]]
+  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
+  status = 301
+  force = true
 
-#[[redirects]]
-#  from = "/how-tos/use-jupyterhub/"
-#  to = "/how-tos/use-pachyderm-ide/"
-#  status = 301
-#  force = true
+[[redirects]]
+  from = "/how-tos/use-jupyterhub/"
+  to = "/how-tos/use-pachyderm-ide/"
+  status = 301
+  force = true
 
-#[[redirects]]
-#  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-#  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
-#  status = 301
-#  force = true
+[[redirects]]
+  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
+  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/enterprise/saml/"
+  to = "/latest/enterprise/auth/saml/saml/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/v1.9.3/enterprise/auth/index.html"
+  to = "/latest/enterprise/auth/"
+  status = 301
+  force = true
 
 [[redirects]]
    from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
@@ -58,6 +76,11 @@
   status = 301
   force = true
 
+[[redirects]]
+  from = "/archive/"
+  to = "/latest/archive/"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/"

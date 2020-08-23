@@ -17,7 +17,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="pipeline_spec/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="pipeline_spec/" class="md-typeset md-link">
           Pipeline Specification
           </a>
           </li>
@@ -36,7 +36,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="config_spec" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="config_spec" class="md-typeset md-link">
           Pachyderm Config Specification
           </a>
           </li>
@@ -57,7 +57,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="clients/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="clients/" class="md-typeset md-link">
              Pachyderm Language Clients
            </a>
            </li>
@@ -76,7 +76,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="s3gateway_api/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="s3gateway_api/" class="md-typeset md-link">
             S3 Gateway API References
           </a>
           </li>
@@ -99,7 +99,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="pachctl/pachctl/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="pachctl/pachctl/" class="md-typeset md-link">
            Pachyderm Reference
            </a>
            </li>
@@ -117,7 +117,7 @@ your favorite programming language.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-            <li><a href="../examples/examples/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="../examples/examples/" class="md-typeset md-link">
             Examples
             </a>
             </li>

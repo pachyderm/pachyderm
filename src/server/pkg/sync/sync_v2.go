@@ -12,5 +12,5 @@ func PullV2(pachClient *client.APIClient, file *pfs.File, storageRoot string, cb
 	if err != nil {
 		return err
 	}
-	return tarutil.TarToLocal(storageRoot, r, cb...)
+	return tarutil.Import(storageRoot, r, cb...)
 }

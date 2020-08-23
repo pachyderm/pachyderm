@@ -33,6 +33,7 @@ func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Read
 // NextDataRefs sets the next data references for the reader.
 func (r *Reader) NextDataRefs(dataRefs []*DataRef) {
 	r.dataRefs = dataRefs
+	r.peek = nil
 }
 
 // Peek returns the next data reader without progressing the reader.

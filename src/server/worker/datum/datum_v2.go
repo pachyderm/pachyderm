@@ -288,7 +288,7 @@ func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Hea
 	if err != nil {
 		return err
 	}
-	if err := tarutil.LocalToTar(storageRoot, f, cb...); err != nil {
+	if err := tarutil.Export(storageRoot, f, cb...); err != nil {
 		return err
 	}
 	if _, err := f.Seek(0, 0); err != nil {

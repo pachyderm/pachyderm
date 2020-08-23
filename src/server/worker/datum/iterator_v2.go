@@ -44,12 +44,12 @@ func (pi *pfsIteratorV2) Iterate(cb func(*Meta) error) error {
 	repo := pi.input.Repo
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
-	return pi.pachClient.GlobFileV2(repo, commit, pattern, func(fi *pfs.FileInfoV2) error {
+	return pi.pachClient.GlobFileF(repo, commit, pattern, func(fi *pfs.FileInfo) error {
 		g := glob.MustCompile(pi.input.Glob, '/')
 		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		return cb(&Meta{
-			Inputs: []*common.InputV2{
-				&common.InputV2{
+			Inputs: []*common.Input{
+				&common.Input{
 					FileInfo:   fi,
 					JoinOn:     joinOn,
 					Name:       pi.input.Name,
@@ -106,7 +106,7 @@ func (ci *crossIteratorV2) Iterate(cb func(*Meta) error) error {
 	return iterate(nil, ci.iterators, cb)
 }
 
-func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func(*Meta) error) error {
+func iterate(crossInputs []*common.Input, iterators []IteratorV2, cb func(*Meta) error) error {
 	if len(iterators) == 0 {
 		return cb(&Meta{Inputs: crossInputs})
 	}
@@ -118,7 +118,7 @@ func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func(*Met
 
 // TODO: Need inspect file.
 //type gitIteratorV2 struct {
-//	inputs []*common.InputV2
+//	inputs []*common.Input
 //}
 //
 //func newGitIteratorV2(pachClient *client.APIClient, input *pps.GitInput) (IteratorV2, error) {
@@ -132,8 +132,8 @@ func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func(*Met
 //		return nil, err
 //	}
 //	return &gitIteratorV2{
-//		inputs: []*common.InputV2{
-//			&common.InputV2{
+//		inputs: []*common.Input{
+//			&common.Input{
 //				FileInfo: fi,
 //				Name:     input.Name,
 //				Branch:   input.Branch,
@@ -143,7 +143,7 @@ func iterate(crossInputs []*common.InputV2, iterators []IteratorV2, cb func(*Met
 //	}, nil
 //}
 //
-//func (gi *gitIteratorV2) Iterate(cb func([]*common.InputV2) error) error {
+//func (gi *gitIteratorV2) Iterate(cb func([]*common.Input) error) error {
 //	if len(gi.inputs) == 0 {
 //		return nil
 //	}

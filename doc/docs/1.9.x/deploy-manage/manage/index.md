@@ -15,11 +15,11 @@ throughout the lifetime of your cluster.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="cluster-access/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="cluster-access/" class="md-typeset md-link">
             Manage Cluster Access
           </a>
           </li>
-          <li><a href="batching_pachyderm_with_transactions/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="batching_pachyderm_with_transactions/" class="md-typeset md-link">
             Batching Pachyderm with Transactions
           </a>
           </li>
@@ -38,11 +38,11 @@ throughout the lifetime of your cluster.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-            <li><a href="upgrades_migrations/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="upgrades_migrations/" class="md-typeset md-link">
              Upgrades and Migrations
             </a>
             </li>
-            <li><a href="backup_restore/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="backup_restore/" class="md-typeset md-link">
               Backup and Restore
             </a>
             </li>
@@ -63,19 +63,19 @@ throughout the lifetime of your cluster.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="autoscaling/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="autoscaling/" class="md-typeset md-link">
             Autoscalse Your Cluster
           </a>
           </li>
-          <li><a href="data_management/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="data_management/" class="md-typeset md-link">
             Storage Use Optimization
           </a>
           </li>
-          <li><a href="gpus/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="gpus/" class="md-typeset md-link">
            Use GPUs
           </a>
           </li>
-          <li><a href="sharing_gpu_resources/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="sharing_gpu_resources/" class="md-typeset md-link">
             Sharing GPU resources
           </a>
           </li>

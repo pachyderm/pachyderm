@@ -34,7 +34,7 @@ type hasherV2 struct {
 	salt string
 }
 
-func (h *hasherV2) Hash(inputs []*common.InputV2) string {
+func (h *hasherV2) Hash(inputs []*common.Input) string {
 	return common.HashDatumV2(h.name, h.salt, inputs)
 }
 

@@ -4,7 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [packages]
-mkdocs-minify-plugin = ">=0.2"
+mkdocs = ">=1.1"
 mkdocs-exclude = "*"
 pymdown-extensions = ">=7.0"
 markdown-include = "*"
@@ -12,7 +12,7 @@ Pygments = ">=2.4"
 markdown = ">=3.2"
 mdx_truly_sane_lists = ">=1.2"
 mkdocs-git-revision-date-localized-plugin = "*"
-mkdocs-pachyderm = "==1.0.2"
+mkdocs-pachyderm = ">=1.2.8"
+mkdocs-minify-plugin = ">=0.2"
 
 [dev-packages]
-mkdocs = ">=1.1"

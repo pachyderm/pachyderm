@@ -123,7 +123,7 @@ func TestWriteThenRead(t *testing.T) {
 		for _, fileName := range fileNames {
 			data := chunk.RandSeq(rand.Intn(max))
 			files = append(files, &testFile{
-				name: fileName,
+				name: "/" + fileName,
 				data: data,
 				tags: generateTags(len(data)),
 			})
@@ -137,7 +137,7 @@ func TestWriteThenRead(t *testing.T) {
 			// Read the files from the fileset, checking against the recorded files.
 			r := fileSets.newReader(context.Background(), fileSet)
 			filesIter := files
-			require.NoError(t, r.Iterate(func(fr *FileReader) error {
+			require.NoError(t, r.iterate(func(fr *FileReader) error {
 				checkFile(t, fr, filesIter[0], msg)
 				filesIter = filesIter[1:]
 				return nil
@@ -165,7 +165,7 @@ func TestCopy(t *testing.T) {
 		for _, fileName := range fileNames {
 			data := chunk.RandSeq(rand.Intn(max))
 			files = append(files, &testFile{
-				name: fileName,
+				name: "/" + fileName,
 				data: data,
 				tags: generateTags(len(data)),
 			})
@@ -181,13 +181,13 @@ func TestCopy(t *testing.T) {
 		r := fileSets.newReader(context.Background(), originalPath)
 		copyPath := path.Join(testPath, "copy")
 		wCopy := fileSets.newWriter(context.Background(), copyPath)
-		require.NoError(t, r.Iterate(func(fr *FileReader) error {
+		require.NoError(t, r.iterate(func(fr *FileReader) error {
 			return wCopy.CopyFile(fr)
 		}), msg)
 		require.NoError(t, wCopy.Close(), msg)
 		// Compare initial fileset and copy fileset.
 		rCopy := fileSets.newReader(context.Background(), copyPath)
-		require.NoError(t, rCopy.Iterate(func(fr *FileReader) error {
+		require.NoError(t, rCopy.iterate(func(fr *FileReader) error {
 			checkFile(t, fr, files[0], msg)
 			files = files[1:]
 			return nil
@@ -199,29 +199,6 @@ func TestCopy(t *testing.T) {
 			return nil
 		}), msg)
 		require.Equal(t, initialChunkCount, finalChunkCount, msg)
-		return nil
-	}))
-}
-
-func TestResolveIndexes(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := testutil.SeedRand()
-		numFileSets := 5
-		// Generate filesets.
-		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
-		// Get the file hashes.
-		getHashes(t, fileSets, files, msg)
-		// Merge and check the files.
-		mr, err := fileSets.NewMergeReader(context.Background(), []string{testPath})
-		require.NoError(t, err)
-		require.NoError(t, fileSets.ResolveIndexes(context.Background(), []string{testPath}, func(idx *index.Index) error {
-			fmr, err := mr.Next()
-			require.NoError(t, err)
-			fmr.fullIdx = idx
-			checkFile(t, fmr, files[0], msg)
-			files = files[1:]
-			return nil
-		}), msg)
 		return nil
 	}))
 }
@@ -238,8 +215,8 @@ func TestCompaction(t *testing.T) {
 		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath})
 		require.NoError(t, err, msg)
 		// Check the files.
-		r := fileSets.newReader(context.Background(), path.Join(testPath, Compacted))
-		require.NoError(t, r.Iterate(func(fr *FileReader) error {
+		r := fileSets.NewReader(context.Background(), path.Join(testPath, Compacted))
+		require.NoError(t, r.iterate(func(fr *FileReader) error {
 			checkFile(t, fr, files[0], msg)
 			files = files[1:]
 			return nil
@@ -259,7 +236,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 	for i, fileName := range fileNames {
 		data := chunk.RandSeq(rand.Intn(max))
 		files = append(files, &testFile{
-			name: fileName,
+			name: "/" + fileName,
 			data: data,
 			tags: generateTags(len(data)),
 		})
@@ -302,7 +279,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 func getHashes(t *testing.T, fileSets *Storage, files []*testFile, msg string) {
 	writeFileSet(t, fileSets, path.Join(scratchPath, Compacted), files, msg)
 	r := fileSets.newReader(context.Background(), path.Join(scratchPath, Compacted))
-	require.NoError(t, r.Iterate(func(fr *FileReader) error {
+	require.NoError(t, r.iterate(func(fr *FileReader) error {
 		files[0].hashes = dataRefsToHashes(fr.Index().DataOp.DataRefs)
 		files = files[1:]
 		return nil

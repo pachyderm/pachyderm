@@ -83,34 +83,34 @@ fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minu
 ## Authenticating via a SAML ID Provider (in the dashboard)
 Before authenticating, navigating to the dash will yield a blank screen:
 
-![Blocked-out dash](../assets/images/saml_log_in.png)
+![Blocked-out dash](../../../assets/images/saml_log_in.png)
 
 Even through the dash suggests logging in via GitHub, we will log in using a
 SAML IdP (which has hopefully already been configured). To see your Pachyderm
 DAG, navigate to your SAML ID provider and sign in to your Pachyderm cluster
 there (currently Pachyderm only supports IdP-initiate SAML authentication).
 
-![SSO image](../assets/images/saml_okta_with_app.png)
+![SSO image](../../../assets/images/saml_okta_with_app.png)
 
 Once you've authenticated, you'll be redirected to the Pachyderm dash (the
 redirect URL is configured in the Pachyderm auth system). You'll be given the
 opportunity to generate a one-time password (OTP), though you can always do this
 later from the settings panel.
 
-![Dash logged in](../assets/images/saml_successfully_logged_in.png)
+![Dash logged in](../../../assets/images/saml_successfully_logged_in.png)
 
 After closing the OTP panel, you'll be able to see the Pachyderm DAG, but you
 may not have access to any of the repos inside (a repo that you cannot read is
 indicated by a lock symbol):
 
-![Dash with locked repos](../assets/images/saml_dag.png)
+![Dash with locked repos](../../../assets/images/saml_dag.png)
 
 ## Authenticating in the CLI
 After authenticating in the dash, you'll be given the opportunity to generate a
 one-time password (OTP) and sign in on the CLI. You can also generate an OTP
 from the settings panel:
 
-![OTP Image](../assets/images/saml_display_otp.png)
+![OTP Image](../../../assets/images/saml_display_otp.png)
 
 ```
 (user)$ pachctl auth login --code auth_code:73db4686e3e142508fa74aae920cc58b
@@ -141,11 +141,11 @@ accomplished on the CLI like so:
 
 Now, the `images` repo is no longer locked when that user views the DAG:
 
-![Unlocked images repo image](../assets/images/saml_dag_images_readable.png)
+![Unlocked images repo image](../../../assets/images/saml_dag_images_readable.png)
 
 At this point, you can click on the `images` repo and preview data inside:
 
-![Unlocked images repo image](../assets/images/saml_dag_reading_from_images.png)
+![Unlocked images repo image](../../../assets/images/saml_dag_reading_from_images.png)
 
 Likewise, you can grant access to repos via groups. You'll need a SAML ID
 provider that supports group attributes, and you'll need to put the name of that
@@ -158,14 +158,14 @@ group:
 
 Now, the edges repo is also not locked:
 
-![Unlocked edges repo](../assets/images/saml_dag_images_and_edges_readable.png)
+![Unlocked edges repo](../../../assets/images/saml_dag_images_and_edges_readable.png)
 
 Also, becase `msteffen@pachyderm.io` has OWNER provileges in the `edges` repo
 (via the Everyone group), the ACL for `edges` can be edited.
 `msteffen@pachyderm.io` will use OWNER privileges gained via the Everyone group
 to add `msteffen@pachyderm.io` (the user principal) directly to that ACL:
 
-![Adding user to ACL image](../assets/images/saml_editing_acl.png)
+![Adding user to ACL image](../../../assets/images/saml_editing_acl.png)
 
 this change is reflected in the CLI as well:
 

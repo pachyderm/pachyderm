@@ -1,8 +1,6 @@
 package client
 
 import (
-	"bytes"
-	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,63 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
-
-// TODO: Change this to not buffer the file locally.
-// We will want to move to a model where we buffer in chunk storage.
-func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
-	return withTmpFile(func(tarF *os.File) error {
-		if err := withTmpFile(func(f *os.File) error {
-			size, err := io.Copy(f, r)
-			if err != nil {
-				return err
-			}
-			_, err = f.Seek(0, 0)
-			if err != nil {
-				return err
-			}
-			return tarutil.WithWriter(tarF, func(tw *tar.Writer) error {
-				return tarutil.WriteFile(tw, tarutil.NewStreamFile(path, size, f))
-			})
-		}); err != nil {
-			return err
-		}
-		_, err := tarF.Seek(0, 0)
-		if err != nil {
-			return err
-		}
-		return c.PutTarV2(repo, commit, tarF)
-	})
-}
-
-// TODO: refactor into utility package, also exists in debug util.
-func withTmpFile(cb func(*os.File) error) (retErr error) {
-	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return err
-	}
-	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_put_file")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.Remove(f.Name()); retErr == nil {
-			retErr = err
-		}
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return cb(f)
-}
-
-func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Writer) error {
-	r, err := c.GetTarV2(repo, commit, path)
-	if err != nil {
-		return err
-	}
-	return tarutil.Iterate(r, func(f tarutil.File) error {
-		return f.Content(w)
-	}, true)
-}
 
 // PutTarV2 puts a tar stream into PFS.
 func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) error {
@@ -222,152 +163,103 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
 }
 
-// GetTarConditionalV2 functions similarly to GetTar with the key difference being that each file's content can be conditionally downloaded.
-// GetTarConditional takes a callback that will be called for each file that matched the path.
-// The callback will receive the file information for the file and a reader that will lazily download a tar stream that contains the file.
-func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoV2, r io.Reader) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.GetTarConditionalV2(c.Ctx())
-	if err != nil {
-		return err
-	}
-	if err := client.Send(&pfs.GetTarConditionalRequestV2{File: NewFile(repoName, commitID, path)}); err != nil {
-		return err
-	}
-	for {
-		resp, err := client.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		r := &getTarConditionalReader{
-			client: client,
-			first:  true,
-		}
-		if err := f(resp.FileInfo, r); err != nil {
-			return err
-		}
-		if r.first {
-			if err := client.Send(&pfs.GetTarConditionalRequestV2{Skip: true}); err != nil {
+// TODO: Change this to not buffer the file locally.
+// We will want to move to a model where we buffer in chunk storage.
+func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
+	return withTmpFile(func(tarF *os.File) error {
+		if err := withTmpFile(func(f *os.File) error {
+			size, err := io.Copy(f, r)
+			if err != nil {
 				return err
 			}
-			continue
-		}
-		if err := r.drain(); err != nil {
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+			return tarutil.WithWriter(tarF, func(tw *tar.Writer) error {
+				return tarutil.WriteFile(tw, tarutil.NewStreamFile(path, size, f))
+			})
+		}); err != nil {
 			return err
 		}
-	}
-}
-
-// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
-func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoV2) error) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
-	defer cancel()
-	req := &pfs.ListFileRequest{
-		File: NewFile(repoName, commitID, path),
-		Full: true,
-	}
-	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
-	if err != nil {
-		return err
-	}
-	for {
-		finfo, err := client.Recv()
+		_, err := tarF.Seek(0, 0)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
 			return err
 		}
-
-		if err := f(finfo); err != nil {
-			return err
-		}
-	}
-	return nil
+		return c.PutTarV2(repo, commit, tarF)
+	})
 }
 
-type getTarConditionalReader struct {
-	client     pfs.API_GetTarConditionalV2Client
-	r          *bytes.Reader
-	first, EOF bool
-}
-
-func (r *getTarConditionalReader) Read(data []byte) (int, error) {
-	if r.first {
-		if err := r.client.Send(&pfs.GetTarConditionalRequestV2{Skip: false}); err != nil {
-			return 0, err
-		}
-		r.first = false
+// TODO: refactor into utility package, also exists in debug util.
+func withTmpFile(cb func(*os.File) error) (retErr error) {
+	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
+		return err
 	}
-	if r.r == nil || r.r.Len() == 0 {
-		if err := r.nextResponse(); err != nil {
-			return 0, err
-		}
-	}
-	return r.r.Read(data)
-}
-
-func (r *getTarConditionalReader) nextResponse() error {
-	if r.EOF {
-		return io.EOF
-	}
-	resp, err := r.client.Recv()
+	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_put_file")
 	if err != nil {
 		return err
 	}
-	if resp.EOF {
-		r.EOF = true
-		return io.EOF
-	}
-	r.r = bytes.NewReader(resp.Data)
-	return nil
-}
-
-func (r *getTarConditionalReader) drain() error {
-	for {
-		if err := r.nextResponse(); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// GlobFileV2 returns info about all files in a commit that match pattern, calling cb with each FileInfoV2.
-func (c APIClient) GlobFileV2(repo string, commit string, pattern string, cb func(*pfs.FileInfoV2) error) (retErr error) {
 	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
+		if err := os.Remove(f.Name()); retErr == nil {
+			retErr = err
+		}
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
 	}()
-	ctx, cancel := context.WithCancel(c.Ctx())
-	defer cancel()
-	req := &pfs.GlobFileRequest{
-		Commit:  NewCommit(repo, commit),
-		Pattern: pattern,
-	}
-	client, err := c.PfsAPIClient.GlobFileV2(ctx, req)
+	return cb(f)
+}
+
+func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Writer) error {
+	r, err := c.GetTarV2(repo, commit, path)
 	if err != nil {
 		return err
 	}
-	for {
-		fi, err := client.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if err := cb(fi); err != nil {
-			return err
-		}
-	}
+	return tarutil.Iterate(r, func(f tarutil.File) error {
+		return f.Content(w)
+	}, true)
+}
+
+var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+
+type putFileClientV2 struct {
+	c APIClient
+}
+
+func (c APIClient) newPutFileClientV2() PutFileClient {
+	return &putFileClientV2{c: c}
+}
+
+func (pfc *putFileClientV2) PutFileWriter(repo, commit, path string) (io.WriteCloser, error) {
+	return nil, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileSplitWriter(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
+	return nil, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFile(repo, commit, path string, r io.Reader) (int, error) {
+	return 0, pfc.c.PutFileV2(repo, commit, path, r)
+}
+
+func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, reader io.Reader, overwriteIndex int64) (int, error) {
+	return 0, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileSplit(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, r io.Reader) (int, error) {
+	// TODO: Add split support.
+	return 0, errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) PutFileURL(repo, commit, path, url string, recursive bool, overwrite bool) error {
+	// TODO: Add URL support.
+	return errV1NotImplemented
+}
+
+func (pfc *putFileClientV2) DeleteFile(repo, commit, path string) error {
+	return pfc.c.DeleteFilesV2(repo, commit, []string{path})
+}
+
+func (pfc *putFileClientV2) Close() error {
 	return nil
 }

@@ -17,15 +17,3 @@ message Input {
   bool empty_files = 7;
   bool s3 = 9; // If set, workers won't create an input directory for this input
 }
-
-message InputV2 {
-  pfs.FileInfoV2 file_info = 1;
-  pfs.Commit parent_commit = 5;
-  string name = 2;
-  string join_on = 8;
-  bool lazy = 3;
-  string branch = 4;
-  string git_url = 6 [(gogoproto.customname) = "GitURL"];
-  bool empty_files = 7;
-  bool s3 = 9; // If set, workers won't create an input directory for this input
-}

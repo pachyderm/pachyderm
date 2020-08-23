@@ -45,7 +45,7 @@ func TestSet(t *testing.T) {
 		in.Pfs.Commit = inputCommit.ID
 		outputCommit, err := c.StartCommit(outputRepo, "master")
 		require.NoError(t, err)
-		var allInputs [][]*common.InputV2
+		var allInputs [][]*common.Input
 		// Create datum fileset.
 		require.NoError(t, c.WithFileOperationClientV2(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
 			require.NoError(t, withTmpDir(func(storageRoot string) error {

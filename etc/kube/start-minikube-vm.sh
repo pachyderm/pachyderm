@@ -118,7 +118,7 @@ set -x
 # Kill pachctl port-forward and kubectl proxy
 killall kubectl || true
 
-if [[ "${DEPLOY_FLAGS}" = "--new-storage-layer" ]]; then
+if [[ "${DEPLOY_FLAGS}" = "--storage-v2" ]]; then
 	# Port forward to postgres
 	POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
 	export POSTGRES_POD

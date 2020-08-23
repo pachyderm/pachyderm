@@ -965,6 +965,9 @@ type putFileClient struct {
 
 // NewPutFileClient returns a new client for putting files into pfs in a single request.
 func (c APIClient) NewPutFileClient() (PutFileClient, error) {
+	if c.storageV2 {
+		return c.newPutFileClientV2(), nil
+	}
 	pfc, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -973,6 +976,9 @@ func (c APIClient) NewPutFileClient() (PutFileClient, error) {
 }
 
 func (c APIClient) newOneoffPutFileClient() (PutFileClient, error) {
+	if c.storageV2 {
+		return c.newPutFileClientV2(), nil
+	}
 	pfc, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -1186,6 +1192,9 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	if c.limiter != nil {
 		c.limiter.Acquire()
 		defer c.limiter.Release()
+	}
+	if c.storageV2 {
+		return c.GetFileV2(repoName, commitID, path, writer)
 	}
 	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {

@@ -51,7 +51,7 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 }
 
 // TODO: This needs more discussion.
-func DatumIDV2(inputs []*InputV2) string {
+func DatumIDV2(inputs []*Input) string {
 	var files []string
 	for _, input := range inputs {
 		files = append(files, input.FileInfo.File.Path)
@@ -59,7 +59,7 @@ func DatumIDV2(inputs []*InputV2) string {
 	return strings.Join(files, "-")
 }
 
-func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*InputV2) string {
+func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*Input) string {
 	hash := sha256.New()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))

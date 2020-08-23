@@ -29,11 +29,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="getting_started/local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/local_installation/" class="md-typeset md-link">
           Install Pachyderm on Your Computer
           </a>
           </li>
-          <li><a href="getting_started/beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/beginner_tutorial/" class="md-typeset md-link">
           Beginner Tutorial
           </a>
         </li>
@@ -52,11 +52,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="deploy-manage/deploy/google_cloud_platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="deploy-manage/deploy/google_cloud_platform/" class="md-typeset md-link">
           Deploy Pachyderm
           </a>
           </li>
-          <li><a href="deploy-manage/manage/cluster-access/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="deploy-manage/manage/cluster-access/" class="md-typeset md-link">
           Manage Operations
           </a>
           </li>
@@ -74,11 +74,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="concepts/data-concepts/index.html" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="concepts/data-concepts/index.html" class="md-typeset md-link">
            Versioned Data Concepts
            </a>
            </li>
-           <li><a href="concepts/pipeline-concepts/index.html" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="concepts/pipeline-concepts/index.html" class="md-typeset md-link">
            Pipeline Concepts
            </a>
            </li>
@@ -98,15 +98,15 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter" class="md-typeset md-link">
            Distributed Hyperparameter Tuning
            </a>
            </li>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/gatk" class="md-typeset md-link">
            Variant Discovery with GATK
            </a>
            </li>
-           <li><a href="examples/examples/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           <li><a href="examples/examples/" class="md-typeset md-link">
            More Examples
            </a>
           </li>
@@ -124,15 +124,15 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="how-tos/load-data-into-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="how-tos/load-data-into-pachyderm" class="md-typeset md-link">
           Load Your Data Into Pachyderm
           </a>
           </li>
-          <li><a href="how-tos/export-data-out-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="how-tos/export-data-out-pachyderm" class="md-typeset md-link">
           Export Your Data From Pachyderm
           </a>
           </li>
-          <li><a href="how-tos/individual-developer-workflow" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="how-tos/individual-developer-workflow" class="md-typeset md-link">
           Individual Developer Workflow
           </a>
           </li>
@@ -150,15 +150,15 @@ email at support@pachyderm.io.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-           <li><a href="how-tos/splitting-data/splitting" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/splitting-data/splitting" class="md-typeset md-link">
            Splitting Data for Distributed Processing
            </a>
            </li>
-           <li><a href="how-tos/time_windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/time_windows" class="md-typeset md-link">
            Process Time-Windowed Data
            </a>
            </li>
-           <li><a href="how-tos/deferred_processing" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/deferred_processing" class="md-typeset md-link">
            Deferred Processing of Data
            </a>
            </li>

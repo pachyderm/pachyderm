@@ -16,7 +16,7 @@ enum State {
 
 message Meta {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
-  repeated common.InputV2 inputs = 2;
+  repeated common.Input inputs = 2;
   string hash = 3;
   State state = 4;
   string reason = 5;

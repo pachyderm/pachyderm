@@ -12,7 +12,7 @@ import (
 
 type testHasherV2 struct{}
 
-func (th *testHasherV2) Hash(inputs []*common.InputV2) string {
+func (th *testHasherV2) Hash(inputs []*common.Input) string {
 	return common.HashDatumV2("", "", inputs)
 }
 
@@ -45,9 +45,9 @@ func newTestChainV2(metas ...*datum.Meta) *JobChainV2 {
 func newMeta(jobID, name, hash string) *datum.Meta {
 	return &datum.Meta{
 		JobID: jobID,
-		Inputs: []*common.InputV2{
-			&common.InputV2{
-				FileInfo: &pfs.FileInfoV2{
+		Inputs: []*common.Input{
+			&common.Input{
+				FileInfo: &pfs.FileInfo{
 					File: &pfs.File{
 						Path: name,
 					},

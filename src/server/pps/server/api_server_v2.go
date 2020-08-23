@@ -21,7 +21,7 @@ func newAPIServerV2(embeddedServer *apiServer) *apiServerV2 {
 	return &apiServerV2{apiServer: embeddedServer}
 }
 
-func (a *apiServerV2) InspectDatumV2(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfoV2, retErr error) {
+func (a *apiServerV2) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta) error {
@@ -35,16 +35,18 @@ func (a *apiServerV2) InspectDatumV2(ctx context.Context, request *pps.InspectDa
 	return response, nil
 }
 
-func (a *apiServerV2) ListDatumV2(request *pps.ListDatumRequest, server pps.API_ListDatumV2Server) (retErr error) {
+func (a *apiServerV2) ListDatumStream(request *pps.ListDatumRequest, server pps.API_ListDatumStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta) error {
-		return server.Send(convertDatumMetaToInfo(meta))
+		return server.Send(&pps.ListDatumStreamResponse{
+			DatumInfo: convertDatumMetaToInfo(meta),
+		})
 	})
 }
 
-func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfoV2 {
-	di := &pps.DatumInfoV2{
+func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
+	di := &pps.DatumInfo{
 		Datum: &pps.Datum{
 			Job: &pps.Job{
 				ID: meta.JobID,
@@ -92,18 +94,6 @@ var errV1NotImplemented = errors.Errorf("v1 method not implemented")
 
 func (a *apiServerV2) ListDatum(_ context.Context, _ *pps.ListDatumRequest) (*pps.ListDatumResponse, error) {
 	return nil, errV1NotImplemented
-}
-
-func (a *apiServerV2) ListDatumStream(_ *pps.ListDatumRequest, _ pps.API_ListDatumStreamServer) error {
-	return errV1NotImplemented
-}
-
-func (a *apiServerV2) InspectDatum(_ context.Context, _ *pps.InspectDatumRequest) (*pps.DatumInfo, error) {
-	return nil, errV1NotImplemented
-}
-
-func (a *apiServerV2) GetLogs(_ *pps.GetLogsRequest, _ pps.API_GetLogsServer) error {
-	return errV1NotImplemented
 }
 
 func (a *apiServerV2) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (*types.Empty, error) {
