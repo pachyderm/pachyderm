@@ -164,6 +164,11 @@ func (f *PortForwarder) RunForSAMLACS(localPort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, 654)
 }
 
+// RunForOIDCACS creates a port forwarder for OIDC ACS.
+func (f *PortForwarder) RunForOIDCACS(localPort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, 657)
+}
+
 // RunForDashUI creates a port forwarder for the dash UI.
 func (f *PortForwarder) RunForDashUI(localPort uint16) (uint16, error) {
 	return f.Run("dash", localPort, 8080)
