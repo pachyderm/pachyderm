@@ -150,6 +150,7 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
 }
 
+// PutFileV2 puts a file into PFS.
 // TODO: Change this to not buffer the file locally.
 // We will want to move to a model where we buffer in chunk storage.
 func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
@@ -197,6 +198,7 @@ func withTmpFile(cb func(*os.File) error) (retErr error) {
 	return cb(f)
 }
 
+// GetFileV2 gets a file out of PFS.
 func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Writer) error {
 	r, err := c.GetTarV2(repo, commit, path)
 	if err != nil {
