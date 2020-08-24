@@ -130,7 +130,7 @@
     {
       "label": "deploy-dev",
       "type": "shell",
-      "command": "pachctl deploy local --no-guaranteed -d --dry-run --cluster-deployment-id=dev | kubectl apply -f - && kubectl rollout restart deployment.apps"
+      "command": "pachctl deploy local --no-guaranteed -d --dry-run --cluster-deployment-id=dev | kubectl apply -f -"
     },
     {
       "label": "wait-dev",

@@ -403,6 +403,12 @@
         "nodePort": 30654
       },
       {
+        "name": "oidc-port",
+        "port": 657,
+        "targetPort": 0,
+        "nodePort": 30657
+      },
+      {
         "name": "api-git-port",
         "port": 655,
         "targetPort": 0,
@@ -501,7 +507,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.11.0",
+            "image": "pachyderm/pachd:1.12.0",
             "command": [
               "/pachd"
             ],
@@ -534,6 +540,11 @@
                 "name": "saml-port",
                 "containerPort": 654,
                 "protocol": "TCP"
+              },
+              {
+                "name": "oidc-port",
+                "containerPort": 657,
+                "protocol": "TCP"
               }
             ],
             "env": [
@@ -557,22 +568,26 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.11.0"
+                "value": "pachyderm/worker:1.12.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.11.0"
+                "value": "pachyderm/pachd:1.12.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
                 "value": "IfNotPresent"
               },
               {
+                "name": "WORKER_SERVICE_ACCOUNT",
+                "value": "pachyderm-worker"
+              },
+              {
                 "name": "PACHD_VERSION",
-                "value": "1.11.0"
+                "value": "1.12.0"
               },
               {
                 "name": "METRICS",
@@ -627,6 +642,19 @@
               {
                 "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
                 "value": "false"
+              },
+              {
+                "name": "PACHD_POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "PPS_WORKER_GRPC_PORT",
+                "value": "80"
               },
               {
                 "name": "GOOGLE_BUCKET",

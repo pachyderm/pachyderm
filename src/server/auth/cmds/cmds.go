@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pkg/browser"
 
 	"github.com/spf13/cobra"
 )
@@ -28,11 +29,34 @@ func githubLogin() (string, error) {
 		"paste here, which will give you an externally verified account in " +
 		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
 		"from GitHub here:")
-	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	token, err := cmdutil.ReadPassword("")
 	if err != nil {
 		return "", errors.Wrapf(err, "error reading token")
 	}
 	return strings.TrimSpace(token), nil // drop trailing newline
+}
+
+func requestOIDCLogin(c *client.APIClient) (string, error) {
+	var authURL string
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+	if err != nil {
+		return "", err
+	}
+	authURL = loginInfo.LoginURL
+	state := loginInfo.State
+
+	// print the prepared URL and promp the user to click on it
+	fmt.Println("You will momentarily be directed to your IdP and asked to authorize Pachyderm's " +
+		"login app on your IdP.\n\nPaste the following URL into a browser if not automatically redirected:\n\n" +
+		authURL + "\n\n" +
+		"")
+
+	err = browser.OpenURL(authURL)
+	if err != nil {
+		return "", err
+	}
+
+	return state, nil
 }
 
 func writePachTokenToCfg(token string) error {
@@ -63,20 +87,22 @@ first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
 			var token string
 			var err error
+
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
 				token, err = githubLogin()
 				if err != nil {
 					return err
 				}
 			}
-			fmt.Println("Retrieving Pachyderm token...")
-
 			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
+			fmt.Println("Retrieving Pachyderm token...")
+
 			resp, err := c.Activate(c.Ctx(),
 				&auth.ActivateRequest{
 					GitHubToken: token,
@@ -85,6 +111,7 @@ first cluster admin`[1:],
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
+
 			if err := writePachTokenToCfg(resp.PachToken); err != nil {
 				return err
 			}
@@ -159,8 +186,7 @@ func LoginCmd() *cobra.Command {
 			var authErr error
 			if useOTP {
 				// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
-				fmt.Println("Please enter your Pachyderm One-Time Password:")
-				code, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				code, err := cmdutil.ReadPassword("One-Time Password:")
 				if err != nil {
 					return errors.Wrapf(err, "error reading One-Time Password")
 				}
@@ -168,6 +194,19 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OneTimePassword: code})
+			} else if state, err := requestOIDCLogin(c); err == nil {
+				// Exchange OIDC token for Pachyderm token
+				fmt.Println("Retrieving Pachyderm token...")
+				resp, authErr = c.Authenticate(
+					c.Ctx(),
+					&auth.AuthenticateRequest{OIDCState: state})
+				if authErr != nil && !auth.IsErrPartiallyActivated(authErr) {
+					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
+						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
+							"contain more information)",
+						// Print state token as it's logged, for easy searching
+						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
+				}
 			} else {
 				// Exchange GitHub token for Pachyderm token
 				token, err := githubLogin()
@@ -181,12 +220,12 @@ func LoginCmd() *cobra.Command {
 			}
 
 			// Write new Pachyderm token to config
-			if authErr != nil {
-				if auth.IsErrPartiallyActivated(authErr) {
-					return errors.Wrapf(authErr, "if pachyderm is stuck in this state, you "+
-						"can revert by running 'pachctl auth deactivate' or retry by "+
-						"running 'pachctl auth activate' again")
-				}
+			if auth.IsErrPartiallyActivated(authErr) {
+				return errors.Wrapf(authErr, "Pachyderm auth is partially activated "+
+					"(if pachyderm is stuck in this state, you can revert by running "+
+					"'pachctl auth deactivate' or retry by running 'pachctl auth "+
+					"activate' again)")
+			} else if authErr != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
 			}
 			return writePachTokenToCfg(resp.PachToken)
@@ -496,7 +535,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			"current user's Pachyderm config file",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			fmt.Println("Please paste your Pachyderm auth token:")
-			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			token, err := cmdutil.ReadPassword("")
 			if err != nil {
 				return errors.Wrapf(err, "error reading token")
 			}

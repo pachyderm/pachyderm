@@ -46,8 +46,12 @@ point-release:
 	@make doc
 	@echo "Release completed"
 
-# Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
+# Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
 release-candidate:
+	@if [ $${VERSION_ADDITIONAL:0:1} != - ]; then \
+	  echo "VERSION_ADDITIONAL must start with a '-'"; \
+	  exit 1; \
+	fi
 	@make release-helper
 	@make release-pachctl-custom
 	@echo "Release completed"
@@ -71,25 +75,38 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version docker-build docker-push
+release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl docker-push-pipeline-build
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
-docker-build: enterprise-code-checkin-test
+docker-build:
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
-		--progress plain -t pachyderm_build .
+		--progress plain -f Dockerfile.pachd -t pachyderm_build .
+
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
+
 	docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
 		-t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
+
+docker-build-pachctl:
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		--build-arg GC_FLAGS="$(GC_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
+
+docker-build-pipeline-build:
+	cd etc/pipeline-build && make docker-build
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -136,10 +153,19 @@ docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
+docker-tag-pachctl: install
+	docker tag pachyderm/pachctl pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
+
 docker-push: docker-tag
 	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+
+docker-push-pachctl: docker-tag-pachctl
+	docker push pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
+
+docker-push-pipeline-build:
+	cd etc/pipeline-build && make docker-push
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -198,9 +224,6 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
-
-integration-tests:
-	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
@@ -322,6 +345,9 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
+compatibility:
+	./etc/build/compatibility.sh
+
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
 
@@ -356,6 +382,15 @@ launch-logging: check-kubectl check-kubectl-connection
 	git submodule update --init
 	cd etc/plugin/logging && ./deploy.sh
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
+
+launch-loki:
+	helm repo add loki https://grafana.github.io/loki/charts
+	helm repo update
+	helm upgrade --install loki loki/loki-stack
+	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done
+
+clean-launch-loki:
+	helm uninstall loki
 
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
@@ -452,6 +487,8 @@ goxc-build:
 	release-helper \
 	release-version \
 	docker-build \
+	docker-build-pachctl \
+	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
@@ -463,6 +500,11 @@ goxc-build:
 	docker-build-test-entrypoint \
 	check-kubectl \
 	check-kubectl-connection \
+	docker-tag \
+	docker-tag-pachctl \
+	docker-push \
+	docker-push-pachctl \
+	docker-push-pipeline-build \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
@@ -472,7 +514,6 @@ goxc-build:
 	clean-launch \
 	clean-launch-dev \
 	full-clean-launch \
-	integration-tests \
 	test-proto-static \
 	test-deploy-manifests \
 	regenerate-test-deploy-manifests \
@@ -501,6 +542,7 @@ goxc-build:
 	clean \
 	doc-custom \
 	doc \
+	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
 	clean-launch-stats \

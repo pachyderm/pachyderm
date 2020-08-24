@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -290,13 +291,13 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	}
 	for {
 		ji, err := client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(ji); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -321,7 +322,7 @@ func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(
 	for {
 		jobInfo, err := client.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
@@ -399,7 +400,7 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	first := true
 	for {
 		r, err := client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, grpcutil.ScrubGRPC(err)
@@ -429,13 +430,13 @@ func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(d
 	}
 	for {
 		resp, err := client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(resp.DatumInfo); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -487,7 +488,7 @@ func (l *LogsIter) Message() *pps.LogMessage {
 
 // Err retrieves any errors encountered in the course of calling 'Next()'.
 func (l *LogsIter) Err() error {
-	if l.err == io.EOF {
+	if errors.Is(l.err, io.EOF) {
 		return nil
 	}
 	return grpcutil.ScrubGRPC(l.err)
@@ -510,6 +511,44 @@ func (c APIClient) GetLogs(
 		Master: master,
 		Follow: follow,
 		Tail:   tail,
+	}
+	resp := &LogsIter{}
+	if pipelineName != "" {
+		request.Pipeline = NewPipeline(pipelineName)
+	}
+	if jobID != "" {
+		request.Job = NewJob(jobID)
+	}
+	request.DataFilters = data
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: NewJob(jobID),
+			ID:  datumID,
+		}
+	}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
+	return resp
+}
+
+// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
+func (c APIClient) GetLogsLoki(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	tail int64,
+) *LogsIter {
+	request := pps.GetLogsRequest{
+		Master:         master,
+		Follow:         follow,
+		Tail:           tail,
+		UseLokiBackend: true,
 	}
 	resp := &LogsIter{}
 	if pipelineName != "" {

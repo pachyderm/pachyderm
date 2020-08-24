@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -19,7 +20,7 @@ const FakeAWSAccessKeyID = "MADEUPAWSACCESSKEYID"
 const FakeAWSSecret = "YIUo7lLijgheOTbSR57DCv8eGVklj8UHUQb9aTDf"
 
 func TestDashImageExists(t *testing.T) {
-	c := exec.Command("docker", "pull", defaultDashImage)
+	c := exec.Command("docker", "pull", fmt.Sprintf("%s:%s", defaultDashImage, defaultDashVersion))
 	require.NoError(t, c.Run())
 }
 
@@ -71,7 +72,7 @@ func TestStripS3Prefix(t *testing.T) {
 	for {
 		// decode next object
 		if err := d.Decode(&manifestPiece); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				t.Fatalf("never found S3 bucket name in kubernetes manifest")
 			}
 			t.Fatalf("could not deserialize json object: %v", err)

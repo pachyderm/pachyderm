@@ -1,25 +1,59 @@
 # Changelog
 
-## 1.10.3
+## 1.11.0
 
-- Fixes a bug that caused an EOF in `get file` request when using azure blob storage client (#4824)
-- Fixes a bug that created messages larger than expected size which can fail some operations with `grpc: received message larger than max` error (#4822)
-- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4840)
+Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will reach end-of-life in 1.12.0. Users who are using S3V4-capable storage should make sure their deployment is using the supported storage backend by redeploying without `--isS3V2` flag. If you need help, please reach out to Pachyderm support.
 
-## 1.10.2
-
-- Changes to improve warning message (#4776)
-- Added support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793)
-- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4796)
-
-## 1.10.1
-
-- Changes to propagate feature flags to sidecar (#4719)
-- Changes to route all object store access through the sidecar (#4740)
-- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4752)
-- Fixes a bug that allowed to specific inputs with spouts (#4748)
-- Updates dash version to the latest published version 0.5.48 (#4758)
-
+- Adds support for running multiple jobs in parallel in a single pipeline (#4572)
+- Adds support for logs stack traces when a request encounters an error (#4681)
+- Adds support for the first release of the pachyderm IDE (#4732) (#4790) (#4838) 
+- Adds support for displaying progress bar during `pachctl put file` (#4745)
+- Adds support for writable pachctl mount which checkpoints data back into pfs when it's unmounted (#4772)
+- Adds support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793) 
+- Adds an "exit" command to the pachctl shell (#4802)
+- Adds a `--compress` option to `pachctl put file` which GZIP compresses the upload stream (#4814)
+- Adds a `--put-file-concurrency-limit` option to `pachctl put file` command to limits the upload parallelism which limits the memory footprint in pachd to avoid OOM condition (#4827) 
+- Adds support to periodically reload TLS certs (#4835)
+- Adds a new pipeline state "crashing" which pipelines enter when they encounter Kubernetes errors. Pipelines in this state will have a human-readable "Reason" that explains why they're crashing. Pipelines also now expose the number of pods that are up and responsive. Both values can be seen with `inspect pipeline` (#4922)
+- Adds support to allow etcd volumes to be expanded. (Special thanks to @mattrobenolt.) (#4925)
+- Adds experimental support for using Loki as a logging backend rather than k8s. Enable with the `LOKI_LOGGING` feature flag to pachd (#4946)
+- Adds support for copy object in S3 gateway (#4972)
+- Adds a new cluster-admin role, "FS", which grants access to all repos but not other admin-only endpoints (#4975) (#5103)
+- Adds support to surface image pull errors in pipeline sidecar containers (#4979)
+- Adds support for colorizing level in `pachctl logs` (Special thanks to @farhaanbukhsh) (#4996)
+- Adds configurable resource limits to the storage side and set default resource limits for the init container (#4999) 
+- Adds support user sign in by authenticating with an OIDC provider (#5005)
+- Adds error handling when starting a transaction when another one is pending (Special thanks to @farhaanbukhsh) (#5010)
+- Adds support for using TLS (if enabled) for downloading files over HTTP (#5023)
+- Adds an option for specifying the Kubernetes service account to use in worker pods (#5056)
+- Adds build steps for pipelines (#5064)
+- Adds support for a dockerized version of `pachctl` available on docker hub (#5073) (#5079)
+- Adds support for configuring Go's GC Percentage (#5089)
+- Changes to propagate feature flags to sidecar (#4718) 
+- Changes to route all object store access through the sidecar (#4741) 
+- Changes to better support disparate S3 client behaviors. Includes numerous compatibility improvements in S3 gateway (#4902) 
+- Changes debug dump to collect sidecar goroutines (#4954) 
+- Fixes a bug that would cause spouts to lose data when spouts are rapidly opened and closed (#4693) (#4910)
+- Fixes a bug that allowed spouts with inputs (#4747) 
+- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4753) 
+- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4782) 
+- Fixes a bug that created messages larger than expected size which can fail some operations with grpc: received message larger than max error (#4819) 
+- Fixes a bug that caused an EOF error in get file request when using azure blob storage client (#4824) 
+- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4839) 
+- Fixes a bug that causes garbage collection to fail for standby pipelines (#4860) 
+- Fixes a bug that did not use the native DNS resolver in pachctl client which may prevent pachd access over VPNs (#4876)  
+- Fixes a bug that caused `pachctl list datum <running job>` to return an error "output commit not finished" on pipelines with stats enabled (#4886) 
+- Fixes a bug causing a resource leak in pachd when certain protocol errors occur in PutFile (#4908)
+- Fixes a bug where downloading files over HTTP didn't work with authorization enabled (#4930)
+- Fixes a family of issues that caused workers to indefinitely wait on etcd after a pod eviction (#4947) (#4948) (#4959) 
+- Fixes a bug that did not set environment variables for service pipelines (#5009)
+- Fixes a bug where users get an error if they run `pachctl debug pprof`, but don't have to “go” installed on their machine (#5022)
+- Fixes a bug which caused the metadata of a spout pipeline's spec commit to grow without bound (#5050)
+- Fixes a bug that caused the metadata in commit info to not get carried between an extract and a restore operation (#5052)
+- Fixes a bug which caused crashes when creating pipelines with certain invalid parameters (#5054)
+- Fixes a bug that causes the dash compatibility file not found error (#5063)
+- Moves etcd image to Docker Hub from Quay.io (#4899)
+- Updates dash version to the latest published version 0.5.48 (#4756)
 
 ## 1.10.0
 

@@ -104,6 +104,9 @@ type getConfigurationFunc func(context.Context, *auth.GetConfigurationRequest) (
 type setConfigurationFunc func(context.Context, *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error)
 type getAdminsFunc func(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error)
 type modifyAdminsFunc func(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error)
+type getClusterRoleBindingsFunc func(context.Context, *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error)
+type modifyClusterRoleBindingFunc func(context.Context, *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error)
+
 type authenticateFunc func(context.Context, *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error)
 type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
@@ -111,6 +114,7 @@ type getScopeFunc func(context.Context, *auth.GetScopeRequest) (*auth.GetScopeRe
 type setScopeFunc func(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
 type getACLFunc func(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error)
 type setACLFunc func(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -126,6 +130,8 @@ type mockGetConfiguration struct{ handler getConfigurationFunc }
 type mockSetConfiguration struct{ handler setConfigurationFunc }
 type mockGetAdmins struct{ handler getAdminsFunc }
 type mockModifyAdmins struct{ handler modifyAdminsFunc }
+type mockModifyClusterRoleBinding struct{ handler modifyClusterRoleBindingFunc }
+type mockGetClusterRoleBindings struct{ handler getClusterRoleBindingsFunc }
 type mockAuthenticate struct{ handler authenticateFunc }
 type mockAuthorize struct{ handler authorizeFunc }
 type mockWhoAmI struct{ handler whoAmIFunc }
@@ -133,6 +139,7 @@ type mockGetScope struct{ handler getScopeFunc }
 type mockSetScope struct{ handler setScopeFunc }
 type mockGetACL struct{ handler getACLFunc }
 type mockSetACL struct{ handler setACLFunc }
+type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetAuthToken struct{ handler getAuthTokenFunc }
 type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
@@ -142,55 +149,61 @@ type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
 
-func (mock *mockActivateAuth) Use(cb activateAuthFunc)             { mock.handler = cb }
-func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)         { mock.handler = cb }
-func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)     { mock.handler = cb }
-func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)     { mock.handler = cb }
-func (mock *mockGetAdmins) Use(cb getAdminsFunc)                   { mock.handler = cb }
-func (mock *mockModifyAdmins) Use(cb modifyAdminsFunc)             { mock.handler = cb }
-func (mock *mockAuthenticate) Use(cb authenticateFunc)             { mock.handler = cb }
-func (mock *mockAuthorize) Use(cb authorizeFunc)                   { mock.handler = cb }
-func (mock *mockWhoAmI) Use(cb whoAmIFunc)                         { mock.handler = cb }
-func (mock *mockGetScope) Use(cb getScopeFunc)                     { mock.handler = cb }
-func (mock *mockSetScope) Use(cb setScopeFunc)                     { mock.handler = cb }
-func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handler = cb }
-func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
-func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
-func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
-func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)       { mock.handler = cb }
-func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)     { mock.handler = cb }
-func (mock *mockModifyMembers) Use(cb modifyMembersFunc)           { mock.handler = cb }
-func (mock *mockGetGroups) Use(cb getGroupsFunc)                   { mock.handler = cb }
-func (mock *mockGetUsers) Use(cb getUsersFunc)                     { mock.handler = cb }
-func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc) { mock.handler = cb }
+func (mock *mockActivateAuth) Use(cb activateAuthFunc)                         { mock.handler = cb }
+func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                     { mock.handler = cb }
+func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)                 { mock.handler = cb }
+func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)                 { mock.handler = cb }
+func (mock *mockGetAdmins) Use(cb getAdminsFunc)                               { mock.handler = cb }
+func (mock *mockModifyAdmins) Use(cb modifyAdminsFunc)                         { mock.handler = cb }
+func (mock *mockModifyClusterRoleBinding) Use(cb modifyClusterRoleBindingFunc) { mock.handler = cb }
+func (mock *mockGetClusterRoleBindings) Use(cb getClusterRoleBindingsFunc)     { mock.handler = cb }
+func (mock *mockAuthenticate) Use(cb authenticateFunc)                         { mock.handler = cb }
+func (mock *mockAuthorize) Use(cb authorizeFunc)                               { mock.handler = cb }
+func (mock *mockWhoAmI) Use(cb whoAmIFunc)                                     { mock.handler = cb }
+func (mock *mockGetScope) Use(cb getScopeFunc)                                 { mock.handler = cb }
+func (mock *mockSetScope) Use(cb setScopeFunc)                                 { mock.handler = cb }
+func (mock *mockGetACL) Use(cb getACLFunc)                                     { mock.handler = cb }
+func (mock *mockSetACL) Use(cb setACLFunc)                                     { mock.handler = cb }
+func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)                         { mock.handler = cb }
+func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)                         { mock.handler = cb }
+func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)                   { mock.handler = cb }
+func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)                   { mock.handler = cb }
+func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)                 { mock.handler = cb }
+func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                       { mock.handler = cb }
+func (mock *mockGetGroups) Use(cb getGroupsFunc)                               { mock.handler = cb }
+func (mock *mockGetUsers) Use(cb getUsersFunc)                                 { mock.handler = cb }
+func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc)             { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
 }
 
 type mockAuthServer struct {
-	api                authServerAPI
-	Activate           mockActivateAuth
-	Deactivate         mockDeactivateAuth
-	GetConfiguration   mockGetConfiguration
-	SetConfiguration   mockSetConfiguration
-	GetAdmins          mockGetAdmins
-	ModifyAdmins       mockModifyAdmins
-	Authenticate       mockAuthenticate
-	Authorize          mockAuthorize
-	WhoAmI             mockWhoAmI
-	GetScope           mockGetScope
-	SetScope           mockSetScope
-	GetACL             mockGetACL
-	SetACL             mockSetACL
-	GetAuthToken       mockGetAuthToken
-	ExtendAuthToken    mockExtendAuthToken
-	RevokeAuthToken    mockRevokeAuthToken
-	SetGroupsForUser   mockSetGroupsForUser
-	ModifyMembers      mockModifyMembers
-	GetGroups          mockGetGroups
-	GetUsers           mockGetUsers
-	GetOneTimePassword mockGetOneTimePassword
+	api                      authServerAPI
+	Activate                 mockActivateAuth
+	Deactivate               mockDeactivateAuth
+	GetConfiguration         mockGetConfiguration
+	SetConfiguration         mockSetConfiguration
+	GetAdmins                mockGetAdmins
+	ModifyAdmins             mockModifyAdmins
+	GetClusterRoleBindings   mockGetClusterRoleBindings
+	ModifyClusterRoleBinding mockModifyClusterRoleBinding
+	Authenticate             mockAuthenticate
+	Authorize                mockAuthorize
+	WhoAmI                   mockWhoAmI
+	GetScope                 mockGetScope
+	SetScope                 mockSetScope
+	GetACL                   mockGetACL
+	SetACL                   mockSetACL
+	GetOIDCLogin             mockGetOIDCLogin
+	GetAuthToken             mockGetAuthToken
+	ExtendAuthToken          mockExtendAuthToken
+	RevokeAuthToken          mockRevokeAuthToken
+	SetGroupsForUser         mockSetGroupsForUser
+	ModifyMembers            mockModifyMembers
+	GetGroups                mockGetGroups
+	GetUsers                 mockGetUsers
+	GetOneTimePassword       mockGetOneTimePassword
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -228,6 +241,18 @@ func (api *authServerAPI) ModifyAdmins(ctx context.Context, req *auth.ModifyAdmi
 		return api.mock.ModifyAdmins.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.ModifyAdmins")
+}
+func (api *authServerAPI) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error) {
+	if api.mock.GetClusterRoleBindings.handler != nil {
+		return api.mock.GetClusterRoleBindings.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetClusterRoleBindings")
+}
+func (api *authServerAPI) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error) {
+	if api.mock.ModifyClusterRoleBinding.handler != nil {
+		return api.mock.ModifyClusterRoleBinding.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.ModifyClusterRoleBinding")
 }
 func (api *authServerAPI) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
 	if api.mock.Authenticate.handler != nil {
@@ -270,6 +295,12 @@ func (api *authServerAPI) SetACL(ctx context.Context, req *auth.SetACLRequest) (
 		return api.mock.SetACL.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.SetACL")
+}
+func (api *authServerAPI) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
+	if api.mock.GetOIDCLogin.handler != nil {
+		return api.mock.GetOIDCLogin.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetOIDCLogin")
 }
 func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	if api.mock.GetAuthToken.handler != nil {
@@ -401,6 +432,10 @@ type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
 type getTarConditionalFuncV2 func(pfs.API_GetTarConditionalV2Server) error
 type listFileV2Func func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
 type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
+type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
+type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
+type walkFileFuncV2 func(*pfs.WalkFileRequest, pfs.API_WalkFileV2Server) error
+type clearCommitV2Func func(context.Context, *pfs.ClearCommitRequestV2) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -437,6 +472,10 @@ type mockGetTarV2 struct{ handler getTarFuncV2 }
 type mockGetTarConditionalV2 struct{ handler getTarConditionalFuncV2 }
 type mockListFileV2 struct{ handler listFileV2Func }
 type mockGlobFileV2 struct{ handler globFileV2Func }
+type mockDiffFileV2 struct{ handler diffFileV2Func }
+type mockInspectFileV2 struct{ handler inspectFileFuncV2 }
+type mockWalkFileV2 struct{ handler walkFileFuncV2 }
+type mockClearCommitV2 struct{ handler clearCommitV2Func }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                   { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)                 { mock.handler = cb }
@@ -473,6 +512,10 @@ func (mock *mockGetTarV2) Use(cb getTarFuncV2)                       { mock.hand
 func (mock *mockGetTarConditionalV2) Use(cb getTarConditionalFuncV2) { mock.handler = cb }
 func (mock *mockListFileV2) Use(cb listFileV2Func)                   { mock.handler = cb }
 func (mock *mockGlobFileV2) Use(cb globFileV2Func)                   { mock.handler = cb }
+func (mock *mockDiffFileV2) Use(cb diffFileV2Func)                   { mock.handler = cb }
+func (mock *mockInspectFileV2) Use(cb inspectFileFuncV2)             { mock.handler = cb }
+func (mock *mockWalkFileV2) Use(cb walkFileFuncV2)                   { mock.handler = cb }
+func (mock *mockClearCommitV2) Use(cb clearCommitV2Func)             { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -514,7 +557,11 @@ type mockPFSServer struct {
 	GetTarV2            mockGetTarV2
 	GetTarConditionalV2 mockGetTarConditionalV2
 	ListFileV2          mockListFileV2
+	InspectFileV2       mockInspectFileV2
+	WalkFileV2          mockWalkFileV2
 	GlobFileV2          mockGlobFileV2
+	ClearCommitV2       mockClearCommitV2
+	DiffFileV2          mockDiffFileV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -726,6 +773,30 @@ func (api *pfsServerAPI) GlobFileV2(req *pfs.GlobFileRequest, serv pfs.API_GlobF
 		return api.mock.GlobFileV2.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GlobFileV2")
+}
+func (api *pfsServerAPI) DiffFileV2(req *pfs.DiffFileRequest, serv pfs.API_DiffFileV2Server) error {
+	if api.mock.DiffFileV2.handler != nil {
+		return api.mock.DiffFileV2.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.DiffFileV2")
+}
+func (api *pfsServerAPI) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
+	if api.mock.InspectFileV2.handler != nil {
+		return api.mock.InspectFileV2.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectFileV2")
+}
+func (api *pfsServerAPI) WalkFileV2(req *pfs.WalkFileRequest, serv pfs.API_WalkFileV2Server) error {
+	if api.mock.WalkFileV2.handler != nil {
+		return api.mock.WalkFileV2.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.WalkFileV2")
+}
+func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	if api.mock.ClearCommitV2.handler != nil {
+		return api.mock.ClearCommitV2.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommitV2")
 }
 
 /* PPS Server Mocks */

@@ -83,7 +83,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
-	if err := op.getRC(noExpectation); err != nil && err != errRCNotFound {
+	if err := op.getRC(noExpectation); err != nil && !errors.Is(err, errRCNotFound) {
 		return err
 	}
 
@@ -206,7 +206,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 	return backoff.RetryNotify(func() error {
 		return op.apiServer.sudo(op.pachClient, func(superUserClient *client.APIClient) error {
 			var err error
-			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
+			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.name, op.ptr)
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -279,17 +279,17 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if expectation == noRCExpected && err == errRCNotFound {
+		if expectation == noRCExpected && errors.Is(err, errRCNotFound) {
 			return err // rc has come down successfully--no need to keep looking
 		}
-		switch err {
-		case errRCNotFound:
+		switch {
+		case errors.Is(err, errRCNotFound):
 			notFoundErrCount++
-		case errUnexpectedRC:
+		case errors.Is(err, errUnexpectedRC):
 			unexpectedErrCount++
-		case errTooManyRCs:
+		case errors.Is(err, errTooManyRCs):
 			tooManyErrCount++
-		case errStaleRC:
+		case errors.Is(err, errStaleRC):
 			staleErrCount++ // don't return immediately b/c RC might be changing
 		default:
 			otherErrCount++
@@ -297,8 +297,8 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
 			tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
-			missingExpectedRC := expectation == rcExpected && err == errRCNotFound
-			invalidRCState := err == errTooManyRCs || err == errStaleRC
+			missingExpectedRC := expectation == rcExpected && errors.Is(err, errRCNotFound)
+			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
 			if missingExpectedRC || invalidRCState {
 				return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 			}
@@ -380,7 +380,7 @@ func (op *pipelineOp) createPipelineResources() error {
 	return backoff.RetryNotify(func() error {
 		return op.apiServer.createWorkerSvcAndRc(op.pachClient.Ctx(), op.ptr, op.pipelineInfo)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		_, invalidOpts := err.(noValidOptionsErr)
+		invalidOpts := errors.As(err, &noValidOptionsErr{})
 		errCount++
 		switch {
 		case invalidOpts:

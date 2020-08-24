@@ -1,12 +1,14 @@
 package fileset
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // MergeReader merges a file's content that shows up across
@@ -29,8 +31,7 @@ func newMergeReader(rs []*Reader) *MergeReader {
 	return &MergeReader{pq: newPriorityQueue(fileStreams)}
 }
 
-// Iterate iterates over the file merge readers in the merged fileset.
-func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
+func (mr *MergeReader) iterate(f func(*FileMergeReader) error) error {
 	return mr.pq.iterate(func(ss []stream, _ ...string) error {
 		// Convert generic streams to file streams.
 		var fss []*fileStream
@@ -57,19 +58,24 @@ func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
 
 func applyFullDeletes(frs []*FileReader) []*FileReader {
 	var result []*FileReader
+	// Filter out the file readers with lower priority than the highest priority file reader that contains a full file deletion.
 	for _, fr := range frs {
 		result = append(result, fr)
-		if len(fr.Index().DataOp.DeleteTags) > 0 && fr.Index().DataOp.DeleteTags[0].Id == headerTag {
+		if isFullDelete(fr.Index()) {
 			return result
 		}
 	}
 	return result
 }
 
+func isFullDelete(idx *index.Index) bool {
+	return len(idx.DataOp.DeleteTags) > 0 && idx.DataOp.DeleteTags[0].Id == headerTag
+}
+
 func computeContentTags(frs []*FileReader) map[string]int64 {
 	tags := make(map[string]int64)
-	for _, fr := range frs {
-		dataOp := fr.Index().DataOp
+	for i := len(frs) - 1; i >= 0; i-- {
+		dataOp := frs[i].Index().DataOp
 		for _, tag := range dataOp.DeleteTags {
 			delete(tags, tag.Id)
 		}
@@ -133,7 +139,7 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 		}
 		// Copy single file stream.
 		if len(fss) == 1 {
-			return fss[0].r.Iterate(func(fr *FileReader) error {
+			return fss[0].r.iterate(func(fr *FileReader) error {
 				return w.CopyFile(fr)
 			}, next...)
 		}
@@ -159,14 +165,13 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 // Get writes the merged fileset.
 func (mr *MergeReader) Get(w io.Writer) error {
 	// Write a tar entry for each file merge reader.
-	if err := mr.Iterate(func(fmr *FileMergeReader) error {
+	if err := mr.iterate(func(fmr *FileMergeReader) error {
 		return fmr.Get(w)
 	}); err != nil {
 		return err
 	}
 	// Close a tar writer to create tar EOF padding.
 	return tar.NewWriter(w).Close()
-
 }
 
 type fileStream struct {
@@ -223,20 +228,27 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
 		for _, fr := range fmr.frs {
-			_, err := fr.Header()
-			if err != nil {
-				return nil, err
+			if len(fr.Index().DataOp.DataRefs) > 0 {
+				_, err := fr.Header()
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		// Use the header from the highest priority file
 		// reader and update the size.
 		// TODO Deep copy the header?
-		var err error
-		fmr.hdr, err = fmr.frs[len(fmr.frs)-1].Header()
-		if err != nil {
-			return nil, err
+		for _, fr := range fmr.frs {
+			if len(fr.Index().DataOp.DataRefs) > 0 {
+				var err error
+				fmr.hdr, err = fr.Header()
+				if err != nil {
+					return nil, err
+				}
+				fmr.hdr.Size = fmr.size
+				break
+			}
 		}
-		fmr.hdr.Size = fmr.size
 	}
 	return fmr.hdr, nil
 }
@@ -251,10 +263,20 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	if err := w.WriteHeader(hdr); err != nil {
 		return err
 	}
-	deleteTags := fmr.frs[len(fmr.frs)-1].Index().DataOp.DeleteTags
-	if len(deleteTags) > 0 && deleteTags[0].Id == headerTag {
-		w.DeleteTag(headerTag)
-		return nil
+	// Propagate delete tags.
+	var allDeleteTags []string
+	for _, fr := range fmr.frs {
+		if isFullDelete(fr.Index()) {
+			allDeleteTags = []string{headerTag}
+			break
+		}
+		for _, tag := range fr.Index().DataOp.DeleteTags {
+			allDeleteTags = append(allDeleteTags, tag.Id)
+		}
+	}
+	sort.Strings(allDeleteTags)
+	for _, tag := range allDeleteTags {
+		w.DeleteTag(tag)
 	}
 	// Write merged content.
 	return fmr.tsmr.WriteTo(w)
@@ -277,6 +299,11 @@ func (fmr *FileMergeReader) Get(w io.Writer) error {
 		return err
 	}
 	return tw.Flush()
+}
+
+// Content writes the content of the current file excluding the header to w
+func (fmr *FileMergeReader) Content(w io.Writer) error {
+	return fmr.tsmr.Get(w)
 }
 
 // TagSetMergeReader returns the tagset merge reader for the file.
@@ -495,7 +522,7 @@ type ShardFunc func(*index.PathRange) error
 func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 	var size int64
 	pathRange := &index.PathRange{}
-	if err := mr.Iterate(func(fmr *FileMergeReader) error {
+	if err := mr.iterate(func(fmr *FileMergeReader) error {
 		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= shardThreshold {
 			pathRange.Upper = fmr.Index().Path
@@ -513,4 +540,29 @@ func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 		return err
 	}
 	return f(pathRange)
+}
+
+type mergeSource struct {
+	getReader func() (*MergeReader, error)
+	s         *Storage
+}
+
+func (ms *mergeSource) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
+	mr, err := ms.getReader()
+	if err != nil {
+		return err
+	}
+	for {
+		f, err := mr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if err := cb(f); err != nil {
+			return err
+		}
+	}
+	return nil
 }

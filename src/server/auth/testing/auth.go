@@ -28,6 +28,16 @@ func (a *InactiveAPIServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// GetClusterRoleBindings implements the GetClusterRoleBindings RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetClusterRoleBindings(context.Context, *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// ModifyClusterRoleBinding implements the ModifyClusterRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyClusterRoleBinding(context.Context, *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -100,6 +110,11 @@ func (a *InactiveAPIServer) SetACLInTransaction(*txnenv.TransactionContext, *aut
 
 // GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

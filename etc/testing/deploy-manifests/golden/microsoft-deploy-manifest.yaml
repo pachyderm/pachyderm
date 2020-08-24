@@ -265,6 +265,10 @@ spec:
     nodePort: 30654
     port: 654
     targetPort: 0
+  - name: oidc-port
+    nodePort: 30657
+    port: 657
+    targetPort: 0
   - name: api-git-port
     nodePort: 30655
     port: 655
@@ -339,14 +343,16 @@ spec:
           value: MICROSOFT
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.11.0
+          value: pachyderm/worker:1.12.0
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.11.0
+          value: pachyderm/pachd:1.12.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
+        - name: WORKER_SERVICE_ACCOUNT
+          value: pachyderm-worker
         - name: PACHD_VERSION
-          value: 1.11.0
+          value: 1.12.0
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -375,6 +381,13 @@ spec:
           value: test
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: "false"
+        - name: PACHD_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: PPS_WORKER_GRPC_PORT
+          value: "80"
         - name: GOOGLE_BUCKET
           valueFrom:
             secretKeyRef:
@@ -553,7 +566,7 @@ spec:
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: "100"
-        image: pachyderm/pachd:1.11.0
+        image: pachyderm/pachd:1.12.0
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
@@ -573,6 +586,9 @@ spec:
           protocol: TCP
         - containerPort: 654
           name: saml-port
+          protocol: TCP
+        - containerPort: 657
+          name: oidc-port
           protocol: TCP
         readinessProbe:
           exec:

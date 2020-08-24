@@ -85,9 +85,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}, {
-		Name:  "PPS_WOKER_GRPC_PORT",
-		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
-	}, {
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
@@ -99,6 +96,17 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
+	}, {
+		Name: "PACHD_POD_NAME",
+		ValueFrom: &v1.EnvVarSource{
+			FieldRef: &v1.ObjectFieldSelector{
+				APIVersion: "v1",
+				FieldPath:  "metadata.name",
+			},
+		},
+	}, {
+		Name:  "GC_PERCENT",
+		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -179,6 +187,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
+	if a.env.LokiLogging {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
+	}
 
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
@@ -228,6 +240,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
+
+	// Get service account name for worker from env or use default
+	workerServiceAccountName, ok := os.LookupEnv(assets.WorkerServiceAccountEnvVar)
+	if !ok {
+		workerServiceAccountName = assets.DefaultWorkerServiceAccountName
+	}
 
 	// possibly expose s3 gateway port in the sidecar container
 	var sidecarPorts []v1.ContainerPort
@@ -310,7 +328,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Ports: sidecarPorts,
 			},
 		},
-		ServiceAccountName:            assets.WorkerSAName,
+		ServiceAccountName:            workerServiceAccountName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -726,7 +744,7 @@ func (a *apiServer) checkOrDeployGithookService() error {
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
-		if _, ok := err.(*errGithookServiceNotFound); ok {
+		if errors.As(err, &errGithookServiceNotFound{}) {
 			svc := assets.GithookService(a.namespace)
 			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err

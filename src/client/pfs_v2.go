@@ -151,7 +151,7 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 // GetTarConditionalV2 functions similarly to GetTar with the key difference being that each file's content can be conditionally downloaded.
 // GetTarConditional takes a callback that will be called for each file that matched the path.
 // The callback will receive the file information for the file and a reader that will lazily download a tar stream that contains the file.
-func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoV2, r io.Reader) error) (retErr error) {
+func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfo, r io.Reader) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -165,7 +165,7 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 	for {
 		resp, err := client.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -189,8 +189,8 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 	}
 }
 
-// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
-func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoV2) error) (retErr error) {
+// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfo.
+func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -207,7 +207,7 @@ func (c APIClient) ListFileV2(repoName string, commitID string, path string, f f
 	for {
 		finfo, err := client.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -260,7 +260,7 @@ func (r *getTarConditionalReader) nextResponse() error {
 func (r *getTarConditionalReader) drain() error {
 	for {
 		if err := r.nextResponse(); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err

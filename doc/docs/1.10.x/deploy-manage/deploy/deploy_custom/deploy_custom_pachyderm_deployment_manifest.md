@@ -72,6 +72,8 @@ The manifest includes the following sections:
 
 **Pachyderm Kubernetes secrets manifests**
 
+
 | Manifest | Description |
 | -------- | ----------- |
-| `Secret`      | Pachyderm uses the Kubernetes `Secret` manifest to store the credentials that <br> are necessary to access object storage. The final manifest uses the <br> command-line arguments that you submit to the `pachctl deploy` <br> command to store such parameters as region, secret, token, and endpoint, that are <br>used to access an object store. The exact values in the secret <br> depend on the kind of object store you configure for your deployment. You <br>can update the values after the deployment either by using `kubectl` <br>to deploy a new `Secret` or the `pachctl deploy storage` command. |
+| `Secret`      | Pachyderm uses the Kubernetes `Secret` manifest to store the credentials that <br> are necessary to access object storage. The final manifest uses the <br> command-line arguments that you submit to the `pachctl deploy` <br> command to store such parameters as region, secret, token, and endpoint, that are <br>used to access an object store. The exact values in the secret <br> depend on the kind of object store you configure for your deployment. You <br>can update the values after the deployment either by using `kubectl` <br>to deploy a new `Secret` or the `pachctl deploy storage` command. Note: If you want to modify the contents of the secret directly, make sure you understand that on-premise deployments of non-cloud object stores (e.g. MinIO or ECS) also use the values prefixed with `amazon-` and not the ones prefixed with `minio-`.|
+

@@ -74,7 +74,7 @@ func (d *YAMLDecoder) yamlToJSONTransform(f func(map[string]interface{}) error) 
 	// deserialize yaml into 'holder'
 	holder := map[string]interface{}{}
 	if err := d.d.Decode(&holder); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, err
 		}
 		return nil, errors.Wrapf(err, "could not parse yaml")

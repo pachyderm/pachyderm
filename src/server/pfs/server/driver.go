@@ -237,42 +237,52 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	err = repos.Get(repo.Name, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
-	} else if err == nil && !update {
-		return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
-	}
-
-	// Create ACL for new repo
-	if authIsActivated {
-		// auth is active, and user is logged in. Make user an owner of the new
-		// repo (and clear any existing ACL under this name that might have been
-		// created by accident)
-		_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-			Repo: repo.Name,
-			Entries: []*auth.ACLEntry{{
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
-			}},
-		})
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+	} else if err == nil {
+		// Existing repo case--just update the repo description.
+		if !update {
+			return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 		}
-	}
 
-	repoInfo := &pfs.RepoInfo{
-		Repo:        repo,
-		Created:     types.TimestampNow(),
-		Description: description,
+		if existingRepoInfo.Description == description {
+			// Don't overwrite the stored proto with an identical value. This
+			// optimization is impactful because pps will frequently update the __spec__
+			// repo to make sure it exists.
+			return nil
+		}
+
+		// Check if the caller is authorized to modify this repo
+		// Note, we don't do this before checking if the description changed because
+		// there is client code that calls CreateRepo(R, update=true) as an
+		// idempotent way to ensure that R exists. By permitting these calls when
+		// they don't actually change anything, even if the caller doesn't have
+		// WRITER access, we make the pattern more generally useful.
+		if err := d.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_WRITER); err != nil {
+			return errors.Wrapf(err, "could not update description of %q", repo)
+		}
+		existingRepoInfo.Description = description
+		return repos.Put(repo.Name, &existingRepoInfo)
+	} else {
+		// New repo case
+		if authIsActivated {
+			// Create ACL for new repo. Make caller the sole owner. If the ACL already
+			// exists with a different owner, this will fail.
+			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
+				Repo: repo.Name,
+				Entries: []*auth.ACLEntry{{
+					Username: whoAmI.Username,
+					Scope:    auth.Scope_OWNER,
+				}},
+			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+			}
+		}
+		return repos.Create(repo.Name, &pfs.RepoInfo{
+			Repo:        repo,
+			Created:     types.TimestampNow(),
+			Description: description,
+		})
 	}
-	if update && existingRepoInfo.Created != nil {
-		repoInfo.Created = existingRepoInfo.Created
-	}
-	// Only Put the new repoInfo if something has changed.  This
-	// optimization is impactful because pps will frequently update the
-	// __spec__ repo to make sure it exists.
-	if !proto.Equal(repoInfo, &existingRepoInfo) {
-		return repos.Put(repo.Name, repoInfo)
-	}
-	return nil
 }
 
 func (d *driver) inspectRepo(
@@ -308,9 +318,15 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	if err != nil {
 		return auth.Scope_NONE, err
 	}
-	if who.IsAdmin {
-		return auth.Scope_OWNER, nil
+
+	if who.ClusterRoles != nil {
+		for _, s := range who.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER || s == auth.ClusterRole_FS {
+				return auth.Scope_OWNER, nil
+			}
+		}
 	}
+
 	resp, err := pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{Repos: []string{repo.Name}})
 	if err != nil {
 		return auth.Scope_NONE, err
@@ -1079,17 +1095,18 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
+	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
-	branch string, provenance []*pfs.CommitProvenance,
+	branch string, origin *pfs.CommitOrigin, provenance []*pfs.CommitProvenance,
 	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object,
 	started, finished time.Time, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", started, finished, sizeBytes)
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, origin, provenance, tree, trees,
+			datums, nil, nil, "", started, finished, sizeBytes)
 		return err
 	})
 	return commit, err
@@ -1112,6 +1129,7 @@ func (d *driver) makeCommit(
 	ID string,
 	parent *pfs.Commit,
 	branch string,
+	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
 	treeRef *pfs.Object,
 	treesRefs []*pfs.Object,
@@ -1141,9 +1159,12 @@ func (d *driver) makeCommit(
 	if newCommit.ID == "" {
 		newCommit.ID = uuid.NewWithoutDashes()
 	}
+	if origin == nil {
+		origin = &pfs.CommitOrigin{Kind: pfs.OriginKind_USER}
+	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
-		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Origin:      origin,
 		Description: description,
 	}
 	if branch != "" {
@@ -1393,6 +1414,37 @@ func (d *driver) makeCommit(
 		}); err != nil {
 			return nil, err
 		}
+	}
+
+	// this isn't necessary here, but is done for consistency with commits created by propagateCommits
+	// it ensures that the last commit to appear from a specific branch is the latest one on that branch
+	var sortErr error
+	sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+		// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+		// the provenance by repo name and branch name
+		if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+			return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+		} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+			return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+		}
+
+		// we need to check the commit info of the 'j' provenance commit to get the parent
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, newCommitInfo.Provenance[j].Commit)
+		if err != nil {
+			// capture error
+			sortErr = err
+			return true
+		}
+		// the parent commit of 'j' should precede it
+		if provCommitInfo.ParentCommit != nil &&
+			newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+			return true
+		}
+		return false
+	})
+	// capture any errors during sorting
+	if sortErr != nil {
+		return nil, sortErr
 	}
 
 	// Finally, create the commit
@@ -1767,6 +1819,37 @@ nextSubvBI:
 			}
 		}
 
+		// this ensures that the job's output commit uses the latest commit on the branch, by ensuring it is the
+		// last commit to appear in the provenance slice
+		var sortErr error
+		sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+			// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+			// the provenance by repo name and branch name
+			if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+				return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+			} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+				return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+			}
+
+			// we need to check the commit info of the 'j' provenance commit to get the parent
+			provCommitInfo, err := d.resolveCommit(stm, newCommitInfo.Provenance[j].Commit)
+			if err != nil {
+				// capture error
+				sortErr = err
+				return true
+			}
+			// the parent commit of 'j' should precede it
+			if provCommitInfo.ParentCommit != nil &&
+				newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+				return true
+			}
+			return false
+		})
+		// capture any errors during sorting
+		if sortErr != nil {
+			return sortErr
+		}
+
 		// finally create open 'commit'
 		if err := stmCommits.Create(newCommit.ID, newCommitInfo); err != nil {
 			return err
@@ -1850,6 +1933,9 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
+	}
+	if userCommit.Repo == nil {
+		return nil, errors.Errorf("cannot resolve commit with no repo")
 	}
 	if userCommit.ID == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
@@ -2024,6 +2110,9 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
 					return err
 				}
 				lastRev = createRev
@@ -2034,7 +2123,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			return err
 		}
 		// Call sendCis one last time to send whatever's pending in 'cis'
-		if err := sendCis(); err != nil {
+		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
 		}
 	} else {
@@ -2048,7 +2137,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 				return err
 			}
 			if err := f(&commitInfo); err != nil {
-				if err == errutil.ErrBreak {
+				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
 				return err
@@ -2184,7 +2273,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		}
 		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			} else if auth.IsErrNotAuthorized(err) {
 				continue // again, just skip (we can't wait on commits we can't access)
@@ -2200,7 +2289,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, commit := range fromCommits {
 		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
 				continue // just skip this
 			}
 			return err
@@ -2822,20 +2911,12 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func (d *driver) checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
-	}
-	return nil
-}
-
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
 	cleanedPath := path.Clean("/" + file.Path)
-	if err := d.checkFilePath(cleanedPath); err != nil {
+	if err := checkFilePath(cleanedPath); err != nil {
 		return "", err
 	}
 	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
@@ -2869,7 +2950,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -2900,7 +2981,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return nil, err
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
@@ -2978,7 +3059,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					if header == nil {
 						header = sqlReader.Header
 					} else {
@@ -3003,7 +3084,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					EOF = true
 				} else {
 					return nil, err
@@ -3193,7 +3274,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(dst.Path); err != nil {
+	if err := checkFilePath(dst.Path); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -3302,7 +3383,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -3887,7 +3968,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 	for {
 		_fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+			if errors.As(err, &pfsserver.ErrFileNotFound{}) {
 				return f(fi)
 			}
 			return err
@@ -4135,7 +4216,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return err
 	}
 	branch := ""
@@ -4151,7 +4232,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -4329,8 +4410,7 @@ func isNotFoundErr(err error) bool {
 }
 
 func isNoHeadErr(err error) bool {
-	_, ok := err.(pfsserver.ErrNoHead)
-	return ok
+	return errors.As(err, &pfsserver.ErrNoHead{})
 }
 
 func commitKey(commit *pfs.Commit) string {

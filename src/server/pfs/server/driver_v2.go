@@ -1,30 +1,30 @@
 package server
 
 import (
-	"archive/tar"
-	"hash"
 	"io"
 	"log"
 	"path"
-	"regexp"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -95,7 +95,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitPath := path.Join(commit.Repo.Name, commit.ID)
+	commitPath := commitKey(commit)
 	// Clean up temporary filesets leftover from failed operations.
 	if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(tmpPrefix, commitPath)); err != nil {
 		return err
@@ -111,7 +111,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 			return err
 		}
 		// Compact the commit changes into a diff file set.
-		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+		if _, err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 			return err
 		}
 		// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
@@ -119,92 +119,131 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 		if commitInfo.ParentCommit == nil {
 			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
 		} else {
-			parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+			parentCommitPath := commitKey(commitInfo.ParentCommit)
 			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
 		}
 		if err != nil {
 			return err
 		}
-		if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+		compactRes, err := d.compact(m, compactSpec.Output, compactSpec.Input)
+		if err != nil {
 			return err
 		}
-		// TODO Need to get the size from the compaction process.
-		commitInfo.SizeBytes = uint64(0)
+		commitInfo.SizeBytes = uint64(compactRes.OutputSize)
 		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
 }
 
-// TODO Integrate delete commit.
-//func (d *driver) deleteCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
-//	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
-//}
-
-// TODO Need commit validation and handling of branch names.
-func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
+func (d *driverV2) getSubFileSet() int64 {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
 	d.mu.Lock()
-	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
+	defer d.mu.Unlock()
+	n := d.subFileSet
+	d.subFileSet++
+	return n
+}
+
+// TODO Need commit validation and handling of branch names.
+func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	n := d.getSubFileSet()
+	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
 	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
 		return err
 	}
-	d.subFileSet++
-	d.mu.Unlock()
+
 	defer func() {
 		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
 			retErr = err
 		}
 	}()
-	if err := f(fs); err != nil {
+	if err := cb(fs); err != nil {
 		return err
 	}
 	if err := fs.Close(); err != nil {
 		return err
 	}
 	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		return d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+		return err
 	})
 }
 
-// TODO Need to figure out path cleaning.
-func (d *driverV2) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	if err := d.getTarConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
-		return fr.Get(w, true)
-	}); err != nil {
+func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
+	n := d.getSubFileSet()
+	subFileSetStr := fileset.SubFileSetStr(n)
+	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
+	fsw := d.storage.NewWriter(ctx, path.Join(tmpPrefix, subFileSetPath))
+	defer func() {
+		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := cb(n, fsw); err != nil {
 		return err
 	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
+	if err := fsw.Close(); err != nil {
+		return err
+	}
+	// There is no need to queue this because we just wrote to one place.  We expect the storage layer
+	// to handle the single file case efficiently.
+	_, err := d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	return err
 }
 
-func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
+func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, w io.Writer) error {
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
+		return err
+	}
+	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+		return mf(idx.Path)
+	})
+	// TODO: remove absolute paths on the way out?
+	// nonAbsolute := &fileset.HeaderMapper{
+	// 	R: filter,
+	// 	F: func(th *tar.Header) *tar.Header {
+	// 		th.Name = "." + th.Name
+	// 		return th
+	// 	},
+	// }
+	return fileset.WriteTarStream(ctx, w, filter)
+}
+
+func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
-	if err := validateFile(file); err != nil {
-		return err
-	}
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	// TODO: handle children of a directory
-	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
-		return f(fr.Info())
+	name := cleanPath(file.Path)
+	s := NewSource(file.Commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			if idx.Path == "/" {
+				return false
+			}
+			if idx.Path == name {
+				return true
+			}
+			if idx.Path == name+"/" {
+				return false
+			}
+			return strings.HasPrefix(idx.Path, name)
+		})
+		return x
 	})
-}
-
-var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
-
-func globLiteralPrefix(glob string) string {
-	idx := globRegex.FindStringIndex(glob)
-	if idx == nil {
-		return glob
-	}
-	return glob[:idx[0]]
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		if pathIsChild(name, cleanPath(fi.File.Path)) {
+			return cb(fi)
+		}
+		return nil
+	})
 }
 
 // TODO Need to figure out path cleaning.
 func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
+	glob = cleanPath(glob)
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
 	mr, err := d.storage.NewMergeReader(ctx, compactedPaths, index.WithPrefix(prefix))
@@ -258,101 +297,11 @@ func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob str
 	return nil
 }
 
-func matchFunc(glob string) (func(string) bool, error) {
-	// TODO Need to do a review of the globbing functionality.
-	var parentG *globlib.Glob
-	parentGlob, baseGlob := path.Split(glob)
-	if len(baseGlob) > 0 {
-		var err error
-		parentG, err = globlib.Compile(parentGlob, '/')
-		if err != nil {
-			return nil, err
-		}
-	}
-	g, err := globlib.Compile(glob, '/')
-	if err != nil {
-		return nil, err
-	}
-	return func(s string) bool {
-		return g.Match(s) && (parentG == nil || !parentG.Match(s))
-	}, nil
+type compactStats struct {
+	OutputSize int64
 }
 
-// FileReader is a PFS wrapper for a fileset.MergeReader.
-// The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfo and to convert a set of index hashes to a file hash.
-type FileReader struct {
-	file      *pfs.File
-	idx       *index.Index
-	fmr       *fileset.FileMergeReader
-	mr        *fileset.MergeReader
-	fileCount int
-	hash      hash.Hash
-}
-
-func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.DataOp.DataRefs {
-		// TODO Pull from chunk hash.
-		h.Write([]byte(dataRef.Hash))
-	}
-	return &FileReader{
-		file: file,
-		idx:  idx,
-		fmr:  fmr,
-		mr:   mr,
-		hash: h,
-	}
-}
-
-func (fr *FileReader) updateFileInfo(idx *index.Index) {
-	fr.fileCount++
-	for _, dataRef := range idx.DataOp.DataRefs {
-		fr.hash.Write([]byte(dataRef.Hash))
-	}
-}
-
-// Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoV2 {
-	return &pfs.FileInfoV2{
-		File: fr.file,
-		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
-	}
-}
-
-// Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
-	if err := fr.fmr.Get(w); err != nil {
-		return err
-	}
-	for fr.fileCount > 0 {
-		fmr, err := fr.mr.Next()
-		if err != nil {
-			return err
-		}
-		if err := fmr.Get(w); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	if len(noPadding) > 0 && noPadding[0] {
-		return nil
-	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
-}
-
-func (fr *FileReader) drain() error {
-	for fr.fileCount > 0 {
-		if _, err := fr.mr.Next(); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	return nil
-}
-
-func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
+func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) (*compactStats, error) {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
 	inputPaths := []string{}
@@ -361,7 +310,7 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			inputPaths = append(inputPaths, inputPath)
 			return nil
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.compactIter(ctx, compactSpec{
@@ -381,7 +330,7 @@ type compactSpec struct {
 
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *compactStats, retErr error) {
 	if len(params.inputPaths) <= params.maxFanIn {
 		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
 	}
@@ -407,13 +356,13 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 		}
 		childOutputPath := path.Join(scratch, strconv.Itoa(i))
 		childOutputPaths = append(childOutputPaths, childOutputPath)
-		if err := d.compactIter(ctx, compactSpec{
+		if _, err := d.compactIter(ctx, compactSpec{
 			master:     params.master,
 			inputPaths: params.inputPaths[start:end],
 			outputPath: childOutputPath,
 			maxFanIn:   params.maxFanIn,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	return d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
@@ -423,7 +372,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr 
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (_ *compactStats, retErr error) {
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
 		if err := d.storage.Delete(ctx, scratch); retErr == nil {
@@ -450,7 +399,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		shardOutputs = append(shardOutputs, shardOutputPath)
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 		if taskInfo.State == work.State_FAILURE {
@@ -458,24 +407,29 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	return d.concatFileSets(ctx, outputPath, shardOutputs)
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
-	fsw := d.storage.NewWriter(ctx, outputPath)
+func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) (*compactStats, error) {
+	var size int64
+	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
+		size += idx.SizeBytes
+		return nil
+	}))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
-		if err := fsr.Iterate(func(fr *fileset.FileReader) error {
-			return fsw.CopyFile(fr)
-		}); err != nil {
-			return err
+		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
+			return nil, err
 		}
 	}
-	return fsw.Close()
+	if err := fsw.Close(); err != nil {
+		return nil, err
+	}
+	return &compactStats{OutputSize: size}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -510,7 +464,8 @@ func (d *driverV2) compactionWorker() {
 				Lower: shard.Range.Lower,
 				Upper: shard.Range.Upper,
 			}
-			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
@@ -520,19 +475,501 @@ func (d *driverV2) compactionWorker() {
 	panic(err)
 }
 
-func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfoV2) error) (retErr error) {
-	// Validate arguments
-	if commit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if commit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	if err != nil {
 		return err
 	}
-
-	return d.getTarConditional(pachClient.Ctx(), commit.Repo.Name, commit.ID, pattern, func(fr *FileReader) error {
-		return f(fr.Info())
+	s := NewSource(commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+		x = fileset.NewIndexResolver(x)
+		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return mf(cleanPath(idx.Path))
+		})
 	})
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		return cb(fi)
+	})
+}
+
+func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return err
+	}
+	if overwrite {
+		// TODO: after delete merging is sorted out add overwrite support
+		return errors.New("overwrite not yet supported")
+	}
+	srcPath := cleanPath(src.Path)
+	dstPath := cleanPath(dst.Path)
+	pathTransform := func(x string) string {
+		relPath, err := filepath.Rel(srcPath, x)
+		if err != nil {
+			panic("cannot apply path transform")
+		}
+		return path.Join(dstPath, relPath)
+	}
+	s := d.storage.OpenFileSet(ctx, compactedCommitPath(src.Commit), index.WithPrefix(srcPath))
+	s = fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
+	})
+	s = fileset.NewHeaderMapper(s, func(th *tar.Header) *tar.Header {
+		th.Name = pathTransform(th.Name)
+		return th
+	})
+	s = fileset.NewDirInserter(s)
+	return d.withWriter(ctx, dst.Commit, func(n int64, dst *fileset.Writer) error {
+		return s.Iterate(ctx, func(f fileset.File) error {
+			hdr, err := f.Header()
+			if err != nil {
+				return err
+			}
+			if err := dst.WriteHeader(hdr); err != nil {
+				return err
+			}
+			dst.Tag(fileset.SubFileSetStr(n))
+			return f.Content(dst)
+		})
+	})
+}
+
+func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
+	// TODO: move validation to the Validating API Server
+	// Validation
+	if newFile == nil {
+		return errors.New("file cannot be nil")
+	}
+	if newFile.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if newFile.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+	// Do READER authorization check for both newFile and oldFile
+	if oldFile != nil && oldFile.Commit != nil {
+		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+			return err
+		}
+	}
+	if newFile != nil && newFile.Commit != nil {
+		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+			return err
+		}
+	}
+	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if oldFile == nil {
+		oldFile = &pfs.File{
+			Commit: newCommitInfo.ParentCommit,
+			Path:   newFile.Path,
+		}
+	}
+	ctx := pachClient.Ctx()
+	oldCommit := oldFile.Commit
+	newCommit := newFile.Commit
+	oldName := cleanPath(oldFile.Path)
+	if oldName == "/" {
+		oldName = ""
+	}
+	newName := cleanPath(newFile.Path)
+	if newName == "/" {
+		newName = ""
+	}
+	var old Source = emptySource{}
+	if oldCommit != nil {
+		old = NewSource(oldCommit, true, func() fileset.FileSet {
+			x := d.storage.OpenFileSet(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
+			x = fileset.NewIndexResolver(x)
+			x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+				return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
+			})
+			return x
+		})
+	}
+	new := NewSource(newCommit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
+		})
+		return x
+	})
+	diff := NewDiffer(old, new)
+	return diff.Iterate(pachClient.Ctx(), cb)
+}
+
+func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return nil, err
+	}
+	p := cleanPath(file.Path)
+	s := NewSource(file.Commit, true, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+		})
+		return x
+	})
+	var ret *pfs.FileInfo
+	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		p2 := fi.File.Path
+		if p2 == p || p2 == p+"/" {
+			ret = fi
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return err
+	}
+	p := cleanPath(file.Path)
+	if p == "/" {
+		p = ""
+	}
+	s := NewSource(file.Commit, false, func() fileset.FileSet {
+		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+		})
+		return x
+	})
+	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
+	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		return cb(fi)
+	})
+}
+
+func (d *driverV2) clearCommitV2(pachClient *client.APIClient, commit *pfs.Commit) error {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return errors.Errorf("cannot clear finished commit")
+	}
+	return d.storage.Delete(ctx, commitPath(commit))
+}
+
+func (d *driverV2) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
+	ctx := txnCtx.ClientContext
+	if err := d.storage.WalkFileSet(ctx, repo.Name, func(p string) error {
+		return d.storage.Delete(ctx, p)
+	}); err != nil {
+		return err
+	}
+	return d.driver.deleteRepo(txnCtx, repo, force)
+}
+
+func (d *driverV2) deleteAll(txnCtx *txnenv.TransactionContext) error {
+	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
+	// deleted here. Instead, PPS is responsible for deleting and re-creating it
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos.RepoInfo {
+		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
+	// TODO update branches inside this txn, by storing a repo's branches in its
+	// RepoInfo or its HEAD commit
+	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
+	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
+
+	// 1) re-read CommitInfo inside txn
+	userCommitInfo, err := d.resolveCommit(txnCtx.Stm, userCommit)
+	if err != nil {
+		return errors.Wrapf(err, "resolveCommit")
+	}
+
+	// 2) Define helper for deleting commits. 'lower' corresponds to
+	// pfs.CommitRange.Lower, and is an ancestor of 'upper'
+	deleteCommit := func(lower, upper *pfs.Commit) error {
+		// Validate arguments
+		if lower.Repo.Name != upper.Repo.Name {
+			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+		}
+		affectedRepos[lower.Repo.Name] = struct{}{}
+		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm)
+
+		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
+		commit := upper
+		for {
+			if commit == nil {
+				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+			}
+			// Store commitInfo in 'deleted' and remove commit from etcd
+			commitInfo := &pfs.CommitInfo{}
+			if err := commits.Get(commit.ID, commitInfo); err != nil {
+				return err
+			}
+			// If a commit has already been deleted, we don't want to overwrite the existing information, since commitInfo will be nil
+			if _, ok := deleted[commit.ID]; !ok {
+				deleted[commit.ID] = commitInfo
+			}
+			if err := commits.Delete(commit.ID); err != nil {
+				return err
+			}
+			// Delete the commit's filesets
+			if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID)); err != nil {
+				return err
+			}
+			if commit.ID == lower.ID {
+				break // check after deletion so we delete 'lower' (inclusive range)
+			}
+			commit = commitInfo.ParentCommit
+		}
+
+		return nil
+	}
+
+	// 3) Validate the commit (check that it has no provenance) and delete it
+	if provenantOnInput(userCommitInfo.Provenance) {
+		return errors.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
+	}
+	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
+
+	// 4) Delete all of the downstream commits of 'commit'
+	for _, subv := range userCommitInfo.Subvenance {
+		deleteCommit(subv.Lower, subv.Upper)
+	}
+
+	// 5) Remove the commits in 'deleted' from all remaining upstream commits'
+	// subvenance.
+	// While 'commit' is required to be an input commit (no provenance),
+	// downstream commits from 'commit' may have multiple inputs, and those
+	// other inputs must have their subvenance updated
+	visited := make(map[string]bool) // visitied upstream (provenant) commits
+	for _, deletedInfo := range deleted {
+		for _, prov := range deletedInfo.Provenance {
+			// Check if we've fixed provCommit already (or if it's deleted and
+			// doesn't need to be fixed
+			if _, isDeleted := deleted[prov.Commit.ID]; isDeleted || visited[prov.Commit.ID] {
+				continue
+			}
+			visited[prov.Commit.ID] = true
+
+			// fix provCommit's subvenance
+			provCI := &pfs.CommitInfo{}
+			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
+				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
+			nextSubvRange:
+				for subvFrom, subv := range provCI.Subvenance {
+					// Compute path (of commit IDs) connecting subv.Upper to subv.Lower
+					cur := subv.Upper.ID
+					path := []string{cur}
+					for cur != subv.Lower.ID {
+						// Get CommitInfo for 'cur' (either in 'deleted' or from etcd)
+						// and traverse parent
+						curInfo, ok := deleted[cur]
+						if !ok {
+							curInfo = &pfs.CommitInfo{}
+							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
+								return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
+							}
+						}
+						if curInfo.ParentCommit == nil {
+							break
+						}
+						cur = curInfo.ParentCommit.ID
+						path = append(path, cur)
+					}
+
+					// move 'subv.Upper' through parents until it points to a non-deleted commit
+					for j := range path {
+						if _, ok := deleted[subv.Upper.ID]; !ok {
+							break
+						}
+						if j+1 >= len(path) {
+							// All commits in subvRange are deleted. Remove entire Range
+							// from provCI.Subvenance
+							continue nextSubvRange
+						}
+						subv.Upper.ID = path[j+1]
+					}
+
+					// move 'subv.Lower' through children until it points to a non-deleted commit
+					for j := len(path) - 1; j >= 0; j-- {
+						if _, ok := deleted[subv.Lower.ID]; !ok {
+							break
+						}
+						// We'll eventually get to a non-deleted commit because the
+						// 'upper' block didn't exit
+						subv.Lower.ID = path[j-1]
+					}
+					provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
+					subvTo++
+				}
+				provCI.Subvenance = provCI.Subvenance[:subvTo]
+				return nil
+			}); err != nil {
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
+			}
+		}
+	}
+
+	// 6) Rewrite ParentCommit of deleted commits' children, and
+	// ChildCommits of deleted commits' parents
+	visited = make(map[string]bool) // visited child/parent commits
+	for deletedID, deletedInfo := range deleted {
+		if visited[deletedID] {
+			continue
+		}
+
+		// Traverse downwards until we find the lowest (most ancestral)
+		// non-nil, deleted commit
+		lowestCommitInfo := deletedInfo
+		for {
+			if lowestCommitInfo.ParentCommit == nil {
+				break // parent is nil
+			}
+			parentInfo, ok := deleted[lowestCommitInfo.ParentCommit.ID]
+			if !ok {
+				break // parent is not deleted
+			}
+			lowestCommitInfo = parentInfo // parent exists and is deleted--go down
+		}
+
+		// BFS upwards through graph for all non-deleted children
+		var next *pfs.Commit                            // next vertex to search
+		queue := []*pfs.Commit{lowestCommitInfo.Commit} // queue of vertices to explore
+		liveChildren := make(map[string]struct{})       // live children discovered so far
+		for len(queue) > 0 {
+			next, queue = queue[0], queue[1:]
+			if visited[next.ID] {
+				continue
+			}
+			visited[next.ID] = true
+			nextInfo, ok := deleted[next.ID]
+			if !ok {
+				liveChildren[next.ID] = struct{}{}
+				continue
+			}
+			queue = append(queue, nextInfo.ChildCommits...)
+		}
+
+		// Point all non-deleted children at the first valid parent (or nil),
+		// and point first non-deleted parent at all non-deleted children
+		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(txnCtx.Stm)
+		parent := lowestCommitInfo.ParentCommit
+		for child := range liveChildren {
+			commitInfo := &pfs.CommitInfo{}
+			if err := commits.Update(child, commitInfo, func() error {
+				commitInfo.ParentCommit = parent
+				return nil
+			}); err != nil {
+				return errors.Wrapf(err, "err updating child commit %v", lowestCommitInfo.Commit)
+			}
+		}
+		if parent != nil {
+			commitInfo := &pfs.CommitInfo{}
+			if err := commits.Update(parent.ID, commitInfo, func() error {
+				// Add existing live commits in commitInfo.ChildCommits to the
+				// live children above lowestCommitInfo, then put them all in
+				// 'parent'
+				for _, child := range commitInfo.ChildCommits {
+					if _, ok := deleted[child.ID]; ok {
+						continue
+					}
+					liveChildren[child.ID] = struct{}{}
+				}
+				commitInfo.ChildCommits = make([]*pfs.Commit, 0, len(liveChildren))
+				for child := range liveChildren {
+					commitInfo.ChildCommits = append(commitInfo.ChildCommits, client.NewCommit(parent.Repo.Name, child))
+				}
+				return nil
+			}); err != nil {
+				return errors.Wrapf(err, "err rewriting children of ancestor commit %v", lowestCommitInfo.Commit)
+			}
+		}
+	}
+
+	// 7) Traverse affected repos and rewrite all branches so that no branch
+	// points to a deleted commit
+	var affectedBranches []*pfs.BranchInfo
+	repos := d.repos.ReadWrite(txnCtx.Stm)
+	for repo := range affectedRepos {
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Get(repo, repoInfo); err != nil {
+			return err
+		}
+		for _, brokenBranch := range repoInfo.Branches {
+			// Traverse HEAD commit until we find a non-deleted parent or nil;
+			// rewrite branch
+			var branchInfo pfs.BranchInfo
+			if err := d.branches(brokenBranch.Repo.Name).ReadWrite(txnCtx.Stm).Update(brokenBranch.Name, &branchInfo, func() error {
+				prevHead := branchInfo.Head
+				for {
+					if branchInfo.Head == nil {
+						return nil // no commits left in branch
+					}
+					headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
+					if !headIsDeleted {
+						break
+					}
+					branchInfo.Head = headCommitInfo.ParentCommit
+				}
+				if prevHead != nil && prevHead.ID != branchInfo.Head.ID {
+					affectedBranches = append(affectedBranches, &branchInfo)
+				}
+				return err
+			}); err != nil && !col.IsErrNotFound(err) {
+				// If err is NotFound, branch is in downstream provenance but
+				// doesn't exist yet--nothing to update
+				return errors.Wrapf(err, "error updating branch %v/%v", brokenBranch.Repo.Name, brokenBranch.Name)
+			}
+
+			// Update repo size if this is the master branch
+			if branchInfo.Name == "master" {
+				if branchInfo.Head != nil {
+					headCommitInfo, err := d.resolveCommit(txnCtx.Stm, branchInfo.Head)
+					if err != nil {
+						return err
+					}
+					repoInfo.SizeBytes = headCommitInfo.SizeBytes
+				} else {
+					// No HEAD commit, set the repo size to 0
+					repoInfo.SizeBytes = 0
+				}
+
+				if err := repos.Put(repo, repoInfo); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// 8) propagate the changes to 'branch' and its subvenance. This may start
+	// new HEAD commits downstream, if the new branch heads haven't been
+	// processed yet
+	for _, afBranch := range affectedBranches {
+		if err := txnCtx.PropagateCommit(afBranch.Branch, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -212,7 +212,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 		}
 	}
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Origin, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -621,6 +621,26 @@ func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFile
 // GlobFileV2 not implemented
 func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) error {
 	return errV2NotImplemented
+}
+
+// DiffFileV2 not implemented
+func (a *apiServer) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+	return errV2NotImplemented
+}
+
+// InspectFileV2 not implemented
+func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
+	return nil, errV2NotImplemented
+}
+
+// WalkFileV2 not implemented
+func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
+	return errV2NotImplemented
+}
+
+// ClearCommitV2 not implemented
+func (a *apiServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	return nil, errV2NotImplemented
 }
 
 func drainFileServer(putFileServer interface {

@@ -4,6 +4,8 @@
 // their push events.
 package githook
 
+// TODO(ys): remove githook server in pachyderm 2.0
+
 import (
 	"bytes"
 	"encoding/json"
@@ -99,7 +101,7 @@ func (s *gitHookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	payload, err := s.hook.Parse(r, github.PushEvent)
 	if err != nil {
 		// `ErrEventNotFound` implies github sent an event we didn't ask for
-		if err != github.ErrEventNotFound {
+		if !errors.Is(err, github.ErrEventNotFound) {
 			logrus.Errorf("error parsing github hook: %v", err)
 		}
 		return

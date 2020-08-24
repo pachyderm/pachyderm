@@ -103,7 +103,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 
 		eg.Go(func() error {
 			err := Run(env.driver, env.logger)
-			if err != nil && err.Error() == "context canceled" {
+			if err != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
 			return err
@@ -122,7 +122,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 				env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 				return nil
 			})
-			if err != nil && err.Error() == "context canceled" {
+			if err != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
 			return err
@@ -132,7 +132,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	})
 
 	workerSpawnerErr := eg.Wait()
-	if workerSpawnerErr != nil && workerSpawnerErr.Error() != "context canceled" {
+	if workerSpawnerErr != nil && errors.Is(workerSpawnerErr, context.Canceled) {
 		return workerSpawnerErr
 	}
 	return err
@@ -420,6 +420,46 @@ func TestJobSerial(t *testing.T) {
 		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/b", 0, 0, buffer)
 		require.NoError(t, err)
 		require.Equal(t, "barfoo", buffer.String())
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestJobEgress is identical to TestJobSuccess except it includes the egress
+// stage. The implementation of egress is mocked to short-circuit success, so
+// this really just tests the state machine progresses all the way through.
+func TestJobEgress(t *testing.T) {
+	pi := defaultPipelineInfo()
+	pi.Egress = &pps.Egress{URL: "http://example.com"}
+	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar")})
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Find the output file in the output branch
+		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "/a", files[0].File.Path)
+		require.Equal(t, uint64(6), files[0].SizeBytes)
+
+		buffer := &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/a", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", buffer.String())
 
 		return nil
 	})

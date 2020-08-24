@@ -42,7 +42,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commitInfos
 		}
 		require.NoError(t, err)
@@ -132,6 +132,10 @@ func commitInfoSummary(i interface{}) interface{} {
 	if ci.Datums != nil {
 		datums = ci.Datums.Hash
 	}
+	var origin int32
+	if ci.Origin != nil {
+		origin = int32(ci.Origin.Kind)
+	}
 	return fmt.Sprintf(`%s
 Parent: %s
 Children: %s
@@ -142,12 +146,14 @@ Finished: %s
 Size: %d
 Tree: %s
 Trees: %s
-Datums: %s`,
+Datums: %s
+Origin: %d
+`,
 		ci.Commit.ID,
 		parentCommit, childCommits,
 		prov, subv,
 		types.TimestampString(ci.Started), finished,
-		ci.SizeBytes, tree, trees, datums,
+		ci.SizeBytes, tree, trees, datums, origin,
 	)
 }
 
@@ -292,10 +298,13 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	})
 
 	// Wait for re-created pipelines to process recreated input data
-	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
+
+	for _, ci := range commitInfos {
+		require.Equal(t, "AUTO", ci.Origin.Kind.String())
+	}
 
 	// Confirm all the recreated jobs passed
 	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)

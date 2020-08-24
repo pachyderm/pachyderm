@@ -20,27 +20,24 @@ theme:
   # 404 page
   static_templates:
     - 404.html
-  include_search_page: true
+  include_search_page: false
   search_index_only: true
   language: en
-  feature:
-    tabs: true
+  features:
+    - tabs
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
   font:
-    text: Roboto
+    text: Robotol
     code: Roboto Mono
-  favicon: assets/images/favicon.png
-  logo:
-    icon: "\uE80C"
+  favicon: assets/images/favicon-32x32.png
+  icon:
+    logo: material/school
 
 # Plugins
 plugins:
   - search
-  - exclude:
-      glob:
-        - archive/*
   - minify:
       minify_html: true
   - git-revision-date-localized
@@ -48,23 +45,19 @@ plugins:
 # Customization
 extra:
   social:
-    - type: github-alt
+    - icon: fontawesome/brands/github
       link: https://github.com/pachyderm/pachyderm
-    - type: twitter
+    - icon: fontawesome/brands/twitter
       link: https://twitter.com/pachydermio
-    - type: linkedin
+    - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'assets/stylesheets/extra.css'
-extra_javascript:
-    - 'assets/javascripts/extra.js'
+    - stylesheets/extra.css
 
 # Extensions
 markdown_extensions:
   - markdown.extensions.admonition
-  - markdown.extensions.tables
-  - markdown.extensions.attr_list
   - markdown.extensions.codehilite:
       guess_lang: false
   - markdown.extensions.def_list
@@ -72,8 +65,6 @@ markdown_extensions:
   - markdown.extensions.meta
   - markdown.extensions.toc:
       permalink: true
-  - mdx_truly_sane_lists:
-      nested_indent: 2
   - pymdownx.arithmatex
   - pymdownx.betterem:
       smart_enable: all
@@ -81,7 +72,8 @@ markdown_extensions:
   - pymdownx.critic
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:pymdownx.emoji.to_svg  
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg 
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink
@@ -140,10 +132,18 @@ nav:
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
         - Overview: how-tos/index.md
-        - Individual Developer Workflow: how-tos/individual-developer-workflow.md
-        - Team Developer Workflow: how-tos/team-developer-workflow.md
+        - Workflow: 
+            - Overview: how-tos/developer-workflow/index.md
+            - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
+            - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
+            - Build Flag: how-tos/developer-workflow/build-flag.md
+            - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
-        - Export Your Data From Pachyderm: how-tos/export-data-out-pachyderm.md
+        - Export Your Data From Pachyderm:
+            - Overview: how-tos/export-data-out-pachyderm/index.md
+            - Export Your Data with pachctl: how-tos/export-data-out-pachyderm/export-data-pachctl.md
+            - Export Your Data with egress: how-tos/export-data-out-pachyderm/export-data-egress.md
+            - Mount a Repo to a Local Computer: how-tos/export-data-out-pachyderm/mount-repo-to-local-computer.md
         - Split Data:
             - Overview: how-tos/splitting-data/index.md
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
@@ -289,6 +289,7 @@ nav:
             - reference/pachctl/pachctl_deploy_custom.md
             - reference/pachctl/pachctl_deploy_export-images.md
             - reference/pachctl/pachctl_deploy_google.md
+            - reference/pachctl/pachctl_deploy_ide.md
             - reference/pachctl/pachctl_deploy_import-images.md
             - reference/pachctl/pachctl_deploy_list-images.md
             - reference/pachctl/pachctl_deploy_local.md
@@ -304,6 +305,7 @@ nav:
             - reference/pachctl/pachctl_enterprise.md
             - reference/pachctl/pachctl_enterprise_activate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
+            - reference/pachctl/pachctl_exit.md
             - reference/pachctl/pachctl_extract.md
             - reference/pachctl/pachctl_extract_pipeline.md
             - reference/pachctl/pachctl_finish.md
@@ -377,12 +379,21 @@ nav:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
-        - Configure Access Controls: enterprise/auth/auth.md
+        - Configure Access Controls:
+            - Overview: enterprise/auth/index.md
+            - Enable Access Controls: enterprise/auth/enable-auth.md
+            - Manage Users and Groups: enterprise/auth/manage-users-groups.md
+            - Manage Authentication Config: enterprise/auth/auth-config.md
+            - Configure a SAML Provider:
+              - Overview: enterprise/auth/saml/saml.md
+              - Configure SAML: enterprise/auth/saml/saml_setup.md
+              - Use SAML: enterprise/auth/saml/saml_usage.md
+            - Configure an OIDC Provider:
+              - Overview: enterprise/auth/oidc/index.md
+              - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
+              - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
+              - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
         - Advanced Statistics: enterprise/stats.md
-        - Configure Pachyderm with an Access Management Provider:
-            - Overview: enterprise/saml.md
-            - Configure SAML: enterprise/saml_setup.md
-            - Use SAML: enterprise/saml_usage.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md

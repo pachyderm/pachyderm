@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	uuid "github.com/satori/go.uuid"
@@ -106,7 +106,7 @@ func Read(ignoreCache bool) (*Config, error) {
 		for contextName, context := range value.V2.Contexts {
 			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 			if err != nil {
-				if err != grpcutil.ErrNoPachdAddress {
+				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
 					return nil, errors.Wrapf(err, "could not parse pachd address for context '%s'", contextName)
 				}
 			} else {

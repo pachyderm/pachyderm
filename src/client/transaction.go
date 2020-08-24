@@ -401,6 +401,18 @@ func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequ
 func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
 	return nil, unsupportedError("GlobFileV2")
 }
+func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
+	return nil, unsupportedError("DiffFileV2")
+}
+func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
+	return nil, unsupportedError("InspectFileV2")
+}
+func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
+	return nil, unsupportedError("WalkFileV2")
+}
+func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCommitV2")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
@@ -566,8 +578,14 @@ func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetC
 func (c *authBuilderClient) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest, opts ...grpc.CallOption) (*auth.GetAdminsResponse, error) {
 	return nil, unsupportedError("GetAdmins")
 }
+func (c *authBuilderClient) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetClusterRoleBindingsResponse, error) {
+	return nil, unsupportedError("GetClusterRoleBindings")
+}
 func (c *authBuilderClient) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest, opts ...grpc.CallOption) (*auth.ModifyAdminsResponse, error) {
 	return nil, unsupportedError("ModifyAdmins")
+}
+func (c *authBuilderClient) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyClusterRoleBindingResponse, error) {
+	return nil, unsupportedError("ModifyClusterRoleBinding")
 }
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
@@ -592,6 +610,9 @@ func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest,
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")
+}
+func (c *authBuilderClient) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest, opts ...grpc.CallOption) (*auth.GetOIDCLoginResponse, error) {
+	return nil, unsupportedError("GetOIDCLogin")
 }
 func (c *authBuilderClient) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest, opts ...grpc.CallOption) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, unsupportedError("ExtendAuthToken")
@@ -664,12 +685,12 @@ func (c *transactionBuilderClient) DeleteAll(ctx context.Context, req *transacti
 	return nil, unsupportedError("DeleteAll")
 }
 
-func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
-}
 func (c *debugBuilderClient) Profile(ctx context.Context, req *debug.ProfileRequest, opts ...grpc.CallOption) (debug.Debug_ProfileClient, error) {
 	return nil, unsupportedError("Profile")
 }
 func (c *debugBuilderClient) Binary(ctx context.Context, req *debug.BinaryRequest, opts ...grpc.CallOption) (debug.Debug_BinaryClient, error) {
 	return nil, unsupportedError("Binary")
+}
+func (c *debugBuilderClient) Dump(ctx context.Context, req *debug.DumpRequest, opts ...grpc.CallOption) (debug.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }

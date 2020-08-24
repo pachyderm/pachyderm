@@ -11,6 +11,7 @@ import (
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -184,7 +185,7 @@ func masterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient 
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
 	err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
-	require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
+	require.True(t, err == nil || errors.Is(err, io.EOF), fmt.Sprintf("unexpected error: %s", err))
 
 	// compare the files and ensure they're the same
 	// NOTE: Because minio's `FGetObject` does a rename from a buffer file

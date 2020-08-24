@@ -66,7 +66,7 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
 	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	return ppsutil.GetPipelineInfo(pachClient, env.PPSPipelineName, &pipelinePtr)
 }
 
 func do(config interface{}) error {
@@ -96,7 +96,7 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort, "", pachClient))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.PodName, pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)

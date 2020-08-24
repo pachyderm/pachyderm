@@ -7,7 +7,7 @@ package cmds
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -28,10 +29,11 @@ func activateEnterprise(t *testing.T) {
 	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
 	out, err := cmd.Output()
 	require.NoError(t, err)
-	if string(out) != "ACTIVE" {
-		// Enterprise not active in the cluster. Activate it
-		require.NoError(t,
-			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode(t)).Run())
+	if !strings.Contains(string(out), "ACTIVE") {
+		// Enterprise not active in the cluster. Activate it.
+		cmd := tu.Cmd("pachctl", "enterprise", "activate")
+		cmd.Stdin = strings.NewReader(fmt.Sprintf("%s\n", tu.GetTestEnterpriseCode(t)))
+		require.NoError(t, cmd.Run())
 	}
 }
 
@@ -170,28 +172,6 @@ func TestAdmins(t *testing.T) {
 		pachctl auth list-admins \
 			| match -v "admin2" \
 			| match "admin"
-		`).Run())
-}
-
-func TestModifyAdminsPropagateError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	activateAuth(t)
-	defer deactivateAuth(t)
-
-	// Add admin2, and then try to remove it along with a fake admin. Make sure we
-	// get an error
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins \
-			| match "admin"
-		pachctl auth modify-admins --add admin2
-		pachctl auth list-admins \
-			| match  "admin2"
-
- 		# cmd should fail
-		! pachctl auth modify-admins --remove admin1,not_in_list
 		`).Run())
 }
 

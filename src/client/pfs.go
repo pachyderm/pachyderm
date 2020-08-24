@@ -319,13 +319,13 @@ func (c APIClient) ListCommitF(repoName string, to string, from string, number u
 	}
 	for {
 		ci, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(ci); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -481,7 +481,7 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 	for {
 		ci, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
@@ -757,7 +757,7 @@ func (c APIClient) ListObject(f func(*pfs.ObjectInfo) error) error {
 	for {
 		oi, err := listObjectClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
@@ -826,13 +826,13 @@ func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
 	for {
 		listTagResponse, err := listTagClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(listTagResponse); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -849,13 +849,13 @@ func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
 	for {
 		block, err := listBlocksClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(block); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -1315,13 +1315,13 @@ func (c APIClient) ListFileF(repoName string, commitID string, path string, hist
 	}
 	for {
 		fi, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -1346,7 +1346,7 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	var result []*pfs.FileInfo
 	for {
 		f, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, grpcutil.ScrubGRPC(err)
@@ -1372,13 +1372,13 @@ func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f
 	}
 	for {
 		fi, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -1428,13 +1428,13 @@ func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn)
 	}
 	for {
 		fi, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
@@ -1473,13 +1473,13 @@ func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
 	for {
 		resp, err := fsckClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := cb(resp); err != nil {
-			if err == errutil.ErrBreak {
+			if errors.Is(err, errutil.ErrBreak) {
 				break
 			}
 			return err
@@ -1500,7 +1500,7 @@ func (c APIClient) FsckFastExit() error {
 	for {
 		resp, err := fsckClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)

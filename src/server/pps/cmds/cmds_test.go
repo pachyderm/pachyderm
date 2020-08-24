@@ -25,6 +25,10 @@
 package cmds
 
 import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -48,6 +52,9 @@ const badJSON2 = `{
 `
 
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl create pipeline -f - 2>&1 || true ) \
@@ -63,6 +70,9 @@ func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 }
 
 func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl update pipeline -f - 2>&1 || true ) \
@@ -78,6 +88,9 @@ func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 }
 
 func TestRawFullPipelineInfo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl garbage-collect
@@ -117,6 +130,9 @@ func TestRawFullPipelineInfo(t *testing.T) {
 // historically, so we should continue to support it until we formally deprecate
 // it.
 func TestJSONMultiplePipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -175,6 +191,9 @@ func TestJSONMultiplePipelines(t *testing.T) {
 // specify numeric values such as a pipeline's parallelism (a feature of gogo's
 // JSON parser).
 func TestJSONStringifiedNumbers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -220,6 +239,9 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 // the problem in the JSON, rather than an error complaining about multiple
 // documents.
 func TestJSONMultiplePipelinesError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// pipeline spec has no quotes around "name" in first pipeline
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
@@ -267,6 +289,9 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -318,6 +343,9 @@ func TestYAMLPipelineSpec(t *testing.T) {
 // issue referenced by the error (use of a string instead of an array for 'cmd')
 // is the main problem below
 func TestYAMLError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// "cmd" should be a list, instead of a string
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
@@ -340,6 +368,9 @@ func TestYAMLError(t *testing.T) {
 }
 
 func TestTFJobBasic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
@@ -395,6 +426,9 @@ func TestTFJobBasic(t *testing.T) {
 // TestYAMLSecret tests creating a YAML pipeline with a secret (i.e. the fix for
 // https://github.com/pachyderm/pachyderm/issues/4119)
 func TestYAMLSecret(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -431,6 +465,9 @@ func TestYAMLSecret(t *testing.T) {
 // TestYAMLTimestamp tests creating a YAML pipeline with a timestamp (i.e. the
 // fix for https://github.com/pachyderm/pachyderm/issues/4209)
 func TestYAMLTimestamp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.BashCmd(`
@@ -456,6 +493,9 @@ func TestYAMLTimestamp(t *testing.T) {
 }
 
 func TestEditPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 	`).Run())
@@ -483,6 +523,304 @@ func TestEditPipeline(t *testing.T) {
 		`).Run())
 }
 
+func TestPipelineBuildLifecyclePython(t *testing.T) {
+	testPipelineBuildLifecycle(t, "python", "python")
+
+	// the python example also contains a `.pachignore`, so we can verify it's
+	// intended behavior here
+	require.NoError(t, tu.BashCmd(`
+		pachctl get file test-pipeline-build_build@source:/.pachignore
+	`).Run())
+	require.YesError(t, tu.BashCmd(`
+		pachctl get file test-pipeline-build_build@source:/foo.txt
+	`).Run())
+}
+
+func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	testPipelineBuildLifecycle(t, "python", "python_no_deps")
+}
+
+func TestPipelineBuildLifecycleGo(t *testing.T) {
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
+
+	spec := fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": "test-pipeline-build"
+		  },
+		  "transform": {
+		    "build": {
+		      "language": "%s"
+		    }
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, lang)
+
+	// test a barebones pipeline with a build spec and verify results
+	require.NoError(t, tu.BashCmd(`
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		pachctl create pipeline <<EOF
+			{{.spec}}
+		EOF
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"dir", dir,
+		"spec", spec,
+	).Run())
+	verifyPipelineBuildOutput(t, "0")
+
+	// update the barebones pipeline and verify results
+	require.NoError(t, tu.BashCmd(`
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		pachctl update pipeline <<EOF
+			{{.spec}}
+		EOF
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"dir", dir,
+		"spec", spec,
+	).Run())
+	verifyPipelineBuildOutput(t, "0")
+
+	// update the pipeline with a custom cmd and verify results
+	spec = fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": "test-pipeline-build"
+		  },
+		  "transform": {
+		    "cmd": [
+		      "sh",
+		      "/pfs/build/run.sh",
+		      "_"
+		    ],
+		    "build": {
+		      "language": "%s",
+		      "path": "."
+		    }
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, lang)
+
+	require.NoError(t, tu.BashCmd(`
+		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		pachctl update pipeline --reprocess <<EOF
+			{{.spec}}
+		EOF
+		pachctl flush commit test-pipeline-build@master
+		`,
+		"dir", dir,
+		"spec", spec,
+	).Run())
+	verifyPipelineBuildOutput(t, "_")
+}
+
+func verifyPipelineBuildOutput(t *testing.T, prefix string) {
+	t.Helper()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl flush commit test-pipeline-build@master
+		pachctl get file test-pipeline-build@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
+		pachctl get file test-pipeline-build@master:/11.txt | match {{.prefix}}{{.prefix}}11
+		pachctl get file test-pipeline-build@master:/111.txt | match {{.prefix}}111
+		`,
+		"prefix", prefix,
+	).Run())
+}
+
+func TestMissingPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because there's no pipeline object in the spec
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "transform": {
+			    "image": "ubuntu"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestUnnamedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because there's no pipeline name
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {},
+			  "transform": {
+			    "image": "ubuntu"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildSpout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because pipeline build can't be used w/ spouts
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "build": {
+			      "language": "go"
+			    }
+			  },
+			  "spout": {}
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildMissingInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because pipeline build can't be used w/ spouts
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "build": {
+			      "language": "go"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildBadInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because 'build' and 'source' are reserved input names when
+	// using pipeline builds
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "build": {
+			      "language": "go"
+			    }
+			  },
+			  "input": {
+			    "pfs": {
+			      "name": "build",
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "build": {
+			      "language": "go"
+			    }
+			  },
+			  "input": {
+			    "pfs": {
+			      "name": "source",
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
+func TestPipelineBuildMissingPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should fail because 'build' and 'source' are reserved input names for
+	// when using pipeline builds
+	require.YesError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+			    "name": "test"
+			  },
+			  "transform": {
+			    "build": {
+			      "language": "go",
+			      "path": "/some/path/that/doesnt/exist"
+			    }
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+		EOF
+	`).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")
@@ -499,3 +837,70 @@ func TestEditPipeline(t *testing.T) {
 // 	os.Args = []string{"pachctl", "create", "pipeline", "--push-images", "-f", "test-push-images.json"}
 // 	require.NoError(t, rootCmd().Execute())
 // }
+
+func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
+	`).Run())
+
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {
+				"name": "first"
+			  },
+			  "transform": {
+				"image": "%s"
+			  },
+			  "input": {
+			    "pfs": {
+			      "repo": "in",
+			      "glob": "/*"
+			    }
+			  }
+			}
+EOF
+	`, image))
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	// cmd.Stdout = os.Stdout // uncomment for debugging
+	cmd.Env = os.Environ()
+	err := cmd.Run()
+	stderr := buf.String()
+	return stderr, err
+}
+
+func TestWarningLatestTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified latest tag on docker image
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestWarningEmptyTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should emit a warning because user specified empty tag, equivalent to
+	// :latest
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu")
+	require.NoError(t, err)
+	require.Matches(t, "WARNING", stderr)
+}
+
+func TestNoWarningTagSpecified(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// should not emit a warning (stderr should be empty) because user
+	// specified non-empty, non-latest tag
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	require.NoError(t, err)
+	require.Equal(t, "", stderr)
+}
