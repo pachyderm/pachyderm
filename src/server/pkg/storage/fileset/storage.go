@@ -248,6 +248,10 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	}); err != nil {
 		return nil, err
 	}
+	// Inputs should be ordered with priority from least to greatest.
+	for i := 0; i < len(spec.Input)/2; i++ {
+		spec.Input[i], spec.Input[len(spec.Input)-1-i] = spec.Input[len(spec.Input)-1-i], spec.Input[i]
+	}
 	return spec, nil
 }
 

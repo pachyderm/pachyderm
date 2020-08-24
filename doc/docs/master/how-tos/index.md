@@ -15,12 +15,12 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="individual-developer-workflow/" class="md-typeset md-link">
-          Individual Developer Workflow
+          <li><a href="developer-workflow/" class="md-typeset md-link">
+          Working with Data and Pipelines
           </a>
           </li>
-          <li><a href="team-developer-workflow/" class="md-typeset md-link">
-          Team Developer Workflow
+          <li><a href="developer-workflow/ci-cd-integration/" class="md-typeset md-link">
+          CI/CD Integration
           </a>
           </li>
           <li><a href="create-ml-workflow/" class="md-typeset md-link">

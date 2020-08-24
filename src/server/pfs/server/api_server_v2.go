@@ -263,3 +263,18 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	gtw.bytesWritten += int64(n)
 	return n, err
 }
+
+// DiffFileV2 returns the files only in new or only in old
+func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
+		return server.Send(&pfs.DiffFileResponseV2{
+			OldFile: oldFi,
+			NewFile: newFi,
+		})
+	})
+}
+
+// ClearCommitV2 deletes all data in the commit.
+func (a *apiServerV2) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), req.Commit)
+}

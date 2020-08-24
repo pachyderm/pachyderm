@@ -163,6 +163,16 @@ func (a *validatedAPIServer) GlobFileStream(request *pfs.GlobFileRequest, server
 	return a.APIServer.GlobFileStream(request, server)
 }
 
+func (a *validatedAPIServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	if req.Commit == nil {
+		return nil, errors.Errorf("commit cannot be nil")
+	}
+	if err := a.checkIsAuthorized(ctx, req.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
+	return a.APIServer.ClearCommitV2(ctx, req)
+}
+
 func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
 	return a.env.GetPachClient(ctx)
 }

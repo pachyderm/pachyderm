@@ -392,6 +392,12 @@ func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.Cal
 func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
 	return nil, unsupportedError("GetTarV2")
 }
+func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
+	return nil, unsupportedError("DiffFileV2")
+}
+func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCommitV2")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
