@@ -265,8 +265,10 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 }
 
 // DiffFileV2 returns the files only in new or only in old
-func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
-	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
+func (a *apiServerV2) DiffFileV2(request *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		return server.Send(&pfs.DiffFileResponseV2{
 			OldFile: oldFi,
 			NewFile: newFi,
@@ -275,6 +277,8 @@ func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFi
 }
 
 // ClearCommitV2 deletes all data in the commit.
-func (a *apiServerV2) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
-	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), req.Commit)
+func (a *apiServerV2) ClearCommitV2(ctx context.Context, request *pfs.ClearCommitRequestV2) (_ *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), request.Commit)
 }
