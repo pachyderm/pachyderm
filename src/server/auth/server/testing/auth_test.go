@@ -1947,6 +1947,63 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	require.True(t, resp.Authorized)
 }
 
+// TestAuthorizedEveryone tests that Authorized(user, repo, NONE) tests that the
+// `everyone` binding  for an ACL sets the minimum authorized scope
+func TestAuthorizedEveryone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+
+	// alice is authorized as `OWNER`
+	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_OWNER,
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Authorized)
+
+	// bob is not authorized
+	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.False(t, resp.Authorized)
+
+	// alice grants everybody WRITER access
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Scope:    auth.Scope_WRITER,
+		Username: "everyone",
+	})
+	require.NoError(t, err)
+
+	// alice is still authorized as `OWNER`
+	resp, err = aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_OWNER,
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Authorized)
+
+	// bob is now authorized as WRITER
+	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Authorized)
+}
+
 // TestDeleteAll tests that you must be a cluster admin to call DeleteAll
 func TestDeleteAll(t *testing.T) {
 	if testing.Short() {

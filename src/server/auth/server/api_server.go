@@ -44,6 +44,8 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
+	everyoneSubject = "everyone"
+
 	tokensPrefix           = "/tokens"
 	oneTimePasswordsPrefix = "/auth-codes"
 	aclsPrefix             = "/acls"
@@ -1570,8 +1572,13 @@ func (a *apiServer) SetScope(ctx context.Context, req *auth.SetScopeRequest) (re
 // Authorized() and other authorization checks (e.g. checking if a user is an
 // OWNER to determine if they can modify an ACL).
 func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL) (auth.Scope, error) {
+	// Get the scope for the "everyone" ACL, if available
+	scope := acl.Entries[everyoneSubject]
+
 	// Get scope based on user's direct access
-	scope := acl.Entries[subject]
+	if subjectScope := acl.Entries[subject]; scope < subjectScope {
+		scope = subjectScope
+	}
 
 	// Expand scope based on group access
 	groups, err := a.getGroups(ctx, subject)
@@ -2547,6 +2554,10 @@ func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string)
 // TODO(msteffen): We'd like to require that subjects always have a prefix, but
 // this behavior hasn't been implemented in the dash yet.
 func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+	if subject == everyoneSubject {
+		return subject, nil
+	}
+
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
 		subject = auth.GitHubPrefix + subject
