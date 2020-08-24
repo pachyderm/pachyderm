@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -148,6 +149,43 @@ func (c APIClient) GetTarV2(repo, commit, path string) (_ io.Reader, retErr erro
 		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
+}
+
+// DiffFileV2 returns the differences between 2 paths at 2 commits.
+// It streams back one file at a time which is either from the new path, or the old path
+func (c APIClient) DiffFileV2(newRepo, newCommit, newPath, oldRepo,
+	oldCommit, oldPath string, shallow bool, cb func(*pfs.FileInfo, *pfs.FileInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	var oldFile *pfs.File
+	if oldRepo != "" {
+		oldFile = NewFile(oldRepo, oldCommit, oldPath)
+	}
+	req := &pfs.DiffFileRequest{
+		NewFile: NewFile(newRepo, newCommit, newPath),
+		OldFile: oldFile,
+		Shallow: shallow,
+	}
+	client, err := c.PfsAPIClient.DiffFileV2(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		resp, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		if err := cb(resp.NewFile, resp.OldFile); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // PutFileV2 puts a file into PFS.
