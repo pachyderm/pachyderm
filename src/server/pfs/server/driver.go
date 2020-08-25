@@ -1451,17 +1451,23 @@ func (d *driver) makeCommit(
 	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 		return nil, err
 	}
-	if err := d.triggerBranch(txnCtx, client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
-		return nil, err
-	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch), true); err != nil {
-			return nil, err
+		newBranch := client.NewBranch(newCommit.Repo.Name, branch)
+		var triggeredBranches []*pfs.Branch
+		if newCommitInfo.Finished != nil {
+			triggeredBranches, err = d.triggerBranch(txnCtx, newBranch)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, b := range append(triggeredBranches, newBranch) {
+			if err := txnCtx.PropagateCommit(b, true); err != nil {
+				return nil, err
+			}
 		}
 	}
-
 	return newCommit, nil
 }
 
@@ -1536,14 +1542,25 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 			}
 			commitInfo.Tree = tree
 		}
-
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
 	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
 		return err
 	}
-	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+		return err
+	}
+	triggeredBranches, err := d.triggerBranch(txnCtx, commitInfo.Branch)
+	if err != nil {
+		return err
+	}
+	for _, b := range triggeredBranches {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {

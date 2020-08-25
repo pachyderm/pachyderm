@@ -6410,27 +6410,56 @@ func TestTrigger(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
-		require.NoError(t, c.CreateRepo("repo"))
-		require.NoError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
+		require.NoError(t, c.CreateRepo("in"))
+		require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", &pfs.Trigger{
 			Branch: "master",
 			Size_:  "1K",
 		}))
-		bis, err := c.ListBranch("repo")
+		bis, err := c.ListBranch("in")
 		require.NoError(t, err)
 		require.Equal(t, 1, len(bis))
 		require.Nil(t, bis[0].Head)
 
+		// Create a downstream branch
+		require.NoError(t, c.CreateRepo("out"))
+		require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "trigger")}))
+		require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", &pfs.Trigger{
+			Branch: "master",
+			Size_:  "1K",
+		}))
+
 		// Write a small file, too small to trigger
-		_, err = c.PutFile("repo", "master", "file", strings.NewReader("small"))
+		_, err = c.PutFile("in", "master", "file", strings.NewReader("small"))
 		require.NoError(t, err)
-		bi, err := c.InspectBranch("repo", "trigger")
+		bi, err := c.InspectBranch("in", "trigger")
+		require.NoError(t, err)
+		require.Nil(t, bi.Head)
+		bi, err = c.InspectBranch("out", "master")
+		require.NoError(t, err)
+		require.Nil(t, bi.Head)
+		bi, err = c.InspectBranch("out", "trigger")
 		require.NoError(t, err)
 		require.Nil(t, bi.Head)
 
-		_, err = c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
+		_, err = c.PutFile("in", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
 		require.NoError(t, err)
 
-		bi, err = c.InspectBranch("repo", "trigger")
+		bi, err = c.InspectBranch("in", "trigger")
+		require.NoError(t, err)
+		require.NotNil(t, bi.Head)
+
+		// Output branch should have a commit now
+		bi, err = c.InspectBranch("out", "master")
+		require.NoError(t, err)
+		require.NotNil(t, bi.Head)
+
+		// Put a file that will cause the trigger to go off
+		_, err = c.PutFile("out", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit("out", "master"))
+
+		// Output trigger should have triggered
+		bi, err = c.InspectBranch("out", "trigger")
 		require.NoError(t, err)
 		require.NotNil(t, bi.Head)
 

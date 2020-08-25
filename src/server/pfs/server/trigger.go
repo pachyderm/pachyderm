@@ -8,35 +8,37 @@ import (
 )
 
 // triggerBranch is called when a branch is moved to point to a new commit, it
-// updates other branches in the repo if they trigger on the change
+// updates other branches in the repo if they trigger on the change and returns
+// all branches which were moved by this call.
 func (d *driver) triggerBranch(
 	txnCtx *txnenv.TransactionContext,
 	branch *pfs.Branch,
-) error {
+) ([]*pfs.Branch, error) {
 	repos := d.repos.ReadWrite(txnCtx.Stm)
 	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	commits := d.commits(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Get(branch.Repo.Name, repoInfo); err != nil {
-		return err
+		return nil, err
 	}
 	bi := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, bi); err != nil {
-		return err
+		return nil, err
 	}
 	newHead := &pfs.CommitInfo{}
 	if err := commits.Get(bi.Head.ID, newHead); err != nil {
-		return err
+		return nil, err
 	}
+	var result []*pfs.Branch
 	for _, b := range repoInfo.Branches {
 		if err := branches.Get(b.Name, bi); err != nil {
-			return err
+			return nil, err
 		}
 		if bi.Trigger != nil && bi.Trigger.Branch == branch.Name {
 			oldHead := &pfs.CommitInfo{}
 			if bi.Head != nil {
 				if err := commits.Get(bi.Head.ID, oldHead); err != nil {
-					return err
+					return nil, err
 				}
 			}
 			if isTriggered(bi.Trigger, oldHead, newHead) {
@@ -44,12 +46,13 @@ func (d *driver) triggerBranch(
 					bi.Head = newHead.Commit
 					return nil
 				}); err != nil {
-					return err
+					return nil, err
 				}
+				result = append(result, b)
 			}
 		}
 	}
-	return nil
+	return result, nil
 }
 
 // isTriggered checks to see if a branch should be updated from oldHead to
