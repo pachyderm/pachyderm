@@ -8,7 +8,7 @@ provider, or in our fully managed service, Pachyderm Hub.
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Deploy on PacHub &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
+        <h4 class="mdl-card__title-text">Deploy on PachHub &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Deploy a new cluster in seconds and try out
@@ -16,15 +16,15 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../pachub/pachub_getting_started/" class="md-typeset md-link">
-          Getting Started with PacHub
+          <li><a href="../pachhub/pachhub_getting_started/" class="md-typeset md-link">
+          Getting Started with PachHub
           </a>
           </li>
           <li><a href="beginner_tutorial/" class="md-typeset md-link">
           Beginner Tutorial
           </a>
           <li><a href="https://hub.pachyderm.com" class="md-typeset md-link">
-          Go to PacHub
+          Go to PachHub
           </a>
         </li>
        </ul>
