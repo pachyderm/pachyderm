@@ -6450,10 +6450,24 @@ func TestTriggerValidation(t *testing.T) {
 			Branch: "master",
 			Size_:  "1K",
 		}))
+		// Size doesn't parse
 		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
 			Branch: "master",
-			Size_:  "ceci n'est pas un size",
+			Size_:  "this is not a size",
 		}))
+
+		// a -> b
+		require.NoError(t, c.CreateBranchTrigger("repo", "b", "", &pfs.Trigger{
+			Branch: "a",
+			Size_:  "1K",
+		}))
+		// Can't have circular triggers
+		require.YesError(t, c.CreateBranchTrigger("repo", "a", "", &pfs.Trigger{
+			Branch: "b",
+			Size_:  "1K",
+		}))
+
+		return nil
 	})
 	require.NoError(t, err)
 }

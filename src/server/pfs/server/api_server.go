@@ -285,7 +285,7 @@ func (a *apiServer) CreateBranchInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.CreateBranchRequest,
 ) error {
-	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance)
+	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC

@@ -1451,6 +1451,9 @@ func (d *driver) makeCommit(
 	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 		return nil, err
 	}
+	if err := d.triggerBranch(txnCtx, client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
+		return nil, err
+	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
@@ -2621,7 +2624,7 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
-func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
+func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
@@ -2694,6 +2697,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				return errors.Errorf("branch %s@%s cannot be in its own provenance", branch.Repo.Name, branch.Name)
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
+		}
+		if trigger != nil {
+			branchInfo.Trigger = trigger
 		}
 		return nil
 	}); err != nil {

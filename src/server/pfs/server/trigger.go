@@ -34,8 +34,10 @@ func (d *driver) triggerBranch(
 		}
 		if bi.Trigger != nil && bi.Trigger.Branch == branch.Name {
 			oldHead := &pfs.CommitInfo{}
-			if err := commits.Get(bi.Head.ID, oldHead); err != nil {
-				return err
+			if bi.Head != nil {
+				if err := commits.Get(bi.Head.ID, oldHead); err != nil {
+					return err
+				}
 			}
 			if isTriggered(bi.Trigger, oldHead, newHead) {
 				if err := branches.Update(bi.Name, bi, func() error {
