@@ -6438,3 +6438,22 @@ func TestTrigger(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// TestTrigger tests branch trigger validation
+func TestTriggerValidation(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		require.NoError(t, c.CreateRepo("repo"))
+		// Can't trigger a branch on itself
+		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", &pfs.Trigger{
+			Branch: "master",
+			Size_:  "1K",
+		}))
+		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
+			Branch: "master",
+			Size_:  "ceci n'est pas un size",
+		}))
+	})
+	require.NoError(t, err)
+}
