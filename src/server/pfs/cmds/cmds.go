@@ -497,6 +497,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(flushCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(flushCommit, "flush commits")))
 
 	var newCommits bool
 	var pipeline string
@@ -557,6 +558,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(subscribeCommit, "subscribe commits")))
 
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -905,6 +907,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			return nil, shell.SameFlag(flag)
 		})
 	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(putFile, "put files")))
 
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
@@ -989,6 +992,7 @@ $ {{alias}} foo@master^2:XXX`,
 	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(getFile, "get files")))
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -1131,6 +1135,7 @@ $ {{alias}} "foo@master:data/*"`,
 	globFile.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(globFile, "glob files")))
 
 	var shallow bool
 	var nameOnly bool
@@ -1235,6 +1240,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().AddFlagSet(noPagerFlags)
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(diffFile, "diff files")))
 
 	deleteFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -1256,6 +1262,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(deleteFile, "delete files")))
 
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",

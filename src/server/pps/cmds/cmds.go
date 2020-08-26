@@ -587,6 +587,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(createPipeline, "create pipelines")))
 
 	var reprocess bool
 	updatePipeline := &cobra.Command{
@@ -603,6 +604,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(updatePipeline, "update pipelines")))
 
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@<branch>[=<commit>]...]",
