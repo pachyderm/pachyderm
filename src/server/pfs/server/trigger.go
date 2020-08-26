@@ -7,34 +7,41 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
-// triggerBranch is called when a branch is moved to point to a new commit, it
-// updates other branches in the repo if they trigger on the change and returns
-// all branches which were moved by this call.
-func (d *driver) triggerBranch(
+// triggerCommit is called when a commit is finished, it updates branches in
+// the repo if they trigger on the change and returns all branches which were
+// moved by this call.
+func (d *driver) triggerCommit(
 	txnCtx *txnenv.TransactionContext,
-	branch *pfs.Branch,
+	commit *pfs.Commit,
 ) ([]*pfs.Branch, error) {
 	repos := d.repos.ReadWrite(txnCtx.Stm)
-	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
-	commits := d.commits(branch.Repo.Name).ReadWrite(txnCtx.Stm)
+	branches := d.branches(commit.Repo.Name).ReadWrite(txnCtx.Stm)
+	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Get(branch.Repo.Name, repoInfo); err != nil {
-		return nil, err
-	}
-	bi := &pfs.BranchInfo{}
-	if err := branches.Get(branch.Name, bi); err != nil {
+	if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 	newHead := &pfs.CommitInfo{}
-	if err := commits.Get(bi.Head.ID, newHead); err != nil {
+	if err := commits.Get(commit.ID, newHead); err != nil {
 		return nil, err
+	}
+	// find which branches this commit is the head of
+	headBranches := make(map[string]bool)
+	bi := &pfs.BranchInfo{}
+	for _, b := range repoInfo.Branches {
+		if err := branches.Get(b.Name, bi); err != nil {
+			return nil, err
+		}
+		if bi.Head != nil && bi.Head.ID == commit.ID {
+			headBranches[b.Name] = true
+		}
 	}
 	var result []*pfs.Branch
 	for _, b := range repoInfo.Branches {
 		if err := branches.Get(b.Name, bi); err != nil {
 			return nil, err
 		}
-		if bi.Trigger != nil && bi.Trigger.Branch == branch.Name {
+		if bi.Trigger != nil && headBranches[bi.Trigger.Branch] {
 			oldHead := &pfs.CommitInfo{}
 			if bi.Head != nil {
 				if err := commits.Get(bi.Head.ID, oldHead); err != nil {

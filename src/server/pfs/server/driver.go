@@ -1454,15 +1454,14 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		newBranch := client.NewBranch(newCommit.Repo.Name, branch)
 		var triggeredBranches []*pfs.Branch
 		if newCommitInfo.Finished != nil {
-			triggeredBranches, err = d.triggerBranch(txnCtx, newBranch)
+			triggeredBranches, err = d.triggerCommit(txnCtx, newCommit)
 			if err != nil {
 				return nil, err
 			}
 		}
-		for _, b := range append(triggeredBranches, newBranch) {
+		for _, b := range append(triggeredBranches, client.NewBranch(newCommit.Repo.Name, branch)) {
 			if err := txnCtx.PropagateCommit(b, true); err != nil {
 				return nil, err
 			}
@@ -1551,7 +1550,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
 		return err
 	}
-	triggeredBranches, err := d.triggerBranch(txnCtx, commitInfo.Branch)
+	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
 	if err != nil {
 		return err
 	}
