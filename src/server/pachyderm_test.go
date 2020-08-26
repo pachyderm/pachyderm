@@ -11911,6 +11911,94 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 }
 
+func TestTrigger(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestTrigger_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateBranchTrigger(dataRepo, "trigger", "", &pfs.Trigger{
+		Branch: "master",
+		Size_:  "1K",
+	}))
+	pipeline1 := tu.UniqueString("TestTrigger1")
+	pipeline2 := tu.UniqueString("TestTrigger2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", false),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", false),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreateBranchTrigger(dataRepo, "trigger", "", &pfs.Trigger{
+		Branch: "master",
+		Size_:  "2K",
+	}))
+	// 10 100 byte files = 1K, so the last file should trigger pipeline1, but
+	// not pipeline2.
+	numFiles := 10
+	fileBytes := 100
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
+		require.NoError(t, err)
+	}
+	// This should have given us a job, flush to let it complete.
+	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	for i := 0; i < numFiles; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), 0, 0, &buf))
+		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+	}
+	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
+		require.NoError(t, err)
+	}
+	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	for i := 0; i < numFiles*2; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), 0, 0, &buf))
+		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(pipeline2, "master", fmt.Sprintf("file%d", i), 0, 0, &buf))
+		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+	}
+	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
