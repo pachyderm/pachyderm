@@ -288,6 +288,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 		})
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(flushJob, "flush jobs")))
 
 	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <job>",
@@ -365,6 +366,7 @@ each datum.`,
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(restartDatum, "restart datums")))
 
 	var pageSize int64
 	var page int64
