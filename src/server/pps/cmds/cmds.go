@@ -224,6 +224,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil, shell.SameFlag(flag)
 		})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listJob, "list jobs")))
 
 	var pipelines cmdutil.RepeatedStringArg
 	flushJob := &cobra.Command{
@@ -406,6 +407,7 @@ each datum.`,
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listDatum, "list datums")))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <job> <datum>",
@@ -844,6 +846,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listPipeline, "list pipelines")))
 
 	var (
 		all      bool
@@ -1031,6 +1034,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listSecret, "list secrets")))
 
 	var memory string
 	garbageCollect := &cobra.Command{

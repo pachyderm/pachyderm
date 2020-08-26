@@ -193,6 +193,7 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listRepo, "list repos")))
 
 	var force bool
 	var all bool
@@ -423,6 +424,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listCommit, "list commits")))
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
 		if raw {
@@ -689,6 +691,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	listBranch.Flags().AddFlagSet(rawFlags)
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listBranch, "list branches")))
 
 	deleteBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -1081,6 +1084,7 @@ $ {{alias}} foo@master --history all`,
 	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(listFile, "list files")))
 
 	globFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
