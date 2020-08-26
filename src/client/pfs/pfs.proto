@@ -561,6 +561,16 @@ message DiffFileResponseV2 {
   FileInfo new_file = 2;
 }
 
+message CreateTempFileSetResponse {
+  string fileset_id = 1;
+  int64 expires_at = 2;
+}
+
+message RenewTempFileSetRequest {
+  string fileset_id = 1;
+  int64 extend_seconds = 2;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -652,6 +662,10 @@ service API {
   rpc InspectFileV2(InspectFileRequest) returns (FileInfo) {}
   // WalkFileV2 walks over all the files under a directory, including children of children.
   rpc WalkFileV2(WalkFileRequest) returns (stream FileInfo) {}
+  // CreateTempFileSet creates a new temp fileset
+  rpc CreateTempFileSet(stream FileOperationRequestV2) returns (CreateTempFileSetResponse) {}
+  // RenewTempFileSet prevents the tempory fileset from being deleted for a set amount of time
+  rpc RenewTempFileSet(RenewTempFileSetRequest) returns (CreateTempFileSetResponse) {}
 }
 
 message PutObjectRequest {

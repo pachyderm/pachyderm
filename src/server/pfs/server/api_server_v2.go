@@ -90,7 +90,11 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 	})
 }
 
-func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, req *pfs.PutTarRequestV2) (int64, error) {
+type fileOpSource interface {
+	Recv() (*pfs.FileOperationRequestV2, error)
+}
+
+func putTar(uw *fileset.UnorderedWriter, server fileOpSource, req *pfs.PutTarRequestV2) (int64, error) {
 	ptr := &putTarReader{
 		server: server,
 		r:      bytes.NewReader(req.Data),
@@ -100,7 +104,7 @@ func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, r
 }
 
 type putTarReader struct {
-	server    pfs.API_FileOperationV2Server
+	server    fileOpSource
 	r         *bytes.Reader
 	bytesRead int64
 }
@@ -313,4 +317,18 @@ func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (resp
 // BuildCommit is not implemented in v2
 func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
 	return nil, errors.New("v2 does not implement BuildCommit")
+}
+
+func (a *apiServerV2) CreateTempFileSet(server pfs.API_CreateTempFileSetServer) error {
+	fsID, err := a.driver.createTempFileSet(server)
+	if err != nil {
+		return err
+	}
+	return server.SendAndClose(&pfs.CreateTempFileSetResponse{
+		FilesetId: fsID,
+	})
+}
+
+func (a *apiServerV2) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest) (*pfs.CreateTempFileSetResponse, error) {
+	return nil, nil
 }

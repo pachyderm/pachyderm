@@ -410,6 +410,12 @@ func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFi
 func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
 	return nil, unsupportedError("WalkFileV2")
 }
+func (c *pfsBuilderClient) CreateTempFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTempFileSetClient, error) {
+	return nil, unsupportedError("CreateTempFileSet")
+}
+func (c *pfsBuilderClient) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateTempFileSetResponse, error) {
+	return nil, unsupportedError("RenewTempFileSet")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")

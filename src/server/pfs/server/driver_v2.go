@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -37,6 +38,7 @@ const (
 	// Paths should get cleaned up in the background.
 	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
+	tmpRepo              = "__tmp__"
 )
 
 type driverV2 struct {
@@ -960,4 +962,28 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	}
 
 	return nil
+}
+
+func (d *driverV2) createTempFileSet(server pfs.API_CreateTempFileSetServer) (string, error) {
+	ctx := server.Context()
+	id := uuid.NewWithoutDashes()
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
+		_, err := d.startCommit(txnCtx, id, nil, "", nil, "temp fileset")
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return "", err
+	}
+	if err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
+		req := &pfs.PutTarRequestV2{
+			Tag: "",
+		}
+		_, err := putTar(uw, server, req)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return id, nil
 }

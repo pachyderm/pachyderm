@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -40,8 +41,10 @@ func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...str
 // FileOperationClient is not thread safe. Multiple FileOperationClients
 // should be used for concurrent upload.
 type FileOperationClient struct {
-	client pfs.API_FileOperationV2Client
-	err    error
+	client interface {
+		Send(*pfs.FileOperationRequestV2) error
+	}
+	err error
 }
 
 // NewFileOperationClientV2 creates a new FileOperationClient.
@@ -128,9 +131,31 @@ func (foc *FileOperationClient) sendDeleteFiles(req *pfs.DeleteFilesRequestV2) e
 // Close closes the FileOperationClient.
 func (foc *FileOperationClient) Close() error {
 	return foc.maybeError(func() error {
-		_, err := foc.client.CloseAndRecv()
+		type closeRecv interface {
+			CloseAndRecv() (*types.Empty, error)
+		}
+		if c, ok := foc.client.(closeRecv); ok {
+			_, err := c.CloseAndRecv()
+			return err
+		}
+		return nil
+	})
+}
+
+func (foc *FileOperationClient) closeRecvTempFileSet() (ret *pfs.CreateTempFileSetResponse, retErr error) {
+	retErr = foc.maybeError(func() error {
+		type closeRecv interface {
+			CloseRecv() (*pfs.CreateTempFileSetResponse, error)
+		}
+		cr, ok := foc.client.(closeRecv)
+		if !ok {
+			return nil
+		}
+		res, err := cr.CloseRecv()
+		ret = res
 		return err
 	})
+	return ret, retErr
 }
 
 // GetTarV2 gets a tar stream out of PFS that contains files at the repo and commit that match the path.
@@ -265,5 +290,33 @@ func (r *getTarConditionalReader) drain() error {
 			}
 			return err
 		}
+	}
+}
+
+func (c APIClient) CreateTempFileSet(r io.Reader, tag ...string) (string, error) {
+	ctx := c.Ctx()
+	client, err := c.PfsAPIClient.CreateTempFileSet(ctx)
+	if err != nil {
+		return "", err
+	}
+	foc := FileOperationClient{
+		client: client,
+	}
+	if err := foc.PutTar(r, tag...); err != nil {
+		return "", err
+	}
+	res, err := foc.closeRecvTempFileSet()
+	if err != nil {
+		return "", err
+	}
+	return res.FilesetId, nil
+}
+
+const TempRepoName = "__tmp__"
+
+func (c APIClient) TempFileSetCommit(fileSetID string) *pfs.Commit {
+	return &pfs.Commit{
+		ID:   fileSetID,
+		Repo: &pfs.Repo{Name: TempRepoName},
 	}
 }
