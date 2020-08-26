@@ -3113,36 +3113,45 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	if pipelineInfo.Input == nil {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
-	if pipelineInfo.Input.Cron == nil {
+
+	// find any cron inputs
+	var crons []*pps.CronInput
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+		if in.Cron != nil {
+			crons = append(crons, in.Cron)
+		}
+	})
+
+	if len(crons) < 1 {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
 
-	cron := pipelineInfo.Input.Cron
+	// make a tick on each cron input
+	for _, cron := range crons {
+		// We need the DeleteFile and the PutFile to happen in the same commit
+		_, err = pachClient.StartCommit(cron.Repo, "master")
+		if err != nil {
+			return nil, err
+		}
+		if cron.Overwrite {
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pachClient.DeleteFile(cron.Repo, "master", "")
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				return nil, errors.Wrapf(err, "delete error")
+			}
+		}
 
-	// We need the DeleteFile and the PutFile to happen in the same commit
-	_, err = pachClient.StartCommit(cron.Repo, "master")
-	if err != nil {
-		return nil, err
-	}
-	if cron.Overwrite {
-		// get rid of any files, so the new file "overwrites" previous runs
-		err = pachClient.DeleteFile(cron.Repo, "master", "")
-		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-			return nil, errors.Wrapf(err, "delete error")
+		// Put in an empty file named by the timestamp
+		_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
+			return nil, errors.Wrapf(err, "put error")
+		}
+
+		err = pachClient.FinishCommit(cron.Repo, "master")
+		if err != nil {
+			return nil, err
 		}
 	}
-
-	// Put in an empty file named by the timestamp
-	_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
-	if err != nil {
-		return nil, errors.Wrapf(err, "put error")
-	}
-
-	err = pachClient.FinishCommit(cron.Repo, "master")
-	if err != nil {
-		return nil, err
-	}
-
 	return &types.Empty{}, nil
 }
 
