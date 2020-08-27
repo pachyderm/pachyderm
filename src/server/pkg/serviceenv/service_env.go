@@ -83,7 +83,11 @@ func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
 // until their respective clients are ready.
 func InitServiceEnv(config *Configuration) *ServiceEnv {
 	env := InitPachOnlyEnv(config)
-	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+	proto := "http"
+	if env.EtcdClientCert != "" {
+		proto := "https"
+	}
+	env.etcdAddress = fmt.Sprintf("%s://%s", proto, net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
 	if env.LokiHost != "" && env.LokiPort != "" {
 		env.lokiClient = &loki.Client{
