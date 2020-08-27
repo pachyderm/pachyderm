@@ -220,6 +220,7 @@ func NewAuthServer(
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	public bool,
+	requireNoncriticalServers bool,
 ) (APIServer, error) {
 	s := &apiServer{
 		env:        env,
@@ -298,13 +299,22 @@ func NewAuthServer(
 	if public {
 		// start SAML and OIDC services
 		// (won't respond to anything until config is set)
-		go s.serveSAML()
-		go s.serveOIDC()
+		go waitForError("SAML HTTP Server", requireNoncriticalServers, s.serveSAML)
+		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
 	// Watch for new auth config options
 	go s.watchConfig()
 	return s, nil
+}
+
+func waitForError(name string, required bool, cb func() error) {
+	if err := cb(); !errors.Is(err, http.ErrServerClosed) {
+		if required {
+			logrus.Fatalf("error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers): %v", name, err)
+		}
+		logrus.Errorf("error setting up and/or running %v: %v", name, err)
+	}
 }
 
 type activationState int
