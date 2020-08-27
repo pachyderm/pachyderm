@@ -400,5 +400,5 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", OidcPort), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
 }
