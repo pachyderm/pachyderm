@@ -23,6 +23,8 @@ type GlobalConfiguration struct {
 	GCPercent     int    `env:"GC_PERCENT,default=50"`
 	LokiHost      string `env:"LOKI_SERVICE_HOST"`
 	LokiPort      string `env:"LOKI_SERVICE_PORT"`
+	SamlPort      uint16 `env:"SAML_PORT,default=654"`
+	OidcPort      uint16 `env:"OIDC_PORT,default=657"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
