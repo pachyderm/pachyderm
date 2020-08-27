@@ -61,6 +61,10 @@ func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	return cert, nil
 }
 
+func (l *CertLoader) GetClientCertificate(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	return l.GetCertificate(nil)
+}
+
 func (l *CertLoader) reloadRoutine() {
 	t := time.NewTicker(l.refreshInterval)
 	for {

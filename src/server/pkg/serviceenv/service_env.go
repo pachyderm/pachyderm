@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	gotls "crypto/tls"
 	"fmt"
 	"math"
 	"net"
@@ -13,6 +14,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -123,7 +125,7 @@ func (env *ServiceEnv) initEtcdClient() error {
 	// Initialize etcd
 	return backoff.Retry(func() error {
 		var err error
-		env.etcdClient, err = etcd.New(etcd.Config{
+		conf := etcd.Config{
 			Endpoints: []string{env.etcdAddress},
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
@@ -131,7 +133,15 @@ func (env *ServiceEnv) initEtcdClient() error {
 			DialOptions:        client.DefaultDialOptions(), // SA1019 can't call grpc.Dial directly
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
-		})
+		}
+		if env.EtcdClientCert != "" {
+			certLoader := tls.NewCertLoader(env.EtcdClientCert, env.EtcdClientKey, time.Hour)
+			conf.TLS = &gotls.Config{
+				GetClientCertificate: certLoader.GetClientCertificate,
+			}
+		}
+
+		env.etcdClient, err = etcd.New(conf)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize etcd client")
 		}
