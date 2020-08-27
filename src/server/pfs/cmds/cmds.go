@@ -938,6 +938,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
+	commands = append(commands, cmdutil.Hide(cmdutil.CreateAlias(copyFile, "copy files")))
 
 	var outputPath string
 	getFile := &cobra.Command{
