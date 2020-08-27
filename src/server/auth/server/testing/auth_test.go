@@ -1948,7 +1948,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 }
 
 // TestAuthorizedEveryone tests that Authorized(user, repo, NONE) tests that the
-// `everyone` binding  for an ACL sets the minimum authorized scope
+// `allClusterUsers` binding  for an ACL sets the minimum authorized scope
 func TestAuthorizedEveryone(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1983,7 +1983,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
-		Username: "everyone",
+		Username: "allClusterUsers",
 	})
 	require.NoError(t, err)
 
