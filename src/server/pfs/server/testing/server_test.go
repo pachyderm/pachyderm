@@ -6468,7 +6468,7 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, c.CreateRepo("cron"))
 			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", &pfs.Trigger{
 				Branch:   "master",
-				CronSpec: "@every minute",
+				CronSpec: "* * * * *", // every minute
 			}))
 			// The first commit should always trigger a cron
 			_, err := c.PutFile("cron", "master", "file1", strings.NewReader("foo"))
@@ -6526,6 +6526,11 @@ func TestTriggerValidation(t *testing.T) {
 		require.YesError(t, c.CreateBranchTrigger("repo", "a", "", &pfs.Trigger{
 			Branch: "b",
 			Size_:  "1K",
+		}))
+		// CronSpec doesn't parse
+		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
+			Branch:   "master",
+			CronSpec: "this is not a cron spec",
 		}))
 
 		return nil
