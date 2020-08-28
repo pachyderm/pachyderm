@@ -3126,27 +3126,38 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
 
-	// We need all the DeleteFile and the PutFile requests to happen atomicly
 	txn, err := pachClient.StartTransaction()
 	if err != nil {
 		return nil, err
 	}
+
+	// We need all the DeleteFile and the PutFile requests to happen atomicly
 	txnClient := pachClient.WithTransaction(txn)
 
 	// make a tick on each cron input
 	for _, cron := range crons {
+		// Use a PutFileClient
+		pfc, err := txnClient.NewPutFileClient()
+		if err != nil {
+			return nil, err
+		}
 		if cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = txnClient.DeleteFile(cron.Repo, "master", "")
+			err = pfc.DeleteFile(cron.Repo, "master", "")
 			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 				return nil, errors.Wrapf(err, "delete error")
 			}
 		}
 
 		// Put in an empty file named by the timestamp
-		_, err = txnClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+		_, err = pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
 		if err != nil {
 			return nil, errors.Wrapf(err, "put error")
+		}
+
+		err = pfc.Close()
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -3154,7 +3165,6 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	if err != nil {
 		return nil, err
 	}
-
 	return &types.Empty{}, nil
 }
 
