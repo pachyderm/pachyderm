@@ -1,7 +1,11 @@
 package server
 
 import (
+	"time"
+
 	"github.com/docker/go-units"
+	"github.com/gogo/protobuf/types"
+	"github.com/robfig/cron"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -48,7 +52,11 @@ func (d *driver) triggerCommit(
 					return nil, err
 				}
 			}
-			if isTriggered(bi.Trigger, oldHead, newHead) {
+			triggered, err := isTriggered(bi.Trigger, oldHead, newHead)
+			if err != nil {
+				return nil, err
+			}
+			if triggered {
 				if err := branches.Update(bi.Name, bi, func() error {
 					bi.Head = newHead.Commit
 					return nil
@@ -64,13 +72,38 @@ func (d *driver) triggerCommit(
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func isTriggered(t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) bool {
+func isTriggered(t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	if t.Size_ != "" {
-		// Shouldn't be possible to error here since we validate on egress
-		size, _ := units.FromHumanSize(t.Size_)
+		size, err := units.FromHumanSize(t.Size_)
+		if err != nil {
+			// Shouldn't be possible to error here since we validate on ingress
+			return false, err
+		}
 		if int64(newHead.SizeBytes-oldHead.SizeBytes) >= size {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	if t.CronSpec != "" {
+		// Shouldn't be possible to error here since we validate on ingress
+		schedule, err := cron.ParseStandard(t.CronSpec)
+		if err != nil {
+			// Shouldn't be possible to error here since we validate on ingress
+			return false, err
+		}
+		var oldTime, newTime time.Time
+		if oldHead.Finished != nil {
+			oldTime, err = types.TimestampFromProto(oldHead.Finished)
+			if err != nil {
+				return false, err
+			}
+		}
+		if newHead.Finished != nil {
+			newTime, err = types.TimestampFromProto(newHead.Finished)
+			if err != nil {
+				return false, err
+			}
+		}
+		return schedule.Next(oldTime).Before(newTime), nil
+	}
+	return false, nil
 }
