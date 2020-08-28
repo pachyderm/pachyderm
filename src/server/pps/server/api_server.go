@@ -3126,32 +3126,35 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
 
+	// We need all the DeleteFile and the PutFile requests to happen atomicly
+	txn, err := pachClient.StartTransaction()
+	if err != nil {
+		return nil, err
+	}
+	txnClient := pachClient.WithTransaction(txn)
+
 	// make a tick on each cron input
 	for _, cron := range crons {
-		// We need the DeleteFile and the PutFile to happen in the same commit
-		_, err = pachClient.StartCommit(cron.Repo, "master")
-		if err != nil {
-			return nil, err
-		}
 		if cron.Overwrite {
 			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(cron.Repo, "master", "")
+			err = txnClient.DeleteFile(cron.Repo, "master", "")
 			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 				return nil, errors.Wrapf(err, "delete error")
 			}
 		}
 
 		// Put in an empty file named by the timestamp
-		_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+		_, err = txnClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
 		if err != nil {
 			return nil, errors.Wrapf(err, "put error")
 		}
-
-		err = pachClient.FinishCommit(cron.Repo, "master")
-		if err != nil {
-			return nil, err
-		}
 	}
+
+	_, err = txnClient.FinishTransaction(txn)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.Empty{}, nil
 }
 
