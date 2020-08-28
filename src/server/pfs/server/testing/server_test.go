@@ -6410,58 +6410,90 @@ func TestTrigger(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
-		require.NoError(t, c.CreateRepo("in"))
-		require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", &pfs.Trigger{
-			Branch: "master",
-			Size_:  "1K",
-		}))
-		bis, err := c.ListBranch("in")
-		require.NoError(t, err)
-		require.Equal(t, 1, len(bis))
-		require.Nil(t, bis[0].Head)
+		t.Run("SizeWithProvenance", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("in"))
+			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", &pfs.Trigger{
+				Branch: "master",
+				Size_:  "1K",
+			}))
+			bis, err := c.ListBranch("in")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(bis))
+			require.Nil(t, bis[0].Head)
 
-		// Create a downstream branch
-		require.NoError(t, c.CreateRepo("out"))
-		require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "trigger")}))
-		require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", &pfs.Trigger{
-			Branch: "master",
-			Size_:  "1K",
-		}))
+			// Create a downstream branch
+			require.NoError(t, c.CreateRepo("out"))
+			require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "trigger")}))
+			require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", &pfs.Trigger{
+				Branch: "master",
+				Size_:  "1K",
+			}))
 
-		// Write a small file, too small to trigger
-		_, err = c.PutFile("in", "master", "file", strings.NewReader("small"))
-		require.NoError(t, err)
-		bi, err := c.InspectBranch("in", "trigger")
-		require.NoError(t, err)
-		require.Nil(t, bi.Head)
-		bi, err = c.InspectBranch("out", "master")
-		require.NoError(t, err)
-		require.Nil(t, bi.Head)
-		bi, err = c.InspectBranch("out", "trigger")
-		require.NoError(t, err)
-		require.Nil(t, bi.Head)
+			// Write a small file, too small to trigger
+			_, err = c.PutFile("in", "master", "file", strings.NewReader("small"))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("in", "trigger")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+			bi, err = c.InspectBranch("out", "master")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+			bi, err = c.InspectBranch("out", "trigger")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
 
-		_, err = c.PutFile("in", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
-		require.NoError(t, err)
+			_, err = c.PutFile("in", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
+			require.NoError(t, err)
 
-		bi, err = c.InspectBranch("in", "trigger")
-		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
+			bi, err = c.InspectBranch("in", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
 
-		// Output branch should have a commit now
-		bi, err = c.InspectBranch("out", "master")
-		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
+			// Output branch should have a commit now
+			bi, err = c.InspectBranch("out", "master")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
 
-		// Put a file that will cause the trigger to go off
-		_, err = c.PutFile("out", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
-		require.NoError(t, err)
-		require.NoError(t, env.PachClient.FinishCommit("out", "master"))
+			// Put a file that will cause the trigger to go off
+			_, err = c.PutFile("out", "master", "file", strings.NewReader(strings.Repeat("a", KB)))
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.FinishCommit("out", "master"))
 
-		// Output trigger should have triggered
-		bi, err = c.InspectBranch("out", "trigger")
-		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
+			// Output trigger should have triggered
+			bi, err = c.InspectBranch("out", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+		})
+		t.Run("Cron", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("cron"))
+			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", &pfs.Trigger{
+				Branch:   "master",
+				CronSpec: "@every minute",
+			}))
+			// The first commit should always trigger a cron
+			_, err := c.PutFile("cron", "master", "file1", strings.NewReader("foo"))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("cron", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			head := bi.Head.ID
+
+			// Second commit should not trigger the cron because less than a
+			// minute has passed
+			_, err = c.PutFile("cron", "master", "file2", strings.NewReader("bar"))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("cron", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+			time.Sleep(time.Minute)
+
+			// Third commit should trigger the cron because a minute has passed
+			_, err = c.PutFile("cron", "master", "file3", strings.NewReader("buzz"))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("cron", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
+		})
 
 		return nil
 	})
