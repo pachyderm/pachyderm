@@ -46,13 +46,14 @@ func (d *driver) triggerCommit(
 			return nil, err
 		}
 		if bi.Trigger != nil && headBranches[bi.Trigger.Branch] {
-			oldHead := &pfs.CommitInfo{}
+			var oldHead *pfs.CommitInfo
 			if bi.Head != nil {
+				oldHead = &pfs.CommitInfo{}
 				if err := commits.Get(bi.Head.ID, oldHead); err != nil {
 					return nil, err
 				}
 			}
-			triggered, err := isTriggered(bi.Trigger, oldHead, newHead)
+			triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
 			if err != nil {
 				return nil, err
 			}
@@ -72,14 +73,18 @@ func (d *driver) triggerCommit(
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func isTriggered(t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	if t.Size_ != "" {
 		size, err := units.FromHumanSize(t.Size_)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, err
 		}
-		if int64(newHead.SizeBytes-oldHead.SizeBytes) >= size {
+		var oldSize uint64
+		if oldHead != nil {
+			oldSize = oldHead.SizeBytes
+		}
+		if int64(newHead.SizeBytes-oldSize) >= size {
 			return true, nil
 		}
 	}
@@ -91,7 +96,7 @@ func isTriggered(t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error)
 			return false, err
 		}
 		var oldTime, newTime time.Time
-		if oldHead.Finished != nil {
+		if oldHead != nil && oldHead.Finished != nil {
 			oldTime, err = types.TimestampFromProto(oldHead.Finished)
 			if err != nil {
 				return false, err
@@ -104,6 +109,25 @@ func isTriggered(t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error)
 			}
 		}
 		return schedule.Next(oldTime).Before(newTime), nil
+	}
+	if t.Commits != 0 {
+		ci := newHead
+		var commits int64
+		for commits < t.Commits {
+			commits++
+			if ci.ParentCommit != nil && (oldHead == nil || oldHead.Commit.ID != ci.ParentCommit.ID) {
+				var err error
+				ci, err = d.inspectCommit(txnCtx.Client, ci.ParentCommit, pfs.CommitState_STARTED)
+				if err != nil {
+					return false, err
+				}
+			} else {
+				break
+			}
+		}
+		if commits == t.Commits {
+			return true, nil
+		}
 	}
 	return false, nil
 }

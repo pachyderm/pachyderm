@@ -6485,12 +6485,47 @@ func TestTrigger(t *testing.T) {
 			bi, err = c.InspectBranch("cron", "trigger")
 			require.NoError(t, err)
 			require.Equal(t, head, bi.Head.ID)
-			time.Sleep(time.Minute)
 
+			time.Sleep(time.Minute)
 			// Third commit should trigger the cron because a minute has passed
-			_, err = c.PutFile("cron", "master", "file3", strings.NewReader("buzz"))
+			_, err = c.PutFile("cron", "master", "file3", strings.NewReader("fizz"))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("cron", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
+		})
+		t.Run("Count", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("count"))
+			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", &pfs.Trigger{
+				Branch:  "master",
+				Commits: 2, // trigger every 2 commits
+			}))
+			// The first commit shouldn't trigger
+			_, err := c.PutFile("count", "master", "file1", strings.NewReader("foo"))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("count", "trigger")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			// Second commit should trigger
+			_, err = c.PutFile("count", "master", "file2", strings.NewReader("bar"))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("count", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			head := bi.Head.ID
+
+			// Third commit shouldn't trigger
+			_, err = c.PutFile("count", "master", "file3", strings.NewReader("fizz"))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("count", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+
+			// Fourth commit should trigger
+			_, err = c.PutFile("count", "master", "file4", strings.NewReader("buzz"))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("count", "trigger")
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
