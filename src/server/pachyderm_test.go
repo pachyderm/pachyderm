@@ -6993,6 +6993,41 @@ func TestCronPipeline(t *testing.T) {
 			}
 		}
 	})
+	t.Run("RunCronCross", func(t *testing.T) {
+		pipeline9 := tu.UniqueString("cron9-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline9,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"echo 'tick'"},
+			nil,
+			client.NewCrossInput(
+				client.NewCronInput("time1", "@every 3h"),
+				client.NewCronInput("time2", "@every 2h"),
+			),
+			"",
+			false,
+		))
+
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline9, "master", nil, "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
+		for i := 1; i <= 3; i++ {
+			_, err := iter.Next()
+			require.NoError(t, err)
+		}
+	})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
