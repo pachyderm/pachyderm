@@ -11951,7 +11951,7 @@ func TestTrigger(t *testing.T) {
 		"",
 		false,
 	))
-	require.NoError(t, c.CreateBranchTrigger(dataRepo, "trigger", "", &pfs.Trigger{
+	require.NoError(t, c.CreateBranchTrigger(pipeline1, "trigger", "", &pfs.Trigger{
 		Branch: "master",
 		Size_:  "2K",
 	}))
