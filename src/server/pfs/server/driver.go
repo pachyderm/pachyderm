@@ -2269,44 +2269,50 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// running intersection (in commitsToWatch) of the subvenance of all commits
 	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
-	sentCommits := make(map[string]bool)
-	for {
-		for i, commit := range fromCommits {
-			commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-			if err != nil {
-				return err
-			}
-			if i == 0 {
-				for _, subvCommit := range commitInfo.Subvenance {
-					commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
-				}
-			} else {
-				newCommitsToWatch := make(map[string]*pfs.Commit)
-				for _, subvCommit := range commitInfo.Subvenance {
-					if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
-						newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
-					}
-				}
-				commitsToWatch = newCommitsToWatch
-			}
+	for i, commit := range fromCommits {
+		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
 		}
-		// We've sent all the commits, so we're done.
-		if len(sentCommits) == len(commitsToWatch) {
+		if i == 0 {
+			for _, subvCommit := range commitInfo.Subvenance {
+				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			}
+		} else {
+			newCommitsToWatch := make(map[string]*pfs.Commit)
+			for _, subvCommit := range commitInfo.Subvenance {
+				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
+					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+				}
+			}
+			commitsToWatch = newCommitsToWatch
+		}
+	}
+
+	// Compute a map of repos we're flushing to.
+	toRepoMap := make(map[string]*pfs.Repo)
+	for _, toRepo := range toRepos {
+		toRepoMap[toRepo.Name] = toRepo
+	}
+
+	// Wait for each of the commitsToWatch to be finished.
+
+	// It's possible that downstream commits will create more downstream
+	// commits when they finish due to a trigger firing. To deal with this we
+	// loop while we watch commits and add newly discovered commits to the
+	// commitsToWatch map.
+	watchedCommits := make(map[string]bool)
+	for {
+		if len(watchedCommits) == len(commitsToWatch) {
+			// We've watched every commit so it's time to break.
 			break
 		}
-
-		// Compute a map of repos we're flushing to.
-		toRepoMap := make(map[string]*pfs.Repo)
-		for _, toRepo := range toRepos {
-			toRepoMap[toRepo.Name] = toRepo
-		}
-
-		// Wait for each of the commitsToWatch to be finished.
-		for _, commitToWatch := range commitsToWatch {
-			if sentCommits[commitKey(commitToWatch)] {
+		additionalCommitsToWatch := make(map[string]*pfs.Commit)
+		for key, commitToWatch := range commitsToWatch {
+			if watchedCommits[key] {
 				continue
 			}
-			sentCommits[commitKey(commitToWatch)] = true
+			watchedCommits[key] = true
 			if len(toRepoMap) > 0 {
 				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
 					continue
@@ -2324,6 +2330,12 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			if err := f(finishedCommitInfo); err != nil {
 				return err
 			}
+			for _, subvCommit := range finishedCommitInfo.Subvenance {
+				additionalCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			}
+		}
+		for key, additionalCommit := range additionalCommitsToWatch {
+			commitsToWatch[key] = additionalCommit
 		}
 	}
 	// Now wait for the root commits to finish. These are not passed to `f`
