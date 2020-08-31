@@ -6567,7 +6567,18 @@ func TestTriggerValidation(t *testing.T) {
 			Branch:   "master",
 			CronSpec: "this is not a cron spec",
 		}))
-
+		// Can't use a trigger and provenance together
+		require.NoError(t, c.CreateRepo("in"))
+		_, err := c.PfsAPIClient.CreateBranch(c.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch: pclient.NewBranch("repo", "master"),
+				Trigger: &pfs.Trigger{
+					Branch: "master",
+					Size_:  "1K",
+				},
+				Provenance: []*pfs.Branch{pclient.NewBranch("in", "master")},
+			})
+		require.YesError(t, err)
 		return nil
 	})
 	require.NoError(t, err)
