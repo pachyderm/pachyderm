@@ -190,32 +190,32 @@ func newSkipReader(r io.Reader) *skipReader {
 	return &skipReader{r: r}
 }
 
-func (sk *skipReader) Read(data []byte) (int, error) {
-	if sk.buf == nil {
-		if err := sk.skipZeroBlocks(); err != nil {
+func (sr *skipReader) Read(data []byte) (int, error) {
+	if sr.buf == nil {
+		if err := sr.skipZeroBlocks(); err != nil {
 			return 0, err
 		}
 	}
-	bufN, _ := sk.buf.Read(data)
+	bufN, _ := sr.buf.Read(data)
 	if bufN == len(data) {
 		return bufN, nil
 	}
-	n, err := sk.r.Read(data[bufN:])
+	n, err := sr.r.Read(data[bufN:])
 	return bufN + n, err
 }
 
-func (sk *skipReader) skipZeroBlocks() error {
-	sk.buf = &bytes.Buffer{}
+func (sr *skipReader) skipZeroBlocks() error {
+	sr.buf = &bytes.Buffer{}
 	zeroBlock := make([]byte, 512)
 	for {
-		_, err := io.CopyN(sk.buf, sk.r, 512)
+		_, err := io.CopyN(sr.buf, sr.r, 512)
 		if err != nil {
 			return err
 		}
-		if !bytes.Equal(sk.buf.Bytes(), zeroBlock) {
+		if !bytes.Equal(sr.buf.Bytes(), zeroBlock) {
 			return nil
 		}
-		sk.buf.Reset()
+		sr.buf.Reset()
 	}
 }
 
