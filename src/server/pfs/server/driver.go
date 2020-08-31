@@ -1580,7 +1580,19 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
 		return err
 	}
-	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+		return err
+	}
+	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
+	if err != nil {
+		return err
+	}
+	for _, b := range triggeredBranches {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
@@ -2257,50 +2269,61 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// running intersection (in commitsToWatch) of the subvenance of all commits
 	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
-	for i, commit := range fromCommits {
-		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return err
-		}
-		if i == 0 {
-			for _, subvCommit := range commitInfo.Subvenance {
-				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+	sentCommits := make(map[string]bool)
+	for {
+		for i, commit := range fromCommits {
+			commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
 			}
-		} else {
-			newCommitsToWatch := make(map[string]*pfs.Commit)
-			for _, subvCommit := range commitInfo.Subvenance {
-				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
-					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			if i == 0 {
+				for _, subvCommit := range commitInfo.Subvenance {
+					commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
 				}
+			} else {
+				newCommitsToWatch := make(map[string]*pfs.Commit)
+				for _, subvCommit := range commitInfo.Subvenance {
+					if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
+						newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+					}
+				}
+				commitsToWatch = newCommitsToWatch
 			}
-			commitsToWatch = newCommitsToWatch
 		}
-	}
+		// We've sent all the commits, so we're done.
+		if len(sentCommits) == len(commitsToWatch) {
+			break
+		}
 
-	// Compute a map of repos we're flushing to.
-	toRepoMap := make(map[string]*pfs.Repo)
-	for _, toRepo := range toRepos {
-		toRepoMap[toRepo.Name] = toRepo
-	}
+		// Compute a map of repos we're flushing to.
+		toRepoMap := make(map[string]*pfs.Repo)
+		for _, toRepo := range toRepos {
+			toRepoMap[toRepo.Name] = toRepo
+		}
 
-	// Wait for each of the commitsToWatch to be finished.
-	for _, commitToWatch := range commitsToWatch {
-		if len(toRepoMap) > 0 {
-			if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+		// Wait for each of the commitsToWatch to be finished.
+		for _, commitToWatch := range commitsToWatch {
+			if sentCommits[commitKey(commitToWatch)] {
 				continue
 			}
-		}
-		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
-		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
-				continue // just skip this
-			} else if auth.IsErrNotAuthorized(err) {
-				continue // again, just skip (we can't wait on commits we can't access)
+			sentCommits[commitKey(commitToWatch)] = true
+			if len(toRepoMap) > 0 {
+				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+					continue
+				}
 			}
-			return err
-		}
-		if err := f(finishedCommitInfo); err != nil {
-			return err
+			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
+			if err != nil {
+				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+					continue // just skip this
+				} else if auth.IsErrNotAuthorized(err) {
+					continue // again, just skip (we can't wait on commits we can't access)
+				}
+				return err
+			}
+			if err := f(finishedCommitInfo); err != nil {
+				return err
+			}
 		}
 	}
 	// Now wait for the root commits to finish. These are not passed to `f`

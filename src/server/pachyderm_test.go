@@ -11942,7 +11942,7 @@ func TestTrigger(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -11976,7 +11976,7 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cis))
 	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
-	for i := 0; i < numFiles; i++ {
+	for i := numFiles; i < 2*numFiles; i++ {
 		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
 		require.NoError(t, err)
 	}
