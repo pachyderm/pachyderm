@@ -65,7 +65,7 @@ func ReceiveSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-) (retErr1 error) {
+) (retErr error) {
 	// Check to see if this spout is the latest version of this spout by seeing if its spec commit has any children.
 	spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
 	if err != nil && !errutil.IsNotFoundError(err) {
@@ -74,59 +74,54 @@ func ReceiveSpout(
 	if spec != nil && len(spec.ChildCommits) != 0 {
 		return errors.New("outdated spout, now shutting down")
 	}
-	repo := pipelineInfo.Pipeline.Name
-	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
-		// Open a read connection to the /pfs/out named pipe.
-		out, err := os.Open("/pfs/out")
-		if err != nil {
-			return err
+	// Open a read connection to the /pfs/out named pipe.
+	out, err := os.Open("/pfs/out")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := out.Close(); retErr == nil {
+			retErr = err
 		}
-		defer func() {
-			if err := out.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-		for {
-			if err := withTmpFile("pachyderm_spout_commit", func(f *os.File) error {
-				if err := getNextTarStream(f, out); err != nil {
-					return err
-				}
-				return withSpoutCommit(ctx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
-					for {
-						hdr, err := tr.Next()
-						if err != nil {
-							if errors.Is(err, io.EOF) {
-								return nil
-							}
-							return err
-						}
-						if err := withSpoutFile(ctx, logger, tr, func(r io.Reader) error {
-							if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(hdr.Name), pipelineInfo.Spout.Marker) {
-								_, err := pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
-								if err != nil {
-									return err
-								}
-							} else if pipelineInfo.Spout.Overwrite {
-								_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
-								if err != nil {
-									return err
-								}
-							}
-							_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
-							return err
-						}); err != nil {
-							return err
-						}
-					}
-				})
-			}); err != nil {
+	}()
+	repo := pipelineInfo.Pipeline.Name
+	for {
+		if err := withTmpFile("pachyderm_spout_commit", func(f *os.File) error {
+			if err := getNextTarStream(f, out); err != nil {
 				return err
 			}
+			return withSpoutCommit(ctx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
+				for {
+					hdr, err := tr.Next()
+					if err != nil {
+						if errors.Is(err, io.EOF) {
+							return nil
+						}
+						return err
+					}
+					if err := withSpoutFile(ctx, logger, tr, func(r io.Reader) error {
+						if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(hdr.Name), pipelineInfo.Spout.Marker) {
+							_, err := pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
+							if err != nil {
+								return err
+							}
+						} else if pipelineInfo.Spout.Overwrite {
+							_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
+							if err != nil {
+								return err
+							}
+						}
+						_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
+						return err
+					}); err != nil {
+						return err
+					}
+				}
+			})
+		}); err != nil {
+			return err
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("error in receiveSpout: %+v, retrying in: %+v", err, d)
-		return nil
-	})
+	}
 }
 
 // TODO: Refactor into a file util package.
