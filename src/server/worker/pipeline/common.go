@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -64,99 +65,192 @@ func ReceiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) (retErr1 error) {
-	return backoff.RetryUntilCancel(ctx, func() error {
-		repo := pipelineInfo.Pipeline.Name
-		// open a read connection to the /pfs/out named pipe
+	// Check to see if this spout is the latest version of this spout by seeing if its spec commit has any children.
+	spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
+	if err != nil && !errutil.IsNotFoundError(err) {
+		return err
+	}
+	if spec != nil && len(spec.ChildCommits) != 0 {
+		return errors.New("outdated spout, now shutting down")
+	}
+	repo := pipelineInfo.Pipeline.Name
+	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
+		// Open a read connection to the /pfs/out named pipe.
 		out, err := os.Open("/pfs/out")
 		if err != nil {
 			return err
 		}
-		// and close it when we're done
 		defer func() {
-			if err := out.Close(); err != nil && retErr1 == nil {
-				// this lets us pass the error through if Close fails
-				retErr1 = err
+			if err := out.Close(); retErr == nil {
+				retErr = err
 			}
 		}()
 		for {
-			// this extra closure is so that we can scope the defer for FinishCommit
-
-			if err := func() (retErr2 error) {
-
-				// create a new tar reader
-				outTar := tar.NewReader(out)
-
-				var commit *pfs.Commit
-
-				// this loops through all the files in the tar that we've read from /pfs/out
-				for {
-					fileHeader, err := outTar.Next()
-					if errors.Is(err, io.EOF) {
-						err = openAndWait()
-						if err != nil {
-							return err
-						}
-						break
-					}
-					if err != nil {
-						return err
-					}
-					if commit == nil {
-						// start commit
-						commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-							Parent:     client.NewCommit(repo, ""),
-							Branch:     pipelineInfo.OutputBranch,
-							Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
-						})
-						if err != nil {
-							return err
-						}
-
-						// finish the commit even if there was an issue
-						defer func() {
-							if err := pachClient.FinishCommit(repo, commit.ID); err != nil && retErr2 == nil {
-								// this lets us pass the error through if FinishCommit fails
-								retErr2 = err
-							}
-						}()
-					}
-					// put files into pachyderm
-					if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), pipelineInfo.Spout.Marker) {
-						// we'll check that this is the latest version of the spout, and then commit to it
-						// we need to do this atomically because we otherwise might hit a subtle race condition
-
-						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
-						spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
-						if err != nil && !errutil.IsNotFoundError(err) {
-							return err
-						}
-						if spec != nil && len(spec.ChildCommits) != 0 {
-							return errors.New("outdated spout, now shutting down")
-						}
-						_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
-						if err != nil {
-							return err
-						}
-
-					} else if pipelineInfo.Spout.Overwrite {
-						_, err = pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
-						if err != nil {
-							return err
-						}
-					} else {
-						_, err = pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
-						if err != nil {
-							return err
-						}
-					}
+			if err := withTmpFile("pachyderm_spout_commit", func(f *os.File) error {
+				if err := getNextTarStream(f, out); err != nil {
+					return err
 				}
-				return nil
-			}(); err != nil {
+				return withSpoutCommit(ctx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
+					for {
+						hdr, err := tr.Next()
+						if err != nil {
+							if errors.Is(err, io.EOF) {
+								break
+							}
+							return err
+						}
+						if err := withSpoutFile(ctx, logger, tr, func(r io.Reader) error {
+							if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(hdr.Name), pipelineInfo.Spout.Marker) {
+								_, err := pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
+								if err != nil {
+									return err
+								}
+							} else if pipelineInfo.Spout.Overwrite {
+								_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
+								if err != nil {
+									return err
+								}
+							}
+							_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
+							return err
+						}); err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}); err != nil {
 				return err
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in receiveSpout: %+v, retrying in: %+v", err, d)
 		return nil
+	})
+}
+
+// TODO: Refactor into a file util package.
+func withTmpFile(name string, cb func(*os.File) error) (retErr error) {
+	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
+		return err
+	}
+	f, err := ioutil.TempFile(os.TempDir(), name)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(f.Name()); retErr == nil {
+			retErr = err
+		}
+		if err := f.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(f)
+}
+
+func getNextTarStream(w io.Writer, r io.Reader) error {
+	var hdr *tar.Header
+	var err error
+	tr := tar.NewReader(r)
+	for {
+		hdr, err = tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				err = openAndWait()
+				if err != nil {
+					return err
+				}
+				tr = tar.NewReader(r)
+				continue
+			}
+			// Skip padding blocks between tar streams.
+			if errors.Is(err, tar.ErrHeader) {
+				continue
+			}
+			return err
+		}
+		break
+	}
+	tw := tar.NewWriter(w)
+	if err := tw.WriteHeader(hdr); err != nil {
+		return err
+	}
+	if _, err := io.Copy(tw, tr); err != nil {
+		return err
+	}
+	if err := copyTar(tw, tr); err != nil {
+		return err
+	}
+	return tw.Close()
+}
+
+// TODO: Refactor this into tarutil.
+func copyTar(tw *tar.Writer, tr *tar.Reader) error {
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		_, err = io.Copy(tw, tr)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func withSpoutCommit(ctx context.Context, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, f *os.File, cb func(*pfs.Commit, *tar.Reader) error) (retErr error) {
+	repo := pipelineInfo.Pipeline.Name
+	return backoff.RetryUntilCancel(ctx, func() error {
+		commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+			Parent:     client.NewCommit(repo, ""),
+			Branch:     pipelineInfo.OutputBranch,
+			Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+		})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if retErr != nil {
+				pachClient.DeleteCommit(repo, commit.ID)
+				return
+			}
+			if err := pachClient.FinishCommit(repo, commit.ID); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			return err
+		}
+		return cb(commit, tar.NewReader(f))
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("error in withSpoutCommit: %+v, retrying in: %+v", err, d)
+		return nil
+	})
+}
+
+func withSpoutFile(ctx context.Context, logger logs.TaggedLogger, r io.Reader, cb func(io.Reader) error) error {
+	return withTmpFile("pachyderm_spout_file", func(f *os.File) error {
+		_, err := io.Copy(f, r)
+		if err != nil {
+			return err
+		}
+		return backoff.RetryUntilCancel(ctx, func() error {
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+			return cb(f)
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			logger.Logf("error in withSpoutFile: %+v, retrying in: %+v", err, d)
+			return nil
+		})
 	})
 }
