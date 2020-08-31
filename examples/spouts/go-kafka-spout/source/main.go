@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	kafka "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go"
 )
 
 const defaultHost = "kafka.kafka"
@@ -20,7 +20,7 @@ const defaultGroupID = "test"
 const defaultTimeout = 5
 const defaultNamedPipe = "/pfs/out"
 
-func process_messages(pipe string, reader *kafka.Reader, timeout int, log bool) error {
+func process_messages(out *os.File, reader *kafka.Reader, timeout int, log bool) error {
 	// read a message
 	if log {
 		fmt.Printf("reading kafka queue.\n")
@@ -36,21 +36,6 @@ func process_messages(pipe string, reader *kafka.Reader, timeout int, log bool) 
 	if err != nil {
 		return err
 	}
-	if log {
-		fmt.Printf("opening named pipe %v.\n", pipe)
-	}
-	// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
-	// Note: it won't work if you try to open this with read, or read/write permissions
-	out, err := os.OpenFile(pipe, os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if log {
-			fmt.Printf("closing named pipe %v.\n", pipe)
-		}
-		out.Close()
-	}()
 
 	if log {
 		fmt.Printf("opening tarstream\n")
@@ -180,8 +165,24 @@ func main() {
 	})
 	defer reader.Close()
 
+	if log {
+		fmt.Printf("opening named pipe %v.\n", named_pipe)
+	}
+	// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
+	// Note: it won't work if you try to open this with read, or read/write permissions
+	out, err := os.OpenFile(named_pipe, os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if log {
+			fmt.Printf("closing named pipe %v.\n", named_pipe)
+		}
+		out.Close()
+	}()
+
 	for {
-		err := process_messages(named_pipe, reader, timeout, log)
+		err := process_messages(out, reader, timeout, log)
 		if err != nil {
 			if log {
 				if !strings.Contains(err.Error(), "context deadline exceeded") {
