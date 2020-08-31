@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -95,7 +96,7 @@ func ReceiveSpout(
 						hdr, err := tr.Next()
 						if err != nil {
 							if errors.Is(err, io.EOF) {
-								break
+								return nil
 							}
 							return err
 						}
@@ -117,7 +118,6 @@ func ReceiveSpout(
 							return err
 						}
 					}
-					return nil
 				})
 			}); err != nil {
 				return err
@@ -152,7 +152,7 @@ func withTmpFile(name string, cb func(*os.File) error) (retErr error) {
 func getNextTarStream(w io.Writer, r io.Reader) error {
 	var hdr *tar.Header
 	var err error
-	tr := tar.NewReader(r)
+	tr := tar.NewReader(newSkipReader(r))
 	for {
 		hdr, err = tr.Next()
 		if err != nil {
@@ -161,11 +161,7 @@ func getNextTarStream(w io.Writer, r io.Reader) error {
 				if err != nil {
 					return err
 				}
-				tr = tar.NewReader(r)
-				continue
-			}
-			// Skip padding blocks between tar streams.
-			if errors.Is(err, tar.ErrHeader) {
+				tr = tar.NewReader(newSkipReader(r))
 				continue
 			}
 			return err
@@ -185,12 +181,50 @@ func getNextTarStream(w io.Writer, r io.Reader) error {
 	return tw.Close()
 }
 
+type skipReader struct {
+	buf *bytes.Buffer
+	r   io.Reader
+}
+
+func newSkipReader(r io.Reader) *skipReader {
+	return &skipReader{r: r}
+}
+
+func (sk *skipReader) Read(data []byte) (int, error) {
+	if sk.buf == nil {
+		if err := sk.skipZeroBlocks(); err != nil {
+			return 0, err
+		}
+	}
+	bufN, _ := sk.buf.Read(data)
+	if bufN == len(data) {
+		return bufN, nil
+	}
+	n, err := sk.r.Read(data[bufN:])
+	return bufN + n, err
+}
+
+func (sk *skipReader) skipZeroBlocks() error {
+	sk.buf = &bytes.Buffer{}
+	zeroBlock := make([]byte, 512)
+	for {
+		_, err := io.CopyN(sk.buf, sk.r, 512)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(sk.buf.Bytes(), zeroBlock) {
+			return nil
+		}
+		sk.buf.Reset()
+	}
+}
+
 // TODO: Refactor this into tarutil.
 func copyTar(tw *tar.Writer, tr *tar.Reader) error {
 	for {
 		hdr, err := tr.Next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
