@@ -982,6 +982,9 @@ type putFileClient struct {
 
 // NewPutFileClient returns a new client for putting files into pfs in a single request.
 func (c APIClient) NewPutFileClient() (PutFileClient, error) {
+	if c.storageV2 {
+		return c.newPutFileClientV2(), nil
+	}
 	pfc, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -990,6 +993,9 @@ func (c APIClient) NewPutFileClient() (PutFileClient, error) {
 }
 
 func (c APIClient) newOneoffPutFileClient() (PutFileClient, error) {
+	if c.storageV2 {
+		return c.newPutFileClientV2(), nil
+	}
 	pfc, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -1204,6 +1210,9 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 		c.limiter.Acquire()
 		defer c.limiter.Release()
 	}
+	if c.storageV2 {
+		return c.GetFileV2(repoName, commitID, path, writer)
+	}
 	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -1393,6 +1402,21 @@ func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f
 // paths and have identical content are omitted.
 func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 	oldCommitID, oldPath string, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	if c.storageV2 {
+		var newFiles, oldFiles []*pfs.FileInfo
+		if err := c.DiffFileV2(newRepoName, newCommitID, newPath, oldRepoName, oldCommitID, oldPath, shallow, func(newFile, oldFile *pfs.FileInfo) error {
+			if newFile != nil {
+				newFiles = append(newFiles, newFile)
+			}
+			if oldFile != nil {
+				oldFiles = append(oldFiles, oldFile)
+			}
+			return nil
+		}); err != nil {
+			return nil, nil, err
+		}
+		return newFiles, oldFiles, nil
+	}
 	var oldFile *pfs.File
 	if oldRepoName != "" {
 		oldFile = NewFile(oldRepoName, oldCommitID, oldPath)

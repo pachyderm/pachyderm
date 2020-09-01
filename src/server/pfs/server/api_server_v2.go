@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"time"
@@ -20,19 +19,14 @@ import (
 
 var _ pfs.APIServer = &apiServerV2{}
 
+var errV1NotImplemented = errors.Errorf("V1 method not implemented")
+
 type apiServerV2 struct {
 	*apiServer
 	driver *driverV2
 }
 
-func newAPIServerV2(
-	env *serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	treeCache *hashtree.Cache,
-	storageRoot string,
-	memoryRequest int64,
-) (*apiServerV2, error) {
+func newAPIServerV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*apiServerV2, error) {
 	s1, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
@@ -49,20 +43,133 @@ func newAPIServerV2(
 	return s2, nil
 }
 
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+	if request.All {
+		return a.driver.deleteAll(txnCtx)
+	}
+	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+}
+
+// FinishCommitInTransaction is identical to FinishCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+	return metrics.ReportRequest(func() error {
+		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
+	})
+}
+
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
+	return a.driver.deleteCommit(txnCtx, request.Commit)
+}
+
+// BuildCommit is not implemented in V2.
+func (a *apiServerV2) BuildCommit(_ context.Context, _ *pfs.BuildCommitRequest) (*pfs.Commit, error) {
+	return nil, errV1NotImplemented
+}
+
+// PutFile is not implemented in V2.
+func (a *apiServerV2) PutFile(_ pfs.API_PutFileServer) error {
+	return errV1NotImplemented
+}
+
+// CopyFile implements the protobuf pfs.CopyFile RPC
+func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// GetFile is not implemented in V2.
+func (a *apiServerV2) GetFile(_ *pfs.GetFileRequest, _ pfs.API_GetFileServer) error {
+	return errV1NotImplemented
+}
+
+// InspectFile implements the protobuf pfs.InspectFile RPC
+func (a *apiServerV2) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)
+}
+
+// ListFile is not implemented in V2.
+func (a *apiServerV2) ListFile(_ context.Context, _ *pfs.ListFileRequest) (*pfs.FileInfos, error) {
+	return nil, errV1NotImplemented
+}
+
+// ListFileStream implements the protobuf pfs.ListFileStream RPC
+func (a *apiServerV2) ListFileStream(request *pfs.ListFileRequest, server pfs.API_ListFileStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(server.Context())
+	return a.driver.listFileV2(pachClient, request.File, request.Full, request.History, func(fi *pfs.FileInfo) error {
+		return server.Send(fi)
+	})
+}
+
+// WalkFile implements the protobuf pfs.WalkFile RPC
+func (a *apiServerV2) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(server.Context())
+	return a.driver.walkFile(pachClient, request.File, func(fi *pfs.FileInfo) error {
+		return server.Send(fi)
+	})
+}
+
+// GlobFile is not implemented in V2.
+func (a *apiServerV2) GlobFile(_ context.Context, _ *pfs.GlobFileRequest) (*pfs.FileInfos, error) {
+	return nil, errV1NotImplemented
+}
+
+// GlobFileStream implements the protobuf pfs.GlobFileStream RPC
+func (a *apiServerV2) GlobFileStream(request *pfs.GlobFileRequest, server pfs.API_GlobFileStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+		return server.Send(fi)
+	})
+}
+
+// DeleteFile is not implemented in V2.
+func (a *apiServerV2) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
+	return nil, errV1NotImplemented
+}
+
+// DeleteAll implements the protobuf pfs.DeleteAll RPC
+func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.deleteAll(txnCtx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// Fsck is not implemented in V2.
+func (a *apiServerV2) Fsck(_ *pfs.FsckRequest, _ pfs.API_FsckServer) error {
+	return errV1NotImplemented
+}
+
 func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (retErr error) {
-	req, err := server.Recv()
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
+	request, err := server.Recv()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		repo := req.Commit.Repo.Name
-		commit := req.Commit.ID
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.withUnorderedWriter(a.env.GetPachClient(server.Context()), request.Commit, func(fs *fileset.UnorderedWriter) error {
 			for {
-				req, err := server.Recv()
+				request, err := server.Recv()
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						return nil
@@ -70,7 +177,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 					return err
 				}
 				// TODO Validation.
-				switch op := req.Operation.(type) {
+				switch op := request.Operation.(type) {
 				case *pfs.FileOperationRequestV2_PutTar:
 					n, err := putTar(fs, server, op.PutTar)
 					bytesRead += n
@@ -90,12 +197,12 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 	})
 }
 
-func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, req *pfs.PutTarRequestV2) (int64, error) {
+func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, request *pfs.PutTarRequestV2) (int64, error) {
 	ptr := &putTarReader{
 		server: server,
-		r:      bytes.NewReader(req.Data),
+		r:      bytes.NewReader(request.Data),
 	}
-	err := uw.Put(ptr, req.Tag)
+	err := uw.Put(ptr, request.Tag)
 	return ptr.bytesRead, err
 }
 
@@ -107,11 +214,11 @@ type putTarReader struct {
 
 func (ptr *putTarReader) Read(data []byte) (int, error) {
 	if ptr.r.Len() == 0 {
-		req, err := ptr.server.Recv()
+		request, err := ptr.server.Recv()
 		if err != nil {
 			return 0, err
 		}
-		op := req.Operation.(*pfs.FileOperationRequestV2_PutTar)
+		op := request.Operation.(*pfs.FileOperationRequestV2_PutTar)
 		putTarReq := op.PutTar
 		if putTarReq.EOF {
 			return 0, io.EOF
@@ -123,9 +230,9 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func deleteFiles(fs *fileset.UnorderedWriter, req *pfs.DeleteFilesRequestV2) error {
-	for _, file := range req.Files {
-		fs.Delete(file, req.Tag)
+func deleteFiles(fs *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
+	for _, file := range request.Files {
+		fs.Delete(file, request.Tag)
 	}
 	return nil
 }
@@ -137,7 +244,7 @@ func (a *apiServerV2) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetT
 		commit := request.File.Commit
 		glob := request.File.Path
 		gtw := newGetTarWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getTar(server.Context(), commit, glob, gtw)
+		err := a.driver.getTar(a.env.GetPachClient(server.Context()), commit, glob, gtw)
 		return gtw.bytesWritten, err
 	})
 }
@@ -157,107 +264,11 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServerV2) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	request, err := server.Recv()
+// DiffFileV2 returns the files only in new or only in old
+func (a *apiServerV2) DiffFileV2(request *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return metrics.ReportRequestWithThroughput(func() (int64, error) {
-		if err != nil {
-			return 0, err
-		}
-		if !a.env.StorageV2 {
-			return 0, errors.Errorf("new storage layer disabled")
-		}
-		repo := request.File.Commit.Repo.Name
-		commit := request.File.Commit.ID
-		glob := request.File.Path
-		var bytesWritten int64
-		err := a.driver.getTarConditional(server.Context(), repo, commit, glob, func(fr *FileReader) error {
-			if err := server.Send(&pfs.GetTarConditionalResponseV2{FileInfo: fr.Info()}); err != nil {
-				return err
-			}
-			req, err := server.Recv()
-			if err != nil {
-				return err
-			}
-			// Skip to the next file (client does not want the file content).
-			if req.Skip {
-				return nil
-			}
-			gtcw := newGetTarConditionalWriter(server)
-			defer func() {
-				bytesWritten += gtcw.bytesWritten
-			}()
-			w := bufio.NewWriterSize(gtcw, grpcutil.MaxMsgSize)
-			if err := fr.Get(w); err != nil {
-				return err
-			}
-			if err := w.Flush(); err != nil {
-				return err
-			}
-			return server.Send(&pfs.GetTarConditionalResponseV2{EOF: true})
-		})
-		return bytesWritten, err
-	})
-}
-
-type getTarConditionalWriter struct {
-	server       pfs.API_GetTarConditionalV2Server
-	bytesWritten int64
-}
-
-func newGetTarConditionalWriter(server pfs.API_GetTarConditionalV2Server) *getTarConditionalWriter {
-	return &getTarConditionalWriter{
-		server: server,
-	}
-}
-
-func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
-	if err := w.server.Send(&pfs.GetTarConditionalResponseV2{Data: data}); err != nil {
-		return 0, err
-	}
-	w.bytesWritten += int64(len(data))
-	return len(data), nil
-}
-
-func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfo) error {
-		return server.Send(finfo)
-	})
-}
-
-// FinishCommitInTransaction is identical to FinishCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) FinishCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.FinishCommitRequest,
-) error {
-	return metrics.ReportRequest(func() error {
-		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
-	})
-}
-
-func (a *apiServerV2) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	return a.driver.globFileV2(a.env.GetPachClient(server.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
-		return server.Send(fi)
-	})
-}
-
-// CopyFile implements the protobuf pfs.CopyFile RPC
-func (a *apiServerV2) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-// DiffFileV2 returns the files only in new or only in old
-func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
-	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), req.OldFile, req.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
+	return a.driver.diffFileV2(a.env.GetPachClient(server.Context()), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		return server.Send(&pfs.DiffFileResponseV2{
 			OldFile: oldFi,
 			NewFile: newFi,
@@ -265,57 +276,9 @@ func (a *apiServerV2) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFi
 	})
 }
 
-// InspectFileV2 returns info about a file.
-func (a *apiServerV2) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
-	return a.driver.inspectFile(a.env.GetPachClient(ctx), req.File)
-}
-
-// WalkFileV2 walks over all the files under a directory, including children of children.
-func (a *apiServerV2) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
-	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.walkFile(pachClient, req.File, func(fi *pfs.FileInfo) error {
-		return server.Send(fi)
-	})
-}
-
 // ClearCommitV2 deletes all data in the commit.
-func (a *apiServerV2) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
-	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), req.Commit)
-}
-
-// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteRepoRequest,
-) error {
-	if request.All {
-		return a.driver.deleteAll(txnCtx)
-	}
-	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
-}
-
-// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServerV2) DeleteCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteCommitRequest,
-) error {
-	return a.driver.deleteCommit(txnCtx, request.Commit)
-}
-
-// DeleteAll implements the protobuf pfs.DeleteAll RPC
-func (a *apiServerV2) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		return a.driver.deleteAll(txnCtx)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-// BuildCommit is not implemented in v2
-func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
-	return nil, errors.New("v2 does not implement BuildCommit")
+func (a *apiServerV2) ClearCommitV2(ctx context.Context, request *pfs.ClearCommitRequestV2) (_ *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), request.Commit)
 }

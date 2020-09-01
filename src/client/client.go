@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,6 +122,8 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
+
+	storageV2 bool
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -165,6 +168,15 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
+	}
+	// TODO: There is probably a cleaner way to handle the V2 config.
+	storageV2, ok := os.LookupEnv("STORAGE_V2")
+	if ok {
+		var err error
+		c.storageV2, err = strconv.ParseBool(storageV2)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err

@@ -132,20 +132,6 @@ func (s *Storage) OpenFileSet(ctx context.Context, fileSet string, opts ...index
 	}
 }
 
-// ResolveIndexes resolves index entries that are spread across multiple filesets.
-// DEPRECATED: Use NewIndexResolver
-func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
-	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
-	if err != nil {
-		return err
-	}
-	w := s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(cb))
-	if err := mr.WriteTo(w); err != nil {
-		return err
-	}
-	return w.Close()
-}
-
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).

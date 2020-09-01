@@ -160,13 +160,13 @@ func (f *PortForwarder) RunForDaemon(localPort, remotePort uint16) (uint16, erro
 }
 
 // RunForSAMLACS creates a port forwarder for SAML ACS.
-func (f *PortForwarder) RunForSAMLACS(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 654)
+func (f *PortForwarder) RunForSAMLACS(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForOIDCACS creates a port forwarder for OIDC ACS.
-func (f *PortForwarder) RunForOIDCACS(localPort uint16) (uint16, error) {
-	return f.Run("pachd", localPort, 657)
+func (f *PortForwarder) RunForOIDCACS(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForDashUI creates a port forwarder for the dash UI.
