@@ -599,13 +599,23 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 var errV2NotImplemented = errors.Errorf("v2 method not implemented")
 
 // FileOperationV2 not implemented by v1 apiServer
-func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) error {
+func (a *apiServer) FileOperationV2(_ pfs.API_FileOperationV2Server) error {
 	return errV2NotImplemented
 }
 
 // GetTarV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
+func (a *apiServer) GetTarV2(_ *pfs.GetTarRequestV2, _ pfs.API_GetTarV2Server) error {
 	return errV2NotImplemented
+}
+
+// DiffFileV2 not implemented
+func (a *apiServer) DiffFileV2(_ *pfs.DiffFileRequest, _ pfs.API_DiffFileV2Server) error {
+	return errV2NotImplemented
+}
+
+// ClearCommitV2 not implemented
+func (a *apiServer) ClearCommitV2(_ context.Context, _ *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	return nil, errV2NotImplemented
 }
 
 func drainFileServer(putFileServer interface {

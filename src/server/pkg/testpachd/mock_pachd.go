@@ -429,7 +429,8 @@ type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type fileOperationFuncV2 func(pfs.API_FileOperationV2Server) error
 type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
-type getTarConditionalFuncV2 func(pfs.API_GetTarConditionalV2Server) error
+type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
+type clearCommitV2Func func(context.Context, *pfs.ClearCommitRequestV2) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -463,81 +464,84 @@ type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
 type mockFileOperationV2 struct{ handler fileOperationFuncV2 }
 type mockGetTarV2 struct{ handler getTarFuncV2 }
-type mockGetTarConditionalV2 struct{ handler getTarConditionalFuncV2 }
+type mockDiffFileV2 struct{ handler diffFileV2Func }
+type mockClearCommitV2 struct{ handler clearCommitV2Func }
 
-func (mock *mockCreateRepo) Use(cb createRepoFunc)                   { mock.handler = cb }
-func (mock *mockInspectRepo) Use(cb inspectRepoFunc)                 { mock.handler = cb }
-func (mock *mockListRepo) Use(cb listRepoFunc)                       { mock.handler = cb }
-func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                   { mock.handler = cb }
-func (mock *mockStartCommit) Use(cb startCommitFunc)                 { mock.handler = cb }
-func (mock *mockFinishCommit) Use(cb finishCommitFunc)               { mock.handler = cb }
-func (mock *mockInspectCommit) Use(cb inspectCommitFunc)             { mock.handler = cb }
-func (mock *mockListCommit) Use(cb listCommitFunc)                   { mock.handler = cb }
-func (mock *mockListCommitStream) Use(cb listCommitStreamFunc)       { mock.handler = cb }
-func (mock *mockDeleteCommit) Use(cb deleteCommitFunc)               { mock.handler = cb }
-func (mock *mockFlushCommit) Use(cb flushCommitFunc)                 { mock.handler = cb }
-func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)         { mock.handler = cb }
-func (mock *mockBuildCommit) Use(cb buildCommitFunc)                 { mock.handler = cb }
-func (mock *mockCreateBranch) Use(cb createBranchFunc)               { mock.handler = cb }
-func (mock *mockInspectBranch) Use(cb inspectBranchFunc)             { mock.handler = cb }
-func (mock *mockListBranch) Use(cb listBranchFunc)                   { mock.handler = cb }
-func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)               { mock.handler = cb }
-func (mock *mockPutFile) Use(cb putFileFunc)                         { mock.handler = cb }
-func (mock *mockCopyFile) Use(cb copyFileFunc)                       { mock.handler = cb }
-func (mock *mockGetFile) Use(cb getFileFunc)                         { mock.handler = cb }
-func (mock *mockInspectFile) Use(cb inspectFileFunc)                 { mock.handler = cb }
-func (mock *mockListFile) Use(cb listFileFunc)                       { mock.handler = cb }
-func (mock *mockListFileStream) Use(cb listFileStreamFunc)           { mock.handler = cb }
-func (mock *mockWalkFile) Use(cb walkFileFunc)                       { mock.handler = cb }
-func (mock *mockGlobFile) Use(cb globFileFunc)                       { mock.handler = cb }
-func (mock *mockGlobFileStream) Use(cb globFileStreamFunc)           { mock.handler = cb }
-func (mock *mockDiffFile) Use(cb diffFileFunc)                       { mock.handler = cb }
-func (mock *mockDeleteFile) Use(cb deleteFileFunc)                   { mock.handler = cb }
-func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)               { mock.handler = cb }
-func (mock *mockFsck) Use(cb fsckFunc)                               { mock.handler = cb }
-func (mock *mockFileOperationV2) Use(cb fileOperationFuncV2)         { mock.handler = cb }
-func (mock *mockGetTarV2) Use(cb getTarFuncV2)                       { mock.handler = cb }
-func (mock *mockGetTarConditionalV2) Use(cb getTarConditionalFuncV2) { mock.handler = cb }
+func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
+func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
+func (mock *mockListRepo) Use(cb listRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)             { mock.handler = cb }
+func (mock *mockStartCommit) Use(cb startCommitFunc)           { mock.handler = cb }
+func (mock *mockFinishCommit) Use(cb finishCommitFunc)         { mock.handler = cb }
+func (mock *mockInspectCommit) Use(cb inspectCommitFunc)       { mock.handler = cb }
+func (mock *mockListCommit) Use(cb listCommitFunc)             { mock.handler = cb }
+func (mock *mockListCommitStream) Use(cb listCommitStreamFunc) { mock.handler = cb }
+func (mock *mockDeleteCommit) Use(cb deleteCommitFunc)         { mock.handler = cb }
+func (mock *mockFlushCommit) Use(cb flushCommitFunc)           { mock.handler = cb }
+func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = cb }
+func (mock *mockBuildCommit) Use(cb buildCommitFunc)           { mock.handler = cb }
+func (mock *mockCreateBranch) Use(cb createBranchFunc)         { mock.handler = cb }
+func (mock *mockInspectBranch) Use(cb inspectBranchFunc)       { mock.handler = cb }
+func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = cb }
+func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)         { mock.handler = cb }
+func (mock *mockPutFile) Use(cb putFileFunc)                   { mock.handler = cb }
+func (mock *mockCopyFile) Use(cb copyFileFunc)                 { mock.handler = cb }
+func (mock *mockGetFile) Use(cb getFileFunc)                   { mock.handler = cb }
+func (mock *mockInspectFile) Use(cb inspectFileFunc)           { mock.handler = cb }
+func (mock *mockListFile) Use(cb listFileFunc)                 { mock.handler = cb }
+func (mock *mockListFileStream) Use(cb listFileStreamFunc)     { mock.handler = cb }
+func (mock *mockWalkFile) Use(cb walkFileFunc)                 { mock.handler = cb }
+func (mock *mockGlobFile) Use(cb globFileFunc)                 { mock.handler = cb }
+func (mock *mockGlobFileStream) Use(cb globFileStreamFunc)     { mock.handler = cb }
+func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = cb }
+func (mock *mockDeleteFile) Use(cb deleteFileFunc)             { mock.handler = cb }
+func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
+func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
+func (mock *mockFileOperationV2) Use(cb fileOperationFuncV2)   { mock.handler = cb }
+func (mock *mockGetTarV2) Use(cb getTarFuncV2)                 { mock.handler = cb }
+func (mock *mockDiffFileV2) Use(cb diffFileV2Func)             { mock.handler = cb }
+func (mock *mockClearCommitV2) Use(cb clearCommitV2Func)       { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
 }
 
 type mockPFSServer struct {
-	api                 pfsServerAPI
-	CreateRepo          mockCreateRepo
-	InspectRepo         mockInspectRepo
-	ListRepo            mockListRepo
-	DeleteRepo          mockDeleteRepo
-	StartCommit         mockStartCommit
-	FinishCommit        mockFinishCommit
-	InspectCommit       mockInspectCommit
-	ListCommit          mockListCommit
-	ListCommitStream    mockListCommitStream
-	DeleteCommit        mockDeleteCommit
-	FlushCommit         mockFlushCommit
-	SubscribeCommit     mockSubscribeCommit
-	BuildCommit         mockBuildCommit
-	CreateBranch        mockCreateBranch
-	InspectBranch       mockInspectBranch
-	ListBranch          mockListBranch
-	DeleteBranch        mockDeleteBranch
-	PutFile             mockPutFile
-	CopyFile            mockCopyFile
-	GetFile             mockGetFile
-	InspectFile         mockInspectFile
-	ListFile            mockListFile
-	ListFileStream      mockListFileStream
-	WalkFile            mockWalkFile
-	GlobFile            mockGlobFile
-	GlobFileStream      mockGlobFileStream
-	DiffFile            mockDiffFile
-	DeleteFile          mockDeleteFile
-	DeleteAll           mockDeleteAllPFS
-	Fsck                mockFsck
-	FileOperationV2     mockFileOperationV2
-	GetTarV2            mockGetTarV2
-	GetTarConditionalV2 mockGetTarConditionalV2
+	api              pfsServerAPI
+	CreateRepo       mockCreateRepo
+	InspectRepo      mockInspectRepo
+	ListRepo         mockListRepo
+	DeleteRepo       mockDeleteRepo
+	StartCommit      mockStartCommit
+	FinishCommit     mockFinishCommit
+	InspectCommit    mockInspectCommit
+	ListCommit       mockListCommit
+	ListCommitStream mockListCommitStream
+	DeleteCommit     mockDeleteCommit
+	FlushCommit      mockFlushCommit
+	SubscribeCommit  mockSubscribeCommit
+	BuildCommit      mockBuildCommit
+	CreateBranch     mockCreateBranch
+	InspectBranch    mockInspectBranch
+	ListBranch       mockListBranch
+	DeleteBranch     mockDeleteBranch
+	PutFile          mockPutFile
+	CopyFile         mockCopyFile
+	GetFile          mockGetFile
+	InspectFile      mockInspectFile
+	ListFile         mockListFile
+	ListFileStream   mockListFileStream
+	WalkFile         mockWalkFile
+	GlobFile         mockGlobFile
+	GlobFileStream   mockGlobFileStream
+	DiffFile         mockDiffFile
+	DeleteFile       mockDeleteFile
+	DeleteAll        mockDeleteAllPFS
+	Fsck             mockFsck
+	FileOperationV2  mockFileOperationV2
+	GetTarV2         mockGetTarV2
+	DiffFileV2       mockDiffFileV2
+	ClearCommitV2    mockClearCommitV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -732,11 +736,17 @@ func (api *pfsServerAPI) GetTarV2(req *pfs.GetTarRequestV2, serv pfs.API_GetTarV
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GetTarV2")
 }
-func (api *pfsServerAPI) GetTarConditionalV2(serv pfs.API_GetTarConditionalV2Server) error {
-	if api.mock.GetTarConditionalV2.handler != nil {
-		return api.mock.GetTarConditionalV2.handler(serv)
+func (api *pfsServerAPI) DiffFileV2(req *pfs.DiffFileRequest, serv pfs.API_DiffFileV2Server) error {
+	if api.mock.DiffFileV2.handler != nil {
+		return api.mock.DiffFileV2.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.GetTarConditionalV2")
+	return errors.Errorf("unhandled pachd mock pfs.DiffFileV2")
+}
+func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	if api.mock.ClearCommitV2.handler != nil {
+		return api.mock.ClearCommitV2.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommitV2")
 }
 
 /* PPS Server Mocks */

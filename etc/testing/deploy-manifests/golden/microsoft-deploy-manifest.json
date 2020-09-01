@@ -933,6 +933,10 @@
               {
                 "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
                 "value": "100"
+              },
+              {
+                "name": "STORAGE_V2",
+                "value": "false"
               }
             ],
             "resources": {

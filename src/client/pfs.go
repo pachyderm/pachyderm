@@ -1385,6 +1385,21 @@ func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f
 // paths and have identical content are omitted.
 func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 	oldCommitID, oldPath string, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	if c.storageV2 {
+		var newFiles, oldFiles []*pfs.FileInfo
+		if err := c.DiffFileV2(newRepoName, newCommitID, newPath, oldRepoName, oldCommitID, oldPath, shallow, func(newFile, oldFile *pfs.FileInfo) error {
+			if newFile != nil {
+				newFiles = append(newFiles, newFile)
+			}
+			if oldFile != nil {
+				oldFiles = append(oldFiles, oldFile)
+			}
+			return nil
+		}); err != nil {
+			return nil, nil, err
+		}
+		return newFiles, oldFiles, nil
+	}
 	var oldFile *pfs.File
 	if oldRepoName != "" {
 		oldFile = NewFile(oldRepoName, oldCommitID, oldPath)

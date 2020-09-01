@@ -28,7 +28,7 @@ will be supported in later releases.
 
 To get started, complete the following steps:
 
-![Pachyderm Hub Steps](../assets/images/d_pachub_steps.svg)
+![Pachyderm Hub Steps](../assets/images/d_pachhub_steps.svg)
 
 ## Log in
 
@@ -62,7 +62,7 @@ To create a Pachyderm cluster, complete the following steps:
 
    Your cluster is provisioned instantly!
 
-   ![Pachub cluster](../assets/images/s_pachub_cluster.png)
+   ![PachHub cluster](../assets/images/s_pachhub_cluster.png)
 
    **Note:** While Pachyderm maintains a few clusters that are instantly
    available, none may be available during periods of high traffic. If
@@ -170,7 +170,7 @@ To connect to your cluster, complete the following steps:
       1. In the Pachyderm Hub UI, click **Dashboard** next to your cluster.
       The dashboard opens in a new window.
 
-      ![repo_ready](../assets/images/s_pachub_ready.png)
+      ![repo_ready](../assets/images/s_pachhub_ready.png)
 
 ## Next Steps
 

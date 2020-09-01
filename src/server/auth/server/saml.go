@@ -149,12 +149,12 @@ func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
 	w.Write(buf)
 }
 
-func (a *apiServer) serveSAML() {
+func (a *apiServer) serveSAML() error {
 	samlMux := http.NewServeMux()
 	samlMux.HandleFunc("/saml/acs", a.handleSAMLResponse)
 	samlMux.HandleFunc("/saml/metadata", a.handleMetadata)
 	samlMux.HandleFunc("/*", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
 	})
-	http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
+	return http.ListenAndServe(fmt.Sprintf(":%d", a.env.SamlPort), samlMux)
 }

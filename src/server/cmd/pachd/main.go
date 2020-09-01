@@ -214,6 +214,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			txnEnv,
 			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
 			false,
+			false,
 		)
 		if err != nil {
 			return err
@@ -354,6 +355,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "lru.New")
 	}
 	kubeNamespace := env.Namespace
+	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
 	externalServer, err := grpcutil.NewServer(context.Background(), true)
 	if err != nil {
@@ -431,7 +433,7 @@ func doFullMode(config interface{}) (retErr error) {
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true, requireNoncriticalServers)
 			if err != nil {
 				return err
 			}
@@ -604,6 +606,7 @@ func doFullMode(config interface{}) (retErr error) {
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
 				false,
+				requireNoncriticalServers,
 			)
 			if err != nil {
 				return err
@@ -680,7 +683,6 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
 		httpServer, err := pach_http.NewHTTPServer(address)
 		if err != nil {

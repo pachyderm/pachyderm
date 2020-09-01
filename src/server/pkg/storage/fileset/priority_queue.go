@@ -44,7 +44,7 @@ func (pq *priorityQueue) iterate(f func([]stream, ...string) error) error {
 func (pq *priorityQueue) isHigherPriority(i, j int) bool {
 	si := pq.queue[i]
 	sj := pq.queue[j]
-	return si.key() < sj.key() || (si.key() == sj.key() && si.streamPriority() < sj.streamPriority())
+	return si.key() < sj.key() || (si.key() == sj.key() && si.streamPriority() > sj.streamPriority())
 }
 
 func (pq *priorityQueue) empty() bool {

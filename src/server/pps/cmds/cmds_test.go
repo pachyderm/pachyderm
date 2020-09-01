@@ -873,6 +873,42 @@ EOF
 	return stderr, err
 }
 
+func TestPipelineBuildRunCron(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// build a cron pipeline successfully
+	require.NoError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+		{
+			"pipeline": {
+			  "name": "crontest"
+			},
+			"input": {
+			  "cron": {
+				"name": "tick",
+				"spec": "*/1 * * * *",
+				"overwrite": true
+			  }  
+			},
+			"transform": {
+			  "build":{
+				"language": "go"
+			  },
+			  "cmd":["echo", "tick"]
+			},
+			"enable_stats": true
+		  }
+		EOF
+	`).Run())
+
+	// and make sure you can use `run cron` on it
+	require.NoError(t, tu.BashCmd(`
+		pachctl run cron crontest
+	`).Run())
+}
+
 func TestWarningLatestTag(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
