@@ -66,14 +66,6 @@ func ReceiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) (retErr error) {
-	// Check to see if this spout is the latest version of this spout by seeing if its spec commit has any children.
-	spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
-	if err != nil && !errutil.IsNotFoundError(err) {
-		return err
-	}
-	if spec != nil && len(spec.ChildCommits) != 0 {
-		return errors.New("outdated spout, now shutting down")
-	}
 	// Open a read connection to the /pfs/out named pipe.
 	out, err := os.Open("/pfs/out")
 	if err != nil {
@@ -84,13 +76,14 @@ func ReceiveSpout(
 			retErr = err
 		}
 	}()
+	cancelCtx, cancel := context.WithCancel(ctx)
 	repo := pipelineInfo.Pipeline.Name
 	for {
 		if err := withTmpFile("pachyderm_spout_commit", func(f *os.File) error {
 			if err := getNextTarStream(f, out); err != nil {
 				return err
 			}
-			return withSpoutCommit(ctx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
+			return withSpoutCommit(cancelCtx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
 				for {
 					hdr, err := tr.Next()
 					if err != nil {
@@ -99,9 +92,19 @@ func ReceiveSpout(
 						}
 						return err
 					}
-					if err := withSpoutFile(ctx, logger, tr, func(r io.Reader) error {
+					if err := withSpoutFile(cancelCtx, logger, tr, func(r io.Reader) error {
 						if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(hdr.Name), pipelineInfo.Spout.Marker) {
-							_, err := pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
+							// Check to see if this spout is the latest version of this spout by seeing if its spec commit has any children.
+							// TODO: There is a race condition here where the spout could be updated after this check, but before the PutFileOverwrite.
+							spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
+							if err != nil && !errutil.IsNotFoundError(err) {
+								return err
+							}
+							if spec != nil && len(spec.ChildCommits) != 0 {
+								cancel()
+								return errors.New("outdated spout, now shutting down")
+							}
+							_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
 							if err != nil {
 								return err
 							}
@@ -234,9 +237,9 @@ func copyTar(tw *tar.Writer, tr *tar.Reader) error {
 	}
 }
 
-func withSpoutCommit(ctx context.Context, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, f *os.File, cb func(*pfs.Commit, *tar.Reader) error) (retErr error) {
+func withSpoutCommit(ctx context.Context, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, f *os.File, cb func(*pfs.Commit, *tar.Reader) error) error {
 	repo := pipelineInfo.Pipeline.Name
-	return backoff.RetryUntilCancel(ctx, func() error {
+	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent:     client.NewCommit(repo, ""),
 			Branch:     pipelineInfo.OutputBranch,
