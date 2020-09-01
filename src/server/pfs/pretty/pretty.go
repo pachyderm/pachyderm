@@ -89,7 +89,7 @@ func printTrigger(trigger *pfs.Trigger) string {
 		conds = append(conds, trigger.Size_)
 	}
 	if trigger.Commits != 0 {
-		conds = append(conds, fmt.Sprintf("%d commits"))
+		conds = append(conds, fmt.Sprintf("%d commits", trigger.Commits))
 	}
 	cond := ""
 	if trigger.All {
