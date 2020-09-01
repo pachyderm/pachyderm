@@ -6541,6 +6541,11 @@ func TestTriggerValidation(t *testing.T) {
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		require.NoError(t, c.CreateRepo("repo"))
+		// Must specify a branch
+		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", &pfs.Trigger{
+			Branch: "",
+			Size_:  "1K",
+		}))
 		// Can't trigger a branch on itself
 		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", &pfs.Trigger{
 			Branch: "master",
@@ -6551,8 +6556,13 @@ func TestTriggerValidation(t *testing.T) {
 			Branch: "master",
 			Size_:  "this is not a size",
 		}))
+		// Can't have negative commit count
+		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", &pfs.Trigger{
+			Branch:  "master",
+			Commits: -1,
+		}))
 
-		// a -> b
+		// a -> b (valid, sets up the next test)
 		require.NoError(t, c.CreateBranchTrigger("repo", "b", "", &pfs.Trigger{
 			Branch: "a",
 			Size_:  "1K",

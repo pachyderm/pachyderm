@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/go-units"
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -42,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/robfig/cron"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -2668,6 +2670,45 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 	return userCommitProvenance, nil
 }
 
+func (d *driver) validateTrigger(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+	if trigger == nil {
+		return nil
+	}
+	if trigger.Branch == "" {
+		return errors.Errorf("triggers must specify a branch to trigger on")
+	}
+	if _, err := cron.ParseStandard(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger cron spec")
+	}
+	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger size")
+	}
+	if trigger.Commits < 0 {
+		return errors.Errorf("can't trigger on a negative number of commits")
+	}
+	bis, err := d.listBranch(txnCtx.Client, branch.Repo, false)
+	if err != nil {
+		return err
+	}
+	biMaps := make(map[string]*pfs.BranchInfo)
+	for _, bi := range bis {
+		biMaps[bi.Branch.Name] = bi
+	}
+	b := trigger.Branch
+	for {
+		if b == branch.Name {
+			return errors.Errorf("triggers cannot form a loop")
+		}
+		bi, ok := biMaps[b]
+		if ok && bi.Trigger != nil {
+			b = bi.Trigger.Branch
+		} else {
+			break
+		}
+	}
+	return nil
+}
+
 // createBranch creates a new branch or updates an existing branch (must be one
 // or the other). Most importantly, it sets 'branch.DirectProvenance' to
 // 'provenance' and then for all (downstream) branches, restores the invariant:
@@ -2682,6 +2723,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
+	}
+	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
+		return err
 	}
 
 	var err error
