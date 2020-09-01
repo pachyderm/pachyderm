@@ -6529,6 +6529,70 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+		t.Run("Or", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("or"))
+			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", &pfs.Trigger{
+				Branch:   "master",
+				CronSpec: "* * * * *",
+				Size_:    "100",
+				Commits:  3,
+			}))
+			// This triggers, because the cron is satisfied
+			_, err := c.PutFile("or", "master", "file1", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			head := bi.Head.ID
+			// This one doesn't because none of them are satisfied
+			_, err = c.PutFile("or", "master", "file2", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+			// This one triggers because we hit 100 bytes
+			_, err = c.PutFile("or", "master", "file3", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
+			head = bi.Head.ID
+
+			// This one doesn't trigger
+			_, err = c.PutFile("or", "master", "file4", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+			// This one neither
+			_, err = c.PutFile("or", "master", "file5", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+			// This one does, because it's 3 commits
+			_, err = c.PutFile("or", "master", "file6", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
+			head = bi.Head.ID
+
+			// This one doesn't trigger
+			_, err = c.PutFile("or", "master", "file7", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head.ID)
+
+			time.Sleep(time.Minute)
+
+			_, err = c.PutFile("or", "master", "file8", strings.NewReader(strings.Repeat("a", 1)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("or", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head.ID)
+		})
 
 		return nil
 	})

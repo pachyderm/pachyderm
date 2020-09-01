@@ -74,6 +74,14 @@ func (d *driver) triggerCommit(
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
 func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+	result := t.All
+	merge := func(cond bool) {
+		if t.All {
+			result = result && cond
+		} else {
+			result = result || cond
+		}
+	}
 	if t.Size_ != "" {
 		size, err := units.FromHumanSize(t.Size_)
 		if err != nil {
@@ -84,9 +92,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 		if oldHead != nil {
 			oldSize = oldHead.SizeBytes
 		}
-		if int64(newHead.SizeBytes-oldSize) >= size {
-			return true, nil
-		}
+		merge(int64(newHead.SizeBytes-oldSize) >= size)
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
@@ -108,7 +114,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 				return false, err
 			}
 		}
-		return schedule.Next(oldTime).Before(newTime), nil
+		merge(schedule.Next(oldTime).Before(newTime))
 	}
 	if t.Commits != 0 {
 		ci := newHead
@@ -125,9 +131,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 				break
 			}
 		}
-		if commits == t.Commits {
-			return true, nil
-		}
+		merge(commits == t.Commits)
 	}
-	return false, nil
+	return result, nil
 }
