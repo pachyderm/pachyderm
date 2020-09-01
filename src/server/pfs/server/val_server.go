@@ -19,16 +19,61 @@ type validatedAPIServer struct {
 	env *serviceenv.ServiceEnv
 }
 
-func newValidatedAPIServer(inner APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv) *validatedAPIServer {
 	return &validatedAPIServer{
-		APIServer: inner,
+		APIServer: embeddedServer,
 		env:       env,
 	}
 }
 
+// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
+	repo := request.Repo
+	// Check if the caller is authorized to delete this repo
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
+		return err
+	}
+	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
+}
+
+// FinishCommitInTransaction is identical to FinishCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
+	userCommit := request.Commit
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
+}
+
+// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
+	userCommit := request.Commit
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	return a.APIServer.DeleteCommitInTransaction(txnCtx, request)
+}
+
 // CopyFile implements the protobuf pfs.CopyFile RPC
-func (a *validatedAPIServer) CopyFile(ctx context.Context, req *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
-	src, dst := req.Src, req.Dst
+func (a *validatedAPIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	src, dst := request.Src, request.Dst
 	// Validate arguments
 	if src == nil {
 		return nil, errors.New("src cannot be nil")
@@ -58,23 +103,34 @@ func (a *validatedAPIServer) CopyFile(ctx context.Context, req *pfs.CopyFileRequ
 	if err := checkFilePath(dst.Path); err != nil {
 		return nil, err
 	}
-	return a.APIServer.CopyFile(ctx, req)
+	return a.APIServer.CopyFile(ctx, request)
 }
 
-// InspectFileV2 returns info about a file.
-func (a *validatedAPIServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
-	if err := validateFile(req.File); err != nil {
+// InspectFile implements the protobuf pfs.InspectFile RPC
+func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	if err := validateFile(request.File); err != nil {
 		return nil, err
 	}
-	if err := a.checkIsAuthorized(ctx, req.File.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := a.checkIsAuthorized(ctx, request.File.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	return a.APIServer.InspectFileV2(ctx, req)
+	return a.APIServer.InspectFile(ctx, request)
 }
 
-// WalkFileV2 walks over all the files under a directory, including children of children.
-func (a *validatedAPIServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
-	file := req.File
+// ListFileStream implements the protobuf pfs.ListFileStream RPC
+func (a *validatedAPIServer) ListFileStream(request *pfs.ListFileRequest, server pfs.API_ListFileStreamServer) (retErr error) {
+	if err := validateFile(request.File); err != nil {
+		return err
+	}
+	if err := a.checkIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+	return a.APIServer.ListFileStream(request, server)
+}
+
+// WalkFile implements the protobuf pfs.WalkFile RPC
+func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
+	file := request.File
 	// Validate arguments
 	if file == nil {
 		return errors.New("file cannot be nil")
@@ -88,10 +144,11 @@ func (a *validatedAPIServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API
 	if err := a.checkIsAuthorized(server.Context(), file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	return a.APIServer.WalkFileV2(req, server)
+	return a.APIServer.WalkFile(request, server)
 }
 
-func (a *validatedAPIServer) GlobFileV2(request *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) (retErr error) {
+// GlobFileStream implements the protobuf pfs.GlobFileStream RPC
+func (a *validatedAPIServer) GlobFileStream(request *pfs.GlobFileRequest, server pfs.API_GlobFileStreamServer) (retErr error) {
 	commit := request.Commit
 	// Validate arguments
 	if commit == nil {
@@ -103,17 +160,7 @@ func (a *validatedAPIServer) GlobFileV2(request *pfs.GlobFileRequest, server pfs
 	if err := a.checkIsAuthorized(server.Context(), commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	return a.APIServer.GlobFileV2(request, server)
-}
-
-func (a *validatedAPIServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	if err := validateFile(req.File); err != nil {
-		return err
-	}
-	if err := a.checkIsAuthorized(server.Context(), req.File.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	return a.APIServer.ListFileV2(req, server)
+	return a.APIServer.GlobFileStream(request, server)
 }
 
 func (a *validatedAPIServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
@@ -124,40 +171,6 @@ func (a *validatedAPIServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCo
 		return nil, err
 	}
 	return a.APIServer.ClearCommitV2(ctx, req)
-}
-
-// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteRepoInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteRepoRequest,
-) error {
-	repo := request.Repo
-	// Check if the caller is authorized to delete this repo
-	if err := a.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
-		return err
-	}
-	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
-}
-
-// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteCommitInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteCommitRequest,
-) error {
-	userCommit := request.Commit
-	// Validate arguments
-	if userCommit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if userCommit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	return a.APIServer.DeleteCommitInTransaction(txnCtx, request)
 }
 
 func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {

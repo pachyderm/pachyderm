@@ -301,7 +301,7 @@ func standardDeployCmds() []*cobra.Command {
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var newStorageLayer bool
+	var storageV2 bool
 	var noDash bool
 	var noExposeDockerSocket bool
 	var noGuaranteed bool
@@ -336,7 +336,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 		cmd.Flags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
-		cmd.Flags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
+		cmd.Flags().BoolVar(&storageV2, "storage-v2", false, "Deploy Pachyderm using V2 storage (alpha)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
@@ -420,7 +420,7 @@ func standardDeployCmds() []*cobra.Command {
 
 		opts = &assets.AssetOpts{
 			FeatureFlags: assets.FeatureFlags{
-				NewStorageLayer: newStorageLayer,
+				StorageV2: storageV2,
 			},
 			StorageOpts: assets.StorageOpts{
 				UploadConcurrencyLimit:  uploadConcurrencyLimit,
