@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.11.3
+- Fixes a bug that did not correctly port forward OIDC port (#5221)
+- Changes to allow configuration of SAML and OIDC default server ports (#5234)
+- Changes to improve the reliability of handling streams in spouts (#5240)
+- Fixes a bug that would fail the `run cron <pipeline>` command if multiple cron inputs have been specified (#5241)
+
 ## 1.11.2
 - Changes to create/update pipeline to warn users about using the “latest” tag in their images (#5164)
 - Fixes a bug that mistagged user logs messages for spouts and services as master log messages (#5187)
