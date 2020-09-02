@@ -29,7 +29,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd:        []string{"cp", "inputRepo/*", "out"},
+			Cmd:        []string{"bash", "-c", "cp inputRepo/* out"},
 			WorkingDir: client.PPSInputPrefix,
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
