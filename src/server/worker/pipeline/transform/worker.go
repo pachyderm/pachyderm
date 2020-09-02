@@ -227,9 +227,9 @@ func uploadChunk(
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		endpoint := fmt.Sprintf("http://%s:%s/",
+		endpoint := fmt.Sprintf("http://%s:%d/",
 			ppsutil.SidecarS3GatewayService(logger.JobID()),
-			os.Getenv("S3GATEWAY_PORT"),
+			driver.Env().S3GatewayPort,
 		)
 
 		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)

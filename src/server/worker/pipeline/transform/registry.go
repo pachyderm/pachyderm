@@ -35,12 +35,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform/chain"
 )
 
+const (
+	jobTagArtifactPrefix = "job-artifacts"
+)
+
 // All tags that begin with this prefix (and their associated objects) will be
 // cleaned up when the job ends. If any of these objects are leaked due to a
 // crash between finishing the job and removing the artifacts, they can be
 // removed using the `garbage-collect` command.
 func jobTagPrefix(pipelineName string, jobID string) string {
-	return filepath.Join(fmt.Sprintf("pipeline-%s", pipelineName), fmt.Sprintf("job-%s", jobID))
+	return filepath.Join(jobTagArtifactPrefix, fmt.Sprintf("pipeline-%s", pipelineName), fmt.Sprintf("job-%s", jobID))
 }
 
 // This generates a unique ID each time, as the datums present in a given chunk
