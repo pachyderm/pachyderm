@@ -292,7 +292,7 @@ To modify the pipeline code, complete the following steps:
        "name": "spoutmarker"
    },
    "transform": {
-       "image": "papposilenus/spout-marker:1599066933",
+       "image": "spout-marker:v1",
        "cmd": [
            "python3",
                "/spout-marker-example.py"
