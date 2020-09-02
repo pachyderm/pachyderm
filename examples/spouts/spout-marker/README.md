@@ -101,6 +101,7 @@ To build a Docker image, complete the following steps:
    docker build --tag spout-marker:v1 .
    ```
 
+   !!! note
    **Note:** Do not forget the dot in the end!
 
 1. Push the Docker image to an image registry.
@@ -137,26 +138,31 @@ When you create a spout pipeline with a marker file, Pachyderm
 creates a separate branch for the spout marker and stores the
 marker file in that branch.
 
-To create a spout pipeline, complete the following steps:
+This example includes a test spout pipeline that demonstrate markers.
+To use it, complete the following steps:
 
-1. Create a spout pipeline:
+1. Create a spout pipeline using this json. 
 
-   ```bash
-   # spout-marker-pipeline.json
+   ```json
    {
-   "pipeline": {
-    "name": "spoutmarker"
-   },
-   "transform": {
-     "cmd": [ "python3", "/spout-marker-example.py" ],
-     "image": "spout-marker:v1"
-   },
-   "spout": {
-     "marker": "mymark"
-    }
+       "pipeline": {
+           "name": "spoutmarker"
+       },
+       "transform": {
+           "cmd": [ "python3", "/spout-marker-example.py" ],
+           "image": "spout-marker:v1",
+           "env" : {
+               "OUTPUT_CHARACTER": "."
+           }
+       },
+       "spout": {
+           "marker": "mymark",
+           "overwrite": true
+       }
    }
    ```
 
+   !!! note
    **Note:** In the `spout` section, you have a key-value pair
    `"marker": "mymark"`. `mymark` is the name of your marker file.
    If you use multiple marker files, `mymark` will be a
@@ -194,7 +200,7 @@ To create a spout pipeline, complete the following steps:
 
    Pachyderm created a `marker` branch for the
    `spoutmarker` pipeline. According to our Python code, a dot
-   should be added to the `marker` file every 30 seconds. Each of these
+   should be added to the `marker` file every 10 seconds. Each of these
    transactions creates a commit in both `master` and `marker` branches
    in the `spoutmarker` output repository.
 
@@ -222,6 +228,7 @@ To create a spout pipeline, complete the following steps:
    spoutmarker marker e4c5f71b40e74372bff7cf6fd9dcfb89 2 minutes ago      1B
    ```
 
+   !!! note
    **Note:** Because the script appends to the marker file, each new commit
    is larger than the previous one.
 
@@ -242,7 +249,19 @@ To create a spout pipeline, complete the following steps:
    ```
 
    Run this command a few times to see that a new dot is appended every
-   30 seconds.
+   10 seconds.
+
+1. (Optional) View the output.
+
+  ```bash
+   pachctl get file spoutmarker@master:/output
+   ```
+
+   **System response:**
+
+   ```bash
+   ......
+   ```
 
 1. Proceed to [Step 3](#step-3-modify-the-pipeline-code).
 
@@ -253,44 +272,57 @@ see if the marker file will continue to append to the new symbol.
 
 To modify the pipeline code, complete the following steps:
 
-1. Open the `spout-marker-example.py` file and change the dot symbol on
-line 32 to the asterisk symbol:
+1. Edit the pipeline in place, 
+   changing the value of the `OUTPUT_CHARACTER` environment variable
+   from `.` to `*`
 
    ```bash
-   32     lines.append((lines[-1] if len(lines) > 0 else "") + "*")
+   pachctl edit pipeline spoutmarker
    ```
 
-1. Build a new Docker image with this updated code:
+   !!! note
+   **Note:** You can set the environment variable `EDITOR` to use your 
+   your preferred text editor.
 
-   ```bash
-   docker build --tag spout-marker:v2 .
-   ```
-
-1. Updated the image that `minikube` uses:
-
-   ```bash
-   docker save spout-marker:v2 | (\
-   eval $(minikube docker-env)
-   docker load
-   )
-   ```
-
-   Alternatively, if you are using an image registry, upload the new image to that
-   registry.
-
-1. Update the image in your pipeline specification:
-
-   ```bash
-   "image": "spout-marker:v2"
-   ```
-
-1. Update your pipeline:
-
-   ```bash
-   pachctl update pipeline -f spout-marker-pipeline.json
-   ```
-
-1. View the list of pipelines:
+   The new pipeline definition will look something like this in your text editor:
+   
+   ```json
+   {
+       "pipeline": {
+       "name": "spoutmarker"
+   },
+   "transform": {
+       "image": "papposilenus/spout-marker:1599066933",
+       "cmd": [
+           "python3",
+               "/spout-marker-example.py"
+        ],
+        "env": {
+            "OUTPUT_CHARACTER": "*"
+        }
+    },
+    "output_branch": "master",
+    "cache_size": "64M",
+    "max_queue_size": "1",
+    "spout": {
+        "overwrite": true,
+        "marker": "mymark"
+    },
+    "salt": "ea04c48e993c45a781b5ba315b230674",
+    "datum_tries": "3"
+    }
+    ```
+   
+   !!! note
+   **Note:** You can also edit the pipeline spec in
+   the original `spout-marker-pipeline.json` file and use 
+   `pachctl update pipeline -f spout-marker-pipeline.json`
+   to accomplish the same task.
+   
+   
+1. Once you save this file and leave the editor, 
+   you'll see the pipeline restart.
+   View the list of pipelines:
 
    ```bash
    pachctl list pipeline
@@ -324,6 +356,17 @@ line 32 to the asterisk symbol:
    ......**
    ```
 
+1. (Optional) View the output.
+
+  ```bash
+   pachctl get file spoutmarker@master:/output
+   ```
+
+   **System response:**
+
+   ```bash
+   ......**
+   ```
 ## Summary
 
 This example demonstrates that spout pipelines can be configured
