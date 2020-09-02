@@ -6593,6 +6593,68 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, head, bi.Head.ID)
 		})
+		t.Run("And", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("and"))
+			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", &pfs.Trigger{
+				Branch:   "master",
+				All:      true,
+				CronSpec: "* * * * *",
+				Size_:    "100",
+				Commits:  3,
+			}))
+			// Doesn't trigger because all 3 conditions must be met
+			_, err := c.PutFile("and", "master", "file1", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			// Still doesn't trigger
+			_, err = c.PutFile("and", "master", "file2", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			// Finally triggers because we have 3 commits, 100 bytes and Cron
+			// Spec (since epoch) is satisfied.
+			_, err = c.PutFile("and", "master", "file3", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			head := bi.Head.ID
+
+			// Doesn't trigger because all 3 conditions must be met
+			_, err = c.PutFile("and", "master", "file4", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head)
+
+			// Still no trigger, not enough time or commits
+			_, err = c.PutFile("and", "master", "file5", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head)
+
+			// Still no trigger, not enough time
+			_, err = c.PutFile("and", "master", "file6", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.Equal(t, head, bi.Head)
+
+			time.Sleep(time.Minute)
+
+			// Finally triggers, all triggers have been met
+			_, err = c.PutFile("and", "master", "file7", strings.NewReader(strings.Repeat("a", 100)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("and", "trigger")
+			require.NoError(t, err)
+			require.NotEqual(t, head, bi.Head)
+		})
 
 		return nil
 	})
