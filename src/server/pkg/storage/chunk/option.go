@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"math"
+	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -28,13 +29,26 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
+func WithGCTimeout(timeout time.Duration) StorageOption {
+	return func(s *Storage) {
+		s.defaultChunkTTL = timeout
+	}
+}
+
 // ServiceEnvToOptions converts a service environment configuration (specifically
 // the storage configuration) to a set of storage options.
-func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption) {
+func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption, err error) {
 	if env.StorageUploadConcurrencyLimit > 0 {
 		options = append(options, WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
 	}
-	return options
+	if env.StorageGCTimeout != "" {
+		timeout, err := time.ParseDuration(env.StorageGCTimeout)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, WithGCTimeout(timeout))
+	}
+	return options, nil
 }
 
 // WriterOption configures a chunk writer.
@@ -61,5 +75,11 @@ func WithMinMax(min, max int) WriterOption {
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
+	}
+}
+
+func WithChunkTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.chunkTTL = ttl
 	}
 }

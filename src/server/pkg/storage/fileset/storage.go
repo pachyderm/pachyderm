@@ -7,6 +7,7 @@ import (
 	"math"
 	"path"
 	"strings"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -285,6 +286,24 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 	return s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
 		return f(removePrefix(p))
 	})
+}
+
+// RenewFileSet renews a temporary FileSet
+func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Duration) (*time.Time, error) {
+	var expiresAt *time.Time
+	if err := s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
+		t, err := s.chunks.RenewReference(ctx, p, ttl)
+		if err != nil {
+			return err
+		}
+		if expiresAt == nil || t.Before(*expiresAt) {
+			expiresAt = t
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return expiresAt, nil
 }
 
 func (s *Storage) levelSize(i int) int64 {

@@ -19,8 +19,9 @@ func TestReserveChunk(t *testing.T) {
 	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		chunks := makeChunks(t, objClient, 3)
 		tmpID := uuid.NewWithoutDashes()
+		expiresAt := getExpiresAt()
 		for _, chunk := range chunks {
-			require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID))
+			require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID, expiresAt))
 		}
 		expectedChunkRows := []chunkModel{
 			{chunks[0], nil},
@@ -29,9 +30,9 @@ func TestReserveChunk(t *testing.T) {
 		}
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		expectedRefRows := []refModel{
-			{"temporary", tmpID, chunks[0], nil},
-			{"temporary", tmpID, chunks[1], nil},
-			{"temporary", tmpID, chunks[2], nil},
+			{"temporary", tmpID, chunks[0], nil, nil},
+			{"temporary", tmpID, chunks[1], nil, nil},
+			{"temporary", tmpID, chunks[2], nil, nil},
 		}
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		return nil
@@ -44,7 +45,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 		// Reserve chunks initially with only temporary references.
 		tmpID := uuid.NewWithoutDashes()
 		for _, chunk := range chunks {
-			require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID))
+			require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID, getExpiresAt()))
 		}
 		var expectedChunkRows []chunkModel
 		for _, chunk := range chunks {
@@ -53,7 +54,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		var expectedRefRows []refModel
 		for _, chunk := range chunks {
-			expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, nil})
+			expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, nil, nil})
 		}
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		// Create cross-chunk references.
@@ -68,7 +69,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 						Chunk:      chunkTo,
 					},
 				))
-				expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, nil})
+				expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, nil, nil})
 			}
 		}
 		// Create a semantic reference to the root chunk.
@@ -81,7 +82,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 				Chunk:      chunks[0],
 			},
 		))
-		expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], nil})
+		expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], nil, nil})
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		// Delete the temporary reference.
 		require.NoError(t, gcClient.DeleteReference(
@@ -147,7 +148,7 @@ func TestTimeout(t *testing.T) {
 		time.Sleep(3 * time.Second)
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		return nil
-	}, WithPolling(time.Second), WithTimeout(time.Second)))
+	}, WithPolling(time.Second)))
 }
 
 func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcClient *client, semanticName string, levels int, failProb float64) []chunkModel {
@@ -156,7 +157,7 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 	tmpID := uuid.NewWithoutDashes()
 	var expectedChunkRows []chunkModel
 	for _, chunk := range chunks {
-		require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID))
+		require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID, time.Now().Add(2*time.Second)))
 		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
 	}
 	// Create cross-chunk references.
@@ -222,6 +223,14 @@ func allRefs(t *testing.T, gcClient *client) []refModel {
 	for i := range refs {
 		refs[i].Created = nil
 	}
+	return zeroExpiresAt(refs)
+}
+
+// This is necessary to make the times match.  require.ElementsEqual does not seem to handle time.Time well
+func zeroExpiresAt(refs []refModel) []refModel {
+	for i := range refs {
+		refs[i].ExpiresAt = nil
+	}
 	return refs
 }
 
@@ -237,3 +246,7 @@ func allRefs(t *testing.T, gcClient *client) []refModel {
 //		fmt.Printf("  %v\n", row)
 //	}
 //}
+
+func getExpiresAt() time.Time {
+	return time.Now().Add(defaultTimeout).Truncate(time.Second).UTC()
+}

@@ -60,7 +60,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
+		if _, err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
 			for {
 				req, err := server.Recv()
 				if err != nil {
@@ -320,15 +320,24 @@ func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitR
 }
 
 func (a *apiServerV2) CreateTempFileSet(server pfs.API_CreateTempFileSetServer) error {
-	fsID, err := a.driver.createTempFileSet(server)
+	fsID, expiresAt, err := a.driver.createTempFileSet(server)
 	if err != nil {
 		return err
 	}
 	return server.SendAndClose(&pfs.CreateTempFileSetResponse{
 		FilesetId: fsID,
+		ExpiresAt: expiresAt.Unix(),
 	})
 }
 
 func (a *apiServerV2) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest) (*pfs.CreateTempFileSetResponse, error) {
-	return nil, nil
+	ttl := time.Duration(req.ExtendSeconds) * time.Second
+	t, err := a.driver.renewTempFileSet(ctx, req.FilesetId, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CreateTempFileSetResponse{
+		FilesetId: req.FilesetId,
+		ExpiresAt: t.Unix(),
+	}, nil
 }

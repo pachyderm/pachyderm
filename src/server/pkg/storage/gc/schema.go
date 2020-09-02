@@ -16,6 +16,7 @@ type refModel struct {
 	Source     string `gorm:"primary_key"`
 	Chunk      string `gorm:"primary_key"`
 	Created    *time.Time
+	ExpiresAt  *time.Time
 }
 
 func (*refModel) TableName() string {

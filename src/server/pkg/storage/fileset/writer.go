@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -28,6 +29,7 @@ type Writer struct {
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
 	priorFile bool
+	ttl       time.Duration
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
@@ -39,6 +41,10 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	var chunkWriterOpts []chunk.WriterOption
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
+	}
+	var indexWriterOpts []index.WriterOption
+	if w.ttl > 0 {
+		indexWriterOpts = append(indexWriterOpts, index.WithRootTTL(w.ttl))
 	}
 	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
 	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
@@ -222,6 +228,10 @@ func (w *Writer) Close() error {
 	}
 	// Close the index writer.
 	return w.iw.Close()
+}
+
+func (w *Writer) ExpiresAt() *time.Time {
+	return w.iw.ExpiresAt()
 }
 
 func (w *Writer) checkPath(p string) error {

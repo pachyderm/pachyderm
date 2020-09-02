@@ -1,6 +1,8 @@
 package fileset
 
 import (
+	"time"
+
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"golang.org/x/sync/semaphore"
@@ -52,6 +54,12 @@ func WithMaxOpenFileSets(max int) StorageOption {
 // UWriterOption configures an UnorderedWriter.
 type UWriterOption func(f *UnorderedWriter)
 
+func WithWriterOption(opt WriterOption) UWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.writerOpts = append(uw.writerOpts, opt)
+	}
+}
+
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
 
@@ -67,6 +75,13 @@ func WithNoUpload() WriterOption {
 func WithIndexCallback(cb func(*index.Index) error) WriterOption {
 	return func(w *Writer) {
 		w.indexFunc = cb
+	}
+}
+
+// WithTTL sets the ttl for the fileset
+func WithTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.ttl = ttl
 	}
 }
 

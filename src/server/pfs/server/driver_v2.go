@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
-	"github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -38,7 +37,8 @@ const (
 	// Paths should get cleaned up in the background.
 	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
-	tmpRepo              = "__tmp__"
+	tmpRepo              = client.TempRepoName
+	maxTTL               = 30 * time.Minute
 )
 
 type driverV2 struct {
@@ -72,7 +72,11 @@ func newDriverV2(
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
+	chunkOptsSrv, err := chunk.ServiceEnvToOptions(env)
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkOptsSrv...)
 	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
@@ -147,13 +151,13 @@ func (d *driverV2) getSubFileSet() int64 {
 }
 
 // TODO Need commit validation and handling of branch names.
-func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UWriterOption) (expiresAt *time.Time, retErr error) {
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
 	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -162,15 +166,18 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string,
 		}
 	}()
 	if err := cb(fs); err != nil {
-		return err
+		return nil, err
 	}
 	if err := fs.Close(); err != nil {
-		return err
+		return nil, err
 	}
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
+	if err := d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
 		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
 		return err
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return fs.ExpiresAt(), nil
 }
 
 func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
@@ -964,26 +971,44 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	return nil
 }
 
-func (d *driverV2) createTempFileSet(server pfs.API_CreateTempFileSetServer) (string, error) {
+func (d *driverV2) createTempFileSet(server pfs.API_CreateTempFileSetServer) (string, *time.Time, error) {
 	ctx := server.Context()
+	opts := []fileset.UWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
 	id := uuid.NewWithoutDashes()
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
-		_, err := d.startCommit(txnCtx, id, nil, "", nil, "temp fileset")
-		if err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return "", err
-	}
-	if err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
+	var commit *pfs.Commit
+	// TODO: within commit?
+	// if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
+	// 	var err error
+	// 	commit, err = d.startCommit(txnCtx, id, nil, "", nil, "temp fileset")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }); err != nil {
+	// 	return "", nil, err
+	// }
+	expiresAt, err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
 		req := &pfs.PutTarRequestV2{
 			Tag: "",
 		}
 		_, err := putTar(uw, server, req)
 		return err
-	}); err != nil {
-		return "", err
+	}, opts...)
+	if err != nil {
+		return "", nil, err
 	}
-	return id, nil
+	// if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
+	// 	return d.finishCommitV2(txnCtx, commit, "")
+	// }); err != nil {
+	// 	return "", nil, err
+	// }
+	return commit.ID, expiresAt, nil
+}
+
+func (d *driverV2) renewTempFileSet(ctx context.Context, id string, ttl time.Duration) (*time.Time, error) {
+	if ttl > maxTTL {
+		ttl = maxTTL
+	}
+	p := path.Join(tmpRepo, id)
+	return d.storage.RenewFileSet(ctx, p, ttl)
 }

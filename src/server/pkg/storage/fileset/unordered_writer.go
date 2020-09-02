@@ -7,6 +7,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -39,6 +40,8 @@ type UnorderedWriter struct {
 	defaultTag                 string
 	fs                         map[string]*dataOp
 	subFileSet                 int64
+	writerOpts                 []WriterOption
+	expiresAt                  *time.Time
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
@@ -177,7 +180,7 @@ func (f *UnorderedWriter) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)), f.writerOpts...)
 	for _, name := range names {
 		dataOp := f.fs[name]
 		deleteTags := getSortedTags(dataOp.deleteTags)
@@ -206,6 +209,12 @@ func (f *UnorderedWriter) serialize() error {
 	if err := w.Close(); err != nil {
 		return err
 	}
+	if expiresAt := w.ExpiresAt(); expiresAt != nil {
+		if f.expiresAt == nil || expiresAt.Before(*f.expiresAt) {
+			f.expiresAt = expiresAt
+		}
+	}
+
 	// Reset in-memory file set.
 	f.fs = make(map[string]*dataOp)
 	f.memAvailable = f.memThreshold
@@ -237,4 +246,11 @@ func getSortedTags(tags map[string]struct{}) []string {
 func (f *UnorderedWriter) Close() error {
 	defer f.storage.filesetSem.Release(1)
 	return f.serialize()
+}
+
+// ExpiresAt returns the time the fileset expires
+// - returns nil if the fileset is permanent
+// - should not be called until the UnorderedWriter is closed
+func (uw *UnorderedWriter) ExpiresAt() *time.Time {
+	return uw.expiresAt
 }
