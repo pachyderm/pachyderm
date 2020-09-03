@@ -31,7 +31,7 @@ const (
 )
 
 type PutTarClient interface {
-	PutTar(io.Reader, ...string) error
+	PutTar(io.Reader, bool, ...string) error
 }
 
 const defaultDatumsPerSet = 10

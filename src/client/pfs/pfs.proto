@@ -518,9 +518,10 @@ message FileOperationRequestV2 {
 }
 
 message PutTarRequestV2 {
-  string tag = 1;
-  bytes data = 2;
-  bool EOF = 3;
+  bool overwrite = 1;
+  string tag = 2;
+  bytes data = 3;
+  bool EOF = 4;
 }
 
 message DeleteFilesRequestV2 {

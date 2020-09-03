@@ -167,7 +167,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 			return 0, err
 		}
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(a.env.GetPachClient(server.Context()), request.Commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.fileOperation(a.env.GetPachClient(server.Context()), request.Commit, func(uw *fileset.UnorderedWriter) error {
 			for {
 				request, err := server.Recv()
 				if err != nil {
@@ -179,13 +179,13 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 				// TODO Validation.
 				switch op := request.Operation.(type) {
 				case *pfs.FileOperationRequestV2_PutTar:
-					n, err := putTar(fs, server, op.PutTar)
+					n, err := putTar(uw, server, op.PutTar)
 					bytesRead += n
 					if err != nil {
 						return err
 					}
 				case *pfs.FileOperationRequestV2_DeleteFiles:
-					if err := deleteFiles(fs, op.DeleteFiles); err != nil {
+					if err := deleteFiles(uw, op.DeleteFiles); err != nil {
 						return err
 					}
 				}
@@ -202,7 +202,7 @@ func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, r
 		server: server,
 		r:      bytes.NewReader(request.Data),
 	}
-	err := uw.Put(ptr, request.Tag)
+	err := uw.Put(ptr, request.Overwrite, request.Tag)
 	return ptr.bytesRead, err
 }
 
@@ -230,9 +230,9 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func deleteFiles(fs *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
+func deleteFiles(uw *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
 	for _, file := range request.Files {
-		fs.Delete(file, request.Tag)
+		uw.Delete(file, request.Tag)
 	}
 	return nil
 }

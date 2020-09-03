@@ -14,12 +14,12 @@ import (
 )
 
 // PutTarV2 puts a tar stream into PFS.
-func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) error {
+func (c APIClient) PutTarV2(repo, commit string, r io.Reader, overwrite bool, tag ...string) error {
 	foc, err := c.NewFileOperationClientV2(repo, commit)
 	if err != nil {
 		return err
 	}
-	if err := foc.PutTar(r, tag...); err != nil {
+	if err := foc.PutTar(r, overwrite, tag...); err != nil {
 		return err
 	}
 	return foc.Close()
@@ -78,13 +78,16 @@ func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperati
 }
 
 // PutTar puts a tar stream into PFS.
-func (foc *FileOperationClient) PutTar(r io.Reader, tag ...string) error {
+func (foc *FileOperationClient) PutTar(r io.Reader, overwrite bool, tag ...string) error {
 	return foc.maybeError(func() error {
 		if len(tag) > 0 {
 			if len(tag) > 1 {
 				return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
 			}
-			if err := foc.sendPutTar(&pfs.PutTarRequestV2{Tag: tag[0]}); err != nil {
+			if err := foc.sendPutTar(&pfs.PutTarRequestV2{
+				Overwrite: overwrite,
+				Tag:       tag[0],
+			}); err != nil {
 				return err
 			}
 		}
@@ -204,7 +207,7 @@ func (c APIClient) DiffFileV2(newRepo, newCommit, newPath, oldRepo,
 // PutFileV2 puts a file into PFS.
 // TODO: Change this to not buffer the file locally.
 // We will want to move to a model where we buffer in chunk storage.
-func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
+func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader, overwrite bool) error {
 	return withTmpFile(func(tarF *os.File) error {
 		if err := withTmpFile(func(f *os.File) error {
 			size, err := io.Copy(f, r)
@@ -225,7 +228,7 @@ func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reade
 		if err != nil {
 			return err
 		}
-		return c.PutTarV2(repo, commit, tarF)
+		return c.PutTarV2(repo, commit, tarF, overwrite)
 	})
 }
 
@@ -279,11 +282,11 @@ func (pfc *putFileClientV2) PutFileSplitWriter(repo, commit, path string, delimi
 }
 
 func (pfc *putFileClientV2) PutFile(repo, commit, path string, r io.Reader) (int, error) {
-	return 0, pfc.c.PutFileV2(repo, commit, path, r)
+	return 0, pfc.c.PutFileV2(repo, commit, path, r, false)
 }
 
-func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, reader io.Reader, overwriteIndex int64) (int, error) {
-	return 0, errV1NotImplemented
+func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, r io.Reader, overwriteIndex int64) (int, error) {
+	return 0, pfc.c.PutFileV2(repo, commit, path, r, true)
 }
 
 func (pfc *putFileClientV2) PutFileSplit(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, r io.Reader) (int, error) {

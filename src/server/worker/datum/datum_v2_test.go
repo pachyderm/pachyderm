@@ -37,7 +37,7 @@ func TestSet(t *testing.T) {
 				data: []byte("input"),
 			}))
 		}
-		require.NoError(t, c.PutTarV2(inputRepo, inputCommit.ID, buf))
+		require.NoError(t, c.PutTarV2(inputRepo, inputCommit.ID, buf, false))
 		require.NoError(t, c.FinishCommit(inputRepo, inputCommit.ID))
 		inputName := "test"
 		in := client.NewPFSInput(inputRepo, "/foo*")

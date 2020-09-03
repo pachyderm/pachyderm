@@ -150,20 +150,43 @@ func (d *driverV2) getSubFileSet() int64 {
 	return n
 }
 
-func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	ctx := pachClient.Ctx()
+	repo := commit.Repo.Name
+	var branch string
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
+	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
-		return err
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			return err
+		}
+		// Handle one off file operation.
+		// TODO: Cleanup after failure?
+		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+			commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if retErr == nil {
+					retErr = d.finishCommitV2(txnCtx, commit, "")
+				}
+			}()
+			return d.withUnorderedWriter(txnCtx.ClientContext, commit, cb)
+		})
 	}
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
-	commit = commitInfo.Commit
-	n := d.getSubFileSet()
-	subFileSetStr := fileset.SubFileSetStr(n)
+	return d.withUnorderedWriter(ctx, commitInfo.Commit, cb)
+}
+
+func (d *driverV2) withUnorderedWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	subFileSetStr := fileset.SubFileSetStr(d.getSubFileSet())
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
+	uw, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
 		return err
 	}
@@ -172,16 +195,14 @@ func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs
 			retErr = err
 		}
 	}()
-	if err := cb(fs); err != nil {
+	if err := cb(uw); err != nil {
 		return err
 	}
-	if err := fs.Close(); err != nil {
+	if err := uw.Close(); err != nil {
 		return err
 	}
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-		return err
-	})
+	_, err = d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	return err
 }
 
 func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
@@ -337,7 +358,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *comp
 		if end > len(params.inputPaths) {
 			end = len(params.inputPaths)
 		}
-		childOutputPath := path.Join(scratch, strconv.Itoa(i))
+		childOutputPath := path.Join(scratch, fileset.SubFileSetStr(int64(i)))
 		childOutputPaths = append(childOutputPaths, childOutputPath)
 		if _, err := d.compactIter(ctx, compactSpec{
 			master:     params.master,

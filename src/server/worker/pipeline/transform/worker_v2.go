@@ -72,7 +72,6 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 					}
 					if driver.PipelineInfo().Transform.ErrCmd != nil {
 						opts = append(opts, datum.WithRecoveryCallback(func() error {
-							// TODO: Datum timeout should be an functional option on a datum.
 							return driver.RunUserErrorHandlingCodeV2(ctx, logger, env)
 						}))
 					}

@@ -30,7 +30,7 @@ func TestIteratorsV2(t *testing.T) {
 				data: []byte("input"),
 			}))
 		}
-		require.NoError(t, c.PutTarV2(dataRepo, commit.ID, buf))
+		require.NoError(t, c.PutTarV2(dataRepo, commit.ID, buf, false))
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 		// Zero datums.
 		in0 := client.NewPFSInput(dataRepo, "!(**)")

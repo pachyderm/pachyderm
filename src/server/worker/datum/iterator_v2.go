@@ -6,7 +6,6 @@ import (
 	"path"
 
 	"github.com/gogo/protobuf/jsonpb"
-	glob "github.com/pachyderm/ohmyglob"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -45,13 +44,14 @@ func (pi *pfsIteratorV2) Iterate(cb func(*Meta) error) error {
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
 	return pi.pachClient.GlobFileF(repo, commit, pattern, func(fi *pfs.FileInfo) error {
-		g := glob.MustCompile(pi.input.Glob, '/')
-		joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
+		// TODO: Implement joins.
+		//g := glob.MustCompile(pi.input.Glob, '/')
+		//joinOn := g.Replace(fi.File.Path, pi.input.JoinOn)
 		return cb(&Meta{
 			Inputs: []*common.Input{
 				&common.Input{
-					FileInfo:   fi,
-					JoinOn:     joinOn,
+					FileInfo: fi,
+					//JoinOn:     joinOn,
 					Name:       pi.input.Name,
 					Lazy:       pi.input.Lazy,
 					Branch:     pi.input.Branch,

@@ -61,7 +61,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memT
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
-func (f *UnorderedWriter) Put(r io.Reader, customTag ...string) error {
+func (f *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string) error {
 	tag := f.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
@@ -80,7 +80,7 @@ func (f *UnorderedWriter) Put(r io.Reader, customTag ...string) error {
 			f.createParent(hdr.Name, tag)
 			continue
 		}
-		mf := f.createFile(hdr, tag)
+		mf := f.createFile(hdr, overwrite, tag)
 		for {
 			n, err := io.CopyN(mf, tr, f.memAvailable)
 			f.memAvailable -= n
@@ -94,13 +94,13 @@ func (f *UnorderedWriter) Put(r io.Reader, customTag ...string) error {
 				if err := f.serialize(); err != nil {
 					return err
 				}
-				mf = f.createFile(hdr, tag)
+				mf = f.createFile(hdr, overwrite, tag)
 			}
 		}
 	}
 }
 
-func (f *UnorderedWriter) createFile(hdr *tar.Header, tag string) *memFile {
+func (f *UnorderedWriter) createFile(hdr *tar.Header, overwrite bool, tag string) *memFile {
 	f.createParent(hdr.Name, tag)
 	hdr.Size = 0
 	mf := &memFile{
@@ -108,19 +108,25 @@ func (f *UnorderedWriter) createFile(hdr *tar.Header, tag string) *memFile {
 		tag:  tag,
 		data: &bytes.Buffer{},
 	}
-	dataOp := f.getDataOp(hdr.Name)
+	dataOp := f.getDataOp(hdr.Name, overwrite)
 	dataOp.memFiles[tag] = mf
 	return mf
 }
 
-func (f *UnorderedWriter) getDataOp(name string) *dataOp {
+func (f *UnorderedWriter) getDataOp(name string, overwrite bool) *dataOp {
 	if _, ok := f.fs[name]; !ok {
 		f.fs[name] = &dataOp{
 			deleteTags: make(map[string]struct{}),
 			memFiles:   make(map[string]*memFile),
 		}
 	}
-	return f.fs[name]
+	dataOp := f.fs[name]
+	if overwrite {
+		dataOp.deleteTags = make(map[string]struct{})
+		dataOp.deleteTags[headerTag] = struct{}{}
+		dataOp.memFiles = make(map[string]*memFile)
+	}
+	return dataOp
 }
 
 func (f *UnorderedWriter) createParent(name string, tag string) {
@@ -139,30 +145,28 @@ func (f *UnorderedWriter) createParent(name string, tag string) {
 		tag:  tag,
 		data: &bytes.Buffer{},
 	}
-	dataOp := f.getDataOp(name)
+	dataOp := f.getDataOp(name, false)
 	dataOp.memFiles[tag] = mf
 	name = strings.TrimRight(name, "/")
 	f.createParent(name, tag)
 }
 
 // Delete deletes a file from the file set.
+// TODO: Figure out directory deletion.
 func (f *UnorderedWriter) Delete(name string, customTag ...string) {
 	var tag string
 	if len(customTag) > 0 {
 		tag = customTag[0]
 	}
 	if tag == headerTag {
-		deleteTags := make(map[string]struct{})
-		deleteTags[headerTag] = struct{}{}
-		f.fs[name] = &dataOp{deleteTags: deleteTags}
+		f.getDataOp(name, true)
 		return
 	}
-	dataOp := f.getDataOp(name)
-	if _, ok := dataOp.deleteTags[headerTag]; ok {
-		return
+	dataOp := f.getDataOp(name, false)
+	if _, ok := dataOp.deleteTags[headerTag]; !ok {
+		dataOp.deleteTags[tag] = struct{}{}
 	}
-	dataOp.deleteTags[tag] = struct{}{}
-	dataOp.memFiles[tag] = nil
+	delete(dataOp.memFiles, tag)
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.

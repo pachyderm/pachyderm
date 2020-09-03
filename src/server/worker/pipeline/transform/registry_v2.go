@@ -506,6 +506,11 @@ const (
 )
 
 func createTemporaryFileSet(pachClient *client.APIClient, upload func(ptc datum.PutTarClient) error) (_ string, retErr error) {
+	if err := pachClient.CreateRepo(tmpRepo); err != nil {
+		if !pfsserver.IsRepoExistsErr(err) {
+			return "", err
+		}
+	}
 	commit, err := pachClient.StartCommit(tmpRepo, "")
 	if err != nil {
 		return "", err

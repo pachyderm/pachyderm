@@ -54,8 +54,6 @@ func V2Test(t *testing.T, cb func(*pps.PipelineInfo, *testEnv) error) {
 	pi := defaultPipelineInfo()
 	pi.EnableStats = true
 	require.NoError(t, withWorkerSpawnerPair(pi, func(env *testEnv) error {
-		// Create temporary repo for temporary filesets.
-		require.NoError(t, env.PachClient.CreateRepo("tmp"))
 		return cb(pi, env)
 	}, pfstesting.NewPachdConfig()))
 }
@@ -72,7 +70,7 @@ func triggerJobV2(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 		}
 		return nil
 	}))
-	require.NoError(t, env.PachClient.PutTarV2(pi.Input.Pfs.Repo, commit.ID, buf))
+	require.NoError(t, env.PachClient.PutTarV2(pi.Input.Pfs.Repo, commit.ID, buf, false))
 	require.NoError(t, env.PachClient.FinishCommit(pi.Input.Pfs.Repo, commit.ID))
 }
 
