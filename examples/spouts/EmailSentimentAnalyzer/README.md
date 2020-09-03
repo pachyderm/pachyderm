@@ -37,33 +37,20 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 3. Create the secrets needed to securely access the account.  
    The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
    Confirm the values in these files are what you expect.
-```sh
-$ echo -n '<your-password>' > IMAP_PASSWORD
-$ echo -n '<account-name>' > IMAP_LOGIN
-$ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
-```
+   ```sh
+   $ echo -n '<your-password>' > IMAP_PASSWORD ; chmod 600 IMAP_PASSWORD
+   $ echo -n '<account-name>' > IMAP_LOGIN ; chmod 600 IMAP_LOGIN
+   $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
+   ```
 4. Confirm that the secrets got set correctly.
-   You use `kubectl get secret` to output the secrets, and then decode them to confirm they're correct.
-```sh
-$ kubectl get secret imap-credentials -o yaml
-apiVersion: v1
-data:
-  IMAP_LOGIN: <base64-encoded-imap-login>
-  IMAP_PASSWORD: <base64-encoded-imap-password>
-kind: Secret
-metadata:
-  creationTimestamp: "2019-05-20T21:27:56Z"
-  name: imap-credentials
-  namespace: default
-  resourceVersion: <some-version>
-  selfLink: /api/v1/namespaces/default/secrets/imap-credentials
-  uid: <some-uid>
-type: Opaque
-$ echo -n `<base64-encoded-imap-login>` | base64 -D
-<imap-login>
-$ echo -n `<base64-encoded-imap-password>` | base64 -D
-<imap-password>
-```
+   You use `kubectl get secret` to output the secrets, and then decode them using `jq` to confirm they're correct.
+   ```sh
+   $ kubectl get secret imap-credentials -o json | jq '.data | map_values(@base64d)'
+   {
+       "IMAP_LOGIN": "<account-name>",
+       "IMAP_PASSWORD": "<your-password>"
+   }
+   ```
 5. Build the docker image for the imap_spout. 
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
