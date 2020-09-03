@@ -36,11 +36,12 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    In this example, we're assuming you're using Gmail.
    Look in the source code for [./imap_spout.py](imap_spout.py) for environment variables you may need to add to the pipeline spec for the spout to use another email service or other default IMAP folders.
 
-1. Add a secret with the following two keys
+1. The next few steps show you how to add a secret with the following two keys
 
    * `IMAP_LOGIN`
    * `IMAP_PASSWORD`
 
+   First, we'll save some values to files. 
    The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
    
    ```sh
