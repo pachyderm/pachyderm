@@ -69,15 +69,15 @@ $ echo -n `<base64-encoded-imap-password>` | base64 -D
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
 ```sh
 $ docker login
-$ docker build -t <docker-account-name>/imap_spout:1.9 -f ./Dockerfile.imap_spout .
-$ docker push <docker-account-name>/imap_spout:1.9
+$ docker build -t <docker-account-name>/imap_spout:1.11 -f ./Dockerfile.imap_spout .
+$ docker push <docker-account-name>/imap_spout:1.11
 ```
 6. Build the docker image for the sentimentalist. 
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
 ```sh
-$ docker build -t <docker-account-name>/sentimentalist:1.9 -f ./Dockerfile.sentimentalist .
-$ docker push <docker-account-name>/sentimentalist:1.9
+$ docker build -t <docker-account-name>/sentimentalist:1.11 -f ./Dockerfile.sentimentalist .
+$ docker push <docker-account-name>/sentimentalist:1.11
 ```
 7. Edit the pipeline definition files to refer to your own docker repo.
    Put your own docker account name in for `<docker-account-name>`.
