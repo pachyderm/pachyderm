@@ -30,21 +30,48 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. Create an email account you want to use.  
    Keep the email addrees (which is usually the account name) and the password handy.
-2. Enable IMAP on that account. 
+
+1. Enable IMAP on that account. 
    In Gmail, click the gear for "settings" and then click "Forwarding and POP/IMAP" to get to the IMAP settings. 
    In this example, we're assuming you're using Gmail.
    Look in the source code for [./imap_spout.py](imap_spout.py) for environment variables you may need to add to the pipeline spec for the spout to use another email service or other default IMAP folders.
-3. Create the secrets needed to securely access the account.  
+
+1. Add a secret with the following two keys
+
+   * `IMAP_LOGIN`
+   * `IMAP_PASSWORD`
+
    The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
-   Confirm the values in these files are what you expect.
    
    ```sh
-   $ echo -n '<your-password>' > IMAP_PASSWORD ; chmod 600 IMAP_PASSWORD
    $ echo -n '<account-name>' > IMAP_LOGIN ; chmod 600 IMAP_LOGIN
+   $ echo -n '<your-password>' > IMAP_PASSWORD ; chmod 600 IMAP_PASSWORD
+   ```
+   
+1. Confirm the values in these files are what you expect.
+
+   ```sh
+   $ cat IMAP_LOGIN
+   $ cat IMAP_PASSWORD
+   ```
+   
+   The output from those two commands should be `<account-name>` and `<your-password>`, respectively.
+   
+   Creating the secret will require different steps,
+   depending on whether you have Kubernetes access or not.
+   Pachyderm Hub users don't have access to Kubernetes.
+   If you have Kubernetes access, 
+   follow the two steps prefixed with "(Kubernetes)".
+   If you don't have access to Kubernetes,
+   follow the two steps labeled "(Pachyderm Hub)" 
+
+1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
+   
+   ```sh
    $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
    ```
    
-4. Confirm that the secrets got set correctly.
+1. (Kubernetes) Confirm that the secrets got set correctly.
    You use `kubectl get secret` to output the secrets, and then decode them using `jq` to confirm they're correct.
    
    ```sh
@@ -54,8 +81,25 @@ This guide assumes that you already have a Pachyderm cluster running and have co
        "IMAP_PASSWORD": "<your-password>"
    }
    ```
-   
-5. Build the docker image for the imap_spout. 
+
+   You will have to use pachctl if you're using Pachyderm Hub,
+   or don't have access to the Kubernetes cluster.
+   The next two steps show how to do that.
+
+1. (Pachyderm Hub) Create a secrets file from the provided template.
+
+   ```sh
+   $ jq '.data["IMAP_LOGIN"]="'$(cat IMAP_LOGIN)'"|.data["IMAP_PASSWORD"]="'$(cat IMAP_PASSWORD)'"' imap-credentials-template.json > imap-credentials-secret.json
+   $ chmod 600 imap-credentials-secret.json
+   ```
+
+1. (Pachyderm Hub) Generate a secret using pachctl
+
+   ```sh
+   $ pachctl create secret -f imap-credentials-secret.json
+   ```
+
+1. Build the docker image for the imap_spout. 
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
    
@@ -65,7 +109,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    $ docker push <docker-account-name>/imap_spout:1.11
    ```
    
-6. Build the docker image for the sentimentalist. 
+1. Build the docker image for the sentimentalist. 
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
    
@@ -74,7 +118,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    $ docker push <docker-account-name>/sentimentalist:1.11
    ```
    
-7. Edit the pipeline definition files to refer to your own docker repo.
+1. Edit the pipeline definition files to refer to your own docker repo.
    Put your own docker account name in for `<docker-account-name>`.
    There are prebuilt images for both pipelines in the Pachyderm DockerHub registry account, if you want to use those.
    
@@ -83,15 +127,16 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    $ sed s/pachyderm/<docker-account-name>/g < imap_spout.json > my_imap_spout.json
    ```
    
-8. Confirm the pipeline definition files are correct.
-9. Create the pipelines
+1. Confirm the pipeline definition files are correct.
+
+1. Create the pipelines
 
    ```sh
    pachctl create pipeline -f my_imap_spout.json
    pachctl create pipeline -f my_sentimentalist.json
    ```
    
-10. Start sending plain-text emails to the account you created. 
+1. Start sending plain-text emails to the account you created. 
    Every few seconds, the imap_spout pipeline will fetch emails from that account via IMAP and send them to its output repo, 
    where the sentimentalist pipeline will score them as positive or negative and sort them into output repos accordingly.
    Have fun! 
