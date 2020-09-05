@@ -85,13 +85,24 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
    You will have to use pachctl if you're using Pachyderm Hub,
    or don't have access to the Kubernetes cluster.
-   The next two steps show how to do that.
+   The next three steps show how to do that.
 
 1. (Pachyderm Hub) Create a secrets file from the provided template.
-
+   
    ```sh
-   $ jq '.data["IMAP_LOGIN"]="'$(cat IMAP_LOGIN)'"|.data["IMAP_PASSWORD"]="'$(cat IMAP_PASSWORD)'"' imap-credentials-template.json > imap-credentials-secret.json
+   $ jq -n --arg IMAP_LOGIN $(cat IMAP_LOGIN) --arg IMAP_PASSWORD $(cat IMAP_PASSWORD) \
+         -f imap-credentials-template.jq  > imap-credentials-secret.json 
    $ chmod 600 imap-credentials-secret.json
+   ```
+
+1. (Pachyderm Hub) Confirm the secrets file is correct by decoding the values.
+   
+   ```sh
+   $ jq '.data | map_values(@base64d)' imap-credentials-secret.json
+   {
+       "IMAP_LOGIN": "<account-name>",
+       "IMAP_PASSWORD": "<your-password>"
+   }
    ```
 
 1. (Pachyderm Hub) Generate a secret using pachctl
