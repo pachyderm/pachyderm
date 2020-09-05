@@ -61,10 +61,12 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    Creating the secret will require different steps,
    depending on whether you have Kubernetes access or not.
    Pachyderm Hub users don't have access to Kubernetes.
-   If you have Kubernetes access, 
+   If you have Kubernetes access
+   and want to use `kubectl` to create secrets, 
    follow the two steps prefixed with "(Kubernetes)".
-   If you don't have access to Kubernetes,
-   follow the two steps labeled "(Pachyderm Hub)" 
+   If you don't have access to Kubernetes
+   or want to use `pachctl` to create secrets,
+   follow the three steps labeled "(Pachyderm Hub)" 
 
 1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
    
