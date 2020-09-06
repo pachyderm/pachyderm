@@ -11,7 +11,7 @@ working knowledge of S3 and HTTP is assumed.
 ### Authentication
 
 If authentication is not enabled on the Pachyderm cluster, S3 gateway
-endpoints can be hit without passing auth credentials.
+endpoints can be hit without passing auth credentials, with the requirement that the AWS access key and secret key are set to the same value.
 
 If authentication is enabled, credentials must be passed using AWS'
 [signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html)

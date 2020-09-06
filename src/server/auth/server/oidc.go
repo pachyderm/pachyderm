@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	goerr "errors"
 	"fmt"
-	"log"
 	"net/http"
 	"path"
 	"time"
@@ -16,7 +15,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
-	"github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -398,8 +397,8 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	return idToken.Nonce, userInfo.Email, nil
 }
 
-func (a *apiServer) serveOIDC() {
+func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", OidcPort), nil))
+	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
 }

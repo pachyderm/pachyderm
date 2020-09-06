@@ -532,30 +532,6 @@ message GetTarRequestV2 {
   File file = 1;
 }
 
-// GetTarConditional Protocol:
-//   Client sends an initial request that is similar to a GetTar request.
-//   For files that match the request:
-//     Server sends a response with the file info for the file.
-//     If the client wants to skip the file content:
-//       Client sends a request with the skip field set to true.
-//     Else
-//       Client sends a request with the skip field set to false.
-//       For file content:
-//         Server sends a response with file content in the data field.
-//       Server sends a response with the EOF field set to true.
-//   Server connection is closed by returning from handler.
-
-message GetTarConditionalRequestV2 {
-  File file = 1;
-  bool skip = 2;
-}
-
-message GetTarConditionalResponseV2 {
-  FileInfo file_info = 1;
-  bytes data = 2;
-  bool EOF = 3;
-}
-
 message DiffFileResponseV2 {
   FileInfo old_file = 1;
   FileInfo new_file = 2;
@@ -645,17 +621,9 @@ service API {
   // RPCs specific to Pachyderm 2.
   rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
-  // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
-  rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
-  rpc ListFileV2(ListFileRequest) returns (stream FileInfo) {}
-  rpc GlobFileV2(GlobFileRequest) returns (stream FileInfo) {}
   // DiffFile returns the differences between 2 paths at 2 commits.
   // it streams back one file at a time which is either from the new path, or the old path
   rpc DiffFileV2(DiffFileRequest) returns (stream DiffFileResponseV2) {}
-  // InspectFileV2 returns info about a file.
-  rpc InspectFileV2(InspectFileRequest) returns (FileInfo) {}
-  // WalkFileV2 walks over all the files under a directory, including children of children.
-  rpc WalkFileV2(WalkFileRequest) returns (stream FileInfo) {}
   // ClearCommitV2 removes all data from the commit.
   rpc ClearCommitV2(ClearCommitRequestV2) returns (google.protobuf.Empty) {}
 }

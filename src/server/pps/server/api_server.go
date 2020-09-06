@@ -3113,36 +3113,58 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	if pipelineInfo.Input == nil {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
-	if pipelineInfo.Input.Cron == nil {
+
+	// find any cron inputs
+	var crons []*pps.CronInput
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+		if in.Cron != nil {
+			crons = append(crons, in.Cron)
+		}
+	})
+
+	if len(crons) < 1 {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
 
-	cron := pipelineInfo.Input.Cron
-
-	// We need the DeleteFile and the PutFile to happen in the same commit
-	_, err = pachClient.StartCommit(cron.Repo, "master")
+	txn, err := pachClient.StartTransaction()
 	if err != nil {
 		return nil, err
 	}
-	if cron.Overwrite {
-		// get rid of any files, so the new file "overwrites" previous runs
-		err = pachClient.DeleteFile(cron.Repo, "master", "")
-		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-			return nil, errors.Wrapf(err, "delete error")
+
+	// We need all the DeleteFile and the PutFile requests to happen atomicly
+	txnClient := pachClient.WithTransaction(txn)
+
+	// make a tick on each cron input
+	for _, cron := range crons {
+		// Use a PutFileClient
+		pfc, err := txnClient.NewPutFileClient()
+		if err != nil {
+			return nil, err
+		}
+		if cron.Overwrite {
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pfc.DeleteFile(cron.Repo, "master", "")
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				return nil, errors.Wrapf(err, "delete error")
+			}
+		}
+
+		// Put in an empty file named by the timestamp
+		_, err = pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
+			return nil, errors.Wrapf(err, "put error")
+		}
+
+		err = pfc.Close()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Put in an empty file named by the timestamp
-	_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
-	if err != nil {
-		return nil, errors.Wrapf(err, "put error")
-	}
-
-	err = pachClient.FinishCommit(cron.Repo, "master")
+	_, err = txnClient.FinishTransaction(txn)
 	if err != nil {
 		return nil, err
 	}
-
 	return &types.Empty{}, nil
 }
 

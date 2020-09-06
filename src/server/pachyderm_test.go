@@ -6993,6 +6993,41 @@ func TestCronPipeline(t *testing.T) {
 			}
 		}
 	})
+	t.Run("RunCronCross", func(t *testing.T) {
+		pipeline9 := tu.UniqueString("cron9-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline9,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"echo 'tick'"},
+			nil,
+			client.NewCrossInput(
+				client.NewCronInput("time1", "@every 3h"),
+				client.NewCronInput("time2", "@every 2h"),
+			),
+			"",
+			false,
+		))
+
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline9, "master", nil, "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
+		for i := 1; i <= 3; i++ {
+			_, err := iter.Next()
+			require.NoError(t, err)
+		}
+	})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
@@ -10688,6 +10723,96 @@ func TestSpout(t *testing.T) {
 			}
 			prevLength = fileLength
 		}
+		require.NoError(t, c.DeleteAll())
+	})
+	t.Run("SpoutPython", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutPython_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline for python
+		pipeline := tu.UniqueString("pipelinespoutpython")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Image: "python:latest",
+					Cmd:   []string{"/usr/bin/python"},
+					Stdin: []string{`
+import io
+import random
+import string
+import tarfile
+import time
+with open("/pfs/out", "wb") as f:
+    for i in range(5):
+        with tarfile.open(fileobj=f, mode="w|", encoding="utf-8") as tar:
+            for j in range(2):
+                content = ''.join(random.choice(string.ascii_lowercase) for _ in range(2048)).encode()
+                tar_info = tarfile.TarInfo(str(0))
+                tar_info.size = len(content)
+                tar_info.mode = 0o600
+                tar.addfile(tarinfo=tar_info, fileobj=io.BytesIO(content))
+time.Sleep(5)
+`},
+				},
+				Spout: &pps.Spout{},
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		var prevLength uint64
+		for i := 0; i < 10; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
+		require.NoError(t, err)
+
+		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
+		require.NoError(t, c.CreatePipeline(
+			downstreamPipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline, "/*"),
+			"",
+			false,
+		))
+
+		// we should have one job between pipeline and downstreamPipeline
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+
+		// check that the spec commit for the pipeline has the correct subvenance -
+		// there should be one entry for the output commit in the spout pipeline,
+		// and one for the propagated commit in the downstream pipeline
+		commitInfo, err := c.InspectCommit("__spec__", pipeline)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfo.Subvenance))
+
+		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+			if resp.Error != "" {
+				return errors.New(resp.Error)
+			}
+			return nil
+		}))
 		require.NoError(t, c.DeleteAll())
 	})
 }
