@@ -141,13 +141,19 @@ Also, you can view the file you have just added to Pachyderm. Because this is an
 image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
+* On macOS prior to Catalina, run:
+
 ```macos-prior-catalina tab="macOS prior to Catalina"
 pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
+* On macOS Catalina, run:
+
 ```macos-catalina tab="macOS Catalina"
 pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
+
+* On Linux 64-bit, run:
 
 ```linux tab="Linux 64-bit"
 pachctl get file images@master:liberty.png | display
@@ -296,13 +302,19 @@ images 5 minutes ago 57.27KiB
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
 
+* On macOS prior to Catalina, run:
+
 ```macos-prior-catalina tab="macOS prior to Catalina"
 pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
+* On macOS Catalina, run:
+
 ```macos-catalina tab="macOS Catalina"
 pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
+
+* On Linux 64-bit, run:
 
 ```linux tab="Linux 64-bit"
 pachctl get file edges@master:liberty.png | display
@@ -451,13 +463,19 @@ ce448c12d0dd4410b3a5ae0c0f07e1f9    2 minutes ago  Less than a second 0       1 
 View the generated montage image by running one of
 the following commands:
 
+* On macOS prior to Catalina, run:
+
 ```macos-prior-catalina tab="macOS prior to Catalina"
 pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 ```
 
+* On macOS Catalina, run:
+
 ```macos-catalina tab="macOS Catalina"
 pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
 ```
+
+* On Linux 64-bit, run:
 
 ```linux tab="Linux 64-bit"
 pachctl get file montage@master:montage.png | display
