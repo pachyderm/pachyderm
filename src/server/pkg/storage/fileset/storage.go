@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"path"
 	"strings"
@@ -240,7 +239,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := copyObject(ctx, s.objC, src, dst); err != nil {
+			if err := obj.Copy(ctx, s.objC, s.objC, src, dst); err != nil {
 				return err
 			}
 		}
@@ -324,21 +323,4 @@ func parseLevel(x string) (int, error) {
 	var y int
 	_, err := fmt.Sscanf(x, levelFmt, &y)
 	return y, err
-}
-
-func copyObject(ctx context.Context, objC obj.Client, src, dst string) error {
-	w, err := objC.Writer(ctx, dst)
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-	r, err := objC.Reader(ctx, src, 0, 0)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-	return w.Close()
 }

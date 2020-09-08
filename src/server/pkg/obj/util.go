@@ -1,6 +1,8 @@
 package obj
 
 import (
+	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -27,4 +29,22 @@ func WithLocalClient(f func(objC Client) error) (retErr error) {
 		return err
 	}
 	return f(objC)
+}
+
+// Copy copys an object from src at srcPath to dst at dstPath
+func Copy(ctx context.Context, src, dst Client, srcPath, dstPath string) error {
+	rc, err := src.Reader(ctx, srcPath, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	wc, err := dst.Writer(ctx, dstPath)
+	if err != nil {
+		return err
+	}
+	defer wc.Close()
+	if _, err := io.Copy(wc, rc); err != nil {
+		return err
+	}
+	return wc.Close()
 }
