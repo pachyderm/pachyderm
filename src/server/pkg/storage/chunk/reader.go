@@ -10,22 +10,22 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/kv"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
-	objC     obj.Client
+	kv       kv.Store
 	dataRefs []*DataRef
 	peek     *DataReader
 	prev     *DataReader
 }
 
-func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
+func newReader(ctx context.Context, kvstore kv.Store, dataRefs ...*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
-		objC:     objC,
+		kv:       kvstore,
 		dataRefs: dataRefs,
 	}
 }
@@ -67,7 +67,7 @@ func (r *Reader) Next() (*DataReader, error) {
 	if len(r.dataRefs) == 0 {
 		return nil, io.EOF
 	}
-	dr := newDataReader(r.ctx, r.objC, r.dataRefs[0], r.prev)
+	dr := newDataReader(r.ctx, r.kv, r.dataRefs[0], r.prev)
 	r.dataRefs = r.dataRefs[1:]
 	r.prev = dr
 	return dr, nil
@@ -180,7 +180,7 @@ func (tr *TagReader) Get(w io.Writer) error {
 // and the prior in a chain of data references.
 type DataReader struct {
 	ctx        context.Context
-	objC       obj.Client
+	kv         kv.Store
 	dataRef    *DataRef
 	getChunkMu sync.Mutex
 	chunk      []byte
@@ -189,10 +189,10 @@ type DataReader struct {
 	seed       *DataReader
 }
 
-func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, kvstore kv.Store, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
 		ctx:     ctx,
-		objC:    objC,
+		kv:      kvstore,
 		dataRef: dataRef,
 		offset:  dataRef.OffsetBytes,
 		tags:    dataRef.Tags,
@@ -275,22 +275,21 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Get chunk from object storage.
-	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.ChunkInfo.Chunk.Hash), 0, 0)
-	if err != nil {
-		return err
-	}
-	defer objR.Close()
-	gzipR, err := gzip.NewReader(objR)
-	if err != nil {
-		return err
-	}
-	defer gzipR.Close()
-	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, gzipR); err != nil {
-		return err
-	}
-	dr.chunk = buf.Bytes()
-	return nil
+	p := path.Join(prefix, dr.dataRef.ChunkInfo.Chunk.Hash)
+	return dr.kv.GetF(dr.ctx, p, func(data []byte) error {
+		br := bytes.NewReader(data)
+		gzipR, err := gzip.NewReader(br)
+		if err != nil {
+			return err
+		}
+		defer gzipR.Close()
+		buf := &bytes.Buffer{}
+		if _, err := io.Copy(buf, gzipR); err != nil {
+			return err
+		}
+		dr.chunk = buf.Bytes()
+		return nil
+	})
 }
 
 // BeforeBound checks if the passed in string is before the string bound (exclusive).
@@ -333,7 +332,7 @@ func (dr *DataReader) BoundReader(tagUpperBound ...string) *DataReader {
 	}
 	return &DataReader{
 		ctx:     dr.ctx,
-		objC:    dr.objC,
+		kv:      dr.kv,
 		dataRef: dr.dataRef,
 		offset:  offset,
 		tags:    tags,

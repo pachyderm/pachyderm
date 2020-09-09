@@ -9,9 +9,9 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/kv"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -62,7 +62,7 @@ type Writer struct {
 	ctx                     context.Context
 	cancel                  context.CancelFunc
 	err                     error
-	objC                    obj.Client
+	kv                      kv.Store
 	gcC                     gc.Client
 	chunkSize               *chunkSize
 	annotations             []*Annotation
@@ -79,13 +79,13 @@ type Writer struct {
 	stats                   *stats
 }
 
-func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, kvstore kv.Store, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	eg, errCtx := errgroup.WithContext(cancelCtx)
 	w := &Writer{
 		ctx:    errCtx,
 		cancel: cancel,
-		objC:   objC,
+		kv:     kvstore,
 		gcC:    gcC,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
@@ -276,22 +276,22 @@ func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
 		return err
 	}
 	// Skip the upload if the chunk already exists.
-	if w.objC.Exists(w.ctx, path) {
+	if w.kv.Exists(w.ctx, path) {
 		return nil
 	}
-	objW, err := w.objC.Writer(w.ctx, path)
-	if err != nil {
-		return err
-	}
-	defer objW.Close()
-	gzipW, err := gzip.NewWriterLevel(objW, gzip.BestSpeed)
-	if err != nil {
-		return err
-	}
-	defer gzipW.Close()
+	buf := &bytes.Buffer{}
 	// TODO Encryption?
-	_, err = io.Copy(gzipW, bytes.NewReader(chunkBytes))
-	return err
+	gzipW, err := gzip.NewWriterLevel(buf, gzip.BestSpeed)
+	if err != nil {
+		return err
+	}
+	if _, err := gzipW.Write(chunkBytes); err != nil {
+		return err
+	}
+	if err := gzipW.Close(); err != nil {
+		return err
+	}
+	return w.kv.Put(w.ctx, path, buf.Bytes())
 }
 
 func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
