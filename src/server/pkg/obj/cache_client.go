@@ -6,21 +6,19 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru/simplelru"
 	log "github.com/sirupsen/logrus"
 )
-
-const numEvictors = 10
 
 var _ Client = &cacheClient{}
 
 type cacheClient struct {
 	slow, fast Client
 
-	cache         *lru.Cache
-	pathLocks     sync.Map
-	evictionQueue chan string
-	populateOnce  sync.Once
+	mu           sync.Mutex
+	cache        *simplelru.LRU
+	pathLocks    sync.Map
+	populateOnce sync.Once
 }
 
 // NewCacheClient returns slow wrapped in an LRU write-through cache using fast for storing
@@ -30,19 +28,15 @@ func NewCacheClient(slow, fast Client, size int) Client {
 		return slow
 	}
 	client := &cacheClient{
-		slow:          slow,
-		fast:          fast,
-		evictionQueue: make(chan string, evictionQueueSize(size)),
+		slow: slow,
+		fast: fast,
 	}
-	cache, err := lru.NewWithEvict(size, client.onEvicted)
+	cache, err := simplelru.NewLRU(size, client.onEvicted)
 	if err != nil {
 		// lru.NewWithEvict only errors for size < 1
 		panic(err)
 	}
 	client.cache = cache
-	for i := 0; i < numEvictors; i++ {
-		go client.evictor()
-	}
 	return client
 }
 
@@ -51,17 +45,31 @@ func (c *cacheClient) Reader(ctx context.Context, p string, offset, size uint64)
 	if offset > 0 || size > 0 {
 		return c.slow.Reader(ctx, p, offset, size)
 	}
-	c.lockPath(p)
+	c.mu.Lock()
 	if _, exists := c.cache.Get(p); !exists {
+		c.lockPath(p)
+		c.mu.Unlock()
 		if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
 			c.unlockPath(p)
+			log.Errorf("untracked object (%s) in cache fast layer. error: %v", p, err)
 			return nil, err
 		}
+		c.mu.Lock()
 		c.cache.Add(p, struct{}{})
+		c.unlockPath(p)
+		c.mu.Unlock()
+	} else {
+		c.mu.Unlock()
 	}
+
+	c.rlockPath(p)
 	rc, err := c.fast.Reader(ctx, p, 0, 0)
 	if err != nil {
-		c.unlockPath(p)
+		c.runlockPath(p)
+		// at this point it should be in the fast cache. If it is not, return a transient error
+		if c.fast.IsNotExist(err) {
+			return nil, ErrCacheRace{}
+		}
 		return nil, err
 	}
 	// cacheReader.Close() will unlock the path
@@ -73,9 +81,13 @@ func (c *cacheClient) Writer(ctx context.Context, p string) (io.WriteCloser, err
 }
 
 func (c *cacheClient) Delete(ctx context.Context, p string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.lockPath(p)
 	defer c.unlockPath(p)
+	c.cache.Remove(p)
 	if err := c.fast.Delete(ctx, p); err != nil {
+		log.Errorf("error deleting object, object is no longer indexed by cache")
 		return err
 	}
 	if err := c.slow.Delete(ctx, p); err != nil {
@@ -102,48 +114,49 @@ func (c *cacheClient) IsNotExist(err error) bool {
 }
 
 func (c *cacheClient) IsRetryable(err error) bool {
-	return c.fast.IsRetryable(err) || c.slow.IsRetryable(err)
-}
-
-func (c *cacheClient) Close() error {
-	close(c.evictionQueue)
-	return nil
+	switch err := err.(type) {
+	case ErrCacheRace:
+		return true
+	default:
+		return c.fast.IsRetryable(err) || c.slow.IsRetryable(err)
+	}
 }
 
 func (c *cacheClient) lockPath(p string) {
 	v, _ := c.pathLocks.LoadOrStore(p, &sync.Mutex{})
-	v.(*sync.Mutex).Lock()
+	v.(*sync.RWMutex).Lock()
+}
+
+func (c *cacheClient) rlockPath(p string) {
+	v, _ := c.pathLocks.LoadOrStore(p, &sync.Mutex{})
+	v.(*sync.RWMutex).RLock()
 }
 
 func (c *cacheClient) unlockPath(p string) {
-	v, exists := c.pathLocks.LoadAndDelete(p)
+	v, exists := c.pathLocks.Load(p)
 	if !exists {
 		panic("unlock path that was never locked: " + p)
 	}
-	v.(*sync.Mutex).Unlock()
+	v.(*sync.RWMutex).Unlock()
+}
+
+func (c *cacheClient) runlockPath(p string) {
+	v, exists := c.pathLocks.Load(p)
+	if !exists {
+		panic("unlock path that was never locked: " + p)
+	}
+	v.(*sync.RWMutex).RUnlock()
 }
 
 func (c *cacheClient) onEvicted(key, value interface{}) {
 	p := key.(string)
-	select {
-	case c.evictionQueue <- p:
-	default:
-		// this is preferable to blocking all operations, but after this we are no longer healthy.
-		log.Errorf("cache eviction queue is full.  Not deleting %s", p)
+	c.lockPath(p)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if err := c.fast.Delete(ctx, p); err != nil {
+		log.Error("could not delete from cache's fast store")
 	}
-}
-
-func (c *cacheClient) evictor() {
-	ctx := context.Background()
-	for p := range c.evictionQueue {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		c.lockPath(p)
-		if err := c.fast.Delete(ctx, p); err != nil {
-			log.Errorf("object cache could not delete from fast layer: %v", err)
-		}
-		c.unlockPath(p)
-		cancel()
-	}
+	cancel()
+	c.unlockPath(p)
 }
 
 func (c *cacheClient) populate(ctx context.Context) error {
@@ -171,10 +184,9 @@ func (cr *cacheReader) Close() error {
 	return cr.ReadCloser.Close()
 }
 
-func evictionQueueSize(cacheSize int) int {
-	y := cacheSize * 1 / 10
-	if y == 0 {
-		y = 1
-	}
-	return y
+type ErrCacheRace struct {
+}
+
+func (e ErrCacheRace) Error() string {
+	return "cache race. retry"
 }
