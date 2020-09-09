@@ -38,6 +38,9 @@ const (
 
 type driverV2 struct {
 	*driver
+
+	storage         *fileset.Storage
+	compactionQueue *work.TaskQueue
 }
 
 // newDriver is used to create a new Driver instance
