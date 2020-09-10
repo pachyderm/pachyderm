@@ -177,7 +177,7 @@ nav:
                 - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                 - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
             - Deploy on Azure: deploy-manage/deploy/azure.md
-            - Deploy on IBM CLoud: deploy-manage/deploy/ibm_cloud_openshift.md
+            - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
