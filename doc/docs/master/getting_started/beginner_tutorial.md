@@ -466,21 +466,18 @@ the following commands:
 * On macOS prior to Catalina, run:
 
 ```
-macos-prior-catalina tab="macOS prior to Catalina"
 pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 ```
 
 * On macOS Catalina, run:
 
 ```
-macos-catalina tab="macOS Catalina"
 pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
 ```
 
 * On Linux 64-bit, run:
 
 ```
-linux tab="Linux 64-bit"
 pachctl get file montage@master:montage.png | display
 ```
 
