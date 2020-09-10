@@ -142,10 +142,10 @@ func (foc *FileOperationClient) Close() error {
 	})
 }
 
-func (foc *FileOperationClient) closeRecvTempFileSet() (ret *pfs.CreateTempFileSetResponse, retErr error) {
+func (foc *FileOperationClient) closeRecvTmpFileSet() (ret *pfs.CreateTmpFileSetResponse, retErr error) {
 	retErr = foc.maybeError(func() error {
 		type closeRecv interface {
-			CloseRecv() (*pfs.CreateTempFileSetResponse, error)
+			CloseRecv() (*pfs.CreateTmpFileSetResponse, error)
 		}
 		cr, ok := foc.client.(closeRecv)
 		if !ok {
@@ -295,7 +295,7 @@ func (r *getTarConditionalReader) drain() error {
 
 func (c APIClient) CreateTempFileSet(r io.Reader, tag ...string) (string, error) {
 	ctx := c.Ctx()
-	client, err := c.PfsAPIClient.CreateTempFileSet(ctx)
+	client, err := c.PfsAPIClient.CreateTmpFileSet(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -305,7 +305,7 @@ func (c APIClient) CreateTempFileSet(r io.Reader, tag ...string) (string, error)
 	if err := foc.PutTar(r, tag...); err != nil {
 		return "", err
 	}
-	res, err := foc.closeRecvTempFileSet()
+	res, err := foc.closeRecvTmpFileSet()
 	if err != nil {
 		return "", err
 	}
@@ -314,7 +314,7 @@ func (c APIClient) CreateTempFileSet(r io.Reader, tag ...string) (string, error)
 
 const TempRepoName = "__tmp__"
 
-func (c APIClient) TempFileSetCommit(fileSetID string) *pfs.Commit {
+func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
 	return &pfs.Commit{
 		ID:   fileSetID,
 		Repo: &pfs.Repo{Name: TempRepoName},

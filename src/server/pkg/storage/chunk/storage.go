@@ -44,7 +44,8 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s.objClient, s.gcClient, tmpID, f, append(opts, WithChunkTTL(defaultChunkTTL))...)
+	opts = append([]WriterOption{WithChunkTTL(defaultChunkTTL)}, opts...)
+	return newWriter(ctx, s.objClient, s.gcClient, tmpID, f, opts...)
 }
 
 // List lists all of the chunks in object storage.
@@ -70,12 +71,12 @@ func (s *Storage) CreateSemanticReference(ctx context.Context, name string, chun
 }
 
 // CreateSemanticReference creates a semantic reference to a chunk.
-func (s *Storage) CreateTemporaryReference(ctx context.Context, name string, chunk *Chunk, ttl time.Duration) (*time.Time, error) {
+func (s *Storage) CreateTemporaryReference(ctx context.Context, name string, chunk *Chunk, ttl time.Duration) (time.Time, error) {
 	expiresAt := time.Now().Add(ttl)
 	if err := s.gcClient.CreateReference(ctx, temporaryReference(name, chunk.Hash, expiresAt)); err != nil {
-		return nil, err
+		return time.Time{}, err
 	}
-	return &expiresAt, nil
+	return expiresAt, nil
 }
 
 // DeleteSemanticReference deletes a semantic reference.
@@ -84,12 +85,12 @@ func (s *Storage) DeleteSemanticReference(ctx context.Context, name string) erro
 }
 
 // RewnewReference sets the time to live for a reference to now + ttl, and returns the new expire time.
-func (s *Storage) RenewReference(ctx context.Context, name string, ttl time.Duration) (*time.Time, error) {
+func (s *Storage) RenewReference(ctx context.Context, name string, ttl time.Duration) (time.Time, error) {
 	expiresAt := time.Now().Add(ttl)
 	if err := s.gcClient.RenewReference(ctx, name, expiresAt); err != nil {
-		return nil, err
+		return time.Time{}, err
 	}
-	return &expiresAt, nil
+	return expiresAt, nil
 }
 
 func semanticReference(name, chunk string) *gc.Reference {

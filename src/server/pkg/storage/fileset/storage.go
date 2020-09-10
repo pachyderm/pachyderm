@@ -289,7 +289,7 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 }
 
 // RenewFileSet renews a temporary FileSet
-func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Duration) (*time.Time, error) {
+func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
 	var expiresAt *time.Time
 	if err := s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
 		t, err := s.chunks.RenewReference(ctx, p, ttl)
@@ -297,13 +297,16 @@ func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Dura
 			return err
 		}
 		if expiresAt == nil || t.Before(*expiresAt) {
-			expiresAt = t
+			expiresAt = &t
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return time.Time{}, err
 	}
-	return expiresAt, nil
+	if expiresAt == nil {
+		return time.Time{}, errors.Errorf("no fileset found at %s", prefix)
+	}
+	return *expiresAt, nil
 }
 
 func (s *Storage) levelSize(i int) int64 {

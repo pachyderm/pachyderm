@@ -176,7 +176,7 @@ func (w *Writer) Close() (retErr error) {
 		if t, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL); err != nil {
 			return err
 		} else {
-			w.expiresAt = t
+			w.expiresAt = &t
 		}
 	} else {
 		if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {

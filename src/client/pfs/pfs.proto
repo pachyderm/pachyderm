@@ -561,14 +561,19 @@ message DiffFileResponseV2 {
   FileInfo new_file = 2;
 }
 
-message CreateTempFileSetResponse {
+message CreateTmpFileSetResponse {
   string fileset_id = 1;
   int64 expires_at = 2;
 }
 
-message RenewTempFileSetRequest {
+message RenewTmpFileSetRequest {
   string fileset_id = 1;
   int64 extend_seconds = 2;
+}
+
+message RenewTmpFileSetResponse {
+  string fileset_id = 1;
+  int64 expires_at = 2;
 }
 
 service API {
@@ -663,9 +668,9 @@ service API {
   // WalkFileV2 walks over all the files under a directory, including children of children.
   rpc WalkFileV2(WalkFileRequest) returns (stream FileInfo) {}
   // CreateTempFileSet creates a new temp fileset
-  rpc CreateTempFileSet(stream FileOperationRequestV2) returns (CreateTempFileSetResponse) {}
+  rpc CreateTmpFileSet(stream FileOperationRequestV2) returns (CreateTmpFileSetResponse) {}
   // RenewTempFileSet prevents the tempory fileset from being deleted for a set amount of time
-  rpc RenewTempFileSet(RenewTempFileSetRequest) returns (CreateTempFileSetResponse) {}
+  rpc RenewTmpFileSet(RenewTmpFileSetRequest) returns (RenewTmpFileSetResponse) {}
 }
 
 message PutObjectRequest {

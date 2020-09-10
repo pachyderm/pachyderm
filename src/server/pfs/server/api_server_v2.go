@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
@@ -319,25 +320,59 @@ func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitR
 	return nil, errors.New("v2 does not implement BuildCommit")
 }
 
-func (a *apiServerV2) CreateTempFileSet(server pfs.API_CreateTempFileSetServer) error {
-	fsID, expiresAt, err := a.driver.createTempFileSet(server)
+// CreateTmpFileset implements the pfs.CreateTmpFileSet RPC
+func (a *apiServerV2) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
+	fsID, expiresAt, err := a.driver.createTmpFileSet(server)
 	if err != nil {
 		return err
 	}
-	return server.SendAndClose(&pfs.CreateTempFileSetResponse{
+	return server.SendAndClose(&pfs.CreateTmpFileSetResponse{
 		FilesetId: fsID,
 		ExpiresAt: expiresAt.Unix(),
 	})
 }
 
-func (a *apiServerV2) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest) (*pfs.CreateTempFileSetResponse, error) {
+// RenewTmpFileSet implements the pfs.RenewTmpFileSet RPC
+func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*pfs.RenewTmpFileSetResponse, error) {
 	ttl := time.Duration(req.ExtendSeconds) * time.Second
-	t, err := a.driver.renewTempFileSet(ctx, req.FilesetId, ttl)
+	t, err := a.driver.renewTmpFileSet(ctx, req.FilesetId, ttl)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.CreateTempFileSetResponse{
+	return &pfs.RenewTmpFileSetResponse{
 		FilesetId: req.FilesetId,
 		ExpiresAt: t.Unix(),
 	}, nil
+}
+
+// ListCommit implements the protobuf pfs.ListCommit RPC
+func (a *apiServerV2) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if request.GetFrom().GetRepo().GetName() == tmpRepo {
+		return nil, errors.Errorf("cannot list commits on __tmp__")
+	}
+	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number, request.Reverse)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CommitInfos{
+		CommitInfo: commitInfos,
+	}, nil
+}
+
+// ListCommitStream implements the protobuf pfs.ListCommitStream RPC
+func (a *apiServerV2) ListCommitStream(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+	}(time.Now())
+	if request.GetFrom().GetRepo().GetName() == tmpRepo {
+		return errors.Errorf("cannot list commits on __tmp__")
+	}
+	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
+		sent++
+		return respServer.Send(ci)
+	})
 }

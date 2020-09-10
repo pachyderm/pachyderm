@@ -971,7 +971,7 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	return nil
 }
 
-func (d *driverV2) createTempFileSet(server pfs.API_CreateTempFileSetServer) (string, *time.Time, error) {
+func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, *time.Time, error) {
 	ctx := server.Context()
 	opts := []fileset.UWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
 	id := uuid.NewWithoutDashes()
@@ -1005,7 +1005,7 @@ func (d *driverV2) createTempFileSet(server pfs.API_CreateTempFileSetServer) (st
 	return commit.ID, expiresAt, nil
 }
 
-func (d *driverV2) renewTempFileSet(ctx context.Context, id string, ttl time.Duration) (*time.Time, error) {
+func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
 	if ttl > maxTTL {
 		ttl = maxTTL
 	}

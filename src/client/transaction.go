@@ -410,11 +410,11 @@ func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFi
 func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
 	return nil, unsupportedError("WalkFileV2")
 }
-func (c *pfsBuilderClient) CreateTempFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTempFileSetClient, error) {
-	return nil, unsupportedError("CreateTempFileSet")
+func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
+	return nil, unsupportedError("CreateTmpFileSet")
 }
-func (c *pfsBuilderClient) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateTempFileSetResponse, error) {
-	return nil, unsupportedError("RenewTempFileSet")
+func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*pfs.RenewTmpFileSetResponse, error) {
+	return nil, unsupportedError("RenewTmpFileSet")
 }
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
