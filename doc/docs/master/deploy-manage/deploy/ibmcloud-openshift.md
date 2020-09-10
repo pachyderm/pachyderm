@@ -1,19 +1,20 @@
 # IBM Cloud OpenShift 3.1
 
 [OpenShift](https://www.openshift.com/products/openshift-ibm-cloud/) is a popular enterprise Kubernetes distribution.
-Pachyderm can run on IBM Cloud OpenShift with a few small tweaks in the deployment process, which will be outlined below.
+Pachyderm can run on IBM Cloud OpenShift with a few small tweaks in the [OpenShift deployment process](openshift.md), the most important being the StatefulSets deployment.
+
 Please see [known issues](#known-issues) below for currently issues with OpenShift deployments.
 
 ## Prerequisites
 
-Pachyderm needs a few things to install and run successfully in IBM Cloud OpenShift environment
+Pachyderm needs a few things to install and run successfully in IBM Cloud OpenShift environment.
 
 ##### Binaries for CLI
 
 - [oc](https://cloud.ibm.com/docs/openshift?topic=openshift-openshift-cli#cli_oc)
 - [pachctl](#install-pachctl)
 
-1. Since this is a statefulset based deployment, it uses either Persistent Volume Provisioning or pre-provisioned PV's using a defined storage class.
+1. Since this is a stateful set based deployment, it uses either Persistent Volume Provisioning or pre-provisioned PV's using a defined storage class.
 1. An object store, used by Pachyderm's `pachd` for storing all your data.
    The object store you use will probably be dependent on where you're going to run OpenShift: S3 for [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html), GCS for [Google Cloud Platform](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), Azure Blob Storage for  [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
 1. Access to particular TCP/IP ports for communication.
@@ -28,7 +29,7 @@ but it looks like 10G of disk space is sufficient for most purposes.
 
 ### Object store
 
-Size your object store generously, once you start using Pachyderm, you'll start versioning all your data.
+Size your object store generously, since this is where Pachyderm, versions and stores all your data.
 You'll need four items to configure object storage, in this case we have used Minio.
 
 1. The access endpoint.
@@ -45,7 +46,7 @@ documentation](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 #### Incoming ports (port)
 
-These are the ports internal to the containers, 
+These are the ports internal to the containers. 
 You'll find these on both the pachd and dash containers.
 OpenShift runs containers and pods as unprivileged users which don't have access to port numbers below 1024.
 Pachyderm's default manifests use ports below 1024, so you'll have to modify the manifests to use other port numbers.
@@ -80,7 +81,8 @@ We highly encourage you to apply the best practices used in developing software 
 
 ## Preparing to deploy Pachyderm
 
-Things you'll need
+Things you'll need:
+
 1. Your storage class
 
 1. Your object store information.
@@ -89,20 +91,11 @@ Things you'll need
 
 1. A text editor for editing your deployment manifest.
 ## Deploying Pachyderm
-### 1. Setting up PV and object stores
-How you deploy Pachyderm on OpenShift is largely going to depend on where OpenShift is deployed. 
-Below you'll find links to the documentation for each kind of deployment you can do.
-Follow the instructions there for setting up persistent volumes and object storage resources.
-Don't yet deploy your manifest, come back here after you've set up your PV and object store.
-* OpenShift Deployed on [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html) 
-* OpenShift Deployed on [GCP](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html)
-* OpenShift Deployed on [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html)
-* OpenShift Deployed [on-premise](https://pachyderm.readthedocs.io/en/latest/deployment/on_premises.html)
-### 2. Determine your role security policy
+### 1. Determine your role security policy
 Pachyderm is deployed by default with cluster roles.
 Many institutional Openshift security policies require namespace-local roles rather than cluster roles.
 If your security policies require namespace-local roles, use the [`pachctl deploy` command below with the `--local-roles` flag](#namespace-local-roles).
-### 3. Run the deploy command with --dry-run
+### 2. Run the deploy command with --dry-run
 Once you have your PV, object store, and project, you can create a manifest for editing using the `--dry-run` argument to `pachctl deploy`.
 That step is detailed in the deployment instructions for each type of deployment, above.
 
