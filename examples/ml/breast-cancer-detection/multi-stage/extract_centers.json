@@ -1,0 +1,20 @@
+{
+    "pipeline": {
+        "name": "extract_centers"
+    },
+    "description": "Compute and Extract Optimal Image Centers.",
+    "input": {
+      "pfs": {
+        "repo": "crop",
+        "glob": "/*"
+      }
+    },
+    "standby": true,
+    "transform": {
+        "cmd": [
+            "/bin/bash",
+            "pachyderm/multi-stage/extract_centers.sh"
+        ],
+        "image": "jimmywhitaker/breast_cancer_classifier:dev0.22"
+    }
+}

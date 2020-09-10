@@ -1,0 +1,51 @@
+{
+  "pipeline": {
+    "name": "generate_heatmaps"
+  },
+  "description": "Generates benign and malignant heatmaps for cropped images using patch classifier.",
+  "input": {
+    "cross": [
+      {
+        "join": [
+          {
+            "pfs": {
+              "repo": "crop",
+              "glob": "/(*)",
+              "join_on": "$1",
+              "lazy": false
+            }
+          },
+          {
+            "pfs": {
+              "repo": "extract_centers",
+              "glob": "/(*)",
+              "join_on": "$1",
+              "lazy": false
+            }
+          }
+        ]
+      },
+      {
+        "pfs": {
+          "repo": "models",
+          "glob": "/",
+          "lazy": false
+        }
+      }
+    ]
+  },
+  "standby": true,
+  "transform": {
+    "cmd": [
+      "/bin/bash",
+      "pachyderm/multi-stage/generate_heatmaps.sh"
+    ],
+    "image": "jimmywhitaker/breast_cancer_classifier:dev0.22"
+  },
+  "resource_limits": {
+      "gpu": {
+        "type": "nvidia.com/gpu",
+        "number": 1
+      }
+  }
+}
