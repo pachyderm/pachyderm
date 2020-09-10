@@ -52,7 +52,7 @@ var (
 
 // TracesCol returns the etcd collection of extended traces
 func TracesCol(c *etcd.Client) col.Collection {
-	return col.NewCollection(c,
+	return col.NewEtcdCollection(c,
 		TracesCollectionPrefix,
 		[]*col.Index{CommitIDIndex, PipelineIndex},
 		&TraceProto{},

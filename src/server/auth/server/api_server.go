@@ -229,7 +229,7 @@ func NewAuthServer(
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API"),
 		adminCache: make(map[string]auth.ClusterRoles),
-		tokens: col.NewCollection(
+		tokens: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
 			nil,
@@ -237,7 +237,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		oneTimePasswords: col.NewCollection(
+		oneTimePasswords: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, oneTimePasswordsPrefix),
 			nil,
@@ -245,7 +245,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		acls: col.NewCollection(
+		acls: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, aclsPrefix),
 			nil,
@@ -253,7 +253,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		admins: col.NewCollection(
+		admins: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
@@ -261,7 +261,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		fsAdmins: col.NewCollection(
+		fsAdmins: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, fsAdminsPrefix),
 			nil,
@@ -269,7 +269,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		members: col.NewCollection(
+		members: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
@@ -277,7 +277,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		groups: col.NewCollection(
+		groups: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
@@ -285,7 +285,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		authConfig: col.NewCollection(
+		authConfig: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, configKey),
 			nil,
@@ -359,7 +359,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			// TODO(msteffen): Don't use an empty key, as it will not be erased by
 			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)

@@ -13,8 +13,6 @@ import (
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
 type Collection interface {
-	// Path returns the full etcd path of the given key in the collection
-	Path(string) string
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
@@ -22,11 +20,8 @@ type Collection interface {
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
 	ReadWrite(stm STM) ReadWriteCollection
-	// ReadWriteInt is the same as ReadWrite except that it operates on
-	// integral items, as opposed to protobuf items
-	ReadWriteInt(stm STM) ReadWriteIntCollection
 	// For read-only operatons, use the ReadOnly for better performance
-	ReadOnly(ctx context.Context) ReadonlyCollection
+	ReadOnly(ctx context.Context) ReadOnlyCollection
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.
 	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
@@ -85,19 +80,8 @@ type ReadWriteCollection interface {
 	DeleteAllPrefix(prefix string)
 }
 
-// ReadWriteIntCollection is a ReadonlyCollection interface specifically for ints.
-type ReadWriteIntCollection interface {
-	Create(key string, val int) error
-	Get(key string) (int, error)
-	Increment(key string) error
-	IncrementBy(key string, n int) error
-	Decrement(key string) error
-	DecrementBy(key string, n int) error
-	Delete(key string) error
-}
-
-// ReadonlyCollection is a collection interface that only supports read ops.
-type ReadonlyCollection interface {
+// ReadOnlyCollection is a collection interface that only supports read ops.
+type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.

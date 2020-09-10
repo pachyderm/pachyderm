@@ -125,7 +125,7 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURI:  redirectURI,
-		States: col.NewCollection(
+		States: col.NewEtcdCollection(
 			a.env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
 			nil,

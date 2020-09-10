@@ -77,7 +77,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	s := &apiServer{
 		pachLogger: log.NewLogger("enterprise.API"),
 		env:        env,
-		enterpriseToken: col.NewCollection(
+		enterpriseToken: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			etcdPrefix, // only one collection--no extra prefix needed
 			nil,

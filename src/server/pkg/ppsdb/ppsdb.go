@@ -29,7 +29,7 @@ var (
 
 // Pipelines returns a Collection of pipelines
 func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
 		nil,
@@ -41,7 +41,7 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 
 // Jobs returns a Collection of jobs
 func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
 		[]*col.Index{JobsPipelineIndex, JobsOutputIndex},

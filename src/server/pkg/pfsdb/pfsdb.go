@@ -17,8 +17,6 @@ const (
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
 	openCommitsPrefix    = "/openCommits"
-	mergesPrefix         = "/merges"
-	shardsPrefix         = "/shards"
 )
 
 var (
@@ -28,7 +26,7 @@ var (
 
 // Repos returns a collection of repos
 func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
 		nil,
@@ -40,7 +38,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 
 // PutFileRecords returns a collection of putFileRecords
 func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, putFileRecordsPrefix),
 		nil,
@@ -52,7 +50,7 @@ func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 
 // Commits returns a collection of commits
 func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, commitsPrefix, repo),
 		[]*col.Index{ProvenanceIndex},
@@ -64,7 +62,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 
 // Branches returns a collection of branches
 func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, branchesPrefix, repo),
 		nil,
@@ -81,7 +79,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 
 // OpenCommits returns a collection of open commits
 func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,

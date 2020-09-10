@@ -1889,7 +1889,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 		b.MaxElapsedTime = 60 * time.Second
 		b.MaxInterval = 5 * time.Second
 		if err := backoff.Retry(func() error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
+			superUserTokenCol := col.NewEtcdCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
 			var result types.StringValue
 			if err := superUserTokenCol.Get("", &result); err != nil {
 				return err

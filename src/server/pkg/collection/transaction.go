@@ -36,8 +36,6 @@ type STM interface {
 	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
 	Put(key, val string, ttl int64, ptr uintptr) error
-	// Rev returns the revision of a key in the read set.
-	Rev(key string) int64
 	// Del deletes a key.
 	Del(key string)
 	// TTL returns the remaining time to live for 'key', or 0 if 'key' has no TTL
@@ -242,13 +240,6 @@ func (s *stm) DelAll(prefix string) {
 	}
 }
 
-func (s *stm) Rev(key string) int64 {
-	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
-		return resp.Kvs[0].ModRevision
-	}
-	return 0
-}
-
 func (s *stm) commit() *v3.TxnResponse {
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
 	defer tracing.FinishAnySpan(span)
@@ -377,11 +368,6 @@ func (s *stmSerializable) fetch(key string) *v3.GetResponse {
 		}
 	}
 	return resp
-}
-
-func (s *stmSerializable) Rev(key string) int64 {
-	s.Get(key)
-	return s.stm.Rev(key)
 }
 
 func (s *stmSerializable) gets() ([]string, []v3.Op) {

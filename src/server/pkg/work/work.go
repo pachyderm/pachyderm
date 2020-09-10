@@ -58,7 +58,7 @@ func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace strin
 }
 
 func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		etcdPrefix,
 		nil,

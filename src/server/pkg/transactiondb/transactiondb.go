@@ -17,7 +17,7 @@ const (
 
 // Transactions returns a collection of open transactions
 func Transactions(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
+	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, transactionsPrefix),
 		nil,

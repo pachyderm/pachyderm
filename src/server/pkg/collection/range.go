@@ -54,7 +54,7 @@ func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *m
 	return from, compare
 }
 
-func listRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	etcdOpts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(opts.Target, opts.Order)}
 	var fromKey *mvccpb.KeyValue
 	from, compare := listFuncs(opts)
@@ -105,7 +105,7 @@ type kvSort struct {
 	compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
 }
 
-func listSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listSelfSortRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	etcdOpts := []etcd.OpOption{etcd.WithFromKey(), etcd.WithRange(endKeyFromPrefix(prefix))}
 	fromKey := prefix
 	kvs := []*mvccpb.KeyValue{}
@@ -165,7 +165,7 @@ func (s *kvSort) Swap(i, j int) {
 	s.kvs[j] = t
 }
 
-func getWithLimit(c *readonlyCollection, key string, limitPtr *int64, opts []etcd.OpOption) (*etcd.GetResponse, bool, error) {
+func getWithLimit(c *etcdReadOnlyCollection, key string, limitPtr *int64, opts []etcd.OpOption) (*etcd.GetResponse, bool, error) {
 	for {
 		limit := atomic.LoadInt64(limitPtr)
 		resp, err := c.etcdClient.Get(c.ctx, key, append(opts, etcd.WithLimit(limit))...)
