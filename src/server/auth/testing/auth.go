@@ -108,6 +108,21 @@ func (a *InactiveAPIServer) SetACLInTransaction(*txnenv.TransactionContext, *aut
 	return nil, auth.ErrNotActivated
 }
 
+// GetDefaultACL implements the GetDefaultACL RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetDefaultACL(context.Context, *auth.GetDefaultACLRequest) (*auth.GetDefaultACLResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetDefaultACLInTransaction implements the GetDefaultACL RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetDefaultACLInTransaction(*txnenv.TransactionContext, *auth.GetDefaultACLRequest) (*auth.GetDefaultACLResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// SetDefaultACL implements the SetDefaultACL RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) SetDefaultACL(context.Context, *auth.SetDefaultACLRequest) (*auth.SetDefaultACLResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated

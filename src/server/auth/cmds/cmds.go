@@ -472,6 +472,63 @@ func ModifyAdminsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }
 
+// SetDefaultACL returns a cobra command that adds or removes a princiapl from the
+// cluster-wide default ACL
+func SetDefaultACLCmd() *cobra.Command {
+	setScope := &cobra.Command{
+		Use:   "{{alias}} <username> (none|reader|writer|owner)",
+		Short: "Set the scope of access that 'username' has in the default ACL for new repos",
+		Long: "Set the scope of access that 'username' has in the default ACL for new repos. For " +
+			"example, 'pachctl auth set-default-acl github-alice none' removes \"github-alice\" from the " +
+			"defaut ACL. Similarly, 'pachctl auth set-default-acl github-alice reader` " +
+			"would add \"github-alice\" to the default ACL, so any new repos created would" +
+			"be readable by \"github-alice\" unless they were explicitly removed from that repo's ACL.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			scope, err := auth.ParseScope(args[1])
+			if err != nil {
+				return err
+			}
+			username := args[0]
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.SetDefaultACL(c.Ctx(), &auth.SetDefaultACLRequest{
+				Scope:    scope,
+				Username: username,
+			})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return cmdutil.CreateAlias(setScope, "auth set-default-acl")
+}
+
+// GetDefaultACL returns a cobra command that lists the current cluster-wide default ACL for new repos
+func GetDefaultACLCmd() *cobra.Command {
+	get := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Get the default ACL for new repos created on the cluster",
+		Long:  "Get the default ACL for new repos created on the cluster.",
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			// Get ACL for a repo
+			resp, err := c.GetDefaultACL(c.Ctx(), &auth.GetDefaultACLRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			t := template.Must(template.New("ACLEntries").Parse(
+				"{{range .}}{{.Username }}: {{.Scope}}\n{{end}}"))
+			return t.Execute(os.Stdout, resp.Entries)
+		}),
+	}
+	return cmdutil.CreateAlias(get, "auth get-default-acl")
+}
+
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
 func GetAuthTokenCmd() *cobra.Command {
@@ -617,6 +674,8 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
+	commands = append(commands, GetDefaultACLCmd())
+	commands = append(commands, SetDefaultACLCmd())
 	commands = append(commands, GetOneTimePasswordCmd())
 
 	return commands

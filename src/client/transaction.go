@@ -593,6 +593,12 @@ func (c *authBuilderClient) GetACL(ctx context.Context, req *auth.GetACLRequest,
 func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest, opts ...grpc.CallOption) (*auth.SetACLResponse, error) {
 	return nil, unsupportedError("SetACL")
 }
+func (c *authBuilderClient) GetDefaultACL(ctx context.Context, req *auth.GetDefaultACLRequest, opts ...grpc.CallOption) (*auth.GetDefaultACLResponse, error) {
+	return nil, unsupportedError("GetDefaultACL")
+}
+func (c *authBuilderClient) SetDefaultACL(ctx context.Context, req *auth.SetDefaultACLRequest, opts ...grpc.CallOption) (*auth.SetDefaultACLResponse, error) {
+	return nil, unsupportedError("SetDefaultACL")
+}
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")
 }

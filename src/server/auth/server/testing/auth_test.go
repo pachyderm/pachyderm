@@ -3311,3 +3311,53 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 }
+
+// TestDefaultACL tests changing the default ACL and creating repos to confirm it's applied
+func TestDefaultACL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient, adminClient := getPachClient(t, alice), getPachClient(t, bob), getPachClient(t, admin)
+
+	// create repo, and check that only alice is the owner of the new repo
+	noDefaultRepo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(noDefaultRepo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, noDefaultRepo))
+
+	// add bob to the default ACL as reader
+	_, err := adminClient.SetDefaultACL(adminClient.Ctx(), &auth.SetDefaultACLRequest{Username: bob, Scope: auth.Scope_READER})
+	require.NoError(t, err)
+
+	// create a second repo, alice and bob should both have access becuase of the new default ACL
+	bobDefaultRepo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(bobDefaultRepo))
+	require.ElementsEqual(t, entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, bobDefaultRepo))
+
+	// existing repo ACLs are unchanged
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, noDefaultRepo))
+
+	// remove bob and add alice to the ACL
+	_, err = adminClient.SetDefaultACL(adminClient.Ctx(), &auth.SetDefaultACLRequest{Username: bob, Scope: auth.Scope_NONE})
+	require.NoError(t, err)
+	_, err = adminClient.SetDefaultACL(adminClient.Ctx(), &auth.SetDefaultACLRequest{Username: alice, Scope: auth.Scope_WRITER})
+	require.NoError(t, err)
+
+	// create a new repo, alice should have OWNER since she creates the repo
+	aliceOwnerRepo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(aliceOwnerRepo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, aliceOwnerRepo))
+
+	// bob creates a new repo, alice has WRITER access
+	aliceWriterRepo := tu.UniqueString(t.Name())
+	require.NoError(t, bobClient.CreateRepo(aliceWriterRepo))
+	require.ElementsEqual(t, entries(bob, "owner", alice, "writer"), getACL(t, aliceClient, aliceWriterRepo))
+
+	// bob can't change the default ACL because he's not an admin
+	_, err = bobClient.SetDefaultACL(bobClient.Ctx(), &auth.SetDefaultACLRequest{Username: bob, Scope: auth.Scope_OWNER})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}

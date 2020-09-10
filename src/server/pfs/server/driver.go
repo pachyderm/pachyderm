@@ -256,15 +256,25 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else {
 		// New repo case
 		if authIsActivated {
-			// Create ACL for new repo. Make caller the sole owner. If the ACL already
-			// exists with a different owner, this will fail.
-			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-				Repo: repo.Name,
-				Entries: []*auth.ACLEntry{{
-					Username: whoAmI.Username,
-					Scope:    auth.Scope_OWNER,
-				}},
+			// Create ACL for new repo. The ACL is the union of the cluster-wide default ACL and (user, OWNER).
+			//  If the ACL already exists with a different owner, this will fail.
+			acl, err := txnCtx.Auth().GetDefaultACLInTransaction(txnCtx, &auth.GetDefaultACLRequest{})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get default ACL for new repo \"%s\"", repo.Name)
+			}
+
+			// It's safe to simply append to the ACL here, if the user also occurs in the default ACL
+			// SetACLInTransaction will choose the higher of the two permissions
+			acl.Entries = append(acl.Entries, &auth.ACLEntry{
+				Username: whoAmI.Username,
+				Scope:    auth.Scope_OWNER,
 			})
+
+			_, err = txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
+				Repo:    repo.Name,
+				Entries: acl.Entries,
+			})
+
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
 			}

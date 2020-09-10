@@ -45,10 +45,12 @@ const (
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
 	allClusterUsersSubject = "allClusterUsers"
+	defaultAclKey          = "default"
 
 	tokensPrefix           = "/tokens"
 	oneTimePasswordsPrefix = "/auth-codes"
 	aclsPrefix             = "/acls"
+	defaultAclPrefix       = "/default-acl"
 	adminsPrefix           = "/admins"
 	fsAdminsPrefix         = "/fs-admins"
 	membersPrefix          = "/members"
@@ -168,6 +170,8 @@ type apiServer struct {
 	oneTimePasswords col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
+	// defaultAcl is the collection with the default ACL for new repos
+	defaultAcl col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
@@ -248,6 +252,14 @@ func NewAuthServer(
 		acls: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, aclsPrefix),
+			nil,
+			&auth.ACL{},
+			nil,
+			nil,
+		),
+		defaultAcl: col.NewCollection(
+			env.GetEtcdClient(),
+			path.Join(etcdPrefix, defaultAclPrefix),
 			nil,
 			&auth.ACL{},
 			nil,
@@ -691,6 +703,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
 		a.authConfig.ReadWrite(stm).DeleteAll()
+		a.defaultAcl.ReadWrite(stm).DeleteAll()
 		return nil
 	})
 	if err != nil {
@@ -1707,6 +1720,101 @@ func (a *apiServer) GetScope(ctx context.Context, req *auth.GetScopeRequest) (re
 	return response, nil
 }
 
+func (a *apiServer) SetDefaultACL(ctx context.Context, req *auth.SetDefaultACLRequest) (*auth.SetDefaultACLResponse, error) {
+	a.LogReq(req)
+
+	if a.activationState() == none {
+		return nil, auth.ErrNotActivated
+	}
+
+	// Only cluster admins can set the default ACL
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	callerIsAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	if err != nil {
+		return nil, err
+	}
+
+	if !callerIsAdmin {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "SetDefaultACL for cluster",
+		}
+	}
+
+	principal, err := a.canonicalizeSubject(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		acl := a.defaultAcl.ReadWrite(stm)
+		var existing auth.ACL
+		err := acl.Get(defaultAclKey, &existing)
+		if err != nil {
+			if !col.IsErrNotFound(err) {
+				return err
+			}
+		}
+		if existing.Entries == nil {
+			existing.Entries = make(map[string]auth.Scope)
+		}
+		if req.Scope == auth.Scope_NONE {
+			delete(existing.Entries, principal)
+		} else {
+			existing.Entries[principal] = req.Scope
+		}
+
+		err = acl.Put(defaultAclKey, &existing)
+		if err != nil {
+			return errors.Wrapf(err, "could not put new default ACL")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "error updating default ACL")
+	}
+
+	return &auth.SetDefaultACLResponse{}, nil
+}
+
+func (a *apiServer) GetDefaultACL(ctx context.Context, req *auth.GetDefaultACLRequest) (*auth.GetDefaultACLResponse, error) {
+	a.LogReq(req)
+
+	var response *auth.GetDefaultACLResponse
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		var err error
+		response, err = a.GetDefaultACLInTransaction(txnCtx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (a *apiServer) GetDefaultACLInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetDefaultACLRequest) (*auth.GetDefaultACLResponse, error) {
+	if a.activationState() == none {
+		return nil, auth.ErrNotActivated
+	}
+
+	acl := &auth.ACL{}
+	if err := a.defaultAcl.ReadWrite(txnCtx.Stm).Get(defaultAclKey, acl); err != nil && !col.IsErrNotFound(err) {
+		return nil, errors.Wrapf(err, "error getting default acl")
+	}
+
+	response := &auth.GetDefaultACLResponse{
+		Entries: make([]*auth.ACLEntry, 0),
+	}
+	for user, scope := range acl.Entries {
+		response.Entries = append(response.Entries, &auth.ACLEntry{
+			Username: user,
+			Scope:    scope,
+		})
+	}
+	return response, nil
+}
+
 // GetACLInTransaction is identical to GetACL except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetACLInTransaction(
@@ -1812,7 +1920,10 @@ func (a *apiServer) SetACLInTransaction(
 			}
 			aclMu.Lock()
 			defer aclMu.Unlock()
-			newACL.Entries[principal] = scope
+			// If the list includes multiple scopes for one principal, choose the highest
+			if scope > newACL.Entries[principal] {
+				newACL.Entries[principal] = scope
+			}
 			return nil
 		})
 	}
@@ -1866,8 +1977,7 @@ func (a *apiServer) SetACLInTransaction(
 		} else if !strings.HasSuffix(err.Error(), "not found") {
 			// Unclear if repo exists -- return error
 			return false, errors.Wrapf(err, "could not inspect \"%s\"", req.Repo)
-		} else if len(newACL.Entries) == 1 &&
-			newACL.Entries[callerInfo.Subject] == auth.Scope_OWNER {
+		} else if newACL.Entries[callerInfo.Subject] == auth.Scope_OWNER {
 			// Special case: Repo doesn't exist, but user is creating a new Repo, and
 			// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
 			// the request is authorized

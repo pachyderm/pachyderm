@@ -120,6 +120,8 @@ type AuthTransactionServer interface {
 
 	GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error)
 	SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+
+	GetDefaultACLInTransaction(*TransactionContext, *auth.GetDefaultACLRequest) (*auth.GetDefaultACLResponse, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported

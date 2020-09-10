@@ -210,6 +210,17 @@ message ModifyAdminsRequest {
 }
 message ModifyAdminsResponse {}
 
+message SetDefaultACLRequest {
+  string username = 1;
+  Scope scope = 2;
+}
+message SetDefaultACLResponse{}
+
+message GetDefaultACLRequest {}
+message GetDefaultACLResponse{
+  repeated ACLEntry entries = 1;
+}
+
 //// Authentication data structures
 
 // OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
@@ -572,6 +583,10 @@ service API {
   rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
   rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
+
+  // SetDefaultACL and GetDefaultACL set the default ACL to be applied to new repos
+  rpc SetDefaultACL(SetDefaultACLRequest) returns (SetDefaultACLResponse) {}
+  rpc GetDefaultACL(GetDefaultACLRequest) returns (GetDefaultACLResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 
