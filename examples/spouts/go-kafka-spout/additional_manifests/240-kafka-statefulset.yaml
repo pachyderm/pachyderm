@@ -72,9 +72,6 @@ spec:
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /opt/kafka/data
-          name: datadir
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -82,18 +79,3 @@ spec:
       terminationGracePeriodSeconds: 60
   updateStrategy:
     type: OnDelete
-  volumeClaimTemplates:
-  - metadata:
-      annotations:
-        volume.beta.kubernetes.io/storage-class: kafka-storage-class
-      labels:
-        app: kafka
-        suite: kafka
-      name: datadir
-      namespace: kafka
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi 
