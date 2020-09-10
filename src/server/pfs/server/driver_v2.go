@@ -975,18 +975,6 @@ func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (stri
 	ctx := server.Context()
 	opts := []fileset.UWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
 	id := uuid.NewWithoutDashes()
-	var commit *pfs.Commit
-	// TODO: within commit?
-	// if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
-	// 	var err error
-	// 	commit, err = d.startCommit(txnCtx, id, nil, "", nil, "temp fileset")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return "", nil, err
-	// }
 	expiresAt, err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
 		req := &pfs.PutTarRequestV2{
 			Tag: "",
@@ -997,17 +985,12 @@ func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (stri
 	if err != nil {
 		return "", nil, err
 	}
-	// if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *transactionenv.TransactionContext) error {
-	// 	return d.finishCommitV2(txnCtx, commit, "")
-	// }); err != nil {
-	// 	return "", nil, err
-	// }
-	return commit.ID, expiresAt, nil
+	return id, expiresAt, nil
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
 	if ttl > maxTTL {
-		ttl = maxTTL
+		return time.Time{}, errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
 	}
 	p := path.Join(tmpRepo, id)
 	return d.storage.RenewFileSet(ctx, p, ttl)
