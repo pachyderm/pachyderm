@@ -421,7 +421,6 @@ func (reg *registryV2) processJobStarting(pj *pendingJobV2) error {
 
 // TODO:
 // Need to put some more thought into the context use.
-// Datum stats collection.
 func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	pachClient := pj.driver.PachClient()
 	// Setup datum set subtask channel.
@@ -429,7 +428,7 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup goroutine for creating datum set subtasks.
 	// TODO: When the datum set spec is not set, evenly distribute the datums.
-	eg, _ := errgroup.WithContext(pachClient.Ctx())
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	eg.Go(func() error {
 		defer close(subtasks)
 		storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -444,7 +443,11 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 			if err != nil {
 				return err
 			}
-			subtasks <- subtask
+			select {
+			case subtasks <- subtask:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			return nil
 		})
 	})

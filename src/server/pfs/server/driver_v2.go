@@ -143,11 +143,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 
 func (d *driverV2) getSubFileSet() int64 {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	n := d.subFileSet
-	d.subFileSet++
-	return n
+	return time.Now().UnixNano()
 }
 
 func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
@@ -201,6 +197,7 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, commit *pfs.Commit, 
 	if err := uw.Close(); err != nil {
 		return err
 	}
+	// TODO: Should we run a distributed compaction? Fan in could still be a problem here.
 	_, err = d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
 	return err
 }
@@ -251,8 +248,16 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 		return err
 	}
 	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	var dir string
 	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
-		return mf(idx.Path)
+		if dir != "" && strings.HasPrefix(idx.Path, dir) {
+			return true
+		}
+		match := mf(idx.Path)
+		if match && strings.HasSuffix(idx.Path, "/") {
+			dir = idx.Path
+		}
+		return match
 	})
 	// TODO: remove absolute paths on the way out?
 	// nonAbsolute := &fileset.HeaderMapper{

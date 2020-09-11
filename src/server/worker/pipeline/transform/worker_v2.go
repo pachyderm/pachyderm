@@ -42,6 +42,7 @@ func WorkerV2(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task
 	})
 }
 
+// TODO: It would probably be better to write the output to temporary file sets and expose an operation through pfs for adding a temporary fileset to a commit.
 func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSetV2, status *Status) error {
 	pachClient := driver.PachClient()
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())

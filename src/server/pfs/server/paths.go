@@ -24,12 +24,16 @@ func globLiteralPrefix(glob string) string {
 }
 
 func parseGlob(glob string) (index.Option, func(string) bool, error) {
+	opt := index.WithPrefix(globLiteralPrefix(glob))
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
 		return nil, nil, err
 	}
-	prefix := globLiteralPrefix(glob)
-	return index.WithPrefix(prefix), g.Match, nil
+	mf := func(path string) bool {
+		path = strings.TrimRight(path, "/")
+		return g.Match(path)
+	}
+	return opt, mf, nil
 }
 
 // pathIsChild determines if the path child is an immediate child of the path parent

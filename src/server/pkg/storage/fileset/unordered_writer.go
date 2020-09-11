@@ -192,8 +192,7 @@ func (f *UnorderedWriter) serialize() error {
 			}
 			continue
 		}
-		// TODO Tar header validation?
-		hdr := mfs[len(mfs)-1].hdr
+		hdr := mergeTarHeaders(mfs)
 		if err := w.WriteHeader(hdr); err != nil {
 			return err
 		}
@@ -215,6 +214,17 @@ func (f *UnorderedWriter) serialize() error {
 	f.memAvailable = f.memThreshold
 	f.subFileSet++
 	return nil
+}
+
+// TODO Tar header validation?
+func mergeTarHeaders(memFiles []*memFile) *tar.Header {
+	var hdr *tar.Header
+	// TODO: Deeper copy?
+	hdr = &(*memFiles[len(memFiles)-1].hdr)
+	for i := 0; i < len(memFiles)-1; i++ {
+		hdr.Size += memFiles[i].hdr.Size
+	}
+	return hdr
 }
 
 func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
