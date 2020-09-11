@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -1476,7 +1475,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 				Name: "postgres-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: filepath.Join(hostPath, "postgres"),
+						Path: path.Join(hostPath, "postgres"),
 					},
 				},
 			},
@@ -1501,7 +1500,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(postgresName, labels(postgresName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
