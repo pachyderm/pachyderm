@@ -342,3 +342,15 @@ func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFile
 		ExpiresAt: t.Unix(),
 	}, nil
 }
+
+// CreateRepoInTransaction is identical to CreateRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) CreateRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.CreateRepoRequest,
+) error {
+	if repo := request.GetRepo(); repo != nil && repo.Name == tmpRepo {
+		return errors.Errorf("%s is a reserved name", tmpRepo)
+	}
+	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
+}
