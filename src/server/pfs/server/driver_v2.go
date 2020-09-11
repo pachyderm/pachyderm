@@ -151,13 +151,13 @@ func (d *driverV2) getSubFileSet() int64 {
 }
 
 // TODO Need commit validation and handling of branch names.
-func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UWriterOption) (expiresAt *time.Time, retErr error) {
+func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (retErr error) {
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
 	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer func() {
@@ -166,18 +166,18 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string,
 		}
 	}()
 	if err := cb(fs); err != nil {
-		return nil, err
+		return err
 	}
 	if err := fs.Close(); err != nil {
-		return nil, err
+		return err
 	}
 	if err := d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
 		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
 		return err
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	return fs.ExpiresAt(), nil
+	return nil
 }
 
 func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
@@ -971,21 +971,20 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	return nil
 }
 
-func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, *time.Time, error) {
+func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
-	opts := []fileset.UWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
+	opts := []fileset.UnorderedWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
 	id := uuid.NewWithoutDashes()
-	expiresAt, err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
+	if err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
 		req := &pfs.PutTarRequestV2{
 			Tag: "",
 		}
 		_, err := putTar(uw, server, req)
 		return err
-	}, opts...)
-	if err != nil {
-		return "", nil, err
+	}, opts...); err != nil {
+		return "", err
 	}
-	return id, expiresAt, nil
+	return id, nil
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
@@ -994,4 +993,16 @@ func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Dura
 	}
 	p := path.Join(tmpRepo, id)
 	return d.storage.RenewFileSet(ctx, p, ttl)
+}
+
+func (d *driverV2) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+	if commit.GetRepo().GetName() == tmpRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "Temporary FileSet",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	return d.driver.inspectCommit(pachClient, commit, blockState)
 }

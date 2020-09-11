@@ -44,7 +44,7 @@ type UnorderedWriter struct {
 	expiresAt                  *time.Time
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}

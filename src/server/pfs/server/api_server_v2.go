@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"time"
 
@@ -61,7 +60,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
 		var bytesRead int64
-		if _, err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
 			for {
 				req, err := server.Recv()
 				if err != nil {
@@ -322,13 +321,12 @@ func (a *apiServerV2) BuildCommit(ctx context.Context, request *pfs.BuildCommitR
 
 // CreateTmpFileset implements the pfs.CreateTmpFileSet RPC
 func (a *apiServerV2) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
-	fsID, expiresAt, err := a.driver.createTmpFileSet(server)
+	fsID, err := a.driver.createTmpFileSet(server)
 	if err != nil {
 		return err
 	}
 	return server.SendAndClose(&pfs.CreateTmpFileSetResponse{
 		FilesetId: fsID,
-		ExpiresAt: expiresAt.Unix(),
 	})
 }
 
@@ -343,36 +341,4 @@ func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFile
 		FilesetId: req.FilesetId,
 		ExpiresAt: t.Unix(),
 	}, nil
-}
-
-// ListCommit implements the protobuf pfs.ListCommit RPC
-func (a *apiServerV2) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if request.GetFrom().GetRepo().GetName() == tmpRepo {
-		return nil, errors.Errorf("cannot list commits on __tmp__")
-	}
-	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number, request.Reverse)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.CommitInfos{
-		CommitInfo: commitInfos,
-	}, nil
-}
-
-// ListCommitStream implements the protobuf pfs.ListCommitStream RPC
-func (a *apiServerV2) ListCommitStream(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	sent := 0
-	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
-	}(time.Now())
-	if request.GetFrom().GetRepo().GetName() == tmpRepo {
-		return errors.Errorf("cannot list commits on __tmp__")
-	}
-	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
-		sent++
-		return respServer.Send(ci)
-	})
 }

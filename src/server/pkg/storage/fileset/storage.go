@@ -77,7 +77,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	fileSet = applyPrefix(fileSet)
 	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
