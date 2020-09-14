@@ -331,16 +331,13 @@ func (a *apiServerV2) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) er
 }
 
 // RenewTmpFileSet implements the pfs.RenewTmpFileSet RPC
-func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*pfs.RenewTmpFileSetResponse, error) {
-	ttl := time.Duration(req.ExtendSeconds) * time.Second
-	t, err := a.driver.renewTmpFileSet(ctx, req.FilesetId, ttl)
+func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	ttl := time.Duration(req.TtlSeconds) * time.Second
+	err := a.driver.renewTmpFileSet(ctx, req.FilesetId, ttl)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.RenewTmpFileSetResponse{
-		FilesetId: req.FilesetId,
-		ExpiresAt: t.Unix(),
-	}, nil
+	return &types.Empty{}, nil
 }
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run

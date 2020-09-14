@@ -435,8 +435,8 @@ type globFileV2Func func(*pfs.GlobFileRequest, pfs.API_GlobFileV2Server) error
 type inspectFileFuncV2 func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
 type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
 type walkFileFuncV2 func(*pfs.WalkFileRequest, pfs.API_WalkFileV2Server) error
-type createTempFileSetFunc func(pfs.API_CreateTempFileSetServer) error
-type renewTempFileSetFunc func(context.Context, *pfs.RenewTempFileSetRequest) (*pfs.CreateTempFileSetResponse, error)
+type createTmpFileSetFunc func(pfs.API_CreateTmpFileSetServer) error
+type renewTmpFileSetFunc func(context.Context, *pfs.RenewTmpFileSetRequest) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -476,8 +476,8 @@ type mockGlobFileV2 struct{ handler globFileV2Func }
 type mockDiffFileV2 struct{ handler diffFileV2Func }
 type mockInspectFileV2 struct{ handler inspectFileFuncV2 }
 type mockWalkFileV2 struct{ handler walkFileFuncV2 }
-type mockCreateTempFileSet struct{ handler createTempFileSetFunc }
-type mockRenewTempFileSet struct{ handler renewTempFileSetFunc }
+type mockCreateTmpFileSet struct{ handler createTmpFileSetFunc }
+type mockRenewTmpFileSet struct{ handler renewTmpFileSetFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                   { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)                 { mock.handler = cb }
@@ -517,8 +517,8 @@ func (mock *mockGlobFileV2) Use(cb globFileV2Func)                   { mock.hand
 func (mock *mockDiffFileV2) Use(cb diffFileV2Func)                   { mock.handler = cb }
 func (mock *mockInspectFileV2) Use(cb inspectFileFuncV2)             { mock.handler = cb }
 func (mock *mockWalkFileV2) Use(cb walkFileFuncV2)                   { mock.handler = cb }
-func (mock *mockCreateTempFileSet) Use(cb createTempFileSetFunc)     { mock.handler = cb }
-func (mock *mockRenewTempFileSet) Use(cb renewTempFileSetFunc)       { mock.handler = cb }
+func (mock *mockCreateTmpFileSet) Use(cb createTmpFileSetFunc)       { mock.handler = cb }
+func (mock *mockRenewTmpFileSet) Use(cb renewTmpFileSetFunc)         { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -564,8 +564,8 @@ type mockPFSServer struct {
 	WalkFileV2          mockWalkFileV2
 	GlobFileV2          mockGlobFileV2
 	DiffFileV2          mockDiffFileV2
-	CreateTempFileSet   mockCreateTempFileSet
-	RenewTempFileSet    mockRenewTempFileSet
+	CreateTmpFileSet    mockCreateTmpFileSet
+	RenewTmpFileSet     mockRenewTmpFileSet
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -796,17 +796,17 @@ func (api *pfsServerAPI) WalkFileV2(req *pfs.WalkFileRequest, serv pfs.API_WalkF
 	}
 	return errors.Errorf("unhandled pachd mock pfs.WalkFileV2")
 }
-func (api *pfsServerAPI) CreateTempFileSet(srv pfs.API_CreateTempFileSetServer) error {
-	if api.mock.CreateTempFileSet.handler != nil {
-		return api.mock.CreateTempFileSet.handler(srv)
+func (api *pfsServerAPI) CreateTmpFileSet(srv pfs.API_CreateTmpFileSetServer) error {
+	if api.mock.CreateTmpFileSet.handler != nil {
+		return api.mock.CreateTmpFileSet.handler(srv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.WalkFileV2")
+	return errors.Errorf("unhandled pachd mock pfs.CreateTmpFileSet")
 }
-func (api *pfsServerAPI) RenewTempFileSet(ctx context.Context, req *pfs.RenewTempFileSetRequest) (*pfs.CreateTempFileSetResponse, error) {
-	if api.mock.RenewTempFileSet.handler != nil {
-		return api.mock.RenewTempFileSet.handler(ctx, req)
+func (api *pfsServerAPI) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	if api.mock.RenewTmpFileSet.handler != nil {
+		return api.mock.RenewTmpFileSet.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.RenewTempFileSet")
+	return nil, errors.Errorf("unhandled pachd mock pfs.RenewTmpFileSet")
 }
 
 /* PPS Server Mocks */

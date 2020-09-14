@@ -413,7 +413,7 @@ func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequ
 func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
 	return nil, unsupportedError("CreateTmpFileSet")
 }
-func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*pfs.RenewTmpFileSetResponse, error) {
+func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RenewTmpFileSet")
 }
 

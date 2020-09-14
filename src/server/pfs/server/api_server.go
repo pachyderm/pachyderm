@@ -644,7 +644,7 @@ func (a *apiServer) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) erro
 }
 
 // RenewTempFileSet not implemented
-func (a *apiServer) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*pfs.RenewTmpFileSetResponse, error) {
+func (a *apiServer) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
 	return nil, errV2NotImplemented
 }
 

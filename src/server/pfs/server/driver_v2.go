@@ -987,12 +987,18 @@ func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (stri
 	return id, nil
 }
 
-func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) (time.Time, error) {
+func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
 	if ttl > maxTTL {
-		return time.Time{}, errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
+		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
+	}
+	// check that it is the correct length, to prevent malicious renewing of multiple filesets
+	// len(hex(uuid)) == 32
+	if len(id) != 32 {
+		return errors.Errorf("invalid id (%s)", id)
 	}
 	p := path.Join(tmpRepo, id)
-	return d.storage.RenewFileSet(ctx, p, ttl)
+	_, err := d.storage.RenewFileSet(ctx, p, ttl)
+	return err
 }
 
 func (d *driverV2) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
