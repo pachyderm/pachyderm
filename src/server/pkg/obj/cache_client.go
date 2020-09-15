@@ -138,6 +138,9 @@ type cacheWriter struct {
 }
 
 func (cw *cacheWriter) Close() error {
+	if err := cw.WriteCloser.Close(); err != nil {
+		return err
+	}
 	cw.client.mu.Lock()
 	defer cw.client.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
