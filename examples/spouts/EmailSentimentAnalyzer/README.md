@@ -132,9 +132,8 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    $ docker push <docker-account-name>/sentimentalist:1.11
    ```
    
-1. Edit the pipeline definition files to refer to your own docker repo.
-   Put your own docker account name in for `<docker-account-name>`.
-   There are prebuilt images for both pipelines in the Pachyderm DockerHub registry account, if you want to use those.
+1. Edit the pipeline definition files to refer to your own docker repo, 
+   if you don't use the prebuild images.
    
    ```sh
    $ sed s/pachyderm/<docker-account-name>/g < sentimentalist.json > my_sentimentalist.json
@@ -184,7 +183,7 @@ A couple of things to note, to expand on the [Pachyderm spout](http://docs.pachy
    along with the named pipe's file object,
    to ensure that the `tarfile` object won't try to `seek` on the named pipe `/pfs/out`.
    If you forget this argument, you're likely to to see errors like `file stream is not seekable` in your `pachctl logs` for the pipeline.
-1. Every time you `close()` `/pfs/out`, it's a commit.
+1. Every time you `close()` the `tarfile` , it's a commit.
 1. Note that `open_pipe` backs off and attempts to open `/pfs/out` if any errors happen.
    Sometimes it'll take the spout a little bit of time to reopen`/pfs/out` after out code closes it for a commit;
    the backoff is insurance.
