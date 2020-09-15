@@ -181,6 +181,33 @@ gatk-delete:
 	-$(PACHCTL) delete repo reference
 	-$(PACHCTL) delete repo samples
 
+bc-single-stage:
+	$(PACHCTL) create repo models
+	$(PACHCTL) create repo sample_data
+	$(PACHCTL) put file -r models@master:/ -f ml/breast-cancer-detection/models/
+	$(PACHCTL) put file -r sample_data@master:/ -f ml/breast-cancer-detection/sample_data/single-batch/
+	$(PACHCTL) create pipeline -f ml/breast-cancer-detection/single-stage/bc_classification.json 
+
+bc-multi-stage:
+	$(PACHCTL) create repo models
+	$(PACHCTL) create repo sample_data
+	$(PACHCTL) put file -r models@master:/ -f ml/breast-cancer-detection/models/
+	$(PACHCTL) put file -r sample_data@master:/ -f ml/breast-cancer-detection/sample_data/multi-processed/
+	$(PACHCTL) create pipeline -f ml/breast-cancer-detection/multi-stage/crop.json
+	$(PACHCTL) create pipeline -f ml/breast-cancer-detection/multi-stage/extract_centers.json
+	$(PACHCTL) create pipeline -f ml/breast-cancer-detection/multi-stage/generate_heatmaps.json
+	$(PACHCTL) create pipeline -f ml/breast-cancer-detection/multi-stage/classify.json
+
+bc-delete:
+	$(PACHCTL) delete pipeline bc_classification
+	$(PACHCTL) delete pipeline bc_classification_cpu
+	$(PACHCTL) delete pipeline classify
+	$(PACHCTL) delete pipeline generate_heatmaps
+	$(PACHCTL) delete pipeline extract_centers
+	$(PACHCTL) delete pipeline crop
+	$(PACHCTL) delete repo sample_data
+	$(PACHCTL) delete repo models
+
 delete:
 	yes | $(PACHCTL) delete all
 

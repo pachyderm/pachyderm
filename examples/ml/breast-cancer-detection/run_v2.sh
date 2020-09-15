@@ -6,7 +6,7 @@ NUM_EPOCHS=10
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
 
-DATA_FOLDER='/pfs/sample_data/images'
+DATA_FOLDER='/pfs/sample_data/'
 INITIAL_EXAM_LIST_PATH='/pfs/sample_data/exam_list_before_cropping.pkl'
 PATCH_MODEL_PATH='/pfs/models/sample_patch_model.p'
 IMAGE_MODEL_PATH='/pfs/models/sample_image_model.p'

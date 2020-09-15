@@ -1,13 +1,17 @@
 # Breast Cancer Detection
-This example shows the application and parallelization of a state-of-the-art computer vision architecture applied to radiology images taken during breast cancer scans.
 
-The underlying code and model comes from [this repo](https://github.com/nyukat/breast_cancer_classifier), developed by a team at NYU. There are different ways to scale inference pipelines and deep learning models. Here we decided to separate out the CPU-based preprocessing and GPU-related tasks. By separating the inference tasks, pipelines can be updated independently, allowing ease of model deployment and collaboration.
+In this example, we create a scalable inference pipeline for breast cancer detection. 
+
+There are different ways to scale inference pipelines and deep learning models. Here we decided to separate out the CPU-based preprocessing and GPU-related tasks. By separating the inference tasks, pipelines can be updated independently, allowing ease of model deployment and collaboration.
+
+The underlying code and model comes from [this repo](https://github.com/nyukat/breast_cancer_classifier), developed by a team at NYU. The original paper can be found [here](https://ieeexplore.ieee.org/document/8861376).
 
 
 ## Running the Example
-This example takes an existing repo and runs it on pachyderm. There are many ways to structure the data and models, so we decided to show two different implementations with the same outcome. A single pipeline and a parallelized pipeline. 
 
-### Single Pipeline
+This example takes an existing repo that performs breast cancer detection and classification and runs it on Pachyderm to illustrate Pachyderm parallelism and ease of integration.
+
+<!-- ### Single Stage Pipeline
 This pipeline executes the `run.sh` script as the entrypoint and instead of reading everything from the local file system, it reads and writes to the Pachyderm file system (PFS). This single pipeline implementation doesn’t provide scaling, but rather, moves the computation to Kubernetes, showing how easy it can be to convert an existing repository to Pachyderm.
 
 The data inputs for the simple pipeline are organized into 2 groups: models and image data. These inputs are "crossed" which tells pachyderm to rerun the computation whenever the input changes. This is beneficial when models change, however it would re-predict on all scans whenever a new one is added. We’ll parallelize this in the next section.
@@ -22,13 +26,33 @@ pachctl put file -r sample_data@master:/ -f sample_data/single-batch/
 pachctl create pipeline -f pachyderm/single_stage/bc_classification.json
 ```
 
-Note: There are also CPU versions of the pipeline if GPUs are not available.
+Note: There are also CPU versions of the pipeline if GPUs are not available. -->
 
-### Parallelized
+### Pachyderm Parallelism
 
-Now that we have a proof-of-concept that runs in a single pipeline, let’s split it into multiple that can be scaled individually and take advantage of Pachyderm’s parallelism.
+In this example, we perform two types of parallelism:
 
-Pachyderm allows for parallelism based on the data model that is instituted. We will treat each exam (4 images and a list file) as a single datum, allowing us to parallelize computation for each exam that is added. the file structure for the `sample_data` will be organized as follows: 
+1. Task parallelism - split the `run.sh` script into different steps.
+2. Data parallelism - distribute the data so that each exam can be processed in parallel.
+
+#### Task Parallelism
+
+Many machine learning project rely on data preprocessing before the model is run. It often does not require GPU acceleration, and can be scaled separately from the GPU inference code. 
+
+We split the `run.sh` script into 4 separate processing steps (already defined in the script) which will become Pachyderm pipelines, so each can be scaled separately.
+
+1. Crop
+2. Extract Centers
+3. Generate Heatmaps
+4. Classify
+
+Image cropping and extracting centers are process intensive, however they do not require GPUs. By separating steps 1-2, we can avoid allocating GPU resources until after the data is prepared.
+
+#### Data Parallelism
+
+Pachyderm is built with the intention of performing data parallelism. By defining glob patterns in our pipeline, we can specify how Pachyderm should split the data so that the code can execute as parallel jobs without having to modify the underlying implementation.
+
+We will treat each exam (4 images and a list file) as a single datum. Each datum will be processed individually, allowing parallelize computation for each exam that is added. The file structure for our `sample_data` will be organized as follows:
 
 ```
 sample_data/
@@ -47,38 +71,32 @@ sample_data/
 ...
 ```
 
-Note: The `gen_exam_list_before_cropping.pkl` is a pickled version of the image list, a requirement of the underlying library being used. 
-
-
-For simplicity in development, we split the original run script into the four stages already present in it:
-
-- Crop
-- Extract Centers
-- Generate Heatmaps
-- Classify
+Note: The `gen_exam_list_before_cropping.pkl` is a pickled version of the image list, a requirement of the underlying library being used.
 
 The final pipeline graph (directed acyclic graph, or DAG) is shown in the image below.
 
 <p align="center">
-  <img width="200" height="380" src="images/bc_dag.png">
+  <img width="300" src="images/bc_dag.png">
 </p>
 
-Creating the entire DAG can be done with the following commands:
+The entire DAG can be created with the following commands:
 
 ```bash
 pachctl create repo models
 pachctl create repo sample_data
 pachctl put file -r models@master:/ -f models/
 pachctl put file -r sample_data@master:/ -f sample_data/multi-processed/
-pachctl create pipeline -f pachyderm/multi-stage/crop.json
-pachctl create pipeline -f pachyderm/multi-stage/extract_centers.json
-pachctl create pipeline -f pachyderm/multi-stage/generate_heatmaps.json
-pachctl create pipeline -f pachyderm/multi-stage/classify.json
+pachctl create pipeline -f multi-stage/crop.json
+pachctl create pipeline -f multi-stage/extract_centers.json
+pachctl create pipeline -f multi-stage/generate_heatmaps.json
+pachctl create pipeline -f multi-stage/classify.json
 ```
 
-Once this DAG of pipelines is set up, running new data only requires you to upload the images from the scan. Pachyderm automatically detects that there is a new datum present and starts the classification process. 
+Once this DAG of pipelines is set up, you only need to upload new images to run the classification on the new data. Pachyderm automatically detects that a new, unprocessed datum is present and starts each job once when it is ready to process.
 
-The pipeline system is so sophisticated that if we changed one of the models in the `models` repository, everything that depended on the input from that repository would know that it needed to update and automatically queue jobs to classify the new scan. 
+## Updating Models
+
+Pachyderm's pipeline system can also combine inputs in useful ways. Because we have separated out the models from our data, we can update the models independently and Pachyderm will know which predictions came from which models. Furthermore, we can have it reprocess data with the updated model by defining our input glob patterns appropriately. The `generate_heatmaps` and `classify` pipelines already have this pattern in their input definitions (the `cross` object). For more information on cross glob patterns see our documentation [here](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/cross-union/#cross-input).
 
 
 ## Citations

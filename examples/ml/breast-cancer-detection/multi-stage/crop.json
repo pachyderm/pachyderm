@@ -15,6 +15,6 @@
       "/bin/bash",
       "pachyderm/multi-stage/crop.sh"
     ],
-    "image": "jimmywhitaker/breast_cancer_classifier:dev0.22"
+    "image": "jimmywhitaker/breast_cancer_classifier:dev0.23"
   }
 }

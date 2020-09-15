@@ -44,7 +44,7 @@
             "/bin/bash",
             "pachyderm/multi-stage/classify.sh"
         ],
-        "image": "jimmywhitaker/breast_cancer_classifier:dev0.22"
+        "image": "jimmywhitaker/breast_cancer_classifier:dev0.23"
     },
     "resource_limits": {
         "gpu": {
