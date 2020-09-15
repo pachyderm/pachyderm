@@ -32,6 +32,7 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
+// WithObjectCache adds a cache around the currently configured object client
 func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
 	return func(s *Storage) {
 		s.objClient = obj.NewCacheClient(s.objClient, fastLayer, size)
