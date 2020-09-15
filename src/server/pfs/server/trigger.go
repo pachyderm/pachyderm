@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
@@ -40,32 +41,50 @@ func (d *driver) triggerCommit(
 			headBranches[b.Name] = true
 		}
 	}
+	triggeredBranches := map[string]bool{}
 	var result []*pfs.Branch
-	for _, b := range repoInfo.Branches {
-		if err := branches.Get(b.Name, bi); err != nil {
-			return nil, err
+	var triggerBranch func(branch string) error
+	triggerBranch = func(branch string) error {
+		if triggeredBranches[branch] {
+			return nil
 		}
-		if bi.Trigger != nil && headBranches[bi.Trigger.Branch] {
-			var oldHead *pfs.CommitInfo
-			if bi.Head != nil {
-				oldHead = &pfs.CommitInfo{}
-				if err := commits.Get(bi.Head.ID, oldHead); err != nil {
-					return nil, err
+		triggeredBranches[branch] = true
+		if err := branches.Get(branch, bi); err != nil {
+			return err
+		}
+		if bi.Trigger != nil {
+			if err := triggerBranch(bi.Trigger.Branch); err != nil {
+				return err
+			}
+			if headBranches[bi.Trigger.Branch] {
+				var oldHead *pfs.CommitInfo
+				if bi.Head != nil {
+					oldHead = &pfs.CommitInfo{}
+					if err := commits.Get(bi.Head.ID, oldHead); err != nil {
+						return err
+					}
+				}
+				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
+				if err != nil {
+					return err
+				}
+				if triggered {
+					if err := branches.Update(bi.Name, bi, func() error {
+						bi.Head = newHead.Commit
+						return nil
+					}); err != nil {
+						return err
+					}
+					result = append(result, client.NewBranch(commit.Repo.Name, branch))
+					headBranches[bi.Branch.Name] = true
 				}
 			}
-			triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
-			if err != nil {
-				return nil, err
-			}
-			if triggered {
-				if err := branches.Update(bi.Name, bi, func() error {
-					bi.Head = newHead.Commit
-					return nil
-				}); err != nil {
-					return nil, err
-				}
-				result = append(result, b)
-			}
+		}
+		return nil
+	}
+	for _, b := range repoInfo.Branches {
+		if err := triggerBranch(b.Name); err != nil {
+			return nil, err
 		}
 	}
 	return result, nil
