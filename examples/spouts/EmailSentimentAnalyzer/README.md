@@ -183,7 +183,7 @@ A couple of things to note, to expand on the [Pachyderm spout](http://docs.pachy
    along with the named pipe's file object,
    to ensure that the `tarfile` object won't try to `seek` on the named pipe `/pfs/out`.
    If you forget this argument, you're likely to to see errors like `file stream is not seekable` in your `pachctl logs` for the pipeline.
-1. Every time you `close()` the `tarfile` , it's a commit.
+1. Every time you `close()`  `tarfile`, it's a commit.
 1. Note that `open_pipe` backs off and attempts to open `/pfs/out` if any errors happen.
    Sometimes it'll take the spout a little bit of time to reopen`/pfs/out` after out code closes it for a commit;
    the backoff is insurance.
