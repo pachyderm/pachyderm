@@ -6630,21 +6630,21 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 
 			// Still no trigger, not enough time or commits
 			_, err = c.PutFile("and", "master", "file5", strings.NewReader(strings.Repeat("a", 100)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 
 			// Still no trigger, not enough time
 			_, err = c.PutFile("and", "master", "file6", strings.NewReader(strings.Repeat("a", 100)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head)
+			require.Equal(t, head, bi.Head.ID)
 
 			time.Sleep(time.Minute)
 
@@ -6653,7 +6653,71 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("and", "trigger")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head)
+			require.NotEqual(t, head, bi.Head.ID)
+		})
+		t.Run("Chain", func(t *testing.T) {
+			// a triggers b which triggers c
+			require.NoError(t, c.CreateRepo("chain"))
+			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", &pfs.Trigger{
+				Branch: "a",
+				Size_:  "100",
+			}))
+			require.NoError(t, c.CreateBranchTrigger("chain", "c", "", &pfs.Trigger{
+				Branch: "b",
+				Size_:  "200",
+			}))
+			_, err := c.PutFile("chain", "a", "file1", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err := c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			_, err = c.PutFile("chain", "a", "file2", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			bHead := bi.Head.ID
+			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			_, err = c.PutFile("chain", "a", "file3", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			require.Equal(t, bHead, bi.Head.ID)
+			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			_, err = c.PutFile("chain", "a", "file4", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			require.NotEqual(t, bHead, bi.Head.ID)
+			bHead = bi.Head.ID
+			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			cHead := bi.Head.ID
+
+			_, err = c.PutFile("chain", "a", "file5", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			bi, err = c.InspectBranch("chain", "b")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			require.Equal(t, bHead, bi.Head.ID)
+			bHead = bi.Head.ID
+			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			require.Equal(t, cHead, bi.Head.ID)
 		})
 
 		return nil
