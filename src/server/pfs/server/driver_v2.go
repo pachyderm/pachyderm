@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"path"
@@ -37,7 +38,7 @@ const (
 	// Paths should get cleaned up in the background.
 	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
-	tmpRepo              = client.TempRepoName
+	tmpRepo              = client.TmpRepoName
 	maxTTL               = 30 * time.Minute
 )
 
@@ -223,7 +224,15 @@ func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, 
 }
 
 func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfo) error) error {
+	if _, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED); err != nil {
+		return err
+	}
 	ctx := pachClient.Ctx()
+	fmt.Println("ccp", compactedCommitPath(file.Commit))
+	d.storage.WalkFileSet(ctx, path.Join(tmpRepo, file.Commit.ID), func(p string) error {
+		fmt.Println("walk2", p)
+		return nil
+	})
 	name := cleanPath(file.Path)
 	s := NewSource(file.Commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))

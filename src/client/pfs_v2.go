@@ -97,7 +97,7 @@ func (c APIClient) NewCreateTmpFileSetClient() (ret *CreateTmpFileSetClient, ret
 }
 
 // Close closes the FileOperationClient.
-func (foc *CreateTmpFileSetClient) CloseAndRecv() (*pfs.CreateTmpFileSetResponse, error) {
+func (foc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
 	var ret *pfs.CreateTmpFileSetResponse
 	if err := foc.maybeError(func() error {
 		resp, err := foc.client.CloseAndRecv()
@@ -318,12 +318,12 @@ func (r *getTarConditionalReader) drain() error {
 	}
 }
 
-const TempRepoName = "__tmp__"
+const TmpRepoName = "__tmp__"
 
 // TmpFileSetCommit
 func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
 	return &pfs.Commit{
 		ID:   fileSetID,
-		Repo: &pfs.Repo{Name: TempRepoName},
+		Repo: &pfs.Repo{Name: TmpRepoName},
 	}
 }

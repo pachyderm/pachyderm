@@ -1167,3 +1167,34 @@ func TestCopyFile2(t *testing.T) {
 	}, conf)
 	require.NoError(t, err)
 }
+
+func TestTmpFileSet(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	conf := newPachdConfig()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		pclient, err := env.PachClient.NewCreateTmpFileSetClient()
+		require.NoError(t, err)
+		data := []byte("test data")
+		spec := fileSetSpec{
+			"file1.txt": tarutil.NewMemFile("file1.txt", data),
+			"file2.txt": tarutil.NewMemFile("file2.txt", data),
+		}
+		require.NoError(t, pclient.PutTar(spec.makeTarStream()))
+		resp, err := pclient.Close()
+		require.NoError(t, err)
+		t.Logf("tmp fileset id: %s", resp.FilesetId)
+		fileInfos := []*pfs.FileInfo{}
+		require.NoError(t, env.PachClient.ListFileV2(client.TmpRepoName, resp.FilesetId, "/", func(fi *pfs.FileInfo) error {
+			fileInfos = append(fileInfos, fi)
+			return nil
+		}))
+		t.Log(fileInfos)
+		require.Equal(t, 2, len(fileInfos))
+		fmt.Println(fileInfos)
+		return nil
+	}, conf)
+	require.NoError(t, err)
+}
