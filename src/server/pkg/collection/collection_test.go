@@ -253,7 +253,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline, job, DefaultOptions, func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline, job, DefaultOptions(), func(ID string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1.Job.ID, ID)
@@ -269,7 +269,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline, job, DefaultOptions, func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline, job, DefaultOptions(), func(ID string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3.Job.ID, ID)
@@ -413,7 +413,7 @@ func TestMultiIndex(t *testing.T) {
 	// Test that the first key retrieves both r1 and r2
 	ci := &pfs.CommitInfo{}
 	i := 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions(), func(ID string) error {
 		if i == 1 {
 			require.Equal(t, c1.Commit.ID, ID)
 			require.Equal(t, c1, ci)
@@ -427,7 +427,7 @@ func TestMultiIndex(t *testing.T) {
 
 	// Test that the second key retrieves both r1 and r2
 	i = 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"), ci, DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"), ci, DefaultOptions(), func(ID string) error {
 		if i == 1 {
 			require.Equal(t, c1.Commit.ID, ID)
 			require.Equal(t, c1, ci)
@@ -449,14 +449,14 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c3" only retrieves c2 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"), ci, DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"), ci, DefaultOptions(), func(ID string) error {
 		require.Equal(t, c2.Commit.ID, ID)
 		require.Equal(t, c2, ci)
 		return nil
 	}))
 
 	// And "C4" only retrieves r1 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"), ci, DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"), ci, DefaultOptions(), func(ID string) error {
 		require.Equal(t, c1.Commit.ID, ID)
 		require.Equal(t, c1, ci)
 		return nil
@@ -471,7 +471,7 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c1" only retrieves c2
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions, func(ID string) error {
+	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions(), func(ID string) error {
 		require.Equal(t, c2.Commit.ID, ID)
 		require.Equal(t, c2, ci)
 		return nil
@@ -606,7 +606,7 @@ func TestIteration(t *testing.T) {
 		ro := col.ReadOnly(context.Background())
 		val := &types.Empty{}
 		i := numVals - 1
-		require.NoError(t, ro.List(val, DefaultOptions, func(key string) error {
+		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
 			require.Equal(t, fmt.Sprintf("%d", i), key)
 			i--
 			return nil
@@ -631,7 +631,7 @@ func TestIteration(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := col.ReadOnly(context.Background())
 		val := &types.Empty{}
-		require.NoError(t, ro.List(val, DefaultOptions, func(key string) error {
+		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
 			require.False(t, vals[key], "saw value %s twice", key)
 			vals[key] = true
 			return nil
@@ -656,7 +656,7 @@ func TestIteration(t *testing.T) {
 		val := &pfs.Repo{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}
-		require.NoError(t, ro.List(val, DefaultOptions, func(key string) error {
+		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
 			require.False(t, vals[key], "saw value %s twice", key)
 			vals[key] = true
 			valsOrder = append(valsOrder, key)
@@ -668,7 +668,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &Options{etcd.SortByCreateRevision, etcd.SortAscend, true}, func(key string) error {
+		require.NoError(t, ro.List(val, &Options{etcd.SortByCreateRevision, etcd.SortAscend}, func(key string) error {
 			require.False(t, vals[key], "saw value %s twice", key)
 			vals[key] = true
 			valsOrder = append(valsOrder, key)

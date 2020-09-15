@@ -562,10 +562,10 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(repoName string) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+		if err := commits.List(commitInfo, col.DefaultOptions(), func(commitID string) error {
 			commitInfos[key(repoName, commitID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 			return nil
 		}); err != nil {
@@ -573,7 +573,7 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		}
 		branches := d.branches(repoName).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
-		return branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
+		return branches.List(branchInfo, col.DefaultOptions(), func(branchName string) error {
 			branchInfos[key(repoName, branchName)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		})
@@ -906,7 +906,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -969,7 +969,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+	if err := commits.List(commitInfo, col.DefaultOptions(), func(commitID string) error {
 		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
@@ -2080,7 +2080,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp (or reversed if so requested.)
-		opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+		opts := col.DefaultOptions()
 		if reverse {
 			opts.Order = etcd.SortAscend
 		}
@@ -2107,7 +2107,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			return nil
 		}
 		lastRev := int64(-1)
-		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+		if err := commits.ListRev(ci, opts, func(commitID string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -2824,7 +2824,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+	opts := col.DefaultOptions()
 	if reverse {
 		opts.Order = etcd.SortAscend
 	}
@@ -2839,7 +2839,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		bis = nil
 	}
 	lastRev := int64(-1)
-	if err := branches.ListRev(branchInfo, &opts, func(branch string, createRev int64) error {
+	if err := branches.ListRev(branchInfo, opts, func(branch string, createRev int64) error {
 		if createRev != lastRev {
 			sendBis()
 			lastRev = createRev
@@ -3540,7 +3540,7 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 
 	recordsCol := d.putFileRecords.ReadOnly(pachClient.Ctx())
 	putFileRecords := &pfs.PutFileRecords{}
-	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
+	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend}
 	err = recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
 		return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 	})

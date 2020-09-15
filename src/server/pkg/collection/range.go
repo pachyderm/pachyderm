@@ -1,7 +1,6 @@
 package collection
 
 import (
-	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -16,15 +15,15 @@ import (
 
 // Options are the sort options when iterating through etcd key/values.
 // Currently implemented sort targets are CreateRevision and ModRevision.
-// The sorting can be done in the calling process by setting SelfSort to true.
 type Options struct {
-	Target   etcd.SortTarget
-	Order    etcd.SortOrder
-	SelfSort bool
+	Target etcd.SortTarget
+	Order  etcd.SortOrder
 }
 
 // DefaultOptions are the default sort options when iterating through etcd key/values.
-var DefaultOptions = &Options{etcd.SortByCreateRevision, etcd.SortDescend, false}
+func DefaultOptions() *Options {
+	return &Options{etcd.SortByCreateRevision, etcd.SortDescend}
+}
 
 func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {
 	var from func(*mvccpb.KeyValue) etcd.OpOption
@@ -103,47 +102,6 @@ func getNewKeys(respKvs []*mvccpb.KeyValue, fromKey *mvccpb.KeyValue) []*mvccpb.
 type kvSort struct {
 	kvs     []*mvccpb.KeyValue
 	compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
-}
-
-func listSelfSortRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	etcdOpts := []etcd.OpOption{etcd.WithFromKey(), etcd.WithRange(endKeyFromPrefix(prefix))}
-	fromKey := prefix
-	kvs := []*mvccpb.KeyValue{}
-	for {
-		resp, done, err := getWithLimit(c, fromKey, limitPtr, etcdOpts)
-		if err != nil {
-			return err
-		}
-		if fromKey == prefix {
-			kvs = append(kvs, resp.Kvs...)
-		} else {
-			kvs = append(kvs, resp.Kvs[1:]...)
-		}
-		if done {
-			break
-		}
-		fromKey = string(kvs[len(kvs)-1].Key)
-	}
-	_, compare := listFuncs(opts)
-	sorter := &kvSort{kvs, compare}
-	switch opts.Order {
-	case etcd.SortAscend:
-		sort.Sort(sorter)
-	case etcd.SortDescend:
-		sort.Sort(sort.Reverse(sorter))
-	}
-	for _, kv := range kvs {
-		if strings.Contains(strings.TrimPrefix(string(kv.Key), prefix), indexIdentifier) {
-			continue
-		}
-		if err := f(kv); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-	return nil
 }
 
 func endKeyFromPrefix(prefix string) string {

@@ -47,7 +47,7 @@ var (
 
 	// TraceGetOpts are the default options for retrieving a trace from
 	// 'TracesCol'
-	TraceGetOpts = &col.Options{Target: etcd.SortByKey, Order: etcd.SortNone, SelfSort: false}
+	TraceGetOpts = &col.Options{Target: etcd.SortByKey, Order: etcd.SortNone}
 )
 
 // TracesCol returns the etcd collection of extended traces

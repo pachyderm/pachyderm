@@ -554,10 +554,6 @@ func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f fun
 }
 
 func (c *etcdReadOnlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	if opts.SelfSort {
-		return listSelfSortRevision(c, prefix, limitPtr, opts, f)
-	}
-
 	return listRevision(c, prefix, limitPtr, opts, f)
 }
 

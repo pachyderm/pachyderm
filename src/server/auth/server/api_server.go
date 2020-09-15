@@ -2460,7 +2460,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	membersCol := a.members.ReadOnly(ctx)
 	groups := &auth.Groups{}
 	var users []string
-	if err := membersCol.List(groups, col.DefaultOptions, func(user string) error {
+	if err := membersCol.List(groups, col.DefaultOptions(), func(user string) error {
 		users = append(users, user)
 		return nil
 	}); err != nil {
