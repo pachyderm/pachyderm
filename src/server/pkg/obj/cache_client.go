@@ -96,7 +96,7 @@ func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 	if !c.cache.Contains(p) {
 		return nil
 	}
-	if err := c.fast.Delete(ctx, p); err != nil {
+	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
 		return err
 	}
 	c.cache.Remove(p)
@@ -108,10 +108,10 @@ func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 func (c *cacheClient) onEvicted(key, value interface{}) {
 	p := key.(string)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	if err := c.fast.Delete(ctx, p); err != nil {
-		log.Error("could not delete from cache's fast store")
+	defer cancel()
+	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
+		log.Error("could not delete from cache's fast store: %v", err)
 	}
-	cancel()
 }
 
 func (c *cacheClient) populate(ctx context.Context) error {
@@ -125,8 +125,9 @@ func (c *cacheClient) populate(ctx context.Context) error {
 
 func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 	c.populateOnce.Do(func() {
-		err := c.populate(ctx)
-		log.Warnf("could not populate cache: %v", err)
+		if err := c.populate(ctx); err != nil {
+			log.Warnf("could not populate cache: %v", err)
+		}
 	})
 }
 

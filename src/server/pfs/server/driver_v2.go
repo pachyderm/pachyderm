@@ -64,7 +64,11 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
+	chunkStorageOpts, err := chunk.ServiceEnvToOptions(env)
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts = append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkStorageOpts...)
 	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
