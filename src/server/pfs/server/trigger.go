@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
@@ -106,7 +107,7 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 		size, err := units.FromHumanSize(t.Size_)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
-			return false, err
+			return false, errors.EnsureStack(err)
 		}
 		var oldSize uint64
 		if oldHead != nil {
@@ -119,19 +120,19 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 		schedule, err := cron.ParseStandard(t.CronSpec)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
-			return false, err
+			return false, errors.EnsureStack(err)
 		}
 		var oldTime, newTime time.Time
 		if oldHead != nil && oldHead.Finished != nil {
 			oldTime, err = types.TimestampFromProto(oldHead.Finished)
 			if err != nil {
-				return false, err
+				return false, errors.EnsureStack(err)
 			}
 		}
 		if newHead.Finished != nil {
 			newTime, err = types.TimestampFromProto(newHead.Finished)
 			if err != nil {
-				return false, err
+				return false, errors.EnsureStack(err)
 			}
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
@@ -154,4 +155,44 @@ func (d *driver) isTriggered(txnCtx *txnenv.TransactionContext, t *pfs.Trigger, 
 		merge(commits == t.Commits)
 	}
 	return result, nil
+}
+
+// validateTrigger returns an error if a trigger is invalid
+func (d *driver) validateTrigger(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+	if trigger == nil {
+		return nil
+	}
+	if trigger.Branch == "" {
+		return errors.Errorf("triggers must specify a branch to trigger on")
+	}
+	if _, err := cron.ParseStandard(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger cron spec")
+	}
+	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger size")
+	}
+	if trigger.Commits < 0 {
+		return errors.Errorf("can't trigger on a negative number of commits")
+	}
+	bis, err := d.listBranch(txnCtx.Client, branch.Repo, false)
+	if err != nil {
+		return err
+	}
+	biMaps := make(map[string]*pfs.BranchInfo)
+	for _, bi := range bis {
+		biMaps[bi.Branch.Name] = bi
+	}
+	b := trigger.Branch
+	for {
+		if b == branch.Name {
+			return errors.Errorf("triggers cannot form a loop")
+		}
+		bi, ok := biMaps[b]
+		if ok && bi.Trigger != nil {
+			b = bi.Trigger.Branch
+		} else {
+			break
+		}
+	}
+	return nil
 }

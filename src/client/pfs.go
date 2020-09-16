@@ -356,7 +356,9 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 	return grpcutil.ScrubGRPC(err)
 }
 
-// CreateBranchTrigger Creates a branch with a trigger
+// CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
+// provenance are mutually exclusive. See the docs on triggers to learn more
+// about why this is.
 func (c APIClient) CreateBranchTrigger(repoName string, branch string, commit string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
 	if commit != "" {

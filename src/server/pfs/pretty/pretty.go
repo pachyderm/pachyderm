@@ -83,13 +83,13 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 func printTrigger(trigger *pfs.Trigger) string {
 	var conds []string
 	if trigger.CronSpec != "" {
-		conds = append(conds, trigger.CronSpec)
+		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
 	}
 	if trigger.Size_ != "" {
-		conds = append(conds, trigger.Size_)
+		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size_))
 	}
 	if trigger.Commits != 0 {
-		conds = append(conds, fmt.Sprintf("%d commits", trigger.Commits))
+		conds = append(conds, fmt.Sprintf("Commits(%d)", trigger.Commits))
 	}
 	cond := ""
 	if trigger.All {
