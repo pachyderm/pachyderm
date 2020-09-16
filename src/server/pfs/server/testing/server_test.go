@@ -1174,7 +1174,6 @@ func TestStartCommitWithBranchNameProvenance(t *testing.T) {
 
 		newCommitInfo, err := env.PachClient.InspectCommit(newCommit.Repo.Name, newCommit.ID)
 		require.NoError(t, err)
-		fmt.Printf("%v\n", newCommitInfo.Provenance)
 
 		// Stupid require.ElementsEqual can't handle arrays of pointers
 		expectedProvenanceA := &pfs.CommitProvenance{Commit: masterCommitInfo.Commit, Branch: masterCommitInfo.Branch}
@@ -6715,6 +6714,36 @@ func TestTrigger(t *testing.T) {
 			require.Equal(t, bHead, bi.Head.ID)
 			bHead = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "c")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			require.Equal(t, cHead, bi.Head.ID)
+		})
+		t.Run("BranchMovement", func(t *testing.T) {
+			require.NoError(t, c.CreateRepo("branch-movement"))
+			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", &pfs.Trigger{
+				Branch: "b",
+				Size_:  "100",
+			}))
+
+			_, err := c.PutFile("branch-movement", "a", "file1", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", nil))
+			bi, err := c.InspectBranch("branch-movement", "c")
+			require.NoError(t, err)
+			require.Nil(t, bi.Head)
+
+			_, err = c.PutFile("branch-movement", "a", "file2", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", nil))
+			bi, err = c.InspectBranch("branch-movement", "c")
+			require.NoError(t, err)
+			require.NotNil(t, bi.Head)
+			cHead := bi.Head.ID
+
+			_, err = c.PutFile("branch-movement", "a", "file3", strings.NewReader(strings.Repeat("a", 50)))
+			require.NoError(t, err)
+			require.NoError(t, c.CreateBranch("branch-movement", "b", "a", nil))
+			bi, err = c.InspectBranch("branch-movement", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			require.Equal(t, cHead, bi.Head.ID)
