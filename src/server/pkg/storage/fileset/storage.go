@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -42,6 +43,10 @@ const (
 	Diff = "diff"
 	// Compacted is the suffix of a path that points to the compaction of the prefix.
 	Compacted = "compacted"
+)
+
+var (
+	ErrNoTTLSet = errors.Errorf("no ttl set for fileset or any subfilesets")
 )
 
 // Storage is the abstraction that manages fileset storage.
@@ -288,8 +293,10 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 	})
 }
 
-// RenewFileSet renews a temporary FileSet
-func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
+// SetTTL sets the time-to-live for the prefix. If the prefix contains multiple filesets
+// the ttl will be set on all of them and the soonest expiration time will be returned.
+func (s *Storage) SetTTL(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
+	// TODO: after we move the semantic paths to postrges the whole prefix can be set atomically.
 	var expiresAt *time.Time
 	if err := s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
 		t, err := s.chunks.RenewReference(ctx, p, ttl)
@@ -307,6 +314,69 @@ func (s *Storage) RenewFileSet(ctx context.Context, prefix string, ttl time.Dura
 		return time.Time{}, errors.Errorf("no fileset found at %s", prefix)
 	}
 	return *expiresAt, nil
+}
+
+// RenewDuring ensures that none of the filesets under prefix expire by repeatedly calling SetTTL in a separate goroutine
+// until cb returns
+func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(context.Context) error) error {
+	const defaultTTL = 10 * time.Minute
+	eg, ctx2 := errgroup.WithContext(ctx)
+	ctx2, cancel := context.WithCancel(ctx2)
+	eg.Go(func() error {
+		// TODO: add this back once GetExpiresAt is implemented
+		// expiresAt, err := s.GetExpiresAt(ctx, prefix)
+		// if err != nil {
+		// 	return err
+		// }
+		expiresAt := time.Now().Add(defaultTTL / 2)
+		var err error
+		for {
+			now := time.Now()
+			if now.After(expiresAt) {
+				return errors.Errorf("fileset has already expired")
+			}
+			remaining := expiresAt.Sub(now)
+			if err := sleepCtx(ctx2, remaining/2); err != nil {
+				return nil // return nil on context cancelled
+			}
+			expiresAt, err = s.SetTTL(ctx2, prefix, defaultTTL)
+			if err != nil {
+				return err
+			}
+		}
+	})
+	eg.Go(func() error {
+		defer cancel()
+		return cb(ctx2)
+	})
+	return eg.Wait()
+}
+
+func (s *Storage) GetExpiresAt(ctx context.Context, prefix string) (time.Time, error) {
+	var expiresAt *time.Time
+	if err := s.WalkFileSet(ctx, prefix, func(p string) error {
+		t, err := s.getExpiresAt(ctx, p)
+		if err != nil {
+			if err != ErrNoTTLSet {
+				return nil
+			}
+			return err
+		}
+		if expiresAt != nil && t.Before(*expiresAt) {
+			expiresAt = &t
+		}
+		return nil
+	}); err != nil {
+		return time.Time{}, err
+	}
+	if expiresAt == nil {
+		return time.Time{}, ErrNoTTLSet
+	}
+	return *expiresAt, nil
+}
+
+func (s *Storage) getExpiresAt(ctx context.Context, p string) (time.Time, error) {
+	panic("not implemented")
 }
 
 func (s *Storage) levelSize(i int) int64 {
@@ -377,4 +447,15 @@ func copyObject(ctx context.Context, objC obj.Client, src, dst string) error {
 		return err
 	}
 	return w.Close()
+}
+
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

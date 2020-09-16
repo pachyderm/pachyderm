@@ -1191,9 +1191,7 @@ func TestTmpFileSet(t *testing.T) {
 			fileInfos = append(fileInfos, fi)
 			return nil
 		}))
-		t.Log(fileInfos)
 		require.Equal(t, 2, len(fileInfos))
-		fmt.Println(fileInfos)
 		return nil
 	}, conf)
 	require.NoError(t, err)

@@ -1,9 +1,7 @@
 package server
 
 import (
-	"fmt"
 	"io"
-	"log"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -29,6 +27,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -40,6 +39,7 @@ const (
 	storageTaskNamespace = "storage"
 	tmpRepo              = client.TmpRepoName
 	maxTTL               = 30 * time.Minute
+	defaultTTL           = 10 * time.Minute
 )
 
 type driverV2 struct {
@@ -160,7 +160,6 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string,
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
 			retErr = err
@@ -169,16 +168,36 @@ func (d *driverV2) withUnorderedWriter(ctx context.Context, repo, commit string,
 	if err := cb(fs); err != nil {
 		return err
 	}
-	if err := fs.Close(); err != nil {
-		return err
+	return fs.Close()
+}
+
+func (d *driverV2) withTempWriter(ctx context.Context, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
+	id := uuid.NewWithoutDashes()
+	inputPath := path.Join(tmpRepo, id)
+	opts := []fileset.UnorderedWriterOption{fileset.WithWriterOption(fileset.WithTTL(defaultTTL))}
+	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
+	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
+	if err != nil {
+		return "", err
 	}
-	if err := d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-		return err
-	}); err != nil {
-		return err
+	if err := cb(uw); err != nil {
+		return "", err
 	}
-	return nil
+	if err := uw.Close(); err != nil {
+		return "", err
+	}
+	if compact {
+		outputPath := path.Join(tmpRepo, id, fileset.Compacted)
+		if _, err = d.storage.Compact(ctx, outputPath, []string{inputPath}); err != nil {
+			return "", err
+		}
+	}
+	return id, nil
+}
+
+func (d *driverV2) withRenewal(ctx context.Context, id string, cb func(ctx context.Context) error) error {
+	p := path.Join(tmpRepo, id)
+	return d.storage.RenewDuring(ctx, p, cb)
 }
 
 func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
@@ -228,11 +247,6 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 		return err
 	}
 	ctx := pachClient.Ctx()
-	fmt.Println("ccp", compactedCommitPath(file.Commit))
-	d.storage.WalkFileSet(ctx, path.Join(tmpRepo, file.Commit.ID), func(p string) error {
-		fmt.Println("walk2", p)
-		return nil
-	})
 	name := cleanPath(file.Path)
 	s := NewSource(file.Commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
@@ -982,18 +996,13 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 
 func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
-	opts := []fileset.UnorderedWriterOption{fileset.WithWriterOption(fileset.WithTTL(30 * time.Minute))}
-	id := uuid.NewWithoutDashes()
-	if err := d.withUnorderedWriter(ctx, tmpRepo, id, func(uw *fileset.UnorderedWriter) error {
+	return d.withTempWriter(ctx, true, func(uw *fileset.UnorderedWriter) error {
 		req := &pfs.PutTarRequestV2{
 			Tag: "",
 		}
 		_, err := putTar(uw, server, req)
 		return err
-	}, opts...); err != nil {
-		return "", err
-	}
-	return id, nil
+	})
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
@@ -1006,7 +1015,7 @@ func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Dura
 		return errors.Errorf("invalid id (%s)", id)
 	}
 	p := path.Join(tmpRepo, id)
-	_, err := d.storage.RenewFileSet(ctx, p, ttl)
+	_, err := d.storage.SetTTL(ctx, p, ttl)
 	return err
 }
 
