@@ -2882,7 +2882,27 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	return txnCtx.PropagateCommit(branch, false)
+	var triggeredBranches []*pfs.Branch
+	if commit != nil {
+		if ci == nil {
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
+			if err != nil {
+				return err
+			}
+		}
+		if ci.Finished != nil {
+			triggeredBranches, err = d.triggerCommit(txnCtx, ci.Commit)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	for _, b := range append(triggeredBranches, branch) {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
@@ -53,7 +54,7 @@ func (d *driver) triggerCommit(
 			return err
 		}
 		if bi.Trigger != nil {
-			if err := triggerBranch(bi.Trigger.Branch); err != nil {
+			if err := triggerBranch(bi.Trigger.Branch); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
 			if headBranches[bi.Trigger.Branch] {
