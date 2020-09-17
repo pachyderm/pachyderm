@@ -46,7 +46,8 @@ const (
 )
 
 var (
-	ErrNoTTLSet = errors.Errorf("no ttl set for fileset or any subfilesets")
+	ErrNoTTLSet       = errors.Errorf("no ttl set for fileset or any subfilesets")
+	ErrNoFileSetFound = errors.Errorf("no fileset found")
 )
 
 // Storage is the abstraction that manages fileset storage.
@@ -319,6 +320,7 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 
 // SetTTL sets the time-to-live for the prefix. If the prefix contains multiple filesets
 // the ttl will be set on all of them and the soonest expiration time will be returned.
+// if no fileset is found SetTTL returns ErrNoFileSetFound
 func (s *Storage) SetTTL(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
 	// TODO: after we move the semantic paths to postrges the whole prefix can be set atomically.
 	var expiresAt *time.Time
@@ -335,7 +337,7 @@ func (s *Storage) SetTTL(ctx context.Context, prefix string, ttl time.Duration) 
 		return time.Time{}, err
 	}
 	if expiresAt == nil {
-		return time.Time{}, errors.Errorf("no fileset found at %s", prefix)
+		return time.Time{}, ErrNoFileSetFound
 	}
 	return *expiresAt, nil
 }
@@ -348,25 +350,20 @@ func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(contex
 	eg, ctx2 := errgroup.WithContext(ctx)
 	ctx2, cancel := context.WithCancel(ctx2)
 	eg.Go(func() error {
-		// TODO: add this back once GetExpiresAt is implemented
-		// expiresAt, err := s.GetExpiresAt(ctx, prefix)
-		// if err != nil {
-		// 	return err
-		// }
-		expiresAt := time.Now().Add(defaultTTL / 2)
+		var expiresAt time.Time
 		var err error
 		for {
+			expiresAt, err = s.SetTTL(ctx2, prefix, defaultTTL)
+			if err != nil && err != ErrNoFileSetFound {
+				return err
+			}
 			now := time.Now()
-			if now.After(expiresAt) {
+			if err == nil && now.After(expiresAt) {
 				return errors.Errorf("fileset has already expired")
 			}
 			remaining := expiresAt.Sub(now)
 			if err := sleepCtx(ctx2, remaining/2); err != nil {
 				return nil // return nil on context cancelled
-			}
-			expiresAt, err = s.SetTTL(ctx2, prefix, defaultTTL)
-			if err != nil {
-				return err
 			}
 		}
 	})

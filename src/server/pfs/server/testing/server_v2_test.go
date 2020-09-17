@@ -1186,6 +1186,8 @@ func TestTmpFileSet(t *testing.T) {
 		resp, err := pclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
+		_, err = env.PachClient.RenewTmpFileSet(env.Context, &pfs.RenewTmpFileSetRequest{FilesetId: resp.FilesetId, TtlSeconds: 60})
+		require.NoError(t, err)
 		fileInfos := []*pfs.FileInfo{}
 		require.NoError(t, env.PachClient.ListFileV2(client.TmpRepoName, resp.FilesetId, "/", func(fi *pfs.FileInfo) error {
 			fileInfos = append(fileInfos, fi)
