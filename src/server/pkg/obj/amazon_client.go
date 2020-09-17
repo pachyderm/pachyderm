@@ -152,6 +152,35 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
+func parseLogOptions(optstring string) *aws.LogLevelType {
+	if optstring == "" {
+		return nil
+	}
+	opts := strings.Split(optstring, ",")
+	var result aws.LogLevelType
+	for _, o := range opts {
+		switch o {
+		case "Signing":
+			result |= aws.LogDebugWithSigning
+		case "HTTPBody":
+			result |= aws.LogDebugWithHTTPBody
+		case "RequestRetries":
+			result |= aws.LogDebugWithRequestRetries
+		case "RequestErrors":
+			result |= aws.LogDebugWithRequestErrors
+		case "EventStreamBody":
+			result |= aws.LogDebugWithEventStreamBody
+		case "all":
+			result |= aws.LogDebugWithSigning |
+				aws.LogDebugWithHTTPBody |
+				aws.LogDebugWithRequestRetries |
+				aws.LogDebugWithRequestErrors |
+				aws.LogDebugWithEventStreamBody
+		}
+	}
+	return &result
+}
+
 func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
@@ -171,6 +200,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		MaxRetries: aws.Int(advancedConfig.Retries),
 		HTTPClient: httpClient,
 		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
+		LogLevel:   parseLogOptions(advancedConfig.LogOptions),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
