@@ -140,7 +140,10 @@ func (a *apiServer) master() {
 				if pod.Status.Phase == v1.PodFailed {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
+
 				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+				log.Infof("pipeline: %v\nstatuses: %v\nconditions: %v", pipelineName, pod.Status.ContainerStatuses, pod.Status.Conditions)
+
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
 						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
