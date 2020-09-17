@@ -43,9 +43,13 @@
     "image": "jimmywhitaker/breast_cancer_classifier:dev0.23"
   },
   "resource_limits": {
-      "gpu": {
-        "type": "nvidia.com/gpu",
-        "number": 1
-      }
+    "gpu": {
+      "type": "nvidia.com/gpu",
+      "number": 1
+    }
+  },
+  "resource_requests": {
+    "memory": "4G",
+    "cpu": 1
   }
 }

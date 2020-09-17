@@ -1,6 +1,6 @@
 # Breast Cancer Detection
 
-In this example, we create a scalable inference pipeline for breast cancer detection. 
+In this example, we create a scalable inference pipeline for breast cancer detection.
 
 There are different ways to scale inference pipelines and deep learning models. Here we decided to separate out the CPU-based preprocessing and GPU-related tasks. By separating the inference tasks, pipelines can be updated independently, allowing ease of model deployment and collaboration.
 
