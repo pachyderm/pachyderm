@@ -163,13 +163,32 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// Copy copies the fileset at srcPrefix to dstPrefix. It does *not* perform compaction
+// ttl sets the time to live on the keys under dstPrefix if ttl == 0, it is ignored
+func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl time.Duration) error {
+	srcPrefix = applyPrefix(srcPrefix)
+	dstPrefix = applyPrefix(dstPrefix)
+	// TODO: perform this atomically with postgres
+	return s.objC.Walk(ctx, srcPrefix, func(srcPath string) error {
+		dstPath := dstPrefix + srcPath[len(srcPrefix):]
+		if err := copyObject(ctx, s.objC, srcPath, dstPath); err != nil {
+			return err
+		}
+		if ttl > 0 {
+			_, err := s.SetTTL(ctx, removePrefix(dstPath), ttl)
+			return err
+		}
+		return nil
+	})
+}
+
 // CompactStats contains information about what was compacted.
 type CompactStats struct {
 	OutputSize int64
 }
 
 // Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
 	var size int64
@@ -186,6 +205,11 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 	}
 	if err := w.Close(); err != nil {
 		return nil, err
+	}
+	if ttl > 0 {
+		if _, err := s.SetTTL(ctx, removePrefix(outputFileSet), ttl); err != nil {
+			return nil, err
+		}
 	}
 	return &CompactStats{OutputSize: size}, nil
 }
@@ -317,7 +341,8 @@ func (s *Storage) SetTTL(ctx context.Context, prefix string, ttl time.Duration) 
 }
 
 // RenewDuring ensures that none of the filesets under prefix expire by repeatedly calling SetTTL in a separate goroutine
-// until cb returns
+// until cb returns.
+// RenewDuring attempts to delete the contents of prefix after cb has returned
 func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(context.Context) error) error {
 	const defaultTTL = 10 * time.Minute
 	eg, ctx2 := errgroup.WithContext(ctx)
@@ -349,7 +374,10 @@ func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(contex
 		defer cancel()
 		return cb(ctx2)
 	})
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return s.Delete(ctx, prefix)
 }
 
 func (s *Storage) GetExpiresAt(ctx context.Context, prefix string) (time.Time, error) {

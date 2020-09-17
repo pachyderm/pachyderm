@@ -60,7 +60,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 		repo := req.Commit.Repo.Name
 		commit := req.Commit.ID
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.withCommitWriter(server.Context(), repo, commit, func(fs *fileset.UnorderedWriter) error {
 			for {
 				req, err := server.Recv()
 				if err != nil {
