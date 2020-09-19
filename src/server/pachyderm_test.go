@@ -1057,6 +1057,106 @@ func TestRunPipeline(t *testing.T) {
 			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
 		}, ""))
 	})
+	// Test on commits from the same branch
+	t.Run("RunPipelineDeduplicateSpecBranch", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRunPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// and make sure we can attatch a downstream pipeline
+		cronTick := tu.UniqueString("cronTick-")
+		require.NoError(t, c.CreatePipeline(
+			cronTick,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInput("time", "@every 20s"),
+			"",
+			false,
+		))
+		cronIn := tu.UniqueString("cronIn-")
+		require.NoError(t, c.CreatePipeline(
+			cronIn,
+			"",
+			[]string{"/bin/bash"},
+			[]string{
+				"cat /pfs/master/file >> /pfs/out/file",
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+
+		pipeline := tu.UniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cat /pfs/master/file >> /pfs/out/file",
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewPFSInput(dataRepo, "/*"),
+
+			"",
+			false,
+		))
+
+		downstreamPipeline := tu.UniqueString("pipeline-downstream")
+		require.NoError(t, c.CreatePipeline(
+			downstreamPipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewCrossInput(
+				client.NewPFSInput(pipeline, "/*"),
+				client.NewPFSInput(cronIn, "/*"),
+			),
+			"",
+			false,
+		))
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo := fmt.Sprintf("%s_%s", cronTick, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		commitA1, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n"))
+		c.FinishCommit(dataRepo, commitA1.ID)
+
+		commitA2, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n"))
+		c.FinishCommit(dataRepo, commitA2.ID)
+
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		fmt.Println(commitInfos)
+		c1 := commitInfos[0]
+
+		_, err = c.FlushCommit([]*pfs.Commit{commitA1, c1.Commit}, nil)
+		require.NoError(t, err)
+
+		// now run the pipeline with provenance from the same branch
+		require.NoError(t, c.RunPipeline(downstreamPipeline, []*pfs.CommitProvenance{
+			client.NewCommitProvenance(dataRepo, "master", commitA1.ID),
+			// client.NewCommitProvenance(pipeline, "master", "master"),
+		}, ""))
+	})
 	// Test on pipeline that should always fail
 	t.Run("RerunPipeline", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestRerunPipeline_data")

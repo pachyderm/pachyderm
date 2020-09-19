@@ -1328,23 +1328,6 @@ func (d *driver) makeCommit(
 		return nil, err
 	}
 
-	// Build newCommit's full provenance. B/c commitInfo.Provenance is a
-	// transitive closure, there's no need to search the full provenance graph,
-	// just take the union of the immediate parents' (in the 'provenance' arg)
-	// commitInfo.Provenance
-	newCommitProv := make(map[string]*pfs.CommitProvenance)
-	for _, prov := range provenance {
-		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
-		if err != nil {
-			return nil, err
-		}
-		newCommitProv[prov.Commit.ID] = prov
-
-		for _, c := range provCommitInfo.Provenance {
-			newCommitProv[c.Commit.ID] = c
-		}
-	}
-
 	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
 	// newCommit to parent's ChildCommits
 	if parent.ID != "" {
@@ -1371,6 +1354,39 @@ func (d *driver) makeCommit(
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
 			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
+		}
+	}
+
+	// Build newCommit's full provenance. B/c commitInfo.Provenance is a
+	// transitive closure, there's no need to search the full provenance graph,
+	// just take the union of the immediate parents' (in the 'provenance' arg)
+	// commitInfo.Provenance
+
+	// keep track of which branches are represented in the commit provenance
+	provBranches := make(map[string]bool)
+	for _, prov := range provenance {
+		// resolve the provenance
+		var err error
+		prov, err = d.resolveCommitProvenance(txnCtx.Stm, prov)
+		if err != nil {
+			return nil, err
+		}
+		provBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+	}
+
+	newCommitProv := make(map[string]*pfs.CommitProvenance)
+	for _, prov := range provenance {
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
+		if err != nil {
+			return nil, err
+		}
+		newCommitProv[prov.Commit.ID] = prov
+		provBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+		for _, provProv := range provCommitInfo.Provenance {
+			if _, ok := provBranches[key(provProv.Branch.Repo.Name, provProv.Branch.Name)]; !ok {
+				newCommitProv[provProv.Commit.ID] = provProv
+				provBranches[key(provProv.Branch.Repo.Name, provProv.Branch.Name)] = true
+			}
 		}
 	}
 
