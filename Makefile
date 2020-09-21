@@ -254,6 +254,7 @@ test-pfs-server:
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
+	./etc/testing/start_postgres.sh
 	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
 	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
 	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
