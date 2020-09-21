@@ -22,7 +22,7 @@ spec:
       namespace: default
     spec:
       containers:
-      - image: pachyderm/dash:0.5.48
+      - image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: dash
         ports:

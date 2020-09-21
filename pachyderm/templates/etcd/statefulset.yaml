@@ -43,7 +43,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: pachyderm/etcd:v3.3.5
+        image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: etcd
         ports:
