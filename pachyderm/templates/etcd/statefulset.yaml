@@ -6,7 +6,6 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -20,7 +19,6 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd
-      namespace: default
     spec:
       containers:
       - args:
@@ -67,7 +65,6 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd-storage
-      namespace: default
     spec:
       accessModes:
       - ReadWriteOnce

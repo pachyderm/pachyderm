@@ -6,7 +6,6 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
-  namespace: default
 spec:
   ports:
   - name: client-port

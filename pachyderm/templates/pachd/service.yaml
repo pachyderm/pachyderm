@@ -9,7 +9,6 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: default
 spec:
   ports:
   - name: api-grpc-port

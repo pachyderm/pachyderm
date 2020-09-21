@@ -6,7 +6,6 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd-peer
-  namespace: default
 spec:
   ports:
   - name: api-grpc-peer-port

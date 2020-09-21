@@ -6,7 +6,6 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
-  namespace: default
 spec:
   ports:
   - name: dash-http

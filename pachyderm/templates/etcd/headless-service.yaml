@@ -6,7 +6,6 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd-headless
-  namespace: default
 spec:
   clusterIP: None
   ports:

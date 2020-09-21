@@ -7,7 +7,6 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd-storage-class
-  namespace: default
 parameters:
   type: pd-ssd
 provisioner: kubernetes.io/gce-pd

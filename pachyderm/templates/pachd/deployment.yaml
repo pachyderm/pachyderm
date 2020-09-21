@@ -6,7 +6,6 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -22,7 +21,6 @@ spec:
         app: pachd
         suite: pachyderm
       name: pachd
-      namespace: default
     spec:
       containers:
       - command:
