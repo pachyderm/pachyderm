@@ -1,0 +1,17 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: default
+roleRef:
+  apiGroup: ""
+  kind: Role
+  name: pachyderm-worker
+subjects:
+- kind: ServiceAccount
+  name: pachyderm-worker
+  namespace: default

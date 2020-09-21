@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd-headless
+  namespace: default
+spec:
+  clusterIP: None
+  ports:
+  - name: peer-port
+    port: 2380
+    targetPort: 0
+  selector:
+    app: etcd

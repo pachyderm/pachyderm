@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd
+  namespace: default
+spec:
+  ports:
+  - name: client-port
+    port: 2379
+    targetPort: 0
+  selector:
+    app: etcd
+  type: NodePort

@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-peer
+  namespace: default
+spec:
+  ports:
+  - name: api-grpc-peer-port
+    port: 30653
+    targetPort: 653
+  selector:
+    app: pachd
+  type: ClusterIP

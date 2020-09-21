@@ -1,0 +1,13 @@
+---
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd-storage-class
+  namespace: default
+parameters:
+  type: pd-ssd
+provisioner: kubernetes.io/gce-pd

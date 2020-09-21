@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dash
+    suite: pachyderm
+  name: dash
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: dash
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: dash
+        suite: pachyderm
+      name: dash
+      namespace: default
+    spec:
+      containers:
+      - image: pachyderm/dash:0.5.48
+        imagePullPolicy: IfNotPresent
+        name: dash
+        ports:
+        - containerPort: 8080
+          name: dash-http
+        resources: {}
+      - image: pachyderm/grpc-proxy:0.4.10
+        imagePullPolicy: IfNotPresent
+        name: grpc-proxy
+        ports:
+        - containerPort: 8081
+          name: grpc-proxy-http
+        resources: {}
