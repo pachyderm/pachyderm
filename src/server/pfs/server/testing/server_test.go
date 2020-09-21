@@ -6665,6 +6665,7 @@ func TestTrigger(t *testing.T) {
 				Branch: "b",
 				Size_:  "200",
 			}))
+			// Triggers nothing
 			_, err := c.PutFile("chain", "a", "file1", strings.NewReader(strings.Repeat("a", 50)))
 			require.NoError(t, err)
 			bi, err := c.InspectBranch("chain", "b")
@@ -6674,6 +6675,7 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.Nil(t, bi.Head)
 
+			// Triggers b, but not c
 			_, err = c.PutFile("chain", "a", "file2", strings.NewReader(strings.Repeat("a", 50)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("chain", "b")
@@ -6684,6 +6686,7 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.Nil(t, bi.Head)
 
+			// Triggers nothing
 			_, err = c.PutFile("chain", "a", "file3", strings.NewReader(strings.Repeat("a", 50)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("chain", "b")
@@ -6694,6 +6697,7 @@ func TestTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.Nil(t, bi.Head)
 
+			// Triggers a and c
 			_, err = c.PutFile("chain", "a", "file4", strings.NewReader(strings.Repeat("a", 50)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("chain", "b")
@@ -6706,13 +6710,13 @@ func TestTrigger(t *testing.T) {
 			require.NotNil(t, bi.Head)
 			cHead := bi.Head.ID
 
+			// Triggers nothing
 			_, err = c.PutFile("chain", "a", "file5", strings.NewReader(strings.Repeat("a", 50)))
 			require.NoError(t, err)
 			bi, err = c.InspectBranch("chain", "b")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
 			require.Equal(t, bHead, bi.Head.ID)
-			bHead = bi.Head.ID
 			bi, err = c.InspectBranch("chain", "c")
 			require.NoError(t, err)
 			require.NotNil(t, bi.Head)
