@@ -6,7 +6,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups:
   - ""

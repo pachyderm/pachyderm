@@ -6,7 +6,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm-worker
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: ""
   kind: Role
@@ -14,4 +14,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm-worker
-  namespace: default
+  namespace: {{ .Release.Namespace }}

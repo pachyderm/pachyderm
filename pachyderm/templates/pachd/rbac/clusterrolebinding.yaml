@@ -6,7 +6,7 @@ metadata:
     app: ""
     suite: pachyderm
   name: pachyderm
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: ""
   kind: ClusterRole
@@ -14,4 +14,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
-  namespace: default
+  namespace: {{ .Release.Namespace }}
