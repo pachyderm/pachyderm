@@ -80,7 +80,7 @@ type CreateTmpFileSetClient struct {
 	fileOperationCore
 }
 
-func (c APIClient) NewCreateTmpFileSetClient() (ret *CreateTmpFileSetClient, retErr error) {
+func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -318,9 +318,10 @@ func (r *getTarConditionalReader) drain() error {
 	}
 }
 
+// TmpRepoName is a reserved repo name used for namespacing temporary filesets
 const TmpRepoName = "__tmp__"
 
-// TmpFileSetCommit
+// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
 func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
 	return &pfs.Commit{
 		ID:   fileSetID,

@@ -638,12 +638,12 @@ func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFile
 	return errV2NotImplemented
 }
 
-// CreateTempFileSet not implemented
+// CreateTmpFileSet not implemented
 func (a *apiServer) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
 	return errV2NotImplemented
 }
 
-// RenewTempFileSet not implemented
+// RenewTmpFileSet not implemented
 func (a *apiServer) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
 	return nil, errV2NotImplemented
 }

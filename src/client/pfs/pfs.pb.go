@@ -5822,9 +5822,9 @@ type APIClient interface {
 	InspectFileV2(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// WalkFileV2 walks over all the files under a directory, including children of children.
 	WalkFileV2(ctx context.Context, in *WalkFileRequest, opts ...grpc.CallOption) (API_WalkFileV2Client, error)
-	// CreateTempFileSet creates a new temp fileset
+	// CreateTmpFileSet creates a new temp fileset
 	CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (API_CreateTmpFileSetClient, error)
-	// RenewTempFileSet prevents the tempory fileset from being deleted for a set amount of time
+	// RenewTmpFileSet prevents the temporary fileset from being deleted for a set amount of time
 	RenewTmpFileSet(ctx context.Context, in *RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
 }
 
@@ -6679,9 +6679,9 @@ type APIServer interface {
 	InspectFileV2(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// WalkFileV2 walks over all the files under a directory, including children of children.
 	WalkFileV2(*WalkFileRequest, API_WalkFileV2Server) error
-	// CreateTempFileSet creates a new temp fileset
+	// CreateTmpFileSet creates a new temp fileset
 	CreateTmpFileSet(API_CreateTmpFileSetServer) error
-	// RenewTempFileSet prevents the tempory fileset from being deleted for a set amount of time
+	// RenewTmpFileSet prevents the temporary fileset from being deleted for a set amount of time
 	RenewTmpFileSet(context.Context, *RenewTmpFileSetRequest) (*types.Empty, error)
 }
 

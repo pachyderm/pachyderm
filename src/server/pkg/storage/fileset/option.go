@@ -51,7 +51,7 @@ func WithMaxOpenFileSets(max int) StorageOption {
 	}
 }
 
-// UWriterOption configures an UnorderedWriter.
+// UnorderedWriterOption configures an UnorderedWriter.
 type UnorderedWriterOption func(f *UnorderedWriter)
 
 func WithWriterOption(opt WriterOption) UnorderedWriterOption {

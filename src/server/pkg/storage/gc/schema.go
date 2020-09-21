@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -15,8 +16,8 @@ type refModel struct {
 	Sourcetype string `sql:"type:reftype" gorm:"primary_key"`
 	Source     string `gorm:"primary_key"`
 	Chunk      string `gorm:"primary_key"`
-	Created    *time.Time
-	ExpiresAt  *time.Time
+	Created    time.Time
+	ExpiresAt  sql.NullTime
 }
 
 func (*refModel) TableName() string {

@@ -2,6 +2,7 @@ package gc
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
 	"math/rand"
@@ -30,9 +31,9 @@ func TestReserveChunk(t *testing.T) {
 		}
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		expectedRefRows := []refModel{
-			{"temporary", tmpID, chunks[0], nil, nil},
-			{"temporary", tmpID, chunks[1], nil, nil},
-			{"temporary", tmpID, chunks[2], nil, nil},
+			{"temporary", tmpID, chunks[0], time.Time{}, sql.NullTime{}},
+			{"temporary", tmpID, chunks[1], time.Time{}, sql.NullTime{}},
+			{"temporary", tmpID, chunks[2], time.Time{}, sql.NullTime{}},
 		}
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		return nil
@@ -54,7 +55,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		var expectedRefRows []refModel
 		for _, chunk := range chunks {
-			expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, nil, nil})
+			expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, time.Time{}, sql.NullTime{}})
 		}
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		// Create cross-chunk references.
@@ -69,7 +70,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 						Chunk:      chunkTo,
 					},
 				))
-				expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, nil, nil})
+				expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, time.Time{}, sql.NullTime{}})
 			}
 		}
 		// Create a semantic reference to the root chunk.
@@ -82,7 +83,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 				Chunk:      chunks[0],
 			},
 		))
-		expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], nil, nil})
+		expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], time.Time{}, sql.NullTime{}})
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
 		// Delete the temporary reference.
 		require.NoError(t, gcClient.DeleteReference(
@@ -221,7 +222,7 @@ func allRefs(t *testing.T, gcClient *client) []refModel {
 	require.NoError(t, gcClient.db.Find(&refs).Error)
 	// Clear the created field because it makes testing difficult.
 	for i := range refs {
-		refs[i].Created = nil
+		refs[i].Created = time.Time{}
 	}
 	return zeroExpiresAt(refs)
 }
@@ -229,7 +230,7 @@ func allRefs(t *testing.T, gcClient *client) []refModel {
 // This is necessary to make the times match.  require.ElementsEqual does not seem to handle time.Time well
 func zeroExpiresAt(refs []refModel) []refModel {
 	for i := range refs {
-		refs[i].ExpiresAt = nil
+		refs[i].ExpiresAt = sql.NullTime{}
 	}
 	return refs
 }
