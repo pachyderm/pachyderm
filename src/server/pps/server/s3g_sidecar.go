@@ -464,5 +464,9 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 		return
 	}
 
-	h.h.OnCreate(jobCtx, jobInfo)
+	// 1. Read [datums object] for jobInfo
+	// Q: What is [datums object]?
+	// for _, datum := range ([datums object]) {
+	h.h.OnCreate(jobCtx, jobInfo /*, datum */)
+	// }
 }
