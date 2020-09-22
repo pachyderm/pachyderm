@@ -384,7 +384,9 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 			baseDatums = make(chain.DatumSet)
 		}
 
-		if reg.driver.PipelineInfo().S3Out {
+		// XXX For KF incrementality, we now want to skip datums for S3-out
+		// pipelines (which must be additive)
+		/* if reg.driver.PipelineInfo().S3Out {
 			// When running a pipeline with S3Out, we need to yield every datum for
 			// every job, use a no-skip job chain for this.
 			reg.jobChain = chain.NewNoSkipJobChain(
@@ -393,15 +395,15 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 					salt: reg.driver.PipelineInfo().Salt,
 				},
 			)
-		} else {
-			reg.jobChain = chain.NewJobChain(
-				&hasher{
-					name: reg.driver.PipelineInfo().Pipeline.Name,
-					salt: reg.driver.PipelineInfo().Salt,
-				},
-				baseDatums,
-			)
-		}
+		} else { */
+		reg.jobChain = chain.NewJobChain(
+			&hasher{
+				name: reg.driver.PipelineInfo().Pipeline.Name,
+				salt: reg.driver.PipelineInfo().Salt,
+			},
+			baseDatums,
+		)
+		/* } */
 	}
 
 	return nil
