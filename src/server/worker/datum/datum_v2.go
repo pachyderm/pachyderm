@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -295,4 +296,41 @@ func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Hea
 		return err
 	}
 	return ptc.PutTar(f, false, d.ID)
+}
+
+// TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
+type fileWalkerFunc func(string) ([]string, error)
+
+type DeleteClient interface {
+	DeleteFiles([]string, ...string) error
+}
+
+type Deleter func(*Meta) error
+
+func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient DeleteClient) Deleter {
+	return func(meta *Meta) error {
+		ID := common.DatumIDV2(meta.Inputs)
+		// Delete the datum directory in the meta output.
+		if err := metaOutputClient.DeleteFiles([]string{path.Join(MetaPrefix, ID) + "/"}); err != nil {
+			return err
+		}
+		if err := metaOutputClient.DeleteFiles([]string{path.Join(PFSPrefix, ID) + "/"}); err != nil {
+			return err
+		}
+		// Delete the content output by the datum.
+		outputDir := "/" + path.Join(PFSPrefix, ID, OutputPrefix)
+		files, err := metaFileWalker(outputDir)
+		if err != nil {
+			return err
+		}
+		// Remove the output directory prefix.
+		for i := range files {
+			var err error
+			files[i], err = filepath.Rel(outputDir, files[i])
+			if err != nil {
+				return err
+			}
+		}
+		return pfsOutputClient.DeleteFiles(files, ID)
+	}
 }

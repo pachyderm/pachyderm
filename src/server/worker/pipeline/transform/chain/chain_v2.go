@@ -39,7 +39,7 @@ func (jc *JobChainV2) CreateJob(jobID string, dit, outputDit datum.IteratorV2) *
 		parent:    jc.prevJob,
 		jobID:     jobID,
 		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
-		dit:       dit,
+		dit:       datum.NewJobIterator(dit, jobID),
 		outputDit: outputDit,
 		done:      make(chan struct{}),
 	}
@@ -57,12 +57,9 @@ type JobDatumIteratorV2 struct {
 	deleter        func(*datum.Meta) error
 }
 
-func (jdi *JobDatumIteratorV2) WithDeleter(deleter func(*datum.Meta) error, cb func() error) error {
+// TODO: There should be a way to handle this through callbacks, but this would require some more changes to the registry.
+func (jdi *JobDatumIteratorV2) SetDeleter(deleter func(*datum.Meta) error) {
 	jdi.deleter = deleter
-	defer func() {
-		jdi.deleter = nil
-	}()
-	return cb()
 }
 
 func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
@@ -72,49 +69,64 @@ func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 	// Generate datum sets for the new datums (datums that do not exist in the parent job).
 	// TODO: Logging?
 	if err := datum.Merge([]datum.IteratorV2{jdi.dit, jdi.parent.dit}, func(metas []*datum.Meta) error {
-		return jdi.maybeSkip(metas, cb)
-	}); err != nil {
-		return err
-	}
-	<-jdi.parent.done
-	// Generate datum sets for the skipped datums that were not processed by the parent (failed, recovered, etc.).
-	return datum.Merge([]datum.IteratorV2{jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
-		jdi.stats.Skipped++
-		return jdi.maybeSkip(metas, func(meta *datum.Meta) error {
-			jdi.stats.Skipped--
-			return cb(meta)
-		})
-	})
-}
-
-func (jdi *JobDatumIteratorV2) maybeSkip(metas []*datum.Meta, cb func(*datum.Meta) error) error {
-	// Handle the case when the datum appears in both streams.
-	if len(metas) > 1 {
-		// If the hashes are not equal, then delete the datum and process it.
-		if jdi.jc.hasher.Hash(metas[0].Inputs) != jdi.jc.hasher.Hash(metas[1].Inputs) {
-			if jdi.deleter != nil {
-				if err := jdi.deleter(metas[1]); err != nil {
-					return err
-				}
+		if len(metas) == 1 {
+			if metas[0].JobID != jdi.jobID {
+				return nil
 			}
 			return cb(metas[0])
 		}
-		// If the hashes are equal, but the datum was not processed, then process it.
-		if metas[1].State != datum.State_PROCESSED {
-			return cb(metas[0])
+		if jdi.skippableDatum(metas[0], metas[1]) {
+			jdi.stats.Skipped++
+			return nil
 		}
-		// If the hashes are equal and the datum was processed, then skip it.
+		return cb(metas[0])
+	}); err != nil {
+		return err
+	}
+	// TODO: Need a context here.
+	<-jdi.parent.done
+	// Generate datum sets for the skipped datums that were not processed by the parent (failed, recovered, etc.).
+	// Also generate deletion operations appropriately.
+	return datum.Merge([]datum.IteratorV2{jdi.dit, jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
+		// Datum only exists in the current job or only exists in the parent job and was not processed.
+		if len(metas) == 1 {
+			return nil
+		}
+		if len(metas) == 2 {
+			// Datum only exists in the parent job and was processed.
+			if metas[0].JobID != jdi.jobID {
+				return jdi.deleteDatum(metas[1])
+			}
+			// Datum exists in both jobs, but was not processed by the parent.
+			if jdi.skippableDatum(metas[0], metas[1]) {
+				jdi.stats.Skipped--
+				return cb(metas[0])
+			}
+		}
+		// Check if a skipped datum was not successfully processed by the parent.
+		if jdi.skippableDatum(metas[0], metas[1]) {
+			if jdi.skippableDatum(metas[1], metas[2]) {
+				return nil
+			}
+			jdi.stats.Skipped--
+			if err := cb(metas[0]); err != nil {
+				return err
+			}
+		}
+		return jdi.deleteDatum(metas[2])
+	})
+}
+
+func (jdi *JobDatumIteratorV2) deleteDatum(meta *datum.Meta) error {
+	if jdi.deleter == nil {
 		return nil
 	}
-	// Handle the case when the datum only exists in the parent.
-	// TODO: Use job id not set as sentinel for current job datum iterator?
-	if metas[0].JobID != "" {
-		if jdi.deleter != nil {
-			return jdi.deleter(metas[0])
-		}
-		return nil
-	}
-	return cb(metas[0])
+	return jdi.deleter(meta)
+}
+
+func (jdi *JobDatumIteratorV2) skippableDatum(meta1, meta2 *datum.Meta) bool {
+	// If the hashes are equal and the second datum was processed, then skip it.
+	return jdi.jc.hasher.Hash(meta1.Inputs) == jdi.jc.hasher.Hash(meta2.Inputs) && meta2.State == datum.State_PROCESSED
 }
 
 func (jdi *JobDatumIteratorV2) Stats() *datum.Stats {

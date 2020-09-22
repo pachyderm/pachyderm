@@ -2,10 +2,12 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -139,7 +141,7 @@ func TestPipelineWithParallelismV2(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 1000
+	numFiles := 200
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -176,6 +178,7 @@ func TestPipelineWithParallelismV2(t *testing.T) {
 	}
 }
 
+// TODO: Slowness?
 func TestPipelineWithLargeFilesV2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -237,4 +240,140 @@ func TestPipelineWithLargeFilesV2(t *testing.T) {
 			t.Fatalf("file content does not match")
 		}
 	}
+}
+
+func TestDatumDedupV2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDatumDedup_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+		},
+		nil,
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	// Since we did not change the datum, the datum should not be processed
+	// again, which means that the job should complete instantly.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	stream, err := c.PfsAPIClient.FlushCommit(
+		ctx,
+		&pfs.FlushCommitRequest{
+			Commits: []*pfs.Commit{commit2},
+		})
+	require.NoError(t, err)
+	_, err = stream.Recv()
+	require.NoError(t, err)
+}
+
+func TestPipelineInputDataModificationV2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	// replace the contents of 'file' in dataRepo (from "foo" to "bar")
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(dataRepo, commit2.ID, "file"))
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
+
+	// Add a file to dataRepo
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(dataRepo, commit3.ID, "file"))
+	_, err = c.PutFile(dataRepo, commit3.ID, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	// TODO: File not found?
+	//require.YesError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file2", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	commitInfos, err = c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
 }

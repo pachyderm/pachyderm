@@ -67,6 +67,32 @@ func (pj *pendingJobV2) saveJobStats(stats *datum.Stats) {
 	pj.ji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
 }
 
+func (pj *pendingJobV2) withDeleter(pachClient *client.APIClient, cb func() error) error {
+	// Setup file operation client for output Meta commit.
+	metaCommit := pj.metaCommitInfo.Commit
+	return pachClient.WithFileOperationClientV2(metaCommit.Repo.Name, metaCommit.ID, func(focMeta *client.FileOperationClient) error {
+		// Setup file operation client for output PFS commit.
+		outputCommit := pj.commitInfo.Commit
+		return pachClient.WithFileOperationClientV2(outputCommit.Repo.Name, outputCommit.ID, func(focPFS *client.FileOperationClient) error {
+			parentMetaCommit := pj.metaCommitInfo.ParentCommit
+			metaFileWalker := func(path string) ([]string, error) {
+				var files []string
+				// TODO: This should be walk and need to think through the cleanup of directories that are emptied through datum deletion.
+				fis, err := pachClient.ListFile(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path)
+				if err != nil {
+					return nil, err
+				}
+				for _, fi := range fis {
+					files = append(files, fi.File.Path)
+				}
+				return files, nil
+			}
+			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, focMeta, focPFS))
+			return cb()
+		})
+	})
+}
+
 type registryV2 struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
@@ -306,7 +332,7 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 				}
 				return err
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				pj.logger.Logf("processJob error: %v, retring in %v", err, d)
+				pj.logger.Logf("processJob error: %v, retrying in %v", err, d)
 				for err != nil {
 					if st, ok := err.(errors.StackTracer); ok {
 						pj.logger.Logf("error stack: %+v", st.StackTrace())
@@ -423,12 +449,13 @@ func (reg *registryV2) processJobStarting(pj *pendingJobV2) error {
 // Need to put some more thought into the context use.
 func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	pachClient := pj.driver.PachClient()
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
+	pachClient = pachClient.WithCtx(ctx)
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
-	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup goroutine for creating datum set subtasks.
 	// TODO: When the datum set spec is not set, evenly distribute the datums.
-	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	eg.Go(func() error {
 		defer close(subtasks)
 		storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -438,17 +465,19 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 				Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
 			}
 		}
-		return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.PutTarClient) error) error {
-			subtask, err := createDatumSetSubtask(pachClient, pj, upload)
-			if err != nil {
-				return err
-			}
-			select {
-			case subtasks <- subtask:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			return nil
+		return pj.withDeleter(pachClient, func() error {
+			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.PutTarClient) error) error {
+				subtask, err := createDatumSetSubtask(pachClient, pj, upload)
+				if err != nil {
+					return err
+				}
+				select {
+				case subtasks <- subtask:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				return nil
+			})
 		})
 	})
 	// Setup goroutine for running and collecting datum set subtasks.

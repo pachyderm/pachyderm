@@ -160,6 +160,25 @@ func newCronIteratorV2(pachClient *client.APIClient, input *pps.CronInput) Itera
 	})
 }
 
+type jobIterator struct {
+	iterator IteratorV2
+	jobID    string
+}
+
+func NewJobIterator(iterator IteratorV2, jobID string) IteratorV2 {
+	return &jobIterator{
+		iterator: iterator,
+		jobID:    jobID,
+	}
+}
+
+func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
+	return ji.iterator.Iterate(func(meta *Meta) error {
+		meta.JobID = ji.jobID
+		return cb(meta)
+	})
+}
+
 type fileSetIterator struct {
 	pachClient   *client.APIClient
 	repo, commit string

@@ -110,8 +110,14 @@ func (td *testDriver) UserCodeEnv(job string, commit *pfs.Commit, inputs []*comm
 func (td *testDriver) RunUserCode(logger logs.TaggedLogger, env []string, stats *pps.ProcessStats, d *types.Duration) error {
 	return td.inner.RunUserCode(logger, env, stats, d)
 }
+func (td *testDriver) RunUserCodeV2(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+	return td.inner.RunUserCodeV2(ctx, logger, env)
+}
 func (td *testDriver) RunUserErrorHandlingCode(logger logs.TaggedLogger, env []string, stats *pps.ProcessStats, d *types.Duration) error {
 	return td.inner.RunUserErrorHandlingCode(logger, env, stats, d)
+}
+func (td *testDriver) RunUserErrorHandlingCodeV2(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+	return td.inner.RunUserErrorHandlingCodeV2(ctx, logger, env)
 }
 func (td *testDriver) DeleteJob(stm col.STM, ji *pps.EtcdJobInfo) error {
 	return td.inner.DeleteJob(stm, ji)
@@ -137,9 +143,11 @@ func (td *testDriver) ChunkStatsCaches() cache.WorkerCache {
 func (td *testDriver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) error {
 	return td.inner.WithDatumCache(cb)
 }
-
 func (td *testDriver) Egress(commit *pfs.Commit, egressURL string) error {
 	return nil
+}
+func (td *testDriver) StorageV2() bool {
+	return td.inner.StorageV2()
 }
 
 // withTestEnv provides a test env with etcd and pachd instances and connected

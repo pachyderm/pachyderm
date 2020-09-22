@@ -17,7 +17,7 @@ func TestJobSuccessV2(t *testing.T) {
 	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
-			tarutil.NewFile("/file", []byte("foobar")),
+			tarutil.NewMemFile("/file", []byte("foobar")),
 		}
 		triggerJobV2(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
@@ -79,7 +79,7 @@ func TestJobFailedDatumV2(t *testing.T) {
 		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
-			tarutil.NewFile("/file", []byte("foobar")),
+			tarutil.NewMemFile("/file", []byte("foobar")),
 		}
 		triggerJobV2(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
@@ -94,8 +94,8 @@ func TestJobMultiDatumV2(t *testing.T) {
 	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
-			tarutil.NewFile("/a", []byte("foobar")),
-			tarutil.NewFile("/b", []byte("barfoo")),
+			tarutil.NewMemFile("/a", []byte("foobar")),
+			tarutil.NewMemFile("/b", []byte("barfoo")),
 		}
 		triggerJobV2(t, env, pi, tarFiles)
 		ctx = withTimeout(ctx, 10*time.Second)
@@ -130,8 +130,8 @@ func TestJobSerialV2(t *testing.T) {
 	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
-			tarutil.NewFile("/a", []byte("foobar")),
-			tarutil.NewFile("/b", []byte("barfoo")),
+			tarutil.NewMemFile("/a", []byte("foobar")),
+			tarutil.NewMemFile("/b", []byte("barfoo")),
 		}
 		triggerJobV2(t, env, pi, tarFiles[:1])
 		ctx = withTimeout(ctx, 10*time.Second)
@@ -166,4 +166,58 @@ func TestJobSerialV2(t *testing.T) {
 		}))
 		return nil
 	})
+}
+
+func TestJobSerialDeleteV2(t *testing.T) {
+	V2Test(t, func(pi *pps.PipelineInfo, env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		tarFiles := []tarutil.File{
+			tarutil.NewMemFile("/a", []byte("foobar")),
+			tarutil.NewMemFile("/b", []byte("barfoo")),
+		}
+		triggerJobV2(t, env, pi, tarFiles[:1])
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		triggerJobV2(t, env, pi, tarFiles[1:])
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		deleteFilesV2(t, env, pi, []string{"/a"})
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Get the output files.
+		r, err := env.PachClient.GetTarV2(pi.Pipeline.Name, outputCommitID, "/*")
+		require.NoError(t, err)
+		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
+			ok, err := tarutil.Equal(tarFiles[1], file)
+			require.NoError(t, err)
+			require.True(t, ok)
+			return nil
+		}))
+		return nil
+	})
+}
+
+func deleteFilesV2(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) {
+	commit, err := env.PachClient.StartCommit(pi.Input.Pfs.Repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.DeleteFilesV2(pi.Input.Pfs.Repo, commit.ID, files))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Input.Pfs.Repo, commit.ID))
 }

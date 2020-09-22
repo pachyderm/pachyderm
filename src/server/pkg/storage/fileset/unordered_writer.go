@@ -152,8 +152,10 @@ func (f *UnorderedWriter) createParent(name string, tag string) {
 }
 
 // Delete deletes a file from the file set.
-// TODO: Figure out directory deletion.
+// TODO: Directory deletion needs more invariant checks.
+// Right now you have to specify the trailing slash explicitly.
 func (f *UnorderedWriter) Delete(name string, customTag ...string) {
+	name = CleanTarPath(name, strings.HasSuffix(name, "/"))
 	var tag string
 	if len(customTag) > 0 {
 		tag = customTag[0]
@@ -184,7 +186,7 @@ func (f *UnorderedWriter) serialize() error {
 	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
 		dataOp := f.fs[name]
-		deleteTags := getSortedTags(dataOp.deleteTags)
+		deleteTags := getSortedKeys(dataOp.deleteTags)
 		mfs := getSortedMemFiles(dataOp.memFiles)
 		if len(mfs) == 0 {
 			if err := w.DeleteFile(name, deleteTags...); err != nil {
@@ -236,15 +238,6 @@ func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
 		return mfs[i].tag < mfs[j].tag
 	})
 	return mfs
-}
-
-func getSortedTags(tags map[string]struct{}) []string {
-	var tgs []string
-	for tag := range tags {
-		tgs = append(tgs, tag)
-	}
-	sort.Strings(tgs)
-	return tgs
 }
 
 // Close closes the writer.
