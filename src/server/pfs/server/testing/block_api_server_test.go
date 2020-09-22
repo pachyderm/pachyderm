@@ -78,17 +78,17 @@ func TestManyObjects(t *testing.T) {
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		var objects []string
 		for i := 0; i < 25; i++ {
-			object, _, err := env.PachClient.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
+			object, _, err := env.PachClient.PutObject(strings.NewReader(fmt.Sprint(i)), fmt.Sprint(i))
 			require.NoError(t, err)
 			objects = append(objects, object.Hash)
 		}
 		for i, hash := range objects {
 			value, err := env.PachClient.ReadObject(hash)
 			require.NoError(t, err)
-			require.Equal(t, []byte(string(i)), value)
+			require.Equal(t, []byte(fmt.Sprint(i)), value)
 			value, err = env.PachClient.ReadTag(fmt.Sprint(i))
 			require.NoError(t, err)
-			require.Equal(t, []byte(string(i)), value)
+			require.Equal(t, []byte(fmt.Sprint(i)), value)
 		}
 
 		return nil

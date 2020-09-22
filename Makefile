@@ -251,6 +251,7 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
+	./etc/testing/start_postgres.sh
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
