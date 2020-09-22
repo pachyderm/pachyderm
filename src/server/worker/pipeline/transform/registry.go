@@ -940,20 +940,14 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		return reg.failJob(pj, reason, nil, 0)
 	}
 
-	if pj.driver.PipelineInfo().S3Out && pj.commitInfo.ParentCommit != nil {
-		// We don't want S3-out pipelines to merge datum output with the parent
-		// commit, so we create a PutFile record to delete "/". Doing it before
-		// we move the job to the RUNNING state ensures that:
-		// 1) workers can't process datums unless DeleteFile("/") has run
-		// 2) DeleteFile("/") won't run after work has started
-		if err := pj.driver.PachClient().DeleteFile(
-			pj.commitInfo.Commit.Repo.Name,
-			pj.commitInfo.Commit.ID,
-			"/",
-		); err != nil {
-			return errors.Wrap(err, "couldn't prepare output commit for S3-out job")
-		}
-	}
+	// XXX DO NOT MERGE XXX
+	// This is an experiment for KFData to facilitate incremental processing
+	// under simplifying assumptions.
+
+	// NB: In this branch we don't 'DeleteFile /' for s3-out pipelines on this
+	// output commit so that under the assumption that this is an additive
+	// workloads (user is only creating new files, not editing or deleting
+	// existing files)
 
 	pj.ji.State = pps.JobState_JOB_RUNNING
 	return nil
