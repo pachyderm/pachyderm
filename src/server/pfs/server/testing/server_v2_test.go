@@ -691,7 +691,7 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 
 func TestListFileV2(t *testing.T) {
 	config := newPachdConfig()
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
+	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestListFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -723,7 +723,6 @@ func TestListFileV2(t *testing.T) {
 func TestGlobFileV2(t *testing.T) {
 	config := newPachdConfig()
 	config.StorageV2 = true
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestGlobFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -754,7 +753,6 @@ func TestGlobFileV2(t *testing.T) {
 func TestWalkFileV2(t *testing.T) {
 	config := newPachdConfig()
 	config.StorageV2 = true
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestWalkFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -789,7 +787,6 @@ func TestCompaction(t *testing.T) {
 	config := &serviceenv.PachdFullConfiguration{}
 	config.StorageV2 = true
 	config.StorageCompactionMaxFanIn = 10
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestCompaction"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -849,7 +846,7 @@ func randomReader(n int) io.Reader {
 
 func TestDiffFileV2(t *testing.T) {
 	config := newPachdConfig()
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
+	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := tu.UniqueString("TestDiffFileV2")
 		require.NoError(t, env.PachClient.CreateRepo(repo))

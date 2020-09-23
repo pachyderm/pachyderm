@@ -159,6 +159,16 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
+	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
+	if ok {
+		storageV2, err := strconv.ParseBool(storageV2Env)
+		if err != nil {
+			return nil, err
+		}
+		if storageV2 {
+			options = append([]Option{WithStorageV2()}, options...)
+		}
+	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
@@ -317,16 +327,6 @@ func getCertOptionsFromEnv() ([]Option, error) {
 			}); err != nil {
 				return nil, err
 			}
-		}
-	}
-	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		storageV2, err := strconv.ParseBool(storageV2Env)
-		if err != nil {
-			return nil, err
-		}
-		if storageV2 {
-			options = append(options, WithStorageV2())
 		}
 	}
 	return options, nil

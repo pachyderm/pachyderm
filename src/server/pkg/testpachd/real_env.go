@@ -3,6 +3,7 @@ package testpachd
 import (
 	"net"
 	"net/url"
+	"os"
 	"path"
 
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
@@ -53,11 +54,22 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 		if len(customConfig) > 0 {
 			config = serviceenv.NewConfiguration(customConfig[0])
 		}
+		// TODO: This means StorageV2 tests can not run in parallel with V1 test.
+		if config.StorageV2 {
+			if err := os.Setenv("STORAGE_V2", "true"); err != nil {
+				panic(err)
+			}
+			defer func() {
+				if err := os.Unsetenv("STORAGE_V2"); err != nil {
+					panic(err)
+				}
+			}()
+		}
+
 		etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
 		if err != nil {
 			return err
 		}
-
 		config.EtcdHost = etcdClientURL.Hostname()
 		config.EtcdPort = etcdClientURL.Port()
 		config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
