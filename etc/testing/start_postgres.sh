@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ -z "$(docker ps | grep postgres)" ]
+if ! docker ps | grep -q postgres
 then
     echo "starting postgres..."
     docker run -d \
