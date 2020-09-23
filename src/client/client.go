@@ -280,6 +280,7 @@ func WithAdditionalPachdCert() Option {
 	}
 }
 
+// WithStorageV2 causes the client to use StorageV2 APIs when applicable.
 func WithStorageV2() Option {
 	return func(settings *clientSettings) error {
 		settings.storageV2 = true

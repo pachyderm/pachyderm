@@ -41,6 +41,18 @@ const (
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
 func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
+	// TODO: This means StorageV2 tests can not run in parallel with V1 test.
+	if len(customConfig) > 0 && customConfig[0].StorageV2 {
+		if err := os.Setenv("STORAGE_V2", "true"); err != nil {
+			panic(err)
+		}
+		defer func() {
+			if err := os.Unsetenv("STORAGE_V2"); err != nil {
+				panic(err)
+			}
+		}()
+	}
+
 	return WithMockEnv(func(mockEnv *MockEnv) (err error) {
 		realEnv := &RealEnv{MockEnv: *mockEnv}
 
@@ -53,17 +65,6 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 		config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
 		if len(customConfig) > 0 {
 			config = serviceenv.NewConfiguration(customConfig[0])
-		}
-		// TODO: This means StorageV2 tests can not run in parallel with V1 test.
-		if config.StorageV2 {
-			if err := os.Setenv("STORAGE_V2", "true"); err != nil {
-				panic(err)
-			}
-			defer func() {
-				if err := os.Unsetenv("STORAGE_V2"); err != nil {
-					panic(err)
-				}
-			}()
 		}
 
 		etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
