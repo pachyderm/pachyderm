@@ -1674,6 +1674,7 @@ func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.
 		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
 		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
 		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
+		"log-options":         []byte(advancedConfig.LogOptions),
 	}
 }
 
