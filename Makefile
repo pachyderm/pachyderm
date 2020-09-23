@@ -157,7 +157,6 @@ docker-tag-pachctl: install
 	docker tag pachyderm/pachctl pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
 
 docker-push: docker-tag
-	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
