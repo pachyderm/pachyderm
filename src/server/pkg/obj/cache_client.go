@@ -65,8 +65,6 @@ func (c *cacheClient) Delete(ctx context.Context, p string) error {
 	if err := c.slow.Delete(ctx, p); err != nil {
 		return err
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return c.deleteFromCache(ctx, p)
 }
 
@@ -91,8 +89,9 @@ func (c *cacheClient) IsRetryable(err error) bool {
 	return c.fast.IsRetryable(err) || c.slow.IsRetryable(err)
 }
 
-// deleteFromCache should only be called with c.mu
 func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if !c.cache.Contains(p) {
 		return nil
 	}
@@ -141,8 +140,6 @@ func (cw *cacheWriter) Close() error {
 	if err := cw.WriteCloser.Close(); err != nil {
 		return err
 	}
-	cw.client.mu.Lock()
-	defer cw.client.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return cw.client.deleteFromCache(ctx, cw.path)
