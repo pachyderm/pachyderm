@@ -25,6 +25,8 @@ type Collection interface {
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.
 	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
+	// With returns a new collection with the given predicate
+	With(field string, val interface{}) Collection
 }
 
 // Index specifies a secondary index on a collection.

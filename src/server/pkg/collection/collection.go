@@ -93,6 +93,10 @@ func (c *etcdCollection) ReadOnly(ctx context.Context) ReadOnlyCollection {
 	}
 }
 
+func (c *etcdCollection) With(field string, val interface{}) Collection {
+	panic("'With' is not supported on etcd collections")
+}
+
 func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
 	var claimed bool
 	if _, err := NewSTM(ctx, c.etcdClient, func(stm STM) error {
