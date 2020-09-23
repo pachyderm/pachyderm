@@ -111,7 +111,6 @@ while (True):
                 exit(-2)
 
         tarStream.close()
-        mySpout.close()
     else:
         print("No new emails...")
 
@@ -120,6 +119,6 @@ while (True):
 
 
 
-
+mySpout.close()
 imap.close()
 

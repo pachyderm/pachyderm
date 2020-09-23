@@ -37,11 +37,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -111,12 +109,6 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 	// limits the total parallelism for uploading files over GRPC or loading from external sources
 	putFileLimiter limit.ConcurrencyLimiter
-
-	// New storage layer.
-	storage         *fileset.Storage
-	subFileSet      int64
-	compactionQueue *work.TaskQueue
-	mu              sync.Mutex
 }
 
 // newDriver is used to create a new Driver instance

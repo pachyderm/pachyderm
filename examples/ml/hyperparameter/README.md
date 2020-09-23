@@ -109,18 +109,17 @@ $ pachctl create pipeline -f test.json
 $ pachctl create pipeline -f select.json
 ```
 
-Once the pipelines are up an running you should be able to see their corresponding workers in kubernetes:
+The pipelines should soon all be in the "running" state:
 
 ```sh
-$ kubectl get pods
-NAME                       READY     STATUS    RESTARTS   AGE
-etcd-2142892294-nzb39      1/1       Running   0          1h
-pachd-776177201-ww198      1/1       Running   0          1h
-pipeline-model-v1-htphr    2/2       Running   0          7m
-pipeline-select-v1-240bt   2/2       Running   0          7m
-pipeline-split-v1-9lwkn    2/2       Running   0          7m
-pipeline-test-v1-h47lw     2/2       Running   0          7m
+pachctl list pipeline
+NAME   VERSION INPUT                                                                                      CREATED       STATE / LAST JOB  DESCRIPTION                                                                                  
+select 1       (model:/ ⨯ test:/)                                                                         9 seconds ago running / starting A pipeline that selects the best evaluation metrics from the results of the `test` pipeline. 
+test   1       (model:/* ⨯ split:/test.csv)                                                               9 seconds ago running / starting A pipeline that scores each of the trained models.                                           
+model  1       (parameters:/c_parameters.txt/* ⨯ parameters:/gamma_parameters.txt/* ⨯ raw_data:/iris.csv) 9 seconds ago running / starting A pipeline that trains the model for each combination of C and Gamma parameters.             
+split  1       raw_data:/                                                                                 9 seconds ago running / starting A pipeline that splits the `iris` data set into the `training` and `test` data sets.         
 ```
+
 
 And, after waiting a few minutes, you should see the successful jobs that did our distributed hyperparameter tuning:
 

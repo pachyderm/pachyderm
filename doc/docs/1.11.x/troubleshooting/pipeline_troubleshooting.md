@@ -207,7 +207,7 @@ $ kubectl edit deploy etcd
 or
 
 ```bash
-$ kubectl edit statefulset edtc
+$ kubectl edit statefulset etcd
 ```
 
 In the `spec/template/containers/command` path, set the value for

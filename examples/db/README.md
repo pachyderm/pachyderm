@@ -15,13 +15,13 @@ The easiest way to demonstrate this example is with a free hosted MongoDB cluste
 
 ![alt text](mongo1.png)
 
-2. Click on the "connect" button for your cluster and make sure that all IPs are whitelisted (or at least the k8s master IP where you have Pachyderm deployed):
+1. Click on the "connect" button for your cluster and make sure that all IPs are whitelisted (or at least the k8s master IP where you have Pachyderm deployed):
 
 ![alt text](mongo2.png)
 
-3. Then click on "Connect with the MongoDB shell" to find the URI, DB name (`test` if you are using MongoDB Atlas `Cluster0`), username, and authentication DB for connecting to your cluster.  You will need these to query MongoDB.
+1. Then click on "Connect with the MongoDB shell" to find the URI, DB name (`test` if you are using MongoDB Atlas `Cluster0`), username, and authentication DB for connecting to your cluster.  You will need these to query MongoDB.
 
-4. Make sure you have the MongoDB tools installed locally. You can follow [this guide](https://docs.mongodb.com/manual/administration/install-community/) to install themk.
+1. Make sure you have the MongoDB tools installed locally. You can follow [this guide](https://docs.mongodb.com/manual/administration/install-community/) to install themk.
 
 ## Import example data
 
@@ -51,7 +51,7 @@ We are going to run this example with an example set of data about restaurants. 
     }
     ```
 
-2. Import the dataset to the `restaurants` collection in MongoDB (in the `test` DB if you are using MongoDB Atlas) using the `mongoimport` command.  You will need to specify the Mongo hosts, username, password, etc. from your MongoDB cluster.  For example:
+1. Import the dataset to the `restaurants` collection in MongoDB (in the `test` DB if you are using MongoDB Atlas) using the `mongoimport` command.  You will need to specify the Mongo hosts, username, password, etc. from your MongoDB cluster.  For example:
 
     ```sh
     $ mongoimport --host Cluster0-shard-0/cluster0-shard-00-00-cwehf.mongodb.net:27017,cluster0-shard-00-01-cwehf.mongodb.net:27017,cluster0-shard-00-02-cwehf.mongodb.net:27017 --ssl -u admin -p '<my password>' --authenticationDatabase admin --db test --collection restaurants --drop --file primer-dataset.json         
@@ -93,51 +93,102 @@ We are going to run this example with an example set of data about restaurants. 
 
 ## Create a Kubernetes secret with your Mongo creds 
 
-In order for your Pachyderm pipeline to talk with MongoDB, we need to tell Pachyderm about the MongoDB URI, username, password, etc.  We will do this via a [Kuberntes secret](https://kubernetes.io/docs/concepts/configuration/secret/).
+In order for your Pachyderm pipeline to talk with MongoDB, we need to tell Pachyderm about the MongoDB URI, username, password, etc.  We will do this via a [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/),
+loaded via `pachctl create secret`.
 
-1. Copy [mongodb_template.yaml](mongodb_template.yaml) to a local file `mongodb.yaml`.
 
-2. Encode your URI, username, password, database name, and collection name to `base64`.  This is required by Kubernetes.
+1. The next few steps show you how to add a secret with the following five keys
 
-    ```sh
-    $ echo -n "mongodb://cluster0-shard-00-00-cwehf.mongodb.net:27017,cluster0-shard-00-01-cwehf.mongodb.net:27017,cluster0-shard-00-02-cwehf.mongodb.net:27017/test?replicaSet=Cluster0-shard-0" | base64                                                     
-    bW9uZ29kYjovL2NsdXN0ZXIwLXNoYXJkLTAwLTAwLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3LGNs
-    dXN0ZXIwLXNoYXJkLTAwLTAxLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3LGNsdXN0ZXIwLXNoYXJk
-    LTAwLTAyLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3L3Rlc3Q/cmVwbGljYVNldD1DbHVzdGVyMC1z
-    aGFyZC0w
-    $ echo -n "admin" | base64
-    YWRtaW4=
-    $ echo -n <my password> | base64
-    <my encoded password>
-    $ echo -n "test" | base64
-    dGVzdA==
-    $ echo -n "restaurants" | base64
-    cmVzdGF1cmFudHM=
-    ```
+   * `uri`
+   * `username`
+   * `password`
+   * `db`
+   * `collection`
 
-3. Replace the placeholders in the `mongodb.yaml` file with the encoded versions of your URI, username, etc.
+   First, we'll save some values to files. 
+   The values should all be enclosed in single quotes to prevent the shell from interpreting them.
+   
+   ```sh
+   $ echo -n '<uri>' > uri ; chmod 600 uri
+   $ echo -n '<username>' > username ; chmod 600 username
+   $ echo -n '<password>' > password ; chmod 600 password
+   $ echo -n '<db>' > db ; chmod 600 db
+   $ echo -n '<collection>' > collection ; chmod 600 collection
+   ```
+   
+1. Confirm the values in these files are what you expect.
 
-    ```sh
-    $ cat mongodb.yaml
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: mongosecret
-    type: Opaque
-    data:
-      uri: bW9uZ29kYjovL2NsdXN0ZXIwLXNoYXJkLTAwLTAwLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3LGNsdXN0ZXIwLXNoYXJkLTAwLTAxLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3LGNsdXN0ZXIwLXNoYXJkLTAwLTAyLWN3ZWhmLm1vbmdvZGIubmV0OjI3MDE3L3Rlc3Q/cmVwbGljYVNldD1DbHVzdGVyMC1zaGFyZC0w
-      username: YWRtaW4=
-      password: <replaced, encoded password>
-      db: dGVzdA==
-      collection: cmVzdGF1cmFudHM=
-    ```
+   ```sh
+   $ cat uri
+   $ cat username
+   $ cat password
+   $ cat db
+   $ cat collection
+   ```
+   
+   Creating the secret will require different steps,
+   depending on whether you have Kubernetes access or not.
+   Pachyderm Hub users don't have access to Kubernetes.
+   If you have Kubernetes access and want to use `kubectl`, 
+   you may follow the two steps prefixed with "(Kubernetes)".
+   If you don't have access to Kubernetes or don't want to use `kubectl`,
+   follow the two steps labeled "(Pachyderm Hub)" 
 
-4. Create the secret with `kubectl`.
+1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
+   
+   ```sh
+   $ kubectl create secret generic mongosecret --from-file=./uri \
+       --from-file=./username \
+       --from-file=./password \
+       --from-file=./db \
+       --from-file=./collection
+   ```
+   
+1. (Kubernetes) Confirm that the secrets got set correctly.
+   You use `kubectl get secret` to output the secrets, and then decode them using `jq` to confirm they're correct.
+   
+   ```sh
+   $ kubectl get secret mongosecret -o json | jq '.data | map_values(@base64d)'
+   {
+       "uri": "<uri>",
+       "username": "<username>"
+       "password": "<password>"
+       "db": "<db>"
+       "collection": "<collection>"
+   }
+   ```
 
-    ```sh
-    $ kubectl create -f ./mongodb.yaml 
-    secret "mongosecret" created 
-    ```
+   You will have to use pachctl if you're using Pachyderm Hub,
+   or don't have access to the Kubernetes cluster.
+   The next three steps show how to do that.
+
+1. (Pachyderm Hub) Create a secrets file from the provided template.
+   
+   ```sh
+   $ jq -n --arg uri $(cat uri) --arg username $(cat username) \
+       --arg password $(cat password) --arg db $(cat db) --arg collection $(cat collection) \
+       -f mongodb-credentials-template.jq  > mongodb-credentials-secret.json 
+   $ chmod 600 mongodb-credentials-secret.json
+   ```
+
+1. (Pachyderm Hub) Confirm the secrets file is correct by decoding the values.
+   
+   ```sh
+   $ jq '.data | map_values(@base64d)' mongodb-credentials-secret.json
+   {
+       "uri": "<uri>",
+       "username": "<username>"
+       "password": "<password>"
+       "db": "<db>"
+       "collection": "<collection>"
+   }
+   ```
+
+1. (Pachyderm Hub) Generate a secret using pachctl
+
+   ```sh
+   $ pachctl create secret -f mongodb-credentials-secret.json
+   ```
 
 ## Create the pipeline, view the results
 
@@ -186,8 +237,16 @@ This will allow us to view the head of the output over time to see a bunch of ra
     ```sh
     $ pachctl create pipeline -f query.json
     ``` 
-
-2. After the work pod spins up (check `kubectl get all` to observe this), you should see jobs start to be triggered every 10 seconds.
+    
+1. Run the command `pachctl list pipeline` to make sure it's running:
+   
+   ```sh
+   $ pachctl list pipeline
+   NAME      VERSION INPUT                     CREATED       STATE / LAST JOB   DESCRIPTION                                                                                               
+   query     1       tick:@every 10s           6 seconds ago running / starting                                                                                    
+   ```
+   
+1. After the pipeline is running, you should see jobs start to be triggered every 10 seconds.
 
     ```sh
     $ pachctl list job
@@ -212,7 +271,7 @@ This will allow us to view the head of the output over time to see a bunch of ra
     842e4e6c-4920-42c0-9c81-e5299b67e4a0 query/2a11bfc3e6d74af0a8d254d3ecf6f6af About a minute ago 1 second  0       1 + 0 / 1 26B 535B success
     ```
 
-3. You can then see the output changing over time.  You can watch it change with each query by executing:
+1. You can then observe the output changing over time.  You can watch it change with each query by executing:
 
     ```sh
     $ watch pachctl get file query@master:output.json
