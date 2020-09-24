@@ -161,4 +161,4 @@ files with the same file path.
 
 ## Note: Data persistence between datums
 
-Pachyderm only controls and wipes the /pfs directories between datums. If scratch/temp space is used during execution, the user needs to be careful to clean that up. Not cleaning temporary directories may cause unexpected bugs where one datum accesses temporary files that were previously used another datum!
+Pachyderm only controls and wipes the /pfs directories between datums. If scratch/temp space is used during execution, the user needs to be careful to clean that up. Not cleaning temporary directories may cause unexpected bugs where one datum accesses temporary files that were previously used by another datum!
