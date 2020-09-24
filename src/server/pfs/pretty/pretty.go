@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"os"
+	"strings"
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
@@ -20,7 +21,7 @@ const (
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tPROGRESS\tDESCRIPTION\n"
 	// BranchHeader is the header for branches.
-	BranchHeader = "BRANCH\tHEAD\t\n"
+	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -79,11 +80,36 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 	return nil
 }
 
+func printTrigger(trigger *pfs.Trigger) string {
+	var conds []string
+	if trigger.CronSpec != "" {
+		conds = append(conds, fmt.Sprintf("Cron(%s)", trigger.CronSpec))
+	}
+	if trigger.Size_ != "" {
+		conds = append(conds, fmt.Sprintf("Size(%s)", trigger.Size_))
+	}
+	if trigger.Commits != 0 {
+		conds = append(conds, fmt.Sprintf("Commits(%d)", trigger.Commits))
+	}
+	cond := ""
+	if trigger.All {
+		cond = strings.Join(conds, " and ")
+	} else {
+		cond = strings.Join(conds, " or ")
+	}
+	return fmt.Sprintf("%s on %s", trigger.Branch, cond)
+}
+
 // PrintBranch pretty-prints a Branch.
 func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
 	if branchInfo.Head != nil {
 		fmt.Fprintf(w, "%s\t", branchInfo.Head.ID)
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if branchInfo.Trigger != nil {
+		fmt.Fprintf(w, "%s\t", printTrigger(branchInfo.Trigger))
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
@@ -95,7 +121,8 @@ func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
 Head Commit: {{ .Head.Repo.Name}}@{{.Head.ID}} {{end}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}{{if .Trigger}}
+Trigger: {{printTrigger .Trigger}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -239,9 +266,10 @@ func fileType(fileType pfs.FileType) string {
 }
 
 var funcMap = template.FuncMap{
-	"prettyAgo":  pretty.Ago,
-	"prettySize": pretty.Size,
-	"fileType":   fileType,
+	"prettyAgo":    pretty.Ago,
+	"prettySize":   pretty.Size,
+	"fileType":     fileType,
+	"printTrigger": printTrigger,
 }
 
 // CompactPrintBranch renders 'b' as a compact string, e.g.
