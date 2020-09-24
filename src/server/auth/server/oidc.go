@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -16,9 +17,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	oidc "github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
+	"gopkg.in/square/go-jose.v2"
 )
 
 const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
@@ -31,6 +34,22 @@ var (
 	errWatchFailed   = goerr.New("error watching OIDC state token (has it expired?)")
 	errTokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
+
+// Used to get the JWKS URI from the set of claims at the OIDC well-known endpoint
+type oidcProviderClaims struct {
+	JwksUri string `json:"jwks_uri"`
+}
+
+type JWTClaims struct {
+	Audience  interface{} `json:"aud"`
+	Email     string      `json:"email"`
+	ExpiresAt int64       `json:"exp"`
+	NotBefore int64       `json:"nbf"`
+}
+
+func (j *JWTClaims) Valid() error {
+	return nil
+}
 
 // InternalOIDCProvider contains information about the configured OIDC ID
 // provider, as well as auth information identifying Pachyderm in the ID
@@ -149,6 +168,78 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		return nil, err
 	}
 	return o, nil
+}
+
+// TODO: cache the JWKS response
+func (o *InternalOIDCProvider) getJWKSKey(alg, kid string) (interface{}, error) {
+	var providerClaims oidcProviderClaims
+	err := o.Provider.Claims(&providerClaims)
+	if err != nil {
+		return "", fmt.Errorf("retrieving jwks claim: %v", err)
+	}
+
+	resp, err := http.Get(providerClaims.JwksUri)
+	if err != nil {
+		return "", fmt.Errorf("fetching jwks endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	d := json.NewDecoder(resp.Body)
+	var keys jose.JSONWebKeySet
+	if err := d.Decode(&keys); err != nil {
+		return "", fmt.Errorf("decoding jwks response")
+	}
+
+	matching := keys.Key(kid)
+	for _, k := range matching {
+		if k.Algorithm == alg {
+			return k.Key, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching key for kid %q alg %q", kid, alg)
+}
+
+// ValidateJWT verifies a provided JWT using the JWKS endpoint in the OIDC config.
+// It also checks that the ClientID is in the audience and the token is not
+// expired or being used before it's valid.
+func (o *InternalOIDCProvider) ValidateJWT(token string) (*JWTClaims, error) {
+	var claims JWTClaims
+	_, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
+		kid, ok := t.Header["kid"].(string)
+		if !ok {
+			return nil, fmt.Errorf("kid is not set in header")
+		}
+		alg, ok := t.Header["alg"].(string)
+		if !ok {
+			return nil, fmt.Errorf("alg is not set in header")
+		}
+		return o.getJWKSKey(alg, kid)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parse JWT: %v", err)
+	}
+
+	if claims.ExpiresAt < time.Now().Unix() {
+		return nil, fmt.Errorf("token has exp %v", claims.ExpiresAt)
+	}
+
+	if claims.NotBefore > time.Now().Unix() {
+		return nil, fmt.Errorf("token has nbf %v", claims.NotBefore)
+	}
+
+	if audString, ok := claims.Audience.(string); ok && audString == o.ClientID {
+		return &claims, nil
+	}
+
+	if audiences, ok := claims.Audience.([]interface{}); ok {
+		for _, a := range audiences {
+			if as, ok := a.(string); ok && as == o.ClientID {
+				return &claims, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("token audience didn't include Pachyderm: %v", claims.Audience)
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
