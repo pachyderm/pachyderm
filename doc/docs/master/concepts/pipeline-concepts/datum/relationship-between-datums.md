@@ -6,7 +6,7 @@ concepts:
 * Pachyderm job stages
 * Multiple datums processing
 * Incremental processing
-* Data persistence between datums processing
+* Data persistence between datums
 
 A datum is a Pachyderm abstraction that helps in optimizing
 pipeline processing. Because datums exist only as a pipeline
