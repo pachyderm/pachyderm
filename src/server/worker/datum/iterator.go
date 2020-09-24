@@ -60,6 +60,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,
 			JoinOn:     joinOn,
+			OuterJoin:  input.OuterJoin,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
@@ -345,6 +346,20 @@ func newJoinIterator(pachClient *client.APIClient, join []*pps.Input) (Iterator,
 	iter := om.IterFunc()
 	for kv, ok := iter(); ok; kv, ok = iter() {
 		tuple := kv.Value.([][]*common.Input)
+		missing := false
+		var filteredTuple [][]*common.Input
+		for i, inputs := range tuple {
+			if len(inputs) == 0 {
+				missing = true
+				continue
+			}
+			if join[i].Pfs.OuterJoin {
+				filteredTuple = append(filteredTuple, inputs)
+			}
+		}
+		if missing {
+			tuple = filteredTuple
+		}
 		cross, err := newCrossListIterator(pachClient, tuple)
 		if err != nil {
 			return nil, err
