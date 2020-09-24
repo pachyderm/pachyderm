@@ -3,10 +3,14 @@
     "name": "spoutmarker"
   },
   "transform": {
-    "cmd": [ "python3", "/spout-marker-example.py" ],
-    "image": "spout-marker:v1"
+      "cmd": [ "python3", "/spout-marker-example.py" ],
+      "image": "spout-marker:v1",
+      "env" : {
+          "OUTPUT_CHARACTER": "."
+      }
   },
   "spout": {
-    "marker": "mymark"
+      "marker": "mymark",
+      "overwrite": true
   }
 }

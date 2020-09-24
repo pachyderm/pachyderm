@@ -59,7 +59,7 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 	return RetryNotify(operation, b, func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
-			return err
+			return ctx.Err()
 		default:
 			return notify(err, d)
 		}

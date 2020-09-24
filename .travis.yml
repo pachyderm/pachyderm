@@ -11,7 +11,7 @@ cache:
 
 language: go
 go:
-  - "1.13.1"
+  - "1.15.2"
 env:
   global:
     - PATH="${HOME}/cached-deps:$(python3 -c 'import site; print(site.USER_BASE)')/bin:${PATH}"

@@ -59,6 +59,8 @@ You can, of course, set up your Go development environment to achieve the same r
 you'll find a numbered sequence of Kubernetes manifests for creating a fully-functioning Kafka deployment.
 You can use the makefile target `make kafka`,
 which will deploy a kafka cluster a `kafka` namespace, created in the first step.
+It's a kafka deployment that's intended for testing only.
+It's not recommended that you use it for production purposes.
 If you'd like to see the order in which the manifests will be loaded into Kubernetes,
 run the command
 
@@ -138,7 +140,7 @@ $ kubectl -n kafka exec -ti kafka-test-client --  /usr/bin/kafka-console-produce
 4. You can see if the data has been added to the topic with the `kafka-console-consumer` command.
 
 ```sh
-$ kubectl -n kafka exec -ti kafka-test-client -- /usr/bin/kafka-console-consumer 
+$ kubectl -n kafka exec -ti kafka-test-client -- /usr/bin/kafka-console-consumer \
    --bootstrap-server kafka:9092 --topic test_topic --from-beginning
 yo
 man
@@ -172,7 +174,7 @@ you may modify the Makefile to use your own Dockerhub account, tag and version
 by changing these variables accordingly
 
 ```
-CONTAINER_VERSION := 1.9.8
+CONTAINER_VERSION := $(shell pachctl version --client-only)
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := kafka_spout
 ```

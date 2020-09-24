@@ -194,6 +194,12 @@ func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCol
 			}
 			return nil
 		}
+		// Don't allow a transition from STANDBY to CRASHING if we receive events out of order
+		if pipelinePtr.State == pps.PipelineState_PIPELINE_STANDBY && to == pps.PipelineState_PIPELINE_CRASHING {
+			log.Warningf("cannot move pipeline %q to CRASHING when it is in STANDBY", pipeline)
+			return nil
+		}
+
 		// transitionPipelineState case: error if pipeline is in an unexpected
 		// state.
 		//
