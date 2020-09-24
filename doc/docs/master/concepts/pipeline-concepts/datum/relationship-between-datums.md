@@ -6,6 +6,7 @@ concepts:
 * Pachyderm job stages
 * Multiple datums processing
 * Incremental processing
+* Data persistence between datums processing
 
 A datum is a Pachyderm abstraction that helps in optimizing
 pipeline processing. Because datums exist only as a pipeline
@@ -157,3 +158,7 @@ and creates a new output file `4`.
 Similarly, if you have multiple files in your input datum, Pachyderm might
 write them into multiple files in output datums that are later merged into
 files with the same file path.
+
+## Note: Data persistence between datums
+
+Pachyderm only controls and wipes the /pfs directories between datums. If scratch/temp space is used during execution, the user needs to be careful to clean that up. Not cleaning temporary directories may cause unexpected bug where one datum accesses temporary files that were previously used another datum.
