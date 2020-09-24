@@ -284,6 +284,48 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 	).Run())
 }
 
+func TestRunPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	pipeline := tu.UniqueString("p-")
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl garbage-collect
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+
+		# Create a commit and put some data in it
+		commit1=$(pachctl start commit data@master)
+		echo "file contents" | pachctl put file data@${commit1}:/file -f -
+		pachctl finish commit data@${commit1}
+
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {"name": "{{.pipeline}}"},
+			  "input": {
+			    "pfs": {
+			      "glob": "/*",
+			      "repo": "data"
+			    }
+			  },
+			  "transform": {
+			    "cmd": ["bash"],
+			    "stdin": ["cp /pfs/data/file /pfs/out"]
+			  }
+			}
+		EOF
+
+		# make sure the run pipeline command accepts various provenance formats
+		pachctl run pipeline {{.pipeline}} data@${commit1}
+		pachctl run pipeline {{.pipeline}} data@master=${commit1}
+		pachctl run pipeline {{.pipeline}} data@master
+		`,
+		"pipeline", pipeline).Run())
+}
+
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
 	if testing.Short() {

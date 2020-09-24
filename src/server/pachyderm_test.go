@@ -1154,7 +1154,6 @@ func TestRunPipeline(t *testing.T) {
 		// now run the pipeline with provenance from the same branch
 		require.NoError(t, c.RunPipeline(downstreamPipeline, []*pfs.CommitProvenance{
 			client.NewCommitProvenance(dataRepo, "master", commitA1.ID),
-			// client.NewCommitProvenance(pipeline, "master", "master"),
 		}, ""))
 	})
 	// Test on pipeline that should always fail
