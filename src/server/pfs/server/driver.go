@@ -2664,8 +2664,11 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 		return nil, err
 	}
 	if userCommitProvenance.Branch == nil || userCommitProvenance.Branch.Name == "" {
-		// if the branch isn't specified, default to using the commit's branch
-		userCommitProvenance.Branch = userCommitProvInfo.Branch
+		// if the branch isn't specified, default to using the commit's branch (as long as that isn't nil too)
+		if userCommitProvInfo.Branch != nil {
+			userCommitProvenance.Branch = userCommitProvInfo.Branch
+		}
+
 		// but if the original "commit id" was a branch name, use that as the branch instead
 		if userCommitProvInfo.Commit.ID != userCommitProvenance.Commit.ID {
 			userCommitProvenance.Branch.Name = userCommitProvenance.Commit.ID
