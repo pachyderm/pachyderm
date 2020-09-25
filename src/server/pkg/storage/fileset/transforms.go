@@ -5,18 +5,18 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
-var _ FileSource = &headerFilter{}
+var _ FileSet = &headerFilter{}
 
 type headerFilter struct {
 	pred func(th *tar.Header) bool
-	x    FileSource
+	x    FileSet
 }
 
 // NewHeaderFilter filters x using pred
-func NewHeaderFilter(x FileSource, pred func(th *tar.Header) bool) FileSource {
+func NewHeaderFilter(x FileSet, pred func(th *tar.Header) bool) FileSet {
 	return &headerFilter{x: x, pred: pred}
 }
 
@@ -33,15 +33,15 @@ func (hf *headerFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 	}, stopBefore...)
 }
 
-var _ FileSource = &indexFilter{}
+var _ FileSet = &indexFilter{}
 
 type indexFilter struct {
 	pred func(idx *index.Index) bool
-	x    FileSource
+	x    FileSet
 }
 
 // NewIndexFilter filters x using pred
-func NewIndexFilter(x FileSource, pred func(idx *index.Index) bool) FileSource {
+func NewIndexFilter(x FileSet, pred func(idx *index.Index) bool) FileSet {
 	return &indexFilter{x: x, pred: pred}
 }
 
@@ -55,16 +55,16 @@ func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 	})
 }
 
-var _ FileSource = &headerMapper{}
+var _ FileSet = &headerMapper{}
 
 type headerMapper struct {
-	pred func(th *tar.Header) *tar.Header
-	x    FileSource
+	fn func(th *tar.Header) *tar.Header
+	x  FileSet
 }
 
 // NewHeaderMapper filters x using pred
-func NewHeaderMapper(x FileSource, pred func(*tar.Header) *tar.Header) FileSource {
-	return &headerMapper{x: x, pred: pred}
+func NewHeaderMapper(x FileSet, fn func(*tar.Header) *tar.Header) FileSet {
+	return &headerMapper{x: x, fn: fn}
 }
 
 func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
@@ -73,7 +73,7 @@ func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error, stopBe
 		if err != nil {
 			return err
 		}
-		y := hm.pred(x)
+		y := hm.fn(x)
 		return cb(headerMap{
 			header: y,
 			inner:  fr,
@@ -94,17 +94,6 @@ func (hm headerMap) Index() *index.Index {
 
 func (hm headerMap) Header() (*tar.Header, error) {
 	return hm.header, nil
-}
-
-func (hm headerMap) Get(w io.Writer) error {
-	tw := tar.NewWriter(w)
-	if err := tw.WriteHeader(hm.header); err != nil {
-		return err
-	}
-	if err := hm.inner.Content(w); err != nil {
-		return err
-	}
-	return tw.Flush()
 }
 
 func (hm headerMap) Content(w io.Writer) error {

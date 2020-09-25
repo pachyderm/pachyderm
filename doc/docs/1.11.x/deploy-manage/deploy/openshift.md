@@ -115,7 +115,7 @@ We'll show how to remove this PV in case you want to use a PV you create separat
 pachctl deploy custom --persistent-disk aws --object-store s3 \
      <pv-storage-name> <pv-storage-size> \
      <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
-     --static-etcd-volume=<pv-storage-name> > manifest.json
+     --static-etcd-volume=<pv-storage-name> --dry-run > manifest.json
 ```
 
 #### Namespace-local roles
@@ -123,7 +123,7 @@ pachctl deploy custom --persistent-disk aws --object-store s3 \
 pachctl deploy custom --persistent-disk aws --object-store s3 \
      <pv-storage-name> <pv-storage-size> \
      <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
-     --static-etcd-volume=<pv-storage-name> --local-roles > manifest.json
+     --static-etcd-volume=<pv-storage-name> --local-roles --dry-run > manifest.json
 ```
 
 ### 4. Modify pachd Service ports

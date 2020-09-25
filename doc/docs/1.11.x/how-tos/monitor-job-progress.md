@@ -71,7 +71,7 @@ to monitor its status:
   when a job for each pipeline completes.
 
   <p><small>(Click to enlarge)</small></p>
-  [ ![Progress bar](../../assets/images/list_commit_progress_bar.gif)](../../assets/images/list_commit_progress_bar.gif)
+  [ ![Progress bar](../assets/images/list_commit_progress_bar.gif)](../assets/images/list_commit_progress_bar.gif)
 
   The progress bar is equally divided to the number of steps, or pipelines,
   you have in your DAG. In the example above, it is four steps.

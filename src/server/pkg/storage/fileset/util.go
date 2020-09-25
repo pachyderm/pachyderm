@@ -3,11 +3,11 @@ package fileset
 import (
 	"context"
 	"io"
+	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // WithLocalStorage constructs a local storage instance for testing during the lifetime of
@@ -19,14 +19,23 @@ func WithLocalStorage(f func(*Storage) error) error {
 }
 
 // CopyFiles iterates over s and writes all the Files to w
-func CopyFiles(w *Writer, s FileSource) error {
+func CopyFiles(ctx context.Context, w *Writer, s FileSet) error {
 	switch s := s.(type) {
 	case *Reader:
 		return s.iterate(func(fr *FileReader) error {
 			return w.CopyFile(fr)
 		})
 	default:
-		return errors.Errorf("CopyFiles does not support reader type: %T", s)
+		return s.Iterate(ctx, func(f File) error {
+			hdr, err := f.Header()
+			if err != nil {
+				return err
+			}
+			if err := w.WriteHeader(hdr); err != nil {
+				return err
+			}
+			return f.Content(w)
+		})
 	}
 }
 
@@ -48,11 +57,28 @@ func WriteTarEntry(w io.Writer, f File) error {
 
 // WriteTarStream writes an entire tar stream to w
 // It will contain an entry for each File in fs
-func WriteTarStream(ctx context.Context, w io.Writer, fs FileSource) error {
+func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
 		return WriteTarEntry(w, f)
 	}); err != nil {
 		return err
 	}
 	return tar.NewWriter(w).Close()
+}
+
+// CleanTarPath ensures that the path is in the canonical format for tar header names.
+// This includes ensuring a prepending /'s and ensure directory paths
+// have a trailing slash.
+func CleanTarPath(x string, isDir bool) string {
+	y := "/" + strings.Trim(x, "/")
+	if isDir && !strings.HasSuffix(y, "/") {
+		y += "/"
+	}
+	return y
+}
+
+// IsCleanTarPath determines if the path is a valid tar path.
+func IsCleanTarPath(x string, isDir bool) bool {
+	y := CleanTarPath(x, isDir)
+	return y == x
 }

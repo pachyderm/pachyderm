@@ -13,11 +13,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
 
 const (
-	prefix = "pfs"
+	semanticPrefix = "root"
 	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
 	// lexicographical ordering of file content tags.
 	// headerTag is the tag used for the tar header bytes.
@@ -75,9 +76,9 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) (*FileSet, error) {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
 	fileSet = applyPrefix(fileSet)
-	return newFileSet(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
+	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
 // NewWriter makes a Writer backed by the path `fileSet` in object storage.
@@ -121,8 +122,8 @@ func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
-// NewSource makes a source which will iterate over the prefix fileSet
-func (s *Storage) NewSource(ctx context.Context, fileSet string, opts ...index.Option) FileSource {
+// OpenFileSet makes a source which will iterate over the prefix fileSet
+func (s *Storage) OpenFileSet(ctx context.Context, fileSet string, opts ...index.Option) FileSet {
 	return &mergeSource{
 		s: s,
 		getReader: func() (*MergeReader, error) {
@@ -131,26 +132,11 @@ func (s *Storage) NewSource(ctx context.Context, fileSet string, opts ...index.O
 	}
 }
 
-// ResolveIndexes resolves index entries that are spread across multiple filesets.
-// DEPRECATED: Use NewIndexResolver
-func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
-	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
-	if err != nil {
-		return err
-	}
-	w := s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(cb))
-	if err := mr.WriteTo(w); err != nil {
-		return err
-	}
-	return w.Close()
-}
-
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
-	fileSets = applyPrefixes(fileSets)
-	mr, err := s.newMergeReader(ctx, fileSets)
+	mr, err := s.NewMergeReader(ctx, fileSets)
 	if err != nil {
 		return err
 	}
@@ -262,6 +248,10 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	}); err != nil {
 		return nil, err
 	}
+	// Inputs should be ordered with priority from least to greatest.
+	for i := 0; i < len(spec.Input)/2; i++ {
+		spec.Input[i], spec.Input[len(spec.Input)-1-i] = spec.Input[len(spec.Input)-1-i], spec.Input[i]
+	}
 	return spec, nil
 }
 
@@ -269,10 +259,10 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	fileSet = applyPrefix(fileSet)
 	return s.objC.Walk(ctx, fileSet, func(name string) error {
-		if err := s.chunks.DeleteSemanticReference(ctx, name); err != nil {
+		if err := s.objC.Delete(ctx, name); err != nil {
 			return err
 		}
-		return s.objC.Delete(ctx, name)
+		return s.chunks.DeleteSemanticReference(ctx, name)
 	})
 }
 
@@ -289,10 +279,10 @@ func (s *Storage) levelSize(i int) int64 {
 
 func applyPrefix(fileSet string) string {
 	fileSet = strings.TrimLeft(fileSet, "/")
-	if strings.HasPrefix(fileSet, prefix) {
-		return fileSet
+	if strings.HasPrefix(fileSet, semanticPrefix) {
+		log.Warn("may be double applying prefix in storage layer", fileSet)
 	}
-	return path.Join(prefix, fileSet)
+	return path.Join(semanticPrefix, fileSet)
 }
 
 func applyPrefixes(fileSets []string) []string {
@@ -304,21 +294,22 @@ func applyPrefixes(fileSets []string) []string {
 }
 
 func removePrefix(fileSet string) string {
-	if !strings.HasPrefix(fileSet, prefix) {
-		panic(fileSet + " does not have prefix " + prefix)
+	if !strings.HasPrefix(fileSet, semanticPrefix) {
+		panic(fileSet + " does not have prefix " + semanticPrefix)
 	}
-	return fileSet[len(prefix):]
+	return fileSet[len(semanticPrefix):]
 }
 
 func removePrefixes(xs []string) []string {
-	var ys []string
-	for _, x := range xs {
-		ys = append(ys, removePrefix(x))
+	ys := make([]string, len(xs))
+	for i := range xs {
+		ys[i] = removePrefix(xs[i])
 	}
 	return ys
 }
 
 const subFileSetFmt = "%020d"
+const levelFmt = "level_" + subFileSetFmt
 
 // SubFileSetStr returns the string representation of a subfileset.
 func SubFileSetStr(subFileSet int64) string {
@@ -326,12 +317,12 @@ func SubFileSetStr(subFileSet int64) string {
 }
 
 func levelName(i int) string {
-	return fmt.Sprintf(subFileSetFmt, i)
+	return fmt.Sprintf(levelFmt, i)
 }
 
 func parseLevel(x string) (int, error) {
 	var y int
-	_, err := fmt.Sscanf(x, subFileSetFmt, &y)
+	_, err := fmt.Sscanf(x, levelFmt, &y)
 	return y, err
 }
 

@@ -9,7 +9,7 @@ import (
 
 // NewIndexResolver ensures the indexes in the FileSource are correct
 // based on the content
-func NewIndexResolver(x FileSource) FileSource {
+func NewIndexResolver(x FileSet) FileSet {
 	switch x := x.(type) {
 	case *mergeSource:
 		return &mergeResolver{
@@ -36,6 +36,10 @@ func (mr *mergeResolver) Iterate(ctx context.Context, cb func(File) error, stopB
 		return err
 	}
 	w := mr.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
+		// Index entries that do not reference any data are for propagating deletes.
+		if len(idx.DataOp.DataRefs) == 0 {
+			return nil
+		}
 		fmr, err := mr2.Next()
 		if err != nil {
 			return err

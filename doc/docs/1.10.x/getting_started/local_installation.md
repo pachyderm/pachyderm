@@ -151,11 +151,11 @@ deploy Pachyderm by following these steps:
      pachctl deploy local --dry-run > pachyderm.json
      ```
 
-  1. Copy the `pachyderm.json` file into your Pachyderm directory.
+  1. Copy the `pachyderm.json` file into your working directory.
   1. From the same directory, run:
 
      ```bash
-     kubectl create -f .\pachyderm.json
+     kubectl create -f ./pachyderm.json
      ```
 
   Because Pachyderm needs to pull the Pachyderm Docker image

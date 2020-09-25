@@ -1,7 +1,7 @@
 # Beginner Tutorial
 
 Welcome to the beginner tutorial for Pachyderm! If you have already installed
-Pachyderm, this tutorial should take about 15 minutes. This tutorial
+Pachyderm, this tutorial should take about 15 minutes to complete. This tutorial
 introduces basic Pachyderm concepts.
 
 !!! tip
@@ -141,15 +141,21 @@ Also, you can view the file you have just added to Pachyderm. Because this is an
 image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
-```macos-prior-catalina tab="macOS prior to Catalina"
+* On macOS prior to Catalina, run:
+
+```
 pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab="macOS Catalina"
+* On macOS Catalina, run:
+
+```
 pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab="Linux 64-bit"
+* On Linux 64-bit, run:
+
+```
 pachctl get file images@master:liberty.png | display
 ```
 
@@ -296,15 +302,21 @@ images 5 minutes ago 57.27KiB
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
 
-```macos-prior-catalina tab="macOS prior to Catalina"
+* On macOS prior to Catalina, run:
+
+```
 pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab="macOS Catalina"
+* On macOS Catalina, run:
+
+```
 pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab="Linux 64-bit"
+* On Linux 64-bit, run:
+
+```
 pachctl get file edges@master:liberty.png | display
 ```
 
@@ -451,15 +463,21 @@ ce448c12d0dd4410b3a5ae0c0f07e1f9    2 minutes ago  Less than a second 0       1 
 View the generated montage image by running one of
 the following commands:
 
-```macos-prior-catalina tab="macOS prior to Catalina"
+* On macOS prior to Catalina, run:
+
+```
 pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab="macOS Catalina"
+* On macOS Catalina, run:
+
+```
 pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab="Linux 64-bit"
+* On Linux 64-bit, run:
+
+```
 pachctl get file montage@master:montage.png | display
 ```
 

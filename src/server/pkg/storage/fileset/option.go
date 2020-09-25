@@ -49,15 +49,8 @@ func WithMaxOpenFileSets(max int) StorageOption {
 	}
 }
 
-// Option configures a file set.
-type Option func(f *FileSet)
-
-// WithRoot sets the root path of the file set.
-func WithRoot(root string) Option {
-	return func(f *FileSet) {
-		f.root = root
-	}
-}
+// UWriterOption configures an UnorderedWriter.
+type UWriterOption func(f *UnorderedWriter)
 
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)

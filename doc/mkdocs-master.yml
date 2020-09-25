@@ -132,8 +132,12 @@ nav:
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
         - Overview: how-tos/index.md
-        - Individual Developer Workflow: how-tos/individual-developer-workflow.md
-        - Team Developer Workflow: how-tos/team-developer-workflow.md
+        - Workflow: 
+            - Overview: how-tos/developer-workflow/index.md
+            - Working with Pipelines: how-tos/developer-workflow/working-with-pipelines.md
+            - Build Pipelines: how-tos/developer-workflow/build-pipelines.md
+            - Build Flag: how-tos/developer-workflow/build-flag.md
+            - CI/CD Integration: how-tos/developer-workflow/ci-cd-integration.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
         - Export Your Data From Pachyderm:
             - Overview: how-tos/export-data-out-pachyderm/index.md
@@ -173,6 +177,7 @@ nav:
                 - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                 - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
             - Deploy on Azure: deploy-manage/deploy/azure.md
+            - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md

@@ -1,8 +1,8 @@
 package server
 
 import (
-	"hash"
 	"io"
+	"path"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -10,141 +10,84 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 	"golang.org/x/net/context"
 )
 
-// FileReader is a PFS wrapper for a fileset.MergeReader.
-// The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfo and to convert a set of index hashes to a file hash.
-type FileReader struct {
-	file      *pfs.File
-	idx       *index.Index
-	fmr       *fileset.FileMergeReader
-	mr        *fileset.MergeReader
-	fileCount int
-	hash      hash.Hash
+// Source iterates over FileInfos generated from a fileset.Source
+type Source interface {
+	// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
+	// during iteration, and the File.
+	Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error
 }
 
-func newFileReader(file *pfs.File, idx *index.Index, fmr *fileset.FileMergeReader, mr *fileset.MergeReader) *FileReader {
-	h := pfs.NewHash()
-	for _, dataRef := range idx.DataOp.DataRefs {
-		// TODO Pull from chunk hash.
-		h.Write([]byte(dataRef.Hash))
-	}
-	return &FileReader{
-		file: file,
-		idx:  idx,
-		fmr:  fmr,
-		mr:   mr,
-		hash: h,
-	}
+type source struct {
+	commit    *pfs.Commit
+	full      bool
+	getReader func() fileset.FileSet
 }
 
-func (fr *FileReader) updateFileInfo(idx *index.Index) {
-	fr.fileCount++
-	for _, dataRef := range idx.DataOp.DataRefs {
-		fr.hash.Write([]byte(dataRef.Hash))
-	}
-}
-
-// Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoV2 {
-	return &pfs.FileInfoV2{
-		File: fr.file,
-		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
-	}
-}
-
-// Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
-	if err := fr.fmr.Get(w); err != nil {
-		return err
-	}
-	for fr.fileCount > 0 {
-		fmr, err := fr.mr.Next()
-		if err != nil {
-			return err
-		}
-		if err := fmr.Get(w); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	if len(noPadding) > 0 && noPadding[0] {
-		return nil
-	}
-	// Close a tar writer to create tar EOF padding.
-	return tar.NewWriter(w).Close()
-}
-
-func (fr *FileReader) drain() error {
-	for fr.fileCount > 0 {
-		if _, err := fr.mr.Next(); err != nil {
-			return err
-		}
-		fr.fileCount--
-	}
-	return nil
-}
-
-// Source iterates over FileInfoV2s generated from a fileset.Source
-type Source struct {
-	commit        *pfs.Commit
-	getReader     func() fileset.FileSource
-	computeHashes bool
-}
-
-// NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
+// NewSource creates a Source which emits FileInfos with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *Source {
-	return &Source{
-		commit:        commit,
-		getReader:     getReader,
-		computeHashes: computeHashes,
+func NewSource(commit *pfs.Commit, full bool, getReader func() fileset.FileSet) Source {
+	return &source{
+		commit:    commit,
+		full:      full,
+		getReader: getReader,
 	}
 }
 
-// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 // during iteration, and the File.
-func (s *Source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	fs1 := s.getReader()
 	fs2 := s.getReader()
 	s2 := newStream(ctx, fs2)
-	cache := make(map[string][]byte)
+	cache := make(map[string]*pfs.FileInfo)
 	return fs1.Iterate(ctx, func(fr fileset.File) error {
 		idx := fr.Index()
-		fi := &pfs.FileInfoV2{
+		fi := &pfs.FileInfo{
 			File: client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
 		}
-		if s.computeHashes {
-			var err error
-			var hashBytes []byte
-			if indexIsDir(idx) {
-				hashBytes, err = computeHash(cache, s2, idx.Path)
+		if s.full {
+			cachedFi, ok := checkFileInfoCache(cache, idx)
+			if ok {
+				fi.FileType = cachedFi.FileType
+				fi.SizeBytes = cachedFi.SizeBytes
+				fi.Hash = cachedFi.Hash
+			} else {
+				computedFi, err := computeFileInfo(cache, s2, idx.Path)
 				if err != nil {
 					return err
 				}
-			} else {
-				hashBytes = computeFileHash(idx)
+				fi.FileType = computedFi.FileType
+				fi.SizeBytes = computedFi.SizeBytes
+				fi.Hash = computedFi.Hash
 			}
-			fi.Hash = pfs.EncodeHash(hashBytes)
 		}
-		if err := cb(fi, fr); err != nil {
-			return err
-		}
-		delete(cache, idx.Path)
-		return nil
+		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
+		return cb(fi, fr)
 	})
 }
 
-func computeHash(cache map[string][]byte, s *stream, target string) ([]byte, error) {
-	if hashBytes, exists := cache[target]; exists {
-		return hashBytes, nil
+func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.FileInfo, bool) {
+	// Handle a cached directory file info.
+	fi, ok := cache[idx.Path]
+	if ok {
+		return fi, true
 	}
-	// consume the target from the stream
+	// Handle a regular file info that has already been iterated through
+	// when computing the parent directory file info.
+	dir, _ := path.Split(idx.Path)
+	_, ok = cache[dir]
+	if ok {
+		return computeRegularFileInfo(idx), true
+	}
+	return nil, false
+}
+
+func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (*pfs.FileInfo, error) {
 	fr, err := s.Next()
 	if err != nil {
 		if err == io.EOF {
@@ -156,11 +99,10 @@ func computeHash(cache map[string][]byte, s *stream, target string) ([]byte, err
 	if idx.Path != target {
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
-	// for file
 	if !indexIsDir(idx) {
-		return computeFileHash(idx), nil
+		return computeRegularFileInfo(idx), nil
 	}
-	// for directory
+	var size uint64
 	h := pfs.NewHash()
 	for {
 		f2, err := s.Peek()
@@ -174,18 +116,23 @@ func computeHash(cache map[string][]byte, s *stream, target string) ([]byte, err
 		if !strings.HasPrefix(idx2.Path, target) {
 			break
 		}
-		childHash, err := computeHash(cache, s, idx2.Path)
+		childFi, err := computeFileInfo(cache, s, idx2.Path)
 		if err != nil {
 			return nil, err
 		}
-		h.Write(childHash)
+		size += childFi.SizeBytes
+		h.Write(childFi.Hash)
 	}
-	hashBytes := h.Sum(nil)
-	cache[target] = hashBytes
-	return hashBytes, nil
+	fi := &pfs.FileInfo{
+		FileType:  pfs.FileType_DIR,
+		SizeBytes: size,
+		Hash:      h.Sum(nil),
+	}
+	cache[target] = fi
+	return fi, nil
 }
 
-func computeFileHash(idx *index.Index) []byte {
+func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
 	h := pfs.NewHash()
 	if idx.DataOp != nil {
 		for _, dataRef := range idx.DataOp.DataRefs {
@@ -196,7 +143,37 @@ func computeFileHash(idx *index.Index) []byte {
 			}
 		}
 	}
-	return h.Sum(nil)
+	return &pfs.FileInfo{
+		FileType:  pfs.FileType_FILE,
+		SizeBytes: uint64(idx.SizeBytes),
+		Hash:      h.Sum(nil),
+	}
+}
+
+type errOnEmpty struct {
+	source Source
+	err    error
+}
+
+// NewErrOnEmpty causes iterate to return a not found error if there are no items to iterate over
+func NewErrOnEmpty(s Source, err error) Source {
+	return &errOnEmpty{source: s, err: err}
+}
+
+// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
+// during iteration, and the File.
+func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
+	empty := true
+	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		empty = false
+		return cb(fi, f)
+	}); err != nil {
+		return err
+	}
+	if empty {
+		return s.err
+	}
+	return nil
 }
 
 type stream struct {
@@ -205,7 +182,7 @@ type stream struct {
 	errChan  chan error
 }
 
-func newStream(ctx context.Context, source fileset.FileSource) *stream {
+func newStream(ctx context.Context, source fileset.FileSet) *stream {
 	fileChan := make(chan fileset.File)
 	errChan := make(chan error, 1)
 	go func() {
@@ -252,4 +229,10 @@ func (s *stream) Next() (fileset.File, error) {
 
 func indexIsDir(idx *index.Index) bool {
 	return strings.HasSuffix(idx.Path, "/")
+}
+
+type emptySource struct{}
+
+func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
+	return nil
 }

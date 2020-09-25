@@ -37,11 +37,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -111,12 +109,6 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 	// limits the total parallelism for uploading files over GRPC or loading from external sources
 	putFileLimiter limit.ConcurrencyLimiter
-
-	// New storage layer.
-	storage         *fileset.Storage
-	subFileSet      int64
-	compactionQueue *work.TaskQueue
-	mu              sync.Mutex
 }
 
 // newDriver is used to create a new Driver instance
@@ -237,42 +229,52 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	err = repos.Get(repo.Name, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
 		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
-	} else if err == nil && !update {
-		return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
-	}
-
-	// Create ACL for new repo
-	if authIsActivated {
-		// auth is active, and user is logged in. Make user an owner of the new
-		// repo (and clear any existing ACL under this name that might have been
-		// created by accident)
-		_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-			Repo: repo.Name,
-			Entries: []*auth.ACLEntry{{
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
-			}},
-		})
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+	} else if err == nil {
+		// Existing repo case--just update the repo description.
+		if !update {
+			return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 		}
-	}
 
-	repoInfo := &pfs.RepoInfo{
-		Repo:        repo,
-		Created:     types.TimestampNow(),
-		Description: description,
+		if existingRepoInfo.Description == description {
+			// Don't overwrite the stored proto with an identical value. This
+			// optimization is impactful because pps will frequently update the __spec__
+			// repo to make sure it exists.
+			return nil
+		}
+
+		// Check if the caller is authorized to modify this repo
+		// Note, we don't do this before checking if the description changed because
+		// there is client code that calls CreateRepo(R, update=true) as an
+		// idempotent way to ensure that R exists. By permitting these calls when
+		// they don't actually change anything, even if the caller doesn't have
+		// WRITER access, we make the pattern more generally useful.
+		if err := d.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_WRITER); err != nil {
+			return errors.Wrapf(err, "could not update description of %q", repo)
+		}
+		existingRepoInfo.Description = description
+		return repos.Put(repo.Name, &existingRepoInfo)
+	} else {
+		// New repo case
+		if authIsActivated {
+			// Create ACL for new repo. Make caller the sole owner. If the ACL already
+			// exists with a different owner, this will fail.
+			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
+				Repo: repo.Name,
+				Entries: []*auth.ACLEntry{{
+					Username: whoAmI.Username,
+					Scope:    auth.Scope_OWNER,
+				}},
+			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+			}
+		}
+		return repos.Create(repo.Name, &pfs.RepoInfo{
+			Repo:        repo,
+			Created:     types.TimestampNow(),
+			Description: description,
+		})
 	}
-	if update && existingRepoInfo.Created != nil {
-		repoInfo.Created = existingRepoInfo.Created
-	}
-	// Only Put the new repoInfo if something has changed.  This
-	// optimization is impactful because pps will frequently update the
-	// __spec__ repo to make sure it exists.
-	if !proto.Equal(repoInfo, &existingRepoInfo) {
-		return repos.Put(repo.Name, repoInfo)
-	}
-	return nil
 }
 
 func (d *driver) inspectRepo(
@@ -1406,6 +1408,37 @@ func (d *driver) makeCommit(
 		}
 	}
 
+	// this isn't necessary here, but is done for consistency with commits created by propagateCommits
+	// it ensures that the last commit to appear from a specific branch is the latest one on that branch
+	var sortErr error
+	sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+		// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+		// the provenance by repo name and branch name
+		if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+			return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+		} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+			return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+		}
+
+		// we need to check the commit info of the 'j' provenance commit to get the parent
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, newCommitInfo.Provenance[j].Commit)
+		if err != nil {
+			// capture error
+			sortErr = err
+			return true
+		}
+		// the parent commit of 'j' should precede it
+		if provCommitInfo.ParentCommit != nil &&
+			newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+			return true
+		}
+		return false
+	})
+	// capture any errors during sorting
+	if sortErr != nil {
+		return nil, sortErr
+	}
+
 	// Finally, create the commit
 	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 		return nil, err
@@ -1413,11 +1446,19 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch), true); err != nil {
-			return nil, err
+		var triggeredBranches []*pfs.Branch
+		if newCommitInfo.Finished != nil {
+			triggeredBranches, err = d.triggerCommit(txnCtx, newCommit)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, b := range append(triggeredBranches, client.NewBranch(newCommit.Repo.Name, branch)) {
+			if err := txnCtx.PropagateCommit(b, true); err != nil {
+				return nil, err
+			}
 		}
 	}
-
 	return newCommit, nil
 }
 
@@ -1492,14 +1533,25 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 			}
 			commitInfo.Tree = tree
 		}
-
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
 	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
 		return err
 	}
-	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+		return err
+	}
+	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
+	if err != nil {
+		return err
+	}
+	for _, b := range triggeredBranches {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
@@ -1520,7 +1572,19 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
 		return err
 	}
-	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+		return err
+	}
+	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
+	if err != nil {
+		return err
+	}
+	for _, b := range triggeredBranches {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
@@ -1776,6 +1840,37 @@ nextSubvBI:
 			}); err != nil {
 				return err
 			}
+		}
+
+		// this ensures that the job's output commit uses the latest commit on the branch, by ensuring it is the
+		// last commit to appear in the provenance slice
+		var sortErr error
+		sort.SliceStable(newCommitInfo.Provenance, func(i, j int) bool {
+			// to make sure the parent relationship is respected during sort, we need to make sure that we organize
+			// the provenance by repo name and branch name
+			if newCommitInfo.Provenance[i].Commit.Repo.Name != newCommitInfo.Provenance[j].Commit.Repo.Name {
+				return newCommitInfo.Provenance[i].Commit.Repo.Name < newCommitInfo.Provenance[j].Commit.Repo.Name
+			} else if newCommitInfo.Provenance[i].Branch.Name != newCommitInfo.Provenance[j].Branch.Name {
+				return newCommitInfo.Provenance[i].Branch.Name < newCommitInfo.Provenance[j].Branch.Name
+			}
+
+			// we need to check the commit info of the 'j' provenance commit to get the parent
+			provCommitInfo, err := d.resolveCommit(stm, newCommitInfo.Provenance[j].Commit)
+			if err != nil {
+				// capture error
+				sortErr = err
+				return true
+			}
+			// the parent commit of 'j' should precede it
+			if provCommitInfo.ParentCommit != nil &&
+				newCommitInfo.Provenance[i].Commit.ID == provCommitInfo.ParentCommit.ID {
+				return true
+			}
+			return false
+		})
+		// capture any errors during sorting
+		if sortErr != nil {
+			return sortErr
 		}
 
 		// finally create open 'commit'
@@ -2038,6 +2133,9 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
+					if errors.Is(err, errutil.ErrBreak) {
+						return nil
+					}
 					return err
 				}
 				lastRev = createRev
@@ -2048,7 +2146,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			return err
 		}
 		// Call sendCis one last time to send whatever's pending in 'cis'
-		if err := sendCis(); err != nil {
+		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
 		}
 	} else {
@@ -2190,23 +2288,46 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	}
 
 	// Wait for each of the commitsToWatch to be finished.
-	for _, commitToWatch := range commitsToWatch {
-		if len(toRepoMap) > 0 {
-			if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+
+	// It's possible that downstream commits will create more downstream
+	// commits when they finish due to a trigger firing. To deal with this we
+	// loop while we watch commits and add newly discovered commits to the
+	// commitsToWatch map.
+	watchedCommits := make(map[string]bool)
+	for {
+		if len(watchedCommits) == len(commitsToWatch) {
+			// We've watched every commit so it's time to break.
+			break
+		}
+		additionalCommitsToWatch := make(map[string]*pfs.Commit)
+		for key, commitToWatch := range commitsToWatch {
+			if watchedCommits[key] {
 				continue
 			}
-		}
-		finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
-		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
-				continue // just skip this
-			} else if auth.IsErrNotAuthorized(err) {
-				continue // again, just skip (we can't wait on commits we can't access)
+			watchedCommits[key] = true
+			if len(toRepoMap) > 0 {
+				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+					continue
+				}
 			}
-			return err
+			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
+			if err != nil {
+				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+					continue // just skip this
+				} else if auth.IsErrNotAuthorized(err) {
+					continue // again, just skip (we can't wait on commits we can't access)
+				}
+				return err
+			}
+			if err := f(finishedCommitInfo); err != nil {
+				return err
+			}
+			for _, subvCommit := range finishedCommitInfo.Subvenance {
+				additionalCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			}
 		}
-		if err := f(finishedCommitInfo); err != nil {
-			return err
+		for key, additionalCommit := range additionalCommitsToWatch {
+			commitsToWatch[key] = additionalCommit
 		}
 	}
 	// Now wait for the root commits to finish. These are not passed to `f`
@@ -2546,13 +2667,16 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
-func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
+func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
 	}
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
+	}
+	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
+		return err
 	}
 
 	var err error
@@ -2619,6 +2743,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				return errors.Errorf("branch %s@%s cannot be in its own provenance", branch.Repo.Name, branch.Name)
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
+		}
+		if trigger != nil && trigger.Branch != "" {
+			branchInfo.Trigger = trigger
 		}
 		return nil
 	}); err != nil {
@@ -2706,7 +2833,27 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	return txnCtx.PropagateCommit(branch, false)
+	var triggeredBranches []*pfs.Branch
+	if commit != nil {
+		if ci == nil {
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
+			if err != nil {
+				return err
+			}
+		}
+		if ci.Finished != nil {
+			triggeredBranches, err = d.triggerCommit(txnCtx, ci.Commit)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	for _, b := range append(triggeredBranches, branch) {
+		if err := txnCtx.PropagateCommit(b, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
@@ -2836,20 +2983,12 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func (d *driver) checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return errors.Errorf("path (%s) invalid: traverses above root", path)
-	}
-	return nil
-}
-
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
 	cleanedPath := path.Clean("/" + file.Path)
-	if err := d.checkFilePath(cleanedPath); err != nil {
+	if err := checkFilePath(cleanedPath); err != nil {
 		return "", err
 	}
 	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
@@ -2914,7 +3053,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return nil, err
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
@@ -3207,7 +3346,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(dst.Path); err != nil {
+	if err := checkFilePath(dst.Path); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -4149,7 +4288,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := d.checkFilePath(file.Path); err != nil {
+	if err := checkFilePath(file.Path); err != nil {
 		return err
 	}
 	branch := ""

@@ -293,10 +293,12 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 	if err != nil {
 		return err
 	}
+	defer claimWatch.Close()
 	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
 	if err != nil {
 		return err
 	}
+	defer subtaskWatch.Close()
 	for {
 		select {
 		case e := <-claimWatch.Watch():
