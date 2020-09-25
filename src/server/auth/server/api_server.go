@@ -2364,19 +2364,22 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 			membersProto.ParentGroups = make(map[string]bool)
 			membersProto.TransitiveChildGroups = make(map[string]int64)
 		}
+
+		// Find the set of groups to add and remove - unlike adding and removing users,
+		// adding and removing groups is not idempotent.
+		groupsToAdd, groupsToRemove := groupMembershipChange(membersProto.Members, add, remove)
+
 		membersProto.Members = addToSet(membersProto.Members, add...)
 		membersProto.Members = removeFromSet(membersProto.Members, remove...)
 
-		// If we're adding internal groups we need to update additional metadata
-		// to faciliate fast membership tests.
-		groupsToAdd := groupsInList(add)
-		groupsToRemove := groupsInList(remove)
+		// If there are nested groups being added or removed, update additional metadata
 		if len(groupsToAdd) > 0 || len(groupsToRemove) > 0 {
 			err = a.updateGroupMembershipIndex(stm, groupName, membersProto, groupsToAdd, groupsToRemove)
 			if err != nil {
 				return err
 			}
 		} else {
+			// If there are no nested groups, just store the group's new member list
 			err = groups.Put(groupName, &membersProto)
 			if err != nil {
 				return err
@@ -2391,44 +2394,61 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	return &auth.ModifyMembersResponse{}, nil
 }
 
-func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group auth.GroupMembership, groupsToAdd []string, groupsToRemove []string) error {
+// To test for nested group membership without walking the tree, we store
+// the set of all transitive child groups for each group. When we want to
+// test whether a user belongs to a group in a role binding, we compare
+// the user's group membership (not transitive) to all transitive children
+// of the group. If the user is in a group which is a child of the group
+// in the policy, the role binding applies to them.
+//
+// To support insertion and deletion in the tree without recomputing
+// the set of children from scratch, we store two pieces of information group:
+// the set of parent groups, and the number of unique routes to every
+// transitive child group. This works because the number of unique routes
+// from a node to another node in a DAG is the sum of the direct routes from
+// it's children.
+//
+// When we add a group B to a new parent group A, we add the unique routes
+// from B to the existing routes for A. Then we walk up the tree and add
+// them to every transitive parent of A. Likewise when we remove B from A,
+// we subtract the unique routes contributed by the A->B edge from all the
+// parents of A.
+func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group auth.GroupMembership, groupsToAdd, groupsToRemove map[string]bool) error {
 	groups := a.groups.ReadWrite(stm)
 	edgeChanges := make(map[string]int64)
 	var groupData auth.GroupMembership
 
-	for _, g := range groupsToAdd {
-		err := groups.Get(g, &groupData)
+	for toAdd := range groupsToAdd {
+		err := groups.Get(toAdd, &groupData)
 		if err != nil {
-			// TODO: check if the key doesn't exist, print a prettier error
+			if col.IsErrNotFound(err) {
+				return fmt.Errorf("cannot add non-existent group %q", toAdd)
+			}
 			return err
 		}
 
 		for e, c := range groupData.TransitiveChildGroups {
-			updateEdgeMap(edgeChanges, e, c)
+			updateRouteMap(edgeChanges, e, c)
 		}
-		updateEdgeMap(edgeChanges, g, 1)
-		if groupData.ParentGroups == nil {
-			groupData.ParentGroups = make(map[string]bool)
-		}
-		groupData.ParentGroups[name] = true
-		if err := groups.Put(g, &groupData); err != nil {
+		updateRouteMap(edgeChanges, toAdd, 1)
+		groupData.ParentGroups = addToSet(groupData.ParentGroups, name)
+		if err := groups.Put(toAdd, &groupData); err != nil {
 			return err
 		}
 	}
 
-	for _, g := range groupsToRemove {
-		err := groups.Get(g, &groupData)
+	for toRemove := range groupsToRemove {
+		err := groups.Get(toRemove, &groupData)
 		if err != nil {
-			// TODO: check if the key doesn't exist, print a prettier error
 			return err
 		}
 
 		for e, c := range groupData.TransitiveChildGroups {
-			updateEdgeMap(edgeChanges, e, -1*c)
+			updateRouteMap(edgeChanges, e, -1*c)
 		}
-		updateEdgeMap(edgeChanges, g, -1)
+		updateRouteMap(edgeChanges, toRemove, -1)
 		delete(groupData.ParentGroups, name)
-		if err := groups.Put(g, &groupData); err != nil {
+		if err := groups.Put(toRemove, &groupData); err != nil {
 			return err
 		}
 	}
@@ -2447,14 +2467,12 @@ func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group a
 			toUpdate = append(toUpdate, NameMembershipPair{p, auth.GroupMembership{}})
 			err := groups.Get(p, &toUpdate[len(toUpdate)-1].membership)
 			if err != nil {
-				// TODO: check if the key doesn't exist, print a prettier error
 				return err
 			}
 		}
 
-		logrus.Infof("Updating transitive children of group %v - %v + %v", g.name, g.membership.TransitiveChildGroups, edgeChanges)
 		for e, c := range edgeChanges {
-			updateEdgeMap(g.membership.TransitiveChildGroups, e, c)
+			updateRouteMap(g.membership.TransitiveChildGroups, e, c)
 		}
 
 		err := groups.Put(g.name, &g.membership)
@@ -2465,22 +2483,39 @@ func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group a
 	return nil
 }
 
-func updateEdgeMap(m map[string]int64, k string, v int64) {
+func updateRouteMap(m map[string]int64, k string, v int64) {
 	if _, ok := m[k]; !ok {
 		m[k] = 0
 	}
 	m[k] += v
+	if m[k] == 0 {
+		delete(m, k)
+	}
+	if m[k] < 0 {
+		logrus.Errorf("Group has invalid route map with entry < 0: %v", m)
+	}
 }
 
-// groupsInList returns the list of groups from a list of subjects
-func groupsInList(subjects []string) []string {
-	o := make([]string, 0)
-	for _, e := range subjects {
+// groupMembershipChange returns the set of groups that are to be added and removed
+func groupMembershipChange(existingMembers map[string]bool, add, remove []string) (groupsToAdd map[string]bool, groupsToRemove map[string]bool) {
+	for _, e := range add {
 		if strings.HasPrefix(e, groupPrefix) {
-			o = append(o, e)
+			if _, ok := existingMembers[e]; !ok {
+				groupsToAdd[e] = true
+			}
 		}
 	}
-	return o
+
+	for _, e := range remove {
+		if strings.HasPrefix(e, groupPrefix) {
+			delete(groupsToAdd, e)
+			if _, ok := existingMembers[e]; ok {
+				groupsToRemove[e] = true
+			}
+		}
+	}
+
+	return
 }
 
 func addToSet(set map[string]bool, elems ...string) map[string]bool {
