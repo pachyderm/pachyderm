@@ -11,6 +11,6 @@ spec:
   ports:
   - name: peer-port
     port: 2380
-    targetPort: 0
+    targetPort: 0 #TODO
   selector:
     app: etcd

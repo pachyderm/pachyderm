@@ -1,8 +1,9 @@
+{{ if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
-    app: ""
+    app: "" #TODO
     suite: pachyderm
   name: pachyderm-worker
   namespace: {{ .Release.Namespace }}
@@ -17,3 +18,4 @@ rules:
   - update
   - create
   - delete
+{{ end }}

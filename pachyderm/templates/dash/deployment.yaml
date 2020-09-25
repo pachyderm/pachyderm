@@ -21,14 +21,14 @@ spec:
     spec:
       containers:
       - image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.dash.image.pullPolicy }}
         name: dash
         ports:
         - containerPort: 8080
           name: dash-http
         resources: {}
-      - image: pachyderm/grpc-proxy:0.4.10
-        imagePullPolicy: IfNotPresent
+      - image: pachyderm/grpc-proxy:0.4.10 #TODO 
+        imagePullPolicy: IfNotPresent #TODO
         name: grpc-proxy
         ports:
         - containerPort: 8081

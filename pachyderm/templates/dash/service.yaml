@@ -11,14 +11,12 @@ spec:
   - name: dash-http
     nodePort: 30080
     port: 8080
-    targetPort: 0
+    targetPort: 0 #TODO
   - name: grpc-proxy-http
     nodePort: 30081
     port: 8081
-    targetPort: 0
+    targetPort: 0 #TODO
   selector:
     app: dash
     suite: pachyderm
-  type: NodePort
-status:
-  loadBalancer: {}
+  type: NodePort #TODO

@@ -9,34 +9,49 @@ metadata:
     suite: pachyderm
   name: pachd
 spec:
-  ports:
+  ports: #Port ordering so dash can access unencrypted port? (Alysha hack)
   - name: api-grpc-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
+    {{ end }}
     port: 650
-    targetPort: 0
+    targetPort: api-grpc-port
   - name: trace-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30651
+    {{ end }}
     port: 651
-    targetPort: 0
+    targetPort: trace-port
   - name: api-http-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30652
+    {{ end }}
     port: 652
-    targetPort: 0
+    targetPort: api-http-port
   - name: saml-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30654
+    {{ end }}
     port: 654
-    targetPort: 0
+    targetPort: saml-port
   - name: oidc-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
+    {{ end }}
     port: 657
-    targetPort: 0
+    targetPort: oidc-port
   - name: api-git-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30655
+    {{ end }}
     port: 655
-    targetPort: 0
+    targetPort: api-git-port
   - name: s3gateway-port
+    {{ if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
+    {{ end }}
     port: 600
-    targetPort: 0
+    targetPort: s3gateway-port
   selector:
     app: pachd
+  type: {{ .Values.pachd.service.type }}

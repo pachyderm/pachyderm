@@ -2,13 +2,117 @@ dash:
   image:
     repository: pachyderm/dash
     tag: "0.5.48"
+    pullPolicy: IfNotPresent
+  resources: {} #TODO Wire up, default resources?
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
 
 pachd:
   image:
     repository: pachyderm/pachd
     tag: "1.11.3"
+    pullPolicy: IfNotPresent
+  resources: {} #TODO Wire up
+  logLevel: info
+  metrics:
+    enabled: true
+    endpoint: ""
+  noExposeDockerSocket: false
+  numShards: 16
+  blockCacheBytes: 0G
+  authenticationDisabledForTesting: false
+  exposeObjectAPI: false
+  clusterDeploymentID: ""
+  requireCriticalServersOnly: false
+  ppsWorkerGRPCPort: 80
+  storage:
+    backend: "" # GOOGLE, AMAZON, MINIO, MICROSOFT, LOCAL
+    google:
+      googleBucket: ""
+      googleCred: ""
+      serviceAccountName: "" # For Workload Identity access to the bucket
+    amazon:
+      amazonRegion: ""
+      amazonBucket: ""
+      amazonID: ""
+      amazonSecret: ""
+      amazonToken: ""
+      amazonVaultAddr: "" #TODO Add vault to secret
+      amazon-vault-role: ""
+      amazon-vault-token: ""
+      amazonDistribution: ""
+      customEndpoint: ""
+      retries: ""
+      timeout: ""
+      uploadACL: ""
+      reverse: ""
+      partSize: ""
+      maxUploadParts: ""
+      disableSSL: ""
+      noVerifySSL: ""
+      iamRole: "" #TODO - ensure iam role wired up in all places
+    microsoft:
+      microsoftContainer: ""
+      microsoftID: ""
+      microsoftSecret: ""
+    minio:
+      minioBucket: ""
+      minioEndpoint: ""
+      minioID: ""
+      minioSecret: ""
+      minioSecure: ""
+      minioSignature: ""
+    uploadConcurrencyLimit: 100
+    putFileConcurrencyLimit: 100
+  service: #TODO How to handle selective ports for hub
+    type: LoadBalancer
+    apiGrpcPort:
+      expose: true
+      port: 30650
+  serviceAccount:
+    create: true
+    name: pachyderm #TODO Set default in helpers
+  workerServiceAccount:
+    create: true
+    name: pachyderm-worker #TODO Set default in helpers
 
 etcd:
   image:
     repository: pachyderm/etcd
     tag: "v3.3.5"
+    pullPolicy: IfNotPresent
+  resources: {} #TODO Wire up
+
+imageCredentials:
+  registry: ""
+  username: ""
+  password: ""
+  email: ""
+  
+tls: #move under ingress? How to make work with cert-manager, maybe add tls option to pachctl create secret?
+  crt:
+  key:
+
+ingress: #TODO Move under dash?
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+rbac:
+  create: true

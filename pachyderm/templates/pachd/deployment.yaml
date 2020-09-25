@@ -14,8 +14,10 @@ spec:
   strategy: {}
   template:
     metadata:
+      {{ if .Values.pachd.storage.amazon.iamRole }}
       annotations:
-        iam.amazonaws.com/role: ""
+        iam.amazonaws.com/role: {{ .Values.pachd.storage.amazon.iamRole }}
+      {{ end }}
       labels:
         app: pachd
         suite: pachyderm
@@ -28,33 +30,45 @@ spec:
         - name: PACH_ROOT
           value: /pach
         - name: ETCD_PREFIX
+          #value:
         - name: NUM_SHARDS
-          value: "16"
+          value: {{ .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
-          value: GOOGLE
+          value: {{ .Values.pachd.storage.backend }}
         - name: STORAGE_HOST_PATH
+          {{ if eq .Values.pachd.storage.backend "LOCAL" }}
+          value: /var/pachyderm/pachd
+          {{ end }}
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.11.3
+          value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: IMAGE_PULL_SECRET
+          #value:
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.11.3
+          value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
-          value: IfNotPresent
+          value: IfNotPresent #TODO use pachd pull policy or make separate workerPullPolicy?
         - name: WORKER_SERVICE_ACCOUNT
-          value: pachyderm-worker
+          value: {{ .Values.pachd.workerServiceAccount.name }}
         - name: PACHD_VERSION
-          value: 1.11.3
+          value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS
-          value: "true"
+          value: {{ .Values.pachd.metrics.enabled | quote }}
+        {{ if .Values.pachd.metricsEndpoint}}
+        - name: METRICS_ENDPOINT
+          value: "https://{{ .Values.pachd.metricsEndpoint }}/api/v1/metrics"
+        {{ end }}
         - name: LOG_LEVEL
-          value: info
+          value: {{ .Values.pachd.logLevel }}
         - name: BLOCK_CACHE_BYTES
-          value: 0G
+          value: {{ .Values.pachd.blockCacheBytes | quote }}
+          {{ if.Values.pachd.storage.amazon.iamRole }}
         - name: IAM_ROLE
+          value: {{ .Values.pachd.storage.amazon.iamRole }}
+          {{ end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: "false"
+          value: {{ .Values.pachd.noExposeDockerSocket | quote }}
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
-          value: "false"
+          value: {{ .Values.pachd.authenticationDisabledForTesting | quote }}
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -67,18 +81,21 @@ spec:
               divisor: "0"
               resource: requests.memory
         - name: EXPOSE_OBJECT_API
-          value: "false"
+          value: {{ .Values.pachd.exposeObjectAPI | quote }}
+        {{ if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
-          value: f92175b1cefe404bb23d2015da57945d
+          value: {{ .Values.pachd.clusterDeploymentID }}
+        {{ end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
-          value: "false"
+          value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
         - name: PPS_WORKER_GRPC_PORT
-          value: "80"
+          value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
+        {{ if eq .Values.pachd.storage.backend "GOOGLE" }}
         - name: GOOGLE_BUCKET
           valueFrom:
             secretKeyRef:
@@ -91,6 +108,8 @@ spec:
               key: google-cred
               name: pachyderm-storage-secret
               optional: true
+        {{ end }}
+        {{ if eq .Values.pachd.storage.backend "MICROSOFT" }}
         - name: MICROSOFT_CONTAINER
           valueFrom:
             secretKeyRef:
@@ -109,6 +128,8 @@ spec:
               key: microsoft-secret
               name: pachyderm-storage-secret
               optional: true
+        {{ end }}
+        {{ if eq .Values.pachd.storage.backend "MINIO" }}
         - name: MINIO_BUCKET
           valueFrom:
             secretKeyRef:
@@ -145,6 +166,8 @@ spec:
               key: minio-signature
               name: pachyderm-storage-secret
               optional: true
+        {{ end }}
+        {{ if eq .Values.pachd.storage.backend "AMAZON" }}
         - name: AMAZON_REGION
           valueFrom:
             secretKeyRef:
@@ -253,12 +276,13 @@ spec:
               key: no-verify-ssl
               name: pachyderm-storage-secret
               optional: true
+        {{ end }}
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
-          value: "100"
+          value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
-          value: "100"
+          value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
         image: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
         ports:
         - containerPort: 650
@@ -287,10 +311,10 @@ spec:
             - /pachd
             - --readiness
         resources:
-          limits:
+          limits: #TODO
             cpu: "1"
             memory: 2G
-          requests:
+          requests: #TODO
             cpu: "1"
             memory: 2G
         volumeMounts:
@@ -298,9 +322,20 @@ spec:
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
-      serviceAccountName: pachyderm
+        {{ if .Values.tls.enabled }}
+        - mountPath: /pachd-tls-cert
+          name: pachd-tls-cert
+        {{ end }}
+      {{ if .Values.pachd.serviceAccount.name }}
+      serviceAccountName: {{ .Values.pachd.serviceAccount.name }}
+      {{ end }}
       volumes:
       - name: pach-disk
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
+      {{ if .Values.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: pachd-tls-cert
+      {{ end }}

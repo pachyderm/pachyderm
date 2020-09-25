@@ -42,7 +42,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: etcd
         ports:
         - containerPort: 2379
@@ -50,13 +50,13 @@ spec:
         - containerPort: 2380
           name: peer-port
         resources:
-          requests:
+          requests: #TODO
             cpu: "1"
             memory: 2G
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
-      imagePullSecrets: null
+      imagePullSecrets: null #TODO
   volumeClaimTemplates:
   - metadata:
       annotations:
@@ -70,4 +70,4 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi
+          storage: 10Gi #TODO Parameterize storage size

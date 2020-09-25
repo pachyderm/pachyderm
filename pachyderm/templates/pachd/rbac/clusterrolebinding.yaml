@@ -1,8 +1,9 @@
+{{ if .Values.rbac.create }} #TODO Check if service account name set
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: ClusterRoleBinding #TODO option to use role instead of clusterrole
 metadata:
   labels:
-    app: ""
+    app: "" #TODO
     suite: pachyderm
   name: pachyderm
   namespace: {{ .Release.Namespace }}
@@ -12,5 +13,6 @@ roleRef:
   name: pachyderm
 subjects:
 - kind: ServiceAccount
-  name: pachyderm
+  name: {{ .Values.pachd.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
+{{ end }}

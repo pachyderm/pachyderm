@@ -1,0 +1,23 @@
+{{ if .Values.ingress.enabled }} #TODO Change to dash.ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: dash
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  tls:
+  - secretName: dash-tls
+  rules:
+    - host: {{ .Pach.DashURL  }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: dash
+              servicePort: dash-http
+          - path: /ws
+            backend:
+              serviceName: dash
+              servicePort: grpc-proxy-http
+{{ end }}

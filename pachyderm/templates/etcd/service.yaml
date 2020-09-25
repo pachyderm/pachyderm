@@ -10,7 +10,7 @@ spec:
   ports:
   - name: client-port
     port: 2379
-    targetPort: 0
+    targetPort: client-port
   selector:
     app: etcd
-  type: NodePort
+  type: NodePort #TODO ClusterIP

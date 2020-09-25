@@ -1,8 +1,9 @@
+{{ if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: ClusterRole #TODO option to use role instead of clusterrole
 metadata:
   labels:
-    app: ""
+    app: "" #TODO
     suite: pachyderm
   name: pachyderm
   namespace: {{ .Release.Namespace }}
@@ -42,3 +43,4 @@ rules:
   - update
   - delete
   - deletecollection
+{{ end }}
