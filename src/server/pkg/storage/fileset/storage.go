@@ -340,8 +340,8 @@ func (s *Storage) WithRenewal(ctx context.Context, ttl time.Duration, ps []strin
 		}
 	}
 	// spawn the SetTTL loops
-	eg, ctx2 := errgroup.WithContext(ctx)
-	ctx2, cancel := context.WithCancel(ctx2)
+	eg, errCtx := errgroup.WithContext(ctx)
+	errCtx, cancel := context.WithCancel(errCtx)
 	for _, p := range ps {
 		p := p
 		eg.Go(func() error {
@@ -350,11 +350,11 @@ func (s *Storage) WithRenewal(ctx context.Context, ttl time.Duration, ps []strin
 			for {
 				select {
 				case <-ticker.C:
-					_, err := s.SetTTL(ctx, p, ttl)
+					_, err := s.SetTTL(errCtx, p, ttl)
 					if err != nil {
 						return err
 					}
-				case <-ctx2.Done():
+				case <-errCtx.Done():
 					return nil
 				}
 			}
@@ -362,7 +362,7 @@ func (s *Storage) WithRenewal(ctx context.Context, ttl time.Duration, ps []strin
 	}
 	eg.Go(func() error {
 		defer cancel()
-		return cb(ctx2)
+		return cb(errCtx)
 	})
 	if err := eg.Wait(); err != nil {
 		return err

@@ -46,7 +46,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	if w.ttl > 0 {
 		indexWriterOpts = append(indexWriterOpts, index.WithRootTTL(w.ttl))
 	}
-	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
+	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID, indexWriterOpts...)
 	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)

@@ -168,6 +168,16 @@ func (f *UnorderedWriter) Delete(name string, customTag ...string) {
 	dataOp.memFiles[tag] = nil
 }
 
+// PathsWritten returns the full paths (not prefixes) written by this UnorderedWriter
+func (f *UnorderedWriter) PathsWritten() (ret []string) {
+	name := removePrefix(f.name)
+	for i := int64(0); i < f.subFileSet; i++ {
+		p := path.Join(name, SubFileSetStr(i))
+		ret = append(ret, p)
+	}
+	return ret
+}
+
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (f *UnorderedWriter) serialize() error {

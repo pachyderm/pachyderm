@@ -189,7 +189,7 @@ func (w *Writer) Close() (retErr error) {
 
 func (w *Writer) ExpiresAt() *time.Time {
 	if !w.closed {
-		return nil
+		panic("index writer ExpiresAt called before close")
 	}
 	return w.expiresAt
 }

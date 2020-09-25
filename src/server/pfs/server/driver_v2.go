@@ -36,6 +36,7 @@ const (
 	tmpRepo              = client.TmpRepoName
 	maxTTL               = 30 * time.Minute
 	defaultTTL           = 10 * time.Minute
+	driftMargin          = defaultTTL / 4
 )
 
 type driverV2 struct {
@@ -148,36 +149,44 @@ func (d *driverV2) withCommitWriter(ctx context.Context, repo, commit string, cb
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
-	id, err := d.withTempUnorderedWriter(ctx, false, cb)
+	id, pathsWritten, err := d.withTmpUnorderedWriter(ctx, false, cb)
 	if err != nil {
 		return err
 	}
+	// collect paths for renewal
 	tmpPath := path.Join(tmpRepo, id)
-	return d.storage.Copy(ctx, tmpPath, subFileSetPath, defaultTTL)
+	return d.storage.WithRenewal(ctx, defaultTTL, pathsWritten, func(ctx context.Context) error {
+		return d.storage.Copy(ctx, tmpPath, subFileSetPath, 0)
+	})
 }
 
-func (d *driverV2) withTempUnorderedWriter(ctx context.Context, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
+func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, compact bool, cb func(*fileset.UnorderedWriter) error) (string, []string, error) {
 	id := uuid.NewWithoutDashes()
 	inputPath := path.Join(tmpRepo, id)
 	opts := []fileset.UnorderedWriterOption{fileset.WithWriterOption(fileset.WithTTL(defaultTTL))}
 	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
 	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := cb(uw); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := uw.Close(); err != nil {
-		return "", err
+		return "", nil, err
 	}
+	var paths []string
 	if compact {
 		outputPath := path.Join(tmpRepo, id, fileset.Compacted)
-		if _, err = d.storage.Compact(ctx, outputPath, []string{inputPath}, defaultTTL); err != nil {
-			return "", err
+		_, err := d.storage.Compact(ctx, outputPath, []string{inputPath}, defaultTTL)
+		if err != nil {
+			return "", nil, err
 		}
+		paths = []string{outputPath}
+	} else {
+		paths = uw.PathsWritten()
 	}
-	return id, nil
+	return id, paths, nil
 }
 
 func (d *driverV2) withWriter(ctx context.Context, commit *pfs.Commit, cb func(string, *fileset.Writer) error) error {
@@ -984,13 +993,14 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 
 func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
-	return d.withTempUnorderedWriter(ctx, true, func(uw *fileset.UnorderedWriter) error {
+	id, _, err := d.withTmpUnorderedWriter(ctx, true, func(uw *fileset.UnorderedWriter) error {
 		req := &pfs.PutTarRequestV2{
 			Tag: "",
 		}
 		_, err := putTar(uw, server, req)
 		return err
 	})
+	return id, err
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
