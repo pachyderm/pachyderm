@@ -96,7 +96,7 @@ func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retEr
 	}, nil
 }
 
-// Close closes the FileOperationClient.
+// Close closes the CreateTmpFileSetClient.
 func (foc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
 	var ret *pfs.CreateTmpFileSetResponse
 	if err := foc.maybeError(func() error {
