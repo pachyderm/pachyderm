@@ -314,59 +314,69 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			return nil, err
 		}
 	}
-	return d.compactIter(ctx, compactSpec{
+	res, err := d.compactIter(ctx, compactSpec{
 		master:     master,
 		inputPaths: inputPaths,
-		outputPath: outputPath,
 		maxFanIn:   d.env.StorageCompactionMaxFanIn,
 	})
+	if err != nil {
+		return nil, err
+	}
+	if err := d.storage.WithRenewal(ctx, defaultTTL, []string{res.OutputPath}, func(ctx context.Context) error {
+		return d.storage.Copy(ctx, res.OutputPath, outputPath, 0)
+	}); err != nil {
+		return nil, err
+	}
+	return &compactStats{OutputSize: res.OutputSize}, nil
 }
 
 type compactSpec struct {
 	master     *work.Master
-	outputPath string
 	inputPaths []string
 	maxFanIn   int
 }
 
+type compactResult struct {
+	OutputPath string
+	OutputSize int64
+}
+
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *compactStats, retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *compactResult, retErr error) {
 	if len(params.inputPaths) <= params.maxFanIn {
-		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
+		return d.shardedCompact(ctx, params.master, params.inputPaths)
 	}
-	scratch := path.Join(tmpRepo, uuid.NewWithoutDashes())
-	if err := d.storage.RenewDuring(ctx, scratch, func(ctx context.Context) error {
-		childOutputPaths := []string{}
-		childSize := len(params.inputPaths) / params.maxFanIn
-		if len(params.inputPaths)%params.maxFanIn != 0 {
-			childSize++
+	childSize := len(params.inputPaths) / params.maxFanIn
+	if len(params.inputPaths)%params.maxFanIn != 0 {
+		childSize++
+	}
+	// TODO: use an errgroup to make the recursion concurrecnt.
+	// this requires changing the master to allow multiple calls to RunSubtasks
+	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
+	var childOutputPaths []string
+	for i := 0; i < params.maxFanIn; i++ {
+		start := i * childSize
+		end := (i + 1) * childSize
+		if end > len(params.inputPaths) {
+			end = len(params.inputPaths)
 		}
-		// TODO: use an errgroup to make the recursion concurrecnt.
-		// this requires changing the master to allow multiple calls to RunSubtasks
-		// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
-		for i := 0; i < params.maxFanIn; i++ {
-			start := i * childSize
-			end := (i + 1) * childSize
-			if end > len(params.inputPaths) {
-				end = len(params.inputPaths)
-			}
-			childOutputPath := path.Join(scratch, strconv.Itoa(i))
-			childOutputPaths = append(childOutputPaths, childOutputPath)
-			if _, err := d.compactIter(ctx, compactSpec{
-				master:     params.master,
-				inputPaths: params.inputPaths[start:end],
-				outputPath: childOutputPath,
-				maxFanIn:   params.maxFanIn,
-			}); err != nil {
-				return err
-			}
+		res, err := d.compactIter(ctx, compactSpec{
+			master:     params.master,
+			inputPaths: params.inputPaths[start:end],
+			maxFanIn:   params.maxFanIn,
+		})
+		if err != nil {
+			return nil, err
 		}
-		stats, err := d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
+		childOutputPaths = append(childOutputPaths, res.OutputPath)
+	}
+	if err := d.storage.WithRenewal(ctx, defaultTTL, childOutputPaths, func(ctx context.Context) error {
+		res, err := d.shardedCompact(ctx, params.master, childOutputPaths)
 		if err != nil {
 			return err
 		}
-		ret = stats
+		ret = res
 		return nil
 	}); err != nil {
 		return nil, err
@@ -378,7 +388,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *co
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (ret *compactStats, retErr error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inputPaths []string) (ret *compactResult, _ error) {
 	scratch := path.Join(tmpRepo, uuid.NewWithoutDashes())
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
@@ -402,35 +412,34 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 	}); err != nil {
 		return nil, err
 	}
-	if err := d.storage.RenewDuring(ctx, scratch, func(ctx context.Context) error {
-		if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
-			if taskInfo.State == work.State_FAILURE {
-				return errors.Errorf(taskInfo.Reason)
-			}
-			return nil
-		}); err != nil {
-			return err
+	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+		if taskInfo.State == work.State_FAILURE {
+			return errors.Errorf(taskInfo.Reason)
 		}
-		stats, err := d.concatFileSets(ctx, outputPath, shardOutputs)
-		if err != nil {
-			return err
-		}
-		ret = stats
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return ret, nil
+	err := d.storage.WithRenewal(ctx, defaultTTL, shardOutputs, func(ctx context.Context) error {
+		res, err := d.concatFileSets(ctx, shardOutputs)
+		if err != nil {
+			return err
+		}
+		ret = res
+		return nil
+	})
+	return ret, err
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) (*compactStats, error) {
+func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*compactResult, error) {
+	outputPath := path.Join(tmpRepo, uuid.NewWithoutDashes())
 	var size int64
 	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
 		size += idx.SizeBytes
 		return nil
-	}))
+	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
 		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
@@ -440,7 +449,7 @@ func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputP
 	if err := fsw.Close(); err != nil {
 		return nil, err
 	}
-	return &compactStats{OutputSize: size}, nil
+	return &compactResult{OutputPath: outputPath, OutputSize: size}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {

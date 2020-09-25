@@ -318,55 +318,48 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 	})
 }
 
-// SetTTL sets the time-to-live for the prefix. If the prefix contains multiple filesets
-// the ttl will be set on all of them and the soonest expiration time will be returned.
+// SetTTL sets the time-to-live for the path p.
 // if no fileset is found SetTTL returns ErrNoFileSetFound
-func (s *Storage) SetTTL(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
-	// TODO: after we move the semantic paths to postrges the whole prefix can be set atomically.
-	var expiresAt *time.Time
-	if err := s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
-		t, err := s.chunks.RenewReference(ctx, p, ttl)
+func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
+	p = applyPrefix(p)
+	if !s.objC.Exists(ctx, p) {
+		return time.Time{}, ErrNoFileSetFound
+	}
+	return s.chunks.RenewReference(ctx, p, ttl)
+}
+
+// WithRenewal ensures that none of the filesets under prefix expire by repeatedly calling SetTTL in a separate goroutine
+// until cb returns.
+// RenewDuring attempts to delete the contents of prefix after cb has returned
+func (s *Storage) WithRenewal(ctx context.Context, ttl time.Duration, ps []string, cb func(context.Context) error) error {
+	// First we renew all of them, to fail without racing cb
+	for _, p := range ps {
+		_, err := s.SetTTL(ctx, p, ttl)
 		if err != nil {
 			return err
 		}
-		if expiresAt == nil || t.Before(*expiresAt) {
-			expiresAt = &t
-		}
-		return nil
-	}); err != nil {
-		return time.Time{}, err
 	}
-	if expiresAt == nil {
-		return time.Time{}, ErrNoFileSetFound
-	}
-	return *expiresAt, nil
-}
-
-// RenewDuring ensures that none of the filesets under prefix expire by repeatedly calling SetTTL in a separate goroutine
-// until cb returns.
-// RenewDuring attempts to delete the contents of prefix after cb has returned
-func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(context.Context) error) error {
-	const defaultTTL = 10 * time.Minute
+	// spawn the SetTTL loops
 	eg, ctx2 := errgroup.WithContext(ctx)
 	ctx2, cancel := context.WithCancel(ctx2)
-	eg.Go(func() error {
-		var expiresAt time.Time
-		var err error
-		for {
-			expiresAt, err = s.SetTTL(ctx2, prefix, defaultTTL)
-			if err != nil && err != ErrNoFileSetFound {
-				return err
+	for _, p := range ps {
+		p := p
+		eg.Go(func() error {
+			ticker := time.NewTicker(ttl / 2)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					_, err := s.SetTTL(ctx, p, ttl)
+					if err != nil {
+						return err
+					}
+				case <-ctx2.Done():
+					return nil
+				}
 			}
-			now := time.Now()
-			if err == nil && now.After(expiresAt) {
-				return errors.Errorf("fileset has already expired")
-			}
-			remaining := expiresAt.Sub(now)
-			if err := sleepCtx(ctx2, remaining/2); err != nil {
-				return nil // return nil on context cancelled
-			}
-		}
-	})
+		})
+	}
 	eg.Go(func() error {
 		defer cancel()
 		return cb(ctx2)
@@ -374,7 +367,29 @@ func (s *Storage) RenewDuring(ctx context.Context, prefix string, cb func(contex
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	return s.Delete(ctx, prefix)
+	// Ensure that all the keys exist after cb has closed. If they exist now they must have existed for the duration of cb.
+	for _, p := range ps {
+		if !s.Exists(ctx, p) {
+			return ErrNoFileSetFound
+		}
+	}
+	// We delete to ensure no one tries to race for this data after the function ends.
+	for _, p := range ps {
+		if err := s.Delete(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Storage) Exists(ctx context.Context, p string) (exists bool) {
+	if err := s.WalkFileSet(ctx, p, func(p string) error {
+		exists = true
+		return nil
+	}); err != nil {
+		return false
+	}
+	return exists
 }
 
 func (s *Storage) GetExpiresAt(ctx context.Context, prefix string) (time.Time, error) {
