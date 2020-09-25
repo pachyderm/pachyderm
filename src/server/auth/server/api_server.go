@@ -1592,18 +1592,79 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL)
 		scope = subjectScope
 	}
 
+	// Bail out before evaluating groups if we already found OWNER
+	if scope == auth.Scope_OWNER {
+		return scope, nil
+	}
+
 	// Expand scope based on group access
-	groups, err := a.getGroups(ctx, subject)
+	var groupsProto auth.Groups
+	err := a.members.ReadOnly(ctx).Get(subject, &groupsProto)
 	if err != nil {
+		if col.IsErrNotFound(err) {
+			return scope, nil
+		}
 		return auth.Scope_NONE, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
-	for _, g := range groups {
-		groupScope := acl.Entries[g]
-		if scope < groupScope {
-			scope = groupScope
+
+	// TODO: if we knew what level of access was requested we could remove bindings that will never satisfy the request
+	// and stop evaluating when we reach that level
+	var membershipProto auth.GroupMembership
+	for principal, role := range acl.Entries {
+		if strings.HasPrefix(principal, groupPrefix) {
+			// if the user is directly a member of the group, don't look up transitive children
+			if _, ok := groupsProto.Groups[principal]; ok {
+				logrus.Infof("user is a direct member of group %v", principal)
+				if role > scope {
+					scope = role
+					if scope == auth.Scope_OWNER {
+						return scope, nil
+					}
+				}
+				continue
+			}
+			logrus.Infof("checking transitive children of group %v", principal)
+
+			// otherwise get the set of groups that are children of this group and test for overlap
+			// with the user's group membership
+			if err := a.groups.ReadOnly(ctx).Get(principal, &membershipProto); err != nil {
+				if col.IsErrNotFound(err) {
+					logrus.Warnf("group %q is referenced in ACL but not defined", principal)
+					continue
+				}
+				return auth.Scope_NONE, err
+			}
+			logrus.Infof("evaluating intersection of %v %v", groupsProto.Groups, membershipProto.TransitiveChildGroups)
+			if doesIntersect(groupsProto.Groups, membershipProto.TransitiveChildGroups) {
+				if role > scope {
+					scope = role
+					if scope == auth.Scope_OWNER {
+						return scope, nil
+					}
+				}
+			}
 		}
 	}
+
 	return scope, nil
+}
+
+// Test whether any member of s1 is also a member of s2
+func doesIntersect(s1 map[string]bool, s2 map[string]int64) bool {
+	if len(s1) > len(s2) {
+		for k := range s2 {
+			if _, ok := s1[k]; ok {
+				return true
+			}
+		}
+	} else {
+		for k := range s1 {
+			if _, ok := s2[k]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetScopeInTransaction is identical to GetScope except that it can run inside
@@ -2255,11 +2316,11 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		}
 	}
 
-	// Block users from managing external groups which are synced from an IDP.
-	// This can cause unexpected results when users re-authenticate.
-	if !strings.HasPrefix(req.Group, internalGroupPrefix) {
-		return nil, errors.Errorf("only Pachyderm managed groups (with the prefix %q) can be modified", internalGroupPrefix)
+	// Block users from managing fully-qualified group names.
+	if strings.Contains(req.Group, ":") {
+		return nil, errors.Errorf("group names cannot contain a colon (':')", internalGroupPrefix)
 	}
+	groupName := internalGroupPrefix + req.Group
 
 	add, err := a.canonicalizeSubjects(ctx, req.Add)
 	if err != nil {
@@ -2276,7 +2337,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		var groupsProto auth.Groups
 		for _, username := range add {
 			if err := members.Upsert(username, &groupsProto, func() error {
-				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
+				groupsProto.Groups = addToSet(groupsProto.Groups, groupName)
 				return nil
 			}); err != nil {
 				return err
@@ -2284,7 +2345,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		}
 		for _, username := range remove {
 			if err := members.Upsert(username, &groupsProto, func() error {
-				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
+				groupsProto.Groups = removeFromSet(groupsProto.Groups, groupName)
 				return nil
 			}); err != nil {
 				return err
@@ -2295,20 +2356,28 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 
 		// Update the membership list and create the group if it doesn't exist
 		var membersProto auth.GroupMembership
-		if err := groups.Upsert(req.Group, &membersProto, func() error {
-			membersProto.Members = addToSet(membersProto.Members, add...)
-			membersProto.Members = removeFromSet(membersProto.Members, remove...)
-			return nil
-		}); err != nil {
-			return err
+		if err := groups.Get(groupName, &membersProto); err != nil {
+			if !col.IsErrNotFound(err) {
+				return err
+			}
+			membersProto.Members = make(map[string]bool)
+			membersProto.ParentGroups = make(map[string]bool)
+			membersProto.TransitiveChildGroups = make(map[string]int64)
 		}
+		membersProto.Members = addToSet(membersProto.Members, add...)
+		membersProto.Members = removeFromSet(membersProto.Members, remove...)
 
 		// If we're adding internal groups we need to update additional metadata
 		// to faciliate fast membership tests.
 		groupsToAdd := groupsInList(add)
 		groupsToRemove := groupsInList(remove)
 		if len(groupsToAdd) > 0 || len(groupsToRemove) > 0 {
-			err = a.updateGroupMembershipIndex(stm, req.Group, membersProto, groupsToAdd, groupsToRemove)
+			err = a.updateGroupMembershipIndex(stm, groupName, membersProto, groupsToAdd, groupsToRemove)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = groups.Put(groupName, &membersProto)
 			if err != nil {
 				return err
 			}
@@ -2338,6 +2407,9 @@ func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group a
 			updateEdgeMap(edgeChanges, e, c)
 		}
 		updateEdgeMap(edgeChanges, g, 1)
+		if groupData.ParentGroups == nil {
+			groupData.ParentGroups = make(map[string]bool)
+		}
 		groupData.ParentGroups[name] = true
 		if err := groups.Put(g, &groupData); err != nil {
 			return err
@@ -2380,6 +2452,7 @@ func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group a
 			}
 		}
 
+		logrus.Infof("Updating transitive children of group %v - %v + %v", g.name, g.membership.TransitiveChildGroups, edgeChanges)
 		for e, c := range edgeChanges {
 			updateEdgeMap(g.membership.TransitiveChildGroups, e, c)
 		}
@@ -2403,7 +2476,7 @@ func updateEdgeMap(m map[string]int64, k string, v int64) {
 func groupsInList(subjects []string) []string {
 	o := make([]string, 0)
 	for _, e := range subjects {
-		if strings.HasPrefix(groupPrefix, e) {
+		if strings.HasPrefix(e, groupPrefix) {
 			o = append(o, e)
 		}
 	}
