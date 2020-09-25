@@ -486,13 +486,6 @@ message RevokeAuthTokenRequest {
 
 message RevokeAuthTokenResponse {}
 
-message SetGroupsForUserRequest {
-  string username = 1;
-  repeated string groups = 2;
-}
-
-message SetGroupsForUserResponse {}
-
 message ModifyMembersRequest {
   string group = 1;
   repeated string add = 2;
@@ -506,6 +499,12 @@ message GetGroupsRequest {
 }
 
 message GetGroupsResponse {
+  repeated string groups = 1;
+}
+
+message ListGroupsRequest {}
+
+message ListGroupsResponse {
   repeated string groups = 1;
 }
 
@@ -544,6 +543,20 @@ message GetOneTimePasswordResponse {
   google.protobuf.Timestamp otp_expiration = 2 [(gogoproto.customname) = "OTPExpiration"];
 }
 
+// GroupMembership is an internal structure used to efficiently query group membership
+message GroupMembership {
+  // members stores the set of immediate child nodes, which are both groups and users
+  map<string, bool> members = 1;
+
+  // parent_groups stores the set of immediate parent nodes, which are always groups
+  map<string, bool> parent_groups = 2;
+
+  // transitive_child_groups stores the set of groups which are children of this 
+  // group (transitive closure), mapped to the number of distinct routes from this
+  // group to the child group
+  map<string, int64> transitive_child_groups = 3;
+}
+
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
@@ -579,9 +592,9 @@ service API {
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 
-  rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
   rpc GetOneTimePassword(GetOneTimePasswordRequest) returns (GetOneTimePasswordResponse) {}

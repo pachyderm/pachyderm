@@ -128,11 +128,6 @@ func (a *InactiveAPIServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTok
 	return nil, auth.ErrNotActivated
 }
 
-// SetGroupsForUser implements the SetGroupsForUser RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) SetGroupsForUser(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // ModifyMembers implements the ModifyMembers RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyMembers(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -140,6 +135,11 @@ func (a *InactiveAPIServer) ModifyMembers(context.Context, *auth.ModifyMembersRe
 
 // GetGroups implements the GetGroups RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetGroups(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// ListGroups implements the GetGroups RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ListGroups(context.Context, *auth.ListGroupsRequest) (*auth.ListGroupsResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

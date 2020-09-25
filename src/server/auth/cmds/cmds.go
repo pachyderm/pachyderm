@@ -413,6 +413,116 @@ func SetScopeCmd() *cobra.Command {
 	return cmdutil.CreateAlias(setScope, "auth set")
 }
 
+// GetGroupsCmd returns a cobra command that lists the groups a user belongs to
+func GetGroupsCmd() *cobra.Command {
+	listAdmins := &cobra.Command{
+		Short: "List the groups that a user belongs to",
+		Long:  "List the groups that a user belongs to.",
+		Run: cmdutil.RunBoundedArgs(1, 1, func([]string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			resp, err := c.GetGroups(c.Ctx(), &auth.GetGroupsRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			for _, group := range resp.Groups {
+				fmt.Println(group)
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(listAdmins, "auth get-groups")
+}
+
+// ListGroupsCmd returns a cobra command that lists the groups on the cluster
+func ListGroupsCmd() *cobra.Command {
+	listAdmins := &cobra.Command{
+		Short: "List the groups that exist on the cluster",
+		Long:  "List the groups that exist on the cluster.",
+		Run: cmdutil.Run(func([]string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			resp, err := c.ListGroups(c.Ctx(), &auth.ListGroupsRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			for _, group := range resp.Groups {
+				fmt.Println(group)
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(listAdmins, "auth list-groups")
+}
+
+// ListMembersCmd returns a cobra command that lists the members of a group
+func ListMembersCmd() *cobra.Command {
+	listAdmins := &cobra.Command{
+		Short: "List the members of a group",
+		Long:  "List the members of a group",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			resp, err := c.GetUsers(c.Ctx(), &auth.GetUsersRequest{Group: args[0]})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			for _, member := range resp.Usernames {
+				fmt.Println(member)
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(listAdmins, "auth list-members")
+}
+
+// ModifyGroupCmd returns a cobra command that modifies the membership of a group
+func ModifyGroupCmd() *cobra.Command {
+	var add []string
+	var remove []string
+	modifyAdmins := &cobra.Command{
+		Use:   "{{alias}} <group> --add <members to add> --remove <members to remove>",
+		Short: "Modify the membership of a group",
+		Long: "Modify the membership of a group. If the named group does " +
+			"not exist it will be created.  Groups may contain " +
+			"users or other groups. All names should be fully-qualfied - " +
+			"for example, to refer to a Github user specify `github:<username>`. " +
+			"To refer to a group, specify `groups/<source>:<group name>`.",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.ModifyMembers(c.Ctx(), &auth.ModifyMembersRequest{
+				Group:  args[0],
+				Add:    add,
+				Remove: remove,
+			})
+			if auth.IsErrPartiallyActivated(err) {
+				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
+					"can revert by running 'pachctl auth deactivate' or retry by "+
+					"running 'pachctl auth activate' again")
+			}
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
+		"Comma-separated list of members to add to the group")
+	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
+		"Comma-separated list of members to remove from the group")
+	return cmdutil.CreateAlias(modifyAdmins, "auth modify-group")
+}
+
 // ListAdminsCmd returns a cobra command that lists the current cluster admins
 func ListAdminsCmd() *cobra.Command {
 	listAdmins := &cobra.Command{
@@ -611,6 +721,10 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, CheckCmd())
 	commands = append(commands, SetScopeCmd())
 	commands = append(commands, GetCmd())
+	commands = append(commands, GetGroupsCmd())
+	commands = append(commands, ListGroupsCmd())
+	commands = append(commands, ListMembersCmd())
+	commands = append(commands, ModifyGroupCmd())
 	commands = append(commands, ListAdminsCmd())
 	commands = append(commands, ModifyAdminsCmd())
 	commands = append(commands, GetAuthTokenCmd())

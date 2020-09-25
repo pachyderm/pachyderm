@@ -45,6 +45,8 @@ const (
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
 	allClusterUsersSubject = "allClusterUsers"
+	internalGroupPrefix    = "group/pachyderm:"
+	groupPrefix            = "group/"
 
 	tokensPrefix           = "/tokens"
 	oneTimePasswordsPrefix = "/auth-codes"
@@ -281,7 +283,7 @@ func NewAuthServer(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
-			&auth.Users{},
+			&auth.GroupMembership{},
 			nil,
 			nil,
 		),
@@ -2176,10 +2178,9 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 	return &auth.RevokeAuthTokenResponse{}, nil
 }
 
-// setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
-// also by handleSAMLResponse (which updates group membership information based
-// on signed SAML assertions). This does no auth checks, so the caller must do
-// all relevant authorization.
+// setGroupsForUserInternal is a helper function used to update group membership
+// for handleSAMLResponse (which updates group membership information based on signed SAML
+// assertions). This does no auth checks, so the caller must do all relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
@@ -2205,10 +2206,10 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 
 		// Remove user from previous groups
 		groups := a.groups.ReadWrite(stm)
-		var membersProto auth.Users
+		var membersProto auth.GroupMembership
 		for group := range removeGroups.Groups {
 			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = removeFromSet(membersProto.Usernames, subject)
+				membersProto.Members = removeFromSet(membersProto.Members, subject)
 				return nil
 			}); err != nil {
 				return err
@@ -2218,7 +2219,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		// Add user to new groups
 		for group := range addGroups {
 			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = addToSet(membersProto.Usernames, subject)
+				membersProto.Members = addToSet(membersProto.Members, subject)
 				return nil
 			}); err != nil {
 				return err
@@ -2228,41 +2229,6 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		return nil
 	})
 	return err
-}
-
-// SetGroupsForUser implements the protobuf auth.SetGroupsForUser RPC
-func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (resp *auth.SetGroupsForUserResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if a.activationState() != full {
-		return nil, auth.ErrNotActivated
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "SetGroupsForUser",
-		}
-	}
-
-	subject, err := a.canonicalizeSubject(ctx, req.Username)
-	if err != nil {
-		return nil, err
-	}
-	// TODO(msteffen): canonicalize group names
-	if err := a.setGroupsForUserInternal(ctx, subject, req.Groups); err != nil {
-		return nil, err
-	}
-	return &auth.SetGroupsForUserResponse{}, nil
 }
 
 // ModifyMembers implements the protobuf auth.ModifyMembers RPC
@@ -2287,6 +2253,12 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 			Subject: callerInfo.Subject,
 			AdminOp: "ModifyMembers",
 		}
+	}
+
+	// Block users from managing external groups which are synced from an IDP.
+	// This can cause unexpected results when users re-authenticate.
+	if !strings.HasPrefix(req.Group, internalGroupPrefix) {
+		return nil, errors.Errorf("only Pachyderm managed groups (with the prefix %q) can be modified", internalGroupPrefix)
 	}
 
 	add, err := a.canonicalizeSubjects(ctx, req.Add)
@@ -2320,13 +2292,26 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		}
 
 		groups := a.groups.ReadWrite(stm)
-		var membersProto auth.Users
+
+		// Update the membership list and create the group if it doesn't exist
+		var membersProto auth.GroupMembership
 		if err := groups.Upsert(req.Group, &membersProto, func() error {
-			membersProto.Usernames = addToSet(membersProto.Usernames, add...)
-			membersProto.Usernames = removeFromSet(membersProto.Usernames, remove...)
+			membersProto.Members = addToSet(membersProto.Members, add...)
+			membersProto.Members = removeFromSet(membersProto.Members, remove...)
 			return nil
 		}); err != nil {
 			return err
+		}
+
+		// If we're adding internal groups we need to update additional metadata
+		// to faciliate fast membership tests.
+		groupsToAdd := groupsInList(add)
+		groupsToRemove := groupsInList(remove)
+		if len(groupsToAdd) > 0 || len(groupsToRemove) > 0 {
+			err = a.updateGroupMembershipIndex(stm, req.Group, membersProto, groupsToAdd, groupsToRemove)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -2335,6 +2320,94 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	}
 
 	return &auth.ModifyMembersResponse{}, nil
+}
+
+func (a *apiServer) updateGroupMembershipIndex(stm col.STM, name string, group auth.GroupMembership, groupsToAdd []string, groupsToRemove []string) error {
+	groups := a.groups.ReadWrite(stm)
+	edgeChanges := make(map[string]int64)
+	var groupData auth.GroupMembership
+
+	for _, g := range groupsToAdd {
+		err := groups.Get(g, &groupData)
+		if err != nil {
+			// TODO: check if the key doesn't exist, print a prettier error
+			return err
+		}
+
+		for e, c := range groupData.TransitiveChildGroups {
+			updateEdgeMap(edgeChanges, e, c)
+		}
+		updateEdgeMap(edgeChanges, g, 1)
+		groupData.ParentGroups[name] = true
+		if err := groups.Put(g, &groupData); err != nil {
+			return err
+		}
+	}
+
+	for _, g := range groupsToRemove {
+		err := groups.Get(g, &groupData)
+		if err != nil {
+			// TODO: check if the key doesn't exist, print a prettier error
+			return err
+		}
+
+		for e, c := range groupData.TransitiveChildGroups {
+			updateEdgeMap(edgeChanges, e, -1*c)
+		}
+		updateEdgeMap(edgeChanges, g, -1)
+		delete(groupData.ParentGroups, name)
+		if err := groups.Put(g, &groupData); err != nil {
+			return err
+		}
+	}
+
+	type NameMembershipPair struct {
+		name       string
+		membership auth.GroupMembership
+	}
+
+	toUpdate := []NameMembershipPair{{name, group}}
+	for len(toUpdate) > 0 {
+		g := toUpdate[0]
+		toUpdate = toUpdate[1:]
+
+		for p, _ := range g.membership.ParentGroups {
+			toUpdate = append(toUpdate, NameMembershipPair{p, auth.GroupMembership{}})
+			err := groups.Get(p, &toUpdate[len(toUpdate)-1].membership)
+			if err != nil {
+				// TODO: check if the key doesn't exist, print a prettier error
+				return err
+			}
+		}
+
+		for e, c := range edgeChanges {
+			updateEdgeMap(g.membership.TransitiveChildGroups, e, c)
+		}
+
+		err := groups.Put(g.name, &g.membership)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateEdgeMap(m map[string]int64, k string, v int64) {
+	if _, ok := m[k]; !ok {
+		m[k] = 0
+	}
+	m[k] += v
+}
+
+// groupsInList returns the list of groups from a list of subjects
+func groupsInList(subjects []string) []string {
+	o := make([]string, 0)
+	for _, e := range subjects {
+		if strings.HasPrefix(groupPrefix, e) {
+			o = append(o, e)
+		}
+	}
+	return o
 }
 
 func addToSet(set map[string]bool, elems ...string) map[string]bool {
@@ -2356,6 +2429,42 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 	}
 
 	return set
+}
+
+// ListGroups allows admins to list all groups that exist on the cluster
+func (a *apiServer) ListGroups(ctx context.Context, req *auth.ListGroupsRequest) (resp *auth.ListGroupsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if a.activationState() != full {
+		return nil, auth.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "ListGroups",
+		}
+	}
+
+	var groupsProto auth.GroupMembership
+	groups := make([]string, 0)
+	err = a.groups.ReadOnly(ctx).List(&groupsProto, col.DefaultOptions, func(key string) error {
+		groups = append(groups, key)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &auth.ListGroupsResponse{Groups: groups}, err
 }
 
 // getGroups is a helper function used primarily by the GRPC API GetGroups, but
@@ -2443,7 +2552,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 
 	// Filter by group
 	if req.Group != "" {
-		var membersProto auth.Users
+		var membersProto auth.GroupMembership
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			groups := a.groups.ReadWrite(stm)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
@@ -2454,7 +2563,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 			return nil, err
 		}
 
-		return &auth.GetUsersResponse{Usernames: setToList(membersProto.Usernames)}, nil
+		return &auth.GetUsersResponse{Usernames: setToList(membersProto.Members)}, nil
 	}
 
 	membersCol := a.members.ReadOnly(ctx)
@@ -2565,6 +2674,10 @@ func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string)
 // this behavior hasn't been implemented in the dash yet.
 func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if subject == allClusterUsersSubject {
+		return subject, nil
+	}
+
+	if strings.HasPrefix(subject, internalGroupPrefix) {
 		return subject, nil
 	}
 

@@ -605,11 +605,11 @@ func (c *authBuilderClient) ExtendAuthToken(ctx context.Context, req *auth.Exten
 func (c *authBuilderClient) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokenResponse, error) {
 	return nil, unsupportedError("RevokeAuthToken")
 }
-func (c *authBuilderClient) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest, opts ...grpc.CallOption) (*auth.SetGroupsForUserResponse, error) {
-	return nil, unsupportedError("SetGroupsForUser")
-}
 func (c *authBuilderClient) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest, opts ...grpc.CallOption) (*auth.ModifyMembersResponse, error) {
 	return nil, unsupportedError("ModifyMembers")
+}
+func (c *authBuilderClient) ListGroups(ctx context.Context, req *auth.ListGroupsRequest, opts ...grpc.CallOption) (*auth.ListGroupsResponse, error) {
+	return nil, unsupportedError("ListGroups")
 }
 func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRequest, opts ...grpc.CallOption) (*auth.GetGroupsResponse, error) {
 	return nil, unsupportedError("GetGroups")
