@@ -37,9 +37,10 @@ var (
 
 // Used to get the JWKS URI from the set of claims at the OIDC well-known endpoint
 type oidcProviderClaims struct {
-	JwksUri string `json:"jwks_uri"`
+	JwksURI string `json:"jwks_uri"`
 }
 
+// JWTClaims represents the set of claims in an OIDC ID token that we're concerned with
 type JWTClaims struct {
 	Audience  interface{} `json:"aud"`
 	Email     string      `json:"email"`
@@ -47,6 +48,7 @@ type JWTClaims struct {
 	NotBefore int64       `json:"nbf"`
 }
 
+// Valid is required to fulfil the jwt-go interface, we do validation when we parse the token
 func (j *JWTClaims) Valid() error {
 	return nil
 }
@@ -178,7 +180,7 @@ func (o *InternalOIDCProvider) getJWKSKey(alg, kid string) (interface{}, error) 
 		return "", fmt.Errorf("retrieving jwks claim: %v", err)
 	}
 
-	resp, err := http.Get(providerClaims.JwksUri)
+	resp, err := http.Get(providerClaims.JwksURI)
 	if err != nil {
 		return "", fmt.Errorf("fetching jwks endpoint: %v", err)
 	}
