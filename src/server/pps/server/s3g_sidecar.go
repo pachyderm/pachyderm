@@ -290,43 +290,46 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		"suite":     "pachyderm",
 		"component": "worker",
 	}
-	service := &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
-			Labels: labels,
-		},
-		Spec: v1.ServiceSpec{
-			Selector: labels,
-			// Create a headless service so that the worker's kube proxy doesn't
-			// have to get a routing path for the service IP (i.e. the worker kube
-			// proxy can have stale routes and clients running inside the worker
-			// can still connect)
-			ClusterIP: "None",
-			Ports: []v1.ServicePort{
-				{
-					Port: int32(s.s.apiServer.env.S3GatewayPort),
-					Name: "s3-gateway-port",
+
+	for _, datumID := range jobInfo.DatumIDs {
+		service := &v1.Service{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Service",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
+				Labels: labels,
+			},
+			Spec: v1.ServiceSpec{
+				Selector: labels,
+				// Create a headless service so that the worker's kube proxy doesn't
+				// have to get a routing path for the service IP (i.e. the worker kube
+				// proxy can have stale routes and clients running inside the worker
+				// can still connect)
+				ClusterIP: "None",
+				Ports: []v1.ServicePort{
+					{
+						Port: int32(s.s.apiServer.env.S3GatewayPort),
+						Name: "s3-gateway-port",
+					},
 				},
 			},
-		},
-	}
-
-	err := backoff.RetryNotify(func() error {
-		_, err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Create(service)
-		if err != nil && strings.Contains(err.Error(), "already exists") {
-			return nil // service already created
 		}
-		return err
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error creating kubernetes service for s3 gateway sidecar: %v; retrying in %v", err, d)
-		return nil
-	})
-	if err != nil {
-		logrus.Errorf("could not create service for %q: %v", jobInfo.Job.ID, err)
+
+		err := backoff.RetryNotify(func() error {
+			_, err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Create(service)
+			if err != nil && strings.Contains(err.Error(), "already exists") {
+				return nil // service already created
+			}
+			return err
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+			logrus.Errorf("error creating kubernetes service for s3 gateway sidecar: %v; retrying in %v", err, d)
+			return nil
+		})
+		if err != nil {
+			logrus.Errorf("could not create service for %q: %v", jobInfo.Job.ID, err)
+		}
 	}
 }
 
@@ -335,19 +338,21 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, jobInfo *p
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 
-	if err := backoff.RetryNotify(func() error {
-		err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
-			ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
-			&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
-		if err != nil && strings.Contains(err.Error(), "not found") {
-			return nil // service already deleted
+	for _, datumID := range jobInfo.DatumIDs {
+		if err := backoff.RetryNotify(func() error {
+			err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
+				ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
+				&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
+			if err != nil && strings.Contains(err.Error(), "not found") {
+				return nil // service already deleted
+			}
+			return err
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+			logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", jobInfo.Job.ID, err, d)
+			return nil
+		}); err != nil {
+			logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", jobInfo.Job.ID, err)
 		}
-		return err
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", jobInfo.Job.ID, err, d)
-		return nil
-	}); err != nil {
-		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", jobInfo.Job.ID, err)
 	}
 }
 
@@ -418,14 +423,7 @@ func (h *handleJobsCtx) end(ctx context.Context, cancel func(), jobID string) {
 }
 
 func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventType, jobID string) {
-	if t == watch.EventDelete {
-		h.h.OnTerminate(jobCtx, jobID)
-		return
-	}
-	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
-	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", jobID)
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
@@ -449,6 +447,17 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 		logrus.Errorf("permanent error inspecting job %q: %v", jobID, err)
 		return // leak the job; better than getting stuck?
 	}
+
+	if t == watch.EventDelete {
+		// TODO: this won't actually work because the job info will be nil - fix by
+		// reverting the jobInfo.DatumIDs change
+		// h.h.OnTerminate(jobCtx, jobInfo)
+		return
+	}
+	// 'e' is a Put event (new or updated job)
+	// Inspect the job and make sure it's relevant, as this worker may be old
+	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", jobID)
+
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
 		logrus.Infof("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 		return
@@ -461,7 +470,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 		return
 	}
 	if ppsutil.IsTerminal(jobInfo.State) {
-		h.h.OnTerminate(jobCtx, jobID)
+		h.h.OnTerminate(jobCtx, jobInfo)
 		return
 	}
 

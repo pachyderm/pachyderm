@@ -551,7 +551,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 
-	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx, pfs.InspectCommitRequest{
+	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 		Commit:     request.OutputCommit,
 		BlockState: pfs.CommitState_STARTED,
 	})

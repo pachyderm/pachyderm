@@ -224,7 +224,7 @@ func uploadChunk(
 	})
 }
 
-func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
+func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger, datumID string) error {
 	return backoff.RetryNotify(func() error {
 		endpoint := fmt.Sprintf("http://%s:%s/",
 			ppsutil.SidecarS3GatewayService(logger.JobID(), datumID),
@@ -250,11 +250,6 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 }
 
 func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, subtaskID string, status *Status) error {
-	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
-		if err := checkS3Gateway(driver, logger); err != nil {
-			return err
-		}
-	}
 
 	// TODO: check for existing tagged output files - continue with processing if any are missing
 	return driver.WithDatumCache(func(datumCache *hashtree.MergeCache, statsCache *hashtree.MergeCache) error {
@@ -375,6 +370,12 @@ func processDatum(
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
 	datumID := common.DatumID(inputs)
+
+	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
+		if err := checkS3Gateway(driver, logger, datumID); err != nil {
+			return stats, recoveredDatumTags, err
+		}
+	}
 
 	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 		buf := &bytes.Buffer{}
