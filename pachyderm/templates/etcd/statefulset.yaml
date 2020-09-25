@@ -60,7 +60,7 @@ spec:
   volumeClaimTemplates:
   - metadata:
       annotations:
-        volume.beta.kubernetes.io/storage-class: etcd-storage-class
+        volume.beta.kubernetes.io/storage-class: etcd-storage-class #TODO only set if storage class created
       labels:
         app: etcd
         suite: pachyderm

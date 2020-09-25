@@ -1,4 +1,4 @@
----
+{{ if eq .Values.pachd.storage.backend "GOOGLE" }}
 allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -10,3 +10,4 @@ metadata:
 parameters:
   type: pd-ssd
 provisioner: kubernetes.io/gce-pd
+{{ end }}

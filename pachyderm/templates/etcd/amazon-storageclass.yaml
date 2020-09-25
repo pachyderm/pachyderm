@@ -1,0 +1,14 @@
+{{ if eq .Values.pachd.storage.backend "AMAZON" }}
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd-storage-class
+  namespace: default
+parameters:
+  type: gp2
+provisioner: kubernetes.io/aws-ebs
+{{ end }}
