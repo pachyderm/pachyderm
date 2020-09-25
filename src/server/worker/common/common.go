@@ -54,7 +54,7 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 func DatumIDV2(inputs []*Input) string {
 	var files []string
 	for _, input := range inputs {
-		files = append(files, strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
+		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
 	}
 	return strings.Join(files, "-")
 }

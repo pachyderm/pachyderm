@@ -72,8 +72,8 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 						opts = append(opts, datum.WithTimeout(timeout))
 					}
 					if driver.PipelineInfo().Transform.ErrCmd != nil {
-						opts = append(opts, datum.WithRecoveryCallback(func() error {
-							return driver.RunUserErrorHandlingCodeV2(ctx, logger, env)
+						opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
+							return driver.RunUserErrorHandlingCodeV2(runCtx, logger, env)
 						}))
 					}
 					return s.WithDatum(ctx, meta, func(d *datum.Datum) error {

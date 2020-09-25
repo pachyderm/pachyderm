@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"path"
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -24,9 +26,10 @@ func newAPIServerV2(embeddedServer *apiServer) *apiServerV2 {
 func (a *apiServerV2) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta) error {
+	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumIDV2(meta.Inputs) == request.Datum.ID {
 			response = convertDatumMetaToInfo(meta)
+			response.PfsState = pfsState
 		}
 		return nil
 	}); err != nil {
@@ -38,7 +41,7 @@ func (a *apiServerV2) InspectDatum(ctx context.Context, request *pps.InspectDatu
 func (a *apiServerV2) ListDatumStream(request *pps.ListDatumRequest, server pps.API_ListDatumStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta) error {
+	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 		return server.Send(&pps.ListDatumStreamResponse{
 			DatumInfo: convertDatumMetaToInfo(meta),
 		})
@@ -74,7 +77,7 @@ func convertDatumState(state datum.State) pps.DatumState {
 	}
 }
 
-func (a *apiServerV2) collectDatums(ctx context.Context, job *pps.Job, cb func(*datum.Meta) error) error {
+func (a *apiServerV2) collectDatums(ctx context.Context, job *pps.Job, cb func(*datum.Meta, *pfs.File) error) error {
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: job.ID,
@@ -87,7 +90,15 @@ func (a *apiServerV2) collectDatums(ctx context.Context, job *pps.Job, cb func(*
 		return errors.Errorf("job not finished")
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	return datum.NewFileSetIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID).Iterate(cb)
+	fsi := datum.NewFileSetIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+	return fsi.Iterate(func(meta *datum.Meta) error {
+		// TODO: Potentially refactor into datum package (at least the path).
+		pfsState := &pfs.File{
+			Commit: jobInfo.StatsCommit,
+			Path:   "/" + path.Join(datum.PFSPrefix, common.DatumIDV2(meta.Inputs)),
+		}
+		return cb(meta, pfsState)
+	})
 }
 
 var errV1NotImplemented = errors.Errorf("V1 method not implemented")

@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -748,7 +749,8 @@ func TestGlobFileV2(t *testing.T) {
 		}
 		assert.ElementsMatch(t, []string{"/dir1/file1.2", "/dir2/file2.2"}, globFile("**.2"))
 		assert.ElementsMatch(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, globFile("/dir1/*"))
-		assert.ElementsMatch(t, []string{"/", "/dir1/", "/dir2/"}, globFile("/*"))
+		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
+		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
 		return nil
 	}, config)
 	require.NoError(t, err)
@@ -873,7 +875,7 @@ func TestDiffFileV2(t *testing.T) {
 			fsspec := fileSetSpec{
 				fileName: tarutil.NewMemFile(fileName, data),
 			}
-			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
+			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream(), false)
 			require.NoError(t, err)
 		}
 
@@ -1069,6 +1071,25 @@ func TestCopyFileV2(t *testing.T) {
 		}
 		_, err = env.PachClient.InspectFile(repo, otherCommit.ID, "files/0")
 		require.NoError(t, err)
+		return nil
+	}, newPachdConfig()))
+}
+
+func TestPutFileOverwriteV2(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("foo"), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
+		require.NoError(t, err)
+		var buf bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "bar", buf.String())
 		return nil
 	}, newPachdConfig()))
 }

@@ -80,16 +80,15 @@ func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperati
 // PutTar puts a tar stream into PFS.
 func (foc *FileOperationClient) PutTar(r io.Reader, overwrite bool, tag ...string) error {
 	return foc.maybeError(func() error {
+		ptr := &pfs.PutTarRequestV2{Overwrite: overwrite}
 		if len(tag) > 0 {
 			if len(tag) > 1 {
 				return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
 			}
-			if err := foc.sendPutTar(&pfs.PutTarRequestV2{
-				Overwrite: overwrite,
-				Tag:       tag[0],
-			}); err != nil {
-				return err
-			}
+			ptr.Tag = tag[0]
+		}
+		if err := foc.sendPutTar(ptr); err != nil {
+			return err
 		}
 		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
 			return foc.sendPutTar(&pfs.PutTarRequestV2{Data: data})
@@ -202,6 +201,20 @@ func (c APIClient) DiffFileV2(newRepo, newCommit, newPath, oldRepo,
 		}
 	}
 	return nil
+}
+
+// ClearCommitV2 clears the state of an open commit.
+func (c APIClient) ClearCommitV2(repo, commit string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PfsAPIClient.ClearCommitV2(
+		c.Ctx(),
+		&pfs.ClearCommitRequestV2{
+			Commit: NewCommit(repo, commit),
+		},
+	)
+	return err
 }
 
 // PutFileV2 puts a file into PFS.

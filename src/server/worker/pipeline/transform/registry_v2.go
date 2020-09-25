@@ -348,14 +348,20 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 				if err := pj.writeJobInfo(); err != nil {
 					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
 				}
-				// Reload the job's commitInfo as it may have changed
+				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
 				pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
 				if err != nil {
+					return err
+				}
+				if err := pj.driver.PachClient().ClearCommitV2(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID); err != nil {
 					return err
 				}
 				if metaCommit != nil {
 					pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
 					if err != nil {
+						return err
+					}
+					if err := pj.driver.PachClient().ClearCommitV2(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID); err != nil {
 						return err
 					}
 				}
@@ -575,7 +581,6 @@ func deserializeDatumSetV2(any *types.Any) (*DatumSetV2, error) {
 }
 
 func failedInputsV2(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
-	return nil, nil
 	var failed []string
 	var vistErr error
 	blockCommit := func(name string, commit *pfs.Commit) {
@@ -624,9 +629,12 @@ func finishJobV2(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, p
 				return err
 			}
 		}
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-		}); err != nil {
+		fcr := &pfs.FinishCommitRequest{Commit: jobInfo.OutputCommit}
+		// TODO: This is how we are propagating failures for now, would be better to have general purpose metadata associated with a commit.
+		if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
+			fcr.Description = pfs.EmptyStr
+		}
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), fcr); err != nil {
 			return err
 		}
 		return writeJobInfo(&builder.APIClient, jobInfo)

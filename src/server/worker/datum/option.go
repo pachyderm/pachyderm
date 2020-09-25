@@ -1,6 +1,9 @@
 package datum
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type SetOption func(*Set)
 
@@ -30,7 +33,7 @@ func WithRetry(numRetries int) DatumOption {
 	}
 }
 
-func WithRecoveryCallback(cb func() error) DatumOption {
+func WithRecoveryCallback(cb func(context.Context) error) DatumOption {
 	return func(d *Datum) {
 		d.recoveryCallback = cb
 	}

@@ -132,8 +132,7 @@ type Datum struct {
 	meta             *Meta
 	storageRoot      string
 	numRetries       int
-	recoveryCallback func() error
-	stats            *pps.ProcessStats
+	recoveryCallback func(context.Context) error
 	timeout          time.Duration
 }
 
@@ -146,8 +145,8 @@ func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
 		ID:          ID,
 		storageRoot: path.Join(set.storageRoot, ID),
 		numRetries:  defaultNumRetries,
-		stats:       &pps.ProcessStats{},
 	}
+	d.meta.Stats = &pps.ProcessStats{}
 	for _, opt := range opts {
 		opt(d)
 	}
@@ -164,34 +163,29 @@ func (d *Datum) MetaStorageRoot() string {
 
 func (d *Datum) finish(err error) (retErr error) {
 	defer func() {
-		if err := MergeProcessStats(d.set.stats.ProcessStats, d.stats); retErr == nil {
+		if err := MergeProcessStats(d.set.stats.ProcessStats, d.meta.Stats); retErr == nil {
 			retErr = err
 		}
 	}()
 	if err != nil {
-		return d.handleFailed(err)
+		d.handleFailed(err)
+		return d.uploadMetaOutput()
 	}
 	d.set.stats.Processed++
 	return d.uploadOutput()
 }
 
-func (d *Datum) handleFailed(err error) error {
+func (d *Datum) handleFailed(err error) {
+	if d.meta.State == State_RECOVERED {
+		d.set.stats.Recovered++
+		return
+	}
 	d.meta.State = State_FAILED
-	if d.recoveryCallback != nil {
-		err = d.recoveryCallback()
-		if err == nil {
-			d.meta.State = State_RECOVERED
-			d.set.stats.Recovered++
-		}
+	d.meta.Reason = err.Error()
+	d.set.stats.Failed++
+	if d.set.stats.FailedID == "" {
+		d.set.stats.FailedID = d.ID
 	}
-	if d.meta.State == State_FAILED {
-		d.set.stats.Failed++
-		if d.set.stats.FailedID == "" {
-			d.set.stats.FailedID = d.ID
-		}
-	}
-	// TODO: Store error in meta.
-	return d.uploadMetaOutput()
 }
 
 func (d *Datum) withData(cb func() error) (retErr error) {
@@ -214,13 +208,13 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 
 func (d *Datum) downloadData() error {
 	start := time.Now()
-	d.stats.DownloadBytes = 0
+	d.meta.Stats.DownloadBytes = 0
 	defer func() {
-		d.stats.DownloadTime = types.DurationProto(time.Since(start))
+		d.meta.Stats.DownloadTime = types.DurationProto(time.Since(start))
 	}()
 	for _, input := range d.meta.Inputs {
 		if err := sync.PullV2(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name), func(hdr *tar.Header) error {
-			d.stats.DownloadBytes += uint64(hdr.Size)
+			d.meta.Stats.DownloadBytes += uint64(hdr.Size)
 			return nil
 		}); err != nil {
 			return err
@@ -230,11 +224,30 @@ func (d *Datum) downloadData() error {
 }
 
 func (d *Datum) Run(ctx context.Context, cb func(ctx context.Context) error) error {
+	start := time.Now()
+	defer func() {
+		d.meta.Stats.ProcessTime = types.DurationProto(time.Since(start))
+	}()
 	if d.timeout > 0 {
 		timeoutCtx, cancel := context.WithTimeout(ctx, d.timeout)
 		defer cancel()
-		return cb(timeoutCtx)
+		return d.run(timeoutCtx, cb)
 	}
+	return d.run(ctx, cb)
+}
+
+func (d *Datum) run(ctx context.Context, cb func(ctx context.Context) error) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			if d.recoveryCallback != nil {
+				// TODO: Set error based on recovery or original? Going with original for now.
+				err := d.recoveryCallback(ctx)
+				if err == nil {
+					d.meta.State = State_RECOVERED
+				}
+			}
+		}
+	}()
 	return cb(ctx)
 }
 
@@ -264,23 +277,18 @@ func (d *Datum) uploadMetaOutput() (retErr error) {
 }
 
 func (d *Datum) uploadOutput() error {
-	if err := d.uploadMetaOutput(); err != nil {
-		return err
-	}
 	if d.set.pfsOutputClient != nil {
 		start := time.Now()
-		d.stats.UploadBytes = 0
-		defer func() {
-			d.stats.UploadTime = types.DurationProto(time.Since(start))
-		}()
+		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix), func(hdr *tar.Header) error {
-			d.stats.UploadBytes += uint64(hdr.Size)
+			d.meta.Stats.UploadBytes += uint64(hdr.Size)
 			return nil
 		}); err != nil {
 			return err
 		}
+		d.meta.Stats.UploadTime = types.DurationProto(time.Since(start))
 	}
-	return nil
+	return d.uploadMetaOutput()
 }
 
 func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Header) error) error {

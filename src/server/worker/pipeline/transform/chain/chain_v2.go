@@ -63,6 +63,7 @@ func (jdi *JobDatumIteratorV2) SetDeleter(deleter func(*datum.Meta) error) {
 }
 
 func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
+	jdi.stats.Skipped = 0
 	if jdi.parent == nil {
 		return jdi.dit.Iterate(cb)
 	}
