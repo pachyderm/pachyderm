@@ -156,28 +156,34 @@ func parseLogOptions(optstring string) *aws.LogLevelType {
 	if optstring == "" {
 		return nil
 	}
-	opts := strings.Split(optstring, ",")
+	toLevel := map[string]aws.LogLevelType{
+		"Debug":           aws.LogDebug,
+		"Signing":         aws.LogDebugWithSigning,
+		"HTTPBody":        aws.LogDebugWithHTTPBody,
+		"RequestRetries":  aws.LogDebugWithRequestRetries,
+		"RequestErrors":   aws.LogDebugWithRequestErrors,
+		"EventStreamBody": aws.LogDebugWithEventStreamBody,
+		"all": aws.LogDebugWithSigning |
+			aws.LogDebugWithHTTPBody |
+			aws.LogDebugWithRequestRetries |
+			aws.LogDebugWithRequestErrors |
+			aws.LogDebugWithEventStreamBody,
+	}
 	var result aws.LogLevelType
-	for _, o := range opts {
-		switch o {
-		case "Signing":
-			result |= aws.LogDebugWithSigning
-		case "HTTPBody":
-			result |= aws.LogDebugWithHTTPBody
-		case "RequestRetries":
-			result |= aws.LogDebugWithRequestRetries
-		case "RequestErrors":
-			result |= aws.LogDebugWithRequestErrors
-		case "EventStreamBody":
-			result |= aws.LogDebugWithEventStreamBody
-		case "all":
-			result |= aws.LogDebugWithSigning |
-				aws.LogDebugWithHTTPBody |
-				aws.LogDebugWithRequestRetries |
-				aws.LogDebugWithRequestErrors |
-				aws.LogDebugWithEventStreamBody
+	opts := strings.Split(optstring, ",")
+	for _, optStr := range opts {
+		result |= toLevel[optStr]
+	}
+	var msg bytes.Buffer
+	// build log message separately, as the log flags have overlapping definitions
+	msg.WriteString("using S3 logging flags: ")
+	for _, optStr := range []string{"Debug", "Signing", "HTTPBody", "RequestRetries", "RequestErrors", "EventStreamBody"} {
+		if (result & toLevel[optStr]) == toLevel[optStr] {
+			msg.WriteString(optStr)
+			msg.WriteString(",")
 		}
 	}
+	log.Infof(msg.String())
 	return &result
 }
 
@@ -201,6 +207,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		HTTPClient: httpClient,
 		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
 		LogLevel:   parseLogOptions(advancedConfig.LogOptions),
+		Logger:     aws.NewDefaultLogger(),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
