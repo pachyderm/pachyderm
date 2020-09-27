@@ -157,12 +157,12 @@ func parseLogOptions(optstring string) *aws.LogLevelType {
 		return nil
 	}
 	toLevel := map[string]aws.LogLevelType{
-		"Debug":           aws.LogDebug,
-		"Signing":         aws.LogDebugWithSigning,
-		"HTTPBody":        aws.LogDebugWithHTTPBody,
-		"RequestRetries":  aws.LogDebugWithRequestRetries,
-		"RequestErrors":   aws.LogDebugWithRequestErrors,
-		"EventStreamBody": aws.LogDebugWithEventStreamBody,
+		"debug":           aws.LogDebug,
+		"signing":         aws.LogDebugWithSigning,
+		"httpbody":        aws.LogDebugWithHTTPBody,
+		"requestretries":  aws.LogDebugWithRequestRetries,
+		"requesterrors":   aws.LogDebugWithRequestErrors,
+		"eventstreambody": aws.LogDebugWithEventStreamBody,
 		"all": aws.LogDebugWithSigning |
 			aws.LogDebugWithHTTPBody |
 			aws.LogDebugWithRequestRetries |
@@ -172,13 +172,14 @@ func parseLogOptions(optstring string) *aws.LogLevelType {
 	var result aws.LogLevelType
 	opts := strings.Split(optstring, ",")
 	for _, optStr := range opts {
-		result |= toLevel[optStr]
+		result |= toLevel[strings.ToLower(optStr)]
 	}
 	var msg bytes.Buffer
 	// build log message separately, as the log flags have overlapping definitions
 	msg.WriteString("using S3 logging flags: ")
 	for _, optStr := range []string{"Debug", "Signing", "HTTPBody", "RequestRetries", "RequestErrors", "EventStreamBody"} {
-		if (result & toLevel[optStr]) == toLevel[optStr] {
+		optBits := toLevel[strings.ToLower(optStr)]
+		if (result & optBits) == optBits {
 			msg.WriteString(optStr)
 			msg.WriteString(",")
 		}
