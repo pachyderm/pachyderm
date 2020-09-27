@@ -1,9 +1,8 @@
 # Advanced Statistics
 
-To use the advanced statistics features in Pachyderm Enterprise Edition, you need to:
+To use the advanced statistics features in Pachyderm, you need to:
 
-1. Run your pipelines on a Pachyderm cluster that has activated Enterprise
-   features. See [Deploying Enterprise Edition](deployment.md).
+1. Run your pipelines on a Pachyderm cluster.
 2. Enable stats collection in your pipelines by including
    `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/#enable-stats-optional).
 
@@ -58,6 +57,8 @@ modify the pipeline specification as follows:
     }
     ```
 
+## Listing Stats for a Pipeline
+
 Once the pipeline has been created and you have use it to process data,
 you can confirm that stats are being collected with `list file`. There
 should now be stats data in the output repo of the pipeline under a
@@ -80,10 +81,59 @@ branch called `stats`:
     ...
     ```
 
+## Accessing Stats through the command line
+
+To view the stats for a specific datum you can use a `list file`:
+
+!!! example
+
+    ```bash
+    pachctl list file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868
+    ```
+
+    **System response:**
+
+    ```bash
+    NAME                                                                                                   TYPE SIZE     
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/index                                file 1B       
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/job:e448275f92604db0aa77770bddf24610 file 0B       
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/logs                                 file 0B       
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs                                  dir  115.9KiB 
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/stats                                file 136B
+    ```
+
+The files: index, job, logs and stats are metadata files that can be accessed using a `get file`:
+
+!!! example
+
+    ```bash
+    pachctl get file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/stats
+    ```
+
+    **System response:**
+
+    ```bash    {"downloadTime":"0.211353702s","processTime":"0.474949018s","uploadTime":"0.567586547s","downloadBytes":"80588","uploadBytes":"38046"}
+    ```
+
+The pfs directory has both the input and the output data that was committed in this datum:
+
+!!! example
+
+    ```bash
+    pachctl list file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs
+    ```
+
+    **System response:**
+
+    ```bash    NAME                                                                         TYPE SIZE     
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/images dir  78.7KiB  
+    /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/out    dir  37.15KiB
+    ```
+
 ## Accessing Stats Through the Dashboard
 
 If you have deployed and activated the Pachyderm Enterprise
-dashboard, you can explore advanced statistics. For example, if you
+Edition, you can explore advanced statistics through the dashboard. For example, if you
 navigate to the `edges` pipeline, you might see something similar to this:
 
 ![alt tag](../assets/images/stats1.png)
