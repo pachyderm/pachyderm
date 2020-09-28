@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.4
+- Fixes a race condition that prevents a standby pipeline from transitioning out of crashing state (#5273)
+- Fixes a bug that leaked goroutine (#5288)
+- Fixes a bug that did not correctly set the provenance when specified in `run pipeline` command (#5299)
+
 ## 1.11.3
 - Fixes a bug that did not correctly port forward OIDC port (#5221)
 - Changes to allow configuration of SAML and OIDC default server ports (#5234)
