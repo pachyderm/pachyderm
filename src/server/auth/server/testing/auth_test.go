@@ -2572,7 +2572,7 @@ func TestPipelineNewInput(t *testing.T) {
 	})
 }
 
-func TestModifyMembers(t *testing.T) {
+func TestModifyGroupMembers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2589,16 +2589,16 @@ func TestModifyMembers(t *testing.T) {
 
 	// This is a sequence dependent list of tests
 	tests := []struct {
-		Requests []*auth.ModifyMembersRequest
+		Requests []*auth.ModifyGroupMembersRequest
 		Expected map[string][]string
 	}{
 		{
-			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+			[]*auth.ModifyGroupMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:   []string{alice},
 					Group: organization,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:   []string{alice},
 					Group: organization,
 				},
@@ -2608,16 +2608,16 @@ func TestModifyMembers(t *testing.T) {
 			},
 		},
 		{
-			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+			[]*auth.ModifyGroupMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:   []string{bob},
 					Group: organization,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:   []string{alice, bob},
 					Group: engineering,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:   []string{bob},
 					Group: security,
 				},
@@ -2628,13 +2628,13 @@ func TestModifyMembers(t *testing.T) {
 			},
 		},
 		{
-			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+			[]*auth.ModifyGroupMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:    []string{alice},
 					Remove: []string{bob},
 					Group:  security,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Remove: []string{bob},
 					Group:  engineering,
 				},
@@ -2645,21 +2645,21 @@ func TestModifyMembers(t *testing.T) {
 			},
 		},
 		{
-			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+			[]*auth.ModifyGroupMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Remove: []string{alice, bob},
 					Group:  organization,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Remove: []string{alice, bob},
 					Group:  security,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:    []string{alice},
 					Remove: []string{alice},
 					Group:  organization,
 				},
-				&auth.ModifyMembersRequest{
+				&auth.ModifyGroupMembersRequest{
 					Add:    []string{},
 					Remove: []string{},
 					Group:  organization,
@@ -2675,7 +2675,7 @@ func TestModifyMembers(t *testing.T) {
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			for _, req := range test.Requests {
-				_, err := adminClient.ModifyMembers(adminClient.Ctx(), req)
+				_, err := adminClient.ModifyGroupMembers(adminClient.Ctx(), req)
 				require.NoError(t, err)
 			}
 
@@ -2696,127 +2696,6 @@ func TestModifyMembers(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestSetGroupsForUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-	defer deleteAll(t)
-
-	alice := tu.UniqueString("alice")
-	organization := tu.UniqueString("organization")
-	engineering := tu.UniqueString("engineering")
-	security := tu.UniqueString("security")
-
-	adminClient := getPachClient(t, admin)
-
-	groups := []string{organization, engineering}
-	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: alice,
-		Groups:   groups,
-	})
-	require.NoError(t, err)
-	groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t, groups, groupsActual.Groups)
-	for _, group := range groups {
-		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, gh(alice), users.Usernames)
-	}
-
-	groups = append(groups, security)
-	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: alice,
-		Groups:   groups,
-	})
-	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t, groups, groupsActual.Groups)
-	for _, group := range groups {
-		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, gh(alice), users.Usernames)
-	}
-
-	groups = groups[:1]
-	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: alice,
-		Groups:   groups,
-	})
-	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t, groups, groupsActual.Groups)
-	for _, group := range groups {
-		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, gh(alice), users.Usernames)
-	}
-
-	groups = []string{}
-	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: alice,
-		Groups:   groups,
-	})
-	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
-		Username: alice,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t, groups, groupsActual.Groups)
-	for _, group := range groups {
-		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, gh(alice), users.Usernames)
-	}
-}
-
-func TestGetGroupsEmpty(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-	defer deleteAll(t)
-
-	alice := tu.UniqueString("alice")
-	organization := tu.UniqueString("organization")
-	engineering := tu.UniqueString("engineering")
-	security := tu.UniqueString("security")
-
-	adminClient := getPachClient(t, admin)
-
-	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: alice,
-		Groups:   []string{organization, engineering, security},
-	})
-	require.NoError(t, err)
-
-	aliceClient := getPachClient(t, alice)
-	groups, err := aliceClient.GetGroups(aliceClient.Ctx(), &auth.GetGroupsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{organization, engineering, security}, groups.Groups)
-
-	groups, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
-	require.NoError(t, err)
-	require.Equal(t, 0, len(groups.Groups))
 }
 
 // TestGetJobsBugFix tests the fix for https://github.com/pachyderm/pachyderm/issues/2879

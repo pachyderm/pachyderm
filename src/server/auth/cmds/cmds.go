@@ -503,7 +503,7 @@ func ModifyGroupCmd() *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			_, err = c.ModifyMembers(c.Ctx(), &auth.ModifyMembersRequest{
+			_, err = c.ModifyGroupMembers(c.Ctx(), &auth.ModifyGroupMembersRequest{
 				Group:  args[0],
 				Add:    add,
 				Remove: remove,

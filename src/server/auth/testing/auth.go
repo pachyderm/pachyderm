@@ -128,8 +128,8 @@ func (a *InactiveAPIServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTok
 	return nil, auth.ErrNotActivated
 }
 
-// ModifyMembers implements the ModifyMembers RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyMembers(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error) {
+// ModifyGroupMembers implements the ModifyGroupMembers RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyGroupMembers(context.Context, *auth.ModifyGroupMembersRequest) (*auth.ModifyGroupMembersResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

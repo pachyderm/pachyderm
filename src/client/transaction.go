@@ -605,8 +605,8 @@ func (c *authBuilderClient) ExtendAuthToken(ctx context.Context, req *auth.Exten
 func (c *authBuilderClient) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest, opts ...grpc.CallOption) (*auth.RevokeAuthTokenResponse, error) {
 	return nil, unsupportedError("RevokeAuthToken")
 }
-func (c *authBuilderClient) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest, opts ...grpc.CallOption) (*auth.ModifyMembersResponse, error) {
-	return nil, unsupportedError("ModifyMembers")
+func (c *authBuilderClient) ModifyGroupMembers(ctx context.Context, req *auth.ModifyGroupMembersRequest, opts ...grpc.CallOption) (*auth.ModifyGroupMembersResponse, error) {
+	return nil, unsupportedError("ModifyGroupMembers")
 }
 func (c *authBuilderClient) ListGroups(ctx context.Context, req *auth.ListGroupsRequest, opts ...grpc.CallOption) (*auth.ListGroupsResponse, error) {
 	return nil, unsupportedError("ListGroups")

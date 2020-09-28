@@ -2290,8 +2290,8 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 	return err
 }
 
-// ModifyMembers implements the protobuf auth.ModifyMembers RPC
-func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (resp *auth.ModifyMembersResponse, retErr error) {
+// ModifyGroupMembers implements the protobuf auth.ModifyGroupMembers RPC
+func (a *apiServer) ModifyGroupMembers(ctx context.Context, req *auth.ModifyGroupMembersRequest) (resp *auth.ModifyGroupMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -2310,7 +2310,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	if !isAdmin {
 		return nil, &auth.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "ModifyMembers",
+			AdminOp: "ModifyGroupMembers",
 		}
 	}
 
@@ -2389,7 +2389,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		return nil, err
 	}
 
-	return &auth.ModifyMembersResponse{}, nil
+	return &auth.ModifyGroupMembersResponse{}, nil
 }
 
 // To test for nested group membership without walking the tree, we store

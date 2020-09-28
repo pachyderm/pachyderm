@@ -486,13 +486,13 @@ message RevokeAuthTokenRequest {
 
 message RevokeAuthTokenResponse {}
 
-message ModifyMembersRequest {
+message ModifyGroupMembersRequest {
   string group = 1;
   repeated string add = 2;
   repeated string remove = 3;
 }
 
-message ModifyMembersResponse {}
+message ModifyGroupMembersResponse {}
 
 message GetGroupsRequest {
   string username = 1;
@@ -592,7 +592,7 @@ service API {
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 
-  rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
+  rpc ModifyGroupMembers(ModifyGroupMembersRequest) returns (ModifyGroupMembersResponse) {}
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
   rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
