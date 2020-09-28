@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -17,11 +16,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	oidc "github.com/coreos/go-oidc"
-	"github.com/dgrijalva/jwt-go"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
-	"gopkg.in/square/go-jose.v2"
 )
 
 const threeMinutes = 3 * 60 // Passed to col.PutTTL (so value is in seconds)
@@ -35,22 +32,10 @@ var (
 	errTokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
 
-// Used to get the JWKS URI from the set of claims at the OIDC well-known endpoint
-type oidcProviderClaims struct {
-	JwksURI string `json:"jwks_uri"`
-}
-
-// JWTClaims represents the set of claims in an OIDC ID token that we're concerned with
-type JWTClaims struct {
-	Audience  interface{} `json:"aud"`
-	Email     string      `json:"email"`
-	ExpiresAt int64       `json:"exp"`
-	NotBefore int64       `json:"nbf"`
-}
-
-// Valid is required to fulfil the jwt-go interface, we do validation when we parse the token
-func (j *JWTClaims) Valid() error {
-	return nil
+// IDTokenClaims represents the set of claims in an OIDC ID token that we're concerned with
+type IDTokenClaims struct {
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
 }
 
 // InternalOIDCProvider contains information about the configured OIDC ID
@@ -170,78 +155,6 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		return nil, err
 	}
 	return o, nil
-}
-
-// TODO: cache the JWKS response
-func (o *InternalOIDCProvider) getJWKSKey(alg, kid string) (interface{}, error) {
-	var providerClaims oidcProviderClaims
-	err := o.Provider.Claims(&providerClaims)
-	if err != nil {
-		return "", fmt.Errorf("retrieving jwks claim: %v", err)
-	}
-
-	resp, err := http.Get(providerClaims.JwksURI)
-	if err != nil {
-		return "", fmt.Errorf("fetching jwks endpoint: %v", err)
-	}
-	defer resp.Body.Close()
-
-	d := json.NewDecoder(resp.Body)
-	var keys jose.JSONWebKeySet
-	if err := d.Decode(&keys); err != nil {
-		return "", fmt.Errorf("decoding jwks response")
-	}
-
-	matching := keys.Key(kid)
-	for _, k := range matching {
-		if k.Algorithm == alg {
-			return k.Key, nil
-		}
-	}
-	return nil, fmt.Errorf("no matching key for kid %q alg %q", kid, alg)
-}
-
-// ValidateJWT verifies a provided JWT using the JWKS endpoint in the OIDC config.
-// It also checks that the ClientID is in the audience and the token is not
-// expired or being used before it's valid.
-func (o *InternalOIDCProvider) ValidateJWT(token string) (*JWTClaims, error) {
-	var claims JWTClaims
-	_, err := jwt.ParseWithClaims(token, &claims, func(t *jwt.Token) (interface{}, error) {
-		kid, ok := t.Header["kid"].(string)
-		if !ok {
-			return nil, fmt.Errorf("kid is not set in header")
-		}
-		alg, ok := t.Header["alg"].(string)
-		if !ok {
-			return nil, fmt.Errorf("alg is not set in header")
-		}
-		return o.getJWKSKey(alg, kid)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("parse JWT: %v", err)
-	}
-
-	if claims.ExpiresAt < time.Now().Unix() {
-		return nil, fmt.Errorf("token has exp %v", claims.ExpiresAt)
-	}
-
-	if claims.NotBefore > time.Now().Unix() {
-		return nil, fmt.Errorf("token has nbf %v", claims.NotBefore)
-	}
-
-	if audString, ok := claims.Audience.(string); ok && audString == o.ClientID {
-		return &claims, nil
-	}
-
-	if audiences, ok := claims.Audience.([]interface{}); ok {
-		for _, a := range audiences {
-			if as, ok := a.(string); ok && as == o.ClientID {
-				return &claims, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("token audience didn't include Pachyderm: %v", claims.Audience)
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
@@ -439,6 +352,24 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+func (o *InternalOIDCProvider) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
+	var verifier = o.Provider.Verifier(&oidc.Config{ClientID: o.ClientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "could not verify token")
+	}
+
+	var claims IDTokenClaims
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, nil, errors.Wrapf(err, "could not get claims")
+	}
+
+	if !claims.EmailVerified {
+		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+	}
+	return idToken, &claims, nil
+}
+
 // handleOIDCExchangeInternal is a convenience function for converting an
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in etcd and sending an HTTP
@@ -464,7 +395,6 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		return "", "", errors.Wrapf(err, "failed to exchange code")
 	}
 
-	var verifier = sp.Provider.Verifier(&oidc.Config{ClientID: conf.ClientID})
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
@@ -472,22 +402,12 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	}
 
 	// Parse and verify ID Token payload.
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	idToken, claims, err := sp.validateIDToken(ctx, rawIDToken)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "could not verify token")
 	}
 
-	// Use the ID token passed from the authorization callback as our token source
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: tok.AccessToken,
-		},
-	)
-	userInfo, err := sp.Provider.UserInfo(ctx, ts)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "could not get user info")
-	}
-	return idToken.Nonce, userInfo.Email, nil
+	return idToken.Nonce, claims.Email, nil
 }
 
 func (a *apiServer) serveOIDC() error {

@@ -1042,15 +1042,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("canonicalized username is:", username)
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
-
-		logrus.Info("expired cluster check has passed")
 
 		// Generate a new Pachyderm token and write it
 		pachToken = uuid.NewWithoutDashes()
@@ -1123,7 +1120,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		// Determine caller's Pachyderm/OIDC user info (email)
-		claims, err := oidcSP.ValidateJWT(req.IdToken)
+		token, claims, err := oidcSP.validateIDToken(ctx, req.IdToken)
 		if err != nil {
 			return nil, err
 		}
@@ -1132,7 +1129,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("canonicalized username is:", username)
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -1140,13 +1136,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		logrus.Info("expired cluster check has passed")
-
 		// Compute the remaining time before the ID token expires,
 		// and limit the pach token to the same expiration time.
 		// If the token would be longer-lived than the default pach token,
 		// TTL clamp the expiration to the default TTL.
-		expirationSecs := claims.ExpiresAt - time.Now().Unix()
+		expirationSecs := int64(time.Until(token.Expiry).Seconds())
 		if expirationSecs > defaultSessionTTLSecs {
 			expirationSecs = defaultSessionTTLSecs
 		}
