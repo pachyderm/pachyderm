@@ -395,6 +395,7 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		return "", "", errors.Wrapf(err, "failed to exchange code")
 	}
 
+	var verifier = sp.Provider.Verifier(&oidc.Config{ClientID: conf.ClientID})
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
@@ -402,12 +403,25 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	}
 
 	// Parse and verify ID Token payload.
-	idToken, claims, err := sp.validateIDToken(ctx, rawIDToken)
+	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "could not verify token")
 	}
 
-	return idToken.Nonce, claims.Email, nil
+	// Use the auth token passed from the authorization callback as our token source
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{
+			AccessToken: tok.AccessToken,
+		},
+	)
+
+	// TODO: (actgardner) this may not be necessary - the ID token in the initial response
+	// likely already contains the user's email.
+	userInfo, err := sp.Provider.UserInfo(ctx, ts)
+	if err != nil {
+		return "", "", errors.Wrapf(err, "could not get user info")
+	}
+	return idToken.Nonce, userInfo.Email, nil
 }
 
 func (a *apiServer) serveOIDC() error {
