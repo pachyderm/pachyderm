@@ -90,7 +90,7 @@ func (a *apiServer) handleSAMLResponseInternal(cfg *canonicalConfig, sp *saml.Se
 				for _, v := range attr.Values {
 					groups = append(groups, fmt.Sprintf("group/%s:%s", samlIDP.Name, v.Value))
 				}
-				if err := a.setGroupsForUserInternal(context.Background(), subject, groups); err != nil {
+				if err := a.setGroupsForUserInternal(context.Background(), samlIDP.Name, subject, groups); err != nil {
 					return "", "", errutil.NewHTTPError(http.StatusInternalServerError, err.Error())
 				}
 			}

@@ -1607,9 +1607,10 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL)
 		return auth.Scope_NONE, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 
-	// TODO: if we knew what level of access was requested we could remove bindings that will never satisfy the request
-	// and stop evaluating when we reach that level
-	var membershipProto auth.GroupMembership
+	groupsToCheck := make(map[string]auth.Scope)
+
+	// First check if the user belongs directly to a group named in the ACL - this avoids additional
+	// calls to etcd
 	for principal, role := range acl.Entries {
 		if strings.HasPrefix(principal, groupPrefix) {
 			// if the user is directly a member of the group, don't look up transitive children
@@ -1621,12 +1622,20 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL)
 						return scope, nil
 					}
 				}
-				continue
+			} else {
+				groupsToCheck[principal] = role
 			}
-			logrus.Infof("checking transitive children of group %v", principal)
+		}
+	}
 
-			// otherwise get the set of groups that are children of this group and test for overlap
-			// with the user's group membership
+	// Check the transitive children of the groups the user may not belong to.
+	// TODO: if we knew what level of access was requested we could
+	// remove bindings that will never satisfy the request and stop
+	// evaluating when we reach that level
+	var membershipProto auth.GroupMembership
+	for principal, role := range groupsToCheck {
+		if strings.HasPrefix(principal, groupPrefix) {
+			logrus.Infof("checking transitive children of group %v", principal)
 			if err := a.groups.ReadOnly(ctx).Get(principal, &membershipProto); err != nil {
 				if col.IsErrNotFound(err) {
 					logrus.Warnf("group %q is referenced in ACL but not defined", principal)
@@ -2240,7 +2249,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 }
 
 // setGroupsForUserInternal synchronizes group membership from external providers.
-func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
+func (a *apiServer) setGroupsForUserInternal(ctx context.Context, provider, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 
@@ -2248,6 +2257,13 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		var removeGroups auth.Groups
 		addGroups := addToSet(nil, groups...)
 		if err := members.Get(subject, &removeGroups); err == nil {
+			providerGroupPrefix := fmt.Sprintf("group/%s:", provider)
+			for group := range removeGroups.Groups {
+				// Remove groups that are not managed by this auth provider
+				if !strings.HasPrefix(group, providerGroupPrefix) {
+					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
+				}
+			}
 			for _, group := range groups {
 				if removeGroups.Groups[group] {
 					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
