@@ -5444,6 +5444,22 @@ func TestOuterJoin(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repos[i]))
 	}
 
+	numFiles := 16
+	for _, repo := range repos {
+		_, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+			require.NoError(t, err)
+		}
+		require.NoError(t, c.FinishCommit(repo, "master"))
+	}
+	_, err := c.PutFile(repos[0], "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	_, err = c.PutFile(repos[1], "master", "bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+
 	pipeline := tu.UniqueString("join-pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
@@ -5468,27 +5484,7 @@ func TestOuterJoin(t *testing.T) {
 		false,
 	))
 
-	numFiles := 16
-	var commits []*pfs.Commit
-	for _, repo := range repos {
-		commit, err := c.StartCommit(repo, "master")
-		require.NoError(t, err)
-		commits = append(commits, commit)
-		for i := 0; i < numFiles; i++ {
-			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
-			require.NoError(t, err)
-		}
-		require.NoError(t, c.FinishCommit(repo, "master"))
-	}
-	_, err := c.PutFile(repos[0], "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	_, err = c.PutFile(repos[1], "master", "bar", strings.NewReader("bar"))
-	require.NoError(t, err)
-
-	time.Sleep(5 * time.Second)
-
-	commitInfos, err := c.FlushCommitAll(commits, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repos[0], "master"), client.NewCommit(repos[1], "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	outCommit := commitInfos[0].Commit
