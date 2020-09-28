@@ -959,6 +959,32 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStartCommitWithDuplicatedCommitProvenance(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+
+		commit2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit(repo, ""),
+			Provenance: []*pfs.CommitProvenance{pclient.NewCommitProvenance(repo, "master", commit2.ID), pclient.NewCommitProvenance(repo, "master", commit2.ID)},
+		})
+
+		require.NoError(t, err)
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestAncestrySyntax(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {

@@ -3003,7 +3003,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			return nil, errors.Errorf("request should not contain nil provenance")
 		}
 		branch := prov.Branch
-		if branch == nil {
+		if branch == nil || branch.Name == "" {
 			if prov.Commit == nil {
 				return nil, errors.Errorf("request provenance cannot have both a nil commit and nil branch")
 			}
@@ -3033,6 +3033,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
 	}
 
+	// fill in the provenance from branches in the provenance that weren't explicitly set in the request
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
 		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
@@ -3059,8 +3060,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	provenance = append(provenance, specProvenance)
-
+	if _, ok := provenanceMap[key(specProvenance.Branch.Repo.Name, specProvenance.Branch.Name)]; !ok {
+		provenance = append(provenance, specProvenance)
+	}
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
