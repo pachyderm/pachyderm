@@ -299,10 +299,6 @@ message ACL {
   map<string, Scope> entries = 1;
 }
 
-message Users {
-  map<string, bool> usernames = 1;
-}
-
 message Groups {
   map<string, bool> groups = 1;
 }
