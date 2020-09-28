@@ -2239,9 +2239,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 	return &auth.RevokeAuthTokenResponse{}, nil
 }
 
-// setGroupsForUserInternal is a helper function used to update group membership
-// for handleSAMLResponse (which updates group membership information based on signed SAML
-// assertions). This does no auth checks, so the caller must do all relevant authorization.
+// setGroupsForUserInternal synchronizes group membership from external providers.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
