@@ -558,8 +558,8 @@ service API {
   rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
   // Deprecated. ModifyAdmins adds or removes super admins from the cluster
   rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
-  
-// GetClusterRoleBindings returns the current set of cluster role bindings
+
+  // GetClusterRoleBindings returns the current set of cluster role bindings
   rpc GetClusterRoleBindings(GetClusterRoleBindingsRequest) returns (GetClusterRoleBindingsResponse) {}
   // ModifyAdmin sets the list of admin roles for a principal
   rpc ModifyClusterRoleBinding(ModifyClusterRoleBindingRequest) returns (ModifyClusterRoleBindingResponse) {}
