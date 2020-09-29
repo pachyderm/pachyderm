@@ -107,5 +107,5 @@
 /src/server/pkg/transactiondb @Tryneus
 /src/server/pkg/transactionenv @Tryneus
 /src/server/pkg/workload @Tryneus
-# This should maybe be split up--very heterogenious
+# This should maybe be split up--very heterogeneous
 /src/server/pkg/testutil @Tryneus
