@@ -56,6 +56,9 @@ func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext,
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
+		if request.Empty {
+			request.Description += pfs.EmptyStr
+		}
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }
@@ -220,9 +223,6 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 		}
 		op := request.Operation.(*pfs.FileOperationRequestV2_PutTar)
 		putTarReq := op.PutTar
-		if putTarReq.EOF {
-			return 0, io.EOF
-		}
 		ptr.r = bytes.NewReader(putTarReq.Data)
 	}
 	n, err := ptr.r.Read(data)

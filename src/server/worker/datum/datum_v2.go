@@ -28,7 +28,7 @@ const (
 	PFSPrefix         = "pfs"
 	OutputPrefix      = "out"
 	TmpFileName       = "tmp"
-	defaultNumRetries = 0
+	defaultNumRetries = 3
 )
 
 type PutTarClient interface {

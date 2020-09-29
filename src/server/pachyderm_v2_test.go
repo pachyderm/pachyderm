@@ -2455,7 +2455,7 @@ func TestDeleteAllV2(t *testing.T) {
 }
 
 func TestRecursiveCpV2(t *testing.T) {
-	// TODO: Fix
+	// TODO: Implement support for symlinks, then convert this test back to a symlink copy.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2472,7 +2472,7 @@ func TestRecursiveCpV2(t *testing.T) {
 		"",
 		[]string{"sh"},
 		[]string{
-			fmt.Sprintf("cp -r /pfs/%s /pfs/out", dataRepo),
+			fmt.Sprintf("cp -r -L /pfs/%s /pfs/out", dataRepo),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -2539,7 +2539,7 @@ func TestPipelineUniquenessV2(t *testing.T) {
 }
 
 func TestUpdatePipelineV2(t *testing.T) {
-	// TODO Fix
+	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2710,7 +2710,6 @@ func TestUpdatePipelineV2(t *testing.T) {
 }
 
 func TestUpdatePipelineWithInProgressCommitsAndStatsV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2764,7 +2763,6 @@ func TestUpdatePipelineWithInProgressCommitsAndStatsV2(t *testing.T) {
 }
 
 func TestUpdateFailedPipelineV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2832,7 +2830,6 @@ func TestUpdateFailedPipelineV2(t *testing.T) {
 }
 
 func TestUpdateStoppedPipelineV2(t *testing.T) {
-	// TODO: Fix
 	// Pipeline should be updated, but should not be restarted
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2953,7 +2950,6 @@ func TestUpdateStoppedPipelineV2(t *testing.T) {
 }
 
 func TestUpdatePipelineRunningJobV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3893,7 +3889,6 @@ func TestPipelineJobDeletionV2(t *testing.T) {
 }
 
 func TestStopJobV2(t *testing.T) {
-	// TODO: Fix, need V2 implementation
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4294,7 +4289,6 @@ func TestLokiLogsV2(t *testing.T) {
 }
 
 func TestAllDatumsAreProcessedV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4351,7 +4345,6 @@ func TestAllDatumsAreProcessedV2(t *testing.T) {
 }
 
 func TestDatumStatusRestartV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5086,7 +5079,6 @@ func TestJoinInputV2(t *testing.T) {
 }
 
 func TestUnionRegression4688V2(t *testing.T) {
-	// TODO: Fix
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -5120,14 +5112,14 @@ func TestUnionRegression4688V2(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"cp -r /pfs/in/* /pfs/out",
+			"cp -r -L /pfs/in*/* /pfs/out",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
 		client.NewUnionInput(
 			client.NewPFSInputOpts("in", repoA, "", "/*", "", false),
-			client.NewPFSInputOpts("in", repoB, "", "/*", "", false),
+			client.NewPFSInputOpts("in2", repoB, "", "/*", "", false),
 		),
 		"",
 		false,
@@ -5204,7 +5196,6 @@ func TestUnionRegression4688V2(t *testing.T) {
 }
 
 func TestUnionInputV2(t *testing.T) {
-	// TODO: Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5274,7 +5265,7 @@ func TestUnionInputV2(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/TestUnionInput* /pfs/out",
+				"cp -r -L /pfs/TestUnionInput* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -5316,7 +5307,7 @@ func TestUnionInputV2(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/TestUnionInput* /pfs/out",
+				"cp -r -L /pfs/TestUnionInput* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -5352,6 +5343,8 @@ func TestUnionInputV2(t *testing.T) {
 	})
 
 	t.Run("union alias", func(t *testing.T) {
+		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
+		t.Skip("Symlinks not implemented in V2")
 		pipeline := tu.UniqueString("pipeline")
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -5387,6 +5380,8 @@ func TestUnionInputV2(t *testing.T) {
 	})
 
 	t.Run("union cross alias", func(t *testing.T) {
+		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
+		t.Skip("Symlinks not implemented in V2")
 		pipeline := tu.UniqueString("pipeline")
 		require.YesError(t, c.CreatePipeline(
 			pipeline,
@@ -5451,6 +5446,8 @@ func TestUnionInputV2(t *testing.T) {
 		}
 	})
 	t.Run("cross union alias", func(t *testing.T) {
+		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
+		t.Skip("Symlinks not implemented in V2")
 		pipeline := tu.UniqueString("pipeline")
 		require.YesError(t, c.CreatePipeline(
 			pipeline,
@@ -5517,7 +5514,7 @@ func TestUnionInputV2(t *testing.T) {
 }
 
 func TestPipelineWithStatsV2(t *testing.T) {
-	// TODO: Fix, change test.
+	// TODO: Change semantics of test.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5599,7 +5596,7 @@ func TestPipelineWithStatsV2(t *testing.T) {
 }
 
 func TestPipelineWithStatsFailedDatumsV2(t *testing.T) {
-	// Fix, change semantics.
+	// TODO: Change semantics of test.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5747,7 +5744,7 @@ func TestPipelineWithStatsPaginatedV2(t *testing.T) {
 }
 
 func TestPipelineWithStatsAcrossJobsV2(t *testing.T) {
-	// Fix, change semantics.
+	// TODO: Change semantics of test.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5844,7 +5841,7 @@ func TestPipelineWithStatsAcrossJobsV2(t *testing.T) {
 }
 
 func TestPipelineWithStatsSkippedEdgeCaseV2(t *testing.T) {
-	// TODO: Fix, change semantics.
+	// TODO: Change semantics of test.
 	// If I add a file in commit1, delete it in commit2, add it again in commit 3 ...
 	// the datum will be marked as success on the 3rd job, even though it should be marked as skipped
 	if testing.Short() {
@@ -5946,7 +5943,7 @@ func TestPipelineWithStatsSkippedEdgeCaseV2(t *testing.T) {
 }
 
 func TestPipelineOnStatsBranchV2(t *testing.T) {
-	// Fix
+	// TODO: Implement support for symlinks, then convert this test back to a symlink copy.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5968,7 +5965,7 @@ func TestPipelineOnStatsBranchV2(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline1),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+				Cmd: []string{"bash", "-c", "cp -r -L $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
@@ -5978,7 +5975,7 @@ func TestPipelineOnStatsBranchV2(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline2),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+				Cmd: []string{"bash", "-c", "cp -r -L $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
@@ -6070,7 +6067,6 @@ func TestSkippedDatumsV2(t *testing.T) {
 }
 
 func TestCronPipelineV2(t *testing.T) {
-	// Fix, assuming.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -6117,14 +6113,11 @@ func TestCronPipelineV2(t *testing.T) {
 			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 			require.NoError(t, err)
 			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 2, len(commitInfos))
+			require.Equal(t, 4, len(commitInfos))
 
-			for _, ci := range commitInfos {
-				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
-				require.NoError(t, err)
-				require.Equal(t, i, len(files))
-
-			}
+			files, err := c.ListFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, i, len(files))
 		}
 	})
 
@@ -6158,14 +6151,11 @@ func TestCronPipelineV2(t *testing.T) {
 			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 			require.NoError(t, err)
 			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 1, len(commitInfos))
+			require.Equal(t, 2, len(commitInfos))
 
-			for _, ci := range commitInfos {
-				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
-				require.NoError(t, err)
-				require.Equal(t, 1, len(files))
-
-			}
+			files, err := c.ListFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
 		}
 	})
 
@@ -6208,7 +6198,7 @@ func TestCronPipelineV2(t *testing.T) {
 		commitIter, err := c.FlushCommit([]*pfs.Commit{dataCommit, commitInfo.Commit}, nil)
 		require.NoError(t, err)
 		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 2, len(commitInfos))
 	})
 	t.Run("RunCron", func(t *testing.T) {
 		pipeline5 := tu.UniqueString("cron5-")
@@ -6256,10 +6246,15 @@ func TestCronPipelineV2(t *testing.T) {
 			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 			require.NoError(t, err)
 			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 2, len(commitInfos))
+			require.Equal(t, 4, len(commitInfos))
 		}
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
+		// TODO: Change semantics of run cron or put file client (probably put file client).
+		// Run cron with overwrite uses one off commits, current implementation of V1 -> V2 put file client
+		// interface does each operation in a separate commit, so you end up with a sequence of commits with
+		// one file then no files (corresponding to the delete then put operations in RunCron).
+		t.Skip("RunCronOverwrite problematic in V2")
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(
 			pipeline7,
@@ -6319,12 +6314,11 @@ func TestCronPipelineV2(t *testing.T) {
 			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 			require.NoError(t, err)
 			commitInfos := collectCommitInfos(t, commitIter)
+			require.Equal(t, 4, len(commitInfos))
 
-			for _, ci := range commitInfos {
-				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
-				require.NoError(t, err)
-				require.Equal(t, 1, len(files))
-			}
+			files, err := c.ListFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
 		}
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
@@ -6788,7 +6782,7 @@ func TestHTTPAuthV2(t *testing.T) {
 }
 
 func TestHTTPGetFileV2(t *testing.T) {
-	// Fix
+	// TODO: Check if this runs in CI.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -6845,7 +6839,8 @@ func TestHTTPGetFileV2(t *testing.T) {
 }
 
 func TestServiceV2(t *testing.T) {
-	// Fix?
+	// TODO: Implement services.
+	t.Skip("Services not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7004,7 +6999,7 @@ func TestServiceV2(t *testing.T) {
 }
 
 func TestServiceEnvVarsV2(t *testing.T) {
-	// Fix?
+	// TODO: Check if this runs in CI.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8355,7 +8350,6 @@ func TestListJobInputCommitsV2(t *testing.T) {
 // TestCancelJob creates a long-running job and then kills it, testing that the
 // user process is killed.
 func TestCancelJobV2(t *testing.T) {
-	// TODO: Fix, need V2 implementation
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8457,7 +8451,6 @@ func TestCancelJobV2(t *testing.T) {
 // running (which tests that only one job can run at a time), and then is
 // cancelled.
 func TestCancelManyJobsV2(t *testing.T) {
-	// TODO: Fix, need V2 implementation
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8479,7 +8472,7 @@ func TestCancelManyJobsV2(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewPFSInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -8487,7 +8480,12 @@ func TestCancelManyJobsV2(t *testing.T) {
 	// Create 10 input commits, to spawn 10 jobs
 	var commits [10]*pfs.Commit
 	var err error
-	for i := 0; i < 10; i++ {
+	commits[0], err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commits[0].ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commits[0].ID))
+	for i := 1; i < 10; i++ {
 		commits[i], err = c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commits[i].ID))
@@ -8772,7 +8770,7 @@ func TestDeleteCommitRunsJobV2(t *testing.T) {
 }
 
 func TestEntryPointV2(t *testing.T) {
-	// Fix?
+	// TODO: Check if this runs in CI.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8845,7 +8843,7 @@ func TestDeleteSpecRepoV2(t *testing.T) {
 }
 
 func TestUserWorkingDirV2(t *testing.T) {
-	// Fix?
+	// TODO: Check if this runs in CI.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8991,7 +8989,6 @@ func TestStatsDeleteAllV2(t *testing.T) {
 }
 
 func TestRapidUpdatePipelinesV2(t *testing.T) {
-	// Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9051,7 +9048,8 @@ func TestRapidUpdatePipelinesV2(t *testing.T) {
 }
 
 func TestDatumTriesV2(t *testing.T) {
-	// Fix, semantics changed.
+	// TODO: Implement logs.
+	t.Skip("Logs not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9117,7 +9115,10 @@ func TestInspectJobV2(t *testing.T) {
 }
 
 func TestPipelineVersionsV2(t *testing.T) {
-	// Fix
+	// TODO: Exposes existing race in V1.
+	// Pipeline spec commit is made within an etcd stm.
+	// Re-running the stm creates a new spec commit without deleting the old one.
+	t.Skip("Exposes existing race in V1")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10088,7 +10089,6 @@ func TestDeferredProcessingV2(t *testing.T) {
 }
 
 func TestPipelineHistoryV2(t *testing.T) {
-	// Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10302,7 +10302,6 @@ func TestFileHistoryV2(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMasterV2(t *testing.T) {
-	// Fix?
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10722,7 +10721,9 @@ func TestSecretsV2(t *testing.T) {
 // if passed nil args on some PFS endpoints. See
 // https://github.com/pachyderm/pachyderm/issues/4279.
 func TestPFSPanicOnNilArgsV2(t *testing.T) {
-	// Fix / move to pfs tests?
+	// TODO: Move to PFS tests.
+	// TODO: Need feature parity for this test.
+	t.Skip("Some features not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10802,7 +10803,7 @@ func TestPFSPanicOnNilArgsV2(t *testing.T) {
 }
 
 func TestCopyOutToInV2(t *testing.T) {
-	// Fix
+	// TODO: Change semantics of test.
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10872,7 +10873,6 @@ func TestCopyOutToInV2(t *testing.T) {
 }
 
 func TestKeepRepoV2(t *testing.T) {
-	// Fix
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

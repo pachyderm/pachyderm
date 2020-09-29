@@ -498,17 +498,6 @@ message FsckResponse {
 
 // Messages specific to Pachyderm 2.
 
-// PutTar Protocol:
-//   Client sends an initial request with only the commit field set.
-//   For each tar stream to put:
-//     If the client wants to tag the tar stream:
-//       Client sends a request with the tag field set (the first batch
-//       of data can be optionally sent with this request).
-//     For bytes in the tar stream:
-//       Client sends a request with the bytes stored in the data field.
-//     Client sends a request with the EOF field set to true.
-//   Client connection is closed.
-
 message FileOperationRequestV2 {
   Commit commit = 1;
   oneof operation {
@@ -521,7 +510,6 @@ message PutTarRequestV2 {
   bool overwrite = 1;
   string tag = 2;
   bytes data = 3;
-  bool EOF = 4;
 }
 
 message DeleteFilesRequestV2 {

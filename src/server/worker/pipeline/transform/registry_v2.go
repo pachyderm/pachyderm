@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -151,7 +152,7 @@ func (reg *registryV2) killJob(pj *pendingJobV2, reason string) error {
 
 func (reg *registryV2) initializeJobChain(metaCommit *pfs.Commit) error {
 	if reg.jobChain == nil {
-		h := &hasherV2{
+		hasher := &hasherV2{
 			name: reg.driver.PipelineInfo().Pipeline.Name,
 			salt: reg.driver.PipelineInfo().Salt,
 		}
@@ -164,7 +165,7 @@ func (reg *registryV2) initializeJobChain(metaCommit *pfs.Commit) error {
 			return err
 		}
 		if metaCommitInfo.ParentCommit == nil {
-			reg.jobChain = chain.NewJobChainV2(h)
+			reg.jobChain = chain.NewJobChainV2(hasher)
 			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -177,7 +178,7 @@ func (reg *registryV2) initializeJobChain(metaCommit *pfs.Commit) error {
 		}
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChainV2(
-			h,
+			hasher,
 			datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
 		)
 	}
@@ -214,6 +215,22 @@ func (reg *registryV2) ensureJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Com
 }
 
 func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
+	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
+	if err != nil {
+		return err
+	}
+	switch {
+	case commitInfo.Finished != nil:
+		return recoverJobV2(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
+	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
+		jobInfo.State = pps.JobState_JOB_KILLED
+		jobInfo.Reason = "pipeline has been updated"
+		return recoverJobV2(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
+	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
+		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
+			"version (%d), this should automatically resolve when the worker "+
+			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
+	}
 	if err := reg.initializeJobChain(metaCommit); err != nil {
 		return err
 	}
@@ -225,10 +242,6 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 			reg.limiter.Release()
 		}
 	}()
-	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
-	if err != nil {
-		return err
-	}
 	var metaCommitInfo *pfs.CommitInfo
 	if metaCommit != nil {
 		metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
@@ -248,26 +261,6 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 		metaCommitInfo: metaCommitInfo,
 		cancel:         cancel,
 	}
-	switch {
-	case ppsutil.IsTerminal(jobInfo.State):
-		// TODO: V2 recovery for inconsistent output commit / job state?
-		return nil
-	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
-		// kill unfinished jobs from old pipelines (should generally be cleaned
-		// up by PPS master, but the PPS master can fail, and if these jobs
-		// aren't killed, future jobs will hang indefinitely waiting for their
-		// parents to finish)
-		pj.ji.State = pps.JobState_JOB_KILLED
-		pj.ji.Reason = "pipeline has been updated"
-		if err := pj.writeJobInfo(); err != nil {
-			return errors.Wrap(err, "failed to kill stale job")
-		}
-		return nil
-	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
-		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
-			"version (%d), this should automatically resolve when the worker "+
-			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
-	}
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
@@ -285,7 +278,7 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 		return err
 	}
 	outputDit := datum.NewFileSetIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
-	pj.jdit = reg.jobChain.CreateJob(pj.ji.Job.ID, dit, outputDit)
+	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
@@ -329,6 +322,9 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 				var err error
 				for err == nil {
 					err = reg.processJob(pj)
+				}
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
 				}
 				return err
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -388,14 +384,14 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 // superviseJob watches for the output commit closing and cancels the job, or
 // deletes it if the output commit is removed.
 func (reg *registryV2) superviseJob(pj *pendingJobV2) error {
-	_, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
+	defer pj.cancel()
+	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit:     pj.ji.OutputCommit,
 			BlockState: pfs.CommitState_FINISHED,
 		})
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			defer pj.cancel() // whether we return error or nil, job is done
 			// Stop the job and clean up any job state in the registry
 			if err := reg.killJob(pj, "output commit missing"); err != nil {
 				return err
@@ -415,8 +411,11 @@ func (reg *registryV2) superviseJob(pj *pendingJobV2) error {
 		}
 		return err
 	}
-	// TODO: Figure out what stopping a job looks like.
+	if strings.Contains(ci.Description, pfs.EmptyStr) {
+		return reg.killJob(pj, "output commit closed")
+	}
 	return nil
+
 }
 
 func (reg *registryV2) processJob(pj *pendingJobV2) error {
@@ -428,7 +427,6 @@ func (reg *registryV2) processJob(pj *pendingJobV2) error {
 	case state == pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
 	case state == pps.JobState_JOB_RUNNING:
-		// TODO: Clear commit in case of restart.
 		return pj.logger.LogStep("processing job datums", func() error {
 			return reg.processJobRunning(pj)
 		})
@@ -506,6 +504,12 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	})
 	if err := eg.Wait(); err != nil {
 		return err
+	}
+	// TODO: This shouldn't be necessary.
+	select {
+	case <-pj.driver.PachClient().Ctx().Done():
+		return pj.driver.PachClient().Ctx().Err()
+	default:
 	}
 	pj.saveJobStats(pj.jdit.Stats())
 	pj.saveJobStats(stats)
@@ -615,32 +619,38 @@ func failedInputsV2(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]strin
 }
 
 // TODO: Errors that can occur while finishing jobs needs more thought.
+// TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
 func finishJobV2(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj *pendingJobV2, state pps.JobState, reason string) error {
 	jobInfo := pj.ji
 	// Optimistically update the local state and reason - if any errors occur the
 	// local state will be reloaded way up the stack
 	jobInfo.State = state
 	jobInfo.Reason = reason
+	var empty bool
+	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
+		empty = true
+	}
 	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if jobInfo.StatsCommit != nil {
-			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit: jobInfo.StatsCommit,
-			}); err != nil {
-				return err
-			}
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.StatsCommit,
+			Empty:  empty,
+		}); err != nil {
+			return err
 		}
-		fcr := &pfs.FinishCommitRequest{Commit: jobInfo.OutputCommit}
-		// TODO: This is how we are propagating failures for now, would be better to have general purpose metadata associated with a commit.
-		if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
-			fcr.Description = pfs.EmptyStr
-		}
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), fcr); err != nil {
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Empty:  empty,
+		}); err != nil {
 			return err
 		}
 		return writeJobInfo(&builder.APIClient, jobInfo)
 	}); err != nil {
-		// TODO: Recovery with V2?
 		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+			if err := recoverJobV2(pipelineInfo, pachClient, jobInfo, empty); err != nil {
+				return err
+			}
+			// TODO: How to handle errors without causing subsequent jobs to get stuck.
+			pj.jdit.Finish()
 			return nil
 		}
 		// For other types of errors, we want to fail the job supervision and let it
@@ -649,5 +659,30 @@ func finishJobV2(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, p
 	}
 	// TODO: How to handle errors without causing subsequent jobs to get stuck.
 	pj.jdit.Finish()
+	return nil
+}
+
+func recoverJobV2(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, jobInfo *pps.JobInfo, empty bool) error {
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+		Commit: jobInfo.StatsCommit,
+		Empty:  empty,
+	}); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
+			return err
+		}
+	}
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+		Commit: jobInfo.OutputCommit,
+		Empty:  empty,
+	}); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
+			return err
+		}
+	}
+	if err := writeJobInfo(pachClient, jobInfo); err != nil {
+		if !ppsserver.IsJobFinishedErr(err) {
+			return err
+		}
+	}
 	return nil
 }

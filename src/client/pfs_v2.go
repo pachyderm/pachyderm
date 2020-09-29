@@ -90,12 +90,10 @@ func (foc *FileOperationClient) PutTar(r io.Reader, overwrite bool, tag ...strin
 		if err := foc.sendPutTar(ptr); err != nil {
 			return err
 		}
-		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
+		_, err := grpcutil.ChunkReader(r, func(data []byte) error {
 			return foc.sendPutTar(&pfs.PutTarRequestV2{Data: data})
-		}); err != nil {
-			return err
-		}
-		return foc.sendPutTar(&pfs.PutTarRequestV2{EOF: true})
+		})
+		return err
 	})
 }
 

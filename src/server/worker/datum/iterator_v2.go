@@ -160,21 +160,28 @@ func newCronIteratorV2(pachClient *client.APIClient, input *pps.CronInput) Itera
 	})
 }
 
+type Hasher interface {
+	Hash([]*common.Input) string
+}
+
 type jobIterator struct {
 	iterator IteratorV2
 	jobID    string
+	hasher   Hasher
 }
 
-func NewJobIterator(iterator IteratorV2, jobID string) IteratorV2 {
+func NewJobIterator(iterator IteratorV2, jobID string, hasher Hasher) IteratorV2 {
 	return &jobIterator{
 		iterator: iterator,
 		jobID:    jobID,
+		hasher:   hasher,
 	}
 }
 
 func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
 	return ji.iterator.Iterate(func(meta *Meta) error {
 		meta.JobID = ji.jobID
+		meta.Hash = ji.hasher.Hash(meta.Inputs)
 		return cb(meta)
 	})
 }

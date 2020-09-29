@@ -22,7 +22,6 @@ import (
 // capture datum logs.
 // file download features (empty / lazy files). Need to check over the pipe logic.
 // git inputs.
-// datum specific stats (need to refactor datum stats into datum package and figure out prometheus stuff).
 // handle custom user set for execution.
 // Taking advantage of symlinks during upload?
 func WorkerV2(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
@@ -58,9 +57,7 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 				di := datum.NewFileSetIterator(pachClient, tmpRepo, datumSet.FileSet)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
-					ctx, cancel := context.WithCancel(pachClient.Ctx())
-					defer cancel()
-					driver := driver.WithContext(ctx)
+					ctx := pachClient.Ctx()
 					inputs := meta.Inputs
 					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
 					var opts []datum.DatumOption
@@ -77,9 +74,11 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 						}))
 					}
 					return s.WithDatum(ctx, meta, func(d *datum.Datum) error {
+						cancelCtx, cancel := context.WithCancel(ctx)
+						defer cancel()
 						return status.withDatum(inputs, cancel, func() error {
 							return driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
-								return d.Run(ctx, func(runCtx context.Context) error {
+								return d.Run(cancelCtx, func(runCtx context.Context) error {
 									return driver.RunUserCodeV2(runCtx, logger, env)
 								})
 							})

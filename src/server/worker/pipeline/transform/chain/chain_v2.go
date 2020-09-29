@@ -1,23 +1,19 @@
 package chain
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )
 
-type DatumHasherV2 interface {
-	Hash([]*common.Input) string
-}
-
-// TODO: We should probably pipe a context through here.
-
 type JobChainV2 struct {
-	hasher  DatumHasherV2
+	hasher  datum.Hasher
 	prevJob *JobDatumIteratorV2
 }
 
-func NewJobChainV2(hasher DatumHasherV2, baseDit ...datum.IteratorV2) *JobChainV2 {
+// TODO: We should probably pipe a context through here.
+func NewJobChainV2(hasher datum.Hasher, baseDit ...datum.IteratorV2) *JobChainV2 {
 	jc := &JobChainV2{hasher: hasher}
 	if len(baseDit) > 0 {
 		// Insert a dummy job representing the given base datum set
@@ -33,13 +29,14 @@ func NewJobChainV2(hasher DatumHasherV2, baseDit ...datum.IteratorV2) *JobChainV
 	return jc
 }
 
-func (jc *JobChainV2) CreateJob(jobID string, dit, outputDit datum.IteratorV2) *JobDatumIteratorV2 {
+func (jc *JobChainV2) CreateJob(ctx context.Context, jobID string, dit, outputDit datum.IteratorV2) *JobDatumIteratorV2 {
 	jdi := &JobDatumIteratorV2{
+		ctx:       ctx,
 		jc:        jc,
 		parent:    jc.prevJob,
 		jobID:     jobID,
 		stats:     &datum.Stats{ProcessStats: &pps.ProcessStats{}},
-		dit:       datum.NewJobIterator(dit, jobID),
+		dit:       datum.NewJobIterator(dit, jobID, jc.hasher),
 		outputDit: outputDit,
 		done:      make(chan struct{}),
 	}
@@ -48,6 +45,7 @@ func (jc *JobChainV2) CreateJob(jobID string, dit, outputDit datum.IteratorV2) *
 }
 
 type JobDatumIteratorV2 struct {
+	ctx            context.Context
 	jc             *JobChainV2
 	parent         *JobDatumIteratorV2
 	jobID          string
@@ -84,8 +82,11 @@ func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 	}); err != nil {
 		return err
 	}
-	// TODO: Need a context here.
-	<-jdi.parent.done
+	select {
+	case <-jdi.parent.done:
+	case <-jdi.ctx.Done():
+		return jdi.ctx.Err()
+	}
 	// Generate datum sets for the skipped datums that were not processed by the parent (failed, recovered, etc.).
 	// Also generate deletion operations appropriately.
 	return datum.Merge([]datum.IteratorV2{jdi.dit, jdi.parent.dit, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
@@ -103,6 +104,7 @@ func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 				jdi.stats.Skipped--
 				return cb(metas[0])
 			}
+			return nil
 		}
 		// Check if a skipped datum was not successfully processed by the parent.
 		if jdi.skippableDatum(metas[0], metas[1]) {
@@ -127,7 +129,7 @@ func (jdi *JobDatumIteratorV2) deleteDatum(meta *datum.Meta) error {
 
 func (jdi *JobDatumIteratorV2) skippableDatum(meta1, meta2 *datum.Meta) bool {
 	// If the hashes are equal and the second datum was processed, then skip it.
-	return jdi.jc.hasher.Hash(meta1.Inputs) == jdi.jc.hasher.Hash(meta2.Inputs) && meta2.State == datum.State_PROCESSED
+	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
 func (jdi *JobDatumIteratorV2) Stats() *datum.Stats {
