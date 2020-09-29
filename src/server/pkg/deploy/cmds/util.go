@@ -267,3 +267,33 @@ func getCompatibleVersion(displayName, subpath, defaultValue string) string {
 	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
 	return latestVersion
 }
+
+func DeployStorageSecrets(data map[string][]byte, dryRun bool, outputFormat string, opts *assets.AssetOpts) error {
+	cfg, err := config.Read(false)
+	if err != nil {
+		return err
+	}
+	_, activeContext, err := cfg.ActiveContext(true)
+	if err != nil {
+		return err
+	}
+
+	// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
+	for k, v := range data {
+		if v != nil && len(v) == 0 {
+			delete(data, k)
+		}
+	}
+
+	var buf bytes.Buffer
+	if err = assets.WriteSecret(encoder(outputFormat, &buf), data, opts); err != nil {
+		return err
+	}
+	if dryRun {
+		_, err := os.Stdout.Write(buf.Bytes())
+		return err
+	}
+
+	s := buf.String()
+	return kubectl(&buf, activeContext, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
+}

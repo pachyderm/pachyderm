@@ -10,6 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultDashImage   = "pachyderm/dash"
+	defaultDashVersion = "0.5.48"
+)
+
 func CreateUpdateDashCmd() *cobra.Command {
 	var updateDashDryRun bool
 	var updateDashOutputFormat string
