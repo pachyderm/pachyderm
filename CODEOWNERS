@@ -76,7 +76,6 @@
 /src/server/pkg/exec @jdoliner
 /src/server/pkg/tabwriter @jdoliner
 /src/server/pkg/uuid @jdoliner
-/src/server/pkg/log @jdoliner
 /src/server/pkg/metrics @jdoliner
 /src/server/pkg/netutil @jdoliner
 /src/server/pkg/progress @jdoliner
@@ -84,8 +83,9 @@
 /src/server/pkg/sql @msteffen
 /src/server/pkg/watch @msteffen
 
-# Loki-related
+# Loki/logging-related
 /src/server/pkg/lokiutil @jdoliner
+/src/server/pkg/log @jdoliner
 
 # JSON packages
 /src/server/pkg/serde @msteffen
