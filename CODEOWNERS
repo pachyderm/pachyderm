@@ -8,17 +8,18 @@
 * @jdoliner
 
 /doc @JoeyZwicker
-/src/server/auth @actgardner @msteffen
 
 ##############################
 #####      Services      #####
 ##############################
 
-/src/server/debug @brycemcanally
+/src/server/auth @actgardner @msteffen
 
 /src/server/admin @msteffen
 /src/server/enterprise @msteffen
 /src/server/health @msteffen
+
+/src/server/debug @brycemcanally
 
 /src/server/http @jdoliner
 
