@@ -78,13 +78,14 @@ func (pj *pendingJobV2) withDeleter(pachClient *client.APIClient, cb func() erro
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
-				// TODO: This should be walk and need to think through the cleanup of directories that are emptied through datum deletion.
-				fis, err := pachClient.ListFile(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path)
-				if err != nil {
+				// TODO: Need to think through the cleanup of directories that are emptied through datum deletion.
+				if err := pachClient.Walk(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
+					if fi.FileType == pfs.FileType_FILE {
+						files = append(files, fi.File.Path)
+					}
+					return nil
+				}); err != nil {
 					return nil, err
-				}
-				for _, fi := range fis {
-					files = append(files, fi.File.Path)
 				}
 				return files, nil
 			}
