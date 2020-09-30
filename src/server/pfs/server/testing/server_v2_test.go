@@ -612,9 +612,6 @@ func (v *validator) validate(r io.Reader) (retErr error) {
 		namesSorted = append(namesSorted, name)
 	}
 	sort.Strings(namesSorted)
-	if len(namesSorted) > 0 {
-		namesSorted = append([]string{"/"}, namesSorted...)
-	}
 	defer func() {
 		if retErr == nil {
 			if len(namesSorted) != 0 {

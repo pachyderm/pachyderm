@@ -250,7 +250,6 @@ func TestPipelineWithParallelismV2(t *testing.T) {
 	}
 }
 
-// TODO: Slowness?
 func TestPipelineWithLargeFilesV2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
