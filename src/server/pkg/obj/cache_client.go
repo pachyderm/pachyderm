@@ -54,11 +54,7 @@ func (c *cacheClient) Reader(ctx context.Context, p string, offset, size uint64)
 }
 
 func (c *cacheClient) Writer(ctx context.Context, p string) (io.WriteCloser, error) {
-	wc, err := c.slow.Writer(ctx, p)
-	if err != nil {
-		return nil, err
-	}
-	return &cacheWriter{WriteCloser: wc, path: p, client: c}, nil
+	return c.slow.Writer(ctx, p)
 }
 
 func (c *cacheClient) Delete(ctx context.Context, p string) error {
@@ -128,19 +124,4 @@ func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 			log.Warnf("could not populate cache: %v", err)
 		}
 	})
-}
-
-type cacheWriter struct {
-	io.WriteCloser
-	path   string
-	client *cacheClient
-}
-
-func (cw *cacheWriter) Close() error {
-	if err := cw.WriteCloser.Close(); err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return cw.client.deleteFromCache(ctx, cw.path)
 }
