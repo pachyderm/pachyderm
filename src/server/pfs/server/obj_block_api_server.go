@@ -460,7 +460,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-		if offset > objectSize {
+		if offset >= objectSize {
 			offset -= objectSize
 			continue
 		}
