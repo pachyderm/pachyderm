@@ -228,11 +228,11 @@ func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
 	var opts *assets.AssetOpts
 
-	var globalFlags *GlobalFlags
+	globalFlags := new(GlobalFlags)
 
-	var s3Flags *S3Flags
+	s3Flags := new(S3Flags)
 
-	var contextFlags *ContextFlags
+	contextFlags := new(ContextFlags)
 
 	preRun := cmdutil.Run(func(args []string) error {
 		return preRunInternal(args, globalFlags, opts)
@@ -259,13 +259,9 @@ func standardDeployCmds() []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployLocalCmd(deployCmdArgs), "deploy local"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployGoogleCmd(deployCmdArgs), "deploy google"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployCustomCmd(deployCmdArgs, s3Flags), "deploy custom"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployAmazonCmd(deployCmdArgs, s3Flags), "deploy amazon"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployMicrosoftCmd(deployCmdArgs), "deploy microsoft"))
 
 	storageCmdArgs := DeployCmdArgs{
@@ -276,9 +272,7 @@ func standardDeployCmds() []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployStorageAmazonCmd(storageCmdArgs, s3Flags), "deploy storage amazon"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployStorageGoogleCmd(storageCmdArgs), "deploy storage google"))
-
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployStorageAzureCmd(storageCmdArgs), "deploy storage microsoft"))
 
 	deployStorage := &cobra.Command{
