@@ -5444,12 +5444,12 @@ func TestOuterJoin(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repos[i]))
 	}
 
-	numFiles := 16
+	numFiles := 8
 	for _, repo := range repos {
 		_, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		for i := 0; i < numFiles; i++ {
-			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
 			require.NoError(t, err)
 		}
 		require.NoError(t, c.FinishCommit(repo, "master"))
@@ -5466,10 +5466,10 @@ func TestOuterJoin(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("if [ -d \"%s\" ]; then\n", repos[0]),
+			fmt.Sprintf("if [ -d \"/pfs/%s\" ]; then\n", repos[0]),
 			fmt.Sprintf("	touch /pfs/out/$(echo $(ls -r /pfs/%s/))", repos[0]),
 			"fi",
-			fmt.Sprintf("if [ -d \"%s\" ]; then\n", repos[1]),
+			fmt.Sprintf("if [ -d \"/pfs/%s\" ]; then\n", repos[1]),
 			fmt.Sprintf("	touch /pfs/out/$(echo $(ls -r /pfs/%s/))", repos[1]),
 			"fi",
 		},
@@ -5477,8 +5477,8 @@ func TestOuterJoin(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-(*)", "$1", true, false),
-			client.NewPFSInputOpts("", repos[1], "", "/file-(*)", "$1", false, false),
+			client.NewPFSInputOpts("", repos[0], "", "/(*)", "$1", true, false),
+			client.NewPFSInputOpts("", repos[1], "", "/(*)", "$1", false, false),
 		),
 		"",
 		false,
@@ -5490,7 +5490,7 @@ func TestOuterJoin(t *testing.T) {
 	outCommit := commitInfos[0].Commit
 	var buf bytes.Buffer
 	for i := 0; i < numFiles; i++ {
-		require.NoError(t, c.GetFile(pipeline, outCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
+		require.NoError(t, c.GetFile(pipeline, outCommit.ID, fmt.Sprintf("%d", i), 0, 0, &buf))
 	}
 	require.NoError(t, c.GetFile(pipeline, outCommit.ID, "foo", 0, 0, &buf))
 	require.YesError(t, c.GetFile(pipeline, outCommit.ID, "bar", 0, 0, &buf))
