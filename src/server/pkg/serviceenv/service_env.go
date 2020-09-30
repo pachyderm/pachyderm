@@ -107,11 +107,7 @@ func (env *ServiceEnv) initPachClient() error {
 	// Initialize pach client
 	return backoff.Retry(func() error {
 		var err error
-		var opts []client.Option
-		if env.StorageV2 {
-			opts = append(opts, client.WithStorageV2())
-		}
-		env.pachClient, err = client.NewFromAddress(env.pachAddress, opts...)
+		env.pachClient, err = client.NewFromAddress(env.pachAddress)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
 		}
