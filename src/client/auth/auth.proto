@@ -261,6 +261,9 @@ message AuthenticateRequest {
   // the purpose of propagating authentication to new clients (e.g. from the
   // dash to pachd)
   string one_time_password = 2;
+
+  // This is an ID Token issued by the OIDC provider.
+  string id_token = 4;
 }
 
 message AuthenticateResponse {
