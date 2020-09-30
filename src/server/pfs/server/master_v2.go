@@ -21,6 +21,8 @@ const (
 func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *gorm.DB) {
 	ctx := context.Background()
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
+	// TODO: We shouldn't need to wrap this in a for loop, but it looks like gc.Run
+	// can return nil. Which then ends the RetryNotify loop.
 	for {
 		err := backoff.RetryNotify(func() error {
 			masterCtx, err := masterLock.Lock(ctx)
@@ -37,6 +39,7 @@ func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *
 			log.Errorf("error in pfs master: %v", err)
 			return err
 		})
+		// TODO: Always panic, remove this check, see above.
 		if err != nil {
 			panic(err)
 		}

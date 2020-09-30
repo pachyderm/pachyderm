@@ -848,7 +848,7 @@ func TestDiffFileV2(t *testing.T) {
 	config := newPachdConfig()
 	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		repo := tu.UniqueString("TestDiffFileV2")
+		repo := "TestDiffFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		putFile := func(repo, commit, fileName string, data []byte) {
@@ -1018,7 +1018,7 @@ func TestCopyFileV2(t *testing.T) {
 			}
 			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
 		}
-		repo := tu.UniqueString("TestCopyFileV2")
+		repo := "TestCopyFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		masterCommit, err := env.PachClient.StartCommit(repo, "master")
