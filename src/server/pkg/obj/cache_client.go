@@ -65,8 +65,7 @@ func (c *cacheClient) Delete(ctx context.Context, p string) error {
 }
 
 func (c *cacheClient) Exists(ctx context.Context, p string) bool {
-	c.doPopulateOnce(ctx)
-	return c.fast.Exists(ctx, p) || c.slow.Exists(ctx, p)
+	return c.slow.Exists(ctx, p)
 }
 
 func (c *cacheClient) Walk(ctx context.Context, p string, cb func(p string) error) error {
