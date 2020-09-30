@@ -99,6 +99,8 @@ message IDProvider {
      string client_id = 2 [(gogoproto.customname) = "ClientID"];
      string client_secret = 3;
      string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
+     repeated string additional_scopes = 5;
+     bool ignore_email_verified = 6;
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 
