@@ -166,7 +166,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 			return nil, err
 		}
 		if storageV2 {
-			options = append([]Option{WithStorageV2()}, options...)
+			settings.storageV2 = storageV2
 		}
 	}
 	for _, option := range options {
@@ -276,14 +276,6 @@ func WithAdditionalPachdCert() Option {
 			}
 			return addCertFromFile(settings.caCerts, path.Join(tls.VolumePath, tls.CertFile))
 		}
-		return nil
-	}
-}
-
-// WithStorageV2 causes the client to use StorageV2 APIs when applicable.
-func WithStorageV2() Option {
-	return func(settings *clientSettings) error {
-		settings.storageV2 = true
 		return nil
 	}
 }
