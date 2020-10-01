@@ -25,7 +25,7 @@ var (
 	awsRegionRE      = regexp.MustCompile("^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]$")
 )
 
-func CreateDeployAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
+func CreateDeployAmazonCmd(dArgs *DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
 	var cloudfrontDistribution string
 	var creds string
 	var iamRole string

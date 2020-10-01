@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployGoogleCmd(dArgs DeployCmdArgs) *cobra.Command {
+func CreateDeployGoogleCmd(dArgs *DeployCmdArgs) *cobra.Command {
 	deployGoogle := &cobra.Command{
 		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
 		Short: "Deploy a Pachyderm cluster running on Google Cloud Platform.",

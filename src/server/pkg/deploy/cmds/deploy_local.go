@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployLocalCmd(dArgs DeployCmdArgs) *cobra.Command {
+func CreateDeployLocalCmd(dArgs *DeployCmdArgs) *cobra.Command {
 	var dev bool
 	var hostPath string
 	deployLocal := &cobra.Command{

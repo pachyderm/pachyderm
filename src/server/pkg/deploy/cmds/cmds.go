@@ -251,7 +251,7 @@ func standardDeployCmds() []*cobra.Command {
 		return preRunInternal(args, globalFlags, opts)
 	})
 
-	deployCmdArgs := DeployCmdArgs{
+	deployCmdArgs := &DeployCmdArgs{
 		preRun:       deployPreRun,
 		opts:         opts,
 		globalFlags:  globalFlags,

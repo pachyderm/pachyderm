@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployCustomCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
+func CreateDeployCustomCmd(dArgs *DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
 	var objectStoreBackend string
 	var persistentDiskBackend string
 	var secure bool

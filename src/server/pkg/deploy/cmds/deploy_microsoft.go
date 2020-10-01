@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployMicrosoftCmd(dArgs DeployCmdArgs) *cobra.Command {
+func CreateDeployMicrosoftCmd(dArgs *DeployCmdArgs) *cobra.Command {
 	deployMicrosoft := &cobra.Command{
 		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
