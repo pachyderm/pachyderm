@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployStorageAzureCmd(dArgs DeployCmdArgs) *cobra.Command {
+func CreateDeployStorageAzureCmd(dArgs *DeployCmdArgs) *cobra.Command {
 	deployStorageAzure := &cobra.Command{
 		Use:    "{{alias}} <account-name> <account-key>",
 		Short:  "Deploy credentials for the Azure storage provider.",

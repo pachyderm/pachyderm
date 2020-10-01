@@ -264,7 +264,7 @@ func standardDeployCmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployAmazonCmd(deployCmdArgs, s3Flags), "deploy amazon"))
 	commands = append(commands, cmdutil.CreateAlias(CreateDeployMicrosoftCmd(deployCmdArgs), "deploy microsoft"))
 
-	storageCmdArgs := DeployCmdArgs{
+	storageCmdArgs := &DeployCmdArgs{
 		preRun:       preRun,
 		opts:         opts,
 		globalFlags:  globalFlags,

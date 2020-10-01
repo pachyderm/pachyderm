@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployStorageAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
+func CreateDeployStorageAmazonCmd(dArgs *DeployCmdArgs, s3Flags *S3Flags) *cobra.Command {
 	deployStorageAmazon := &cobra.Command{
 		Use:    "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
 		Short:  "Deploy credentials for the Amazon S3 storage provider.",

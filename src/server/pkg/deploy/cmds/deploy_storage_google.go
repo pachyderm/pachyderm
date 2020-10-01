@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateDeployStorageGoogleCmd(dArgs DeployCmdArgs) *cobra.Command {
+func CreateDeployStorageGoogleCmd(dArgs *DeployCmdArgs) *cobra.Command {
 	deployStorageGoogle := &cobra.Command{
 		Use:    "{{alias}} <credentials-file>",
 		Short:  "Deploy credentials for the Google Cloud storage provider.",
