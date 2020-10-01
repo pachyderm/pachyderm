@@ -598,6 +598,7 @@ func standardDeployCmds() []*cobra.Command {
 	appendGlobalFlags(deployGoogle)
 	appendContextFlags(deployGoogle)
 	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
+	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy gcp"))
 
 	var objectStoreBackend string
 	var persistentDiskBackend string
@@ -800,6 +801,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
+	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy aws"))
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
@@ -855,6 +857,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	appendGlobalFlags(deployMicrosoft)
 	appendContextFlags(deployMicrosoft)
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
+	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy azure"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
 		cfg, err := config.Read(false)
