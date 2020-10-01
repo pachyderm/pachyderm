@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -474,10 +473,6 @@ func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 }
 
 func TestLoad(t *testing.T) {
-	// TODO Remove once postgres runs in CI.
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
 	msg := tu.SeedRand()
 	require.NoError(t, testLoad(t, fuzzLoad()), msg)
 }
@@ -685,14 +680,8 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 }
 
 func TestListFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := newPachdConfig()
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		repo := "test"
+		repo := "TestListFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -716,19 +705,12 @@ func TestListFileV2(t *testing.T) {
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
 
 		return nil
-	}, config))
+	}, newPachdConfig()))
 }
 
 func TestGlobFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := newPachdConfig()
-	config.StorageV2 = true
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		repo := "test"
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "TestGlobFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -749,20 +731,12 @@ func TestGlobFileV2(t *testing.T) {
 		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
 		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
 		return nil
-	}, config)
-	require.NoError(t, err)
+	}, newPachdConfig()))
 }
 
 func TestWalkFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := newPachdConfig()
-	config.StorageV2 = true
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		repo := "test"
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "TestWalkFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -785,20 +759,14 @@ func TestWalkFileV2(t *testing.T) {
 		assert.ElementsMatch(t, []string{"/dir1/file1.1"}, walkFile("/dir1/file1.1"))
 		assert.Len(t, walkFile("/"), 7)
 		return nil
-	}, config)
-	require.NoError(t, err)
+	}, newPachdConfig()))
 }
 
 func TestCompaction(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := &serviceenv.PachdFullConfiguration{}
-	config.StorageV2 = true
+	config := newPachdConfig()
 	config.StorageCompactionMaxFanIn = 10
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		repo := "test"
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "TestCompaction"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -832,9 +800,7 @@ func TestCompaction(t *testing.T) {
 			return err
 		}
 		return nil
-	}, config)
-	t.Log(err)
-	require.NoError(t, err)
+	}, config))
 }
 
 var (
@@ -855,17 +821,8 @@ func randomReader(n int) io.Reader {
 }
 
 func TestDiffFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := newPachdConfig()
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		if testing.Short() {
-			t.Skip("Skipping integration tests in short mode")
-		}
-		repo := tu.UniqueString("TestDiff")
+		repo := "TestDiffFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		putFile := func(repo, commit, fileName string, data []byte) {
@@ -955,23 +912,17 @@ func TestDiffFileV2(t *testing.T) {
 		require.Equal(t, "/dir/fizz", oldFiles[2].File.Path)
 
 		return nil
-	}, config))
+	}, newPachdConfig()))
 }
 
 func TestInspectFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
-	config := newPachdConfig()
-	require.NoError(t, os.Setenv("STORAGE_V2", "true"))
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsSpec := fileSetSpec{}
 			fsSpec.recordFile(tarutil.NewMemFile(path, data))
 			return env.PachClient.PutTarV2(repo, commit, fsSpec.makeTarStream(), false)
 		}
-		repo := "test"
+		repo := "TestInspectFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		fileContent1 := "foo\n"
@@ -1024,14 +975,10 @@ func TestInspectFileV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, fi)
 		return nil
-	}, config))
+	}, newPachdConfig()))
 }
 
 func TestCopyFileV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsspec := fileSetSpec{
@@ -1039,7 +986,7 @@ func TestCopyFileV2(t *testing.T) {
 			}
 			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream(), false)
 		}
-		repo := tu.UniqueString("TestCopyFile")
+		repo := "TestCopyFileV2"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		masterCommit, err := env.PachClient.StartCommit(repo, "master")
@@ -1073,10 +1020,6 @@ func TestCopyFileV2(t *testing.T) {
 }
 
 func TestPutFileOverwriteV2(t *testing.T) {
-	// TODO: remove once postgres runs in CI
-	if os.Getenv("CI") == "true" {
-		t.SkipNow()
-	}
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))

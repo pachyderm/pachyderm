@@ -251,12 +251,12 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
+	./etc/testing/start_postgres.sh
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
-	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
+	./etc/testing/start_postgres.sh
+	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.

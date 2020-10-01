@@ -20,6 +20,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -86,17 +87,17 @@ require (
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
-	golang.org/x/tools v0.0.0-20200814172026-c4923e618c08
+	golang.org/x/tools v0.0.0-20200921204550-a20a5e7f0ec0 // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
-	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect

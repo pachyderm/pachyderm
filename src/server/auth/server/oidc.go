@@ -32,6 +32,12 @@ var (
 	errTokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
 
+// IDTokenClaims represents the set of claims in an OIDC ID token that we're concerned with
+type IDTokenClaims struct {
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+}
+
 // InternalOIDCProvider contains information about the configured OIDC ID
 // provider, as well as auth information identifying Pachyderm in the ID
 // provider (ClientID and ClientSecret), which Pachyderm needs to perform
@@ -136,13 +142,14 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 	}
 	var err error
 	o.Provider, err = oidc.NewProvider(
-		// Due to the implementation of go-oidc, this context is used for RPCs
-		// (fetching certificates) within all future OIDC authentication sessions.
-		// Thus, it must not have a timeout. We ideally should create a new
-		// context.WithCancel() and cancel that new context if/when o.Provider is
-		// updated, but we don't have a convenient place to put that cancel() call
-		// and the effect of this omission is limited to in-flight authentication
-		// sessions at the moment that o.Provider updated, so we're ignoring it.
+		// Due to the implementation of go-oidc, this context is used for RPCs made
+		// during future OIDC authentication sessions (for fetching keys, inside of
+		// 'verifier.Verify(ctx, rawIDToken)'). Thus, it must not have a timeout.
+		// We ideally should create a new context.WithCancel() and cancel that new
+		// context if/when o.Provider is updated, but we don't have a convenient
+		// place to put that cancel() call and the effect of this omission is
+		// limited to in-flight authentication sessions at the moment that
+		// o.Provider updated, so we're ignoring it.
 		context.Background(),
 		issuer)
 	if err != nil {
@@ -346,6 +353,24 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+func (o *InternalOIDCProvider) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
+	var verifier = o.Provider.Verifier(&oidc.Config{ClientID: o.ClientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "could not verify token")
+	}
+
+	var claims IDTokenClaims
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, nil, errors.Wrapf(err, "could not get claims")
+	}
+
+	if !claims.EmailVerified {
+		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+	}
+	return idToken, &claims, nil
+}
+
 // handleOIDCExchangeInternal is a convenience function for converting an
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in etcd and sending an HTTP
@@ -384,12 +409,15 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		return "", "", errors.Wrapf(err, "could not verify token")
 	}
 
-	// Use the ID token passed from the authorization callback as our token source
+	// Use the auth token passed from the authorization callback as our token source
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: tok.AccessToken,
 		},
 	)
+
+	// TODO: (actgardner) this may not be necessary - the ID token in the initial response
+	// likely already contains the user's email.
 	userInfo, err := sp.Provider.UserInfo(ctx, ts)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "could not get user info")
