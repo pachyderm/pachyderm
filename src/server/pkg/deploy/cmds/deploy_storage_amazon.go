@@ -33,6 +33,6 @@ func CreateDeployStorageAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.
 		}),
 	}
 	appendGlobalFlags(deployStorageAmazon, dArgs.globalFlags)
-	AppendS3Flags(deployStorageAmazon, s3Flags)
+	appendS3Flags(deployStorageAmazon, s3Flags)
 	return deployStorageAmazon
 }

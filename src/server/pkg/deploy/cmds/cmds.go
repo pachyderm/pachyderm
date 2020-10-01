@@ -130,7 +130,7 @@ func appendGlobalFlags(cmd *cobra.Command, flags *GlobalFlags) {
 			"etc).")
 }
 
-func AppendS3Flags(cmd *cobra.Command, flags *S3Flags) {
+func appendS3Flags(cmd *cobra.Command, flags *S3Flags) {
 	cmd.Flags().IntVar(&flags.Retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 	cmd.Flags().StringVar(&flags.Timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 	cmd.Flags().StringVar(&flags.UploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
