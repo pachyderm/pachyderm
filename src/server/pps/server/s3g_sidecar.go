@@ -220,7 +220,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		port := s.s.apiServer.env.S3GatewayPort
 		strport := strconv.FormatInt(int64(port), 10)
 		var server *http.Server
-		err := backoff.RetryNotify(func() error {
+		err = backoff.RetryNotify(func() error {
 			var err error
 			server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
 				return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
