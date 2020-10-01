@@ -1833,6 +1833,16 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	); err != nil && !isNotFoundErr(err) {
 		return errors.Wrapf(err, "could not recreate original output branch")
 	}
+	if pipelineInfo.EnableStats {
+		if err := pachClient.CreateBranch(
+			pipelineInfo.Pipeline.Name,
+			"stats",
+			"stats",
+			nil,
+		); err != nil && !isNotFoundErr(err) {
+			return errors.Wrapf(err, "could not recreate original stats branch")
+		}
+	}
 
 	// Now that new commits won't be created on the master branch, enumerate
 	// existing commits and close any open ones.
