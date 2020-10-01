@@ -141,7 +141,7 @@ func AppendS3Flags(cmd *cobra.Command, flags *S3Flags) {
 	cmd.Flags().BoolVar(&flags.NoVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 }
 
-func AppendContextFlags(cmd *cobra.Command, flags *ContextFlags) {
+func appendContextFlags(cmd *cobra.Command, flags *ContextFlags) {
 	cmd.Flags().StringVarP(&flags.ContextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	cmd.Flags().BoolVar(&flags.CreateContext, "create-context", false, "Create a context, even with `--dry-run`.")
 }

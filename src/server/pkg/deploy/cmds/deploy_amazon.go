@@ -149,7 +149,7 @@ func CreateDeployAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.Command
 	}
 	AppendGlobalFlags(deployAmazon, dArgs.globalFlags)
 	AppendS3Flags(deployAmazon, s3Flags)
-	AppendContextFlags(deployAmazon, dArgs.contextFlags)
+	appendContextFlags(deployAmazon, dArgs.contextFlags)
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
 		"Deploying on AWS with cloudfront is currently "+
 			"an alpha feature. No security restrictions have been"+

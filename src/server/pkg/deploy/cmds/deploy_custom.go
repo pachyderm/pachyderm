@@ -70,7 +70,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	AppendGlobalFlags(deployCustom, dArgs.globalFlags)
 	AppendS3Flags(deployCustom, s3Flags)
-	AppendContextFlags(deployCustom, dArgs.contextFlags)
+	appendContextFlags(deployCustom, dArgs.contextFlags)
 	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
 	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
