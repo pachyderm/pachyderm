@@ -34,7 +34,7 @@ You'll need the following credentials / tools:
     - on mac: `brew install the_silver_searcher`
 
 If you're doing a custom release (off a branch that isn't master),
-[skip to the section at the bottom](#custom-release)
+[skip to the section at the bottom](#custom-releases)
 
 ## Releasing
 
