@@ -159,10 +159,12 @@ func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 	// Add inputs' details to log metadata, so we can find these logs later
 	result.template.Data = []*pps.InputFile{}
 	for _, d := range data {
-		result.template.Data = append(result.template.Data, &pps.InputFile{
-			Path: d.FileInfo.File.Path,
-			Hash: d.FileInfo.Hash,
-		})
+		for _, fileInfo := range d.FileInfo {
+			result.template.Data = append(result.template.Data, &pps.InputFile{
+				Path: fileInfo.File.Path,
+				Hash: fileInfo.Hash,
+			})
+		}
 	}
 
 	// This is the same ID used in the stats tree for the datum

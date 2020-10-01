@@ -446,7 +446,9 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 		// If we have enough input bytes, finish the task
 		if maxBytesPerTask != 0 {
 			for _, input := range inputs {
-				datumsSize += int64(input.FileInfo.SizeBytes)
+				for _, fileInfo := range input.FileInfo {
+					datumsSize += int64(fileInfo.SizeBytes)
+				}
 			}
 			if datumsSize >= maxBytesPerTask {
 				if err := finishTask(); err != nil {

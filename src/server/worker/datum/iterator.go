@@ -1,6 +1,7 @@
 package datum
 
 import (
+	"fmt"
 	"io"
 	"sort"
 
@@ -62,7 +63,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
 		groupBy := g.Replace(fileInfo.File.Path, input.GroupBy)
 		result.inputs = append(result.inputs, &common.Input{
-			FileInfo:   fileInfo,
+			FileInfo:   []*pfs.FileInfo{fileInfo},
 			JoinOn:     joinOn,
 			GroupBy:    groupBy,
 			Name:       input.Name,
@@ -78,10 +79,19 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 	sort.Slice(result.inputs, func(i, j int) bool {
 		// We sort by descending size first because it can boost performance to
 		// process the biggest datums first.
-		if result.inputs[i].FileInfo.SizeBytes != result.inputs[j].FileInfo.SizeBytes {
-			return result.inputs[i].FileInfo.SizeBytes > result.inputs[j].FileInfo.SizeBytes
+
+		// put nil FileInfo inputs first
+		if len(result.inputs[i].FileInfo) == 0 {
+			return true
 		}
-		return result.inputs[i].FileInfo.File.Path < result.inputs[j].FileInfo.File.Path
+		if len(result.inputs[j].FileInfo) == 0 {
+			return false
+		}
+
+		if result.inputs[i].FileInfo[0].SizeBytes != result.inputs[j].FileInfo[0].SizeBytes {
+			return result.inputs[i].FileInfo[0].SizeBytes > result.inputs[j].FileInfo[0].SizeBytes
+		}
+		return result.inputs[i].FileInfo[0].File.Path < result.inputs[j].FileInfo[0].File.Path
 	})
 	return result, nil
 }
@@ -318,15 +328,16 @@ func (d *crossIterator) DatumN(n int) []*common.Input {
 }
 
 type groupIterator struct {
-	datums   [][]*common.Input
+	datums   []*common.Input
 	location int
 }
 
 func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterator, error) {
-	groupMap := make(map[string][]*common.Input)
+	groupMap := make(map[string]*common.Input)
 	keys := make([]string, 0, len(group))
 	result := &groupIterator{}
 	defer result.Reset()
+	defer func() { fmt.Println(result.datums) }()
 
 	// okay, so we have a slice of pps Inputs
 	for _, input := range group {
@@ -341,10 +352,16 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 			for _, datum := range datums {
 				// put the datums in an map keyed by GroupBy
 				groupDatums, ok := groupMap[datum.GroupBy]
-				if !ok {
+				if !ok || groupDatums == nil {
 					keys = append(keys, datum.GroupBy)
+					groupMap[datum.GroupBy] = datum
+					continue
 				}
-				groupMap[datum.GroupBy] = append(groupDatums, datum)
+				// if groupDatums.FileInfo == nil {
+				// 	groupDatums.FileInfo = make([]*pfs.FileInfo, 0, len(datum.FileInfo))
+				// }
+				// groupDatums.FileInfo =
+				groupMap[datum.GroupBy].FileInfo = append(groupDatums.FileInfo, datum.FileInfo...)
 			}
 		}
 	}
@@ -353,6 +370,7 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 	sort.Strings(keys)
 	// put each equivalence class into its own datum
 	for _, key := range keys {
+		fmt.Println("key: ", key, len(result.datums))
 		result.datums = append(result.datums, groupMap[key])
 	}
 
@@ -375,10 +393,7 @@ func (d *groupIterator) Next() bool {
 }
 
 func (d *groupIterator) Datum() []*common.Input {
-	var result []*common.Input
-	result = append(result, d.datums[d.location]...)
-	sortInputs(result)
-	return result
+	return d.datums
 }
 
 func (d *groupIterator) DatumN(n int) []*common.Input {
@@ -478,7 +493,7 @@ func newGitIterator(pachClient *client.APIClient, input *pps.GitInput) (Iterator
 	result.inputs = append(
 		result.inputs,
 		&common.Input{
-			FileInfo: fileInfo,
+			FileInfo: []*pfs.FileInfo{fileInfo},
 			Name:     input.Name,
 			Branch:   input.Branch,
 			GitURL:   input.URL,

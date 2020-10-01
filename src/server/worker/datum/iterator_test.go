@@ -446,14 +446,18 @@ func validateDI(t testing.TB, dit Iterator, datums ...string) {
 	clone := dit
 	for dit.Next() {
 		key := ""
-		for _, file := range dit.Datum() {
-			key += file.FileInfo.File.Path
+		for _, input := range dit.Datum() {
+			for _, fileInfo := range input.FileInfo {
+				key += fileInfo.File.Path
+			}
 		}
 
 		key2 := ""
 		clone.DatumN(0)
-		for _, file := range clone.DatumN(i) {
-			key2 += file.FileInfo.File.Path
+		for _, input := range clone.DatumN(i) {
+			for _, fileInfo := range input.FileInfo {
+				key2 += fileInfo.File.Path
+			}
 		}
 
 		if len(datums) > 0 {

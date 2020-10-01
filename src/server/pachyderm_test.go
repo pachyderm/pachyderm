@@ -5551,6 +5551,81 @@ func TestJoinInput(t *testing.T) {
 	}
 }
 
+func TestGroupInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	var repos []string
+	for i := 0; i < 2; i++ {
+		repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+		require.NoError(t, c.CreateRepo(repos[i]))
+	}
+
+	numFiles := 16
+	var commits []*pfs.Commit
+	for r, repo := range repos {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		commits = append(commits, commit)
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+			require.NoError(t, err)
+		}
+		require.NoError(t, c.FinishCommit(repo, "master"))
+	}
+
+	pipeline := "group-pipeline"
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("touch /pfs/out/$(echo $(ls -r /pfs/%s/)$(ls -r /pfs/%s/))", repos[0], repos[1]),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewGroupInput(
+			client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$4$1", false),
+		),
+		"",
+		false,
+	))
+
+	_, err := c.FlushCommit(commits, nil)
+	require.NoError(t, err)
+	time.Sleep(time.Minute)
+	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	// Check we can list datums before job completion
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	for _, di := range resp.DatumInfos {
+		for _, fi := range di.Data {
+			fmt.Print(fi.File.Path)
+		}
+		fmt.Println()
+	}
+
+	// commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	// require.NoError(t, err)
+	// // require.Equal(t, 1, len(commitInfos))
+	// outCommit := commitInfos[0].Commit
+	// fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
+	// require.NoError(t, err)
+	// require.Equal(t, 2, len(fileInfos))
+	// expectedNames := []string{"/file-0.1100file-1.1100", "/file-0.1110file-1.1110"}
+	// for i, fi := range fileInfos {
+	// 	// 1 byte per repo
+	// 	require.Equal(t, expectedNames[i], fi.File.Path)
+	// }
+}
+
 func TestUnionRegression4688(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
@@ -10995,8 +11070,8 @@ func TestDeferredCross(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", false),
-					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", false),
+					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false),
+					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false),
 				),
 				client.NewPFSInput(dataSet, "/"),
 			),

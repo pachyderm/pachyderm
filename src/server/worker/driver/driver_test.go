@@ -395,7 +395,7 @@ func TestWithDataSpout(t *testing.T) {
 // Shitty helper function to create possibly-not-malformed input structures
 func newInput(repo string, path string) *common.Input {
 	return &common.Input{
-		FileInfo: &pfs.FileInfo{
+		FileInfo: []*pfs.FileInfo{{
 			File: &pfs.File{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{
@@ -406,7 +406,7 @@ func newInput(repo string, path string) *common.Input {
 				Path: path,
 			},
 			FileType: pfs.FileType_FILE,
-		},
+		}},
 		Name:   repo,
 		Branch: "master",
 	}
@@ -540,7 +540,7 @@ func TestWithActiveDataCleanup(t *testing.T) {
 
 func newGitInput(repo string, url string) *common.Input {
 	return &common.Input{
-		FileInfo: &pfs.FileInfo{
+		FileInfo: []*pfs.FileInfo{{
 			File: &pfs.File{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{
@@ -551,7 +551,7 @@ func newGitInput(repo string, url string) *common.Input {
 				Path: "commit.json",
 			},
 			FileType: pfs.FileType_FILE,
-		},
+		}},
 		GitURL: url,
 		Name:   repo,
 	}
