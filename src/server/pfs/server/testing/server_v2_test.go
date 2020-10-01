@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ type loadConfig struct {
 
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
-	config.pachdConfig = newPachdConfig()
+	config.pachdConfig = NewPachdConfig()
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -46,13 +47,6 @@ func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 }
 
 type loadConfigOption func(*loadConfig)
-
-// TODO Will use later, commenting to make linter happy.
-//func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
-//	return func(config *loadConfig) {
-//		config.pachdConfig = newPachdConfig(opts...)
-//	}
-//}
 
 func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 	return func(config *loadConfig) {
@@ -161,7 +155,7 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				if config.putCancelConfig != nil && rand.Float64() < config.putCancelConfig.prob {
 					// TODO Not sure if we want to do anything with errors here?
 					cancelOperation(config.putCancelConfig, c, func(c *client.APIClient) error {
-						err := c.PutTarV2(repo, commit.ID, r)
+						err := c.PutTarV2(repo, commit.ID, r, false)
 						if err == nil {
 							validator.recordFileSet(fs)
 						}
@@ -170,7 +164,7 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 					})
 					continue
 				}
-				if err := c.PutTarV2(repo, commit.ID, r); err != nil {
+				if err := c.PutTarV2(repo, commit.ID, r, false); err != nil {
 					return err
 				}
 				if rand.Float64() < config.deleteProb {
@@ -618,9 +612,6 @@ func (v *validator) validate(r io.Reader) (retErr error) {
 		namesSorted = append(namesSorted, name)
 	}
 	sort.Strings(namesSorted)
-	if len(namesSorted) > 0 {
-		namesSorted = append([]string{"/"}, namesSorted...)
-	}
 	defer func() {
 		if retErr == nil {
 			if len(namesSorted) != 0 {
@@ -712,7 +703,7 @@ func TestListFileV2(t *testing.T) {
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir1/file1.2", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir2/file2.1", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("dir2/file2.2", []byte{})))
-		require.NoError(t, env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream()))
+		require.NoError(t, env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream(), false))
 
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 		// should list a directory but not siblings
@@ -746,10 +737,8 @@ func TestGlobFileV2(t *testing.T) {
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.2", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.1", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.2", []byte{})))
-		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
-		require.NoError(t, err)
-		err = env.PachClient.FinishCommit(repo, commit1.ID)
-		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream(), false))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 		globFile := func(pattern string) []string {
 			fis, err := env.PachClient.GlobFile(repo, commit1.ID, pattern)
 			require.NoError(t, err)
@@ -757,7 +746,8 @@ func TestGlobFileV2(t *testing.T) {
 		}
 		assert.ElementsMatch(t, []string{"/dir1/file1.2", "/dir2/file2.2"}, globFile("**.2"))
 		assert.ElementsMatch(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, globFile("/dir1/*"))
-		assert.ElementsMatch(t, []string{"/", "/dir1/", "/dir2/"}, globFile("/*"))
+		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
+		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
 		return nil
 	}, config)
 	require.NoError(t, err)
@@ -781,10 +771,8 @@ func TestWalkFileV2(t *testing.T) {
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir1/file1.2", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.1", []byte{})))
 		require.NoError(t, fsSpec.recordFile(tarutil.NewMemFile("/dir2/file2.2", []byte{})))
-		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
-		require.NoError(t, err)
-		err = env.PachClient.FinishCommit(repo, commit1.ID)
-		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream(), false))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 		walkFile := func(path string) []string {
 			var fis []*pfs.FileInfo
 			require.NoError(t, env.PachClient.Walk(repo, commit1.ID, path, func(fi *pfs.FileInfo) error {
@@ -835,7 +823,7 @@ func TestCompaction(t *testing.T) {
 				}
 				fsSpec[hdr.Name] = file
 			}
-			if err := env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
+			if err := env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream(), false); err != nil {
 				return err
 			}
 			runtime.GC()
@@ -884,7 +872,7 @@ func TestDiffFileV2(t *testing.T) {
 			fsspec := fileSetSpec{
 				fileName: tarutil.NewMemFile(fileName, data),
 			}
-			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
+			err := env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream(), false)
 			require.NoError(t, err)
 		}
 
@@ -981,7 +969,7 @@ func TestInspectFileV2(t *testing.T) {
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsSpec := fileSetSpec{}
 			fsSpec.recordFile(tarutil.NewMemFile(path, data))
-			return env.PachClient.PutTarV2(repo, commit, fsSpec.makeTarStream())
+			return env.PachClient.PutTarV2(repo, commit, fsSpec.makeTarStream(), false)
 		}
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -989,8 +977,7 @@ func TestInspectFileV2(t *testing.T) {
 		fileContent1 := "foo\n"
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		err = putFile(repo, commit1.ID, "foo/bar", []byte(fileContent1))
-		require.NoError(t, err)
+		require.NoError(t, putFile(repo, commit1.ID, "foo/bar", []byte(fileContent1)))
 		// TODO: can't read uncommitted filesets yet.
 		// fileInfo, err := env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
 		// 	File: &pfs.File{
@@ -1010,8 +997,7 @@ func TestInspectFileV2(t *testing.T) {
 		fileContent2 := "barbar\n"
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		err = putFile(repo, commit2.ID, "foo", []byte(fileContent2))
-		require.NoError(t, err)
+		require.NoError(t, putFile(repo, commit2.ID, "foo", []byte(fileContent2)))
 
 		// TODO: can't read uncommitted filesets yet.
 		// fileInfo, err = env.PachClient.InspectFileV2(ctx, &pfs.InspectFileRequest{
@@ -1032,8 +1018,7 @@ func TestInspectFileV2(t *testing.T) {
 		fileContent3 := "bar\n"
 		commit3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
-		err = putFile(repo, commit3.ID, "bar", []byte(fileContent3))
-		require.NoError(t, err)
+		require.NoError(t, putFile(repo, commit3.ID, "bar", []byte(fileContent3)))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
 		fi, err = env.PachClient.InspectFile(repo, commit3.ID, "bar")
 		require.NoError(t, err)
@@ -1047,13 +1032,12 @@ func TestCopyFileV2(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.SkipNow()
 	}
-	conf := newPachdConfig()
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		putFile := func(repo, commit, path string, data []byte) error {
 			fsspec := fileSetSpec{
 				path: tarutil.NewMemFile(path, data),
 			}
-			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream())
+			return env.PachClient.PutTarV2(repo, commit, fsspec.makeTarStream(), false)
 		}
 		repo := tu.UniqueString("TestCopyFile")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -1085,6 +1069,24 @@ func TestCopyFileV2(t *testing.T) {
 		_, err = env.PachClient.InspectFile(repo, otherCommit.ID, "files/0")
 		require.NoError(t, err)
 		return nil
-	}, conf)
-	require.NoError(t, err)
+	}, newPachdConfig()))
+}
+
+func TestPutFileOverwriteV2(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("foo"), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
+		require.NoError(t, err)
+		var buf bytes.Buffer
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "bar", buf.String())
+		return nil
+	}, newPachdConfig()))
 }

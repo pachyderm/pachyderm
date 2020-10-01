@@ -149,20 +149,49 @@ func (d *driverV2) getSubFileSet() int64 {
 	return time.Now().UnixNano()
 }
 
-func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	ctx := pachClient.Ctx()
+	repo := commit.Repo.Name
+	var branch string
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
+	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
-		return err
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			return err
+		}
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		}
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
 	}
-	commit = commitInfo.Commit
-	n := d.getSubFileSet()
-	subFileSetStr := fileset.SubFileSetStr(n)
+	return d.withUnorderedWriter(ctx, commitInfo.Commit, cb)
+}
+
+// TODO: Cleanup after failure?
+func (d *driverV2) oneOffFileOperation(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if retErr == nil {
+				retErr = d.finishCommitV2(txnCtx, commit, "")
+			}
+		}()
+		return d.withUnorderedWriter(txnCtx.ClientContext, commit, cb)
+	})
+}
+
+func (d *driverV2) withUnorderedWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	subFileSetStr := fileset.SubFileSetStr(d.getSubFileSet())
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
+	uw, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
 		return err
 	}
@@ -171,16 +200,15 @@ func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs
 			retErr = err
 		}
 	}()
-	if err := cb(fs); err != nil {
+	if err := cb(uw); err != nil {
 		return err
 	}
-	if err := fs.Close(); err != nil {
+	if err := uw.Close(); err != nil {
 		return err
 	}
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-		return err
-	})
+	// TODO: Should we run a distributed compaction? Fan in could still be a problem here.
+	_, err = d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	return err
 }
 
 func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
@@ -224,13 +252,21 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	var dir string
 	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
-		return mf(idx.Path)
+		if dir != "" && strings.HasPrefix(idx.Path, dir) {
+			return true
+		}
+		match := mf(idx.Path)
+		if match && strings.HasSuffix(idx.Path, "/") {
+			dir = idx.Path
+		}
+		return match
 	})
 	// TODO: remove absolute paths on the way out?
 	// nonAbsolute := &fileset.HeaderMapper{
@@ -330,13 +366,18 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *comp
 	// TODO: use an errgroup to make the recursion concurrecnt.
 	// this requires changing the master to allow multiple calls to RunSubtasks
 	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
+	// TODO: change this such that the fan in is maxed at the lower levels first rather
+	// than the higher.
 	for i := 0; i < params.maxFanIn; i++ {
 		start := i * childSize
+		if start >= len(params.inputPaths) {
+			break
+		}
 		end := (i + 1) * childSize
 		if end > len(params.inputPaths) {
 			end = len(params.inputPaths)
 		}
-		childOutputPath := path.Join(scratch, strconv.Itoa(i))
+		childOutputPath := path.Join(scratch, fileset.SubFileSetStr(int64(i)))
 		childOutputPaths = append(childOutputPaths, childOutputPath)
 		if _, err := d.compactIter(ctx, compactSpec{
 			master:     params.master,
@@ -467,18 +508,18 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := NewSource(commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
-		x = fileset.NewIndexResolver(x)
-		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return mf(cleanPath(idx.Path))
-		})
+		return fileset.NewIndexResolver(x)
 	})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		if !mf(fi.File.Path) {
+			return nil
+		}
 		return cb(fi)
 	})
 }

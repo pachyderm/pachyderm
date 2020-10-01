@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -81,4 +82,13 @@ func CleanTarPath(x string, isDir bool) string {
 func IsCleanTarPath(x string, isDir bool) bool {
 	y := CleanTarPath(x, isDir)
 	return y == x
+}
+
+func getSortedKeys(set map[string]struct{}) []string {
+	var keys []string
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
