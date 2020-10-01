@@ -76,7 +76,7 @@ type ContextFlags struct {
 	CreateContext bool
 }
 
-func AppendGlobalFlags(cmd *cobra.Command, flags *GlobalFlags) {
+func appendGlobalFlags(cmd *cobra.Command, flags *GlobalFlags) {
 	cmd.Flags().IntVar(&flags.PachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 	cmd.Flags().IntVar(&flags.EtcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	cmd.Flags().StringVar(&flags.EtcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
@@ -282,15 +282,15 @@ func standardDeployCmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
 
 	listImages := CreateListImagesCmd(preRun, opts)
-	AppendGlobalFlags(listImages, globalFlags)
+	appendGlobalFlags(listImages, globalFlags)
 	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	exportImages := CreateExportImagesCmd(preRun, opts)
-	AppendGlobalFlags(exportImages, globalFlags)
+	appendGlobalFlags(exportImages, globalFlags)
 	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
 
 	importImages := CreateImportImagesCmd(preRun, opts)
-	AppendGlobalFlags(importImages, globalFlags)
+	appendGlobalFlags(importImages, globalFlags)
 	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
 	return commands

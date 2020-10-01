@@ -32,7 +32,7 @@ func CreateDeployStorageAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.
 			return DeployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig), dArgs.globalFlags.DryRun, dArgs.globalFlags.OutputFormat, dArgs.opts)
 		}),
 	}
-	AppendGlobalFlags(deployStorageAmazon, dArgs.globalFlags)
+	appendGlobalFlags(deployStorageAmazon, dArgs.globalFlags)
 	AppendS3Flags(deployStorageAmazon, s3Flags)
 	return deployStorageAmazon
 }

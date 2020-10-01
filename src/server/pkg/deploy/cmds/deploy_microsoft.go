@@ -67,7 +67,7 @@ func CreateDeployMicrosoftCmd(dArgs DeployCmdArgs) *cobra.Command {
 			return nil
 		}),
 	}
-	AppendGlobalFlags(deployMicrosoft, dArgs.globalFlags)
+	appendGlobalFlags(deployMicrosoft, dArgs.globalFlags)
 	appendContextFlags(deployMicrosoft, dArgs.contextFlags)
 	return deployMicrosoft
 }

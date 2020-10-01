@@ -63,7 +63,7 @@ func CreateDeployLocalCmd(dArgs DeployCmdArgs) *cobra.Command {
 			return nil
 		}),
 	}
-	AppendGlobalFlags(deployLocal, dArgs.globalFlags)
+	appendGlobalFlags(deployLocal, dArgs.globalFlags)
 	appendContextFlags(deployLocal, dArgs.contextFlags)
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")

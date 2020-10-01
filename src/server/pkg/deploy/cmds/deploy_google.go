@@ -65,7 +65,7 @@ func CreateDeployGoogleCmd(dArgs DeployCmdArgs) *cobra.Command {
 			return nil
 		}),
 	}
-	AppendGlobalFlags(deployGoogle, dArgs.globalFlags)
+	appendGlobalFlags(deployGoogle, dArgs.globalFlags)
 	appendContextFlags(deployGoogle, dArgs.contextFlags)
 	return deployGoogle
 }

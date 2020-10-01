@@ -68,7 +68,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return nil
 		}),
 	}
-	AppendGlobalFlags(deployCustom, dArgs.globalFlags)
+	appendGlobalFlags(deployCustom, dArgs.globalFlags)
 	AppendS3Flags(deployCustom, s3Flags)
 	appendContextFlags(deployCustom, dArgs.contextFlags)
 	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.

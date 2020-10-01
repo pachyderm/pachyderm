@@ -16,6 +16,6 @@ func CreateDeployStorageAzureCmd(dArgs DeployCmdArgs) *cobra.Command {
 			return DeployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]), dArgs.globalFlags.DryRun, dArgs.globalFlags.OutputFormat, dArgs.opts)
 		}),
 	}
-	AppendGlobalFlags(deployStorageAzure, dArgs.globalFlags)
+	appendGlobalFlags(deployStorageAzure, dArgs.globalFlags)
 	return deployStorageAzure
 }

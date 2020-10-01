@@ -147,7 +147,7 @@ func CreateDeployAmazonCmd(dArgs DeployCmdArgs, s3Flags *S3Flags) *cobra.Command
 			return nil
 		}),
 	}
-	AppendGlobalFlags(deployAmazon, dArgs.globalFlags)
+	appendGlobalFlags(deployAmazon, dArgs.globalFlags)
 	AppendS3Flags(deployAmazon, s3Flags)
 	appendContextFlags(deployAmazon, dArgs.contextFlags)
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",

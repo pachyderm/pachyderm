@@ -23,6 +23,6 @@ func CreateDeployStorageGoogleCmd(dArgs DeployCmdArgs) *cobra.Command {
 			return DeployStorageSecrets(assets.GoogleSecret("", string(credBytes)), dArgs.globalFlags.DryRun, dArgs.globalFlags.OutputFormat, dArgs.opts)
 		}),
 	}
-	AppendGlobalFlags(deployStorageGoogle, dArgs.globalFlags)
+	appendGlobalFlags(deployStorageGoogle, dArgs.globalFlags)
 	return deployStorageGoogle
 }
