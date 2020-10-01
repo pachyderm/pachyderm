@@ -226,7 +226,7 @@ func preRunInternal(args []string, globalFlags *GlobalFlags, opts *assets.AssetO
 
 func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
-	var opts *assets.AssetOpts
+	opts := new(assets.AssetOpts)
 
 	globalFlags := new(GlobalFlags)
 
