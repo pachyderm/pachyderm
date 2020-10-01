@@ -291,20 +291,15 @@ func standardDeployCmds() []*cobra.Command {
 func Cmds() []*cobra.Command {
 	commands := standardDeployCmds()
 
-	deployIDE := CreateDeployIDECommand()
-	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
+	commands = append(commands, cmdutil.CreateAlias(CreateDeployIDECommand(), "deploy ide"))
 
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 	}
 	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
-
-	undeploy := CreateUndeployCmd()
-	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
-
-	updateDash := CreateUpdateDashCmd()
-	commands = append(commands, cmdutil.CreateAlias(updateDash, "update-dash"))
+	commands = append(commands, cmdutil.CreateAlias(CreateUndeployCmd(), "undeploy"))
+	commands = append(commands, cmdutil.CreateAlias(CreateUpdateDashCmd(), "update-dash"))
 
 	return commands
 }
