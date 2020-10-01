@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -328,58 +327,13 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	return s.chunks.RenewReference(ctx, p, ttl)
 }
 
-// WithRenewal ensures that none of the filesets under prefix expire by repeatedly calling SetTTL in a separate goroutine
-// until cb returns.
-// RenewDuring attempts to delete the contents of prefix after cb has returned
-func (s *Storage) WithRenewal(ctx context.Context, ttl time.Duration, ps []string, cb func(context.Context) error) error {
-	// First we renew all of them, to fail without racing cb
-	for _, p := range ps {
-		_, err := s.SetTTL(ctx, p, ttl)
-		if err != nil {
-			return err
-		}
-	}
-	// spawn the SetTTL loops
-	eg, errCtx := errgroup.WithContext(ctx)
-	errCtx, cancel := context.WithCancel(errCtx)
-	for _, p := range ps {
-		p := p
-		eg.Go(func() error {
-			ticker := time.NewTicker(ttl / 2)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					_, err := s.SetTTL(errCtx, p, ttl)
-					if err != nil {
-						return err
-					}
-				case <-errCtx.Done():
-					return nil
-				}
-			}
-		})
-	}
-	eg.Go(func() error {
-		defer cancel()
-		return cb(errCtx)
-	})
-	if err := eg.Wait(); err != nil {
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(r *Renewer) error) error {
+	r := NewRenewer(s, ttl)
+	defer r.Close()
+	if err := cb(r); err != nil {
 		return err
 	}
-	// Ensure that all the keys exist after cb has closed. If they exist now they must have existed for the duration of cb.
-	for _, p := range ps {
-		if !s.Exists(ctx, p) {
-			return ErrNoFileSetFound
-		}
-	}
-	// We delete to ensure no one tries to race for this data after the function ends.
-	for _, p := range ps {
-		if err := s.Delete(ctx, p); err != nil {
-			return err
-		}
-	}
-	return nil
+	return r.Close()
 }
 
 func (s *Storage) Exists(ctx context.Context, p string) (exists bool) {
@@ -390,29 +344,6 @@ func (s *Storage) Exists(ctx context.Context, p string) (exists bool) {
 		return false
 	}
 	return exists
-}
-
-func (s *Storage) GetExpiresAt(ctx context.Context, prefix string) (time.Time, error) {
-	var expiresAt *time.Time
-	if err := s.WalkFileSet(ctx, prefix, func(p string) error {
-		t, err := s.getExpiresAt(ctx, p)
-		if err != nil {
-			if err != ErrNoTTLSet {
-				return nil
-			}
-			return err
-		}
-		if expiresAt != nil && t.Before(*expiresAt) {
-			expiresAt = &t
-		}
-		return nil
-	}); err != nil {
-		return time.Time{}, err
-	}
-	if expiresAt == nil {
-		return time.Time{}, ErrNoTTLSet
-	}
-	return *expiresAt, nil
 }
 
 func (s *Storage) getExpiresAt(ctx context.Context, p string) (time.Time, error) {

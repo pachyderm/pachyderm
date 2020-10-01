@@ -40,8 +40,8 @@ type UnorderedWriter struct {
 	defaultTag                 string
 	fs                         map[string]*dataOp
 	subFileSet                 int64
-	writerOpts                 []WriterOption
-	expiresAt                  *time.Time
+	ttl                        time.Duration
+	renewer                    *Renewer
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -190,7 +190,12 @@ func (f *UnorderedWriter) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)), f.writerOpts...)
+	var writerOpts []WriterOption
+	if f.ttl > 0 {
+		writerOpts = append(writerOpts, WithTTL(f.ttl))
+	}
+	p := path.Join(f.name, SubFileSetStr(f.subFileSet))
+	w := f.storage.newWriter(f.ctx, p, writerOpts...)
 	for _, name := range names {
 		dataOp := f.fs[name]
 		deleteTags := getSortedTags(dataOp.deleteTags)
@@ -219,10 +224,8 @@ func (f *UnorderedWriter) serialize() error {
 	if err := w.Close(); err != nil {
 		return err
 	}
-	if expiresAt := w.ExpiresAt(); expiresAt != nil {
-		if f.expiresAt == nil || expiresAt.Before(*f.expiresAt) {
-			f.expiresAt = expiresAt
-		}
+	if f.ttl > 0 {
+		f.renewer.Add(p)
 	}
 
 	// Reset in-memory file set.
@@ -255,12 +258,11 @@ func getSortedTags(tags map[string]struct{}) []string {
 // Close closes the writer.
 func (f *UnorderedWriter) Close() error {
 	defer f.storage.filesetSem.Release(1)
-	return f.serialize()
-}
-
-// ExpiresAt returns the time the fileset expires
-// - returns nil if the fileset is permanent
-// - should not be called until the UnorderedWriter is closed
-func (uw *UnorderedWriter) ExpiresAt() *time.Time {
-	return uw.expiresAt
+	if f.renewer != nil {
+		defer f.renewer.Close()
+	}
+	if err := f.serialize(); err != nil {
+		return err
+	}
+	return f.renewer.Close()
 }
