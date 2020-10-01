@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateImportImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command {
+func CreateImportImagesCmd(preRun PreRun, opts *assets.AssetOpts, globalFlags *GlobalFlags) *cobra.Command {
 	importImages := &cobra.Command{
 		Use:    "{{alias}} <input-file>",
 		Short:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
@@ -28,6 +28,6 @@ func CreateImportImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command
 			return images.Import(opts, file)
 		}),
 	}
-
+	appendGlobalFlags(importImages, globalFlags)
 	return importImages
 }

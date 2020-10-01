@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateExportImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command {
+func CreateExportImagesCmd(preRun PreRun, opts *assets.AssetOpts, globalFlags *GlobalFlags) *cobra.Command {
 	exportImages := &cobra.Command{
 		Use:    "{{alias}} <output-file>",
 		Short:  "Export a tarball (to stdout) containing all of the images in a deployment.",
@@ -28,5 +28,6 @@ func CreateExportImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command
 			return images.Export(opts, file)
 		}),
 	}
+	appendGlobalFlags(exportImages, globalFlags)
 	return exportImages
 }

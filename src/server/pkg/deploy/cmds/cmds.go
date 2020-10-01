@@ -280,18 +280,9 @@ func standardDeployCmds() []*cobra.Command {
 		Long:  "Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.",
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
-
-	listImages := CreateListImagesCmd(preRun, opts)
-	appendGlobalFlags(listImages, globalFlags)
-	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
-
-	exportImages := CreateExportImagesCmd(preRun, opts)
-	appendGlobalFlags(exportImages, globalFlags)
-	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
-
-	importImages := CreateImportImagesCmd(preRun, opts)
-	appendGlobalFlags(importImages, globalFlags)
-	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
+	commands = append(commands, cmdutil.CreateAlias(CreateListImagesCmd(preRun, opts, globalFlags), "deploy list-images"))
+	commands = append(commands, cmdutil.CreateAlias(CreateExportImagesCmd(preRun, opts, globalFlags), "deploy export-images"))
+	commands = append(commands, cmdutil.CreateAlias(CreateImportImagesCmd(preRun, opts, globalFlags), "deploy import-images"))
 
 	return commands
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateListImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command {
+func CreateListImagesCmd(preRun PreRun, opts *assets.AssetOpts, globalFlags *GlobalFlags) *cobra.Command {
 	listImages := &cobra.Command{
 		Short:  "Output the list of images in a deployment.",
 		Long:   "Output the list of images in a deployment.",
@@ -20,5 +20,6 @@ func CreateListImagesCmd(preRun PreRun, opts *assets.AssetOpts) *cobra.Command {
 			return nil
 		}),
 	}
+	appendGlobalFlags(listImages, globalFlags)
 	return listImages
 }
