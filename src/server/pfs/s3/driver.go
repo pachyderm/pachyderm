@@ -21,6 +21,10 @@ type Bucket struct {
 	Commit string
 	// Name is the name of the bucket
 	Name string
+	// FilterPrefix is the filter for this bucket (only paths beginning with
+	// 'FilterPrefix' are exposed, so that we can isolate a bucket to a single
+	// datum)
+	FilterPrefix string
 }
 
 type bucketCapabilities struct {

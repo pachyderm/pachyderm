@@ -66,13 +66,33 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	if err != nil {
 		return nil, err
 	}
+	// Validate prefix. Logically, each bucket only contains the PFS files whose
+	// path begins with Bucket.FilterPrefix, so handle prefixes that are more
+	// permissive or contractictory with Bucket.FilterPrefix. Cases:
+	// 1. prefix=/a   , Bucket.FilterPrefix=/a/b ==> prefix = /a/b
+	// 2. prefix=/a/b , Bucket.FilterPrefix=/a   ==> prefix = /a/b
+	// 3. prefix=/b   , Bucket.FilterPrefix=/a   ==> Empty result
+	switch {
+	case strings.HasPrefix(bucket.FilterPrefix, prefix):
+		prefix = bucket.FilterPrefix
+	case strings.HasPrefix(prefix, bucket.FilterPrefix):
+		break
+	default:
+		// empty result
+		return &s2.ListObjectsResult{
+			Contents:       []*s2.Contents{},
+			CommonPrefixes: []*s2.CommonPrefixes{},
+		}, nil
+	}
+
 	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
 
 	result := s2.ListObjectsResult{
-		Contents:       []*s2.Contents{},
+		Contents: []*s2.Contents{},
+		// TODO(msteffen): Do we need to change this?
 		CommonPrefixes: []*s2.CommonPrefixes{},
 	}
 
@@ -114,6 +134,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 			return nil
 		}
 
+		// ???
 		if len(result.Contents)+len(result.CommonPrefixes) >= maxKeys {
 			if maxKeys > 0 {
 				result.IsTruncated = true

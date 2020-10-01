@@ -178,101 +178,112 @@ type s3InstanceCreatingJobHandler struct {
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 
-	// serve new S3 gateway & add to s.servers
-	s.s.serversMu.Lock()
-	defer s.s.serversMu.Unlock()
-	if _, ok := s.s.servers[jobID]; ok {
-		return // s3g handler already created
-	}
+	for _, datumID := range jobInfo.DatumIDs {
+		// serve new S3 gateway & add to s.servers
+		s.s.serversMu.Lock()
+		defer s.s.serversMu.Unlock()
+		if _, ok := s.s.servers[jobID]; ok {
+			return // s3g handler already created
+		}
 
-	// Initialize new S3 gateway
-	var inputBuckets []*s3.Bucket
-	pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
-		if in.Pfs != nil && in.Pfs.S3 {
-			inputBuckets = append(inputBuckets, &s3.Bucket{
-				Repo:   in.Pfs.Repo,
-				Commit: in.Pfs.Commit,
-				Name:   in.Pfs.Name,
+		// Initialize new S3 gateway
+		pachClient := s.s.apiServer.env.GetPachClient(ctx)
+		datumInfo, err := pachClient.InspectDatum(jobID, datumID)
+		if err != nil {
+			logrus.Errorf("Couldn't inspect datum %s/%s to create S3 gateway: %v", jobID, datumID, err)
+			continue
+		}
+		var inputBuckets []*s3.Bucket
+		pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
+			if in.Pfs != nil && in.Pfs.S3 {
+				inputBuckets = append(inputBuckets, &s3.Bucket{
+					Repo:         in.Pfs.Repo,
+					Commit:       in.Pfs.Commit,
+					Name:         in.Pfs.Name,
+					FilterPrefix: datumInfo.PfsState.Path,
+				})
+			}
+		})
+		var outputBucket *s3.Bucket
+		if s.s.pipelineInfo.S3Out {
+			outputBucket = &s3.Bucket{
+				Repo:   jobInfo.OutputCommit.Repo.Name,
+				Commit: jobInfo.OutputCommit.ID,
+				Name:   "out",
+			}
+		}
+		driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
+		// TODO(msteffen) always serve on the same port for now (there shouldn't be
+		// more than one job in s.servers). When parallel jobs are implemented, the
+		// servers in s.servers won't actually serve anymore, and instead parent
+		// server will forward requests based on the request hostname
+		port := s.s.apiServer.env.S3GatewayPort
+		strport := strconv.FormatInt(int64(port), 10)
+		var server *http.Server
+		err := backoff.RetryNotify(func() error {
+			var err error
+			server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
+				return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
 			})
-		}
-	})
-	var outputBucket *s3.Bucket
-	if s.s.pipelineInfo.S3Out {
-		outputBucket = &s3.Bucket{
-			Repo:   jobInfo.OutputCommit.Repo.Name,
-			Commit: jobInfo.OutputCommit.ID,
-			Name:   "out",
-		}
-	}
-	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	// TODO(msteffen) always serve on the same port for now (there shouldn't be
-	// more than one job in s.servers). When parallel jobs are implemented, the
-	// servers in s.servers won't actually serve anymore, and instead parent
-	// server will forward requests based on the request hostname
-	port := s.s.apiServer.env.S3GatewayPort
-	strport := strconv.FormatInt(int64(port), 10)
-	var server *http.Server
-	err := backoff.RetryNotify(func() error {
-		var err error
-		server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
-			return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
+			if err != nil {
+				return errors.Wrapf(err, "couldn't initialize s3 gateway server")
+			}
+			server.Addr = ":" + strport
+			return nil
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+			logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", jobID, err, d)
+			return nil
 		})
 		if err != nil {
-			return errors.Wrapf(err, "couldn't initialize s3 gateway server")
+			logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", jobID, err)
+			return // give up. Worker will fail the job
 		}
-		server.Addr = ":" + strport
-		return nil
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", jobID, err, d)
-		return nil
-	})
-	if err != nil {
-		logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", jobID, err)
-		return // give up. Worker will fail the job
-	}
-	go func() {
-		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-			err := server.ListenAndServe()
-			if err == nil || errors.Is(err, http.ErrServerClosed) {
-				break // server was shutdown/closed
+		go func() {
+			for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
+				err := server.ListenAndServe()
+				if err == nil || errors.Is(err, http.ErrServerClosed) {
+					break // server was shutdown/closed
+				}
+				logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
 			}
-			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
-		}
-	}()
-	s.s.servers[jobID] = server
+		}()
+		s.s.servers[fmt.Sprintf("%s.%s", jobID, datumID)] = server
+	}
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
-	s.s.serversMu.Lock()
-	defer s.s.serversMu.Unlock()
-	server, ok := s.s.servers[jobID]
-	if !ok {
-		return // s3g handler already deleted
-	}
-
-	// kill server
-	b := backoff.New60sBackOff()
-	// be extra slow, because this panics if it can't release the port
-	b.MaxElapsedTime = 2 * time.Minute
-	if err := backoff.RetryNotify(func() error {
-		timeoutCtx, cancel := context.WithTimeout(jobCtx, 10*time.Second)
-		defer cancel()
-		return server.Shutdown(timeoutCtx)
-	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", jobID, err, d)
-		return nil
-	}); err != nil {
-		// last chance -- try calling Close(), and if that doesn't work, force
-		// the http server to shut down by panicking
-		if err := server.Close(); err != nil {
-			// panic here instead of ignoring the error and moving on because
-			// otherwise the worker process won't release the s3 gateway port and
-			// all future s3 jobs will fail.
-			panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err))
+	for _, datumID := range jobInfo.DatumIDs {
+		s.s.serversMu.Lock()
+		defer s.s.serversMu.Unlock()
+		server, ok := s.s.servers[fmt.Sprintf("%s.%s", jobID, datumID)]
+		if !ok {
+			return // s3g handler already deleted
 		}
+
+		// kill server
+		b := backoff.New60sBackOff()
+		// be extra slow, because this panics if it can't release the port
+		b.MaxElapsedTime = 2 * time.Minute
+		if err := backoff.RetryNotify(func() error {
+			timeoutCtx, cancel := context.WithTimeout(jobCtx, 10*time.Second)
+			defer cancel()
+			return server.Shutdown(timeoutCtx)
+		}, b, func(err error, d time.Duration) error {
+			logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", jobID, err, d)
+			return nil
+		}); err != nil {
+			// last chance -- try calling Close(), and if that doesn't work, force
+			// the http server to shut down by panicking
+			if err := server.Close(); err != nil {
+				// panic here instead of ignoring the error and moving on because
+				// otherwise the worker process won't release the s3 gateway port and
+				// all future s3 jobs will fail.
+				panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err))
+			}
+		}
+		delete(s.s.servers, jobID) // remove server from map no matter what
 	}
-	delete(s.s.servers, jobID) // remove server from map no matter what
 }
 
 type k8sServiceCreatingJobHandler struct {
