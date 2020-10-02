@@ -148,19 +148,21 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	txnEnv := &txnenv.TransactionEnv{}
-	blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-	if err != nil {
-		return errors.Wrapf(err, "units.RAMInBytes")
-	}
-	if err := logGRPCServerSetup("Block API", func() error {
-		blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+	if !env.StorageV2 {
+		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 		if err != nil {
+			return errors.Wrapf(err, "units.RAMInBytes")
+		}
+		if err := logGRPCServerSetup("Block API", func() error {
+			blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+			return nil
+		}); err != nil {
 			return err
 		}
-		pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
-		return nil
-	}); err != nil {
-		return err
 	}
 	memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 	if err != nil {
@@ -211,6 +213,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			txnEnv,
 			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+			false,
 			false,
 		)
 		if err != nil {
@@ -352,6 +355,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return errors.Wrapf(err, "lru.New")
 	}
 	kubeNamespace := env.Namespace
+	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
 	externalServer, err := grpcutil.NewServer(context.Background(), true)
 	if err != nil {
@@ -406,28 +410,30 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if env.ExposeObjectAPI {
-			if err := logGRPCServerSetup("Block API", func() error {
-				// Generally the object API should not be exposed publicly, but
-				// TestGarbageCollection uses it and it may help with debugging
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(
-					env.StorageRoot,
-					0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-					etcdAddress,
-					true /* duplicate */)
-				if err != nil {
+		if !env.StorageV2 {
+			if env.ExposeObjectAPI {
+				if err := logGRPCServerSetup("Block API", func() error {
+					// Generally the object API should not be exposed publicly, but
+					// TestGarbageCollection uses it and it may help with debugging
+					blockAPIServer, err := pfs_server.NewBlockAPIServer(
+						env.StorageRoot,
+						0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
+						etcdAddress,
+						true /* duplicate */)
+					if err != nil {
+						return err
+					}
+					pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
+					return nil
+				}); err != nil {
 					return err
 				}
-				pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
-				return nil
-			}); err != nil {
-				return err
 			}
 		}
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
-				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true, requireNoncriticalServers)
 			if err != nil {
 				return err
 			}
@@ -522,20 +528,22 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 		}()
 		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
-		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-		if err != nil {
-			return errors.Wrapf(err, "units.RAMInBytes")
-		}
-		if err := logGRPCServerSetup("Block API", func() error {
-			blockAPIServer, err := pfs_server.NewBlockAPIServer(
-				env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+		if !env.StorageV2 {
+			blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 			if err != nil {
+				return errors.Wrapf(err, "units.RAMInBytes")
+			}
+			if err := logGRPCServerSetup("Block API", func() error {
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(
+					env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+				if err != nil {
+					return err
+				}
+				pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
+				return nil
+			}); err != nil {
 				return err
 			}
-			pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
-			return nil
-		}); err != nil {
-			return err
 		}
 		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 		if err != nil {
@@ -598,6 +606,7 @@ func doFullMode(config interface{}) (retErr error) {
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
 				false,
+				requireNoncriticalServers,
 			)
 			if err != nil {
 				return err
@@ -674,7 +683,6 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
 		httpServer, err := pach_http.NewHTTPServer(address)
 		if err != nil {

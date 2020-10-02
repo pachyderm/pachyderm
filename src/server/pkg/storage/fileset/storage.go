@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"path"
 	"strings"
@@ -138,20 +137,6 @@ func (s *Storage) OpenFileSet(ctx context.Context, fileSet string, opts ...index
 	}
 }
 
-// ResolveIndexes resolves index entries that are spread across multiple filesets.
-// DEPRECATED: Use NewIndexResolver
-func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func(*index.Index) error, opts ...index.Option) error {
-	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
-	if err != nil {
-		return err
-	}
-	w := s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(cb))
-	if err := mr.WriteTo(w); err != nil {
-		return err
-	}
-	return w.Close()
-}
-
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
@@ -171,7 +156,7 @@ func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl tim
 	// TODO: perform this atomically with postgres
 	return s.objC.Walk(ctx, srcPrefix, func(srcPath string) error {
 		dstPath := dstPrefix + srcPath[len(srcPrefix):]
-		if err := copyObject(ctx, s.objC, srcPath, dstPath); err != nil {
+		if err := obj.Copy(ctx, s.objC, s.objC, srcPath, dstPath); err != nil {
 			return err
 		}
 		if ttl > 0 {
@@ -284,7 +269,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := copyObject(ctx, s.objC, src, dst); err != nil {
+			if err := obj.Copy(ctx, s.objC, s.objC, src, dst); err != nil {
 				return err
 			}
 		}
@@ -401,32 +386,4 @@ func parseLevel(x string) (int, error) {
 	var y int
 	_, err := fmt.Sscanf(x, levelFmt, &y)
 	return y, err
-}
-
-func copyObject(ctx context.Context, objC obj.Client, src, dst string) error {
-	w, err := objC.Writer(ctx, dst)
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-	r, err := objC.Reader(ctx, src, 0, 0)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-	return w.Close()
-}
-
-func sleepCtx(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }

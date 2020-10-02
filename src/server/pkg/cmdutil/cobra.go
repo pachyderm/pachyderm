@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/spf13/cobra"
 )
@@ -173,14 +174,19 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 	if len(branchAndCommit) < 1 {
 		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
 	}
-	branch := branchAndCommit[0]
-	commitID := branch // default to using the head commit once this commit is resolved
-	if len(branchAndCommit) == 2 {
-		commitID = branchAndCommit[1]
-	}
-	if branch == "" {
+	branchOrCommit := branchAndCommit[0]
+	commitID := branchOrCommit // default to using the head commit once this commit is resolved
+	if branchOrCommit == "" {
 		return nil, errors.Errorf("invalid format \"%s\": branch cannot be empty", arg)
 	}
+
+	if len(branchAndCommit) == 2 {
+		commitID = branchAndCommit[1]
+	} else if uuid.IsUUIDWithoutDashes(branchOrCommit) {
+		commitID = branchOrCommit
+		branchOrCommit = ""
+	}
+
 	if commitID == "" {
 		return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
 	}
@@ -188,7 +194,7 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 	prov := &pfs.CommitProvenance{
 		Branch: &pfs.Branch{
 			Repo: commit.Repo,
-			Name: branch,
+			Name: branchOrCommit,
 		},
 		Commit: &pfs.Commit{
 			Repo: commit.Repo,

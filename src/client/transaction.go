@@ -392,23 +392,11 @@ func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.Cal
 func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
 	return nil, unsupportedError("GetTarV2")
 }
-func (c *pfsBuilderClient) GetTarConditionalV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_GetTarConditionalV2Client, error) {
-	return nil, unsupportedError("GetTarConditionalV2")
-}
-func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileV2Client, error) {
-	return nil, unsupportedError("ListFileV2")
-}
-func (c *pfsBuilderClient) GlobFileV2(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileV2Client, error) {
-	return nil, unsupportedError("GlobFileV2")
-}
 func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
 	return nil, unsupportedError("DiffFileV2")
 }
-func (c *pfsBuilderClient) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
-	return nil, unsupportedError("InspectFileV2")
-}
-func (c *pfsBuilderClient) WalkFileV2(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileV2Client, error) {
-	return nil, unsupportedError("WalkFileV2")
+func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCommitV2")
 }
 func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
 	return nil, unsupportedError("CreateTmpFileSet")

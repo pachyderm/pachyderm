@@ -218,32 +218,78 @@ This actually doesn't require any change to our code.  We can simply change our 
   },
 ```
 
-Pachyderm will then spin up 5 inference workers, each running our same script, to perform inference in parallel.  This can be confirmed by updating our pipeline and then examining the cluster:
+Pachyderm will then spin up 5 inference workers, 
+each running our same script, 
+to perform inference in parallel.
+
+You can edit the pipeline in-place and then examine the pipeline to see how many workers it has.
+
+`pachctl edit` will use your default editor, 
+which can be customized using the `EDITOR` environment variable,
+to edit a pipeline specification in place.
+Run this command and change the `parallelism_spec` from `1` to `5`.
 
 ```
-$ vim infer.json
-$ pachctl update pipeline -f <python, julia, rstats>_infer.json
-$ kubectl get pods
-NAME                          READY     STATUS            RESTARTS   AGE
-etcd-7dbb489f44-pcdww         1/1       Running           0          3h
-pachd-6c878bbc4c-ggxs7        1/1       Running           0          3h
-pipeline-inference-v3-2qxgf   0/2       PodInitializing   0          6s
-pipeline-inference-v3-7pc9n   0/2       Init:0/1          0          6s
-pipeline-inference-v3-dhzjg   0/2       PodInitializing   0          6s
-pipeline-inference-v3-gvb7z   0/2       Init:0/1          0          6s
-pipeline-inference-v3-k5xbj   0/2       Init:0/1          0          6s
-pipeline-model-v1-bck99       2/2       Running           0          12m
-$ kubectl get pods
-NAME                          READY     STATUS    RESTARTS   AGE
-etcd-7dbb489f44-pcdww         1/1       Running   0          3h
-pachd-6c878bbc4c-ggxs7        1/1       Running   0          3h
-pipeline-inference-v3-2qxgf   2/2       Running   0          1m
-pipeline-inference-v3-7pc9n   2/2       Running   0          1m
-pipeline-inference-v3-dhzjg   2/2       Running   0          1m
-pipeline-inference-v3-gvb7z   2/2       Running   0          1m
-pipeline-inference-v3-k5xbj   2/2       Running   0          1m
-pipeline-model-v1-bck99       2/2       Running   0          13m
+$ pachctl edit pipeline inference
 ```
+
+Then inspect the pipeline to see how many workers it has.
+Here's an example of a python version of the inference pipeline.
+See that `Workers Available` is `5/5`.
+
+```
+$ pachctl inspect pipeline inference 
+Name: inference
+Description: An inference pipeline that makes a prediction based on the trained model by using a Python script.
+Created: 57 seconds ago 
+State: running
+Reason: 
+Workers Available: 5/5
+Stopped: false
+Parallelism Spec: constant:5 
+
+
+Datum Timeout: (duration: nil Duration)
+Job Timeout: (duration: nil Duration)
+Input:
+{
+  "cross": [
+    {
+      "pfs": {
+        "name": "attributes",
+        "repo": "attributes",
+        "branch": "master",
+        "glob": "/*"
+      }
+    },
+    {
+      "pfs": {
+        "name": "model",
+        "repo": "model",
+        "branch": "master",
+        "glob": "/"
+      }
+    }
+  ]
+}
+
+
+Output Branch: master
+Transform:
+{
+  "image": "pachyderm/iris-infer:python",
+  "cmd": [
+    "python3",
+    "/code/pyinfer.py",
+    "/pfs/model/",
+    "/pfs/attributes/",
+    "/pfs/out/"
+  ]
+}
+```
+
+If you have Kubernetes access to your cluster, 
+you can use a variation of `kubectl get pods` to also see all 5 workers.
 
 ### 9. Update the model training
 

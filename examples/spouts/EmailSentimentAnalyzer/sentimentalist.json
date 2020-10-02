@@ -11,7 +11,7 @@
     },
     "transform": {
         "cmd": [ "python3", "/sentimentalist.py" ],
-        "image": "pachyderm/sentimentalist:1.9",
+        "image": "pachyderm/sentimentalist:1.11",
         "env": {
             "INPUT_REPO": "/pfs/imap_spout",
             "NEGATIVES_DIRECTORY": "/pfs/out/negatives",

@@ -3003,7 +3003,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			return nil, errors.Errorf("request should not contain nil provenance")
 		}
 		branch := prov.Branch
-		if branch == nil {
+		if branch == nil || branch.Name == "" {
 			if prov.Commit == nil {
 				return nil, errors.Errorf("request provenance cannot have both a nil commit and nil branch")
 			}
@@ -3033,6 +3033,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
 	}
 
+	// fill in the provenance from branches in the provenance that weren't explicitly set in the request
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
 		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
@@ -3059,8 +3060,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	provenance = append(provenance, specProvenance)
-
+	if _, ok := provenanceMap[key(specProvenance.Branch.Repo.Name, specProvenance.Branch.Name)]; !ok {
+		provenance = append(provenance, specProvenance)
+	}
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
@@ -3113,36 +3115,58 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	if pipelineInfo.Input == nil {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
-	if pipelineInfo.Input.Cron == nil {
+
+	// find any cron inputs
+	var crons []*pps.CronInput
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+		if in.Cron != nil {
+			crons = append(crons, in.Cron)
+		}
+	})
+
+	if len(crons) < 1 {
 		return nil, errors.Errorf("pipeline must have a cron input")
 	}
 
-	cron := pipelineInfo.Input.Cron
-
-	// We need the DeleteFile and the PutFile to happen in the same commit
-	_, err = pachClient.StartCommit(cron.Repo, "master")
+	txn, err := pachClient.StartTransaction()
 	if err != nil {
 		return nil, err
 	}
-	if cron.Overwrite {
-		// get rid of any files, so the new file "overwrites" previous runs
-		err = pachClient.DeleteFile(cron.Repo, "master", "")
-		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-			return nil, errors.Wrapf(err, "delete error")
+
+	// We need all the DeleteFile and the PutFile requests to happen atomicly
+	txnClient := pachClient.WithTransaction(txn)
+
+	// make a tick on each cron input
+	for _, cron := range crons {
+		// Use a PutFileClient
+		pfc, err := txnClient.NewPutFileClient()
+		if err != nil {
+			return nil, err
+		}
+		if cron.Overwrite {
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pfc.DeleteFile(cron.Repo, "master", "")
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				return nil, errors.Wrapf(err, "delete error")
+			}
+		}
+
+		// Put in an empty file named by the timestamp
+		_, err = pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
+			return nil, errors.Wrapf(err, "put error")
+		}
+
+		err = pfc.Close()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Put in an empty file named by the timestamp
-	_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
-	if err != nil {
-		return nil, errors.Wrapf(err, "put error")
-	}
-
-	err = pachClient.FinishCommit(cron.Repo, "master")
+	_, err = txnClient.FinishTransaction(txn)
 	if err != nil {
 		return nil, err
 	}
-
 	return &types.Empty{}, nil
 }
 

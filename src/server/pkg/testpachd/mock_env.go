@@ -62,7 +62,6 @@ func WithMockEnv(cb func(*MockEnv) error) error {
 		eg.Go(func() error {
 			return errorWait(ctx, mockEnv.MockPachd.Err())
 		})
-
 		mockEnv.PachClient, err = client.NewFromAddress(mockEnv.MockPachd.Addr.String())
 		if err != nil {
 			return err

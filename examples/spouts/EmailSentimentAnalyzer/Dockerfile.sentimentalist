@@ -1,4 +1,4 @@
-FROM python:3.7.3-stretch
+FROM python:3.8-buster
 RUN pip3 install requests
 RUN pip3 install vaderSentiment
 

@@ -285,7 +285,7 @@ func (a *apiServer) CreateBranchInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.CreateBranchRequest,
 ) error {
-	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance)
+	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
@@ -598,44 +598,24 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 // V2 Methods
 var errV2NotImplemented = errors.Errorf("v2 method not implemented")
 
-// GetTarV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
-	return errV2NotImplemented
-}
-
-// GetTarConditionalV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	return errV2NotImplemented
-}
-
 // FileOperationV2 not implemented by v1 apiServer
-func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) error {
+func (a *apiServer) FileOperationV2(_ pfs.API_FileOperationV2Server) error {
 	return errV2NotImplemented
 }
 
-// ListFileV2 not implemented by v1 apiServer
-func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	return errV2NotImplemented
-}
-
-// GlobFileV2 not implemented
-func (a *apiServer) GlobFileV2(req *pfs.GlobFileRequest, server pfs.API_GlobFileV2Server) error {
+// GetTarV2 not implemented by v1 apiServer
+func (a *apiServer) GetTarV2(_ *pfs.GetTarRequestV2, _ pfs.API_GetTarV2Server) error {
 	return errV2NotImplemented
 }
 
 // DiffFileV2 not implemented
-func (a *apiServer) DiffFileV2(req *pfs.DiffFileRequest, server pfs.API_DiffFileV2Server) error {
+func (a *apiServer) DiffFileV2(_ *pfs.DiffFileRequest, _ pfs.API_DiffFileV2Server) error {
 	return errV2NotImplemented
 }
 
-// InspectFileV2 not implemented
-func (a *apiServer) InspectFileV2(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
+// ClearCommitV2 not implemented
+func (a *apiServer) ClearCommitV2(_ context.Context, _ *pfs.ClearCommitRequestV2) (*types.Empty, error) {
 	return nil, errV2NotImplemented
-}
-
-// WalkFileV2 not implemented
-func (a *apiServer) WalkFileV2(req *pfs.WalkFileRequest, server pfs.API_WalkFileV2Server) error {
-	return errV2NotImplemented
 }
 
 // CreateTmpFileSet not implemented

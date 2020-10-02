@@ -18,7 +18,7 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../pachub/pachub_getting_started/" class="md-typeset md-link">
+          <li><a href="../../pachhub/pachhub_getting_started/" class="md-typeset md-link">
           Getting Started with Pachyderm Hub
           </a>
           </li>

@@ -46,7 +46,7 @@ var (
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
 	etcdImage      = "pachyderm/etcd:v3.3.5"
-	postgresImage  = "postgres:11.3"
+	postgresImage  = "postgres:13.0-alpine"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
@@ -136,8 +136,8 @@ type TLSOpts struct {
 
 // FeatureFlags are flags for experimental features.
 type FeatureFlags struct {
-	// NewStorageLayer, if true, will make Pachyderm use the new storage layer.
-	NewStorageLayer bool
+	// StorageV2, if true, will make Pachyderm use the new storage layer.
+	StorageV2 bool
 }
 
 const (
@@ -146,6 +146,9 @@ const (
 
 	// PutFileConcurrencyLimitEnvVar is the environment variable for the PutFile concurrency limit.
 	PutFileConcurrencyLimitEnvVar = "STORAGE_PUT_FILE_CONCURRENCY_LIMIT"
+
+	// StorageV2EnvVar is the environment variable for enabling V2 storage.
+	StorageV2EnvVar = "STORAGE_V2"
 )
 
 const (
@@ -544,6 +547,7 @@ func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
 		{Name: PutFileConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.PutFileConcurrencyLimit)},
+		{Name: StorageV2EnvVar, Value: strconv.FormatBool(opts.FeatureFlags.StorageV2)},
 	}
 }
 
@@ -1806,7 +1810,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		return err
 	}
 
-	if opts.NewStorageLayer {
+	if opts.StorageV2 {
 		// In the dynamic route, we create a storage class which dynamically
 		// provisions volumes, and run postgres as a stateful set.
 		// In the static route, we create a single volume, a single volume

@@ -143,16 +143,13 @@ from the [joins.json](joins.json) file by completing the following steps:
    ```bash
    $ pachctl create pipeline -f joins.json
    ```
-
-   You can watch your pipeline being created by running the following command:
+   The pipeline will be in state "running" when it's ready,
+   which you can check with the following command.
 
    ```bash
-   $ kubectl get pods
-   NAME                      READY   STATUS     RESTARTS   AGE
-   dash-64c868cc8b-j79d6     2/2     Running    0          14m
-   etcd-6865455568-tm5tf     1/1     Running    0          14m
-   pachd-6b9b7647b5-fg4ln    1/1     Running    0          14m
-   pipeline-joins-v1-xx264   0/2     Init:0/1   0          6s
+   $ pachctl list pipeline
+   NAME  VERSION INPUT                                       CREATED       STATE / LAST JOB   DESCRIPTION                                                                       
+   joins 1       (parameters:/(*).txt ⋈ readings:/*/(*).txt) 4 seconds ago running / starting A pipeline that combines files from two repositories that match a naming pattern. 
    ```
 
    In the example above, the joins pipeline runs in the `pipeline-joins-v1-xx264`

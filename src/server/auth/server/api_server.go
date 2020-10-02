@@ -44,6 +44,8 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
+	allClusterUsersSubject = "allClusterUsers"
+
 	tokensPrefix           = "/tokens"
 	oneTimePasswordsPrefix = "/auth-codes"
 	aclsPrefix             = "/acls"
@@ -220,6 +222,7 @@ func NewAuthServer(
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	public bool,
+	requireNoncriticalServers bool,
 ) (APIServer, error) {
 	s := &apiServer{
 		env:        env,
@@ -298,13 +301,22 @@ func NewAuthServer(
 	if public {
 		// start SAML and OIDC services
 		// (won't respond to anything until config is set)
-		go s.serveSAML()
-		go s.serveOIDC()
+		go waitForError("SAML HTTP Server", requireNoncriticalServers, s.serveSAML)
+		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
 	// Watch for new auth config options
 	go s.watchConfig()
 	return s, nil
+}
+
+func waitForError(name string, required bool, cb func() error) {
+	if err := cb(); !errors.Is(err, http.ErrServerClosed) {
+		if required {
+			logrus.Fatalf("error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers): %v", name, err)
+		}
+		logrus.Errorf("error setting up and/or running %v: %v", name, err)
+	}
 }
 
 type activationState int
@@ -1030,15 +1042,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("canonicalized username is:", username)
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
-
-		logrus.Info("expired cluster check has passed")
 
 		// Generate a new Pachyderm token and write it
 		pachToken = uuid.NewWithoutDashes()
@@ -1103,7 +1112,52 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}); err != nil {
 			return nil, err
 		}
+	case req.IdToken != "":
+		// confirm OIDC has been configured and get OIDC prefix
+		oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("error authorizing OIDC id token: no OIDC ID provider is configured")
+		}
 
+		// Determine caller's Pachyderm/OIDC user info (email)
+		token, claims, err := oidcSP.validateIDToken(ctx, req.IdToken)
+		if err != nil {
+			return nil, err
+		}
+
+		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+claims.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
+		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
+			return nil, err
+		}
+
+		// Compute the remaining time before the ID token expires,
+		// and limit the pach token to the same expiration time.
+		// If the token would be longer-lived than the default pach token,
+		// TTL clamp the expiration to the default TTL.
+		expirationSecs := int64(time.Until(token.Expiry).Seconds())
+		if expirationSecs > defaultSessionTTLSecs {
+			expirationSecs = defaultSessionTTLSecs
+		}
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&auth.TokenInfo{
+					Subject: username,
+					Source:  auth.TokenInfo_AUTHENTICATE,
+				},
+				expirationSecs)
+		}); err != nil {
+			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
+		}
 	default:
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
@@ -1570,8 +1624,13 @@ func (a *apiServer) SetScope(ctx context.Context, req *auth.SetScopeRequest) (re
 // Authorized() and other authorization checks (e.g. checking if a user is an
 // OWNER to determine if they can modify an ACL).
 func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL) (auth.Scope, error) {
+	// Get the scope for the "allClusterUsers" ACL, if available
+	scope := acl.Entries[allClusterUsersSubject]
+
 	// Get scope based on user's direct access
-	scope := acl.Entries[subject]
+	if subjectScope := acl.Entries[subject]; scope < subjectScope {
+		scope = subjectScope
+	}
 
 	// Expand scope based on group access
 	groups, err := a.getGroups(ctx, subject)
@@ -2547,6 +2606,10 @@ func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string)
 // TODO(msteffen): We'd like to require that subjects always have a prefix, but
 // this behavior hasn't been implemented in the dash yet.
 func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+	if subject == allClusterUsersSubject {
+		return subject, nil
+	}
+
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
 		subject = auth.GitHubPrefix + subject

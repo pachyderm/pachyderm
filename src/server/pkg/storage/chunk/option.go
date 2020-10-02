@@ -2,6 +2,8 @@ package chunk
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
@@ -9,6 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
+
+var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
@@ -35,6 +39,13 @@ func WithGCTimeout(timeout time.Duration) StorageOption {
 	}
 }
 
+// WithObjectCache adds a cache around the currently configured object client
+func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
+	return func(s *Storage) {
+		s.objClient = obj.NewCacheClient(s.objClient, fastLayer, size)
+	}
+}
+
 // ServiceEnvToOptions converts a service environment configuration (specifically
 // the storage configuration) to a set of storage options.
 func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption, err error) {
@@ -47,6 +58,13 @@ func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption, e
 			return nil, err
 		}
 		options = append(options, WithGCTimeout(timeout))
+	}
+	if env.StorageDiskCacheSize > 0 {
+		diskCache, err := obj.NewLocalClient(localDiskCachePath)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, WithObjectCache(diskCache, env.StorageDiskCacheSize))
 	}
 	return options, nil
 }
