@@ -33,7 +33,6 @@ sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" \
   minikube start "${minikube_args[@]}"
 
 # Try to connect for three minutes
-HEALTHY=false
 for _ in $(seq 36); do
   if kubectl version &>/dev/null; then
     exit 0
