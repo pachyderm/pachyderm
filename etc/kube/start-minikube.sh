@@ -32,9 +32,9 @@ fi
 sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" \
   minikube start "${minikube_args[@]}"
 
-# Try to connect for one minute
+# Try to connect for three minutes
 HEALTHY=false
-for _ in $(seq 12); do
+for _ in $(seq 36); do
   if kubectl version &>/dev/null; then
     exit 0
   fi
@@ -43,4 +43,5 @@ done
 
 # Give up--kubernetes isn't coming up
 minikube delete
-sleep 10 # Wait for minikube to go completely down
+sleep 30 # Wait for minikube to go completely down
+exit 1

@@ -13,7 +13,7 @@ set -ex
 
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
-while true; do
+until make launch-kube; do
   # In case minikube delete doesn't work (see minikube#2519)
   for C in $(docker ps -aq); do docker rm -f "$C"; done || true
 
@@ -23,8 +23,6 @@ while true; do
     /data/minikube \
     /var/lib/minikube \
     "${HOME}"/.pachyderm/config.json  # In case we're retrying on a new cluster
-
-  make launch-kube
 done
 
 # make launch-kube connects with kubernetes, so it should just be available
