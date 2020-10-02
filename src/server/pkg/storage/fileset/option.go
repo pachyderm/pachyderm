@@ -54,10 +54,10 @@ func WithMaxOpenFileSets(max int) StorageOption {
 // UnorderedWriterOption configures an UnorderedWriter.
 type UnorderedWriterOption func(f *UnorderedWriter)
 
-func WithUnorderedTTL(ttl time.Duration) UnorderedWriterOption {
+func WithRenewer(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
-		uw.renewer = NewRenewer(uw.storage, ttl)
+		uw.renewer = r
 	}
 }
 

@@ -230,10 +230,6 @@ func (w *Writer) Close() error {
 	return w.iw.Close()
 }
 
-func (w *Writer) ExpiresAt() *time.Time {
-	return w.iw.ExpiresAt()
-}
-
 func (w *Writer) checkPath(p string) error {
 	if w.idx != nil {
 		if w.idx.Path > p {

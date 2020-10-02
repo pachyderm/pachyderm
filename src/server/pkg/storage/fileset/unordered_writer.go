@@ -258,11 +258,5 @@ func getSortedTags(tags map[string]struct{}) []string {
 // Close closes the writer.
 func (f *UnorderedWriter) Close() error {
 	defer f.storage.filesetSem.Release(1)
-	if f.renewer != nil {
-		defer f.renewer.Close()
-	}
-	if err := f.serialize(); err != nil {
-		return err
-	}
-	return f.renewer.Close()
+	return f.serialize()
 }
