@@ -85,9 +85,11 @@ func IsCleanTarPath(x string, isDir bool) bool {
 }
 
 func getSortedKeys(set map[string]struct{}) []string {
-	var keys []string
+	keys := make([]string, len(set))
+	var i int
 	for key := range set {
-		keys = append(keys, key)
+		keys[i] = key
+		i++
 	}
 	sort.Strings(keys)
 	return keys
