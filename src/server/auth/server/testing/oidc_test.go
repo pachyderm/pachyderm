@@ -3,14 +3,12 @@ package server
 import (
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-)
-
-const (
-	k8sHost = "192.168.64.35"
 )
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
@@ -42,37 +40,35 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	loginInfo, err := adminClient.GetOIDCLogin(adminClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
-	// Do a GET to Dex and get the redirect to the login page.
-	// This gets us the `req` param, which ties together the session.
-	loginUrl, err := url.Parse(loginInfo.LoginURL)
-	require.NoError(t, err)
-	loginUrl.Host = k8sHost + ":32000"
-
-	resp, err := http.Get(loginUrl.String())
-	require.NoError(t, err)
-
-	// POST our hard-coded credentials to the login page with the
-	// appropriate req params.
+	// Create an HTTP client that doesn't follow redirects.
+	// We rewrite the host names for each redirect to avoid issues because
+	// pachd is configured to reach dex with kube dns, but the tests might be
+	// outside the cluster.
 	c := &http.Client{}
+	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	// Get the initial URL from the grpc, which should point to the dex login page
+	resp, err := c.Get(rewriteURL(t, loginInfo.LoginURL, dexHost(adminClient)))
+	require.NoError(t, err)
+
+	// Because we've only configured username/password login, there's a redirect
+	// to the login page. The params have the session state. POST our hard-coded
+	// credentials to the login page.
 	vals := make(url.Values)
 	vals.Add("login", "admin@example.com")
 	vals.Add("password", "password")
 
-	redirectUrl, err := url.Parse(resp.Header.Get("Location"))
+	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(adminClient)), vals)
 	require.NoError(t, err)
-	redirectUrl.Scheme = "http"
-	redirectUrl.Host = k8sHost + ":32000"
 
-	resp, err = c.PostForm(redirectUrl.String(), vals)
+	// The username/password flow redirects back to the dex /approval endpoint
+	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(adminClient)))
 	require.NoError(t, err)
 
 	// Follow the resulting redirect back to pachd to complete the flow
-	callbackUrl, err := url.Parse(resp.Header.Get("Location"))
-	require.NoError(t, err)
-	callbackUrl.
-		callbackUrl.Host = k8sHost + ":30657"
-
-	_, err = http.Get(callbackUrl.String())
+	_, err = c.Get(rewriteRedirect(t, resp, pachHost(adminClient)))
 	require.NoError(t, err)
 
 	// Check that pachd recorded the response from the redirect
@@ -80,4 +76,30 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	deleteAll(t)
+}
+
+// Rewrite the Location header to point to the returned path at `host`
+func rewriteRedirect(t *testing.T, resp *http.Response, host string) string {
+	return rewriteURL(t, resp.Header.Get("Location"), host)
+}
+
+func rewriteURL(t *testing.T, urlStr, host string) string {
+	redirectUrl, err := url.Parse(urlStr)
+	require.NoError(t, err)
+	redirectUrl.Scheme = "http"
+	redirectUrl.Host = host
+	return redirectUrl.String()
+}
+
+func dexHost(c *client.APIClient) string {
+	parts := strings.Split(c.GetAddress(), ":")
+	return parts[0] + ":32000"
+}
+
+func pachHost(c *client.APIClient) string {
+	parts := strings.Split(c.GetAddress(), ":")
+	if parts[1] == "650" {
+		return parts[0] + ":657"
+	}
+	return parts[0] + ":30657"
 }
