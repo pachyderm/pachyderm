@@ -74,7 +74,7 @@ var (
 // 1. retrieves its full pipeline spec and RC
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'ptr', if needed, to reflect the action it just took
-func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) error {
+func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) (retErr error) {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
@@ -85,13 +85,13 @@ func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer
 	defer cancel()
 
 	// Handle tracing
-	span, opCtx := extended.AddPipelineSpanToAnyTrace(opCtx,
+	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
 		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
 		"key-version", keyVer,
 		"mod-revision")
-	if span != nil {
-		defer tracing.FinishAnySpan(span)
-	}
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 
 	// Retrieve pipelineInfo from the spec repo
 	op, err := a.newPipelineOp(masterClient, masterClient.WithCtx(opCtx), pipeline)
