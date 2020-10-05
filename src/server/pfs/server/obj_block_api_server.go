@@ -460,7 +460,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-		if offset > objectSize {
+		if offset >= objectSize {
 			offset -= objectSize
 			continue
 		}
@@ -712,7 +712,7 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 	size := request.SizeBytes
 	for _, blockRef := range request.BlockRefs {
 		blockSize := blockRef.Range.Upper - blockRef.Range.Lower
-		if offset > blockSize {
+		if offset >= blockSize {
 			offset -= blockSize
 			continue
 		}
