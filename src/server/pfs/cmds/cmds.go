@@ -611,7 +611,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
 			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) &&
-				trigger.Branch != "" {
+				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
 			c, err := client.NewOnUserMachine("user")
