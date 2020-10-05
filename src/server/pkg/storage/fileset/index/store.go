@@ -63,13 +63,16 @@ func (s *pgStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.D
 		_, err := s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb) VALUES ($1, $2)`, p, data)
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb) VALUES ($1, $2, CURRENT_TIMESTAMP + interval 'microsecond' * $3)`, p, data, ttl.Microseconds())
+	_, err = s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb, expires_at) VALUES ($1, $2, CURRENT_TIMESTAMP + interval '1 microsecond' * $3)`, p, data, ttl.Microseconds())
 	return err
 }
 
 func (s *pgStore) GetIndex(ctx context.Context, p string) (*Index, error) {
 	var indexData []byte
 	if err := s.db.GetContext(ctx, &indexData, `SELECT index_pb FROM storage.paths WHERE path = $1`, p); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrPathNotExists
+		}
 		return nil, err
 	}
 	idx := &Index{}
@@ -109,7 +112,7 @@ func (s *pgStore) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	var expiresAt time.Time
 	err := s.db.GetContext(ctx, &expiresAt, `
 	UPDATE storage.paths
-	SET expires_at = (CURRENT_TIMESTAMP + interval 'microsecond' * $1)
+	SET expires_at = (CURRENT_TIMESTAMP + interval '1 microsecond' * $1)
 	WHERE path = $2
 	RETURNING expires_at`, ttl.Microseconds(), p)
 	if err != nil {
