@@ -15,6 +15,7 @@ import (
 
 var (
 	ErrPathNotExists = errors.Errorf("path does not exist")
+	ErrNoTTLSet      = errors.Errorf("no ttl set on path")
 )
 
 type Store interface {
@@ -43,27 +44,30 @@ func WithTestStore(t *testing.T, cb func(Store)) {
 	})
 }
 
-var _ Store = &PGStore{}
+var _ Store = &pgStore{}
 
-// PGStore is an index store backed by postgres
-type PGStore struct {
+type pgStore struct {
 	db *sqlx.DB
 }
 
-func NewPGStore(db *sqlx.DB) *PGStore {
-	return &PGStore{db: db}
+func NewPGStore(db *sqlx.DB) Store {
+	return &pgStore{db: db}
 }
 
-func (s *PGStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.Duration) error {
+func (s *pgStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.Duration) error {
 	data, err := proto.Marshal(idx)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb) VALUES ($1, $2)`, p, data)
+	if ttl <= 0 {
+		_, err := s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb) VALUES ($1, $2)`, p, data)
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO storage.paths (path, index_pb) VALUES ($1, $2, CURRENT_TIMESTAMP + interval 'microsecond' * $3)`, p, data, ttl.Microseconds())
 	return err
 }
 
-func (s *PGStore) GetIndex(ctx context.Context, p string) (*Index, error) {
+func (s *pgStore) GetIndex(ctx context.Context, p string) (*Index, error) {
 	var indexData []byte
 	if err := s.db.GetContext(ctx, &indexData, `SELECT index_pb FROM storage.paths WHERE path = $1`, p); err != nil {
 		return nil, err
@@ -75,20 +79,54 @@ func (s *PGStore) GetIndex(ctx context.Context, p string) (*Index, error) {
 	return idx, nil
 }
 
-func (s *PGStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
-	panic("not implemented")
+func (s *pgStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
+	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.paths WHERE path LIKE $1 || '%'`, prefix)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var p string
+	for rows.Next() {
+		if err := rows.Scan(&p); err != nil {
+			return err
+		}
+		if err := cb(p); err != nil {
+			return err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (s *PGStore) Delete(ctx context.Context, p string) error {
-	panic("not implemented")
+func (s *pgStore) Delete(ctx context.Context, p string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.paths WHERE path = $1`, p)
+	return err
 }
 
-func (s *PGStore) SetTTL(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
-	panic("not implemented")
+func (s *pgStore) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
+	var expiresAt time.Time
+	err := s.db.GetContext(ctx, &expiresAt, `
+	UPDATE storage.paths
+	SET expires_at = (CURRENT_TIMESTAMP + interval 'microsecond' * $1)
+	WHERE path = $2
+	RETURNING expires_at`, ttl.Microseconds(), p)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return expiresAt, nil
 }
 
-func (s *PGStore) GetExpiresAt(ctx context.Context, p string) (time.Time, error) {
-	panic("not implemented")
+func (s *pgStore) GetExpiresAt(ctx context.Context, p string) (time.Time, error) {
+	var expiresAt sql.NullTime
+	if err := s.db.GetContext(ctx, &expiresAt, `SELECT expires_at FROM storage.paths WHERE path = $1`, p); err != nil {
+		return time.Time{}, err
+	}
+	if !expiresAt.Valid {
+		return time.Time{}, ErrNoTTLSet
+	}
+	return expiresAt.Time, nil
 }
 
 const schema = `

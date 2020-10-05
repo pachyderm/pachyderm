@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -30,7 +29,7 @@ type Writer struct {
 	priorFile bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, idxStore index.Store, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
 	tmpID := path + uuid.NewWithoutDashes()
 	w := &Writer{ctx: ctx}
 	for _, opt := range opts {
@@ -40,7 +39,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
+	w.iw = index.NewWriter(ctx, idxStore, chunks, path, tmpID)
 	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)

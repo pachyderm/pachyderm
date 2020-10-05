@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"math"
 	"path"
-	"strings"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
 
 const (
-	semanticPrefix = "root"
 	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
 	// lexicographical ordering of file content tags.
 	// headerTag is the tag used for the tar header bytes.
@@ -44,7 +40,7 @@ const (
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
-	objC                         obj.Client
+	idxStore                     index.Store
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
 	levelZeroSize                int64
@@ -53,9 +49,9 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *Storage {
+func NewStorage(idxStore index.Store, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		objC:           objC,
+		idxStore:       idxStore,
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
 		shardThreshold: DefaultShardThreshold,
@@ -76,42 +72,38 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 
 // New creates a new in-memory fileset.
 func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
-	fileSet = applyPrefix(fileSet)
 	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
 // NewWriter makes a Writer backed by the path `fileSet` in object storage.
 func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	fileSet = applyPrefix(fileSet)
 	return s.newWriter(ctx, fileSet, opts...)
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
+	return newWriter(ctx, s.idxStore, s.chunks, fileSet, opts...)
 }
 
 // NewReader makes a Reader backed by the path `fileSet` in object storage.
 func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	fileSet = applyPrefix(fileSet)
 	return s.newReader(ctx, fileSet, opts...)
 }
 
 // TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
 func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
+	return newReader(ctx, s.idxStore, s.chunks, fileSet, opts...)
 }
 
 // NewMergeReader returns a merge reader for a set for filesets.
 func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
-	fileSets = applyPrefixes(fileSets)
 	return s.newMergeReader(ctx, fileSets, opts...)
 }
 
 func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	var rs []*Reader
 	for _, fileSet := range fileSets {
-		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
+		if err := s.idxStore.Walk(ctx, fileSet, func(name string) error {
 			rs = append(rs, s.newReader(ctx, name, opts...))
 			return nil
 		}); err != nil {
@@ -149,8 +141,6 @@ type CompactStats struct {
 
 // Compact compacts a set of filesets into an output fileset.
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
-	outputFileSet = applyPrefix(outputFileSet)
-	inputFileSets = applyPrefixes(inputFileSets)
 	var size int64
 	w := s.newWriter(ctx, outputFileSet, WithIndexCallback(func(idx *index.Index) error {
 		size += idx.SizeBytes
@@ -181,20 +171,15 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 	if len(compactedFileSet) > 1 {
 		return nil, errors.Errorf("multiple compacted FileSets")
 	}
-	// Internal vs external path transforms
-	fileSet = applyPrefix(fileSet)
-	compactedFileSet = applyPrefixes(compactedFileSet)
 	spec, err := s.compactSpec(ctx, fileSet, compactedFileSet...)
 	if err != nil {
 		return nil, err
 	}
-	spec.Input = removePrefixes(spec.Input)
-	spec.Output = removePrefix(spec.Output)
 	return spec, nil
 }
 
 func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
-	idx, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
+	idx, err := s.idxStore.GetIndex(ctx, path.Join(fileSet, Diff))
 	if err != nil {
 		return nil, err
 	}
@@ -214,9 +199,9 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// While we can't fit it all in the current level
 	for {
 		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
-		idx, err := index.GetTopLevelIndex(ctx, s.objC, levelPath)
+		idx, err := s.idxStore.GetIndex(ctx, levelPath)
 		if err != nil {
-			if !s.objC.IsNotExist(err) {
+			if err == index.ErrPathNotExists {
 				return nil, err
 			}
 		} else {
@@ -231,7 +216,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// Now we know the output level
 	spec.Output = path.Join(fileSet, Compacted, levelName(level))
 	// Copy the other levels that may exist
-	if err := s.objC.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
+	if err := s.idxStore.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
 		lName := path.Base(src)
 		l, err := parseLevel(lName)
 		if err != nil {
@@ -239,7 +224,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := obj.Copy(ctx, s.objC, s.objC, src, dst); err != nil {
+			if err := index.Copy(ctx, s.idxStore, s.idxStore, src, dst); err != nil {
 				return err
 			}
 		}
@@ -256,55 +241,18 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 
 // Delete deletes a fileset.
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
-	fileSet = applyPrefix(fileSet)
-	return s.objC.Walk(ctx, fileSet, func(name string) error {
-		if err := s.objC.Delete(ctx, name); err != nil {
-			return err
-		}
-		return s.chunks.DeleteSemanticReference(ctx, name)
+	return s.idxStore.Walk(ctx, fileSet, func(p string) error {
+		return s.idxStore.Delete(ctx, fileSet)
 	})
 }
 
 // WalkFileSet calls f with the path of every primitive fileSet under prefix.
 func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string) error) error {
-	return s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
-		return f(removePrefix(p))
-	})
+	return s.idxStore.Walk(ctx, prefix, f)
 }
 
 func (s *Storage) levelSize(i int) int64 {
 	return s.levelZeroSize * int64(math.Pow(float64(s.levelSizeBase), float64(i)))
-}
-
-func applyPrefix(fileSet string) string {
-	fileSet = strings.TrimLeft(fileSet, "/")
-	if strings.HasPrefix(fileSet, semanticPrefix) {
-		log.Warn("may be double applying prefix in storage layer", fileSet)
-	}
-	return path.Join(semanticPrefix, fileSet)
-}
-
-func applyPrefixes(fileSets []string) []string {
-	var prefixedFileSets []string
-	for _, fileSet := range fileSets {
-		prefixedFileSets = append(prefixedFileSets, applyPrefix(fileSet))
-	}
-	return prefixedFileSets
-}
-
-func removePrefix(fileSet string) string {
-	if !strings.HasPrefix(fileSet, semanticPrefix) {
-		panic(fileSet + " does not have prefix " + semanticPrefix)
-	}
-	return fileSet[len(semanticPrefix):]
-}
-
-func removePrefixes(xs []string) []string {
-	ys := make([]string, len(xs))
-	for i := range xs {
-		ys[i] = removePrefix(xs[i])
-	}
-	return ys
 }
 
 const subFileSetFmt = "%020d"

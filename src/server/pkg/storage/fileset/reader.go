@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -19,11 +18,11 @@ type Reader struct {
 	cr  *chunk.Reader
 }
 
-func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
+func newReader(ctx context.Context, idxStore index.Store, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
 	cr := chunks.NewReader(ctx)
 	return &Reader{
 		ctx: ctx,
-		ir:  index.NewReader(ctx, objC, chunks, path, opts...),
+		ir:  index.NewReader(ctx, idxStore, chunks, path, opts...),
 		cr:  cr,
 	}
 }
