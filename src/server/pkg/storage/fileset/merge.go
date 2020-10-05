@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -65,8 +64,7 @@ func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, d
 		}
 		// If the full delete is for a directory, progress all lower priority streams past the directory.
 		if IsDir(fr.Index().Path) {
-			next := strings.TrimRight(fr.Index().Path, "/") + "0"
-			if err := fss[i].r.iterate(func(*FileReader) error { return nil }, next); err != nil {
+			if err := fss[i].r.iterate(func(*FileReader) error { return nil }, DirUpperBound(fr.Index().Path)); err != nil {
 				return err
 			}
 		}

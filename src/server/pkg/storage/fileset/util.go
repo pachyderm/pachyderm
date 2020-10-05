@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -95,6 +96,15 @@ func getSortedKeys(set map[string]struct{}) []string {
 	return keys
 }
 
+// IsDir determines if a path is for a directory.
 func IsDir(p string) bool {
 	return strings.HasSuffix(p, "/")
+}
+
+// DirUpperBound returns the immediate next path after a directory in a lexicographical ordering.
+func DirUpperBound(p string) string {
+	if !IsDir(p) {
+		panic(fmt.Sprintf("%v is not a directory path", p))
+	}
+	return strings.TrimRight(p, "/") + "0"
 }
