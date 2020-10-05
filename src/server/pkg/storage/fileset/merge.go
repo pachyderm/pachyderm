@@ -66,7 +66,7 @@ func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, d
 		// If the full delete is for a directory, progress all lower priority streams past the directory.
 		if IsDir(fr.Index().Path) {
 			next := strings.TrimRight(fr.Index().Path, "/") + "0"
-			if err := fss[i].r.iterate(func(_ *FileReader) error { return nil }, next); err != nil {
+			if err := fss[i].r.iterate(func(*FileReader) error { return nil }, next); err != nil {
 				return err
 			}
 		}
@@ -215,7 +215,7 @@ func (fmr *FileMergeReader) Index() *index.Index {
 }
 
 // Header returns the tar header for the merged file.
-func (fmr *FileMergeReader) Header() (_ *tar.Header, retErr error) {
+func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
 		for _, fr := range fmr.frs {
@@ -245,7 +245,7 @@ func (fmr *FileMergeReader) Header() (_ *tar.Header, retErr error) {
 }
 
 // WriteTo writes the merged file to the passed in fileset writer.
-func (fmr *FileMergeReader) WriteTo(w *Writer) (retErr error) {
+func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	hdr, err := fmr.Header()
 	if err != nil {
 		return err
