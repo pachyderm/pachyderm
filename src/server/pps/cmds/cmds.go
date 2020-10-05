@@ -615,7 +615,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
 		$ {{alias}} filter repo1@staging=167af5
-		
+
 		# Run the pipeline "filter" on the HEAD commit of the "testing" branch on repo "repo1"
 		$ {{alias}} filter repo1@testing
 
@@ -1123,8 +1123,10 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 		}
 
 		// Add trace if env var is set
-		if ctx, ok := extended.StartAnyExtendedTrace(pc.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
-			pc = pc.WithCtx(ctx)
+		ctx, err := extended.SetTraceDuration(pc.Ctx())
+		pc = pc.WithCtx(ctx)
+		if err != nil {
+			logrus.Warning(err)
 		}
 
 		if update {

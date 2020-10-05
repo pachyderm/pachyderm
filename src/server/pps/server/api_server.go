@@ -2128,18 +2128,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
-	// Annotate current span with pipeline name
+	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
+	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
-	// propagate trace info (doesn't affect intra-RPC trace)
-	ctx = extended.TraceIn2Out(ctx)
+	// Propagate auth info & initialize context+clients
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
+
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
