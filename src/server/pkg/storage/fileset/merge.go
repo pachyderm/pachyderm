@@ -64,7 +64,7 @@ func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, d
 			return err
 		}
 		// If the full delete is for a directory, progress all lower priority streams past the directory.
-		if strings.HasSuffix(fr.Index().Path, "/") {
+		if IsDir(fr.Index().Path) {
 			next := strings.TrimRight(fr.Index().Path, "/") + "0"
 			if err := fss[i].r.iterate(func(_ *FileReader) error { return nil }, next); err != nil {
 				return err

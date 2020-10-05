@@ -267,7 +267,7 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 			return true
 		}
 		match := mf(idx.Path)
-		if match && strings.HasSuffix(idx.Path, "/") {
+		if match && fileset.IsDir(idx.Path) {
 			dir = idx.Path
 		}
 		return match

@@ -72,7 +72,7 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 // have a trailing slash.
 func CleanTarPath(x string, isDir bool) string {
 	y := "/" + strings.Trim(x, "/")
-	if isDir && !strings.HasSuffix(y, "/") {
+	if isDir && !IsDir(y) {
 		y += "/"
 	}
 	return y
@@ -91,4 +91,8 @@ func getSortedKeys(set map[string]struct{}) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func IsDir(p string) bool {
+	return strings.HasSuffix(p, "/")
 }

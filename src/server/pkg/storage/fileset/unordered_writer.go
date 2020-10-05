@@ -155,7 +155,7 @@ func (f *UnorderedWriter) createParent(name string, tag string) {
 // TODO: Directory deletion needs more invariant checks.
 // Right now you have to specify the trailing slash explicitly.
 func (f *UnorderedWriter) Delete(name string, customTag ...string) {
-	name = CleanTarPath(name, strings.HasSuffix(name, "/"))
+	name = CleanTarPath(name, IsDir(name))
 	var tag string
 	if len(customTag) > 0 {
 		tag = customTag[0]
