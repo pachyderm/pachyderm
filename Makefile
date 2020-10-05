@@ -396,7 +396,7 @@ launch-dex:
 	helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 	helm repo update
 	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
-	until timeout 1s ./etc/kube/check_ready.sh release=dex; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
 
 clean-launch-dex:
 	helm uninstall dex
