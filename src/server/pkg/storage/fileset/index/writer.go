@@ -2,9 +2,9 @@ package index
 
 import (
 	"context"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
@@ -32,20 +32,21 @@ type data struct {
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
 	ctx    context.Context
-	objC   obj.Client
+	store  Store
 	chunks *chunk.Storage
 	path   string
 	tmpID  string
 	levels []*levelWriter
 	closed bool
 	root   *Index
+	ttl    time.Duration
 }
 
 // NewWriter create a new Writer.
-func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, tmpID string) *Writer {
+func NewWriter(ctx context.Context, store Store, chunks *chunk.Storage, path string, tmpID string) *Writer {
 	return &Writer{
 		ctx:    ctx,
-		objC:   objC,
+		store:  store,
 		chunks: chunks,
 		path:   path,
 		tmpID:  tmpID,
@@ -150,24 +151,5 @@ func (w *Writer) Close() (retErr error) {
 		}
 	}
 	// Write the final index level to the path.
-	objW, err := w.objC.Writer(w.ctx, w.path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := objW.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	// Handles the empty file set case.
-	if w.root == nil {
-		_, err = pbutil.NewWriter(objW).Write(&Index{})
-		return err
-	}
-	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
-		return err
-	}
-	_, err = pbutil.NewWriter(objW).Write(w.root)
-	return err
+	return w.store.PutIndex(w.ctx, w.path, w.root, w.ttl)
 }

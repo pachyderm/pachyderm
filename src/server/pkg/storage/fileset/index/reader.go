@@ -5,9 +5,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"modernc.org/mathutil"
 )
@@ -15,7 +15,7 @@ import (
 // Reader is used for reading a multilevel index.
 type Reader struct {
 	ctx     context.Context
-	objC    obj.Client
+	store   Store
 	chunks  *chunk.Storage
 	path    string
 	filter  *pathFilter
@@ -30,10 +30,10 @@ type pathFilter struct {
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...Option) *Reader {
+func NewReader(ctx context.Context, store Store, chunks *chunk.Storage, path string, opts ...Option) *Reader {
 	r := &Reader{
 		ctx:    ctx,
-		objC:   objC,
+		store:  store,
 		chunks: chunks,
 		path:   path,
 	}
@@ -61,7 +61,7 @@ func (r *Reader) setup() error {
 	}
 	if r.levels == nil {
 		// Setup top level reader.
-		pbr, err := topLevel(r.ctx, r.objC, r.path)
+		pbr, err := r.topLevel()
 		if err != nil {
 			return err
 		}
@@ -70,21 +70,27 @@ func (r *Reader) setup() error {
 	return nil
 }
 
-func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Reader, retErr error) {
-	objR, err := objC.Reader(ctx, path, 0, 0)
+func (r *Reader) topLevel() (_ pbutil.Reader, retErr error) {
+	idx, err := r.store.GetIndex(r.ctx, r.path)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := objR.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
 	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, objR); err != nil {
+	pbw := pbutil.NewWriter(buf)
+	if _, err = pbw.Write(idx); err != nil {
 		return nil, err
 	}
 	return pbutil.NewReader(buf), nil
+}
+
+func getPath(ctx context.Context, db *sqlx.DB, p string) ([]byte, error) {
+	var x struct {
+		IndexPB []byte `db:"index_pb"`
+	}
+	if err := db.GetContext(ctx, &x, `SELECT FROM storage.semantic_paths WHERE path = $1`, p); err != nil {
+		return nil, err
+	}
+	return x.IndexPB, nil
 }
 
 // Next returns the next index and progresses the reader.
@@ -244,18 +250,4 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 			return err
 		}
 	}
-}
-
-// GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
-// for the file set.
-func GetTopLevelIndex(ctx context.Context, objC obj.Client, path string) (*Index, error) {
-	pbr, err := topLevel(ctx, objC, path)
-	if err != nil {
-		return nil, err
-	}
-	idx := &Index{}
-	if err := pbr.Read(idx); err != nil {
-		return nil, err
-	}
-	return idx, nil
 }
