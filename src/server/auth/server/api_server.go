@@ -1136,6 +1136,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
+		// Sync the user's group membership from the groups claim
+		if err := oidcSP.syncGroupMembership(ctx, claims); err != nil {
+			return nil, err
+		}
+
 		// Compute the remaining time before the ID token expires,
 		// and limit the pach token to the same expiration time.
 		// If the token would be longer-lived than the default pach token,
@@ -2219,9 +2224,9 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
-// also by handleSAMLResponse (which updates group membership information based
-// on signed SAML assertions). This does no auth checks, so the caller must do
-// all relevant authorization.
+// also by handleSAMLResponse and handleOIDCExchangeInternal (which updates
+// group membership information based on signed SAML assertions or JWT claims).
+// This does no auth checks, so the caller must do all relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)

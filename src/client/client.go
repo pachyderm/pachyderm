@@ -627,6 +627,12 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	if !strings.HasPrefix(addr, "dns:///") {
 		addr = "dns:///" + c.addr
 	}
+
+	// TODO: the 'dns:///' prefix above causes connecting to hang on windows
+	// unless we also prevent the resolver from fetching a service config (which
+	// we don't use anyway).  Don't ask me why.
+	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
+
 	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
 	if err != nil {
 		return err
