@@ -153,23 +153,20 @@ func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb 
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	r := fileset.NewRenewer(d.storage, defaultTTL)
-	defer r.Close()
-	id, err := d.withTmpUnorderedWriter(ctx, r, false, cb)
-	if err != nil {
-		return err
-	}
-	tmpPath := path.Join(tmpRepo, id)
-	if err := d.storage.Copy(ctx, tmpPath, subFileSetPath, 0); err != nil {
-		return err
-	}
-	return r.Close()
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
+		if err != nil {
+			return err
+		}
+		tmpPath := path.Join(tmpRepo, id)
+		return d.storage.Copy(ctx, tmpPath, subFileSetPath, 0)
+	})
 }
 
-func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, r *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
+func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
 	id := uuid.NewWithoutDashes()
 	inputPath := path.Join(tmpRepo, id)
-	opts := []fileset.UnorderedWriterOption{fileset.WithRenewer(defaultTTL, r)}
+	opts := []fileset.UnorderedWriterOption{fileset.WithRenewer(defaultTTL, renewer)}
 	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
 	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
 	if err != nil {
@@ -187,9 +184,9 @@ func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, r *fileset.Renewe
 		if err != nil {
 			return "", err
 		}
-		r.Add(outputPath)
+		renewer.Add(outputPath)
 	}
-	return id, r.Close()
+	return id, nil
 }
 
 func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(string, *fileset.Writer) error) (retErr error) {
@@ -297,16 +294,16 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 		}
 	}
 	var outputSize int64
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(renewer *fileset.Renewer) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		res, err := d.compactIter(ctx, compactSpec{
 			master:     master,
-			renewer:    renewer,
 			inputPaths: inputPaths,
 			maxFanIn:   d.env.StorageCompactionMaxFanIn,
 		})
 		if err != nil {
 			return err
 		}
+		renewer.Add(res.OutputPath)
 		outputSize = res.OutputSize
 		return d.storage.Copy(ctx, res.OutputPath, outputPath, 0)
 	}); err != nil {
@@ -317,7 +314,6 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 
 type compactSpec struct {
 	master     *work.Master
-	renewer    *fileset.Renewer
 	inputPaths []string
 	maxFanIn   int
 }
@@ -329,9 +325,9 @@ type compactResult struct {
 
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *compactResult, retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (*compactResult, error) {
 	if len(params.inputPaths) <= params.maxFanIn {
-		return d.shardedCompact(ctx, params.master, params.renewer, params.inputPaths)
+		return d.shardedCompact(ctx, params.master, params.inputPaths)
 	}
 	childSize := len(params.inputPaths) / params.maxFanIn
 	if len(params.inputPaths)%params.maxFanIn != 0 {
@@ -340,32 +336,40 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (ret *co
 	// TODO: use an errgroup to make the recursion concurrecnt.
 	// this requires changing the master to allow multiple calls to RunSubtasks
 	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
-	var childOutputPaths []string
-	for i := 0; i < params.maxFanIn; i++ {
-		start := i * childSize
-		end := (i + 1) * childSize
-		if end > len(params.inputPaths) {
-			end = len(params.inputPaths)
+	var res *compactResult
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		var childOutputPaths []string
+		for i := 0; i < params.maxFanIn; i++ {
+			start := i * childSize
+			end := (i + 1) * childSize
+			if end > len(params.inputPaths) {
+				end = len(params.inputPaths)
+			}
+			res, err := d.compactIter(ctx, compactSpec{
+				master:     params.master,
+				inputPaths: params.inputPaths[start:end],
+				maxFanIn:   params.maxFanIn,
+			})
+			if err != nil {
+				return err
+			}
+			renewer.Add(res.OutputPath)
+			childOutputPaths = append(childOutputPaths, res.OutputPath)
 		}
-		res, err := d.compactIter(ctx, compactSpec{
-			master:     params.master,
-			renewer:    params.renewer,
-			inputPaths: params.inputPaths[start:end],
-			maxFanIn:   params.maxFanIn,
-		})
-		if err != nil {
-			return nil, err
-		}
-		childOutputPaths = append(childOutputPaths, res.OutputPath)
+		var err error
+		res, err = d.shardedCompact(ctx, params.master, childOutputPaths)
+		return err
+	}); err != nil {
+		return nil, err
 	}
-	return d.shardedCompact(ctx, params.master, params.renewer, childOutputPaths)
+	return res, nil
 }
 
 // shardedCompact generates shards for the fileset(s) in inputPaths,
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, renewer *fileset.Renewer, inputPaths []string) (*compactResult, error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inputPaths []string) (*compactResult, error) {
 	scratch := path.Join(tmpRepo, uuid.NewWithoutDashes())
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
@@ -389,23 +393,28 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, rene
 	}); err != nil {
 		return nil, err
 	}
-	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
-		if taskInfo.State == work.State_FAILURE {
-			return errors.Errorf(taskInfo.Reason)
+	var res *compactResult
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+			if taskInfo.State == work.State_FAILURE {
+				return errors.Errorf(taskInfo.Reason)
+			}
+			shard, err := deserializeShard(taskInfo.Task.Data)
+			if err != nil {
+				return err
+			}
+			renewer.Add(shard.OutputPath)
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
+		var err error
+		res, err = d.concatFileSets(ctx, shardOutputs)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	for _, p := range shardOutputs {
-		renewer.Add(p)
-	}
-	res, err := d.concatFileSets(ctx, shardOutputs)
-	if err != nil {
-		return nil, err
-	}
-	renewer.Add(res.OutputPath)
-	return res, err
+	return res, nil
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
@@ -1004,19 +1013,21 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 
 func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
-	r := fileset.NewRenewer(d.storage, defaultTTL)
-	defer r.Close()
-	id, err := d.withTmpUnorderedWriter(ctx, r, true, func(uw *fileset.UnorderedWriter) error {
-		req := &pfs.PutTarRequestV2{
-			Tag: "",
-		}
-		_, err := putTar(uw, server, req)
+	var id string
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		var err error
+		id, err = d.withTmpUnorderedWriter(ctx, renewer, true, func(uw *fileset.UnorderedWriter) error {
+			req := &pfs.PutTarRequestV2{
+				Tag: "",
+			}
+			_, err := putTar(uw, server, req)
+			return err
+		})
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return "", err
 	}
-	return id, r.Close()
+	return id, nil
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {

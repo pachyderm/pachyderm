@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -312,13 +313,18 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	return s.chunks.RenewReference(ctx, p, ttl)
 }
 
-func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(r *Renewer) error) error {
-	r := NewRenewer(s, ttl)
-	defer r.Close()
-	if err := cb(r); err != nil {
-		return err
-	}
-	return r.Close()
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
+	r := newRenewer(s, ttl)
+	cancelCtx, cf := context.WithCancel(ctx)
+	eg, errCtx := errgroup.WithContext(cancelCtx)
+	eg.Go(func() error {
+		return r.run(errCtx)
+	})
+	eg.Go(func() error {
+		defer cf()
+		return cb(errCtx, r)
+	})
+	return eg.Wait()
 }
 
 func (s *Storage) Exists(ctx context.Context, p string) (exists bool) {

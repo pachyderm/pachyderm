@@ -224,7 +224,7 @@ func (f *UnorderedWriter) serialize() error {
 	if err := w.Close(); err != nil {
 		return err
 	}
-	if f.ttl > 0 {
+	if f.renewer != nil {
 		f.renewer.Add(p)
 	}
 
