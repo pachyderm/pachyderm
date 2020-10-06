@@ -5,7 +5,7 @@
     "description": "A pipeline that tokenizes scraped pages and appends counts of words to corresponding files.",
     "transform": {
 	"build": {
-	    "image": "dventimiglia/bash-build:1.11.0",
+	    "image": "dventimiglia/bash-build:latest",
 	    "path": "./source"
 	}
     },

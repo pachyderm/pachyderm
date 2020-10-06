@@ -6,4 +6,3 @@ ADD run.sh .
 RUN apt-get -y update
 RUN apt-get -y upgrade
 RUN apt-get -y install gawk make jq parallel wget curl sed
-# RUN apt-get -y install html2text
