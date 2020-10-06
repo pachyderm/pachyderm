@@ -45,7 +45,7 @@ const (
 )
 
 var (
-	ErrNoTTLSet       = errors.Errorf("no ttl set for fileset or any subfilesets")
+	// ErrNoFileSetFound is returned by the methods on Storage when a fileset does not exist
 	ErrNoFileSetFound = errors.Errorf("no fileset found")
 )
 
@@ -313,6 +313,7 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	return s.chunks.RenewReference(ctx, p, ttl)
 }
 
+// WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
 	r := newRenewer(s, ttl)
 	cancelCtx, cf := context.WithCancel(ctx)
@@ -325,20 +326,6 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 		return cb(errCtx, r)
 	})
 	return eg.Wait()
-}
-
-func (s *Storage) Exists(ctx context.Context, p string) (exists bool) {
-	if err := s.WalkFileSet(ctx, p, func(p string) error {
-		exists = true
-		return nil
-	}); err != nil {
-		return false
-	}
-	return exists
-}
-
-func (s *Storage) getExpiresAt(ctx context.Context, p string) (time.Time, error) {
-	panic("not implemented")
 }
 
 func (s *Storage) levelSize(i int) int64 {

@@ -32,16 +32,15 @@ type data struct {
 // Writer is used for creating a multilevel index into a serialized file set.
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
-	ctx       context.Context
-	objC      obj.Client
-	chunks    *chunk.Storage
-	path      string
-	tmpID     string
-	levels    []*levelWriter
-	closed    bool
-	root      *Index
-	rootTTL   time.Duration
-	expiresAt *time.Time
+	ctx     context.Context
+	objC    obj.Client
+	chunks  *chunk.Storage
+	path    string
+	tmpID   string
+	levels  []*levelWriter
+	closed  bool
+	root    *Index
+	rootTTL time.Duration
 }
 
 // NewWriter create a new Writer.
@@ -173,10 +172,9 @@ func (w *Writer) Close() (retErr error) {
 	}
 	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
 	if w.rootTTL > 0 {
-		if t, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL); err != nil {
+		_, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL)
+		if err != nil {
 			return err
-		} else {
-			w.expiresAt = &t
 		}
 	} else {
 		if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
@@ -185,11 +183,4 @@ func (w *Writer) Close() (retErr error) {
 	}
 	_, err = pbutil.NewWriter(objW).Write(w.root)
 	return err
-}
-
-func (w *Writer) ExpiresAt() *time.Time {
-	if !w.closed {
-		panic("index writer ExpiresAt called before close")
-	}
-	return w.expiresAt
 }

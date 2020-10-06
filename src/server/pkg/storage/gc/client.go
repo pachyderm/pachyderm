@@ -16,12 +16,16 @@ var (
 	errFlush = errors.Errorf("flushing")
 )
 
+// SourceType is the type of a reference source
 type SourceType string
 
 const (
+	// STTemporary is for expiring references
 	STTemporary = SourceType("temporary")
-	STChunk     = SourceType("chunk")
-	STSemantic  = SourceType("semantic")
+	// STChunk is for references from another chunk
+	STChunk = SourceType("chunk")
+	// STSemantic is for references from a semantic path
+	STSemantic = SourceType("semantic")
 )
 
 // Reference describes a reference to a chunk in object storage.  If a chunk has

@@ -33,6 +33,7 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
+// WithGCTimeout sets the default chunk ttl for this Storage instance
 func WithGCTimeout(timeout time.Duration) StorageOption {
 	return func(s *Storage) {
 		s.defaultChunkTTL = timeout
@@ -96,6 +97,7 @@ func WithNoUpload() WriterOption {
 	}
 }
 
+// WithChunkTTL sets the ttl for chunks written with this writer
 func WithChunkTTL(ttl time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.chunkTTL = ttl

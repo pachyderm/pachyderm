@@ -83,6 +83,7 @@ type CreateTmpFileSetClient struct {
 	fileOperationCore
 }
 
+// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
 func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)

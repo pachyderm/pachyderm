@@ -70,7 +70,7 @@ func (s *Storage) CreateSemanticReference(ctx context.Context, name string, chun
 	return s.gcClient.CreateReference(ctx, semanticReference(name, chunk.Hash))
 }
 
-// CreateSemanticReference creates a semantic reference to a chunk.
+// CreateTemporaryReference creates a semantic reference to a chunk.
 func (s *Storage) CreateTemporaryReference(ctx context.Context, name string, chunk *Chunk, ttl time.Duration) (time.Time, error) {
 	expiresAt := time.Now().Add(ttl)
 	if err := s.gcClient.CreateReference(ctx, temporaryReference(name, chunk.Hash, expiresAt)); err != nil {
@@ -84,7 +84,7 @@ func (s *Storage) DeleteSemanticReference(ctx context.Context, name string) erro
 	return s.gcClient.DeleteReference(ctx, semanticReference(name, ""))
 }
 
-// RewnewReference sets the time to live for a reference to now + ttl, and returns the new expire time.
+// RenewReference sets the time to live for a reference to now + ttl, and returns the new expire time.
 func (s *Storage) RenewReference(ctx context.Context, name string, ttl time.Duration) (time.Time, error) {
 	expiresAt := time.Now().Add(ttl)
 	if err := s.gcClient.RenewReference(ctx, name, expiresAt); err != nil {
