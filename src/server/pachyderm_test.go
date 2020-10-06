@@ -5590,7 +5590,7 @@ func TestGroupInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewGroupInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$4$1", false),
+			client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
 		),
 		"",
 		false,
@@ -5607,8 +5607,9 @@ func TestGroupInput(t *testing.T) {
 	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	for _, di := range resp.DatumInfos {
 		for _, fi := range di.Data {
-			fmt.Print(fi.File.Path)
+			fmt.Println(fi.File.Path)
 		}
+		fmt.Println()
 		fmt.Println()
 	}
 

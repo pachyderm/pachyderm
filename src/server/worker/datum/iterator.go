@@ -372,6 +372,7 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 	for _, key := range keys {
 		fmt.Println("key: ", key, len(result.datums))
 		result.datums = append(result.datums, groupMap[key])
+
 	}
 
 	return result, nil

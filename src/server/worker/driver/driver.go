@@ -1146,24 +1146,26 @@ func (d *driver) UploadOutput(
 								}
 								return nil
 							}
-							fc := input.FileInfo[0].File.Commit
-							fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-							if err != nil {
-								return errors.EnsureStack(err)
-							}
-							var blockRefs []*pfs.BlockRef
-							for _, object := range fileInfo.Objects {
-								objectInfo, err := d.pachClient.InspectObject(object.Hash)
+							for _, inputFileInfo := range input.FileInfo {
+								fc := inputFileInfo.File.Commit
+								fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
 								if err != nil {
 									return errors.EnsureStack(err)
 								}
-								blockRefs = append(blockRefs, objectInfo.BlockRef)
-							}
-							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
-							tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
-							if statsTree != nil {
-								statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+								var blockRefs []*pfs.BlockRef
+								for _, object := range fileInfo.Objects {
+									objectInfo, err := d.pachClient.InspectObject(object.Hash)
+									if err != nil {
+										return errors.EnsureStack(err)
+									}
+									blockRefs = append(blockRefs, objectInfo.BlockRef)
+								}
+								blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+								n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
+								tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+								if statsTree != nil {
+									statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+								}
 							}
 							return nil
 						})
