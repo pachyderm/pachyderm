@@ -398,6 +398,8 @@ message EtcdPipelineInfo {
   // k8s privileges and without knowing the number of cluster nodes in the
   // Coefficient case.
   uint64 parallelism = 7;
+
+  uint64 latest_version = 8;
 }
 
 message PipelineInfo {
@@ -714,6 +716,11 @@ message ListPipelineRequest {
   // 2: etc.
   //-1: Return all historical versions.
   int64 history = 2;
+
+  // Return PipelineInfos with incomplete data if the pipeline spec cannot be
+  // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
+  // will have the fields present in EtcdPipelineInfo.
+  bool allow_incomplete = 3;
 }
 
 message DeletePipelineRequest {

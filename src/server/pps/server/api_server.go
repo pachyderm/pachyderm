@@ -2252,7 +2252,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+				oldPipelineInfo, err = ppsutil.GetPipelineInfoAllowIncomplete(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
 				}
@@ -2264,10 +2264,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 				// that updating a pipeline doesn't restart it)
-				pipelineInfo.Version = oldPipelineInfo.Version + 1
+				pipelineInfo.Version = pipelinePtr.LatestVersion + 1
 				if oldPipelineInfo.Stopped {
 					provenance = nil // CreateBranch() below shouldn't create new output
 					pipelineInfo.Stopped = true
+				}
+				if oldPipelineInfo.Transform == nil {
 				}
 				if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
@@ -2614,11 +2616,19 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
 		func(name string, ptr *pps.EtcdPipelineInfo) error {
-			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
-			if err != nil {
-				return err
+			if request.AllowIncomplete {
+				pipelineInfo, err := ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+				return f(pipelineInfo)
+			} else {
+				pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+				return f(pipelineInfo)
 			}
-			return f(pipelineInfo)
 		})
 }
 
