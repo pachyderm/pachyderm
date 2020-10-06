@@ -179,7 +179,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	logrus.Infof("In s3InstanceCreatingJobHandler OnCreate with jobInfo %v", jobInfo)
 	jobID := jobInfo.Job.ID
 
-	for _, datumID := range jobInfo.DatumIDs {
+	for _, datumSummary := range jobInfo.DatumSummaries {
 		// serve new S3 gateway & add to s.servers
 		s.s.serversMu.Lock()
 		defer s.s.serversMu.Unlock()
@@ -188,12 +188,12 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 
 		// Initialize new S3 gateway
-		pachClient := s.s.apiServer.env.GetPachClient(ctx)
-		datumInfo, err := pachClient.InspectDatum(jobID, datumID)
-		if err != nil {
-			logrus.Errorf("Couldn't inspect datum %s/%s to create S3 gateway: %v", jobID, datumID, err)
-			continue
-		}
+
+		// TODO: instead of calling InspectDatum, specify the path in the place
+		// where we populate the jobInfo
+
+		// XXX: this code currently assumes there's only one input per job
+
 		var inputBuckets []*s3.Bucket
 		pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
 			if in.Pfs != nil && in.Pfs.S3 {
@@ -201,7 +201,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 					Repo:         in.Pfs.Repo,
 					Commit:       in.Pfs.Commit,
 					Name:         in.Pfs.Name,
-					FilterPrefix: datumInfo.PfsState.Path,
+					FilterPrefix: datumSummary.Path,
 				})
 			}
 		})
@@ -221,7 +221,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		port := s.s.apiServer.env.S3GatewayPort
 		strport := strconv.FormatInt(int64(port), 10)
 		var server *http.Server
-		err = backoff.RetryNotify(func() error {
+		err := backoff.RetryNotify(func() error {
 			var err error
 			server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
 				return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
@@ -248,16 +248,16 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 				logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
 			}
 		}()
-		s.s.servers[fmt.Sprintf("%s.%s", jobID, datumID)] = server
+		s.s.servers[fmt.Sprintf("%s.%s", jobID, datumSummary.ID)] = server
 	}
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
-	for _, datumID := range jobInfo.DatumIDs {
+	for _, datumSummary := range jobInfo.DatumSummaries {
 		s.s.serversMu.Lock()
 		defer s.s.serversMu.Unlock()
-		server, ok := s.s.servers[fmt.Sprintf("%s.%s", jobID, datumID)]
+		server, ok := s.s.servers[fmt.Sprintf("%s.%s", jobID, datumSummary.ID)]
 		if !ok {
 			return // s3g handler already deleted
 		}
@@ -304,14 +304,14 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		"component": "worker",
 	}
 
-	for _, datumID := range jobInfo.DatumIDs {
+	for _, datumSummary := range jobInfo.DatumSummaries {
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
+				Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumSummary.ID),
 				Labels: labels,
 			},
 			Spec: v1.ServiceSpec{
@@ -351,10 +351,10 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(_ context.Context, jobInfo *p
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}
 
-	for _, datumID := range jobInfo.DatumIDs {
+	for _, datumSummary := range jobInfo.DatumSummaries {
 		if err := backoff.RetryNotify(func() error {
 			err := s.s.apiServer.env.GetKubeClient().CoreV1().Services(s.s.apiServer.namespace).Delete(
-				ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumID),
+				ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumSummary.ID),
 				&metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 			if err != nil && strings.Contains(err.Error(), "not found") {
 				return nil // service already deleted

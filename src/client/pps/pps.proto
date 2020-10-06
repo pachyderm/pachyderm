@@ -286,7 +286,12 @@ message EtcdJobInfo {
   google.protobuf.Timestamp started = 13;
   google.protobuf.Timestamp finished = 14;
 
-  repeated string datum_ids = 16 [(gogoproto.customname) = "DatumIDs"];
+  repeated DatumSummary datum_summaries = 16 [(gogoproto.customname) = "DatumSummaries"];
+}
+
+message DatumSummary {
+  string ID = 1;
+  string Path = 2;
 }
 
 message JobInfo {
@@ -331,7 +336,7 @@ message JobInfo {
   SchedulingSpec scheduling_spec = 42;         // requires ListJobRequest.Full
   string pod_spec = 43;                        // requires ListJobRequest.Full
   string pod_patch = 44;                       // requires ListJobRequest.Full
-  repeated string datum_ids = 49 [(gogoproto.customname) = "DatumIDs"];
+  repeated DatumSummary datum_summaries = 49 [(gogoproto.customname) = "DatumSummaries"];
 }
 
 enum WorkerState {

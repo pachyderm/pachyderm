@@ -570,9 +570,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 
-	datumIDs := []string{}
+	datumSummaries := []*pps.DatumSummary{}
 	for i := 0; i < dit.Len(); i++ {
-		datumIDs = append(datumIDs, common.DatumID(dit.DatumN(i)))
+		inputs := dit.DatumN(i)
+		datumSummaries = append(datumSummaries, &pps.DatumSummary{
+			ID: common.DatumID(inputs),
+			// XXX this is a hack, and doesn't work with crosses and unions etc
+			Path: inputs[0].FileInfo.File.Path,
+		})
 	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
@@ -581,20 +586,20 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
-			Job:           job,
-			OutputCommit:  request.OutputCommit,
-			Pipeline:      request.Pipeline,
-			Stats:         request.Stats,
-			Restart:       request.Restart,
-			DataProcessed: request.DataProcessed,
-			DataSkipped:   request.DataSkipped,
-			DataTotal:     request.DataTotal,
-			DataFailed:    request.DataFailed,
-			DataRecovered: request.DataRecovered,
-			StatsCommit:   request.StatsCommit,
-			Started:       request.Started,
-			Finished:      request.Finished,
-			DatumIDs:      datumIDs,
+			Job:            job,
+			OutputCommit:   request.OutputCommit,
+			Pipeline:       request.Pipeline,
+			Stats:          request.Stats,
+			Restart:        request.Restart,
+			DataProcessed:  request.DataProcessed,
+			DataSkipped:    request.DataSkipped,
+			DataTotal:      request.DataTotal,
+			DataFailed:     request.DataFailed,
+			DataRecovered:  request.DataRecovered,
+			StatsCommit:    request.StatsCommit,
+			Started:        request.Started,
+			Finished:       request.Finished,
+			DatumSummaries: datumSummaries,
 		}
 		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, request.State, request.Reason)
 	})
@@ -807,23 +812,23 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 
 func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo, full bool) (*pps.JobInfo, error) {
 	result := &pps.JobInfo{
-		Job:           jobPtr.Job,
-		Pipeline:      jobPtr.Pipeline,
-		OutputRepo:    &pfs.Repo{Name: jobPtr.Pipeline.Name},
-		OutputCommit:  jobPtr.OutputCommit,
-		Restart:       jobPtr.Restart,
-		DataProcessed: jobPtr.DataProcessed,
-		DataSkipped:   jobPtr.DataSkipped,
-		DataTotal:     jobPtr.DataTotal,
-		DataFailed:    jobPtr.DataFailed,
-		DataRecovered: jobPtr.DataRecovered,
-		Stats:         jobPtr.Stats,
-		StatsCommit:   jobPtr.StatsCommit,
-		State:         jobPtr.State,
-		Reason:        jobPtr.Reason,
-		Started:       jobPtr.Started,
-		Finished:      jobPtr.Finished,
-		DatumIDs:      jobPtr.DatumIDs,
+		Job:            jobPtr.Job,
+		Pipeline:       jobPtr.Pipeline,
+		OutputRepo:     &pfs.Repo{Name: jobPtr.Pipeline.Name},
+		OutputCommit:   jobPtr.OutputCommit,
+		Restart:        jobPtr.Restart,
+		DataProcessed:  jobPtr.DataProcessed,
+		DataSkipped:    jobPtr.DataSkipped,
+		DataTotal:      jobPtr.DataTotal,
+		DataFailed:     jobPtr.DataFailed,
+		DataRecovered:  jobPtr.DataRecovered,
+		Stats:          jobPtr.Stats,
+		StatsCommit:    jobPtr.StatsCommit,
+		State:          jobPtr.State,
+		Reason:         jobPtr.Reason,
+		Started:        jobPtr.Started,
+		Finished:       jobPtr.Finished,
+		DatumSummaries: jobPtr.DatumSummaries,
 	}
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
