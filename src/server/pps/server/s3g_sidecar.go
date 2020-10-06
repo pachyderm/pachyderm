@@ -176,6 +176,7 @@ type s3InstanceCreatingJobHandler struct {
 }
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
+	logrus.Infof("In s3InstanceCreatingJobHandler OnCreate with jobInfo %v", jobInfo)
 	jobID := jobInfo.Job.ID
 
 	for _, datumID := range jobInfo.DatumIDs {
@@ -295,6 +296,7 @@ func (s *k8sServiceCreatingJobHandler) S3G() *sidecarS3G {
 }
 
 func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
+	logrus.Infof("In k8sServiceCreatingJobHandler OnCreate with jobInfo %v", jobInfo)
 	// Create kubernetes service for the current job ('jobInfo')
 	labels := map[string]string{
 		"app":       ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion),

@@ -8,6 +8,7 @@ transform:
   # so leaving this in here.
   image: quay.io/lukemarsden/mnist_pipeline:v1.0.2
   cmd: [ /app/pipeline.py ]
+enable_stats: true # Needs to be set for InspectDatum to work in the new s3g code, not sure why.
 s3_out: true  # Must be set
 input:
   pfs:
