@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"golang.org/x/sync/errgroup"
 )
@@ -19,17 +22,11 @@ const (
 	defaultPostgresPort = "32228"
 )
 
-// NewDB creates a database client.
-// TODO The code for setting up a postgres client should be refactored into a db package similar to obj.
-func NewDB(host, port string) (*gorm.DB, error) {
-	db, err := gorm.Open("postgres", fmt.Sprintf("host=%s port=%s dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))
+func NewDB() (*gorm.DB, error) {
+	db, err := dbutil.NewGORMDB(defaultPostgresHost, defaultPostgresPort, "pachyderm", "elephantastic", "pgc")
 	if err != nil {
 		return nil, err
 	}
-	// TODO Determine reasonable defaults.
-	db.LogMode(false)
-	db.DB().SetMaxOpenConns(3)
-	db.DB().SetMaxIdleConns(2)
 	if err := initializeDb(db); err != nil {
 		return nil, err
 	}
@@ -38,25 +35,42 @@ func NewDB(host, port string) (*gorm.DB, error) {
 
 // NewLocalDB creates a local database client.
 func NewLocalDB() (*gorm.DB, error) {
-	return NewDB(defaultPostgresHost, defaultPostgresPort)
+	panic("")
 }
 
-// WithLocalDB creates a local database client for testing during the lifetime of
+// WithTestDB creates a local database client for testing during the lifetime of
 // the callback.
-func WithLocalDB(f func(*gorm.DB) error) (retErr error) {
-	db, err := NewLocalDB()
-	if err != nil {
-		return err
-	}
-	if err := clearData(db); err != nil {
-		return err
-	}
-	defer func() {
-		if err := clearData(db); retErr == nil {
+func WithTestDB(t *testing.T, f func(*gorm.DB) error) (retErr error) {
+	dbutil.WithTestDB(t, func(db *sqlx.DB) {
+		var dbName string
+		if err := db.Get(&dbName, `SELECT current_database()`); err != nil {
 			retErr = err
+			return
 		}
-	}()
-	return f(db)
+		if err := db.Close(); err != nil {
+			retErr = err
+			return
+		}
+		db2, err := dbutil.NewGORMDB(defaultPostgresHost, defaultPostgresPort, "postgres", "password-ignored", dbName)
+		if err != nil {
+			retErr = err
+			return
+		}
+		defer db2.Close()
+		if err := initializeDb(db2); err != nil {
+			retErr = err
+			return
+		}
+		if err := clearData(db2); err != nil {
+			retErr = err
+			return
+		}
+		if err := f(db2); err != nil {
+			retErr = err
+			return
+		}
+	})
+	return retErr
 }
 
 func clearData(db *gorm.DB) error {
@@ -69,9 +83,9 @@ func clearData(db *gorm.DB) error {
 
 // WithLocalGarbageCollector creates a local garbage collector client for testing during the lifetime of
 // the callback.
-func WithLocalGarbageCollector(f func(context.Context, obj.Client, Client) error, opts ...Option) error {
+func WithLocalGarbageCollector(t *testing.T, f func(context.Context, obj.Client, Client) error, opts ...Option) error {
 	return obj.WithLocalClient(func(objClient obj.Client) error {
-		return WithLocalDB(func(db *gorm.DB) error {
+		return WithTestDB(t, func(db *gorm.DB) error {
 			return WithGarbageCollector(objClient, db, func(ctx context.Context, client Client) error {
 				return f(ctx, objClient, client)
 			}, opts...)

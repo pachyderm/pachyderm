@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
@@ -13,7 +14,7 @@ import (
 var devDontDropDatabase = false
 
 const (
-	defaultPostgresHost = "localhost"
+	defaultPostgresHost = "127.0.0.1"
 	defaultPostgresPort = 32228
 )
 
@@ -33,4 +34,19 @@ func WithTestDB(t *testing.T, cb func(db *sqlx.DB)) {
 		db.MustExec("DROP DATABASE " + dbName)
 	}
 	require.Nil(t, db.Close())
+}
+
+// NewGORMDB creates a database client.
+// TODO: Remove GOARM and switch to sql x.
+func NewGORMDB(host, port, user, pass, dbName string) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, pass, dbName)
+	db, err := gorm.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+	// TODO Determine reasonable defaults.
+	// db.LogMode(false)
+	// db.DB().SetMaxOpenConns(3)
+	// db.DB().SetMaxIdleConns(2)
+	return db, nil
 }

@@ -16,7 +16,7 @@ import (
 )
 
 func TestReserveChunk(t *testing.T) {
-	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
+	require.NoError(t, WithLocalGarbageCollector(t, func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		chunks := makeChunks(t, objClient, 3)
 		tmpID := uuid.NewWithoutDashes()
 		for _, chunk := range chunks {
@@ -39,7 +39,7 @@ func TestReserveChunk(t *testing.T) {
 }
 
 func TestCreateDeleteReferences(t *testing.T) {
-	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
+	require.NoError(t, WithLocalGarbageCollector(t, func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		chunks := makeChunks(t, objClient, 7)
 		// Reserve chunks initially with only temporary references.
 		tmpID := uuid.NewWithoutDashes()
@@ -112,7 +112,7 @@ func TestCreateDeleteReferences(t *testing.T) {
 
 func TestRecovery(t *testing.T) {
 	require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
-		return WithLocalDB(func(db *gorm.DB) error {
+		return WithTestDB(t, func(db *gorm.DB) error {
 			ctx := context.Background()
 			gcClient, err := NewClient(db)
 			require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestRecovery(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
+	require.NoError(t, WithLocalGarbageCollector(t, func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		numTrees := 10
 		var expectedChunkRows []chunkModel
 		for i := 0; i < numTrees; i++ {
