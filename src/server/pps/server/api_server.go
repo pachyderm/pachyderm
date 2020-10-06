@@ -2280,8 +2280,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					pipelineInfo.Stopped = true
 				}
 				if oldPipelineInfo.Transform == nil {
-				}
-				if !request.Reprocess {
+					if !request.Reprocess {
+						return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "must use 'reprocess' as the previous spec could not be loaded")
+					}
+				} else if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
 				// Must create spec commit before restoring output branch provenance, so
