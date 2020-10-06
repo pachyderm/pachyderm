@@ -32,6 +32,13 @@ var (
 	errTokenDeleted  = goerr.New("error during authorization: OIDC state token expired")
 )
 
+// IDTokenClaims represents the set of claims in an OIDC ID token that we're concerned with
+type IDTokenClaims struct {
+	Email         string   `json:"email"`
+	EmailVerified bool     `json:"email_verified"`
+	Groups        []string `json:"groups"`
+}
+
 // InternalOIDCProvider contains information about the configured OIDC ID
 // provider, as well as auth information identifying Pachyderm in the ID
 // provider (ClientID and ClientSecret), which Pachyderm needs to perform
@@ -68,6 +75,15 @@ type InternalOIDCProvider struct {
 	// SetConfig, as only they know their network topology & Pachyderm's address
 	// within it, and must be included in login URLs)
 	RedirectURI string
+
+	// Scopes is a list of scopes to request from the OIDC server. This is always
+	// the standard "openid", "email" and "profile", plus any user-specified
+	// scopes.
+	Scopes []string
+
+	// IgnoreEmailVerified indicates that we don't care about the `email_verified` claim.
+	// This is usually bad but may be necessary for non-conformant providers.
+	IgnoreEmailVerified bool
 
 	// States is an etcd collection containing the state information associated
 	// with every in-progress authentication session. /authorization-code/callback
@@ -117,14 +133,19 @@ func half(state string) string {
 }
 
 // NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
-func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string) (*InternalOIDCProvider, error) {
+func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string, additionalScopes []string, ignoreEmailVerified bool) (*InternalOIDCProvider, error) {
+	// "openid" is a required scope for OpenID Connect flows.
+	// "profile" and "email" are necessary for using the email as an identifier
+	scopes := append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
 	o := &InternalOIDCProvider{
-		a:            a,
-		Prefix:       name,
-		Issuer:       issuer,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURI:  redirectURI,
+		a:                   a,
+		Prefix:              name,
+		Issuer:              issuer,
+		ClientID:            clientID,
+		ClientSecret:        clientSecret,
+		RedirectURI:         redirectURI,
+		Scopes:              scopes,
+		IgnoreEmailVerified: ignoreEmailVerified,
 		States: col.NewCollection(
 			a.env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
@@ -174,9 +195,7 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 		ClientSecret: o.ClientSecret,
 		RedirectURL:  o.RedirectURI,
 		Endpoint:     o.Provider.Endpoint(),
-		// "openid" is a required scope for OpenID Connect flows.
-		// "profile" and "email" are necessary for using the email as an identifier
-		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       o.Scopes,
 	}
 
 	if _, err := col.NewSTM(ctx, o.a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -347,6 +366,33 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+func (o *InternalOIDCProvider) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
+	var verifier = o.Provider.Verifier(&oidc.Config{ClientID: o.ClientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "could not verify token")
+	}
+
+	var claims IDTokenClaims
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, nil, errors.Wrapf(err, "could not get claims")
+	}
+
+	if !claims.EmailVerified && !o.IgnoreEmailVerified {
+		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+	}
+	return idToken, &claims, nil
+}
+
+func (o *InternalOIDCProvider) syncGroupMembership(ctx context.Context, claims *IDTokenClaims) error {
+	groups := make([]string, len(claims.Groups))
+	for i, g := range claims.Groups {
+		groups[i] = fmt.Sprintf("group/%s:%s", o.Prefix, g)
+	}
+	// Sync group membership based on the groups claim, if any
+	return o.a.setGroupsForUserInternal(ctx, claims.Email, groups)
+}
+
 // handleOIDCExchangeInternal is a convenience function for converting an
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in etcd and sending an HTTP
@@ -362,7 +408,7 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		ClientID:     sp.ClientID,
 		ClientSecret: sp.ClientSecret,
 		RedirectURL:  sp.RedirectURI,
-		Scopes:       []string{"openid", "email", "profile"},
+		Scopes:       sp.Scopes,
 		Endpoint:     sp.Provider.Endpoint(),
 	}
 
@@ -372,7 +418,6 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		return "", "", errors.Wrapf(err, "failed to exchange code")
 	}
 
-	var verifier = sp.Provider.Verifier(&oidc.Config{ClientID: conf.ClientID})
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := tok.Extra("id_token").(string)
 	if !ok {
@@ -380,22 +425,16 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	}
 
 	// Parse and verify ID Token payload.
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	idToken, claims, err := sp.validateIDToken(ctx, rawIDToken)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "could not verify token")
 	}
 
-	// Use the ID token passed from the authorization callback as our token source
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: tok.AccessToken,
-		},
-	)
-	userInfo, err := sp.Provider.UserInfo(ctx, ts)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "could not get user info")
+	if err := sp.syncGroupMembership(ctx, claims); err != nil {
+		return "", "", errors.Wrapf(err, "could not sync group membership")
 	}
-	return idToken.Nonce, userInfo.Email, nil
+
+	return idToken.Nonce, claims.Email, nil
 }
 
 func (a *apiServer) serveOIDC() error {

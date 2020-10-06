@@ -836,7 +836,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			for _, pi := range pipelineInfos {
 				if ppsutil.ErrorState(pi.State) {
-					fmt.Println("One or more pipelines have encountered errors, use inspect pipeline to get more info.")
+					fmt.Fprintln(os.Stderr, "One or more pipelines have encountered errors, use inspect pipeline to get more info.")
+					break
 				}
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
