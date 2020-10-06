@@ -11240,6 +11240,74 @@ func TestMissingPipelineSpec(t *testing.T) {
 		"",
 		true,
 	))
+
+	// Should be able to inspect the pipeline
+	_, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	listClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
+	require.NoError(t, err)
+	require.NoError(t, listClient.CloseSend())
+
+	// Delete objects - this may break everything, but the error is hard to reproduce otherwise
+	objects := []*pfs.Object{}
+	for {
+		oi, err := listClient.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+
+		objects = append(objects, oi.Object)
+	}
+
+	_, err = c.ObjectAPIClient.DeleteObjects(c.Ctx(), &pfs.DeleteObjectsRequest{Objects: objects})
+	require.NoError(t, err)
+
+	// Restart pachd to clear the object cache
+	k := tu.GetKubeClient(t)
+	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
+	podList, err := podsInterface.List(
+		metav1.ListOptions{
+			LabelSelector: "suite=pachyderm",
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
+			GracePeriodSeconds: new(int64),
+		}))
+	}
+	waitForReadiness(t)
+
+	// The old client is no longer valid
+	c = getUsablePachClient(t)
+
+	// Should no longer be able to inspect the pipeline
+	_, err = c.InspectPipeline(pipelineName)
+	require.YesError(t, err)
+
+	// Should no longer be able to list pipelines
+	pis, err := c.ListPipeline()
+	require.YesError(t, err)
+
+	// Should be able to list pipelines with AllowIncomplete=true
+	response, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(response.PipelineInfo))
+
+	// Pipeline should have the correct version
+	require.Equal(t, uint64(1), response.PipelineInfo[0].Version)
+
+	// TODO: test updating the pipeline
+
+	// Should be able to delete the pipeline
+	err = c.DeletePipeline(pipelineName, false)
+	require.NoError(t, err)
+
+	// Should then be able to list pipelines
+	pis, err = c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(pis))
 }
 
 func TestFileHistory(t *testing.T) {
@@ -12324,6 +12392,7 @@ const (
 // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
 // connection that actually works
 func getUsablePachClient(t *testing.T) *client.APIClient {
+	fmt.Println("Reconnecting to pachd")
 	for i := 0; i < retries; i++ {
 		client := tu.GetPachClient(t)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -12332,6 +12401,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 		if err == nil {
 			return client
 		}
+		time.Sleep(5 * time.Second)
 	}
 	t.Fatalf("failed to connect after %d tries", retries)
 	return nil

@@ -2370,9 +2370,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.EtcdPipelineInfo{
-			SpecCommit:  commit,
-			State:       pps.PipelineState_PIPELINE_STARTING,
-			Parallelism: uint64(parallelism),
+			SpecCommit:    commit,
+			State:         pps.PipelineState_PIPELINE_STARTING,
+			Parallelism:   uint64(parallelism),
+			LatestVersion: pipelineInfo.Version,
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output

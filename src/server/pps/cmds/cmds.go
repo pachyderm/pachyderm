@@ -813,10 +813,15 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			pipelineInfos, err := client.ListPipelineHistory(pipeline, history)
-			if err != nil {
-				return err
+			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true}
+			if pipeline != "" {
+				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
+			response, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pipelineInfos := response.PipelineInfo
 			if raw {
 				e := encoder(output)
 				for _, pipelineInfo := range pipelineInfos {
