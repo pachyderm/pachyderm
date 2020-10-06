@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,13 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultPostgresHost = "localhost"
-	defaultPostgresPort = "32228"
-)
-
-func NewDB() (*gorm.DB, error) {
-	db, err := dbutil.NewGORMDB(defaultPostgresHost, defaultPostgresPort, "pachyderm", "elephantastic", "pgc")
+func NewDB(host, port, user, pass, dbname string) (*gorm.DB, error) {
+	db, err := dbutil.NewGORMDB(host, port, user, pass, dbname)
 	if err != nil {
 		return nil, err
 	}
@@ -31,11 +27,6 @@ func NewDB() (*gorm.DB, error) {
 		return nil, err
 	}
 	return db, nil
-}
-
-// NewLocalDB creates a local database client.
-func NewLocalDB() (*gorm.DB, error) {
-	panic("")
 }
 
 // WithTestDB creates a local database client for testing during the lifetime of
@@ -51,7 +42,7 @@ func WithTestDB(t *testing.T, f func(*gorm.DB) error) (retErr error) {
 			retErr = err
 			return
 		}
-		db2, err := dbutil.NewGORMDB(defaultPostgresHost, defaultPostgresPort, "postgres", "password-ignored", dbName)
+		db2, err := dbutil.NewGORMDB(dbutil.DefaultPostgresHost, strconv.Itoa(dbutil.DefaultPostgresPort), "postgres", "password-ignored", dbName)
 		if err != nil {
 			retErr = err
 			return

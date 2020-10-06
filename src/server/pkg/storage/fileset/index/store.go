@@ -55,6 +55,9 @@ func NewPGStore(db *sqlx.DB) Store {
 }
 
 func (s *pgStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.Duration) error {
+	if idx == nil {
+		idx = &Index{}
+	}
 	data, err := proto.Marshal(idx)
 	if err != nil {
 		return err
@@ -135,7 +138,7 @@ func (s *pgStore) GetExpiresAt(ctx context.Context, p string) (time.Time, error)
 const schema = `
 	CREATE SCHEMA IF NOT EXISTS storage;
 
-	CREATE TABLE storage.paths (
+	CREATE TABLE IF NOT EXISTS storage.paths (
 		path VARCHAR(250) PRIMARY KEY,
 		index_pb BYTEA NOT NULL,
 		root_chunk INT8,
