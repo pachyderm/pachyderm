@@ -569,14 +569,33 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	// TODO: we could create a datum iterator for the parent job
 	// TODO: can we ask the datum iterator for only marginal datums?
 
+	parentCI, err := pachClient.InspectCommit(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+	if err != nil {
+		return nil, err
+	}
+	parentInput := ppsutil.JobInput(pipelineInfo, parentCI)
+	parentDIT, err := datum.NewIterator(pachClient, parentInput)
+	if err != nil {
+		return nil, err
+	}
+
+	parentDatumIds := map[string]bool{}
+	for i := 0; i < parentDIT.Len(); i++ {
+		parentDatumIds[common.DatumID(dit.DatumN(i))] = true
+	}
+
 	datumSummaries := []*pps.DatumSummary{}
 	for i := 0; i < dit.Len(); i++ {
 		inputs := dit.DatumN(i)
-		datumSummaries = append(datumSummaries, &pps.DatumSummary{
-			ID: common.DatumID(inputs),
-			// XXX this is a hack, and doesn't work with crosses and unions etc
-			Path: inputs[0].FileInfo.File.Path,
-		})
+		id := common.DatumID(inputs)
+		// only process datums we haven't already processed
+		if _, ok := parentDatumIds[id]; !ok {
+			datumSummaries = append(datumSummaries, &pps.DatumSummary{
+				ID: id,
+				// XXX this is a hack, and doesn't work with crosses and unions etc
+				Path: inputs[0].FileInfo.File.Path,
+			})
+		}
 	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
