@@ -13,5 +13,5 @@ input:
   pfs:
     name: input      # Name of the input bucket
     repo: input-repo # Pachyderm repo accessed via this bucket
-    glob: /          # Must be exactly this
+    glob: /*         # Must be exactly this
     s3: true         # Must be set

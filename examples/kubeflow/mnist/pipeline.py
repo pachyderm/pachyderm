@@ -43,6 +43,11 @@ def mnist(s3_endpoint: str, input_bucket: str):
         # local directory for processing.
         training_data_path = os.path.join(data_dir, "mnist.npz")
         logging.info("copying from s3://mnist.npz to {}".format(training_data_path))
+
+        print("==== OBJECTS IN BUCKET ===")
+        for obj in s3_client.list_objects(input_bucket):
+            print(obj)
+
         s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
         (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
@@ -137,6 +142,7 @@ def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
 
     run_id = ""
     if create_run_in != "":
+        # Creating a run in an existing pipeline
         logging.info('creating run in pipeline "{}"'.format(create_run_in))
         pid = pipeline_id(client, create_run_in)
         if pid == "":
@@ -155,7 +161,7 @@ def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
         )
         run_id = run_info.id
     elif create_pipeline != "":
-        # Local machine is just creating the pipeline
+        # Local machine is just creating the pipeline but not running anything in it
         with tempfile.NamedTemporaryFile(suffix='.zip') as pipeline_file:
             compiler.Compiler().compile(kubeflow_pipeline, pipeline_file.name)
             pid = pipeline_id(client, create_pipeline)

@@ -204,10 +204,6 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("input must specify a branch")
 				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return errors.Errorf("input must specify a glob")
-				case input.Pfs.S3 && input.Pfs.Glob != "/":
-					return errors.Errorf("inputs that set 's3' to 'true' must also set " +
-						"'glob', to \"/\", as the S3 gateway is only able to expose data " +
-						"at the commit level")
 				case input.Pfs.S3 && input.Pfs.Lazy:
 					return errors.Errorf("input cannot specify both 's3' and 'lazy', as " +
 						"'s3' requires input data to be accessed via Pachyderm's S3 " +
@@ -569,6 +565,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: we could create a datum iterator for the parent job
+	// TODO: can we ask the datum iterator for only marginal datums?
 
 	datumSummaries := []*pps.DatumSummary{}
 	for i := 0; i < dit.Len(); i++ {
