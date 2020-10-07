@@ -4270,8 +4270,10 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{
+			"sleep 60",
+		},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -4286,17 +4288,28 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
+	var jobInfo *pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 job, got %d", len(jobInfos))
+		}
+		jobInfo = jobInfos[0]
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.NoError(t, c.DeleteJob(jobInfo.Job.ID))
 
-	_, err = commitIter.Next()
-	require.NoError(t, err)
-
-	// Now delete the corresponding job
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	err = c.DeleteJob(jobInfos[0].Job.ID)
+	// Inspect the output commit with a timeout to ensure that the commit is finished after delete job.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	_, err = c.PfsAPIClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit:     jobInfo.OutputCommit,
+			BlockState: pfs.CommitState_FINISHED,
+		},
+	)
 	require.NoError(t, err)
 }
 
