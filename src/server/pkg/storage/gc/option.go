@@ -16,13 +16,6 @@ func WithPolling(polling time.Duration) Option {
 	}
 }
 
-// WithTimeout sets the temporary reference timeout duration.
-func WithTimeout(timeout time.Duration) Option {
-	return func(gc *garbageCollector) {
-		gc.timeout = timeout
-	}
-}
-
 // ServiceEnvToOptions converts a service environment configuration (specifically
 // the garbage collection configuration) to a set of options.
 func ServiceEnvToOptions(env *serviceenv.ServiceEnv) ([]Option, error) {
@@ -33,13 +26,6 @@ func ServiceEnvToOptions(env *serviceenv.ServiceEnv) ([]Option, error) {
 			return nil, err
 		}
 		opts = append(opts, WithPolling(polling))
-	}
-	if env.StorageGCTimeout != "" {
-		timeout, err := time.ParseDuration(env.StorageGCTimeout)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, WithTimeout(timeout))
 	}
 	return opts, nil
 }

@@ -2,6 +2,7 @@ package gc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -15,6 +16,18 @@ var (
 	errFlush = errors.Errorf("flushing")
 )
 
+// SourceType is the type of a reference source
+type SourceType string
+
+const (
+	// STTemporary is for expiring references
+	STTemporary = SourceType("temporary")
+	// STChunk is for references from another chunk
+	STChunk = SourceType("chunk")
+	// STSemantic is for references from a semantic path
+	STSemantic = SourceType("semantic")
+)
+
 // Reference describes a reference to a chunk in object storage.  If a chunk has
 // no references, it will be deleted.
 //  * Sourcetype - the type of reference, one of:
@@ -24,10 +37,12 @@ var (
 //  * Source - the source of the reference, this may be a temporary id, chunk id, or a
 //    semantic name.
 //  * Chunk - the target chunk being referenced.
+//  * ExpiresAt - the time after which a temporary chunk will be destroyed
 type Reference struct {
-	Sourcetype string
+	Sourcetype SourceType
 	Source     string
 	Chunk      string
+	ExpiresAt  *time.Time
 }
 
 // Client is the interface provided by the garbage collector client, for use on
@@ -38,12 +53,15 @@ type Client interface {
 	// It will add a temporary reference to the given chunk, even
 	// if it doesn't exist yet.  If the specified chunk is currently
 	// being deleted, this call will block while it is being deleted.
-	ReserveChunk(context.Context, string, string) error
+	ReserveChunk(ctx context.Context, chunk string, tmpID string, expiresAt time.Time) error
 
 	// CreateReference creates a reference.
 	CreateReference(context.Context, *Reference) error
 	// DeleteReference deletes a reference.
 	DeleteReference(context.Context, *Reference) error
+	// RenewReference will set expiresAt
+	// The SourceType will be assumed to be 'temporary'
+	RenewReference(ctx context.Context, src string, expiresAt time.Time) error
 }
 
 type client struct {
@@ -55,7 +73,7 @@ func NewClient(db *gorm.DB) (Client, error) {
 	return &client{db: db}, nil
 }
 
-func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
+func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string, expiresAt time.Time) error {
 	var flushChunk []chunkModel
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
@@ -72,15 +90,15 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 					ON CONFLICT (chunk) DO UPDATE SET chunk = EXCLUDED.chunk
 					RETURNING chunk, deleting
 				), added_ref AS (
-					INSERT INTO refs (sourcetype, source, chunk, created)
-					SELECT 'temporary'::reftype, ?, chunk, NOW()
+					INSERT INTO refs (sourcetype, source, chunk, created, expires_at)
+					SELECT 'temporary'::reftype, ?, chunk, NOW(), ?
 					FROM added_chunk
 					WHERE deleting IS NULL
 				)
 				SELECT chunk
 				FROM added_chunk
 				WHERE deleting IS NOT NULL
-			`, chunk, tmpID).Scan(&flushChunk)
+			`, chunk, tmpID, expiresAt).Scan(&flushChunk)
 		},
 	}
 	return retry(ctx, flushingDeletion, func() error {
@@ -95,6 +113,10 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 }
 
 func (c *client) CreateReference(ctx context.Context, ref *Reference) (retErr error) {
+	if ref.Sourcetype == "temporary" && ref.ExpiresAt == nil {
+		t := time.Now().Add(defaultTimeout)
+		ref.ExpiresAt = &t
+	}
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
 			// Insert the reference.
@@ -105,10 +127,22 @@ func (c *client) CreateReference(ctx context.Context, ref *Reference) (retErr er
 			// to do this when the semantic reference is setup to minimize the cost on
 			// the common path.
 			return txn.Exec(`
-				INSERT INTO refs (sourcetype, source, chunk, created)
-				VALUES (?, ?, ?, NOW())
+				INSERT INTO refs (sourcetype, source, chunk, created, expires_at)
+				VALUES (?, ?, ?, NOW(), ?)
 				ON CONFLICT DO NOTHING
-			`, ref.Sourcetype, ref.Source, ref.Chunk)
+			`, ref.Sourcetype, ref.Source, ref.Chunk, ref.ExpiresAt)
+		},
+	}
+	return runTransaction(ctx, c.db, stmtFuncs)
+}
+
+func (c *client) RenewReference(ctx context.Context, src string, expiresAt time.Time) error {
+	stmtFuncs := []statementFunc{
+		func(txn *gorm.DB) *gorm.DB {
+			return txn.Model(&refModel{}).
+				Where(`sourcetype = ?`, STTemporary).
+				Where(`source = ?`, src).
+				Update("expires_at", expiresAt)
 		},
 	}
 	return runTransaction(ctx, c.db, stmtFuncs)
@@ -137,7 +171,7 @@ func NewMockClient() Client {
 	return &mockClient{}
 }
 
-func (c *mockClient) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
+func (c *mockClient) ReserveChunk(ctx context.Context, chunk, tmp string, expiresAt time.Time) error {
 	return nil
 }
 
@@ -146,5 +180,9 @@ func (c *mockClient) CreateReference(ctx context.Context, ref *Reference) error 
 }
 
 func (c *mockClient) DeleteReference(ctx context.Context, ref *Reference) error {
+	return nil
+}
+
+func (c *mockClient) RenewReference(context.Context, string, time.Time) error {
 	return nil
 }

@@ -178,6 +178,13 @@ func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
 }
 
 func (a *validatedAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
+	if r.GetName() == tmpRepo {
+		if s != auth.Scope_READER {
+			return errors.Errorf("can only read from __repo__")
+		}
+		return nil
+	}
+
 	client := a.getAuth(ctx)
 	me, err := client.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {

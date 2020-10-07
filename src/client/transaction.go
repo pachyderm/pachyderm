@@ -398,6 +398,12 @@ func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequ
 func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("ClearCommitV2")
 }
+func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
+	return nil, unsupportedError("CreateTmpFileSet")
+}
+func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RenewTmpFileSet")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")

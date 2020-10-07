@@ -44,7 +44,7 @@ func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...str
 // should be used for concurrent upload.
 type FileOperationClient struct {
 	client pfs.API_FileOperationV2Client
-	err    error
+	fileOperationCore
 }
 
 func (c APIClient) WithFileOperationClientV2(repo, commit string, cb func(*FileOperationClient) error) (retErr error) {
@@ -74,11 +74,70 @@ func (c APIClient) NewFileOperationClientV2(repo, commit string) (_ *FileOperati
 	}); err != nil {
 		return nil, err
 	}
-	return &FileOperationClient{client: client}, nil
+	return &FileOperationClient{
+		client: client,
+		fileOperationCore: fileOperationCore{
+			client: client,
+		},
+	}, nil
+}
+
+// Close closes the FileOperationClient.
+func (foc *FileOperationClient) Close() error {
+	return foc.maybeError(func() error {
+		_, err := foc.client.CloseAndRecv()
+		return err
+	})
+}
+
+// CreateTmpFileSetClient is used to create a temporary fileset.
+type CreateTmpFileSetClient struct {
+	client pfs.API_CreateTmpFileSetClient
+	fileOperationCore
+}
+
+// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
+func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.CreateTmpFileSet(c.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	return &CreateTmpFileSetClient{
+		client: client,
+		fileOperationCore: fileOperationCore{
+			client: client,
+		},
+	}, nil
+}
+
+// Close closes the CreateTmpFileSetClient.
+func (foc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
+	var ret *pfs.CreateTmpFileSetResponse
+	if err := foc.maybeError(func() error {
+		resp, err := foc.client.CloseAndRecv()
+		if err != nil {
+			return err
+		}
+		ret = resp
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+type fileOperationCore struct {
+	client interface {
+		Send(*pfs.FileOperationRequestV2) error
+	}
+	err error
 }
 
 // PutTar puts a tar stream into PFS.
-func (foc *FileOperationClient) PutTar(r io.Reader, overwrite bool, tag ...string) error {
+func (foc *fileOperationCore) PutTar(r io.Reader, overwrite bool, tag ...string) error {
 	return foc.maybeError(func() error {
 		ptr := &pfs.PutTarRequestV2{Overwrite: overwrite}
 		if len(tag) > 0 {
@@ -97,7 +156,7 @@ func (foc *FileOperationClient) PutTar(r io.Reader, overwrite bool, tag ...strin
 	})
 }
 
-func (foc *FileOperationClient) maybeError(f func() error) (retErr error) {
+func (foc *fileOperationCore) maybeError(f func() error) (retErr error) {
 	if foc.err != nil {
 		return foc.err
 	}
@@ -110,7 +169,7 @@ func (foc *FileOperationClient) maybeError(f func() error) (retErr error) {
 	return f()
 }
 
-func (foc *FileOperationClient) sendPutTar(req *pfs.PutTarRequestV2) error {
+func (foc *fileOperationCore) sendPutTar(req *pfs.PutTarRequestV2) error {
 	return foc.client.Send(&pfs.FileOperationRequestV2{
 		Operation: &pfs.FileOperationRequestV2_PutTar{
 			PutTar: req,
@@ -120,7 +179,7 @@ func (foc *FileOperationClient) sendPutTar(req *pfs.PutTarRequestV2) error {
 
 // DeleteFiles deletes a set of files.
 // The optional tag field indicates specific tags in the files to delete.
-func (foc *FileOperationClient) DeleteFiles(files []string, tag ...string) error {
+func (foc *fileOperationCore) DeleteFiles(files []string, tag ...string) error {
 	return foc.maybeError(func() error {
 		req := &pfs.DeleteFilesRequestV2{Files: files}
 		if len(tag) > 0 {
@@ -133,19 +192,11 @@ func (foc *FileOperationClient) DeleteFiles(files []string, tag ...string) error
 	})
 }
 
-func (foc *FileOperationClient) sendDeleteFiles(req *pfs.DeleteFilesRequestV2) error {
+func (foc *fileOperationCore) sendDeleteFiles(req *pfs.DeleteFilesRequestV2) error {
 	return foc.client.Send(&pfs.FileOperationRequestV2{
 		Operation: &pfs.FileOperationRequestV2_DeleteFiles{
 			DeleteFiles: req,
 		},
-	})
-}
-
-// Close closes the FileOperationClient.
-func (foc *FileOperationClient) Close() error {
-	return foc.maybeError(func() error {
-		_, err := foc.client.CloseAndRecv()
-		return err
 	})
 }
 
@@ -316,4 +367,15 @@ func (pfc *putFileClientV2) DeleteFile(repo, commit, path string) error {
 
 func (pfc *putFileClientV2) Close() error {
 	return nil
+}
+
+// TmpRepoName is a reserved repo name used for namespacing temporary filesets
+const TmpRepoName = "__tmp__"
+
+// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
+func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
+	return &pfs.Commit{
+		ID:   fileSetID,
+		Repo: &pfs.Repo{Name: TmpRepoName},
+	}
 }

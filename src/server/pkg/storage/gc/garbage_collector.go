@@ -2,7 +2,6 @@ package gc
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -23,9 +22,9 @@ const (
 )
 
 type garbageCollector struct {
-	objClient        obj.Client
-	db               *gorm.DB
-	polling, timeout time.Duration
+	objClient obj.Client
+	db        *gorm.DB
+	polling   time.Duration
 }
 
 // Run runs the garbage collector.
@@ -34,7 +33,6 @@ func Run(ctx context.Context, objClient obj.Client, db *gorm.DB, opts ...Option)
 		objClient: objClient,
 		db:        db,
 		polling:   defaultPolling,
-		timeout:   defaultTimeout,
 	}
 	for _, opt := range opts {
 		opt(gc)
@@ -43,13 +41,12 @@ func Run(ctx context.Context, objClient obj.Client, db *gorm.DB, opts ...Option)
 }
 
 func (gc *garbageCollector) maybeDeleteTemporaryRefs(ctx context.Context) error {
-	seconds := strconv.Itoa(int(gc.timeout / time.Second))
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
 			return txn.Exec(`
 				DELETE FROM refs
 				WHERE sourcetype = 'temporary'
-				AND created < NOW() - INTERVAL '` + seconds + `' second
+				AND expires_at < NOW()
 			`)
 		},
 	}
