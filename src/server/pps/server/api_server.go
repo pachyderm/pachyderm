@@ -569,19 +569,21 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	// TODO: we could create a datum iterator for the parent job
 	// TODO: can we ask the datum iterator for only marginal datums?
 
-	parentCI, err := pachClient.InspectCommit(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
-	if err != nil {
-		return nil, err
-	}
-	parentInput := ppsutil.JobInput(pipelineInfo, parentCI)
-	parentDIT, err := datum.NewIterator(pachClient, parentInput)
-	if err != nil {
-		return nil, err
-	}
-
 	parentDatumIds := map[string]bool{}
-	for i := 0; i < parentDIT.Len(); i++ {
-		parentDatumIds[common.DatumID(dit.DatumN(i))] = true
+	// parent commit isn't set for the first output commit
+	if commitInfo.ParentCommit != nil {
+		parentCI, err := pachClient.InspectCommit(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+		parentInput := ppsutil.JobInput(pipelineInfo, parentCI)
+		parentDIT, err := datum.NewIterator(pachClient, parentInput)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < parentDIT.Len(); i++ {
+			parentDatumIds[common.DatumID(dit.DatumN(i))] = true
+		}
 	}
 
 	datumSummaries := []*pps.DatumSummary{}
