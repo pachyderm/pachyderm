@@ -556,6 +556,15 @@ message DiffFileResponseV2 {
   FileInfo new_file = 2;
 }
 
+message CreateTmpFileSetResponse {
+  string fileset_id = 1;
+}
+
+message RenewTmpFileSetRequest {
+  string fileset_id = 1;
+  int64 ttl_seconds = 2;
+}
+
 message ClearCommitRequestV2 {
   Commit commit = 1;
 }
@@ -640,9 +649,13 @@ service API {
   // RPCs specific to Pachyderm 2.
   rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
-  // DiffFile returns the differences between 2 paths at 2 commits.
+  // DiffFileV2 returns the differences between 2 paths at 2 commits.
   // it streams back one file at a time which is either from the new path, or the old path
   rpc DiffFileV2(DiffFileRequest) returns (stream DiffFileResponseV2) {}
+  // CreateTmpFileSet creates a new temp fileset
+  rpc CreateTmpFileSet(stream FileOperationRequestV2) returns (CreateTmpFileSetResponse) {}
+  // RenewTmpFileSet prevents the temporary fileset from being deleted for a set amount of time
+  rpc RenewTmpFileSet(RenewTmpFileSetRequest) returns (google.protobuf.Empty) {}
   // ClearCommitV2 removes all data from the commit.
   rpc ClearCommitV2(ClearCommitRequestV2) returns (google.protobuf.Empty) {}
 }

@@ -4,6 +4,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -32,6 +33,13 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
+// WithGCTimeout sets the default chunk ttl for this Storage instance
+func WithGCTimeout(timeout time.Duration) StorageOption {
+	return func(s *Storage) {
+		s.defaultChunkTTL = timeout
+	}
+}
+
 // WithObjectCache adds a cache around the currently configured object client
 func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
 	return func(s *Storage) {
@@ -44,6 +52,13 @@ func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
 func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption, err error) {
 	if env.StorageUploadConcurrencyLimit > 0 {
 		options = append(options, WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
+	}
+	if env.StorageGCTimeout != "" {
+		timeout, err := time.ParseDuration(env.StorageGCTimeout)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, WithGCTimeout(timeout))
 	}
 	if env.StorageDiskCacheSize > 0 {
 		diskCache, err := obj.NewLocalClient(localDiskCachePath)
@@ -79,5 +94,12 @@ func WithMinMax(min, max int) WriterOption {
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
+	}
+}
+
+// WithChunkTTL sets the ttl for chunks written with this writer
+func WithChunkTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.chunkTTL = ttl
 	}
 }
