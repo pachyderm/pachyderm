@@ -219,17 +219,57 @@ following steps:
 1. When you want to process data, run:
 
    ```bash
-   $ pachctl create-branch pipeline master --head staging
+   $ pachctl create branch pipeline@master --head staging
    ```
 
-## Automate Branch Switching
+## Automate Deferred Processing With Branch Triggers
 
-Typically, repointing from one branch to another
-happens when a certain condition is met. For example, you might
-want to repoint your branch when you have a specific number of commits,
-or when the amount of unprocessed data reaches a certain size, or
-at a specific time interval, such as daily, or other.
-To configure this functionality, you need to create a Kubernetes
-application that uses Pachyderm APIs and watches the repositories for the
-specified condition. When the condition is met, the application switches
-the Pachyderm branch from `staging` to `master`.
+Typically, repointing from one branch to another happens when a certain
+condition is met. For example, you might want to repoint your branch when you
+have a specific number of commits, or when the amount of unprocessed data
+reaches a certain size, or at a specific time interval, such as daily, or
+other. This can be automated using branch triggers. A trigger is a relationship
+between two branches, such as `master` and `staging` in the examples above,
+that says: when the head commit of `staging` meets a certain condition it
+should trigger `master` to update its head that same commit. In other words it
+does `pachctl create branch data@master --head staging` automatically when the
+trigger condition is met.
+
+Building on the example above, to make `master` automatically trigger when
+there's 1 Megabyte of new data on `staging` run:
+
+```bash
+$ pachctl create branch data@master --trigger staging --trigger-size 1MB
+$ pachctl list branch data
+BRANCH  HEAD                             TRIGGER
+staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
+master  -                                staging on Size(1MB)
+```
+
+When you run that command it may or may not set the head of `master` it depends
+on the difference between the size of the head of `staging` and the existing
+head of `master`, or `0` if it doesn't exist. Notice that in the example above
+`staging` had an existing head with less than a MB of data in it so `master`
+still has no head. If you don't see `staging` when you `list branch` that's ok,
+triggers can point to branches that don't exist yet. The head of `master` will
+update if you add a MB of new data to `staging`:
+
+```bash
+$ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
+$ pachctl list branch data
+BRANCH  HEAD                             TRIGGER
+staging 64b70e6aeda84845858c42d755023673 -
+master  64b70e6aeda84845858c42d755023673 staging on Size(1MB)
+```
+
+Triggers automate deferred processing, but they don't prevent manually updating
+the head of a branch. If you ever want to trigger `master` even though the
+trigger condition hasn't been met you can run:
+
+```bash
+$ pachctl create branch data@master --head staging
+```
+
+Notice that you don't need to respecify the trigger when you call `create
+branch` to change the head. If you do want to clear the trigger delete the
+branch and recreate it.
