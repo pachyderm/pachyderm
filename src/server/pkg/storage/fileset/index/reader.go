@@ -15,10 +15,10 @@ import (
 // Reader is used for reading a multilevel index.
 type Reader struct {
 	ctx     context.Context
-	store   Store
 	chunks  *chunk.Storage
 	path    string
 	filter  *pathFilter
+	topIdx  *Index
 	levels  []pbutil.Reader
 	peekIdx *Index
 	done    bool
@@ -30,12 +30,11 @@ type pathFilter struct {
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, store Store, chunks *chunk.Storage, path string, opts ...Option) *Reader {
+func NewReader(ctx context.Context, topIdx *Index, chunks *chunk.Storage, opts ...Option) *Reader {
 	r := &Reader{
 		ctx:    ctx,
-		store:  store,
 		chunks: chunks,
-		path:   path,
+		topIdx: topIdx,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -71,13 +70,9 @@ func (r *Reader) setup() error {
 }
 
 func (r *Reader) topLevel() (_ pbutil.Reader, retErr error) {
-	idx, err := r.store.GetIndex(r.ctx, r.path)
-	if err != nil {
-		return nil, err
-	}
 	buf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(buf)
-	if _, err = pbw.Write(idx); err != nil {
+	if _, err := pbw.Write(r.topIdx); err != nil {
 		return nil, err
 	}
 	return pbutil.NewReader(buf), nil

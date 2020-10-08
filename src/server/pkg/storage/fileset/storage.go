@@ -40,7 +40,7 @@ const (
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
-	idxStore                     index.Store
+	paths                        PathStore
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
 	levelZeroSize                int64
@@ -49,9 +49,9 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(idxStore index.Store, chunks *chunk.Storage, opts ...StorageOption) *Storage {
+func NewStorage(pathStore PathStore, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		idxStore:       idxStore,
+		paths:          pathStore,
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
 		shardThreshold: DefaultShardThreshold,
@@ -81,18 +81,14 @@ func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterO
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s.idxStore, s.chunks, fileSet, opts...)
+	return newWriter(ctx, s.paths, s.chunks, fileSet, opts...)
 }
 
 // NewReader makes a Reader backed by the path `fileSet` in object storage.
-func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return s.newReader(ctx, fileSet, opts...)
-}
-
 // TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
-func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return newReader(ctx, s.idxStore, s.chunks, fileSet, opts...)
+func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) (*Reader, error) {
+	return newReader(ctx, s.paths, s.chunks, fileSet, opts...)
 }
 
 // NewMergeReader returns a merge reader for a set for filesets.
@@ -103,8 +99,12 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	var rs []*Reader
 	for _, fileSet := range fileSets {
-		if err := s.idxStore.Walk(ctx, fileSet, func(name string) error {
-			rs = append(rs, s.newReader(ctx, name, opts...))
+		if err := s.paths.Walk(ctx, fileSet, func(name string) error {
+			r, err := s.NewReader(ctx, name, opts...)
+			if err != nil {
+				return err
+			}
+			rs = append(rs, r)
 			return nil
 		}); err != nil {
 			return nil, err
@@ -179,7 +179,7 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 }
 
 func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
-	idx, err := s.idxStore.GetIndex(ctx, path.Join(fileSet, Diff))
+	idx, err := s.paths.GetIndex(ctx, path.Join(fileSet, Diff))
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +199,9 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// While we can't fit it all in the current level
 	for {
 		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
-		idx, err := s.idxStore.GetIndex(ctx, levelPath)
+		idx, err := s.paths.GetIndex(ctx, levelPath)
 		if err != nil {
-			if err == index.ErrPathNotExists {
+			if err == ErrPathNotExists {
 				return nil, err
 			}
 		} else {
@@ -216,7 +216,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// Now we know the output level
 	spec.Output = path.Join(fileSet, Compacted, levelName(level))
 	// Copy the other levels that may exist
-	if err := s.idxStore.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
+	if err := s.paths.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
 		lName := path.Base(src)
 		l, err := parseLevel(lName)
 		if err != nil {
@@ -224,7 +224,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := index.Copy(ctx, s.idxStore, s.idxStore, src, dst); err != nil {
+			if err := copyPath(ctx, s.paths, s.paths, src, dst); err != nil {
 				return err
 			}
 		}
@@ -241,14 +241,14 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 
 // Delete deletes a fileset.
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
-	return s.idxStore.Walk(ctx, fileSet, func(p string) error {
-		return s.idxStore.Delete(ctx, fileSet)
+	return s.paths.Walk(ctx, fileSet, func(p string) error {
+		return s.paths.Delete(ctx, fileSet)
 	})
 }
 
 // WalkFileSet calls f with the path of every primitive fileSet under prefix.
 func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string) error) error {
-	return s.idxStore.Walk(ctx, prefix, f)
+	return s.paths.Walk(ctx, prefix, f)
 }
 
 func (s *Storage) levelSize(i int) int64 {

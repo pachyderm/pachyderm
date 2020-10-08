@@ -14,8 +14,8 @@ const (
 	testPath = "test"
 )
 
-func write(tb testing.TB, store Store, chunks *chunk.Storage, fileNames []string) {
-	iw := NewWriter(context.Background(), store, chunks, testPath, "")
+func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
+	iw := NewWriter(context.Background(), chunks, testPath)
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path:   fileName,
@@ -23,11 +23,13 @@ func write(tb testing.TB, store Store, chunks *chunk.Storage, fileNames []string
 		}
 		require.NoError(tb, iw.WriteIndexes([]*Index{idx}))
 	}
-	require.NoError(tb, iw.Close())
+	topIdx, err := iw.Close()
+	require.NoError(tb, err)
+	return topIdx
 }
 
-func actualFiles(tb testing.TB, store Store, chunks *chunk.Storage, opts ...Option) []string {
-	ir := NewReader(context.Background(), store, chunks, testPath, opts...)
+func actualFiles(tb testing.TB, topIdx *Index, chunks *chunk.Storage, opts ...Option) []string {
+	ir := NewReader(context.Background(), topIdx, chunks, opts...)
 	result := []string{}
 	require.NoError(tb, ir.Iterate(func(idx *Index) error {
 		result = append(result, idx.Path)
@@ -55,63 +57,61 @@ func pathRange(fileNames []string) *PathRange {
 
 func Check(t *testing.T, permString string) {
 	require.NoError(t, chunk.WithLocalStorage(func(_ obj.Client, chunks *chunk.Storage) error {
-		WithTestStore(t, func(store Store) {
-			fileNames := Generate(permString)
-			averageBits = 12
-			write(t, store, chunks, fileNames)
-			t.Run("Full", func(t *testing.T) {
-				expected := fileNames
-				actual := actualFiles(t, store, chunks)
-				require.Equal(t, expected, actual)
-			})
-			t.Run("FirstFile", func(t *testing.T) {
-				prefix := fileNames[0]
-				expected := []string{prefix}
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
-			t.Run("FirstRange", func(t *testing.T) {
-				prefix := string(fileNames[0][0])
-				expected := expectedFiles(fileNames, prefix)
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
-			t.Run("MiddleFile", func(t *testing.T) {
-				prefix := fileNames[len(fileNames)/2]
-				expected := []string{prefix}
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
-			t.Run("MiddleRange", func(t *testing.T) {
-				prefix := string(fileNames[len(fileNames)/2][0])
-				expected := expectedFiles(fileNames, prefix)
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
-			t.Run("LastFile", func(t *testing.T) {
-				prefix := fileNames[len(fileNames)-1]
-				expected := []string{prefix}
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
-			t.Run("LastRange", func(t *testing.T) {
-				prefix := string(fileNames[len(fileNames)-1][0])
-				expected := expectedFiles(fileNames, prefix)
-				actual := actualFiles(t, store, chunks, WithPrefix(prefix))
-				require.Equal(t, expected, actual)
-				actual = actualFiles(t, store, chunks, WithRange(pathRange(expected)))
-				require.Equal(t, expected, actual)
-			})
+		fileNames := Generate(permString)
+		averageBits = 12
+		topIdx := write(t, chunks, fileNames)
+		t.Run("Full", func(t *testing.T) {
+			expected := fileNames
+			actual := actualFiles(t, topIdx, chunks)
+			require.Equal(t, expected, actual)
+		})
+		t.Run("FirstFile", func(t *testing.T) {
+			prefix := fileNames[0]
+			expected := []string{prefix}
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
+		})
+		t.Run("FirstRange", func(t *testing.T) {
+			prefix := string(fileNames[0][0])
+			expected := expectedFiles(fileNames, prefix)
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
+		})
+		t.Run("MiddleFile", func(t *testing.T) {
+			prefix := fileNames[len(fileNames)/2]
+			expected := []string{prefix}
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
+		})
+		t.Run("MiddleRange", func(t *testing.T) {
+			prefix := string(fileNames[len(fileNames)/2][0])
+			expected := expectedFiles(fileNames, prefix)
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
+		})
+		t.Run("LastFile", func(t *testing.T) {
+			prefix := fileNames[len(fileNames)-1]
+			expected := []string{prefix}
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
+		})
+		t.Run("LastRange", func(t *testing.T) {
+			prefix := string(fileNames[len(fileNames)-1][0])
+			expected := expectedFiles(fileNames, prefix)
+			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+			require.Equal(t, expected, actual)
+			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+			require.Equal(t, expected, actual)
 		})
 		return nil
 	}))

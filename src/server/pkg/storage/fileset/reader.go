@@ -18,13 +18,17 @@ type Reader struct {
 	cr  *chunk.Reader
 }
 
-func newReader(ctx context.Context, idxStore index.Store, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
+func newReader(ctx context.Context, pathStore PathStore, chunks *chunk.Storage, p string, opts ...index.Option) (*Reader, error) {
+	topIdx, err := pathStore.GetIndex(ctx, p)
+	if err != nil {
+		return nil, err
+	}
 	cr := chunks.NewReader(ctx)
 	return &Reader{
 		ctx: ctx,
-		ir:  index.NewReader(ctx, idxStore, chunks, path, opts...),
+		ir:  index.NewReader(ctx, topIdx, chunks, opts...),
 		cr:  cr,
-	}
+	}, nil
 }
 
 // Peek returns the next file index without progressing the reader.

@@ -1,4 +1,4 @@
-package index
+package fileset
 
 import (
 	"context"
@@ -6,57 +6,25 @@ import (
 	"testing"
 	"time"
 
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
-var (
-	ErrPathNotExists = errors.Errorf("path does not exist")
-	ErrNoTTLSet      = errors.Errorf("no ttl set on path")
-)
+var _ PathStore = &pgPathStore{}
 
-type Store interface {
-	PutIndex(ctx context.Context, p string, idx *Index, ttl time.Duration) error
-	GetIndex(ctx context.Context, p string) (*Index, error)
-	Delete(ctx context.Context, p string) error
-	Walk(ctx context.Context, prefix string, cb func(string) error) error
-
-	SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error)
-	GetExpiresAt(ctx context.Context, p string) (time.Time, error)
-}
-
-func Copy(ctx context.Context, src, dst Store, srcPath, dstPath string) error {
-	idx, err := src.GetIndex(ctx, srcPath)
-	if err != nil {
-		return err
-	}
-	return dst.PutIndex(ctx, dstPath, idx, 0)
-}
-
-func WithTestStore(t *testing.T, cb func(Store)) {
-	dbutil.WithTestDB(t, func(db *sqlx.DB) {
-		PGStoreApplySchema(db)
-		s := NewPGStore(db)
-		cb(s)
-	})
-}
-
-var _ Store = &pgStore{}
-
-type pgStore struct {
+type pgPathStore struct {
 	db *sqlx.DB
 }
 
-func NewPGStore(db *sqlx.DB) Store {
-	return &pgStore{db: db}
+func NewPGPathStore(db *sqlx.DB) PathStore {
+	return &pgPathStore{db: db}
 }
 
-func (s *pgStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.Duration) error {
+func (s *pgPathStore) PutIndex(ctx context.Context, p string, idx *index.Index, ttl time.Duration) error {
 	if idx == nil {
-		idx = &Index{}
+		idx = &index.Index{}
 	}
 	data, err := proto.Marshal(idx)
 	if err != nil {
@@ -70,7 +38,7 @@ func (s *pgStore) PutIndex(ctx context.Context, p string, idx *Index, ttl time.D
 	return err
 }
 
-func (s *pgStore) GetIndex(ctx context.Context, p string) (*Index, error) {
+func (s *pgPathStore) GetIndex(ctx context.Context, p string) (*index.Index, error) {
 	var indexData []byte
 	if err := s.db.GetContext(ctx, &indexData, `SELECT index_pb FROM storage.paths WHERE path = $1`, p); err != nil {
 		if err == sql.ErrNoRows {
@@ -78,14 +46,14 @@ func (s *pgStore) GetIndex(ctx context.Context, p string) (*Index, error) {
 		}
 		return nil, err
 	}
-	idx := &Index{}
+	idx := &index.Index{}
 	if err := proto.Unmarshal(indexData, idx); err != nil {
 		return nil, err
 	}
 	return idx, nil
 }
 
-func (s *pgStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
+func (s *pgPathStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.paths WHERE path LIKE $1 || '%'`, prefix)
 	if err != nil {
 		return err
@@ -106,12 +74,12 @@ func (s *pgStore) Walk(ctx context.Context, prefix string, cb func(string) error
 	return nil
 }
 
-func (s *pgStore) Delete(ctx context.Context, p string) error {
+func (s *pgPathStore) Delete(ctx context.Context, p string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.paths WHERE path = $1`, p)
 	return err
 }
 
-func (s *pgStore) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
+func (s *pgPathStore) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
 	var expiresAt time.Time
 	err := s.db.GetContext(ctx, &expiresAt, `
 	UPDATE storage.paths
@@ -124,7 +92,7 @@ func (s *pgStore) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	return expiresAt, nil
 }
 
-func (s *pgStore) GetExpiresAt(ctx context.Context, p string) (time.Time, error) {
+func (s *pgPathStore) GetExpiresAt(ctx context.Context, p string) (time.Time, error) {
 	var expiresAt sql.NullTime
 	if err := s.db.GetContext(ctx, &expiresAt, `SELECT expires_at FROM storage.paths WHERE path = $1`, p); err != nil {
 		return time.Time{}, err
@@ -154,6 +122,14 @@ type pathRow struct {
 	ExpiresAt sql.NullTime `db:"expires_at"`
 }
 
-func PGStoreApplySchema(db *sqlx.DB) {
+func PGPathStoreApplySchema(db *sqlx.DB) {
 	db.MustExec(schema)
+}
+
+func WithTestPathStore(t *testing.T, cb func(PathStore)) {
+	dbutil.WithTestDB(t, func(db *sqlx.DB) {
+		PGPathStoreApplySchema(db)
+		s := NewPGPathStore(db)
+		cb(s)
+	})
 }

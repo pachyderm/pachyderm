@@ -3,6 +3,7 @@ package fileset
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -19,6 +20,8 @@ type data struct {
 // The serialized format of a fileset consists of indexes and content.
 type Writer struct {
 	ctx       context.Context
+	paths     PathStore
+	path      string
 	tw        *tar.Writer
 	cw        *chunk.Writer
 	iw        *index.Writer
@@ -27,11 +30,16 @@ type Writer struct {
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
 	priorFile bool
+	ttl       time.Duration
 }
 
-func newWriter(ctx context.Context, idxStore index.Store, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, pathStore PathStore, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
 	tmpID := path + uuid.NewWithoutDashes()
-	w := &Writer{ctx: ctx}
+	w := &Writer{
+		ctx:   ctx,
+		paths: pathStore,
+		path:  path,
+	}
 	for _, opt := range opts {
 		opt(w)
 	}
@@ -39,7 +47,7 @@ func newWriter(ctx context.Context, idxStore index.Store, chunks *chunk.Storage,
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.iw = index.NewWriter(ctx, idxStore, chunks, path, tmpID)
+	w.iw = index.NewWriter(ctx, chunks, tmpID)
 	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
@@ -220,7 +228,11 @@ func (w *Writer) Close() error {
 		return nil
 	}
 	// Close the index writer.
-	return w.iw.Close()
+	idx, err := w.iw.Close()
+	if err != nil {
+		return err
+	}
+	return w.paths.PutIndex(w.ctx, w.path, idx, w.ttl)
 }
 
 func (w *Writer) checkPath(p string) error {

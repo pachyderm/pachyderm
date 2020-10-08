@@ -1,6 +1,8 @@
 package fileset
 
 import (
+	"time"
+
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"golang.org/x/sync/semaphore"
@@ -59,6 +61,13 @@ type WriterOption func(w *Writer)
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
+	}
+}
+
+// WithSetTTL sets the writer to write a fileset which will expire
+func WithSetTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.ttl = ttl
 	}
 }
 

@@ -32,9 +32,7 @@ type data struct {
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
 	ctx    context.Context
-	store  Store
 	chunks *chunk.Storage
-	path   string
 	tmpID  string
 	levels []*levelWriter
 	closed bool
@@ -43,12 +41,10 @@ type Writer struct {
 }
 
 // NewWriter create a new Writer.
-func NewWriter(ctx context.Context, store Store, chunks *chunk.Storage, path string, tmpID string) *Writer {
+func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
 	return &Writer{
 		ctx:    ctx,
-		store:  store,
 		chunks: chunks,
-		path:   path,
 		tmpID:  tmpID,
 	}
 }
@@ -135,7 +131,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() (retErr error) {
+func (w *Writer) Close() (ret *Index, retErr error) {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
@@ -144,12 +140,11 @@ func (w *Writer) Close() (retErr error) {
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
 		if err := l.cw.Close(); err != nil {
-			return err
+			return nil, err
 		}
 		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
 			break
 		}
 	}
-	// Write the final index level to the path.
-	return w.store.PutIndex(w.ctx, w.path, w.root, w.ttl)
+	return w.root, nil
 }

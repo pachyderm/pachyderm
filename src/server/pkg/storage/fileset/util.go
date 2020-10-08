@@ -8,14 +8,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // WithLocalStorage constructs a local storage instance for testing during the lifetime of
 // the callback.
 func WithLocalStorage(t *testing.T, f func(*Storage) error) (err error) {
-	index.WithTestStore(t, func(store index.Store) {
+	WithTestPathStore(t, func(store PathStore) {
 		err = chunk.WithLocalStorage(func(objC obj.Client, chunks *chunk.Storage) error {
 			return f(NewStorage(store, chunks))
 		})
