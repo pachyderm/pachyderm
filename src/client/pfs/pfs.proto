@@ -754,6 +754,11 @@ message GetObjDirectRequest {
     string obj = 1;
 }
 
+message DeleteObjDirectRequest {
+    string object = 1;
+    string prefix = 2;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
@@ -783,6 +788,7 @@ service ObjectAPI {
   // GetObjDirect gets an obj directly out of object store, bypassing the
   // content addressing layer.
   rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteObjDirect(DeleteObjDirectRequest) returns (google.protobuf.Empty) {}
 }
 
 message ObjectIndex {

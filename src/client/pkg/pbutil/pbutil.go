@@ -37,7 +37,7 @@ type readWriter struct {
 func (r *readWriter) ReadBytes() ([]byte, error) {
 	var l int64
 	if err := binary.Read(r.r, binary.LittleEndian, &l); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if r.buf == nil || len(r.buf) < int(l) {
 		r.buf = make([]byte, l)
@@ -47,7 +47,7 @@ func (r *readWriter) ReadBytes() ([]byte, error) {
 		if errors.Is(err, io.EOF) {
 			return nil, io.ErrUnexpectedEOF
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return buf, nil
 }
@@ -56,25 +56,25 @@ func (r *readWriter) ReadBytes() ([]byte, error) {
 func (r *readWriter) Read(val proto.Message) error {
 	buf, err := r.ReadBytes()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return proto.Unmarshal(buf, val)
 }
 
 func (r *readWriter) WriteBytes(bytes []byte) (int64, error) {
 	if err := binary.Write(r.w, binary.LittleEndian, int64(len(bytes))); err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	lenByteSize := unsafe.Sizeof(int64(len(bytes)))
 	n, err := r.w.Write(bytes)
-	return int64(lenByteSize) + int64(n), err
+	return int64(lenByteSize) + int64(n), errors.EnsureStack(err)
 }
 
 // Write writes val to r.
 func (r *readWriter) Write(val proto.Message) (int64, error) {
 	bytes, err := proto.Marshal(val)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	return r.WriteBytes(bytes)
 }
