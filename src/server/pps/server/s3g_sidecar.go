@@ -254,7 +254,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		s.s.serversMu.Lock()
 		defer s.s.serversMu.Unlock()
 		if _, ok := s.s.servers[ppsutil.SidecarS3GatewayService(jobID, datumSummary.ID)]; ok {
-			return // s3g handler already created
+			continue // s3g handler already created
 		}
 
 		// Initialize new S3 gateway
