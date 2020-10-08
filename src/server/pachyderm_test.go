@@ -2880,20 +2880,24 @@ func TestUpdatePipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{"echo foo >/pfs/out/file"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		true,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"echo foo >/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Update:      true,
+			EnableStats: true,
+		})
+	require.NoError(t, err)
 
-	_, err := c.StartCommit(dataRepo, "master")
+	_, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
 	require.NoError(t, err)
@@ -2908,18 +2912,22 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 
 	// Update the pipeline
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{"echo bar >/pfs/out/file"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		true,
-	))
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"echo bar >/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Update:      true,
+			EnableStats: true,
+		})
+	require.NoError(t, err)
 
 	// Confirm that k8s resources have been updated (fix #4071)
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
@@ -2990,9 +2998,10 @@ func TestUpdatePipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:     client.NewPFSInput(dataRepo, "/*"),
-			Update:    true,
-			Reprocess: true,
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Update:      true,
+			Reprocess:   true,
+			EnableStats: true,
 		})
 	require.NoError(t, err)
 
@@ -4261,8 +4270,10 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{
+			"sleep 60",
+		},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -4277,17 +4288,28 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
+	var jobInfo *pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 job, got %d", len(jobInfos))
+		}
+		jobInfo = jobInfos[0]
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.NoError(t, c.DeleteJob(jobInfo.Job.ID))
 
-	_, err = commitIter.Next()
-	require.NoError(t, err)
-
-	// Now delete the corresponding job
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	err = c.DeleteJob(jobInfos[0].Job.ID)
+	// Inspect the output commit with a timeout to ensure that the commit is finished after delete job.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	_, err = c.PfsAPIClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit:     jobInfo.OutputCommit,
+			BlockState: pfs.CommitState_FINISHED,
+		},
+	)
 	require.NoError(t, err)
 }
 

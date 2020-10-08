@@ -7,6 +7,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -39,9 +40,11 @@ type UnorderedWriter struct {
 	defaultTag                 string
 	fs                         map[string]*dataOp
 	subFileSet                 int64
+	ttl                        time.Duration
+	renewer                    *Renewer
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
@@ -165,6 +168,15 @@ func (f *UnorderedWriter) Delete(name string, customTag ...string) {
 	dataOp.memFiles[tag] = nil
 }
 
+// PathsWritten returns the full paths (not prefixes) written by this UnorderedWriter
+func (f *UnorderedWriter) PathsWritten() (ret []string) {
+	for i := int64(0); i < f.subFileSet; i++ {
+		p := path.Join(f.name, SubFileSetStr(i))
+		ret = append(ret, p)
+	}
+	return ret
+}
+
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (f *UnorderedWriter) serialize() error {
@@ -177,7 +189,12 @@ func (f *UnorderedWriter) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
+	var writerOpts []WriterOption
+	if f.ttl > 0 {
+		writerOpts = append(writerOpts, WithTTL(f.ttl))
+	}
+	p := path.Join(f.name, SubFileSetStr(f.subFileSet))
+	w := f.storage.newWriter(f.ctx, p, writerOpts...)
 	for _, name := range names {
 		dataOp := f.fs[name]
 		deleteTags := getSortedTags(dataOp.deleteTags)
@@ -206,6 +223,10 @@ func (f *UnorderedWriter) serialize() error {
 	if err := w.Close(); err != nil {
 		return err
 	}
+	if f.renewer != nil {
+		f.renewer.Add(p)
+	}
+
 	// Reset in-memory file set.
 	f.fs = make(map[string]*dataOp)
 	f.memAvailable = f.memThreshold

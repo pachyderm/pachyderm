@@ -11,45 +11,25 @@ set -ex
     done
 ) &
 
-# Note that we update the `PATH` to include
-# `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
-# calls using `sudo`. If you need to make a `sudo` call to a binary in
-# `~/cached-deps`, you'll need to explicitly set the path like so:
-#
-#     sudo env "PATH=$PATH" minikube foo
+# Repeatedly restart minikube until it comes up. This corrects for an issue in
+# Travis, where minikube will get stuck on startup and never recover
+while true; do
+  # In case minikube delete doesn't work (see minikube#2519)
+  for C in $(docker ps -aq); do docker rm -f "$C"; done || true
 
-# In case minikube delete doesn't work (see minikube#2519)
-for C in $(docker ps -aq); do docker rm -f "$C"; done || true
+  # Belt and braces
+  sudo rm -rf \
+    /etc/kubernetes \
+    /data/minikube \
+    /var/lib/minikube \
+    "${HOME}"/.pachyderm/config.json  # In case we're retrying on a new cluster
 
-# Belt and braces
-sudo rm -rf /etc/kubernetes /data/minikube /var/lib/minikube
-
-# In case we're retrying on a new cluster
-rm -f "${HOME}"/.pachyderm/config.json
-
-make launch-kube
-sleep 5
-
-# Wait until a connection with kubernetes has been established
-echo "Waiting for connection to kubernetes..."
-max_t=90
-wheel='\|/-';
-until {
-  minikube status &>/dev/null
-  kubectl version &>/dev/null
-}; do
-    if ((max_t-- <= 0)); then
-        echo "Could not connect to minikube"
-        echo "minikube status --alsologtostderr --loglevel=0 -v9:"
-        echo "==================================================="
-        minikube status --alsologtostderr --loglevel=0 -v9
-        exit 1
-    fi
-    echo -en "\e[G$${wheel:0:1}";
-    # shellcheck disable=SC2034
-    wheel="$${wheel:1}$${wheel:0:1}";
-    sleep 1;
+  if make launch-kube; then
+    break
+  fi
 done
+
+# make launch-kube connects with kubernetes, so it should just be available
 minikube status
 kubectl version
 

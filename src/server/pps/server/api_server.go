@@ -951,7 +951,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	if err != nil {
 		return nil, err
 	}
-
+	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+		return nil, err
+	}
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
@@ -970,11 +972,17 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	if err != nil {
 		return nil, err
 	}
+	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
 
+func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job) error {
 	// Lookup jobInfo
 	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobPtr); err != nil {
-		return nil, err
+	if err := a.jobs.ReadOnly(ctx).Get(job.ID, jobPtr); err != nil {
+		return err
 	}
 	// Finish the job's output commit without a tree -- worker/master will mark
 	// the job 'killed'
@@ -983,9 +991,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 			Commit: jobPtr.OutputCommit,
 			Empty:  true,
 		}); err != nil {
-		return nil, err
+		if !(pfsServer.IsCommitFinishedErr(err) || pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err)) {
+			return err
+		}
 	}
-	return &types.Empty{}, nil
+	return nil
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
@@ -1832,6 +1842,16 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 		nil,
 	); err != nil && !isNotFoundErr(err) {
 		return errors.Wrapf(err, "could not recreate original output branch")
+	}
+	if pipelineInfo.EnableStats {
+		if err := pachClient.CreateBranch(
+			pipelineInfo.Pipeline.Name,
+			"stats",
+			"stats",
+			nil,
+		); err != nil && !isNotFoundErr(err) {
+			return errors.Wrapf(err, "could not recreate original stats branch")
+		}
 	}
 
 	// Now that new commits won't be created on the master branch, enumerate

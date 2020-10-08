@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -36,6 +38,11 @@ const (
 	Diff = "diff"
 	// Compacted is the suffix of a path that points to the compaction of the prefix.
 	Compacted = "compacted"
+)
+
+var (
+	// ErrNoFileSetFound is returned by the methods on Storage when a fileset does not exist
+	ErrNoFileSetFound = errors.Errorf("no fileset found")
 )
 
 // Storage is the abstraction that manages fileset storage.
@@ -71,7 +78,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
@@ -134,13 +141,27 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// Copy copies the fileset at srcPrefix to dstPrefix. It does *not* perform compaction
+// ttl sets the time to live on the keys under dstPrefix if ttl == 0, it is ignored
+func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl time.Duration) error {
+	// TODO: perform this atomically with postgres
+	return s.paths.Walk(ctx, srcPrefix, func(srcPath string) error {
+		dstPath := dstPrefix + srcPath[len(srcPrefix):]
+		idx, err := s.paths.GetIndex(ctx, srcPath)
+		if err != nil {
+			return err
+		}
+		return s.paths.PutIndex(ctx, dstPath, idx, ttl)
+	})
+}
+
 // CompactStats contains information about what was compacted.
 type CompactStats struct {
 	OutputSize int64
 }
 
 // Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
 	var size int64
 	w := s.newWriter(ctx, outputFileSet, WithIndexCallback(func(idx *index.Index) error {
 		size += idx.SizeBytes
@@ -155,6 +176,11 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 	}
 	if err := w.Close(); err != nil {
 		return nil, err
+	}
+	if ttl > 0 {
+		if _, err := s.SetTTL(ctx, outputFileSet, ttl); err != nil {
+			return nil, err
+		}
 	}
 	return &CompactStats{OutputSize: size}, nil
 }
@@ -249,6 +275,32 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 // WalkFileSet calls f with the path of every primitive fileSet under prefix.
 func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string) error) error {
 	return s.paths.Walk(ctx, prefix, f)
+}
+
+// SetTTL sets the time-to-live for the path p.
+// if no fileset is found SetTTL returns ErrNoFileSetFound
+func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
+	expiresAt, err := s.paths.SetTTL(ctx, p, ttl)
+	switch {
+	case err == ErrPathNotExists:
+		err = ErrNoFileSetFound
+	}
+	return expiresAt, err
+}
+
+// WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
+	r := newRenewer(s, ttl)
+	cancelCtx, cf := context.WithCancel(ctx)
+	eg, errCtx := errgroup.WithContext(cancelCtx)
+	eg.Go(func() error {
+		return r.run(errCtx)
+	})
+	eg.Go(func() error {
+		defer cf()
+		return cb(errCtx, r)
+	})
+	return eg.Wait()
 }
 
 func (s *Storage) levelSize(i int) int64 {

@@ -51,8 +51,16 @@ func WithMaxOpenFileSets(max int) StorageOption {
 	}
 }
 
-// UWriterOption configures an UnorderedWriter.
-type UWriterOption func(f *UnorderedWriter)
+// UnorderedWriterOption configures an UnorderedWriter.
+type UnorderedWriterOption func(f *UnorderedWriter)
+
+// WithRenewer sets the UnorderedWriter's Renewer.
+func WithRenewer(ttl time.Duration, r *Renewer) UnorderedWriterOption {
+	return func(uw *UnorderedWriter) {
+		uw.ttl = ttl
+		uw.renewer = r
+	}
+}
 
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
@@ -76,6 +84,13 @@ func WithSetTTL(ttl time.Duration) WriterOption {
 func WithIndexCallback(cb func(*index.Index) error) WriterOption {
 	return func(w *Writer) {
 		w.indexFunc = cb
+	}
+}
+
+// WithTTL sets the ttl for the fileset
+func WithTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.ttl = ttl
 	}
 }
 

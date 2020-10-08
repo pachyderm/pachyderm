@@ -618,6 +618,16 @@ func (a *apiServer) ClearCommitV2(_ context.Context, _ *pfs.ClearCommitRequestV2
 	return nil, errV2NotImplemented
 }
 
+// CreateTmpFileSet not implemented
+func (a *apiServer) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
+	return errV2NotImplemented
+}
+
+// RenewTmpFileSet not implemented
+func (a *apiServer) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	return nil, errV2NotImplemented
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {
