@@ -17,18 +17,18 @@ const (
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient obj.Client
-	gcClient  gc.Client
+	tracker Tracker
 
 	defaultChunkTTL time.Duration
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objClient obj.Client, opts ...StorageOption) *Storage {
+func NewStorage(objClient obj.Client, tracker Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:       objClient,
 		defaultChunkTTL: defaultChunkTTL,
+		tracker: tracker
 	}
-	s.gcClient = gc.NewMockClient()
 	for _, opt := range opts {
 		opt(s)
 	}

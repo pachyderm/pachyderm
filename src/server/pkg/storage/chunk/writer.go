@@ -64,7 +64,7 @@ type Writer struct {
 	cancel                  context.CancelFunc
 	err                     error
 	objC                    obj.Client
-	gcC                     gc.Client
+	tracker                 Tracker
 	chunkSize               *chunkSize
 	annotations             []*Annotation
 	numChunkBytesAnnotation int
@@ -81,14 +81,14 @@ type Writer struct {
 	chunkTTL                time.Duration
 }
 
-func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, tracker Tracker, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	eg, errCtx := errgroup.WithContext(cancelCtx)
 	w := &Writer{
-		ctx:    errCtx,
-		cancel: cancel,
-		objC:   objC,
-		gcC:    gcC,
+		ctx:     errCtx,
+		cancel:  cancel,
+		objC:    objC,
+		tracker: tracker,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
@@ -104,6 +104,7 @@ func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string
 		opt(w)
 	}
 	w.resetHash()
+	go w.renewLoop(ctx)
 	return w
 }
 
@@ -274,25 +275,12 @@ func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
 		return nil
 	}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID, w.getExpiresAt()); err != nil {
+	if err := w.tracker.AddChunk(ctx, w.tmpID, ChunkID(chunk.Hash)); err != nil {
 		return err
 	}
-	// Skip the upload if the chunk already exists.
-	if w.objC.Exists(w.ctx, path) {
+	if err := UploadChunk(ctx, w.tracker, r io.Reader); err != nil {
 		return nil
-	}
-	objW, err := w.objC.Writer(w.ctx, path)
-	if err != nil {
-		return err
-	}
-	defer objW.Close()
-	gzipW, err := gzip.NewWriterLevel(objW, gzip.BestSpeed)
-	if err != nil {
-		return err
-	}
-	defer gzipW.Close()
-	// TODO Encryption?
-	_, err = io.Copy(gzipW, bytes.NewReader(chunkBytes))
+	}	
 	return err
 }
 
@@ -476,6 +464,17 @@ func (w *Writer) Close() error {
 	})
 }
 
-func (w *Writer) getExpiresAt() time.Time {
-	return time.Now().UTC().Add(w.chunkTTL)
+func (w *Writer) renewLoop(ctx context.Context) error {
+	ticker := time.NewTicker(w.ttl)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if _, err := w.tr.SetTTL(ctx, w.tmpID); err != nil {
+				return err
+			}
+		}
+	}
 }

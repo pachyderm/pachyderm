@@ -2,10 +2,8 @@ package chunk
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
-	"path"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -275,18 +273,8 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Get chunk from object storage.
-	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.ChunkInfo.Chunk.Hash), 0, 0)
-	if err != nil {
-		return err
-	}
-	defer objR.Close()
-	gzipR, err := gzip.NewReader(objR)
-	if err != nil {
-		return err
-	}
-	defer gzipR.Close()
 	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, gzipR); err != nil {
+	if err := GetChunk(dr.ctx, dr.objC, ChunkID(chunk.Hash), buf); err != nil {
 		return err
 	}
 	dr.chunk = buf.Bytes()
