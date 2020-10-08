@@ -188,7 +188,7 @@ def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
     if run_id != "":
         logging.info("waiting on kubeflow run id: {}".format(run_id))
         j = client.wait_for_run_completion(run_id, 60)
-        assert j.run.status == 'Succeeded'
+        assert j.run.status == 'Succeeded', f'timed out after 60s, status was {j.run.status}'
     return 0
 
 if __name__ == "__main__":

@@ -90,7 +90,7 @@ func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Server, error) {
+func Server(port uint16, driver Driver, clientFactory ClientFactory, debug string) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -117,7 +117,7 @@ func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Serv
 		WriteTimeout: requestTimeout,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Log that a request was made
-			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
+			logger.Infof("INNER (%s) http request: %s %s", debug, r.Method, r.RequestURI)
 			router.ServeHTTP(w, r)
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed

@@ -99,6 +99,74 @@ func (a *apiServer) ServeSidecarS3G() {
 		return // break early (nothing to serve via S3 gateway)
 	}
 
+	// start a single http instance and route to s.servers based on hostname
+	/*
+		From msteffen:
+		looking through the code, right now s3g_sidecar.go calls ListenAndServe on
+		line 235. Instead what needs to happen is we need to create a new
+		http.ServeMux that serves on env.S3GatewayPort (so all of these headless
+		services are pointing at this one http.ServeMux) and then for each request,
+		looks at Request.Host and depending on that, pulls the correct server out
+		of sidecarS3G.servers and forwards the request to it (and forwards the
+		response back to the client)
+	*/
+
+	server := &http.Server{
+		Addr: fmt.Sprintf(":%d", s.apiServer.env.S3GatewayPort),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// try to look up host header and dispatch request to the
+			// appropriate server's HandleFunc by calling it directly
+
+			logrus.Infof("OUTER http request: %s %s %s", r.Method, r.RequestURI, r.Host)
+			if r.Host != "" {
+				logrus.Infof("got host header! %s req = %s %s", r.Host, r.Method, r.RequestURI)
+				host := ""
+				// s3-1c414f4-ba38c01.default:600 -> s3-1c414f4-ba38c01.default
+				if strings.Contains(r.Host, ":") {
+					host = strings.Split(r.Host, ":")[0]
+				}
+				// s3-1c414f4-ba38c01.default -> s3-1c414f4-ba38c01
+				if strings.Contains(r.Host, ".") {
+					host = strings.Split(r.Host, ".")[0]
+				}
+				s.serversMu.Lock()
+				server, ok := s.servers[host]
+				s.serversMu.Unlock()
+
+				if !ok {
+					s.serversMu.Lock()
+					logrus.Infof("NO DATUM SERVER FOR %s, servers was %+v", host, s.servers)
+					s.serversMu.Unlock()
+					http.Error(w, fmt.Sprintf("no datum server matched %s", host), http.StatusBadRequest)
+					return
+				}
+
+				logrus.Infof("DELEGATING REQUEST FOR %s TO %+v", host, server)
+				server.Handler.ServeHTTP(w, r)
+
+			} else {
+				logrus.Errorf("no host header in s3 request, can't route to the right backend; request: %s %s", r.Method, r.RequestURI)
+				for name, headers := range r.Header {
+					name = strings.ToLower(name)
+					for _, h := range headers {
+						logrus.Infof("%v: %v", name, h)
+					}
+				}
+				http.Error(w, "no host header", http.StatusInternalServerError)
+			}
+		}),
+	}
+
+	go func() {
+		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
+			err := server.ListenAndServe()
+			if err == nil || errors.Is(err, http.ErrServerClosed) {
+				break // server was shutdown/closed
+			}
+			logrus.Errorf("error serving global sidecar s3 gateway handler: %v; strike %d/3", err, i+1)
+		}
+	}()
+
 	// begin creating k8s services and s3 gateway instances for each job
 	done := make(chan string)
 	go func() {
@@ -177,13 +245,15 @@ type s3InstanceCreatingJobHandler struct {
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	logrus.Infof("In s3InstanceCreatingJobHandler OnCreate with jobInfo %v", jobInfo)
+
+	// TODO index into servers by datum
 	jobID := jobInfo.Job.ID
 
 	for _, datumSummary := range jobInfo.DatumSummaries {
 		// serve new S3 gateway & add to s.servers
 		s.s.serversMu.Lock()
 		defer s.s.serversMu.Unlock()
-		if _, ok := s.s.servers[jobID]; ok {
+		if _, ok := s.s.servers[ppsutil.SidecarS3GatewayService(jobID, datumSummary.ID)]; ok {
 			return // s3g handler already created
 		}
 
@@ -225,7 +295,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			var err error
 			server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
 				return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
-			})
+			}, datumSummary.Path)
 			if err != nil {
 				return errors.Wrapf(err, "couldn't initialize s3 gateway server")
 			}
@@ -239,16 +309,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", jobID, err)
 			return // give up. Worker will fail the job
 		}
-		go func() {
-			for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-				err := server.ListenAndServe()
-				if err == nil || errors.Is(err, http.ErrServerClosed) {
-					break // server was shutdown/closed
-				}
-				logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
-			}
-		}()
-		s.s.servers[fmt.Sprintf("%s.%s", jobID, datumSummary.ID)] = server
+		s.s.servers[ppsutil.SidecarS3GatewayService(jobID, datumSummary.ID)] = server
 	}
 }
 
@@ -257,7 +318,7 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, jobIn
 	for _, datumSummary := range jobInfo.DatumSummaries {
 		s.s.serversMu.Lock()
 		defer s.s.serversMu.Unlock()
-		server, ok := s.s.servers[fmt.Sprintf("%s.%s", jobID, datumSummary.ID)]
+		server, ok := s.s.servers[ppsutil.SidecarS3GatewayService(jobID, datumSummary.ID)]
 		if !ok {
 			return // s3g handler already deleted
 		}
@@ -487,9 +548,5 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 		return
 	}
 
-	// 1. Read [datums object] for jobInfo
-	// Q: What is [datums object]?
-	// for _, datum := range ([datums object]) {
-	h.h.OnCreate(jobCtx, jobInfo /*, datum */)
-	// }
+	h.h.OnCreate(jobCtx, jobInfo)
 }

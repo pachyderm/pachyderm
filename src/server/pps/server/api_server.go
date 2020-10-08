@@ -566,8 +566,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 
-	// TODO: we could create a datum iterator for the parent job
-	// TODO: can we ask the datum iterator for only marginal datums?
+	// determine marginal datums (ones that haven't been processed already)
 
 	parentDatumIds := map[string]bool{}
 	// parent commit isn't set for the first output commit

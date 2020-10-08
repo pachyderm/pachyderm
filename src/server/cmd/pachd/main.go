@@ -715,7 +715,7 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
 			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
-		})
+		}, "<unknown>")
 		if err != nil {
 			return err
 		}
