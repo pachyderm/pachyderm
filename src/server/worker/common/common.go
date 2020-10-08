@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	fmt "fmt"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -39,10 +40,14 @@ func DatumID(inputs []*Input) string {
 // pipeline-specific prefix.
 func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string {
 	hash := sha256.New()
+	fmt.Println("hashing: ", len(inputs))
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
 		for _, fileInfo := range input.FileInfo {
 			hash.Write([]byte(fileInfo.File.Path))
+			// if i > 0 { // we want the groups to have different hashes, but we don't want to mess up the previous behavior here
+			// 	hash.Write([]byte("group"))
+			// }
 			hash.Write(fileInfo.Hash)
 		}
 	}

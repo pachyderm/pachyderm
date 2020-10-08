@@ -1147,6 +1147,7 @@ func (d *driver) UploadOutput(
 								return nil
 							}
 							for _, inputFileInfo := range input.FileInfo {
+								fmt.Println("path:", inputFileInfo.File.Path)
 								fc := inputFileInfo.File.Commit
 								fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
 								if err != nil {
@@ -1167,6 +1168,7 @@ func (d *driver) UploadOutput(
 									statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
 								}
 							}
+							fmt.Println("path:")
 							return nil
 						})
 					}
@@ -1262,6 +1264,7 @@ func (d *driver) UserCodeEnv(
 	result := os.Environ()
 
 	for _, input := range inputs {
+		fmt.Println("uce length: ", len(input.FileInfo))
 		if len(input.FileInfo) > 0 {
 			result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo[0].File.Path)))
 			result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo[0].File.Commit.ID))
@@ -1270,7 +1273,6 @@ func (d *driver) UserCodeEnv(
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it

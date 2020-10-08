@@ -171,7 +171,8 @@ func forEachDatum(driver driver.Driver, object string, cb func(int64, []*common.
 		return err
 	}
 
-	for _, datum := range allDatums.Datums {
+	for i, datum := range allDatums.Datums {
+		fmt.Println("datum:", i, len(datum.Inputs))
 		if err := cb(datum.Index, datum.Inputs); err != nil {
 			return err
 		}
@@ -303,6 +304,9 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 						logger, err := logs.NewLogger(driver.PipelineInfo(), driver.PachClient())
 						if err != nil {
 							return err
+						}
+						for _, i := range inputs {
+							fmt.Println("inlog", len(i.FileInfo))
 						}
 						logger = logger.WithJob(jobID).WithData(inputs)
 

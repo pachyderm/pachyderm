@@ -435,14 +435,22 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	}
 
 	// Build up chunks to be put into work tasks from the datum iterator
+	fmt.Println("num datums:", numDatums)
 	for i := int64(0); i < numDatums; i++ {
 		inputs, index := pj.jdit.NextDatum()
 		if inputs == nil {
 			return errors.New("job datum iterator returned nil inputs")
 		}
+		fmt.Println("leninp:", len(inputs))
 
 		datums = append(datums, &DatumInputs{Inputs: inputs, Index: index})
+		for _, input := range inputs {
 
+			for _, fileInfo := range input.FileInfo {
+				fmt.Println("num dat", fileInfo.File.Path)
+
+			}
+		}
 		// If we have enough input bytes, finish the task
 		if maxBytesPerTask != 0 {
 			for _, input := range inputs {

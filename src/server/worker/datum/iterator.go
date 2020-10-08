@@ -328,12 +328,12 @@ func (d *crossIterator) DatumN(n int) []*common.Input {
 }
 
 type groupIterator struct {
-	datums   []*common.Input
+	datums   [][]*common.Input
 	location int
 }
 
 func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterator, error) {
-	groupMap := make(map[string]*common.Input)
+	groupMap := make(map[string][]*common.Input)
 	keys := make([]string, 0, len(group))
 	result := &groupIterator{}
 	defer result.Reset()
@@ -348,20 +348,20 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 		}
 		// iterate through each iterator to get the individual datums
 		for datumIterator.Next() {
-			datums := datumIterator.Datum()
-			for _, datum := range datums {
+			datum := datumIterator.Datum()
+			for _, datumInput := range datum {
 				// put the datums in an map keyed by GroupBy
-				groupDatums, ok := groupMap[datum.GroupBy]
-				if !ok || groupDatums == nil {
-					keys = append(keys, datum.GroupBy)
-					groupMap[datum.GroupBy] = datum
+				groupDatum, ok := groupMap[datumInput.GroupBy]
+				if !ok || groupDatum == nil {
+					keys = append(keys, datumInput.GroupBy)
+					groupMap[datumInput.GroupBy] = datum
 					continue
 				}
 				// if groupDatums.FileInfo == nil {
 				// 	groupDatums.FileInfo = make([]*pfs.FileInfo, 0, len(datum.FileInfo))
 				// }
 				// groupDatums.FileInfo =
-				groupMap[datum.GroupBy].FileInfo = append(groupDatums.FileInfo, datum.FileInfo...)
+				groupMap[datumInput.GroupBy] = append(groupDatum, datumInput)
 			}
 		}
 	}
@@ -370,7 +370,7 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 	sort.Strings(keys)
 	// put each equivalence class into its own datum
 	for _, key := range keys {
-		fmt.Println("key: ", key, len(result.datums))
+		fmt.Println("key: ", key, len(groupMap[key]))
 		result.datums = append(result.datums, groupMap[key])
 
 	}
@@ -394,7 +394,7 @@ func (d *groupIterator) Next() bool {
 }
 
 func (d *groupIterator) Datum() []*common.Input {
-	return d.datums
+	return d.datums[d.location]
 }
 
 func (d *groupIterator) DatumN(n int) []*common.Input {
