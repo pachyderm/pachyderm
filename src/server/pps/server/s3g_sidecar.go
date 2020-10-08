@@ -246,7 +246,6 @@ type s3InstanceCreatingJobHandler struct {
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	logrus.Infof("In s3InstanceCreatingJobHandler OnCreate with jobInfo %v", jobInfo)
 
-	// TODO index into servers by datum
 	jobID := jobInfo.Job.ID
 
 	for _, datumSummary := range jobInfo.DatumSummaries {
@@ -258,9 +257,6 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 
 		// Initialize new S3 gateway
-
-		// TODO: instead of calling InspectDatum, specify the path in the place
-		// where we populate the jobInfo
 
 		// XXX: this code currently assumes there's only one input per job
 
@@ -284,10 +280,6 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			}
 		}
 		driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-		// TODO(msteffen) always serve on the same port for now (there shouldn't be
-		// more than one job in s.servers). When parallel jobs are implemented, the
-		// servers in s.servers won't actually serve anymore, and instead parent
-		// server will forward requests based on the request hostname
 		port := s.s.apiServer.env.S3GatewayPort
 		strport := strconv.FormatInt(int64(port), 10)
 		var server *http.Server
