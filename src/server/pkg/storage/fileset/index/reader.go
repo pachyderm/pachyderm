@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -76,16 +75,6 @@ func (r *Reader) topLevel() (_ pbutil.Reader, retErr error) {
 		return nil, err
 	}
 	return pbutil.NewReader(buf), nil
-}
-
-func getPath(ctx context.Context, db *sqlx.DB, p string) ([]byte, error) {
-	var x struct {
-		IndexPB []byte `db:"index_pb"`
-	}
-	if err := db.GetContext(ctx, &x, `SELECT FROM storage.semantic_paths WHERE path = $1`, p); err != nil {
-		return nil, err
-	}
-	return x.IndexPB, nil
 }
 
 // Next returns the next index and progresses the reader.
