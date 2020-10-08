@@ -400,37 +400,39 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		// Also create a dataset-lifecycle-framework Dataset CRD instance for
 		// each S3 gateway.
 
-		dataset := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "apps/v1",
-				"kind":       "Deployment",
-				"metadata": map[string]interface{}{
-					"name": "demo-deployment",
-				},
-				"spec": map[string]interface{}{
-					"replicas": 2,
-					"selector": map[string]interface{}{
-						"matchLabels": map[string]interface{}{
-							"app": "demo",
-						},
+		/*
+			dataset := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name": "demo-deployment",
 					},
-					"template": map[string]interface{}{
-						"metadata": map[string]interface{}{
-							"labels": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"replicas": 2,
+						"selector": map[string]interface{}{
+							"matchLabels": map[string]interface{}{
 								"app": "demo",
 							},
 						},
+						"template": map[string]interface{}{
+							"metadata": map[string]interface{}{
+								"labels": map[string]interface{}{
+									"app": "demo",
+								},
+							},
 
-						"spec": map[string]interface{}{
-							"containers": []map[string]interface{}{
-								{
-									"name":  "web",
-									"image": "nginx:1.12",
-									"ports": []map[string]interface{}{
-										{
-											"name":          "http",
-											"protocol":      "TCP",
-											"containerPort": 80,
+							"spec": map[string]interface{}{
+								"containers": []map[string]interface{}{
+									{
+										"name":  "web",
+										"image": "nginx:1.12",
+										"ports": []map[string]interface{}{
+											{
+												"name":          "http",
+												"protocol":      "TCP",
+												"containerPort": 80,
+											},
 										},
 									},
 								},
@@ -438,20 +440,20 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 						},
 					},
 				},
-			},
-		}
+			}
 
-		deploymentRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+			deploymentRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
-		// Create Deployment
-		fmt.Println("Creating dataset...")
-		client := s.s.apiServer.env.GetKubeClient()
-		result, err := client.Resource(deploymentRes).Namespace(namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Created deployment %q.\n", result.GetName())
+			// Create Deployment
+			fmt.Println("Creating dataset...")
+			client := s.s.apiServer.env.GetKubeClient()
+			result, err := client.Resource(deploymentRes).Namespace(namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Created deployment %q.\n", result.GetName())
 
+		*/
 	}
 }
 
