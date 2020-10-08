@@ -81,9 +81,9 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	// Extended trace found, now create a span & persist it to etcd
 	duration, err := time.ParseDuration(vals[0])
 	if err != nil {
-		log.Errorf("could not parse extended span duration %q for pipeline %q: "+
-			"%v. Using default value of %v", vals[0], pipeline, err, defaultDuration)
-		duration = defaultDuration
+		log.Errorf("could not parse extended span duration %q for pipeline %q: %v",
+			vals[0], pipeline, err)
+		return // Ignore extended trace attached to RPC
 	}
 
 	// serialize extended trace & write to etcd
@@ -161,7 +161,8 @@ func EmbedAnyDuration(ctx context.Context) (newCtx context.Context, err error) {
 			TraceDurationEnvVar, tracing.ShortTraceEnvVar)
 	}
 	if _, err := time.ParseDuration(duration); err != nil {
-		return ctx, errors.Wrapf(err, "could not parse duration %q")
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceCtxKey, defaultDuration.String()))
+		return ctx, errors.Wrapf(err, "could not parse duration %q (using default duration %q)", duration, defaultDuration)
 	}
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceCtxKey, duration))
 	return ctx, nil
