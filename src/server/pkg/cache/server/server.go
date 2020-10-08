@@ -79,7 +79,7 @@ type protoGetter struct {
 	router  shard.Router
 }
 
-func (p *protoGetter) Get(ctx groupcache.Context, in *pb.GetRequest, out *pb.GetResponse) error {
+func (p *protoGetter) Get(ctx context.Context, in *pb.GetRequest, out *pb.GetResponse) error {
 	conn, err := p.router.GetClientConn(p.shard, p.version)
 	if err != nil {
 		return err
