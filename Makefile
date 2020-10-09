@@ -395,8 +395,8 @@ clean-launch-loki:
 launch-dex:
 	helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 	helm repo update
-	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
-	until timeout 1s ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
+	helm upgrade --install --force dex stable/dex -f etc/testing/auth/dex.yaml
+	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
 
 clean-launch-dex:
 	helm uninstall dex
