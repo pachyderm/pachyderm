@@ -57,7 +57,7 @@ func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, d
 		}
 	}
 	// Progress each lower priority stream past the deleted file(s).
-	for i += 1; i < len(fss); i++ {
+	for i++; i < len(fss); i++ {
 		fr, err := fss[i].r.Next()
 		if err != nil {
 			return err
@@ -334,7 +334,7 @@ func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) er
 		}
 		tss = append(tss, ss[i].(*tagStream))
 	}
-	for i += 1; i < len(ss); i++ {
+	for i++; i < len(ss); i++ {
 		if _, ok := ss[i].(*deleteTagStream); ok {
 			continue
 		}

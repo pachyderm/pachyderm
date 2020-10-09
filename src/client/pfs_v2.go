@@ -47,6 +47,7 @@ type FileOperationClient struct {
 	fileOperationCore
 }
 
+// WithFileOperationClientV2 creates a new FileOperationClient that is scoped to the passed in callback.
 func (c APIClient) WithFileOperationClientV2(repo, commit string, cb func(*FileOperationClient) error) (retErr error) {
 	foc, err := c.NewFileOperationClientV2(repo, commit)
 	if err != nil {

@@ -242,13 +242,12 @@ func (f *UnorderedWriter) serialize() error {
 
 // TODO Tar header validation?
 func mergeTarHeaders(memFiles []*memFile) *tar.Header {
-	var hdr *tar.Header
 	// TODO: Deeper copy?
-	hdr = &(*memFiles[len(memFiles)-1].hdr)
+	hdr := *memFiles[len(memFiles)-1].hdr
 	for i := 0; i < len(memFiles)-1; i++ {
 		hdr.Size += memFiles[i].hdr.Size
 	}
-	return hdr
+	return &hdr
 }
 
 func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
