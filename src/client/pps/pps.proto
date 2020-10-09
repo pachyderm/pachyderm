@@ -711,6 +711,11 @@ message ListPipelineRequest {
   // 2: etc.
   //-1: Return all historical versions.
   int64 history = 2;
+
+  // Return PipelineInfos with incomplete data if the pipeline spec cannot be
+  // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
+  // will have the fields present in EtcdPipelineInfo.
+  bool allow_incomplete = 3;
 }
 
 message DeletePipelineRequest {

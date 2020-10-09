@@ -2272,6 +2272,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
+
+				// We can't recover from an incomplete pipeline info here because
+				// modifying the spec repo depends on being able to access the previous
+				// commit. We therefore use `GetPipelineInfo` which will error if the
+				// spec commit isn't working.
 				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
@@ -2634,6 +2639,13 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
 		func(name string, ptr *pps.EtcdPipelineInfo) error {
+			if request.AllowIncomplete {
+				pipelineInfo, err := ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+				return f(pipelineInfo)
+			}
 			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
 			if err != nil {
 				return err
