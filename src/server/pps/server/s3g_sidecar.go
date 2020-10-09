@@ -25,7 +25,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -401,59 +402,71 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		// each S3 gateway.
 
 		/*
+
+			apiVersion: com.ie.ibm.hpsys/v1alpha1
+			kind: Dataset
+			metadata:
+			  name: example-dataset
+			spec:
+			  local:
+				type: "COS"
+				accessKeyID: "{AWS_ACCESS_KEY_ID}"
+				secretAccessKey: "{AWS_SECRET_ACCESS_KEY}"
+				endpoint: "{S3_SERVICE_URL}"
+				bucket: "{BUCKET_NAME}"
+				region: "" #it can be empty
+
+		*/
+		datasetRes := schema.GroupVersionResource{
+			Group: "com.ie.ibm.hpsys", Version: "v1alpha1", Resource: "datasets",
+		}
+
+		for _, bucket := range []string{"input", "out"} {
 			dataset := &unstructured.Unstructured{
 				Object: map[string]interface{}{
-					"apiVersion": "apps/v1",
-					"kind":       "Deployment",
+					"apiVersion": "com.ie.ibm.hpsys/v1alpha1",
+					"kind":       "Dataset",
 					"metadata": map[string]interface{}{
-						"name": "demo-deployment",
+						"name": fmt.Sprintf(
+							"%s-%s",
+							ppsutil.SidecarS3GatewayService(jobInfo.Job.ID, datumSummary.ID),
+							bucket,
+						),
 					},
 					"spec": map[string]interface{}{
-						"replicas": 2,
-						"selector": map[string]interface{}{
-							"matchLabels": map[string]interface{}{
-								"app": "demo",
-							},
-						},
-						"template": map[string]interface{}{
-							"metadata": map[string]interface{}{
-								"labels": map[string]interface{}{
-									"app": "demo",
-								},
-							},
-
-							"spec": map[string]interface{}{
-								"containers": []map[string]interface{}{
-									{
-										"name":  "web",
-										"image": "nginx:1.12",
-										"ports": []map[string]interface{}{
-											{
-												"name":          "http",
-												"protocol":      "TCP",
-												"containerPort": 80,
-											},
-										},
-									},
-								},
-							},
+						"local": map[string]interface{}{
+							"type":            "COS", // "cloud object storage"
+							"accessKeyID":     "",    // not needed
+							"secretAccessKey": "",    // not needed
+							// refer to service name defined above accessible in-cluster e.g.
+							// http://s3-1c414f4-ba38c01.default:600
+							"endpoint": fmt.Sprintf(
+								"http://%s.default:%s",
+								ppsutil.SidecarS3GatewayService(
+									jobInfo.Job.ID,
+									datumSummary.ID,
+								),
+								s.s.apiServer.env.S3GatewayPort,
+							),
+							"bucket": bucket,
+							"region": "",
 						},
 					},
 				},
 			}
 
-			deploymentRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-
-			// Create Deployment
-			fmt.Println("Creating dataset...")
-			client := s.s.apiServer.env.GetKubeClient()
-			result, err := client.Resource(deploymentRes).Namespace(namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
+			fmt.Printf("Creating %s dataset...\n", bucket)
+			client := s.s.apiServer.env.GetKubeDynamicClient()
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("Created deployment %q.\n", result.GetName())
+			result, err := client.Resource(datasetRes).Namespace("default").Create(dataset, metav1.CreateOptions{})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Created dataset %q.\n", result.GetName())
+		}
 
-		*/
 	}
 }
 

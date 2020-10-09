@@ -16,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/dynamic"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -53,6 +54,11 @@ type ServiceEnv struct {
 	kubeClient *kube.Clientset
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
+
+	// kubeDynamicClient is a dynamic client
+	kubeDynamicClient dynamic.Interface
+	// kubeDynamicEg coordinates the initialization of kubeDynamicClient (see pachdEg)
+	kubeDynamicEg errgroup.Group
 
 	// lokiClient is a loki (log aggregator) client that is shared by all users
 	// of this environment, it doesn't require an initialization funcion, so
@@ -96,6 +102,7 @@ func InitServiceEnv(config *Configuration) *ServiceEnv {
 func InitWithKube(config *Configuration) *ServiceEnv {
 	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
+	env.kubeDynamicEg.Go(env.initDynamicKubeClient)
 	return env // env is not ready yet
 }
 
@@ -167,6 +174,34 @@ func (env *ServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *ServiceEnv) initDynamicKubeClient() error {
+	return backoff.Retry(func() error {
+		// Get secure in-cluster config
+		var kubeAddr string
+		var ok bool
+		cfg, err := rest.InClusterConfig()
+		if err != nil {
+			// InClusterConfig failed, fall back to insecure config
+			log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", err)
+			kubeAddr, ok = os.LookupEnv("KUBERNETES_PORT_443_TCP_ADDR")
+			if !ok {
+				return errors.Wrapf(err, "can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config")
+			}
+			cfg = &rest.Config{
+				Host: fmt.Sprintf("%s:443", kubeAddr),
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: true,
+				},
+			}
+		}
+		env.kubeDynamicClient, err = dynamic.NewForConfig(cfg)
+		if err != nil {
+			return errors.Wrapf(err, "could not initialize kube client")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 // GetPachClient returns a pachd client with the same authentication
 // credentials and cancellation as 'ctx' (ensuring that auth credentials are
 // propagated through downstream RPCs).
@@ -205,6 +240,18 @@ func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 		panic("service env never connected to kubernetes")
 	}
 	return env.kubeClient
+}
+
+// GetKubeDynamicClient returns the already connected Kubernetes dynamic API
+// client without modification.
+func (env *ServiceEnv) GetKubeDynamicClient() dynamic.Interface {
+	if err := env.kubeDynamicEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.kubeDynamicClient == nil {
+		panic("service env never connected to kubernetes")
+	}
+	return env.kubeDynamicClient
 }
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
