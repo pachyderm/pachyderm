@@ -441,7 +441,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 							// refer to service name defined above accessible in-cluster e.g.
 							// http://s3-1c414f4-ba38c01.default:600
 							"endpoint": fmt.Sprintf(
-								"http://%s.default:%s",
+								"http://%s.default:%d",
 								ppsutil.SidecarS3GatewayService(
 									jobInfo.Job.ID,
 									datumSummary.ID,
@@ -460,9 +460,18 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			if err != nil {
 				panic(err)
 			}
-			result, err := client.Resource(datasetRes).Namespace("default").Create(dataset, metav1.CreateOptions{})
+			result, err := client.
+				Resource(datasetRes).
+				Namespace("default").
+				Create(dataset, metav1.CreateOptions{})
+
 			if err != nil {
-				panic(err)
+				if strings.Contains(err.Error(), "already exists") {
+					// this is fine.
+					continue
+				} else {
+					panic(err)
+				}
 			}
 			fmt.Printf("Created dataset %q.\n", result.GetName())
 		}
