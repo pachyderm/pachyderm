@@ -889,9 +889,9 @@ func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest,
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	r, err := s.objClient.Reader(server.Context(), request.Obj, 0, 0)
 	if err != nil {
-		return err
-	}
-	if err := grpcutil.WriteToStreamingBytesServer(r, server); err != nil {
+		if s.isNotFoundErr(err) {
+			return errors.Errorf("object %s not found with direct access", request.Obj)
+		}
 		return err
 	}
 	defer func() {
@@ -899,7 +899,57 @@ func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest,
 			retErr = err
 		}
 	}()
+	if err := grpcutil.WriteToStreamingBytesServer(r, server); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s *objBlockAPIServer) DeleteObjDirect(ctx context.Context, request *pfsclient.DeleteObjDirectRequest) (response *types.Empty, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if (request.Object != "") == (request.Prefix != "") {
+		return nil, errors.New("must specify either 'obj' or 'prefix' to delete")
+	}
+
+	if request.Prefix != "" {
+		cleanPrefix := path.Clean(request.Prefix)
+
+		// Try to avoid footguns that would delete everything
+		if cleanPrefix == "." ||
+			strings.HasPrefix(cleanPrefix, s.blockDir()) ||
+			strings.HasPrefix(cleanPrefix, s.objectDir()) ||
+			strings.HasPrefix(cleanPrefix, s.tagDir()) ||
+			strings.HasPrefix(cleanPrefix, s.indexDir()) {
+			return nil, errors.New("prefix-based direct object deletion is not allowed on system paths")
+		}
+
+		eg, ctx := errgroup.WithContext(ctx)
+		limiter := limit.New(20)
+
+		if err := s.objClient.Walk(ctx, request.Prefix, func(name string) error {
+			object := name
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return s.objClient.Delete(ctx, object)
+			})
+			return nil
+		}); err != nil {
+			eg.Wait()
+			return nil, err
+		}
+
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.objClient.Delete(ctx, request.Object); err != nil {
+			return nil, err
+		}
+	}
+
+	return &types.Empty{}, nil
 }
 
 func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {

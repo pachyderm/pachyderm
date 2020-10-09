@@ -463,10 +463,13 @@ func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opt
 	return nil, unsupportedError("Compact")
 }
 func (c *objectBuilderClient) PutObjDirect(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjDirectClient, error) {
-	return nil, unsupportedError("PutObj")
+	return nil, unsupportedError("PutObjDirect")
 }
 func (c *objectBuilderClient) GetObjDirect(ctx context.Context, req *pfs.GetObjDirectRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjDirectClient, error) {
-	return nil, unsupportedError("GetObj")
+	return nil, unsupportedError("GetObjDirect")
+}
+func (c *objectBuilderClient) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteObjDirect")
 }
 
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {

@@ -3489,12 +3489,17 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 	return rs, nil
 }
 
-func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
+func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (_ uint64, _ uint64, retErr error) {
 	p := path + hashtree.IndexPath
 	r, err := objClient.Reader(ctx, p, 0, 0)
 	if err != nil {
 		return 0, 0, err
 	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	idx, err := ioutil.ReadAll(r)
 	if err != nil {
 		return 0, 0, err

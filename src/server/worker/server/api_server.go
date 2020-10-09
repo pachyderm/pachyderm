@@ -55,13 +55,13 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 	filter := hashtree.NewFilter(a.driver.NumShards(), request.Shard)
 	if request.Stats {
 		cache := a.driver.ChunkStatsCaches().GetCache(request.JobID)
-		if cache != nil && cache.Has(request.Tag) {
-			return cache.Get(request.Tag, grpcutil.NewStreamingBytesWriter(server), filter)
+		if cache != nil && cache.Has(request.ChunkID) {
+			return cache.Get(request.ChunkID, grpcutil.NewStreamingBytesWriter(server), filter)
 		}
 	} else {
 		cache := a.driver.ChunkCaches().GetCache(request.JobID)
-		if cache != nil && cache.Has(request.Tag) {
-			return cache.Get(request.Tag, grpcutil.NewStreamingBytesWriter(server), filter)
+		if cache != nil && cache.Has(request.ChunkID) {
+			return cache.Get(request.ChunkID, grpcutil.NewStreamingBytesWriter(server), filter)
 		}
 	}
 	return errors.New("hashtree chunk not found")

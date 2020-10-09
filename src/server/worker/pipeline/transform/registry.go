@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -34,16 +35,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform/chain"
 )
 
-func jobTagPrefix(jobID string) string {
-	return fmt.Sprintf("job-%s", jobID)
+func jobArtifactPrefix(jobID string) string {
+	return path.Join("artifacts", fmt.Sprintf("job-%s", jobID))
 }
 
-func jobHashtreesTag(jobID string) string {
-	return fmt.Sprintf("%s-hashtrees", jobTagPrefix(jobID))
+func jobArtifactChunkDatumList(jobID string, subtaskID string) string {
+	return path.Join(jobArtifactPrefix(jobID), fmt.Sprintf("chunk-datum-list-%s", subtaskID))
 }
 
-func jobRecoveredDatumTagsTag(jobID string) string {
-	return fmt.Sprintf("%s-recovered", jobTagPrefix(jobID))
+func jobArtifactHashtrees(jobID string) string {
+	return path.Join(jobArtifactPrefix(jobID), "hashtrees")
+}
+
+func jobArtifactRecoveredObject(jobID string) string {
+	return path.Join(jobArtifactPrefix(jobID), "recovered")
 }
 
 type pendingJob struct {
@@ -297,51 +302,13 @@ func (reg *registry) killJob(
 	return reg.jobChain.Fail(pj)
 }
 
-func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Tag, object *pfs.Object) error) error {
-	listTagClient, err := pachClient.ListTags(
-		pachClient.Ctx(),
-		&pfs.ListTagsRequest{Prefix: prefix, IncludeObject: true},
-	)
-	if err != nil {
-		return err
-	}
-
-	for {
-		response, err := listTagClient.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		if err := cb(response.Tag, response.Object); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
 func (reg *registry) cleanJobArtifacts(job *pps.Job) error {
 	reg.logger.WithJob(job.ID).Logf("Cleaning job artifacts")
-	prefix := jobTagPrefix(job.ID)
-	tags := []*pfs.Tag{}
-	objects := []*pfs.Object{}
-
-	if err := forEachTag(reg.driver.PachClient(), prefix, func(tag *pfs.Tag, object *pfs.Object) error {
-		tags = append(tags, tag)
-		objects = append(objects, object)
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	_, err := reg.driver.PachClient().DeleteTags(
+	prefix := jobArtifactPrefix(job.ID)
+	_, err := reg.driver.PachClient().DeleteObjDirect(
 		reg.driver.PachClient().Ctx(),
-		&pfs.DeleteTagsRequest{Tags: tags},
+		&pfs.DeleteObjDirectRequest{Prefix: prefix},
 	)
-
 	return err
 }
 
@@ -433,34 +400,31 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 
 	// finishTask will finish the currently-writing object and append it to the
 	// subtasks, then reset all the relevant variables
-	finishTask := func() error {
-		putObjectWriter, err := driver.PachClient().PutObjectAsync([]*pfs.Tag{})
+	finishTask := func() (retErr error) {
+		subtaskID := uuid.NewWithoutDashes()
+		datumsObject := jobArtifactChunkDatumList(pj.ji.Job.ID, subtaskID)
+		writer, err := driver.PachClient().DirectObjWriter(datumsObject)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
+		defer func() {
+			if err := writer.Close(); err != nil && retErr == nil {
+				retErr = errors.EnsureStack(err)
+			}
+		}()
 
-		protoWriter := pbutil.NewWriter(putObjectWriter)
+		protoWriter := pbutil.NewWriter(writer)
 		if _, err := protoWriter.Write(&DatumInputsList{Datums: datums}); err != nil {
-			putObjectWriter.Close()
 			return err
 		}
 
-		if err := putObjectWriter.Close(); err != nil {
-			return err
-		}
-
-		datumsObject, err := putObjectWriter.Object()
-		if err != nil {
-			return err
-		}
-
-		taskData, err := serializeDatumData(&DatumData{Datums: datumsObject, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
+		taskData, err := serializeDatumData(&DatumData{DatumsObject: datumsObject, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
 		if err != nil {
 			return err
 		}
 
 		select {
-		case subtasks <- &work.Task{ID: uuid.NewWithoutDashes(), Data: taskData}:
+		case subtasks <- &work.Task{ID: subtaskID, Data: taskData}:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -794,7 +758,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 				}
 				return err
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				pj.logger.Logf("processJob error: %v, retring in %v", err, d)
+				pj.logger.Logf("processJob error: %v, retrying in %v", err, d)
 				for err != nil {
 					if st, ok := err.(errors.StackTracer); ok {
 						pj.logger.Logf("error stack: %+v", st.StackTrace())
@@ -999,7 +963,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	stats := &DatumStats{ProcessStats: &pps.ProcessStats{}}
 	chunkHashtrees := []*HashtreeInfo{}
 	statsHashtrees := []*HashtreeInfo{}
-	recoveredTags := []string{}
+	recoveredObjects := []string{}
 
 	// Run subtasks until we are done
 	eg.Go(func() error {
@@ -1027,8 +991,8 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if data.StatsHashtree != nil {
 						statsHashtrees = append(statsHashtrees, data.StatsHashtree)
 					}
-					if data.RecoveredDatumsTag != "" {
-						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
+					if data.RecoveredDatumsObject != "" {
+						recoveredObjects = append(recoveredObjects, data.RecoveredDatumsObject)
 					}
 					// propagate the stats to etcd
 					pj.saveJobStats(stats)
@@ -1063,7 +1027,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	if err := pj.storeHashtreeInfos(chunkHashtrees, statsHashtrees); err != nil {
 		return err
 	}
-	if err := pj.storeRecoveredTags(recoveredTags); err != nil {
+	if err := pj.storeRecoveredDatums(recoveredObjects); err != nil {
 		return err
 	}
 
@@ -1087,69 +1051,85 @@ func (pj *pendingJob) finalizeJobStats() {
 	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - pj.ji.DataProcessed - pj.ji.DataFailed - pj.ji.DataRecovered
 }
 
-func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) error {
+func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) (retErr error) {
 	pj.chunkHashtrees = chunks
 	pj.statsHashtrees = stats
 
-	tags := &HashtreeTags{ChunkTags: []string{}, StatsTags: []string{}}
+	objects := &HashtreeObjects{ChunkObjects: []string{}, StatsObjects: []string{}}
 	for _, info := range chunks {
-		tags.ChunkTags = append(tags.ChunkTags, info.Tag)
+		objects.ChunkObjects = append(objects.ChunkObjects, info.Object)
 	}
 	for _, info := range stats {
-		tags.StatsTags = append(tags.StatsTags, info.Tag)
+		objects.StatsObjects = append(objects.StatsObjects, info.Object)
 	}
 
-	buf := &bytes.Buffer{}
-	pbw := pbutil.NewWriter(buf)
-	if _, err := pbw.Write(tags); err != nil {
-		return nil
+	writer, err := pj.driver.PachClient().DirectObjWriter(jobArtifactHashtrees(pj.ji.Job.ID))
+	if err != nil {
+		return errors.EnsureStack(err)
 	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = errors.EnsureStack(err)
+		}
+	}()
 
-	_, _, err := pj.driver.PachClient().PutObject(buf, jobHashtreesTag(pj.ji.Job.ID))
+	pbw := pbutil.NewWriter(writer)
+	_, err = pbw.Write(objects)
 	return err
 }
 
-func (pj *pendingJob) storeRecoveredTags(recoveredTags []string) error {
-	if len(recoveredTags) == 0 {
+func (pj *pendingJob) storeRecoveredDatums(recoveredObjects []string) (retErr error) {
+	if len(recoveredObjects) == 0 {
 		return nil
 	}
 
-	tags := &RecoveredDatumTags{Tags: recoveredTags}
-
-	buf := &bytes.Buffer{}
-	pbw := pbutil.NewWriter(buf)
-	if _, err := pbw.Write(tags); err != nil {
-		return nil
+	objects := &RecoveredDatumObjects{Objects: recoveredObjects}
+	writer, err := pj.driver.PachClient().DirectObjWriter(jobArtifactRecoveredObject(pj.ji.Job.ID))
+	if err != nil {
+		return errors.EnsureStack(err)
 	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = errors.EnsureStack(err)
+		}
+	}()
 
-	_, _, err := pj.driver.PachClient().PutObject(buf, jobRecoveredDatumTagsTag(pj.ji.Job.ID))
+	pbw := pbutil.NewWriter(writer)
+	_, err = pbw.Write(objects)
 	return err
 }
 
-func (pj *pendingJob) initializeHashtrees() error {
+func (pj *pendingJob) initializeHashtrees() (retErr error) {
 	if pj.chunkHashtrees == nil {
 		// We are picking up an old job and don't have the hashtrees generated by
 		// the 'running' state, load them from object storage
-		buf := &bytes.Buffer{}
-		if err := pj.driver.PachClient().GetTag(jobHashtreesTag(pj.ji.Job.ID), buf); err != nil {
-			return err
+		reader, err := pj.driver.PachClient().DirectObjReader(jobArtifactHashtrees(pj.ji.Job.ID))
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
-		protoReader := pbutil.NewReader(buf)
+		defer func() {
+			if err := reader.Close(); err != nil && retErr == nil {
+				retErr = errors.EnsureStack(err)
+			}
+		}()
 
-		hashtreeTags := &HashtreeTags{}
-		if err := protoReader.Read(hashtreeTags); err != nil {
+		hashtreeObjects := &HashtreeObjects{}
+		protoReader := pbutil.NewReader(reader)
+		if err := protoReader.Read(hashtreeObjects); err != nil {
 			return err
 		}
 
 		pj.chunkHashtrees = []*HashtreeInfo{}
-		for _, tag := range hashtreeTags.ChunkTags {
-			pj.chunkHashtrees = append(pj.chunkHashtrees, &HashtreeInfo{Tag: tag})
+		for _, object := range hashtreeObjects.ChunkObjects {
+			pj.chunkHashtrees = append(pj.chunkHashtrees, &HashtreeInfo{Object: object})
 		}
 
 		pj.statsHashtrees = []*HashtreeInfo{}
-		for _, tag := range hashtreeTags.StatsTags {
-			pj.statsHashtrees = append(pj.statsHashtrees, &HashtreeInfo{Tag: tag})
+		for _, object := range hashtreeObjects.StatsObjects {
+			pj.statsHashtrees = append(pj.statsHashtrees, &HashtreeInfo{Object: object})
 		}
+
+		return nil
 	}
 	return nil
 }
@@ -1159,31 +1139,40 @@ func (pj *pendingJob) loadRecoveredDatums() (chain.DatumSet, error) {
 
 	// We are picking up an old job and don't have the recovered datums generated by
 	// the 'running' state, load them from object storage
-	buf := &bytes.Buffer{}
-	if err := pj.driver.PachClient().GetTag(jobRecoveredDatumTagsTag(pj.ji.Job.ID), buf); err != nil {
-		if strings.Contains(err.Error(), "not found") {
+	reader, err := pj.driver.PachClient().DirectObjReader(jobArtifactRecoveredObject(pj.ji.Job.ID))
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	recoveredObjects := &RecoveredDatumObjects{}
+	protoReader := pbutil.NewReader(reader)
+	if err := protoReader.Read(recoveredObjects); err != nil {
+		reader.Close()
+		if errutil.IsNotFoundError(err) {
 			return datumSet, nil
 		}
 		return nil, err
 	}
-	protoReader := pbutil.NewReader(buf)
 
-	recoveredTags := &RecoveredDatumTags{}
-	if err := protoReader.Read(recoveredTags); err != nil {
+	if err := reader.Close(); err != nil {
 		return nil, err
 	}
 
 	recoveredDatums := &RecoveredDatums{}
+	for _, object := range recoveredObjects.Objects {
+		reader, err := pj.driver.PachClient().DirectObjReader(object)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
 
-	for _, tag := range recoveredTags.Tags {
-		buf := &bytes.Buffer{}
-		if err := pj.driver.PachClient().GetTag(tag, buf); err != nil {
+		protoReader := pbutil.NewReader(reader)
+		if err := protoReader.Read(recoveredDatums); err != nil {
+			reader.Close()
 			return nil, err
 		}
 
-		protoReader := pbutil.NewReader(buf)
-		if err := protoReader.Read(recoveredDatums); err != nil {
-			return nil, err
+		if err := reader.Close(); err != nil {
+			return nil, errors.EnsureStack(err)
 		}
 
 		for _, hash := range recoveredDatums.Hashes {
