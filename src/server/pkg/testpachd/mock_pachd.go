@@ -430,6 +430,8 @@ type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type fileOperationFuncV2 func(pfs.API_FileOperationV2Server) error
 type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
 type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
+type createTmpFileSetFunc func(pfs.API_CreateTmpFileSetServer) error
+type renewTmpFileSetFunc func(context.Context, *pfs.RenewTmpFileSetRequest) (*types.Empty, error)
 type clearCommitV2Func func(context.Context, *pfs.ClearCommitRequestV2) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -466,6 +468,8 @@ type mockFileOperationV2 struct{ handler fileOperationFuncV2 }
 type mockGetTarV2 struct{ handler getTarFuncV2 }
 type mockDiffFileV2 struct{ handler diffFileV2Func }
 type mockClearCommitV2 struct{ handler clearCommitV2Func }
+type mockCreateTmpFileSet struct{ handler createTmpFileSetFunc }
+type mockRenewTmpFileSet struct{ handler renewTmpFileSetFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
@@ -501,6 +505,8 @@ func (mock *mockFileOperationV2) Use(cb fileOperationFuncV2)   { mock.handler = 
 func (mock *mockGetTarV2) Use(cb getTarFuncV2)                 { mock.handler = cb }
 func (mock *mockDiffFileV2) Use(cb diffFileV2Func)             { mock.handler = cb }
 func (mock *mockClearCommitV2) Use(cb clearCommitV2Func)       { mock.handler = cb }
+func (mock *mockCreateTmpFileSet) Use(cb createTmpFileSetFunc) { mock.handler = cb }
+func (mock *mockRenewTmpFileSet) Use(cb renewTmpFileSetFunc)   { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -542,6 +548,8 @@ type mockPFSServer struct {
 	GetTarV2         mockGetTarV2
 	DiffFileV2       mockDiffFileV2
 	ClearCommitV2    mockClearCommitV2
+	CreateTmpFileSet mockCreateTmpFileSet
+	RenewTmpFileSet  mockRenewTmpFileSet
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -747,6 +755,18 @@ func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommit
 		return api.mock.ClearCommitV2.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommitV2")
+}
+func (api *pfsServerAPI) CreateTmpFileSet(srv pfs.API_CreateTmpFileSetServer) error {
+	if api.mock.CreateTmpFileSet.handler != nil {
+		return api.mock.CreateTmpFileSet.handler(srv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.CreateTmpFileSet")
+}
+func (api *pfsServerAPI) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	if api.mock.RenewTmpFileSet.handler != nil {
+		return api.mock.RenewTmpFileSet.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.RenewTmpFileSet")
 }
 
 /* PPS Server Mocks */
