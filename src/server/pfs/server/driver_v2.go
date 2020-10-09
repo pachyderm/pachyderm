@@ -68,7 +68,7 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	idxStore := index.NewPGStore(dbx)
+	idxStore := fileset.NewPGPathStore(dbx)
 	gcClient, err := gc.NewClient(db)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func newDB2() (db *sqlx.DB, retErr error) {
 	defer func() {
 		if db != nil {
-			index.PGStoreApplySchema(db)
+			fileset.PGPathStoreApplySchema(db)
 		}
 	}()
 	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
@@ -468,7 +468,10 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 		return nil
 	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
-		fsr := d.storage.NewReader(ctx, inputPath)
+		fsr, err := d.storage.NewReader(ctx, inputPath)
+		if err != nil {
+			return nil, err
+		}
 		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
 			return nil, err
 		}
