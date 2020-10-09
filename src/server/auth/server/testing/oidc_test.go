@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,6 +13,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
+var OIDCAuthConfig = &auth.AuthConfig{
+	LiveConfigVersion: 0,
+	IDProviders: []*auth.IDProvider{&auth.IDProvider{
+		Name:        "idp",
+		Description: "fake IdP for testing",
+		OIDC: &auth.IDProvider_OIDCOptions{
+			Issuer:       "http://dex:32000",
+			ClientID:     "pachyderm",
+			ClientSecret: "notsecret",
+			RedirectURI:  "http://pachd:657/authorization-code/callback",
+		},
+	}},
+}
+
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
@@ -20,21 +36,8 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
-	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{&auth.IDProvider{
-			Name:        "idp",
-			Description: "fake IdP for testing",
-			OIDC: &auth.IDProvider_OIDCOptions{
-				Issuer:       "http://dex:32000",
-				ClientID:     "pachyderm",
-				ClientSecret: "notsecret",
-				RedirectURI:  "http://pachd:657/authorization-code/callback",
-			},
-		}},
-	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
-		&auth.SetConfigurationRequest{Configuration: conf})
+		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
 	require.NoError(t, err)
 
 	loginInfo, err := adminClient.GetOIDCLogin(adminClient.Ctx(), &auth.GetOIDCLoginRequest{})
@@ -57,7 +60,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	// to the login page. The params have the session state. POST our hard-coded
 	// credentials to the login page.
 	vals := make(url.Values)
-	vals.Add("login", "admin@example.com")
+	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
 	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(adminClient)), vals)
@@ -72,7 +75,42 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that pachd recorded the response from the redirect
-	adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{OIDCState: loginInfo.State})
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{OIDCState: loginInfo.State})
+	require.NoError(t, err)
+
+	deleteAll(t)
+}
+
+// TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
+func TestOIDCTrustedApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
+	require.NoError(t, err)
+
+	vals := url.Values{
+		"client_id":     []string{"testapp"},
+		"client_secret": []string{"test"},
+		"grant_type":    []string{"password"},
+		"scope":         []string{"openid email profile audience:server:client_id:pachyderm"},
+		"username":      []string{"admin"},
+		"password":      []string{"password"},
+	}
+
+	c := &http.Client{}
+	resp, err := c.PostForm(fmt.Sprintf("http://%v/token", dexHost(adminClient)), vals)
+	require.NoError(t, err)
+
+	tokenResp := make(map[string]interface{})
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&tokenResp))
+
+	// Authenticate using an OIDC token with pachyderm in the audience claim
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{IdToken: tokenResp["id_token"].(string)})
 	require.NoError(t, err)
 
 	deleteAll(t)
