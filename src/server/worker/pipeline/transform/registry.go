@@ -398,13 +398,10 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	datumsSize := int64(0)
 	datums := []*DatumInputs{}
 
-	fmt.Printf("generating datum lists for %d tasks - %d datums per task\n", numTasks, datumsPerTask)
-
 	// finishTask will finish the currently-writing object and append it to the
 	// subtasks, then reset all the relevant variables
 	finishTask := func() (retErr error) {
 		subtaskID := uuid.NewWithoutDashes()
-		fmt.Printf("writing datum lists for subtask %s, %d datums\n", subtaskID, len(datums))
 		datumsObject := jobArtifactChunkDatumList(pj.ji.Job.ID, subtaskID)
 		writer, err := driver.PachClient().DirectObjWriter(datumsObject)
 		if err != nil {
