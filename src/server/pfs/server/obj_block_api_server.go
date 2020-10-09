@@ -925,30 +925,21 @@ func (s *objBlockAPIServer) DeleteObjDirect(ctx context.Context, request *pfscli
 		}
 
 		eg, ctx := errgroup.WithContext(ctx)
-		deleteChan := make(chan string, 50)
-		eg.Go(func() error {
-			limiter := limit.New(20)
-			for obj := range deleteChan {
-				object := obj
-				limiter.Acquire()
-				eg.Go(func() error {
-					defer limiter.Release()
-					return s.objClient.Delete(ctx, object)
-				})
-			}
-			return nil
-		})
+		limiter := limit.New(20)
 
 		if err := s.objClient.Walk(ctx, request.Prefix, func(name string) error {
-			deleteChan <- name
+			object := name
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return s.objClient.Delete(ctx, object)
+			})
 			return nil
 		}); err != nil {
-			close(deleteChan)
 			eg.Wait()
 			return nil, err
 		}
 
-		close(deleteChan)
 		if err := eg.Wait(); err != nil {
 			return nil, err
 		}
