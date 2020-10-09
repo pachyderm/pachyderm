@@ -441,22 +441,13 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 		if inputs == nil {
 			return errors.New("job datum iterator returned nil inputs")
 		}
-		fmt.Println("leninp:", len(inputs))
 
 		datums = append(datums, &DatumInputs{Inputs: inputs, Index: index})
-		for _, input := range inputs {
 
-			for _, fileInfo := range input.FileInfo {
-				fmt.Println("num dat", fileInfo.File.Path)
-
-			}
-		}
 		// If we have enough input bytes, finish the task
 		if maxBytesPerTask != 0 {
 			for _, input := range inputs {
-				for _, fileInfo := range input.FileInfo {
-					datumsSize += int64(fileInfo.SizeBytes)
-				}
+				datumsSize += int64(input.FileInfo.SizeBytes)
 			}
 			if datumsSize >= maxBytesPerTask {
 				if err := finishTask(); err != nil {

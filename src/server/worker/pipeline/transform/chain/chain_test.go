@@ -118,25 +118,20 @@ func (ti *testIterator) DatumN(n int) []*common.Input {
 
 // Convert a test-friendly string to a real fake inputs array
 func datumToInputs(name string) []*common.Input {
-	return []*common.Input{
-		&common.Input{
-			Name: "inputRepo",
-			FileInfo: []*pfs.FileInfo{{
-				File: &pfs.File{Path: name},
-				Hash: []byte(name),
-			}},
+	return []*common.Input{{
+		Name: "inputRepo",
+		FileInfo: &pfs.FileInfo{
+			File: &pfs.File{Path: name},
+			Hash: []byte(name),
 		},
-	}
+	}}
 }
 
 func inputsToDatum(inputs []*common.Input) (string, error) {
 	if len(inputs) != 1 {
 		return "", errors.New("should only have 1 input for test datums")
 	}
-	if len(inputs[0].FileInfo) != 1 {
-		return "", errors.New("should only have 1 fileInfo in input for test datums")
-	}
-	return inputs[0].FileInfo[0].File.Path, nil
+	return inputs[0].FileInfo.File.Path, nil
 }
 
 func newTestChain(t *testing.T, datums []string) JobChain {

@@ -21,7 +21,6 @@ import (
 	"unicode/utf8"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/go-playground/webhooks.v5/github"
@@ -599,8 +598,6 @@ func (d *driver) downloadData(
 			return "", errors.Wrapf(err, "couldn't create %q", outPath)
 		}
 	}
-	fmt.Println("total inputs:", len(inputs))
-	spew.Dump(inputs)
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := d.downloadGitData(scratchPath, input); err != nil {
@@ -611,41 +608,34 @@ func (d *driver) downloadData(
 		if input.S3 {
 			continue // don't download any data
 		}
-		for _, fileInfo := range input.FileInfo {
-			file := fileInfo.File
-			fmt.Println("input and file:", input.Name, file.Path)
-			fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)
-			var statsRoot string
-			if statsTree != nil {
-				statsRoot = filepath.Join(input.Name, file.Path)
-				parent, _ := filepath.Split(statsRoot)
-				statsTree.MkdirAll(parent)
-			}
-			if err := puller.Pull(
-				d.pachClient,
-				fullInputPath,
-				file.Commit.Repo.Name,
-				file.Commit.ID,
-				file.Path,
-				input.Lazy,
-				input.EmptyFiles,
-				concurrency,
-				statsTree,
-				statsRoot,
-			); err != nil {
-				return "", errors.EnsureStack(err)
-			}
+		file := input.FileInfo.File
+		fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)
+		var statsRoot string
+		if statsTree != nil {
+			statsRoot = filepath.Join(input.Name, file.Path)
+			parent, _ := filepath.Split(statsRoot)
+			statsTree.MkdirAll(parent)
+		}
+		if err := puller.Pull(
+			d.pachClient,
+			fullInputPath,
+			file.Commit.Repo.Name,
+			file.Commit.ID,
+			file.Path,
+			input.Lazy,
+			input.EmptyFiles,
+			concurrency,
+			statsTree,
+			statsRoot,
+		); err != nil {
+			return "", errors.EnsureStack(err)
 		}
 	}
 	return scratchPath, nil
 }
 
 func (d *driver) downloadGitData(scratchPath string, input *common.Input) error {
-	if len(input.FileInfo) != 1 {
-		return errors.Errorf("length of input FileInfo should be exactly 1, got %v", len(input.FileInfo))
-	}
-
-	file := input.FileInfo[0].File
+	file := input.FileInfo.File
 
 	var rawJSON bytes.Buffer
 	err := d.pachClient.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, &rawJSON)
@@ -1124,7 +1114,7 @@ func (d *driver) UploadOutput(
 					}
 					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
 					realPath = filepath.Join(dir, pathWithInput)
-					if input != nil && len(input.FileInfo) > 0 {
+					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
 							if err != nil {
 								return errors.EnsureStack(err)
@@ -1146,29 +1136,25 @@ func (d *driver) UploadOutput(
 								}
 								return nil
 							}
-							for _, inputFileInfo := range input.FileInfo {
-								fmt.Println("path:", inputFileInfo.File.Path)
-								fc := inputFileInfo.File.Commit
-								fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+							fc := input.FileInfo.File.Commit
+							fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+							if err != nil {
+								return errors.EnsureStack(err)
+							}
+							var blockRefs []*pfs.BlockRef
+							for _, object := range fileInfo.Objects {
+								objectInfo, err := d.pachClient.InspectObject(object.Hash)
 								if err != nil {
 									return errors.EnsureStack(err)
 								}
-								var blockRefs []*pfs.BlockRef
-								for _, object := range fileInfo.Objects {
-									objectInfo, err := d.pachClient.InspectObject(object.Hash)
-									if err != nil {
-										return errors.EnsureStack(err)
-									}
-									blockRefs = append(blockRefs, objectInfo.BlockRef)
-								}
-								blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-								n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
-								tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
-								if statsTree != nil {
-									statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
-								}
+								blockRefs = append(blockRefs, objectInfo.BlockRef)
 							}
-							fmt.Println("path:")
+							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
+							tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							if statsTree != nil {
+								statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							}
 							return nil
 						})
 					}
@@ -1264,11 +1250,9 @@ func (d *driver) UserCodeEnv(
 	result := os.Environ()
 
 	for _, input := range inputs {
-		fmt.Println("uce length: ", len(input.FileInfo))
-		if len(input.FileInfo) > 0 {
-			result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo[0].File.Path)))
-			result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo[0].File.Commit.ID))
-		}
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+
 	}
 
 	if jobID != "" {

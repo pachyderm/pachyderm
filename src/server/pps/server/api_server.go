@@ -1124,7 +1124,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 				State: pps.DatumState_STARTING,
 			}
 			for _, input := range datum {
-				datumInfo.Data = append(datumInfo.Data, input.FileInfo...)
+				datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 			}
 			datumInfos = append(datumInfos, datumInfo)
 		}
@@ -1319,7 +1319,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	}
 	inputs := dit.DatumN(i)
 	for _, input := range inputs {
-		datumInfo.Data = append(datumInfo.Data, input.FileInfo...)
+		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 	}
 	datumInfo.PfsState = &pfs.File{
 		Commit: commit,

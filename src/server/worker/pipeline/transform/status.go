@@ -29,12 +29,10 @@ type Status struct {
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
 	var result []*pps.InputFile
 	for _, input := range inputs {
-		for _, fileInfo := range input.FileInfo {
-			result = append(result, &pps.InputFile{
-				Path: fileInfo.File.Path,
-				Hash: fileInfo.Hash,
-			})
-		}
+		result = append(result, &pps.InputFile{
+			Path: input.FileInfo.File.Path,
+			Hash: input.FileInfo.Hash,
+		})
 	}
 	return result
 }

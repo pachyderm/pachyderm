@@ -305,9 +305,6 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 						if err != nil {
 							return err
 						}
-						for _, i := range inputs {
-							fmt.Println("inlog", len(i.FileInfo))
-						}
 						logger = logger.WithJob(jobID).WithData(inputs)
 
 						// subStats is still valid even on an error, merge those in before proceeding

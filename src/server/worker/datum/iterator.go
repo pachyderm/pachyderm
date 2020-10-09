@@ -63,7 +63,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
 		groupBy := g.Replace(fileInfo.File.Path, input.GroupBy)
 		result.inputs = append(result.inputs, &common.Input{
-			FileInfo:   []*pfs.FileInfo{fileInfo},
+			FileInfo:   fileInfo,
 			JoinOn:     joinOn,
 			GroupBy:    groupBy,
 			Name:       input.Name,
@@ -79,19 +79,10 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 	sort.Slice(result.inputs, func(i, j int) bool {
 		// We sort by descending size first because it can boost performance to
 		// process the biggest datums first.
-
-		// put nil FileInfo inputs first
-		if len(result.inputs[i].FileInfo) == 0 {
-			return true
+		if result.inputs[i].FileInfo.SizeBytes != result.inputs[j].FileInfo.SizeBytes {
+			return result.inputs[i].FileInfo.SizeBytes > result.inputs[j].FileInfo.SizeBytes
 		}
-		if len(result.inputs[j].FileInfo) == 0 {
-			return false
-		}
-
-		if result.inputs[i].FileInfo[0].SizeBytes != result.inputs[j].FileInfo[0].SizeBytes {
-			return result.inputs[i].FileInfo[0].SizeBytes > result.inputs[j].FileInfo[0].SizeBytes
-		}
-		return result.inputs[i].FileInfo[0].File.Path < result.inputs[j].FileInfo[0].File.Path
+		return result.inputs[i].FileInfo.File.Path < result.inputs[j].FileInfo.File.Path
 	})
 	return result, nil
 }
@@ -494,7 +485,7 @@ func newGitIterator(pachClient *client.APIClient, input *pps.GitInput) (Iterator
 	result.inputs = append(
 		result.inputs,
 		&common.Input{
-			FileInfo: []*pfs.FileInfo{fileInfo},
+			FileInfo: fileInfo,
 			Name:     input.Name,
 			Branch:   input.Branch,
 			GitURL:   input.URL,
