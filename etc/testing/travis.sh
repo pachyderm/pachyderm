@@ -137,6 +137,7 @@ case "${BUCKET}" in
     fi
     ;;
  AUTH?)
+    make launch-dex
     bucket_num="${BUCKET#AUTH}"
     test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     set +x
