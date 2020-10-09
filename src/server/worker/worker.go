@@ -124,10 +124,12 @@ func (w *Worker) worker() {
 		eg.Go(func() error {
 			return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 				var key string
-				if err := e.Unmarshal(&key, &pps.EtcdJobInfo{}); err != nil {
+				jobInfo := &pps.EtcdJobInfo{}
+				if err := e.Unmarshal(&key, jobInfo); err != nil {
 					return err
 				}
-				if e.Type == watch.EventDelete {
+
+				if e.Type == watch.EventDelete || (e.Type == watch.EventPut && ppsutil.IsTerminal(jobInfo.State)) {
 					driver.ChunkCaches().RemoveCache(key)
 					driver.ChunkStatsCaches().RemoveCache(key)
 				}
