@@ -84,11 +84,11 @@ func rewriteRedirect(t *testing.T, resp *http.Response, host string) string {
 }
 
 func rewriteURL(t *testing.T, urlStr, host string) string {
-	redirectUrl, err := url.Parse(urlStr)
+	redirectURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
-	redirectUrl.Scheme = "http"
-	redirectUrl.Host = host
-	return redirectUrl.String()
+	redirectURL.Scheme = "http"
+	redirectURL.Host = host
+	return redirectURL.String()
 }
 
 func dexHost(c *client.APIClient) string {
