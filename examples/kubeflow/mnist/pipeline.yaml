@@ -6,7 +6,7 @@ transform:
   # be better at anonymously authenticating to kf 1.1
   # Update: it's not, but might be better at other things,
   # so leaving this in here.
-  image: quay.io/lukemarsden/mnist_pipeline:13a3c62c520fcddc597918f778f18621c03c88a2
+  image: quay.io/lukemarsden/mnist_pipeline:78162f23108797d4d2b6bcbdf8b579e89f14172c
   cmd: [ /app/pipeline.py ]
 s3_out: true  # Must be set
 input:

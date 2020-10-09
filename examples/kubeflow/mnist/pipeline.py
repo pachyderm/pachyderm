@@ -91,18 +91,19 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
         base_image='tensorflow/tensorflow:1.14.0-py3'
     )
 
+    res = op(s3_endpoint, input_bucket)
     # TODO: test out useas: mount
     
-    op.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
-    op.add_pod_label("dataset.0.useas", "configmap")
-    op.add_pod_label("dataset.1.id", f"{s3_endpoint}-out")
-    op.add_pod_label("dataset.1.useas", "configmap")
+    res.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
+    res.add_pod_label("dataset.0.useas", "configmap")
+    res.add_pod_label("dataset.1.id", f"{s3_endpoint}-out")
+    res.add_pod_label("dataset.1.useas", "configmap")
 
     # XXX how will multiple datasets be manifested as automatically working env
     # vars? maybe useas: mount is better...? Although I guess overriding the
     # bucket with constant 'out' is easy enough to do in the client code.
 
-    return op(s3_endpoint, input_bucket)
+    return res
 
 
 def pipeline_id(client: kfp.Client, name: str):
