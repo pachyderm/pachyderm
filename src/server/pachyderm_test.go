@@ -11241,18 +11241,23 @@ func TestMissingPipelineSpec(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineHistory_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("TestPipelineHistory")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{"echo foo >/pfs/out/file"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		true,
-	))
+
+	createPipeline := func(update bool) error {
+		return c.CreatePipeline(
+			pipelineName,
+			"",
+			[]string{"bash"},
+			[]string{"echo foo >/pfs/out/file"},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, createPipeline(false))
 
 	// Should be able to inspect the pipeline
 	_, err := c.InspectPipeline(pipelineName)
@@ -11308,10 +11313,11 @@ func TestMissingPipelineSpec(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(response.PipelineInfo))
 
-	// Pipeline should have the correct version
-	require.Equal(t, uint64(1), response.PipelineInfo[0].Version)
+	// Pipeline should have the correct name
+	require.Equal(t, pipelineName, response.PipelineInfo[0].Pipeline.Name)
 
-	// TODO: test updating the pipeline
+	// Updating the pipeline should fail
+	require.YesError(t, createPipeline(true))
 
 	// Should be able to delete the pipeline
 	err = c.DeletePipeline(pipelineName, false)
@@ -12398,26 +12404,19 @@ func restartOne(t *testing.T) {
 	waitForReadiness(t)
 }
 
-const (
-	retries = 10
-)
-
 // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
 // connection that actually works
 func getUsablePachClient(t *testing.T) *client.APIClient {
 	fmt.Println("Reconnecting to pachd")
-	for i := 0; i < retries; i++ {
-		client := tu.GetPachClient(t)
+	var c *client.APIClient
+	require.NoError(t, backoff.Retry(func() error {
+		c = tu.GetPachClient(t)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-		defer cancel() //cleanup resources
-		_, err := client.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		if err == nil {
-			return client
-		}
-		time.Sleep(5 * time.Second)
-	}
-	t.Fatalf("failed to connect after %d tries", retries)
-	return nil
+		defer cancel()
+		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+		return err
+	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
+	return c
 }
 
 func podRunningAndReady(e watch.Event) (bool, error) {

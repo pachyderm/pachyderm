@@ -124,7 +124,7 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 // (e.g. due to corruption or a missing block). It does the PFS
 // read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
-	result := &pps.PipelineInfo{Version: ptr.LatestVersion}
+	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))

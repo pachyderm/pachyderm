@@ -2272,7 +2272,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
-				oldPipelineInfo, err = ppsutil.GetPipelineInfoAllowIncomplete(pachClient, pipelineName, &pipelinePtr)
+
+				// We can't recover from an incomplete pipeline info here because
+				// modifying the spec repo depends on being able to access the previous
+				// commit. We therefore use `GetPipelineInfo` which will error if the
+				// spec commit isn't working.
+				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
 				}
@@ -2284,16 +2289,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 				// that updating a pipeline doesn't restart it)
-				pipelineInfo.Version = pipelinePtr.LatestVersion + 1
+				pipelineInfo.Version = oldPipelineInfo.Version + 1
 				if oldPipelineInfo.Stopped {
 					provenance = nil // CreateBranch() below shouldn't create new output
 					pipelineInfo.Stopped = true
 				}
-				if oldPipelineInfo.Transform == nil {
-					if !request.Reprocess {
-						return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "must use 'reprocess' as the previous spec could not be loaded")
-					}
-				} else if !request.Reprocess {
+				if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
 				// Must create spec commit before restoring output branch provenance, so
@@ -2382,10 +2383,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.EtcdPipelineInfo{
-			SpecCommit:    commit,
-			State:         pps.PipelineState_PIPELINE_STARTING,
-			Parallelism:   uint64(parallelism),
-			LatestVersion: pipelineInfo.Version,
+			SpecCommit:  commit,
+			State:       pps.PipelineState_PIPELINE_STARTING,
+			Parallelism: uint64(parallelism),
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
@@ -2645,13 +2645,12 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 					return err
 				}
 				return f(pipelineInfo)
-			} else {
-				pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
-				if err != nil {
-					return err
-				}
-				return f(pipelineInfo)
 			}
+			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
+			if err != nil {
+				return err
+			}
+			return f(pipelineInfo)
 		})
 }
 
