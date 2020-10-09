@@ -11305,7 +11305,7 @@ func TestMissingPipelineSpec(t *testing.T) {
 	require.YesError(t, err)
 
 	// Should no longer be able to list pipelines
-	pis, err := c.ListPipeline()
+	_, err = c.ListPipeline()
 	require.YesError(t, err)
 
 	// Should be able to list pipelines with AllowIncomplete=true
@@ -11324,7 +11324,7 @@ func TestMissingPipelineSpec(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should then be able to list pipelines
-	pis, err = c.ListPipeline()
+	pis, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pis))
 }
