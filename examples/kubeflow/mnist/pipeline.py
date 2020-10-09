@@ -91,7 +91,6 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
         base_image='tensorflow/tensorflow:1.14.0-py3'
     )
 
-    raise Exception("BREAK IT")
     # TODO: test out useas: mount
     
     op.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
