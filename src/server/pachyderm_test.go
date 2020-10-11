@@ -11234,6 +11234,101 @@ func TestPipelineHistory(t *testing.T) {
 	require.Equal(t, 1, len(pipelineInfos))
 }
 
+func TestMissingPipelineSpec(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestPipelineHistory_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("TestPipelineHistory")
+
+	createPipeline := func(update bool) error {
+		return c.CreatePipeline(
+			pipelineName,
+			"",
+			[]string{"bash"},
+			[]string{"echo foo >/pfs/out/file"},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, createPipeline(false))
+
+	// Should be able to inspect the pipeline
+	_, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	listClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
+	require.NoError(t, err)
+	require.NoError(t, listClient.CloseSend())
+
+	// Delete objects - this may break everything, but the error is hard to reproduce otherwise
+	objects := []*pfs.Object{}
+	for {
+		oi, err := listClient.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+
+		objects = append(objects, oi.Object)
+	}
+
+	_, err = c.ObjectAPIClient.DeleteObjects(c.Ctx(), &pfs.DeleteObjectsRequest{Objects: objects})
+	require.NoError(t, err)
+
+	// Restart pachd to clear the object cache
+	k := tu.GetKubeClient(t)
+	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
+	podList, err := podsInterface.List(
+		metav1.ListOptions{
+			LabelSelector: "suite=pachyderm",
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
+			GracePeriodSeconds: new(int64),
+		}))
+	}
+	waitForReadiness(t)
+
+	// The old client is no longer valid
+	c = getUsablePachClient(t)
+
+	// Should no longer be able to inspect the pipeline
+	_, err = c.InspectPipeline(pipelineName)
+	require.YesError(t, err)
+
+	// Should no longer be able to list pipelines
+	_, err = c.ListPipeline()
+	require.YesError(t, err)
+
+	// Should be able to list pipelines with AllowIncomplete=true
+	response, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(response.PipelineInfo))
+
+	// Pipeline should have the correct name
+	require.Equal(t, pipelineName, response.PipelineInfo[0].Pipeline.Name)
+
+	// Updating the pipeline should fail
+	require.YesError(t, createPipeline(true))
+
+	// Should be able to delete the pipeline
+	err = c.DeletePipeline(pipelineName, false)
+	require.NoError(t, err)
+
+	// Should then be able to list pipelines
+	pis, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(pis))
+}
+
 func TestFileHistory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -12309,24 +12404,19 @@ func restartOne(t *testing.T) {
 	waitForReadiness(t)
 }
 
-const (
-	retries = 10
-)
-
 // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
 // connection that actually works
 func getUsablePachClient(t *testing.T) *client.APIClient {
-	for i := 0; i < retries; i++ {
-		client := tu.GetPachClient(t)
+	fmt.Println("Reconnecting to pachd")
+	var c *client.APIClient
+	require.NoError(t, backoff.Retry(func() error {
+		c = tu.GetPachClient(t)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-		defer cancel() //cleanup resources
-		_, err := client.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		if err == nil {
-			return client
-		}
-	}
-	t.Fatalf("failed to connect after %d tries", retries)
-	return nil
+		defer cancel()
+		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+		return err
+	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
+	return c
 }
 
 func podRunningAndReady(e watch.Event) (bool, error) {

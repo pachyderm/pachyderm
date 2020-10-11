@@ -286,6 +286,7 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []*input
 func TestJobSuccess(t *testing.T) {
 	pi := defaultPipelineInfo()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		env.logger.Writer = os.Stdout
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
 		ctx = withTimeout(ctx, 10*time.Second)

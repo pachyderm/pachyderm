@@ -68,16 +68,25 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
-	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+	if pipelineInfo.Transform == nil {
+		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+		fmt.Fprint(w, "-\t")
+		fmt.Fprint(w, "-\t")
+		fmt.Fprint(w, "-\t")
+		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
+		fmt.Fprint(w, "could not retrieve pipeline spec\t")
 	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+		fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
+		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+		}
+		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
+		fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
 	}
-	fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
-	fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
 	fmt.Fprintln(w)
 }
 

@@ -735,12 +735,25 @@ message Objects {
 }
 
 message PutObjDirectRequest {
-    string obj = 1;
-    bytes value = 2;
+  string obj = 1;
+  bytes value = 2;
 }
 
 message GetObjDirectRequest {
-    string obj = 1;
+  string obj = 1;
+}
+
+message DeleteObjDirectRequest {
+  // The 'object' and 'prefix' fields are mutually exclusive.
+
+  // Delete a single object by its path.
+  string object = 1;
+
+  // Delete all objects with paths matching this prefix, cannot be applied to
+  // the core storage layer paths, as those are generally not safe to delete
+  // (use garbage collection for that). This is for deleting objects generated
+  // vi `PutObjDirect`.
+  string prefix = 2;
 }
 
 service ObjectAPI {
@@ -772,6 +785,7 @@ service ObjectAPI {
   // GetObjDirect gets an obj directly out of object store, bypassing the
   // content addressing layer.
   rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteObjDirect(DeleteObjDirectRequest) returns (google.protobuf.Empty) {}
 }
 
 message ObjectIndex {
