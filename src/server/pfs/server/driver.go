@@ -232,7 +232,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else if err == nil {
 		// Existing repo case--just update the repo description.
 		if !update {
-			return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+			return pfsserver.ErrRepoExists{repo}
 		}
 
 		if existingRepoInfo.Description == description {

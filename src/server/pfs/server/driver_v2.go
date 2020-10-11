@@ -148,6 +148,45 @@ func (d *driverV2) getSubFileSet() int64 {
 	return time.Now().UnixNano()
 }
 
+func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+	ctx := pachClient.Ctx()
+	repo := commit.Repo.Name
+	var branch string
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
+	}
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			return err
+		}
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
+	}
+	if commitInfo.Finished != nil {
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		}
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
+	}
+	return d.withCommitWriter(ctx, commitInfo.Commit, cb)
+}
+
+// TODO: Cleanup after failure?
+func (d *driverV2) oneOffFileOperation(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if retErr == nil {
+				retErr = d.finishCommitV2(txnCtx, commit, "")
+			}
+		}()
+		return d.withCommitWriter(txnCtx.ClientContext, commit, cb)
+	})
+}
+
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
 	n := d.getSubFileSet()
@@ -219,13 +258,21 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	var dir string
 	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
-		return mf(idx.Path)
+		if dir != "" && strings.HasPrefix(idx.Path, dir) {
+			return true
+		}
+		match := mf(idx.Path)
+		if match && fileset.IsDir(idx.Path) {
+			dir = idx.Path
+		}
+		return match
 	})
 	// TODO: remove absolute paths on the way out?
 	// nonAbsolute := &fileset.HeaderMapper{
@@ -336,11 +383,16 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (*compac
 	// TODO: use an errgroup to make the recursion concurrecnt.
 	// this requires changing the master to allow multiple calls to RunSubtasks
 	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
+	// TODO: change this such that the fan in is maxed at the lower levels first rather
+	// than the higher.
 	var res *compactResult
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var childOutputPaths []string
 		for i := 0; i < params.maxFanIn; i++ {
 			start := i * childSize
+			if start >= len(params.inputPaths) {
+				break
+			}
 			end := (i + 1) * childSize
 			if end > len(params.inputPaths) {
 				end = len(params.inputPaths)
@@ -491,18 +543,18 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := NewSource(commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
-		x = fileset.NewIndexResolver(x)
-		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return mf(cleanPath(idx.Path))
-		})
+		return fileset.NewIndexResolver(x)
 	})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		if !mf(fi.File.Path) {
+			return nil
+		}
 		return cb(fi)
 	})
 }

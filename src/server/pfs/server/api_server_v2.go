@@ -56,6 +56,9 @@ func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext,
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
+		if request.Empty {
+			request.Description += pfs.EmptyStr
+		}
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }
@@ -167,7 +170,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 			return 0, err
 		}
 		var bytesRead int64
-		if err := a.driver.withCommitWriter(server.Context(), request.Commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.fileOperation(a.env.GetPachClient(server.Context()), request.Commit, func(uw *fileset.UnorderedWriter) error {
 			for {
 				request, err := server.Recv()
 				if err != nil {
@@ -179,13 +182,13 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 				// TODO Validation.
 				switch op := request.Operation.(type) {
 				case *pfs.FileOperationRequestV2_PutTar:
-					n, err := putTar(fs, server, op.PutTar)
+					n, err := putTar(uw, server, op.PutTar)
 					bytesRead += n
 					if err != nil {
 						return err
 					}
 				case *pfs.FileOperationRequestV2_DeleteFiles:
-					if err := deleteFiles(fs, op.DeleteFiles); err != nil {
+					if err := deleteFiles(uw, op.DeleteFiles); err != nil {
 						return err
 					}
 				}
@@ -206,7 +209,7 @@ func putTar(uw *fileset.UnorderedWriter, server fileOpSource, req *pfs.PutTarReq
 		server: server,
 		r:      bytes.NewReader(req.Data),
 	}
-	err := uw.Put(ptr, req.Tag)
+	err := uw.Put(ptr, req.Overwrite, req.Tag)
 	return ptr.bytesRead, err
 }
 
@@ -217,16 +220,13 @@ type putTarReader struct {
 }
 
 func (ptr *putTarReader) Read(data []byte) (int, error) {
-	if ptr.r.Len() == 0 {
+	for ptr.r.Len() == 0 {
 		request, err := ptr.server.Recv()
 		if err != nil {
 			return 0, err
 		}
 		op := request.Operation.(*pfs.FileOperationRequestV2_PutTar)
 		putTarReq := op.PutTar
-		if putTarReq.EOF {
-			return 0, io.EOF
-		}
 		ptr.r = bytes.NewReader(putTarReq.Data)
 	}
 	n, err := ptr.r.Read(data)
@@ -234,9 +234,9 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func deleteFiles(fs *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
+func deleteFiles(uw *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
 	for _, file := range request.Files {
-		fs.Delete(file, request.Tag)
+		uw.Delete(file, request.Tag)
 	}
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"sort"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -31,64 +30,79 @@ func newMergeReader(rs []*Reader) *MergeReader {
 	return &MergeReader{pq: newPriorityQueue(fileStreams)}
 }
 
-func (mr *MergeReader) iterate(f func(*FileMergeReader) error) error {
+func (mr *MergeReader) iterate(cb func(*FileMergeReader) error) error {
 	return mr.pq.iterate(func(ss []stream, _ ...string) error {
-		// Convert generic streams to file streams.
-		var fss []*fileStream
-		for _, s := range ss {
-			fss = append(fss, s.(*fileStream))
-		}
-		// Create file merge reader and execute callback.
-		var frs []*FileReader
-		for _, fs := range fss {
-			fr, err := fs.r.Next()
-			if err != nil {
-				return err
-			}
-			frs = append(frs, fr)
-		}
-		frs = applyFullDeletes(frs)
-		contentTags := computeContentTags(frs)
-		if len(contentTags) == 0 {
-			return nil
-		}
-		return f(newFileMergeReader(frs, sizeOfTags(contentTags)))
+		return mr.mergeFile(ss, cb)
 	})
 }
 
-func applyFullDeletes(frs []*FileReader) []*FileReader {
-	var result []*FileReader
-	// Filter out the file readers with lower priority than the highest priority file reader that contains a full file deletion.
-	for _, fr := range frs {
-		result = append(result, fr)
+func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, deleter ...func(string, ...string)) (retErr error) {
+	// Convert generic streams to file streams.
+	var fss []*fileStream
+	for _, s := range ss {
+		fss = append(fss, s.(*fileStream))
+	}
+	// Progress each stream and collect each file reader.
+	var i int
+	var frs []*FileReader
+	for ; i < len(fss); i++ {
+		fr, err := fss[i].r.Next()
+		if err != nil {
+			return err
+		}
+		frs = append(frs, fr)
+		// Filter out the file readers with lower priority than the highest priority file reader that contains a full file deletion.
 		if isFullDelete(fr.Index()) {
-			return result
+			break
 		}
 	}
-	return result
+	// Progress each lower priority stream past the deleted file(s).
+	for i++; i < len(fss); i++ {
+		fr, err := fss[i].r.Next()
+		if err != nil {
+			return err
+		}
+		// If the full delete is for a directory, progress all lower priority streams past the directory.
+		if IsDir(fr.Index().Path) {
+			if err := fss[i].r.iterate(func(*FileReader) error { return nil }, DirUpperBound(fr.Index().Path)); err != nil {
+				return err
+			}
+		}
+	}
+	contentTags, deleteTags := computeTags(frs)
+	if len(contentTags) == 0 {
+		if len(deleter) > 0 && len(deleteTags) > 0 {
+			deleter[0](frs[0].Index().Path, deleteTags...)
+		}
+		return nil
+	}
+	// Create file merge reader and execute callback.
+	return cb(newFileMergeReader(frs, sizeOfTags(contentTags)))
 }
 
 func isFullDelete(idx *index.Index) bool {
 	return len(idx.DataOp.DeleteTags) > 0 && idx.DataOp.DeleteTags[0].Id == headerTag
 }
 
-func computeContentTags(frs []*FileReader) map[string]int64 {
-	tags := make(map[string]int64)
+func computeTags(frs []*FileReader) (map[string]int64, []string) {
+	contentTags := make(map[string]int64)
+	deleteTags := make(map[string]struct{})
 	for i := len(frs) - 1; i >= 0; i-- {
 		dataOp := frs[i].Index().DataOp
 		for _, tag := range dataOp.DeleteTags {
-			delete(tags, tag.Id)
+			delete(contentTags, tag.Id)
+			deleteTags[tag.Id] = struct{}{}
 		}
 		for _, dataRef := range dataOp.DataRefs {
 			for _, tag := range dataRef.Tags {
 				if tag.Id == headerTag || tag.Id == paddingTag {
 					continue
 				}
-				tags[tag.Id] += tag.SizeBytes
+				contentTags[tag.Id] += tag.SizeBytes
 			}
 		}
 	}
-	return tags
+	return contentTags, getSortedKeys(deleteTags)
 }
 
 func sizeOfTags(tags map[string]int64) int64 {
@@ -102,63 +116,38 @@ func sizeOfTags(tags map[string]int64) int64 {
 // Next gets the next file merge reader in the merge reader.
 func (mr *MergeReader) Next() (*FileMergeReader, error) {
 	for {
+		var nextFmr *FileMergeReader
 		ss, err := mr.pq.next()
 		if err != nil {
 			return nil, err
 		}
-		// Convert generic streams to file streams.
-		var fss []*fileStream
-		for _, s := range ss {
-			fss = append(fss, s.(*fileStream))
+		if err := mr.mergeFile(ss, func(fmr *FileMergeReader) error {
+			nextFmr = fmr
+			return nil
+		}); err != nil {
+			return nil, err
 		}
-		// Create file merge reader and execute callback.
-		var frs []*FileReader
-		for _, fs := range fss {
-			fr, err := fs.r.Next()
-			if err != nil {
-				return nil, err
-			}
-			frs = append(frs, fr)
+		if nextFmr != nil {
+			return nextFmr, nil
 		}
-		frs = applyFullDeletes(frs)
-		contentTags := computeContentTags(frs)
-		if len(contentTags) == 0 {
-			continue
-		}
-		return newFileMergeReader(frs, sizeOfTags(contentTags)), nil
 	}
 }
 
 // WriteTo writes the merged fileset to the passed in fileset writer.
 func (mr *MergeReader) WriteTo(w *Writer) error {
 	return mr.pq.iterate(func(ss []stream, next ...string) error {
-		// Convert generic streams to file streams.
-		var fss []*fileStream
-		for _, s := range ss {
-			fss = append(fss, s.(*fileStream))
-		}
 		// Copy single file stream.
-		if len(fss) == 1 {
-			return fss[0].r.iterate(func(fr *FileReader) error {
+		if len(ss) == 1 {
+			return ss[0].(*fileStream).r.iterate(func(fr *FileReader) error {
 				return w.CopyFile(fr)
 			}, next...)
 		}
-		// Create file merge reader and call its WriteTo function.
-		var frs []*FileReader
-		for _, fs := range fss {
-			fr, err := fs.r.Next()
-			if err != nil {
-				return err
-			}
-			frs = append(frs, fr)
+		deleter := func(path string, tags ...string) {
+			w.DeleteFile(path, tags...)
 		}
-		frs = applyFullDeletes(frs)
-		contentTags := computeContentTags(frs)
-		if len(contentTags) == 0 {
-			w.DeleteFile(frs[0].Index().Path)
-			return nil
-		}
-		return newFileMergeReader(frs, sizeOfTags(contentTags)).WriteTo(w)
+		return mr.mergeFile(ss, func(fmr *FileMergeReader) error {
+			return fmr.WriteTo(w)
+		}, deleter)
 	})
 }
 
@@ -263,21 +252,6 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	if err := w.WriteHeader(hdr); err != nil {
 		return err
 	}
-	// Propagate delete tags.
-	var allDeleteTags []string
-	for _, fr := range fmr.frs {
-		if isFullDelete(fr.Index()) {
-			allDeleteTags = []string{headerTag}
-			break
-		}
-		for _, tag := range fr.Index().DataOp.DeleteTags {
-			allDeleteTags = append(allDeleteTags, tag.Id)
-		}
-	}
-	sort.Strings(allDeleteTags)
-	for _, tag := range allDeleteTags {
-		w.DeleteTag(tag)
-	}
 	// Write merged content.
 	return fmr.tsmr.WriteTo(w)
 }
@@ -324,13 +298,13 @@ type TagSetMergeReader struct {
 
 func newTagSetMergeReader(frs []*FileReader) *TagSetMergeReader {
 	var tagStreams []stream
-	for _, fr := range frs {
+	for i := len(frs) - 1; i >= 0; i-- {
 		tagStreams = append(tagStreams, &deleteTagStream{
-			tags:     fr.Index().DataOp.DeleteTags,
+			tags:     frs[i].Index().DataOp.DeleteTags,
 			priority: len(tagStreams),
 		})
 		tagStreams = append(tagStreams, &tagStream{
-			fr:       fr,
+			fr:       frs[i],
 			priority: len(tagStreams),
 		})
 	}
@@ -341,86 +315,66 @@ func newTagSetMergeReader(frs []*FileReader) *TagSetMergeReader {
 }
 
 // Iterate iterates over the tag merge readers in the merged tagset.
-func (tsmr *TagSetMergeReader) Iterate(f func(*TagMergeReader) error) error {
+func (tsmr *TagSetMergeReader) Iterate(cb func(*TagMergeReader) error) error {
 	return tsmr.pq.iterate(func(ss []stream, _ ...string) error {
-		// Convert generic stream to tag stream.
-		var tss []*tagStream
-		for _, s := range ss {
-			if _, ok := s.(*deleteTagStream); ok {
-				tss = nil
-				continue
+		return tsmr.mergeTag(ss, cb)
+	})
+}
+
+func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) error, deleter ...func(string)) (retErr error) {
+	// Convert generic streams to tag streams.
+	var i int
+	var tss []*tagStream
+	for ; i < len(ss); i++ {
+		if dts, ok := ss[i].(*deleteTagStream); ok {
+			if len(deleter) > 0 {
+				deleter[0](dts.tag.Id)
 			}
-			tss = append(tss, s.(*tagStream))
+			break
 		}
-		if len(tss) == 0 {
-			return nil
+		tss = append(tss, ss[i].(*tagStream))
+	}
+	for i++; i < len(ss); i++ {
+		if _, ok := ss[i].(*deleteTagStream); ok {
+			continue
 		}
-		// Check if we are at the padding tag, which indicates we are done.
-		tag, err := tss[0].fr.PeekTag()
-		if err != nil {
+		// TODO: This could be more performant.
+		if err := ss[i].(*tagStream).fr.NextTagReader().Get(ioutil.Discard); err != nil {
 			return err
 		}
-		if tag.Id == paddingTag {
-			for _, ts := range tss {
-				if err := ts.fr.NextTagReader().Get(ioutil.Discard); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		// Create tag merge reader and execute callback.
-		var trs []*chunk.TagReader
-		for _, ts := range tss {
-			trs = append(trs, ts.fr.NextTagReader())
-		}
-		return f(newTagMergeReader(trs))
-	})
+	}
+	if len(tss) == 0 {
+		return nil
+	}
+	var trs []*chunk.TagReader
+	for _, ts := range tss {
+		trs = append(trs, ts.fr.NextTagReader())
+	}
+	return cb(newTagMergeReader(trs))
 }
 
 // WriteTo writes the merged tagset to the passed in fileset writer.
 func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
-	return tsmr.pq.iterate(func(ss []stream, next ...string) error {
-		// Convert generic stream to tag stream.
-		var tss []*tagStream
-		for _, s := range ss {
-			if dts, ok := s.(*deleteTagStream); ok {
-				w.DeleteTag(dts.tag.Id)
-				tss = nil
-				continue
-			}
-			tss = append(tss, s.(*tagStream))
-		}
-		if len(tss) == 0 {
-			return nil
-		}
-		// Check if we are at the padding tag, which indicates we are done.
-		tag, err := tss[0].fr.PeekTag()
-		if err != nil {
-			return err
-		}
-		if tag.Id == paddingTag {
-			for _, ts := range tss {
-				if err := ts.fr.NextTagReader().Get(ioutil.Discard); err != nil {
-					return err
-				}
-			}
-			return nil
+	return tsmr.pq.iterate(func(ss []stream, next ...string) (retErr error) {
+		deleter := func(tag string) {
+			w.DeleteTag(tag)
 		}
 		// Copy single tag stream.
 		if len(ss) == 1 {
+			if dts, ok := ss[0].(*deleteTagStream); ok {
+				deleter(dts.tag.Id)
+				return nil
+			}
 			if len(next) == 0 {
 				next = []string{paddingTag}
 			}
-			return tss[0].fr.Iterate(func(dr *chunk.DataReader) error {
+			return ss[0].(*tagStream).fr.Iterate(func(dr *chunk.DataReader) error {
 				return w.CopyTags(dr.BoundReader(next...))
 			}, next...)
 		}
-		// Create tag merge reader and call its WriteTo function.
-		var trs []*chunk.TagReader
-		for _, ts := range tss {
-			trs = append(trs, ts.fr.NextTagReader())
-		}
-		return newTagMergeReader(trs).WriteTo(w)
+		return tsmr.mergeTag(ss, func(tmr *TagMergeReader) error {
+			return tmr.WriteTo(w)
+		}, deleter)
 	})
 }
 
@@ -440,6 +394,9 @@ type tagStream struct {
 func (ts *tagStream) next() error {
 	var err error
 	ts.tag, err = ts.fr.PeekTag()
+	if ts.tag != nil && ts.tag.Id == paddingTag {
+		return io.EOF
+	}
 	return err
 }
 
@@ -486,9 +443,9 @@ func newTagMergeReader(trs []*chunk.TagReader) *TagMergeReader {
 }
 
 // Iterate iterates over the data readers for the tagged data being merged.
-func (tmr *TagMergeReader) Iterate(f func(*chunk.DataReader) error) error {
+func (tmr *TagMergeReader) Iterate(cb func(*chunk.DataReader) error) error {
 	for _, tr := range tmr.trs {
-		if err := tr.Iterate(f); err != nil {
+		if err := tr.Iterate(cb); err != nil {
 			return err
 		}
 	}

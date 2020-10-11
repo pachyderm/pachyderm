@@ -48,7 +48,7 @@ func (r *Reader) Next() (*FileReader, error) {
 func (r *Reader) Iterate(ctx context.Context, f func(File) error, pathBound ...string) error {
 	return r.iterate(func(fr *FileReader) error {
 		return f(fr)
-	})
+	}, pathBound...)
 }
 
 func (r *Reader) iterate(f func(*FileReader) error, pathBound ...string) error {
