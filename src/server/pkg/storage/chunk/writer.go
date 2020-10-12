@@ -2,16 +2,13 @@ package chunk
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
-	"path"
 	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 	"golang.org/x/sync/errgroup"
 )
@@ -63,8 +60,7 @@ type Writer struct {
 	ctx                     context.Context
 	cancel                  context.CancelFunc
 	err                     error
-	objC                    obj.Client
-	tracker                 Tracker
+	client                  *Client
 	chunkSize               *chunkSize
 	annotations             []*Annotation
 	numChunkBytesAnnotation int
@@ -85,10 +81,9 @@ func newWriter(ctx context.Context, objC obj.Client, tracker Tracker, tmpID stri
 	cancelCtx, cancel := context.WithCancel(ctx)
 	eg, errCtx := errgroup.WithContext(cancelCtx)
 	w := &Writer{
-		ctx:     errCtx,
-		cancel:  cancel,
-		objC:    objC,
-		tracker: tracker,
+		ctx:    errCtx,
+		cancel: cancel,
+		client: NewClient(objC, tracker, tmpID),
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
@@ -104,7 +99,6 @@ func newWriter(ctx context.Context, objC obj.Client, tracker Tracker, tmpID stri
 		opt(w)
 	}
 	w.resetHash()
-	go w.renewLoop(ctx)
 	return w
 }
 
@@ -251,9 +245,6 @@ func copyAnnotation(a *Annotation) *Annotation {
 
 func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prevChan, nextChan chan struct{}) error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
-	if err := w.maybeUpload(chunk, chunkBytes); err != nil {
-		return err
-	}
 	chunkRef := &DataRef{
 		ChunkInfo: &ChunkInfo{
 			Chunk:     chunk,
@@ -263,30 +254,36 @@ func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prev
 		SizeBytes: int64(len(chunkBytes)),
 	}
 	// Process the annotations for the current chunk.
-	if err := w.processAnnotations(chunkRef, chunkBytes, annotations); err != nil {
+	pointsTo, err := w.processAnnotations(chunkRef, chunkBytes, annotations)
+	if err != nil {
+		return err
+	}
+	if err := w.maybeUpload(chunk, chunkBytes, pointsTo); err != nil {
 		return err
 	}
 	return w.executeFunc(annotations, prevChan, nextChan)
 }
 
-func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
+func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte, pointsTo []ChunkID) error {
 	// Skip the upload if no upload is configured.
 	if w.noUpload {
 		return nil
 	}
-	path := path.Join(prefix, chunk.Hash)
-	if err := w.tracker.AddChunk(ctx, w.tmpID, ChunkID(chunk.Hash)); err != nil {
+	// TODO: populate the metadata
+	md := ChunkMetadata{
+		PointsTo: pointsTo,
+	}
+	chunkID, err := ChunkIDFromHex(chunk.Hash)
+	if err != nil {
 		return err
 	}
-	if err := UploadChunk(ctx, w.tracker, r io.Reader); err != nil {
-		return nil
-	}	
-	return err
+	return w.client.Create(w.ctx, chunkID, md, w.buf)
 }
 
-func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
+func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) ([]ChunkID, error) {
 	var offset int64
 	var prevRefChunk string
+	pointsTo := []ChunkID{}
 	for _, a := range annotations {
 		// Update the annotation fields.
 		size := sizeOfTags(a.tags)
@@ -312,20 +309,18 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 		// reference calls.
 		for _, dataRef := range a.RefDataRefs {
 			refChunk := dataRef.ChunkInfo.Chunk.Hash
+			refChunkID, err := ChunkIDFromHex(refChunk)
+			if err != nil {
+				return nil, err
+			}
 			if prevRefChunk == refChunk {
 				continue
 			}
-			if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
-				Sourcetype: "chunk",
-				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
-				Chunk:      path.Join(prefix, refChunk),
-			}); err != nil {
-				return err
-			}
+			pointsTo = append(pointsTo, refChunkID)
 			prevRefChunk = refChunk
 		}
 	}
-	return nil
+	return pointsTo, nil
 }
 
 func sizeOfTags(tags []*Tag) int64 {
@@ -462,19 +457,4 @@ func (w *Writer) Close() error {
 		}
 		return w.eg.Wait()
 	})
-}
-
-func (w *Writer) renewLoop(ctx context.Context) error {
-	ticker := time.NewTicker(w.ttl)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			if _, err := w.tr.SetTTL(ctx, w.tmpID); err != nil {
-				return err
-			}
-		}
-	}
 }

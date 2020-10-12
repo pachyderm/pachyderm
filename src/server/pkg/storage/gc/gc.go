@@ -1,20 +1,30 @@
-package chunk
+package gc
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	log "github.com/sirupsen/logrus"
+)
 
 type GC struct {
-	objc obj.Client
-	period time.Duration
+	db      *sqlx.DB
+	objc    obj.Client
 	tracker chunk.Tracker
+	period  time.Duration
 }
-
-type IDIterator func(ctx context.Context, func(chunk.ChunkID) error) error
 
 func NewGC(db *sqlx.DB, objc obj.Client, tracker chunk.Tracker, pollingPeriod time.Duration) *GC {
 	return &GC{
-		objc: objc,
+		objc:    objc,
 		tracker: tracker,
-		period: pollingPeriod,
-		db: db,
-	}	
+		period:  pollingPeriod,
+		db:      db,
+	}
 }
 
 func (gc *GC) Run(ctx context.Context) error {
@@ -28,9 +38,8 @@ func (gc *GC) Run(ctx context.Context) error {
 			if err := gc.runOnce(ctx); err != nil {
 				log.Error(err)
 			}
-		}	
+		}
 	}
-	return nil
 }
 
 const deleteableQuery = `
@@ -43,36 +52,28 @@ const deleteableQuery = `
 	AND hash_id NOT IN (SELECT chunk_id FROM storage.paths)
 `
 
-func (gc *GC) runOnce(ctx context.Context) error {	
+// runOnce is one pass of the garbase collector.
+// The query still needs some work. We want to expire all the semantic paths that need to be expired.
+// then list all the chunks not referenced by another chunk or a semantic path.
+// these do not necessarily need to be done in the same transaction.
+func (gc *GC) runOnce(ctx context.Context) error {
 	tmpID := fmt.Sprintf("gc-%d", time.Now().UnixNano())
-	if err := gc.tracker.NewChunkSet(ctx, ); err != nil {
-		return nil, err
-	}
-	ctx, cf := context.WithCancel(ctx)
-	eg, ctx2 := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		
-	})
-	eg.Go(func() error {
-		rows, err := gc.db.QueryContext(ctx, deleteableQuery)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var chunkID []byte
-			if err := rows.Scan(&chunkId); err != nil {
-				return err
-			}
-			if err := chunk.DeleteChunk(ctx, gc.tracker, gc.objc, chunkID); err != nil {
-				return err
-			}
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		cf()
-		return nil
-	})
-	return eg.Wait()	
-}
+	client := chunk.NewClient(gc.objc, gc.tracker, tmpID)
+	defer client.Close()
 
+	rows, err := gc.db.QueryContext(ctx, deleteableQuery)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var chunkID []byte
+		if err := rows.Scan(&chunkID); err != nil {
+			return err
+		}
+		if err := client.Delete(ctx, chunkID); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}

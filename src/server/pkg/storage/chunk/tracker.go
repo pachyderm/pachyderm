@@ -1,16 +1,13 @@
 package chunk
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/hex"
-	io "io"
-	"path"
+	"testing"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type ChunkID []byte
@@ -20,78 +17,46 @@ func ChunkIDFromHex(h string) (ChunkID, error) {
 }
 
 func (id ChunkID) HexString() string {
-	return hex.EncodeString(id)
+	return hex.EncodeToString(id)
 }
 
-// Tracker tracks chunk metadata and keeps track of chunk sets being uploaded or downloaded.
+type ChunkMetadata struct {
+	Size     int
+	PointsTo []ChunkID
+}
+
+var (
+	ErrChunkLocked      = errors.Errorf("chunk is already locked in another set")
+	ErrChunkSetNotExist = errors.Errorf("chunk set does not exist")
+)
+
+// Tracker tracks chunk metadata and keeps track of chunk sets being uploaded or deleted.
 type Tracker interface {
 	// ChunkSet methods. Keep track of active chunks
-
 	NewChunkSet(ctx context.Context, chunkSet string, delete bool, ttl time.Duration) error
 	// SetTTL sets the TTL on a chunkSet
+	// If the ChunkSet has already expired, was never created, or has been dropped. SetTTL returns ErrChunkSetNotExist
 	SetTTL(ctx context.Context, chunkSet string, ttl time.Duration) (expiresAt time.Time, err error)
 	// LockChunk adds a chunk id to a chunk set.
+	// LockChunk returns ErrChunkLocked if the chunk is already locked to a delete ChunkSet
 	LockChunk(ctx context.Context, chunkSet string, chunkID ChunkID) error
+	// Unlock chunk removes a chunk from a chunk set.
+	UnlockChunk(ctx context.Context, chunkSet string, chunkID ChunkID) error
 	// DropChunkSet causes all chunks in a chunk set to be deleted. It returns the number of chunks dropped.
+	// ChunkSets are expired automatically by the tracker, but DropChunkSet will drop it immediately.
 	DropChunkSet(ctx context.Context, chunkSet string) (int, error)
 
 	// Chunk metadata
-
 	// SetChunkInfo adds chunk metadata to the tracker
-	SetChunkInfo(ctx context.Context, chunkID ChunkID, chunkInfo *ChunkInfo, pointsTo []ChunkID) error
+	SetChunkInfo(ctx context.Context, chunkID ChunkID, md ChunkMetadata) error
+	// GetChunkInfo returns info about the chunk if it exists
+	GetChunkInfo(ctx context.Context, chunkID ChunkID) (*ChunkMetadata, error)
 	// DeleteChunkInfo removes chunk metadata from the tracker
 	DeleteChunkInfo(ctx context.Context, chunkID ChunkID) error
 }
 
-func UploadChunk(ctx context.Context, tracker Tracker, objc obj.Client, cinfo *ChunkInfo, r io.Reader) error {
-	if err := tracker.PostChunkInfo(ctx, chunkInfo); err != nil {
-		return err
-	}
-	// Skip the upload if the chunk already exists.
-	if w.objC.Exists(w.ctx, path) {
-		return nil
-	}
-	p := path.Join(prefix, cinfo.Hash)
-	objW, err := objC.Writer(w.ctx, path)
-	if err != nil {
-		return err
-	}
-	defer objW.Close()
-	gzipW, err := gzip.NewWriterLevel(objW, gzip.BestSpeed)
-	if err != nil {
-		return err
-	}
-	defer gzipW.Close()
-	// TODO Encryption?
-	_, err = io.Copy(gzipW, bytes.NewReader(chunkBytes))
-	return err
-}
-
-func GetChunk(ctx context.Context, _ Tracker, objc obj.Client, chunkID ChunkID, w io.Writer) (io.ReadCloser, error) {
-	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, string(chunkID)), 0, 0)
-	if err != nil {
-		return err
-	}
-	defer objR.Close()
-	gzipR, err := gzip.NewReader(objR)
-	if err != nil {
-		return err
-	}
-	defer gzipR.Close()
-	return io.Copy(r, gzipR)
-}
-
-func DeleteChunk(ctx context.Context, tracker Tracker, objc obj.Client, chunkID ChunkID) error {
-	// TODO: fix the race where a chunk is uploaded after it is deleted,
-	if err := tracker.DeleteChunkInfo(ctx, chunkID); err != nil {
-		return err
-	}
-
-	return objc.Delete(ctx, chunkPath(chunkID))
-}
-
-func chunkPath(chunkID ChunkID) string {
-	return path.Join(prefix, chunkID.HexString())
+func WithTestTracker(t testing.TB, cb func(tracker Tracker)) {
+	cb(nil)
 }
 
 type PGTracker struct {

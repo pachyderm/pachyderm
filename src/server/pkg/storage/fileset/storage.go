@@ -292,7 +292,9 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 		if err := s.objC.Delete(ctx, name); err != nil {
 			return err
 		}
-		return s.chunks.DeleteSemanticReference(ctx, name)
+		// TODO: changed with paths in postgres
+		//return s.chunks.DeleteSemanticReference(ctx, name)
+		return nil
 	})
 }
 
@@ -310,7 +312,9 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 	if !s.objC.Exists(ctx, p) {
 		return time.Time{}, ErrNoFileSetFound
 	}
-	return s.chunks.RenewReference(ctx, p, ttl)
+	// TODO: changed with paths in postgres
+	//return s.chunks.RenewReference(ctx, p, ttl)
+	return time.Time{}, nil
 }
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.

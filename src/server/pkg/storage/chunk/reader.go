@@ -14,16 +14,18 @@ import (
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
-	objC     obj.Client
+	client   *Client
 	dataRefs []*DataRef
 	peek     *DataReader
 	prev     *DataReader
 }
 
-func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
+func newReader(ctx context.Context, objC obj.Client, tracker Tracker, dataRefs ...*DataRef) *Reader {
+	// reader should never get a lock, so the empty chunkSet is fine.
+	client := NewClient(objC, tracker, "")
 	return &Reader{
 		ctx:      ctx,
-		objC:     objC,
+		client:   client,
 		dataRefs: dataRefs,
 	}
 }
@@ -65,7 +67,7 @@ func (r *Reader) Next() (*DataReader, error) {
 	if len(r.dataRefs) == 0 {
 		return nil, io.EOF
 	}
-	dr := newDataReader(r.ctx, r.objC, r.dataRefs[0], r.prev)
+	dr := newDataReader(r.ctx, r.client, r.dataRefs[0], r.prev)
 	r.dataRefs = r.dataRefs[1:]
 	r.prev = dr
 	return dr, nil
@@ -178,7 +180,7 @@ func (tr *TagReader) Get(w io.Writer) error {
 // and the prior in a chain of data references.
 type DataReader struct {
 	ctx        context.Context
-	objC       obj.Client
+	client     *Client
 	dataRef    *DataRef
 	getChunkMu sync.Mutex
 	chunk      []byte
@@ -187,10 +189,10 @@ type DataReader struct {
 	seed       *DataReader
 }
 
-func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client *Client, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
 		ctx:     ctx,
-		objC:    objC,
+		client:  client,
 		dataRef: dataRef,
 		offset:  dataRef.OffsetBytes,
 		tags:    dataRef.Tags,
@@ -274,7 +276,11 @@ func (dr *DataReader) getChunk() error {
 	}
 	// Get chunk from object storage.
 	buf := &bytes.Buffer{}
-	if err := GetChunk(dr.ctx, dr.objC, ChunkID(chunk.Hash), buf); err != nil {
+	chunkID, err := ChunkIDFromHex(dr.dataRef.Hash)
+	if err != nil {
+		return err
+	}
+	if err := dr.client.Get(dr.ctx, chunkID, buf); err != nil {
 		return err
 	}
 	dr.chunk = buf.Bytes()
@@ -321,7 +327,7 @@ func (dr *DataReader) BoundReader(tagUpperBound ...string) *DataReader {
 	}
 	return &DataReader{
 		ctx:     dr.ctx,
-		objC:    dr.objC,
+		client:  dr.client,
 		dataRef: dr.dataRef,
 		offset:  offset,
 		tags:    tags,

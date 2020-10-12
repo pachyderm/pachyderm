@@ -37,7 +37,7 @@ var tests = []test{
 }
 
 func TestWriteThenRead(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+	WithTestStorage(t, func(objC obj.Client, chunks *Storage) error {
 		msg := testutil.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
@@ -49,11 +49,11 @@ func TestWriteThenRead(t *testing.T) {
 			})
 		}
 		return nil
-	}))
+	})
 }
 
 func TestCopy(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+	WithTestStorage(t, func(objC obj.Client, chunks *Storage) error {
 		msg := testutil.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
@@ -93,11 +93,11 @@ func TestCopy(t *testing.T) {
 			})
 		}
 		return nil
-	}))
+	})
 }
 
 func BenchmarkWriter(b *testing.B) {
-	require.NoError(b, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+	WithTestStorage(b, func(objC obj.Client, chunks *Storage) error {
 		seq := RandSeq(100 * units.MB)
 		b.SetBytes(100 * units.MB)
 		b.ResetTimer()
@@ -115,7 +115,7 @@ func BenchmarkWriter(b *testing.B) {
 			require.NoError(b, w.Close())
 		}
 		return nil
-	}))
+	})
 }
 
 func BenchmarkRollingHash(b *testing.B) {

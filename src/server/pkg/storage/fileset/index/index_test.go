@@ -54,7 +54,7 @@ func pathRange(fileNames []string) *PathRange {
 }
 
 func Check(t *testing.T, permString string) {
-	require.NoError(t, chunk.WithLocalStorage(func(objC obj.Client, chunks *chunk.Storage) error {
+	chunk.WithTestStorage(t, func(objC obj.Client, chunks *chunk.Storage) error {
 		fileNames := Generate(permString)
 		averageBits = 12
 		write(t, objC, chunks, fileNames)
@@ -112,7 +112,7 @@ func Check(t *testing.T, permString string) {
 			require.Equal(t, expected, actual)
 		})
 		return nil
-	}))
+	})
 }
 
 func TestSingleLevel(t *testing.T) {

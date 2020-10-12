@@ -9,21 +9,12 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
 
 var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
-
-// WithGarbageCollection sets the garbage collection client
-// for the storage. The storage will use a mock client otherwise.
-func WithGarbageCollection(gcClient gc.Client) StorageOption {
-	return func(s *Storage) {
-		s.gcClient = gcClient
-	}
-}
 
 // WithMaxConcurrentObjects sets the maximum number of object writers (upload)
 // and readers (download) that can be open at a time.

@@ -116,7 +116,7 @@ func dataRefsToHashes(dataRefs []*chunk.DataRef) []string {
 }
 
 func TestWriteThenRead(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
+	WithTestStorage(t, func(fileSets *Storage) error {
 		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
@@ -153,11 +153,11 @@ func TestWriteThenRead(t *testing.T) {
 			require.NoError(t, fileSets.Delete(context.Background(), fileSet), msg)
 		}
 		return nil
-	}))
+	})
 }
 
 func TestCopy(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
+	WithTestStorage(t, func(fileSets *Storage) error {
 		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
@@ -200,11 +200,11 @@ func TestCopy(t *testing.T) {
 		}), msg)
 		require.Equal(t, initialChunkCount, finalChunkCount, msg)
 		return nil
-	}))
+	})
 }
 
 func TestCompaction(t *testing.T) {
-	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
+	WithTestStorage(t, func(fileSets *Storage) error {
 		msg := testutil.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
@@ -222,7 +222,7 @@ func TestCompaction(t *testing.T) {
 			return nil
 		}), msg)
 		return nil
-	}))
+	})
 }
 
 func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, msg string) []*testFile {

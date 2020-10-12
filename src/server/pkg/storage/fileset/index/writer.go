@@ -170,17 +170,18 @@ func (w *Writer) Close() (retErr error) {
 		_, err = pbutil.NewWriter(objW).Write(&Index{})
 		return err
 	}
-	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	if w.rootTTL > 0 {
-		_, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL)
-		if err != nil {
-			return err
-		}
-	} else {
-		if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
-			return err
-		}
-	}
+	// TODO: this section is changed in the semantic path migration
+	//chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
+	// if w.rootTTL > 0 {
+	// 	_, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	// 	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
+	// 		return err
+	// 	}
+	// }
 	_, err = pbutil.NewWriter(objW).Write(w.root)
 	return err
 }

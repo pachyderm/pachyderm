@@ -2,15 +2,19 @@ package chunk
 
 import (
 	"math/rand"
+	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 // WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
-func WithLocalStorage(f func(obj.Client, *Storage) error, opts ...StorageOption) error {
-	return obj.WithLocalClient(func(objClient obj.Client) error {
-		return f(objClient, NewStorage(objClient, opts...))
+func WithTestStorage(t testing.TB, f func(obj.Client, *Storage) error, opts ...StorageOption) {
+	WithTestTracker(t, func(tracker Tracker) {
+		require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
+			return f(objClient, NewStorage(objClient, nil, opts...))
+		}))
 	})
 }
 
