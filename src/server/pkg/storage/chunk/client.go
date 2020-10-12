@@ -55,6 +55,8 @@ func NewClient(objc obj.Client, tracker Tracker, chunkSet string) *Client {
 	This will ensure that if a writer fails another writer will not skip the upload assuming someone has succeeded.
 
 	No one will be deleting the chunk during the existence check, metadata put, or data upload.
+
+	The chunk is not unlocked until the client is closed.
 */
 
 // Create adds a chunk with data provided by r and metadata md.
@@ -67,7 +69,6 @@ func (c *Client) Create(ctx context.Context, chunkID ChunkID, md ChunkMetadata, 
 	if err := c.tracker.LockChunk(ctx, c.chunkSet, chunkID); err != nil {
 		return err
 	}
-	defer c.tracker.UnlockChunk(ctx, c.chunkSet, chunkID)
 	// at this point no one will be trying to delete the chunk
 	p := chunkPath(chunkID)
 	if c.objc.Exists(ctx, p) {
