@@ -157,7 +157,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		return nil, errors.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
 	}
 	// Apply creation options
-	settings := &clientSettings{
+	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
@@ -172,7 +172,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		}
 	}
 	for _, option := range options {
-		if err := option(settings); err != nil {
+		if err := option(&settings); err != nil {
 			return nil, err
 		}
 	}
