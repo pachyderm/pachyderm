@@ -44,32 +44,31 @@ environment variables.
 | `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
 | `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
 | `PORT`                 | `650`             | The `pachd` port number. |
-| `HTTP_PORT`            | `652`             | The HTTP port number.   |
-| `PEER_PORT`            | `653`             | The port for pachd-to-pachd communication. |
+| `HTTP_PORT`             | `652`             | The HTTP port number.   |
+| `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
 | `NAMESPACE`            | `deafult`         | The namespace in which Pachyderm is deployed. |
-| `GC_PERCENT`           | `50`              | Controls the garbage collection percentage and is an equivalent of the [GOGC](https://golang.org/pkg/runtime/) environment variable. The default value is `50`, and the larger the number, the less often garbage collection will run. |
 
 **pachd Configuration**
 
-| Environment Variable   | Description |
-| ---------------------- | ----------- |
-| `NUM_SHARDS`           | The max number of `pachd` pods that can run in a <br> single cluster. The default value is `32`.|
-| `STORAGE_BACKEND`      | The storage backend defined for the Pachyderm cluster. <br>  By default, local storage is configured. The default value is `"`. |
-| `STORAGE_HOST_PATH`    | The host path to storage. The default value is `"`. |
-| `KUBERNETES_PORT_443_TCP_ADDR` | An IP address that Kubernetes exports <br> automatically for your code to communicate with <br> the Kubernetes API. Read access only. Most variables <br> that have use the `PORT_ADDRESS_TCP_ADDR` pattern <br> are Kubernetes environment variables. <br> The default value is `none`. For more information, see <br>[Kubernetes environment variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables). |
-| `METRICS`              | Defines whether anonymous Pachyderm metrics are being <br>collected or not. The default value is `true`. |
-| `BLOCK_CACHE_BYTES`    | The size of the block cache in `pachd`. The default <br>value is `1G`. |
-| `WORKER_IMAGE`         | The base Docker image that is used to run your pipeline. <br>The default value is `"`. |
-| `WORKER_SIDECAR_IMAGE` | The `pachd` image that is used as a worker sidecar The <br>default value is `"`. |
-| `WORKER_IMAGE_PULL_POLICY` | The pull policy that defines how Docker images are <br>pulled. The default value is `IfNotPresent`. You can set <br> a Kubernetes image pull policy as needed. |
-| `LOG_LEVEL`          | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. The default value is `info`. |
-| `IAM_ROLE`           | The role that defines permissions for Pachyderm in AWS. <br> The default value is `"`.|
-| `IMAGE_PULL_SECRET`  | The Kubernetes secret for image pull credentials. <br> The default value is `"`.|
-| `NO_EXPOSE_DOCKER_SOCKET` | Controls whether you can build images using <br> the `--build` command. The default value is `false`.|
-| `EXPOSE_OBJECT_API`  | Controls access to internal Pachyderm API. The default <br> value is `false`.|
-| `WORKER_USES_ROOT`   | Controls root access in the worker container. The <br> default value is `true`.|
-| `S3GATEWAY_PORT`     | The S3 gateway port number. The default value is `600`.|
-| `DISABLE_COMMIT_PROGRESS_COUNTER` | A feature flag that disables commit propagation <br> progress counter. If you have a large DAG, <br> setting this parameter to `true` might help <br> improve etcd performance. You only need to set <br>this parameter on the `pachd` pod. Pachyderm passes <br> this parameter to worker containers automatically. <br> The default value is `false`. |
+| Environment Variable       | Default Value | Description |
+| -------------------------- | ------------- | ----------- |
+| `NUM_SHARDS`               | `32`      | The max number of `pachd` pods that can run in a <br> single cluster. |
+| `STORAGE_BACKEND`          | `""`      | The storage backend defined for the Pachyderm cluster.|
+| `STORAGE_HOST_PATH`        | `""`      | The host path to storage. |
+| `KUBERNETES_PORT_443_TCP_ADDR` |`none` | An IP address that Kubernetes exports <br> automatically for your code to communicate with <br> the Kubernetes API. Read access only. Most variables <br> that have use the `PORT_ADDRESS_TCP_ADDR` pattern <br> are Kubernetes environment variables. For more information,<br> see [Kubernetes environment variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables). |
+| `METRICS`                  | `true`   | Defines whether anonymous Pachyderm metrics are being <br>collected or not. |
+| `BLOCK_CACHE_BYTES`        | `1G`     | The size of the block cache in `pachd`. |
+| `WORKER_IMAGE`             | `""`     | The base Docker image that is used to run your pipeline.|
+| `WORKER_SIDECAR_IMAGE`     | `""`     | The `pachd` image that is used as a worker sidecar. |
+| `WORKER_IMAGE_PULL_POLICY` | `IfNotPresent`| The pull policy that defines how Docker images are <br>pulled. You can set <br> a Kubernetes image pull policy as needed. |
+| `LOG_LEVEL`                | `info`   | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. Viable Options <br>`debug` <br>`info` <br> `error`<br>For more information, see [Go logrus log levels](https://godoc.org/github.com/sirupsen/logrus#Level). ||
+| `IAM_ROLE`                 |  `""`    | The role that defines permissions for Pachyderm in AWS.|
+| `IMAGE_PULL_SECRET`        |  `""`    | The Kubernetes secret for image pull credentials.|
+| `NO_EXPOSE_DOCKER_SOCKET`  |  `false` | Controls whether you can build images using <br> the `--build` command.|
+| `EXPOSE_OBJECT_API`        |  `false` | Controls access to internal Pachyderm API.|
+| `WORKER_USES_ROOT`         |  `true`  | Controls root access in the worker container.|
+| `S3GATEWAY_PORT`           |  `600`   | The S3 gateway port number|
+| `DISABLE_COMMIT_PROGRESS_COUNTER` |`false`| A feature flag that disables commit propagation <br> progress counter. If you have a large DAG, <br> setting this parameter to `true` might help <br> improve etcd performance. You only need to set <br>this parameter on the `pachd` pod. Pachyderm passes <br> this parameter to worker containers automatically. |
 
 **Storage Configuration**
 
