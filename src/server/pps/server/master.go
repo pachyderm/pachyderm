@@ -6,7 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -261,27 +260,15 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 				etcdPipelines[pipeline] = true
 				var curPI pps.EtcdPipelineInfo
 				_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-					pipelines := a.pipelines.ReadWrite(stm)
-					// Get the current pipeline, so we don't blindly overwrite it with the
-					// possibly-inconsistent value from List
-					if err := pipelines.Get(pipeline, &curPI); err != nil {
-						if col.IsErrNotFound(err) {
-							// pipeline was deleted, we'll come back around
-							log.Warnf("%q polling conflicted with delete, will retry", pipeline)
-							return nil
-						}
-						log.Errorf("could not poll %q due to Get error: %v", pipeline, err)
-						return nil
-					}
-					// check if pipeline changed between List and Get
-					if !proto.Equal(listPI, &curPI) {
-						log.Warnf("%q polling conflicted with update, will retry", pipeline)
-						return nil
-					}
-					// Write back to etcd, generating an event for the PPS master
-					return pipelines.Put(pipeline, &curPI)
+					// Read & immediately write
+					return a.pipelines.ReadWrite(stm).Update(pipeline, &curPI, func() error { return nil })
 				})
-				return err
+				if col.IsErrNotFound(err) {
+					log.Warnf("%q polling conflicted with delete, will retry", pipeline)
+				} else {
+					log.Errorf("could not poll %q: %v", pipeline, err)
+				}
+				return nil // no error recovery to do here, just keep polling...
 			}); err != nil {
 			log.Errorf("could not list pipelines for polling: %v\n", err)
 			continue // sleep and try again
@@ -292,12 +279,21 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 			defer a.monitorCancelsMu.Unlock()
 			for pipeline := range a.monitorCancels {
 				if !etcdPipelines[pipeline] {
-					a.deletePipelineResources(ctx, pipeline)
+					// This is also called by master() above, if it receives a Delete
+					// event from etcd. If this is changed, that should too. Note that
+					// this doesn't affect the EtcdPipelineInfo, so even if this somehow
+					// races with startup, it will be fixed by the next round of polling
+					if err := a.deletePipelineResources(ctx, pipeline); err != nil {
+						log.Errorf("PPS master: pollPipelines could not delete pipeline resources for %q: %v", err)
+					}
 				}
 			}
 			for pipeline := range a.crashingMonitorCancels {
 				if !etcdPipelines[pipeline] {
-					a.deletePipelineResources(ctx, pipeline)
+					// This is also called by master(), see note immediately above
+					if err := a.deletePipelineResources(ctx, pipeline); err != nil {
+						log.Errorf("PPS master: pollPipelines could not delete monitor for %q: %v", err)
+					}
 				}
 			}
 		}()
