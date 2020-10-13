@@ -32,6 +32,10 @@ def mnist(s3_endpoint: str, input_bucket: str):
     import tensorflow as tf
     from tensorflow import keras
 
+    print("==== ENV ===")
+    pprint.pprint(dict(os.environ))
+    print("==========================")
+
     s3_client = boto3.client(
         's3',
         endpoint_url=s3_endpoint,
@@ -46,9 +50,10 @@ def mnist(s3_endpoint: str, input_bucket: str):
         logging.info("copying from s3://mnist.npz to {}".format(training_data_path))
 
         print("==== OBJECTS IN BUCKET ===")
-        pprint.pprint(s3_client.list_objects_v2(Bucket=input_bucket))
-        #for obj in s3_client.list_objects_v2(Bucket=input_bucket):
-        #    print(obj)
+        #pprint.pprint(s3_client.list_objects_v2(Bucket=input_bucket))
+        for obj in s3_client.list_objects_v2(Bucket=input_bucket)["Contents"]:
+            print(obj["Key"])
+        print("==========================")
 
         s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
