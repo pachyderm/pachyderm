@@ -215,6 +215,16 @@ func (op *pipelineOp) run() error {
 		// start a monitor to poll k8s and update us when it goes into a running state
 		op.startCrashingPipelineMonitor()
 		op.startPipelineMonitor()
+		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
+		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
+		// pipeline controller reads the current state of the pipeline after each
+		// event (to avoid getting backlogged), it might never actually see the
+		// pipeline in RUNNING. However, if the RC is never scaled up, the pipeline
+		// can never come out of CRASHING, so do it here in case it never happened.
+		//
+		// In general, CRASHING is actually almost identical to RUNNING (except for
+		// the monitorCrashing goro)
+		return op.scaleUpPipeline()
 	}
 	return nil
 }
