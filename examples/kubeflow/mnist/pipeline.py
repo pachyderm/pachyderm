@@ -41,11 +41,13 @@ def mnist(s3_endpoint: str, input_bucket: str):
     output_bucket = None
 
     for k, v in os.environ.items():
-        if k.endswith("_endpoint"):
+        if k.endswith("-input_endpoint"):
             s3_endpoint = v
-        if k.endswith("_input_bucket"):
+        if k.endswith("-input_bucket"):
             input_bucket = v
-        if k.endswith("_out_bucket"):
+        if k.endswith("-out_bucket"):
+            # we happen to know the output bucket is on the same endpoint as
+            # the input bucket.
             output_bucket = v
 
     if s3_endpoint is None:
