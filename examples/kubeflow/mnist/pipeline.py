@@ -94,10 +94,10 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
     res = op(s3_endpoint, input_bucket)
     # TODO: test out useas: mount
     
-    res.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
-    res.add_pod_label("dataset.0.useas", "configmap")
-    res.add_pod_label("dataset.1.id", f"{s3_endpoint}-out")
-    res.add_pod_label("dataset.1.useas", "configmap")
+    #res.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
+    #res.add_pod_label("dataset.0.useas", "configmap")
+    #res.add_pod_label("dataset.1.id", f"{s3_endpoint}-out")
+    #res.add_pod_label("dataset.1.useas", "configmap")
 
     # XXX how will multiple datasets be manifested as automatically working env
     # vars? maybe useas: mount is better...? Although I guess overriding the
@@ -200,7 +200,7 @@ def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
     if run_id != "":
         logging.info("waiting on kubeflow run id: {}".format(run_id))
         j = client.wait_for_run_completion(run_id, 60)
-        assert j.run.status == 'Succeeded', f'timed out after 60s, status was {j.run.status}'
+        assert j.run.status == 'Succeeded', f'timed out after 60s, status was {j.run.status}; more info: {j.run}'
     return 0
 
 if __name__ == "__main__":
