@@ -1275,6 +1275,12 @@ func (d *driver) UserCodeEnv(
 					os.Getenv("S3GATEWAY_PORT"),
 				),
 			)
+			result = append(
+				result,
+				fmt.Sprintf("DATASET_PREFIX=%s",
+					ppsutil.SidecarS3GatewayService(jobID, datumID),
+				),
+			)
 		}
 	}
 

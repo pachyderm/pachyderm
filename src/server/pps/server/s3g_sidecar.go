@@ -439,9 +439,9 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 							"accessKeyID":     "",    // not needed
 							"secretAccessKey": "",    // not needed
 							// refer to service name defined above accessible in-cluster e.g.
-							// http://s3-1c414f4-ba38c01.default:600
+							// http://s3-1c414f4-ba38c01.default.svc.cluster.local:600
 							"endpoint": fmt.Sprintf(
-								"http://%s.default:%d",
+								"http://%s.default.svc.cluster.local:%d",
 								ppsutil.SidecarS3GatewayService(
 									jobInfo.Job.ID,
 									datumSummary.ID,
