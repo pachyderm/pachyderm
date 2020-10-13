@@ -84,6 +84,7 @@ type StorageConfiguration struct {
 	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
 	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=50"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
+	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

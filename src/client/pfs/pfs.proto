@@ -22,21 +22,6 @@ message Branch {
   string name = 2;
 }
 
-message BranchInfo {
-  Branch branch = 4;
-  Commit head = 2;
-  repeated Branch provenance = 3;
-  repeated Branch subvenance = 5;
-  repeated Branch direct_provenance = 6;
-
-  // Deprecated field left for backward compatibility.
-  string name = 1;
-}
-
-message BranchInfos {
-  repeated BranchInfo branch_info = 1;
-}
-
 message File {
   Commit commit = 1;
   string path = 2;
@@ -77,6 +62,39 @@ message RepoAuthInfo {
   // The callers access level to the relevant repo (e.g. may be OWNER even if
   // the user isn't an OWNER of the repo, if they're an admin for the cluster)
   auth.Scope access_level = 1;
+}
+
+message BranchInfo {
+  Branch branch = 4;
+  Commit head = 2;
+  repeated Branch provenance = 3;
+  repeated Branch subvenance = 5;
+  repeated Branch direct_provenance = 6;
+  Trigger trigger = 7;
+
+  // Deprecated field left for backward compatibility.
+  string name = 1;
+}
+
+message BranchInfos {
+  repeated BranchInfo branch_info = 1;
+}
+
+// Trigger defines the conditions under which a head is moved, and to which
+// branch it is moved.
+message Trigger {
+  // Which branch this trigger refers to
+  string branch = 1;
+  // All indicates that all conditions must be satisfied before the trigger
+  // happens, otherwise any conditions being satisfied will trigger it.
+  bool all = 2;
+  // Triggers if the cron spec has been satisfied since the last trigger and
+  // there's been a new commit.
+  string cron_spec = 3;
+  // Triggers if there's been `size` new data added since the last trigger.
+  string size = 4;
+  // Triggers if there's been `commits` new commits added since the last trigger.
+  int64 commits = 5;
 }
 
 // These are the different places where a commit may be originated from
@@ -304,6 +322,7 @@ message CreateBranchRequest {
   string s_branch = 2;
   Branch branch = 3;
   repeated Branch provenance = 4;
+  Trigger trigger = 5;
 }
 
 message InspectBranchRequest {
@@ -526,6 +545,15 @@ message DiffFileResponseV2 {
   FileInfo new_file = 2;
 }
 
+message CreateTmpFileSetResponse {
+  string fileset_id = 1;
+}
+
+message RenewTmpFileSetRequest {
+  string fileset_id = 1;
+  int64 ttl_seconds = 2;
+}
+
 message ClearCommitRequestV2 {
   Commit commit = 1;
 }
@@ -610,9 +638,13 @@ service API {
   // RPCs specific to Pachyderm 2.
   rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
-  // DiffFile returns the differences between 2 paths at 2 commits.
+  // DiffFileV2 returns the differences between 2 paths at 2 commits.
   // it streams back one file at a time which is either from the new path, or the old path
   rpc DiffFileV2(DiffFileRequest) returns (stream DiffFileResponseV2) {}
+  // CreateTmpFileSet creates a new temp fileset
+  rpc CreateTmpFileSet(stream FileOperationRequestV2) returns (CreateTmpFileSetResponse) {}
+  // RenewTmpFileSet prevents the temporary fileset from being deleted for a set amount of time
+  rpc RenewTmpFileSet(RenewTmpFileSetRequest) returns (google.protobuf.Empty) {}
   // ClearCommitV2 removes all data from the commit.
   rpc ClearCommitV2(ClearCommitRequestV2) returns (google.protobuf.Empty) {}
 }
@@ -703,12 +735,25 @@ message Objects {
 }
 
 message PutObjDirectRequest {
-    string obj = 1;
-    bytes value = 2;
+  string obj = 1;
+  bytes value = 2;
 }
 
 message GetObjDirectRequest {
-    string obj = 1;
+  string obj = 1;
+}
+
+message DeleteObjDirectRequest {
+  // The 'object' and 'prefix' fields are mutually exclusive.
+
+  // Delete a single object by its path.
+  string object = 1;
+
+  // Delete all objects with paths matching this prefix, cannot be applied to
+  // the core storage layer paths, as those are generally not safe to delete
+  // (use garbage collection for that). This is for deleting objects generated
+  // vi `PutObjDirect`.
+  string prefix = 2;
 }
 
 service ObjectAPI {
@@ -740,6 +785,7 @@ service ObjectAPI {
   // GetObjDirect gets an obj directly out of object store, bypassing the
   // content addressing layer.
   rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteObjDirect(DeleteObjDirectRequest) returns (google.protobuf.Empty) {}
 }
 
 message ObjectIndex {

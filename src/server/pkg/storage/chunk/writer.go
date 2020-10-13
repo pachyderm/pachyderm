@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"path"
+	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
@@ -77,6 +78,7 @@ type Writer struct {
 	f                       WriterFunc
 	noUpload                bool
 	stats                   *stats
+	chunkTTL                time.Duration
 }
 
 func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
@@ -272,7 +274,7 @@ func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
 		return nil
 	}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID); err != nil {
+	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID, w.getExpiresAt()); err != nil {
 		return err
 	}
 	// Skip the upload if the chunk already exists.
@@ -472,4 +474,8 @@ func (w *Writer) Close() error {
 		}
 		return w.eg.Wait()
 	})
+}
+
+func (w *Writer) getExpiresAt() time.Time {
+	return time.Now().UTC().Add(w.chunkTTL)
 }

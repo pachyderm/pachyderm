@@ -25,24 +25,22 @@ if [[ -n "${TRAVIS}" ]]; then
 fi
 
 
-# Repeatedly restart minikube until it comes up. This corrects for an issue in
-# Travis, where minikube will get stuck on startup and never recover
-while true; do
-  sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" minikube start "${minikube_args[@]}"
-  HEALTHY=false
-  # Try to connect for one minute
-  for _ in $(seq 12); do
-    if {
-      kubectl version 2>/dev/null >/dev/null
-    }; then
-      HEALTHY=true
-      break
-    fi
-    sleep 5
-  done
-  if [ "${HEALTHY}" = "true" ]; then break; fi
+# Note that we update the 'PATH' to include '~/cached-deps' in '.travis.yml',
+# but this doesn't update the PATH for calls using 'sudo'. To make a 'sudo' run
+# a binary in '~/cached-deps', you need to explicitly set the path like so:
+#     sudo env "PATH=$PATH" minikube foo
+sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" \
+  minikube start "${minikube_args[@]}"
 
-  # Give up--kubernetes isn't coming up
-  minikube delete
-  sleep 10 # Wait for minikube to go completely down
+# Try to connect for three minutes
+for _ in $(seq 36); do
+  if kubectl version &>/dev/null; then
+    exit 0
+  fi
+  sleep 5
 done
+
+# Give up--kubernetes isn't coming up
+minikube delete
+sleep 30 # Wait for minikube to go completely down
+exit 1

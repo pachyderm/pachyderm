@@ -41,10 +41,12 @@ type canonicalSAMLIDP struct {
 type canonicalGitHubIDP struct{}
 
 type canonicalOIDCIDP struct {
-	Issuer       string
-	ClientID     string
-	ClientSecret string
-	RedirectURI  string
+	Issuer              string
+	ClientID            string
+	ClientSecret        string
+	RedirectURI         string
+	AdditionalScopes    []string
+	IgnoreEmailVerified bool
 }
 
 type canonicalIDPConfig struct {
@@ -117,10 +119,12 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				Name:        idp.Name,
 				Description: idp.Description,
 				OIDC: &auth.IDProvider_OIDCOptions{
-					Issuer:       idp.OIDC.Issuer,
-					ClientID:     idp.OIDC.ClientID,
-					ClientSecret: idp.OIDC.ClientSecret,
-					RedirectURI:  idp.OIDC.RedirectURI,
+					Issuer:              idp.OIDC.Issuer,
+					ClientID:            idp.OIDC.ClientID,
+					ClientSecret:        idp.OIDC.ClientSecret,
+					RedirectURI:         idp.OIDC.RedirectURI,
+					AdditionalScopes:    idp.OIDC.AdditionalScopes,
+					IgnoreEmailVerified: idp.OIDC.IgnoreEmailVerified,
 				},
 			}
 
@@ -343,10 +347,12 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	newIDP.Description = idp.Description
 
 	newIDP.OIDC = &canonicalOIDCIDP{
-		Issuer:       idp.OIDC.Issuer,
-		ClientID:     idp.OIDC.ClientID,
-		ClientSecret: idp.OIDC.ClientSecret,
-		RedirectURI:  idp.OIDC.RedirectURI,
+		Issuer:              idp.OIDC.Issuer,
+		ClientID:            idp.OIDC.ClientID,
+		ClientSecret:        idp.OIDC.ClientSecret,
+		RedirectURI:         idp.OIDC.RedirectURI,
+		AdditionalScopes:    idp.OIDC.AdditionalScopes,
+		IgnoreEmailVerified: idp.OIDC.IgnoreEmailVerified,
 	}
 
 	if _, err := url.Parse(newIDP.OIDC.Issuer); err != nil {
@@ -532,7 +538,9 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 				idp.OIDC.Issuer,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,
-				idp.OIDC.RedirectURI)
+				idp.OIDC.RedirectURI,
+				idp.OIDC.AdditionalScopes,
+				idp.OIDC.IgnoreEmailVerified)
 			if err != nil {
 				return err
 			}

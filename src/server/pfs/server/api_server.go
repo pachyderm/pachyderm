@@ -285,7 +285,7 @@ func (a *apiServer) CreateBranchInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.CreateBranchRequest,
 ) error {
-	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance)
+	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
@@ -615,6 +615,16 @@ func (a *apiServer) DiffFileV2(_ *pfs.DiffFileRequest, _ pfs.API_DiffFileV2Serve
 
 // ClearCommitV2 not implemented
 func (a *apiServer) ClearCommitV2(_ context.Context, _ *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+	return nil, errV2NotImplemented
+}
+
+// CreateTmpFileSet not implemented
+func (a *apiServer) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
+	return errV2NotImplemented
+}
+
+// RenewTmpFileSet not implemented
+func (a *apiServer) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
 	return nil, errV2NotImplemented
 }
 

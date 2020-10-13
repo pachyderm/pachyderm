@@ -19,7 +19,7 @@ message CancelResponse {
 
 message GetChunkRequest {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string tag = 2;
+  string chunk_id = 2 [(gogoproto.customname) = "ChunkID"];;
   int64 shard = 3;
   bool stats = 4;
 }

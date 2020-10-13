@@ -251,12 +251,12 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
+	./etc/testing/start_postgres.sh
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
-	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
+	./etc/testing/start_postgres.sh
+	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -384,13 +384,22 @@ launch-logging: check-kubectl check-kubectl-connection
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 launch-loki:
-	helm repo add loki https://grafana.github.io/loki/charts
+	helm repo add --force-update loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
 	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done
 
 clean-launch-loki:
 	helm uninstall loki
+
+launch-dex:
+	helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+	helm repo update
+	helm upgrade --install --force dex stable/dex -f etc/testing/auth/dex.yaml
+	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
+
+clean-launch-dex:
+	helm uninstall dex
 
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'

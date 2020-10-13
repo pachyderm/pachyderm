@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -58,15 +57,14 @@ func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, d
 		}
 	}
 	// Progress each lower priority stream past the deleted file(s).
-	for i += 1; i < len(fss); i++ {
+	for i++; i < len(fss); i++ {
 		fr, err := fss[i].r.Next()
 		if err != nil {
 			return err
 		}
 		// If the full delete is for a directory, progress all lower priority streams past the directory.
-		if strings.HasSuffix(fr.Index().Path, "/") {
-			next := strings.TrimRight(fr.Index().Path, "/") + "0"
-			if err := fss[i].r.iterate(func(_ *FileReader) error { return nil }, next); err != nil {
+		if IsDir(fr.Index().Path) {
+			if err := fss[i].r.iterate(func(*FileReader) error { return nil }, DirUpperBound(fr.Index().Path)); err != nil {
 				return err
 			}
 		}
@@ -336,7 +334,7 @@ func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) er
 		}
 		tss = append(tss, ss[i].(*tagStream))
 	}
-	for i += 1; i < len(ss); i++ {
+	for i++; i < len(ss); i++ {
 		if _, ok := ss[i].(*deleteTagStream); ok {
 			continue
 		}

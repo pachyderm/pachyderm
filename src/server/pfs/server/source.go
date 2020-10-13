@@ -51,7 +51,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			File:     client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
 			FileType: pfs.FileType_FILE,
 		}
-		if indexIsDir(idx) {
+		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR
 		}
 		if s.full {
@@ -101,7 +101,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 	if idx.Path != target {
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
-	if !indexIsDir(idx) {
+	if !fileset.IsDir(idx.Path) {
 		return computeRegularFileInfo(idx), nil
 	}
 	var size uint64
@@ -226,10 +226,6 @@ func (s *stream) Next() (fileset.File, error) {
 	case err := <-s.errChan:
 		return nil, err
 	}
-}
-
-func indexIsDir(idx *index.Index) bool {
-	return strings.HasSuffix(idx.Path, "/")
 }
 
 type emptySource struct{}

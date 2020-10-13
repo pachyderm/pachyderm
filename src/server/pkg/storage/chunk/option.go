@@ -2,12 +2,17 @@ package chunk
 
 import (
 	"math"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
+
+var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
@@ -28,13 +33,41 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
+// WithGCTimeout sets the default chunk ttl for this Storage instance
+func WithGCTimeout(timeout time.Duration) StorageOption {
+	return func(s *Storage) {
+		s.defaultChunkTTL = timeout
+	}
+}
+
+// WithObjectCache adds a cache around the currently configured object client
+func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
+	return func(s *Storage) {
+		s.objClient = obj.NewCacheClient(s.objClient, fastLayer, size)
+	}
+}
+
 // ServiceEnvToOptions converts a service environment configuration (specifically
 // the storage configuration) to a set of storage options.
-func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption) {
+func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption, err error) {
 	if env.StorageUploadConcurrencyLimit > 0 {
 		options = append(options, WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
 	}
-	return options
+	if env.StorageGCTimeout != "" {
+		timeout, err := time.ParseDuration(env.StorageGCTimeout)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, WithGCTimeout(timeout))
+	}
+	if env.StorageDiskCacheSize > 0 {
+		diskCache, err := obj.NewLocalClient(localDiskCachePath)
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, WithObjectCache(diskCache, env.StorageDiskCacheSize))
+	}
+	return options, nil
 }
 
 // WriterOption configures a chunk writer.
@@ -61,5 +94,12 @@ func WithMinMax(min, max int) WriterOption {
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
+	}
+}
+
+// WithChunkTTL sets the ttl for chunks written with this writer
+func WithChunkTTL(ttl time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.chunkTTL = ttl
 	}
 }

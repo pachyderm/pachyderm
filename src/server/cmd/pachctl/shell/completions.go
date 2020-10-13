@@ -189,12 +189,12 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	pis, err := c.ListPipeline()
+	resp, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
 	if err != nil {
 		return nil, CacheNone
 	}
 	var result []prompt.Suggest
-	for _, pi := range pis {
+	for _, pi := range resp.PipelineInfo {
 		result = append(result, prompt.Suggest{
 			Text:        pi.Pipeline.Name,
 			Description: pi.Description,
