@@ -36,6 +36,25 @@ def mnist(s3_endpoint: str, input_bucket: str):
     pprint.pprint(dict(os.environ))
     print("==========================")
 
+    s3_endpoint = None
+    input_bucket = None
+    output_bucket = None
+
+    for k, v in os.environ.items():
+        if k.endswith("_endpoint"):
+            s3_endpoint = v
+        if k.endswith("_input_bucket"):
+            input_bucket = v
+        if k.endswith("_out_bucket"):
+            output_bucket = v
+
+    if s3_endpoint is None:
+        raise Exception("can't find s3 endpoint in environment")
+    if input_bucket is None:
+        raise Exception("can't find input bucket name in environment")
+    if output_bucket is None:
+        raise Exception("can't find output bucket name in environment")
+
     s3_client = boto3.client(
         's3',
         endpoint_url=s3_endpoint,
@@ -86,7 +105,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
         model.save(model_path)
         # Copy file over to Pachyderm
         logging.info("copying {} to s3g".format(model_path))
-        s3_client.upload_file(model_path, "out", "my_model.h5")
+        s3_client.upload_file(model_path, output_bucket, "my_model.h5")
 
 @kfp.dsl.pipeline(
     name="mnist kubeflow pipeline",
