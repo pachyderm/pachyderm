@@ -26,6 +26,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
     import os
     import sys
     import tempfile
+    import pprint
 
     import boto3
     import tensorflow as tf
@@ -45,8 +46,9 @@ def mnist(s3_endpoint: str, input_bucket: str):
         logging.info("copying from s3://mnist.npz to {}".format(training_data_path))
 
         print("==== OBJECTS IN BUCKET ===")
-        for obj in s3_client.list_objects_v2(Bucket=input_bucket):
-            print(obj)
+        pprint.pprint(s3_client.list_objects_v2(Bucket=input_bucket))
+        #for obj in s3_client.list_objects_v2(Bucket=input_bucket):
+        #    print(obj)
 
         s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
@@ -94,11 +96,10 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
     res = op(s3_endpoint, input_bucket)
     # TODO: test out useas: mount
 
-    # TODO: pass in s3 service name, rather than http:// style endpoint
-    
-    res.add_pod_label("dataset.0.id", f"{s3_endpoint}-{input_bucket}")
+    dataset_prefix = os.environ["DATASET_PREFIX"]
+    res.add_pod_label("dataset.0.id", f"{dataset_prefix}-{input_bucket}")
     res.add_pod_label("dataset.0.useas", "configmap")
-    res.add_pod_label("dataset.1.id", f"{s3_endpoint}-out")
+    res.add_pod_label("dataset.1.id", f"{dataset_prefix}-out")
     res.add_pod_label("dataset.1.useas", "configmap")
 
     # XXX how will multiple datasets be manifested as automatically working env

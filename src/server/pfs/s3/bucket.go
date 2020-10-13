@@ -66,6 +66,9 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	if err != nil {
 		return nil, err
 	}
+
+	c.logger.Infof("[ListObjects] prefix=%s, bucket.FilterPrefix=%s", prefix, bucket.FilterPrefix)
+
 	// Validate prefix. Logically, each bucket only contains the PFS files whose
 	// path begins with Bucket.FilterPrefix, so handle prefixes that are more
 	// permissive or contractictory with Bucket.FilterPrefix. Cases:
@@ -110,27 +113,36 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
+	c.logger.Infof("[ListObjects] calling GlobFileF(%#v, %#v, %#v, ...)", bucket.Repo, bucket.Commit, pattern)
+
 	err = pc.GlobFileF(bucket.Repo, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+
+		c.logger.Infof("[ListObjects] visiting %#v", fileInfo)
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
+				c.logger.Infof("[ListObjects] exit case 1")
 				return nil
 			}
 			if recursive {
 				// skip directories if recursing
+				c.logger.Infof("[ListObjects] exit case 2")
 				return nil
 			}
 		} else if fileInfo.FileType != pfsClient.FileType_FILE {
 			// skip anything that isn't a file or dir
+			c.logger.Infof("[ListObjects] exit case 3")
 			return nil
 		}
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 
 		if !strings.HasPrefix(fileInfo.File.Path, prefix) {
+			c.logger.Infof("[ListObjects] exit case 4; '%s' vs '%s'", fileInfo.File.Path, prefix)
 			return nil
 		}
 		if fileInfo.File.Path <= marker {
+			c.logger.Infof("[ListObjects] exit case 5")
 			return nil
 		}
 
@@ -139,16 +151,20 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 			if maxKeys > 0 {
 				result.IsTruncated = true
 			}
+			c.logger.Infof("[ListObjects] exit case 6")
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			c, err := newContents(fileInfo)
+			co, err := newContents(fileInfo)
 			if err != nil {
+				c.logger.Infof("[ListObjects] exit case 7")
 				return err
 			}
 
-			result.Contents = append(result.Contents, &c)
+			c.logger.Infof("[ListObjects] win!")
+			result.Contents = append(result.Contents, &co)
 		} else {
+			c.logger.Infof("[ListObjects] exit case 8")
 			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
 				Prefix: fmt.Sprintf("%s/", fileInfo.File.Path),
 				Owner:  defaultUser,
@@ -157,6 +173,8 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 
 		return nil
 	})
+
+	c.logger.Infof("constructed result=%#v", result)
 
 	return &result, err
 }

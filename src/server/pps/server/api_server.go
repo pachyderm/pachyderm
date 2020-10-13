@@ -598,6 +598,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			})
 		}
 	}
+	logrus.Infof("datumSummaries=%#v", datumSummaries)
 
 	job := client.NewJob(uuid.NewWithoutDashes())
 	if request.Stats == nil {

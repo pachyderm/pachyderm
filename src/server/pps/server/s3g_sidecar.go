@@ -261,6 +261,13 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 		// XXX: this code currently assumes there's only one input per job
 
+		filterPrefix := datumSummary.Path
+		if strings.HasPrefix(filterPrefix, "/") {
+			// src/server/pfs/s3/bucket.go strips off leading slash, so we need
+			// to here as well to avoid skipping listing these files
+			filterPrefix = filterPrefix[1:]
+		}
+
 		var inputBuckets []*s3.Bucket
 		pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
 			if in.Pfs != nil && in.Pfs.S3 {
@@ -268,7 +275,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 					Repo:         in.Pfs.Repo,
 					Commit:       in.Pfs.Commit,
 					Name:         in.Pfs.Name,
-					FilterPrefix: datumSummary.Path,
+					FilterPrefix: filterPrefix,
 				})
 			}
 		})
