@@ -2660,10 +2660,17 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 	pipeline *pps.Pipeline, history int64, f func(string, *pps.EtcdPipelineInfo) error) error {
 	p := &pps.EtcdPipelineInfo{}
 	forEachPipeline := func(name string) error {
-		for i := int64(0); i <= history || history == -1; i++ {
+		for i := int64(0); ; i++ {
+			// call f() if i <= history (esp. if history == 0, call f() once)
 			if err := f(name, p); err != nil {
 				return err
 			}
+			// however, only call InspectCommit if i < history (i.e. don't call it on
+			// the last iteration, and if history == 0, don't call it at all)
+			if history >= 0 && i >= history {
+				return nil
+			}
+			// Get parent commit
 			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.ID)
 			switch {
 			case err != nil:
