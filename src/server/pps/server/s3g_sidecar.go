@@ -467,9 +467,12 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			if err != nil {
 				panic(err)
 			}
+
+			// XXX parametrize namespace somehow - but how do we know
+			// where user will put workloads that want to consume this?
 			result, err := client.
 				Resource(datasetRes).
-				Namespace("default").
+				Namespace("anonymous").
 				Create(dataset, metav1.CreateOptions{})
 
 			if err != nil {
