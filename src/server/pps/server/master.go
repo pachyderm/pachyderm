@@ -6,6 +6,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -53,6 +55,9 @@ func (a *apiServer) master() {
 		kubeClient := a.env.GetKubeClient()
 
 		log.Infof("PPS master: launching master process")
+
+		// start permanent background goro to regularly refresh pipelines
+		go a.pollPipelines(ctx)
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -238,4 +243,63 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
 		pipeline, from, to, reason)
+}
+
+func (a *apiServer) pollPipelines(ctx context.Context) {
+	start := time.Now()
+	for {
+		// wait until at least 10s after last loop, so this doesn't ping too
+		// frequently (current cap: once/10s)
+		<-time.After(start.Add(10 * time.Second).Sub(time.Now()))
+		start = time.Now()
+
+		etcdPipelines := map[string]bool{}
+		pachClient := a.env.GetPachClient(ctx)
+		// collect all pipelines in etcd
+		if err := a.listPipelinePtr(pachClient, nil, 0,
+			func(pipeline string, listPI *pps.EtcdPipelineInfo) error {
+				etcdPipelines[pipeline] = true
+				var curPI pps.EtcdPipelineInfo
+				_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+					pipelines := a.pipelines.ReadWrite(stm)
+					// Get the current pipeline, so we don't blindly overwrite it with the
+					// possibly-inconsistent value from List
+					if err := pipelines.Get(pipeline, &curPI); err != nil {
+						if col.IsErrNotFound(err) {
+							// pipeline was deleted, we'll come back around
+							log.Warnf("%q polling conflicted with delete, will retry", pipeline)
+							return nil
+						}
+						log.Errorf("could not poll %q due to Get error: %v", pipeline, err)
+						return nil
+					}
+					// check if pipeline changed between List and Get
+					if !proto.Equal(listPI, &curPI) {
+						log.Warnf("%q polling conflicted with update, will retry", pipeline)
+						return nil
+					}
+					// Write back to etcd, generating an event for the PPS master
+					return pipelines.Put(pipeline, &curPI)
+				})
+				return err
+			}); err != nil {
+			log.Errorf("could not list pipelines for polling: %v\n", err)
+			continue // sleep and try again
+		}
+		// check for orphaned monitorPipeline/monitorCrashingPipeline goros
+		func() {
+			a.monitorCancelsMu.Lock()
+			defer a.monitorCancelsMu.Unlock()
+			for pipeline := range a.monitorCancels {
+				if !etcdPipelines[pipeline] {
+					a.deletePipelineResources(ctx, pipeline)
+				}
+			}
+			for pipeline := range a.crashingMonitorCancels {
+				if !etcdPipelines[pipeline] {
+					a.deletePipelineResources(ctx, pipeline)
+				}
+			}
+		}()
+	}
 }
