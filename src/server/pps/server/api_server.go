@@ -951,7 +951,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	if err != nil {
 		return nil, err
 	}
-
+	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+		return nil, err
+	}
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
@@ -970,11 +972,17 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	if err != nil {
 		return nil, err
 	}
+	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
 
+func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job) error {
 	// Lookup jobInfo
 	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobPtr); err != nil {
-		return nil, err
+	if err := a.jobs.ReadOnly(ctx).Get(job.ID, jobPtr); err != nil {
+		return err
 	}
 	// Finish the job's output commit without a tree -- worker/master will mark
 	// the job 'killed'
@@ -983,9 +991,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 			Commit: jobPtr.OutputCommit,
 			Empty:  true,
 		}); err != nil {
-		return nil, err
+		if !(pfsServer.IsCommitFinishedErr(err) || pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err)) {
+			return err
+		}
 	}
-	return &types.Empty{}, nil
+	return nil
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
@@ -1833,6 +1843,16 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	); err != nil && !isNotFoundErr(err) {
 		return errors.Wrapf(err, "could not recreate original output branch")
 	}
+	if pipelineInfo.EnableStats {
+		if err := pachClient.CreateBranch(
+			pipelineInfo.Pipeline.Name,
+			"stats",
+			"stats",
+			nil,
+		); err != nil && !isNotFoundErr(err) {
+			return errors.Wrapf(err, "could not recreate original stats branch")
+		}
+	}
 
 	// Now that new commits won't be created on the master branch, enumerate
 	// existing commits and close any open ones.
@@ -2252,6 +2272,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
+
+				// We can't recover from an incomplete pipeline info here because
+				// modifying the spec repo depends on being able to access the previous
+				// commit. We therefore use `GetPipelineInfo` which will error if the
+				// spec commit isn't working.
 				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
@@ -2614,6 +2639,13 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
 		func(name string, ptr *pps.EtcdPipelineInfo) error {
+			if request.AllowIncomplete {
+				pipelineInfo, err := ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+				return f(pipelineInfo)
+			}
 			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
 			if err != nil {
 				return err
@@ -3003,7 +3035,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			return nil, errors.Errorf("request should not contain nil provenance")
 		}
 		branch := prov.Branch
-		if branch == nil {
+		if branch == nil || branch.Name == "" {
 			if prov.Commit == nil {
 				return nil, errors.Errorf("request provenance cannot have both a nil commit and nil branch")
 			}
@@ -3033,6 +3065,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
 	}
 
+	// fill in the provenance from branches in the provenance that weren't explicitly set in the request
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
 		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
@@ -3059,8 +3092,9 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	provenance = append(provenance, specProvenance)
-
+	if _, ok := provenanceMap[key(specProvenance.Branch.Repo.Name, specProvenance.Branch.Name)]; !ok {
+		provenance = append(provenance, specProvenance)
+	}
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
 			Parent: &pfs.Commit{

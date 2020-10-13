@@ -42,8 +42,11 @@ func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix strin
 		taskQueue: newTaskQueue(ctx),
 	}
 	// Clear etcd key space.
-	if err := tq.deleteAllTasks(); err != nil {
-		return nil, err
+	// TODO: Multiple storage task queues are setup, so deleting the existing tasks is problematic.
+	if taskNamespace != "storage" {
+		if err := tq.deleteAllTasks(); err != nil {
+			return nil, err
+		}
 	}
 	return tq, nil
 }
@@ -293,10 +296,12 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 	if err != nil {
 		return err
 	}
+	defer claimWatch.Close()
 	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
 	if err != nil {
 		return err
 	}
+	defer subtaskWatch.Close()
 	for {
 		select {
 		case e := <-claimWatch.Watch():

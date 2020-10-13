@@ -145,6 +145,7 @@ type clientSettings struct {
 	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
+	storageV2            bool
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
@@ -158,6 +159,16 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
+	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
+	if ok {
+		storageV2, err := strconv.ParseBool(storageV2Env)
+		if err != nil {
+			return nil, err
+		}
+		if storageV2 {
+			settings.storageV2 = storageV2
+		}
+	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
@@ -168,15 +179,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
-	}
-	// TODO: There is probably a cleaner way to handle the V2 config.
-	storageV2, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		var err error
-		c.storageV2, err = strconv.ParseBool(storageV2)
-		if err != nil {
-			return nil, err
-		}
+		storageV2:    settings.storageV2,
 	}
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err

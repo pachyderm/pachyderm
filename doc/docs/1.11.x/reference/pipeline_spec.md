@@ -447,7 +447,8 @@ be processed as long as needed.
 ### Datum Tries (optional)
 
 `datum_tries` is an integer, such as `1`, `2`, or `3`, that determines the
-number of retries that a job attempts when a failure occurs.
+number of times a job attempts to run on a datum when a failure occurs. 
+Setting `datum_tries` to `1` will attempt a job once with no retries. 
 Only failed datums are retried in a retry attempt. If the operation succeeds
 in retry attempts, then the job is marked as successful. Otherwise, the job
 is marked as failed.
@@ -869,10 +870,14 @@ against this limit.
 
 ### Chunk Spec (optional)
 `chunk_spec` specifies how a pipeline should chunk its datums.
-
+ A chunk is the unit of work that workers claim. Each worker claims 1 or more datums 
+ and it commits a full chunk once it's done processing it.
+ 
 `chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
  datums. Chunks may contain fewer if the total number of datums don't
- divide evenly.
+ divide evenly. If you lower the chunk number to 1 it'll update after every datum, 
+ the cost is extra load on etcd which can slow other stuff down.
+ The default value is 2.
 
 `chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
  Chunks may be larger or smaller than `size_bytes`, but will usually be

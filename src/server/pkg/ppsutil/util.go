@@ -119,20 +119,21 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 	return 0, errors.Errorf("unable to interpret HashtreeSpec %+v", spec)
 }
 
-// GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
-// the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+// GetPipelineInfoAllowIncomplete retrieves and returns a PipelineInfo from PFS,
+// or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
+// (e.g. due to corruption or a missing block). It does the PFS
+// read/unmarshalling of bytes as well as filling in missing fields
+func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
-		// don't completely fail since this puts us in a bad state
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
 			return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 		}
 	}
-	// at least get the name if we aren't able to get the pipeline spec file
+
 	if result.Pipeline == nil {
 		result.Pipeline = &pps.Pipeline{
 			Name: name,
@@ -144,6 +145,16 @@ func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPip
 	result.LastJobState = ptr.LastJobState
 	result.SpecCommit = ptr.SpecCommit
 	return result, nil
+}
+
+// GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
+// the PFS read/unmarshalling of bytes as well as filling in missing fields
+func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+	result, err := GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+	if err == nil && result.Transform == nil {
+		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
+	}
+	return result, err
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
@@ -194,6 +205,12 @@ func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCol
 			}
 			return nil
 		}
+		// Don't allow a transition from STANDBY to CRASHING if we receive events out of order
+		if pipelinePtr.State == pps.PipelineState_PIPELINE_STANDBY && to == pps.PipelineState_PIPELINE_CRASHING {
+			log.Warningf("cannot move pipeline %q to CRASHING when it is in STANDBY", pipeline)
+			return nil
+		}
+
 		// transitionPipelineState case: error if pipeline is in an unexpected
 		// state.
 		//

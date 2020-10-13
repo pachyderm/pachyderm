@@ -49,7 +49,7 @@ func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 	return fil.x.Iterate(ctx, func(fr File) error {
 		idx := fr.Index()
 		if fil.pred(idx) {
-			cb(fr)
+			return cb(fr)
 		}
 		return nil
 	})

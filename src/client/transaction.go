@@ -398,6 +398,12 @@ func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequ
 func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("ClearCommitV2")
 }
+func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
+	return nil, unsupportedError("CreateTmpFileSet")
+}
+func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RenewTmpFileSet")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
@@ -460,10 +466,13 @@ func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opt
 	return nil, unsupportedError("Compact")
 }
 func (c *objectBuilderClient) PutObjDirect(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjDirectClient, error) {
-	return nil, unsupportedError("PutObj")
+	return nil, unsupportedError("PutObjDirect")
 }
 func (c *objectBuilderClient) GetObjDirect(ctx context.Context, req *pfs.GetObjDirectRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjDirectClient, error) {
-	return nil, unsupportedError("GetObj")
+	return nil, unsupportedError("GetObjDirect")
+}
+func (c *objectBuilderClient) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteObjDirect")
 }
 
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {

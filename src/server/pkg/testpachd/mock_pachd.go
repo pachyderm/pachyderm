@@ -430,6 +430,8 @@ type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type fileOperationFuncV2 func(pfs.API_FileOperationV2Server) error
 type getTarFuncV2 func(*pfs.GetTarRequestV2, pfs.API_GetTarV2Server) error
 type diffFileV2Func func(*pfs.DiffFileRequest, pfs.API_DiffFileV2Server) error
+type createTmpFileSetFunc func(pfs.API_CreateTmpFileSetServer) error
+type renewTmpFileSetFunc func(context.Context, *pfs.RenewTmpFileSetRequest) (*types.Empty, error)
 type clearCommitV2Func func(context.Context, *pfs.ClearCommitRequestV2) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -466,6 +468,8 @@ type mockFileOperationV2 struct{ handler fileOperationFuncV2 }
 type mockGetTarV2 struct{ handler getTarFuncV2 }
 type mockDiffFileV2 struct{ handler diffFileV2Func }
 type mockClearCommitV2 struct{ handler clearCommitV2Func }
+type mockCreateTmpFileSet struct{ handler createTmpFileSetFunc }
+type mockRenewTmpFileSet struct{ handler renewTmpFileSetFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
@@ -501,6 +505,8 @@ func (mock *mockFileOperationV2) Use(cb fileOperationFuncV2)   { mock.handler = 
 func (mock *mockGetTarV2) Use(cb getTarFuncV2)                 { mock.handler = cb }
 func (mock *mockDiffFileV2) Use(cb diffFileV2Func)             { mock.handler = cb }
 func (mock *mockClearCommitV2) Use(cb clearCommitV2Func)       { mock.handler = cb }
+func (mock *mockCreateTmpFileSet) Use(cb createTmpFileSetFunc) { mock.handler = cb }
+func (mock *mockRenewTmpFileSet) Use(cb renewTmpFileSetFunc)   { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -542,6 +548,8 @@ type mockPFSServer struct {
 	GetTarV2         mockGetTarV2
 	DiffFileV2       mockDiffFileV2
 	ClearCommitV2    mockClearCommitV2
+	CreateTmpFileSet mockCreateTmpFileSet
+	RenewTmpFileSet  mockRenewTmpFileSet
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -747,6 +755,18 @@ func (api *pfsServerAPI) ClearCommitV2(ctx context.Context, req *pfs.ClearCommit
 		return api.mock.ClearCommitV2.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommitV2")
+}
+func (api *pfsServerAPI) CreateTmpFileSet(srv pfs.API_CreateTmpFileSetServer) error {
+	if api.mock.CreateTmpFileSet.handler != nil {
+		return api.mock.CreateTmpFileSet.handler(srv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.CreateTmpFileSet")
+}
+func (api *pfsServerAPI) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	if api.mock.RenewTmpFileSet.handler != nil {
+		return api.mock.RenewTmpFileSet.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.RenewTmpFileSet")
 }
 
 /* PPS Server Mocks */
@@ -1175,6 +1195,7 @@ type deleteTagsFunc func(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTa
 type compactFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type putObjDirectFunc func(pfs.ObjectAPI_PutObjDirectServer) error
 type getObjDirectFunc func(*pfs.GetObjDirectRequest, pfs.ObjectAPI_GetObjDirectServer) error
+type deleteObjDirectFunc func(context.Context, *pfs.DeleteObjDirectRequest) (*types.Empty, error)
 
 type mockPutObject struct{ handler putObjectFunc }
 type mockPutObjectSplit struct{ handler putObjectSplitFunc }
@@ -1198,58 +1219,61 @@ type mockDeleteTags struct{ handler deleteTagsFunc }
 type mockCompact struct{ handler compactFunc }
 type mockPutObjDirect struct{ handler putObjDirectFunc }
 type mockGetObjDirect struct{ handler getObjDirectFunc }
+type mockDeleteObjDirect struct{ handler deleteObjDirectFunc }
 
-func (mock *mockPutObject) Use(cb putObjectFunc)           { mock.handler = cb }
-func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc) { mock.handler = cb }
-func (mock *mockPutObjects) Use(cb putObjectsFunc)         { mock.handler = cb }
-func (mock *mockCreateObject) Use(cb createObjectFunc)     { mock.handler = cb }
-func (mock *mockGetObject) Use(cb getObjectFunc)           { mock.handler = cb }
-func (mock *mockGetObjects) Use(cb getObjectsFunc)         { mock.handler = cb }
-func (mock *mockPutBlock) Use(cb putBlockFunc)             { mock.handler = cb }
-func (mock *mockGetBlock) Use(cb getBlockFunc)             { mock.handler = cb }
-func (mock *mockGetBlocks) Use(cb getBlocksFunc)           { mock.handler = cb }
-func (mock *mockListBlock) Use(cb listBlockFunc)           { mock.handler = cb }
-func (mock *mockTagObject) Use(cb tagObjectFunc)           { mock.handler = cb }
-func (mock *mockInspectObject) Use(cb inspectObjectFunc)   { mock.handler = cb }
-func (mock *mockCheckObject) Use(cb checkObjectFunc)       { mock.handler = cb }
-func (mock *mockListObjects) Use(cb listObjectsFunc)       { mock.handler = cb }
-func (mock *mockDeleteObjects) Use(cb deleteObjectsFunc)   { mock.handler = cb }
-func (mock *mockGetTag) Use(cb getTagFunc)                 { mock.handler = cb }
-func (mock *mockInspectTag) Use(cb inspectTagFunc)         { mock.handler = cb }
-func (mock *mockListTags) Use(cb listTagsFunc)             { mock.handler = cb }
-func (mock *mockDeleteTags) Use(cb deleteTagsFunc)         { mock.handler = cb }
-func (mock *mockCompact) Use(cb compactFunc)               { mock.handler = cb }
-func (mock *mockPutObjDirect) Use(cb putObjDirectFunc)     { mock.handler = cb }
-func (mock *mockGetObjDirect) Use(cb getObjDirectFunc)     { mock.handler = cb }
+func (mock *mockPutObject) Use(cb putObjectFunc)             { mock.handler = cb }
+func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc)   { mock.handler = cb }
+func (mock *mockPutObjects) Use(cb putObjectsFunc)           { mock.handler = cb }
+func (mock *mockCreateObject) Use(cb createObjectFunc)       { mock.handler = cb }
+func (mock *mockGetObject) Use(cb getObjectFunc)             { mock.handler = cb }
+func (mock *mockGetObjects) Use(cb getObjectsFunc)           { mock.handler = cb }
+func (mock *mockPutBlock) Use(cb putBlockFunc)               { mock.handler = cb }
+func (mock *mockGetBlock) Use(cb getBlockFunc)               { mock.handler = cb }
+func (mock *mockGetBlocks) Use(cb getBlocksFunc)             { mock.handler = cb }
+func (mock *mockListBlock) Use(cb listBlockFunc)             { mock.handler = cb }
+func (mock *mockTagObject) Use(cb tagObjectFunc)             { mock.handler = cb }
+func (mock *mockInspectObject) Use(cb inspectObjectFunc)     { mock.handler = cb }
+func (mock *mockCheckObject) Use(cb checkObjectFunc)         { mock.handler = cb }
+func (mock *mockListObjects) Use(cb listObjectsFunc)         { mock.handler = cb }
+func (mock *mockDeleteObjects) Use(cb deleteObjectsFunc)     { mock.handler = cb }
+func (mock *mockGetTag) Use(cb getTagFunc)                   { mock.handler = cb }
+func (mock *mockInspectTag) Use(cb inspectTagFunc)           { mock.handler = cb }
+func (mock *mockListTags) Use(cb listTagsFunc)               { mock.handler = cb }
+func (mock *mockDeleteTags) Use(cb deleteTagsFunc)           { mock.handler = cb }
+func (mock *mockCompact) Use(cb compactFunc)                 { mock.handler = cb }
+func (mock *mockPutObjDirect) Use(cb putObjDirectFunc)       { mock.handler = cb }
+func (mock *mockGetObjDirect) Use(cb getObjDirectFunc)       { mock.handler = cb }
+func (mock *mockDeleteObjDirect) Use(cb deleteObjDirectFunc) { mock.handler = cb }
 
 type objectServerAPI struct {
 	mock *mockObjectServer
 }
 
 type mockObjectServer struct {
-	api            objectServerAPI
-	PutObject      mockPutObject
-	PutObjectSplit mockPutObjectSplit
-	PutObjects     mockPutObjects
-	CreateObject   mockCreateObject
-	GetObject      mockGetObject
-	GetObjects     mockGetObjects
-	PutBlock       mockPutBlock
-	GetBlock       mockGetBlock
-	GetBlocks      mockGetBlocks
-	ListBlock      mockListBlock
-	TagObject      mockTagObject
-	InspectObject  mockInspectObject
-	CheckObject    mockCheckObject
-	ListObjects    mockListObjects
-	DeleteObjects  mockDeleteObjects
-	GetTag         mockGetTag
-	InspectTag     mockInspectTag
-	ListTags       mockListTags
-	DeleteTags     mockDeleteTags
-	Compact        mockCompact
-	PutObjDirect   mockPutObjDirect
-	GetObjDirect   mockGetObjDirect
+	api             objectServerAPI
+	PutObject       mockPutObject
+	PutObjectSplit  mockPutObjectSplit
+	PutObjects      mockPutObjects
+	CreateObject    mockCreateObject
+	GetObject       mockGetObject
+	GetObjects      mockGetObjects
+	PutBlock        mockPutBlock
+	GetBlock        mockGetBlock
+	GetBlocks       mockGetBlocks
+	ListBlock       mockListBlock
+	TagObject       mockTagObject
+	InspectObject   mockInspectObject
+	CheckObject     mockCheckObject
+	ListObjects     mockListObjects
+	DeleteObjects   mockDeleteObjects
+	GetTag          mockGetTag
+	InspectTag      mockInspectTag
+	ListTags        mockListTags
+	DeleteTags      mockDeleteTags
+	Compact         mockCompact
+	PutObjDirect    mockPutObjDirect
+	GetObjDirect    mockGetObjDirect
+	DeleteObjDirect mockDeleteObjDirect
 }
 
 func (api *objectServerAPI) PutObject(serv pfs.ObjectAPI_PutObjectServer) error {
@@ -1383,6 +1407,12 @@ func (api *objectServerAPI) GetObjDirect(req *pfs.GetObjDirectRequest, serv pfs.
 		return api.mock.GetObjDirect.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock object.GetObjDirect")
+}
+func (api *objectServerAPI) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest) (*types.Empty, error) {
+	if api.mock.DeleteObjDirect.handler != nil {
+		return api.mock.DeleteObjDirect.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock object.GetObjDirect")
 }
 
 // MockPachd provides an interface for running the interface for a Pachd API

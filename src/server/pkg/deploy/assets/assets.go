@@ -45,7 +45,7 @@ var (
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
 	etcdImage      = "pachyderm/etcd:v3.3.5"
-	postgresImage  = "postgres:11.3"
+	postgresImage  = "postgres:13.0-alpine"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"

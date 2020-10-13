@@ -142,17 +142,17 @@ image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
 
-=== "macOS prior to Catalina"
+* On macOS prior to Catalina, run:
     ```
     pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
     ```
 
-=== "macOS Catalina"
+* On macOS Catalina, run:
     ```
     pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
     ```
-
-=== "Linux 64-bit"
+    
+* On Linux 64-bit, run:
     ```
     pachctl get file images@master:liberty.png | display
     ```
@@ -302,15 +302,19 @@ that we viewed the input data.
 
 * On macOS prior to Catalina, run:
 
-```macos-prior-catalina tab="macOS prior to Catalina"
+```
 pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab="macOS Catalina"
+* On macOS Catalina, run:
+
+```
 pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab="Linux 64-bit"
+* On Linux 64-bit, run:
+
+```
 pachctl get file edges@master:liberty.png | display
 ```
 
@@ -457,15 +461,21 @@ ce448c12d0dd4410b3a5ae0c0f07e1f9    2 minutes ago  Less than a second 0       1 
 View the generated montage image by running one of
 the following commands:
 
-```macos-prior-catalina tab="macOS prior to Catalina"
+* On macOS prior to Catalina, run:
+
+```
 pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab="macOS Catalina"
+* On macOS Catalina, run:
+
+```
 pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab="Linux 64-bit"
+* On Linux 64-bit, run:
+
+```
 pachctl get file montage@master:montage.png | display
 ```
 
