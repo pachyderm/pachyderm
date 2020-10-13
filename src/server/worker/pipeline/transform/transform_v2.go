@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
+// RunV2 will run a transform pipeline until the driver is canceled.
 func RunV2(driver driver.Driver, logger logs.TaggedLogger) error {
 	reg, err := newRegistryV2(driver, logger)
 	if err != nil {

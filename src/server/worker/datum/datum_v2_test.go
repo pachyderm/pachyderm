@@ -104,6 +104,9 @@ func writeFile(w *tar.Writer, f *testFile) error {
 
 func copyFiles(outputDir, inputDir string, cb func([]byte) []byte) error {
 	return filepath.Walk(inputDir, func(file string, fi os.FileInfo, err error) (retErr error) {
+		if err != nil {
+			return err
+		}
 		if file == inputDir {
 			return nil
 		}

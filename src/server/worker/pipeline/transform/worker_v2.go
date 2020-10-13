@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
+// WorkerV2 handles a transform pipeline work subtask, then returns.
 // TODO:
 // datum queuing (probably should be handled by datum package).
 // s3 input / gateway stuff (need more information here).
@@ -60,7 +61,7 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 					ctx := pachClient.Ctx()
 					inputs := meta.Inputs
 					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
-					var opts []datum.DatumOption
+					var opts []datum.Option
 					if driver.PipelineInfo().DatumTimeout != nil {
 						timeout, err := types.DurationFromProto(driver.PipelineInfo().DatumTimeout)
 						if err != nil {

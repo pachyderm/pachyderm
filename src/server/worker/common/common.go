@@ -50,6 +50,7 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 
+// DatumIDV2 computes the ID of a datum.
 // TODO: This needs more discussion.
 func DatumIDV2(inputs []*Input) string {
 	var files []string
@@ -59,6 +60,7 @@ func DatumIDV2(inputs []*Input) string {
 	return strings.Join(files, "-")
 }
 
+// HashDatumV2 computes the hash of a datum.
 func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*Input) string {
 	hash := sha256.New()
 	for _, input := range inputs {

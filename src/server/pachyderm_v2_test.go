@@ -3969,11 +3969,11 @@ func TestStopJobV2(t *testing.T) {
 }
 
 func TestGetLogsV2(t *testing.T) {
-	testGetLogs(t, false)
+	testGetLogsV2(t, false)
 }
 
 func TestGetLogsWithStatsV2(t *testing.T) {
-	testGetLogs(t, true)
+	testGetLogsV2(t, true)
 }
 
 func testGetLogsV2(t *testing.T, enableStats bool) {

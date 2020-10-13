@@ -4,18 +4,21 @@ import (
 	"io"
 )
 
+// Stream is the standard interface for a sorted stream that can be used in a PriorityQueue.
 type Stream interface {
 	Next() error
 	Key() string
 	Priority() int
 }
 
+// PriorityQueue implements a priority queue that operates on streams.
 type PriorityQueue struct {
 	queue []Stream
 	size  int
 	ss    []Stream
 }
 
+// NewPriorityQueue creates a new priority queue.
 func NewPriorityQueue(ss []Stream) *PriorityQueue {
 	return &PriorityQueue{
 		queue: make([]Stream, len(ss)+1),
@@ -23,6 +26,7 @@ func NewPriorityQueue(ss []Stream) *PriorityQueue {
 	}
 }
 
+// Iterate iterates through the priority queue.
 func (pq *PriorityQueue) Iterate(cb func([]Stream, ...string) error) error {
 	for {
 		ss, err := pq.Next()
@@ -70,6 +74,7 @@ func (pq *PriorityQueue) insert(s Stream) error {
 	return nil
 }
 
+// Next gets the next set of streams in the priority queue.
 func (pq *PriorityQueue) Next() ([]Stream, error) {
 	// Re-insert streams
 	if pq.ss != nil {
@@ -93,6 +98,7 @@ func (pq *PriorityQueue) Next() ([]Stream, error) {
 	return ss, nil
 }
 
+// Peek peeks the next key in the priority queue.
 func (pq *PriorityQueue) Peek() []string {
 	if pq.empty() {
 		return nil

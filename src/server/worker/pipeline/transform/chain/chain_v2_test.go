@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"context"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -79,7 +80,7 @@ func TestEmptyBaseV2(t *testing.T) {
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)
 	ti := newTestIteratorV2(jobMetas)
-	jdi := chain.CreateJob(jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
 	requireIteratorContentsV2(t, jdi, jobMetas)
 }
 
@@ -88,7 +89,7 @@ func TestAdditiveOnBaseV2(t *testing.T) {
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)[1:]
 	ti := newTestIteratorV2(jobMetas)
-	jdi := chain.CreateJob(jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
 	requireIteratorContentsV2(t, jdi, jobMetas)
 }
 
@@ -97,7 +98,7 @@ func TestSubtractiveOnBaseV2(t *testing.T) {
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)[1:]
 	ti := newTestIteratorV2(jobMetas)
-	jdi := chain.CreateJob(jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
 	requireIteratorContentsV2(t, jdi, jobMetas[1:])
 }
 
@@ -106,6 +107,6 @@ func TestAdditiveSubtractiveOnBaseV2(t *testing.T) {
 	jobID := uuid.NewWithoutDashes()
 	jobMetas := newTestMetas(jobID)[:2]
 	ti := newTestIteratorV2(jobMetas)
-	jdi := chain.CreateJob(jobID, ti, ti)
+	jdi := chain.CreateJob(context.Background(), jobID, ti, ti)
 	requireIteratorContentsV2(t, jdi, jobMetas[0:1])
 }

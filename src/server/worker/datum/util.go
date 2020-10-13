@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// MergeStats merges two stats.
 func MergeStats(x, y *Stats) error {
 	if err := MergeProcessStats(x.ProcessStats, y.ProcessStats); err != nil {
 		return err
@@ -21,6 +22,7 @@ func MergeStats(x, y *Stats) error {
 	return nil
 }
 
+// MergeProcessStats merges two process stats.
 func MergeProcessStats(x, y *pps.ProcessStats) error {
 	var err error
 	if x.DownloadTime, err = plusDuration(x.DownloadTime, y.DownloadTime); err != nil {

@@ -7,11 +7,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )
 
+// TODO: More documentation.
+
+// JobChainV2 manages a chain of jobs.
 type JobChainV2 struct {
 	hasher  datum.Hasher
 	prevJob *JobDatumIteratorV2
 }
 
+// NewJobChainV2 creates a new job chain.
 // TODO: We should probably pipe a context through here.
 func NewJobChainV2(hasher datum.Hasher, baseDit ...datum.IteratorV2) *JobChainV2 {
 	jc := &JobChainV2{hasher: hasher}
@@ -29,6 +33,7 @@ func NewJobChainV2(hasher datum.Hasher, baseDit ...datum.IteratorV2) *JobChainV2
 	return jc
 }
 
+// CreateJob creates a job in the job chain.
 func (jc *JobChainV2) CreateJob(ctx context.Context, jobID string, dit, outputDit datum.IteratorV2) *JobDatumIteratorV2 {
 	jdi := &JobDatumIteratorV2{
 		ctx:       ctx,
@@ -44,6 +49,7 @@ func (jc *JobChainV2) CreateJob(ctx context.Context, jobID string, dit, outputDi
 	return jdi
 }
 
+// JobDatumIteratorV2 provides a way to iterate through the datums in a job.
 type JobDatumIteratorV2 struct {
 	ctx            context.Context
 	jc             *JobChainV2
@@ -55,11 +61,13 @@ type JobDatumIteratorV2 struct {
 	deleter        func(*datum.Meta) error
 }
 
+// SetDeleter sets the deleter callback for the iterator.
 // TODO: There should be a way to handle this through callbacks, but this would require some more changes to the registry.
 func (jdi *JobDatumIteratorV2) SetDeleter(deleter func(*datum.Meta) error) {
 	jdi.deleter = deleter
 }
 
+// Iterate iterates through the datums for the job.
 func (jdi *JobDatumIteratorV2) Iterate(cb func(*datum.Meta) error) error {
 	jdi.stats.Skipped = 0
 	if jdi.parent == nil {
@@ -132,10 +140,12 @@ func (jdi *JobDatumIteratorV2) skippableDatum(meta1, meta2 *datum.Meta) bool {
 	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
+// Stats returns the stats for the most recent iteration.
 func (jdi *JobDatumIteratorV2) Stats() *datum.Stats {
 	return jdi.stats
 }
 
+// Finish finishes the job in the job chain.
 func (jdi *JobDatumIteratorV2) Finish() {
 	close(jdi.done)
 }

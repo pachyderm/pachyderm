@@ -15,7 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
+// IteratorV2 is the standard interface for a datum iterator.
 type IteratorV2 interface {
+	// Iterate iterates over a set of datums.
 	Iterate(func(*Meta) error) error
 }
 
@@ -160,7 +162,9 @@ func newCronIteratorV2(pachClient *client.APIClient, input *pps.CronInput) Itera
 	})
 }
 
+// Hasher is the standard interface for a datum hasher.
 type Hasher interface {
+	// Hash computes the datum hash based on the inputs.
 	Hash([]*common.Input) string
 }
 
@@ -170,6 +174,7 @@ type jobIterator struct {
 	hasher   Hasher
 }
 
+// NewJobIterator creates a new job iterator.
 func NewJobIterator(iterator IteratorV2, jobID string, hasher Hasher) IteratorV2 {
 	return &jobIterator{
 		iterator: iterator,
@@ -191,6 +196,7 @@ type fileSetIterator struct {
 	repo, commit string
 }
 
+// NewFileSetIterator creates a new fileset iterator.
 func NewFileSetIterator(pachClient *client.APIClient, repo, commit string) IteratorV2 {
 	return &fileSetIterator{
 		pachClient: pachClient,
@@ -223,6 +229,7 @@ func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
 	}
 }
 
+// Merge merges multiple datum iterators (key is datum ID).
 func Merge(dits []IteratorV2, cb func([]*Meta) error) error {
 	var ss []stream.Stream
 	for _, dit := range dits {
@@ -286,6 +293,7 @@ func (ds *datumStream) Priority() int {
 	return ds.priority
 }
 
+// NewIteratorV2 creates a new datum iterator.
 func NewIteratorV2(pachClient *client.APIClient, input *pps.Input) (IteratorV2, error) {
 	switch {
 	case input.Pfs != nil:

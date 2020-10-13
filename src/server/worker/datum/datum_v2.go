@@ -23,24 +23,33 @@ import (
 )
 
 const (
-	MetaPrefix        = "meta"
-	MetaFileName      = "meta"
-	PFSPrefix         = "pfs"
-	OutputPrefix      = "out"
+	// MetaPrefix is the prefix for the meta path.
+	MetaPrefix = "meta"
+	// MetaFileName is the name of the meta file.
+	MetaFileName = "meta"
+	// PFSPrefix is the prefix for the pfs path.
+	PFSPrefix = "pfs"
+	// OutputPrefix is the prefix for the output path.
+	OutputPrefix = "out"
+	// TmpFileName is the name of the tmp file.
 	TmpFileName       = "tmp"
 	defaultNumRetries = 3
 )
 
+// PutTarClient is the standard interface for a client that implements PutTar.
 type PutTarClient interface {
-	PutTar(io.Reader, bool, ...string) error
+	// PutTar puts a tar stream.
+	PutTar(r io.Reader, overwrite bool, datum ...string) error
 }
 
 const defaultDatumsPerSet = 10
 
+// SetSpec specifies criteria for creating datum sets.
 type SetSpec struct {
 	Number int
 }
 
+// CreateSets creates datum sets from the passed in datum iterator.
 func CreateSets(dit IteratorV2, storageRoot string, setSpec *SetSpec, upload func(func(PutTarClient) error) error) error {
 	var metas []*Meta
 	datumsPerSet := defaultDatumsPerSet
@@ -76,6 +85,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(PutTarClient)
 	})
 }
 
+// Set manages a set of datums.
 type Set struct {
 	pachClient                        *client.APIClient
 	storageRoot                       string
@@ -83,6 +93,7 @@ type Set struct {
 	stats                             *Stats
 }
 
+// WithSet provides a scoped environment for a datum set.
 func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) error, opts ...SetOption) (retErr error) {
 	s := &Set{
 		pachClient:  pachClient,
@@ -103,8 +114,9 @@ func WithSet(pachClient *client.APIClient, storageRoot string, cb func(*Set) err
 	return cb(s)
 }
 
+// WithDatum provides a scoped environment for a datum within the datum set.
 // TODO: Handle datum concurrency here, and potentially move symlinking here.
-func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, opts ...DatumOption) error {
+func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, opts ...Option) error {
 	d := newDatum(s, meta, opts...)
 	cancelCtx, cancel := context.WithCancel(ctx)
 	attemptsLeft := d.numRetries + 1
@@ -126,6 +138,7 @@ func (s *Set) WithDatum(ctx context.Context, meta *Meta, cb func(*Datum) error, 
 	})
 }
 
+// Datum manages a datum.
 type Datum struct {
 	set              *Set
 	ID               string
@@ -136,7 +149,7 @@ type Datum struct {
 	timeout          time.Duration
 }
 
-func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
+func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
 	// TODO: ID needs more discussion.
 	ID := common.DatumIDV2(meta.Inputs)
 	d := &Datum{
@@ -153,10 +166,12 @@ func newDatum(set *Set, meta *Meta, opts ...DatumOption) *Datum {
 	return d
 }
 
+// PFSStorageRoot returns the pfs storage root.
 func (d *Datum) PFSStorageRoot() string {
 	return path.Join(d.storageRoot, PFSPrefix, d.ID)
 }
 
+// MetaStorageRoot returns the meta storage root.
 func (d *Datum) MetaStorageRoot() string {
 	return path.Join(d.storageRoot, MetaPrefix, d.ID)
 }
@@ -223,6 +238,7 @@ func (d *Datum) downloadData() error {
 	return nil
 }
 
+// Run provides a scoped environment for the processing of a datum.
 func (d *Datum) Run(ctx context.Context, cb func(ctx context.Context) error) error {
 	start := time.Now()
 	defer func() {
@@ -309,12 +325,16 @@ func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Hea
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
 type fileWalkerFunc func(string) ([]string, error)
 
+// DeleteClient is the standard interface for a client that implements DeleteFiles.
 type DeleteClient interface {
-	DeleteFiles([]string, ...string) error
+	// DeleteFiles deletes a set of files.
+	DeleteFiles(files []string, datum ...string) error
 }
 
+// Deleter deletes a datum.
 type Deleter func(*Meta) error
 
+// NewDeleter creates a new deleter.
 func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient DeleteClient) Deleter {
 	return func(meta *Meta) error {
 		ID := common.DatumIDV2(meta.Inputs)
