@@ -96,6 +96,11 @@ func (a *apiServer) master() {
 					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
 						log.Errorf("PPS master: %v", err)
 					}
+				case watch.EventDelete:
+					// TODO(msteffen) trace this call
+					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
+						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", err)
+					}
 				}
 			case event := <-watchChan:
 				// if we get an error we restart the watch, k8s watches seem to
