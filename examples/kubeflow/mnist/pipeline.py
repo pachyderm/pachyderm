@@ -25,6 +25,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
 
     print("==== MOUNTS ===")
     print(out)
+    # TODO glob these mounts, then we can rip out boto3 yay
     print("==========================")
 
     subprocess.run([sys.executable, '-m', 'pip', 'install', 'boto3'])
