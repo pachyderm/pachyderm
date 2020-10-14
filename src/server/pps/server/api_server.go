@@ -113,8 +113,9 @@ type apiServer struct {
 	noExposeDockerSocket   bool
 	reporter               *metrics.Reporter
 	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func()
-	crashingMonitorCancels map[string]func()
+	monitorCancels         map[string]func() // protected by monitorCancelsMu
+	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
+	pollCancel             func()            // also protected by monitorCancelsMu
 	workerUsesRoot         bool
 	workerGrpcPort         uint16
 	port                   uint16

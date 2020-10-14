@@ -55,8 +55,14 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 
-		// start permanent background goro to regularly refresh pipelines
-		go a.pollPipelines(ctx)
+		// start pollPipelines in the background to regularly refresh pipelines
+		func() {
+			a.monitorCancelsMu.Lock()
+			defer a.monitorCancelsMu.Unlock()
+			var pollCtx context.Context
+			pollCtx, a.pollCancel = context.WithCancel(ctx)
+			go a.pollPipelines(pollCtx)
+		}()
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -160,6 +166,12 @@ func (a *apiServer) master() {
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		a.cancelAllMonitorsAndCrashingMonitors()
+		a.monitorCancelsMu.Lock()
+		defer a.monitorCancelsMu.Unlock()
+		if a.pollCancel != nil {
+			a.pollCancel()
+			a.pollCancel = nil
+		}
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -251,7 +263,19 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 	for {
 		// wait until at least 10s after last loop, so this doesn't ping too
 		// frequently (current cap: once/10s)
-		<-time.After(start.Add(10 * time.Second).Sub(time.Now()))
+		select {
+		case <-time.After(start.Add(10 * time.Second).Sub(time.Now())):
+			// Inner select: confirm that ctx is not done. It's possible that both
+			// time.After() and ctx.Done() are ready, and time.After() is randomly
+			// chosen over ctx.Done().
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+		case <-ctx.Done():
+			return
+		}
 		start = time.Now()
 
 		etcdPipelines := map[string]bool{}
