@@ -12,7 +12,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -202,7 +201,7 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 func makeChunks(t *testing.T, objClient obj.Client, count int) []string {
 	result := []string{}
 	for i := 0; i < count; i++ {
-		chunkID := testutil.UniqueString(fmt.Sprintf("chunk-%d-", i))
+		chunkID := fmt.Sprintf("chunk-%d-", i) + uuid.NewWithoutDashes()[0:12]
 		w, err := objClient.Writer(context.Background(), chunkID)
 		require.NoError(t, err)
 		require.NoError(t, w.Close())

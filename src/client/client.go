@@ -47,6 +47,9 @@ const (
 	MaxListItemsLog = 10
 	// StorageSecretName is the name of the Kubernetes secret in which
 	// storage credentials are stored.
+	// TODO: The value "pachyderm-storage-secret" is hardcoded in the obj package to avoid a
+	// obj -> client dependency, so any changes to this variable need to be applied there.
+	// The obj package should eventually get refactored so that it does not have this dependency.
 	StorageSecretName = "pachyderm-storage-secret"
 )
 

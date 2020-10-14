@@ -23,7 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil/random"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -473,7 +473,7 @@ func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 }
 
 func TestLoad(t *testing.T) {
-	msg := tu.SeedRand()
+	msg := random.SeedRand()
 	require.NoError(t, testLoad(t, fuzzLoad()), msg)
 }
 
@@ -1047,8 +1047,7 @@ func TestTmpFileSet(t *testing.T) {
 		resp, err := pclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
-		_, err = env.PachClient.RenewTmpFileSet(env.Context, &pfs.RenewTmpFileSetRequest{FilesetId: resp.FilesetId, TtlSeconds: 60})
-		require.NoError(t, err)
+		require.NoError(t, env.PachClient.RenewTmpFileSet(resp.FilesetId, 60*time.Second))
 		fileInfos := []*pfs.FileInfo{}
 		require.NoError(t, env.PachClient.ListFileF(client.TmpRepoName, resp.FilesetId, "/", 0, func(fi *pfs.FileInfo) error {
 			fileInfos = append(fileInfos, fi)

@@ -30,7 +30,7 @@ func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *
 				return err
 			}
 			defer masterLock.Unlock(masterCtx)
-			opts, err := gc.ServiceEnvToOptions(env)
+			opts, err := env.GarbageCollectionOptions()
 			if err != nil {
 				return err
 			}

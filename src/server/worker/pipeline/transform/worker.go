@@ -24,9 +24,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -783,7 +783,7 @@ func writeIndex(driver driver.Driver, tree *pfs.Object, indexData []byte) (retEr
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	path, err := pfsserver.BlockPathFromEnv(info.BlockRef.Block)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

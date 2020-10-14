@@ -19,6 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -459,51 +460,54 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
-	// Setup goroutine for creating datum set subtasks.
-	// TODO: When the datum set spec is not set, evenly distribute the datums.
-	eg.Go(func() error {
-		defer close(subtasks)
-		storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-		var setSpec *datum.SetSpec
-		if pj.driver.PipelineInfo().ChunkSpec != nil {
-			setSpec = &datum.SetSpec{
-				Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *fileset.Renewer) error {
+		// Setup goroutine for creating datum set subtasks.
+		// TODO: When the datum set spec is not set, evenly distribute the datums.
+		eg.Go(func() error {
+			defer close(subtasks)
+			storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+			var setSpec *datum.SetSpec
+			if pj.driver.PipelineInfo().ChunkSpec != nil {
+				setSpec = &datum.SetSpec{
+					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
+				}
 			}
-		}
-		return pj.withDeleter(pachClient, func() error {
-			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.PutTarClient) error) error {
-				subtask, err := createDatumSetSubtask(pachClient, pj, upload)
-				if err != nil {
-					return err
-				}
-				select {
-				case subtasks <- subtask:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
-				return nil
-			})
-		})
-	})
-	// Setup goroutine for running and collecting datum set subtasks.
-	eg.Go(func() error {
-		return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
-			return pj.taskMaster.RunSubtasksChan(
-				subtasks,
-				func(ctx context.Context, taskInfo *work.TaskInfo) error {
-					if taskInfo.State == work.State_FAILURE {
-						return errors.Errorf("datum set subtask failed: %s", taskInfo.Reason)
-					}
-					data, err := deserializeDatumSetV2(taskInfo.Task.Data)
+			return pj.withDeleter(pachClient, func() error {
+				return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.PutTarClient) error) error {
+					subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
 					if err != nil {
 						return err
 					}
-					return datum.MergeStats(stats, data.Stats)
-				},
-			)
+					select {
+					case subtasks <- subtask:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+					return nil
+				})
+			})
 		})
-	})
-	if err := eg.Wait(); err != nil {
+		// Setup goroutine for running and collecting datum set subtasks.
+		eg.Go(func() error {
+			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
+				return pj.taskMaster.RunSubtasksChan(
+					subtasks,
+					func(ctx context.Context, taskInfo *work.TaskInfo) error {
+						if taskInfo.State == work.State_FAILURE {
+							return errors.Errorf("datum set subtask failed: %s", taskInfo.Reason)
+						}
+						data, err := deserializeDatumSetV2(taskInfo.Task.Data)
+						if err != nil {
+							return err
+						}
+						renewer.Remove(data.FileSet)
+						return datum.MergeStats(stats, data.Stats)
+					},
+				)
+			})
+		})
+		return eg.Wait()
+	}); err != nil {
 		return err
 	}
 	// TODO: This shouldn't be necessary.
@@ -520,16 +524,19 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	return reg.succeedJob(pj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, upload func(ptc datum.PutTarClient) error) (*work.Task, error) {
-	ID, err := createTemporaryFileSet(pachClient, upload)
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, upload func(ptc datum.PutTarClient) error, renewer *fileset.Renewer) (*work.Task, error) {
+	resp, err := pachClient.WithCreateTmpFileSetClient(func(ctfsc *client.CreateTmpFileSetClient) error {
+		return upload(ctfsc)
+	})
 	if err != nil {
 		return nil, err
 	}
+	renewer.Add(resp.FilesetId)
 	data, err := serializeDatumSetV2(&DatumSetV2{
 		JobID: pj.ji.Job.ID,
 		// TODO: It might make sense for this to be a hash of the constituent datums?
 		// That could make it possible to recover from a master restart.
-		FileSet:      ID,
+		FileSet:      resp.FilesetId,
 		OutputCommit: pj.commitInfo.Commit,
 		MetaCommit:   pj.metaCommitInfo.Commit,
 	})
@@ -541,32 +548,6 @@ func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, uploa
 		ID:   uuid.NewWithoutDashes(),
 		Data: data,
 	}, nil
-}
-
-// TODO: this should be replaced with a proper implementation of temporary filesets with keepalives in pfs.
-const (
-	tmpRepo = "tmp"
-)
-
-func createTemporaryFileSet(pachClient *client.APIClient, upload func(ptc datum.PutTarClient) error) (_ string, retErr error) {
-	if err := pachClient.CreateRepo(tmpRepo); err != nil {
-		if !pfsserver.IsRepoExistsErr(err) {
-			return "", err
-		}
-	}
-	commit, err := pachClient.StartCommit(tmpRepo, "")
-	if err != nil {
-		return "", err
-	}
-	if err := pachClient.WithFileOperationClientV2(tmpRepo, commit.ID, func(foc *client.FileOperationClient) error {
-		return upload(foc)
-	}); err != nil {
-		return "", err
-	}
-	if err := pachClient.FinishCommit(tmpRepo, commit.ID); err != nil {
-		return "", err
-	}
-	return commit.ID, nil
 }
 
 func serializeDatumSetV2(data *DatumSetV2) (*types.Any, error) {

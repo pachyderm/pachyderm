@@ -6,21 +6,40 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
+
+// renewFunc is a function that renews a particular path.
+type renewFunc func(ctx context.Context, path string, ttl time.Duration) error
+
+// WithRenewer provides a scoped fileset renewer.
+func WithRenewer(ctx context.Context, ttl time.Duration, renew renewFunc, cb func(context.Context, *Renewer) error) error {
+	r := newRenewer(ttl, renew)
+	cancelCtx, cf := context.WithCancel(ctx)
+	eg, errCtx := errgroup.WithContext(cancelCtx)
+	eg.Go(func() error {
+		return r.run(errCtx)
+	})
+	eg.Go(func() error {
+		defer cf()
+		return cb(errCtx, r)
+	})
+	return eg.Wait()
+}
 
 // Renewer manages renewing the TTL on a set of paths.
 type Renewer struct {
-	storage *Storage
-	ttl     time.Duration
-	mu      sync.Mutex
-	paths   map[string]struct{}
+	ttl   time.Duration
+	renew renewFunc
+	mu    sync.Mutex
+	paths map[string]struct{}
 }
 
-func newRenewer(s *Storage, ttl time.Duration) *Renewer {
+func newRenewer(ttl time.Duration, renew renewFunc) *Renewer {
 	return &Renewer{
-		storage: s,
-		ttl:     ttl,
-		paths:   make(map[string]struct{}),
+		ttl:   ttl,
+		renew: renew,
+		paths: make(map[string]struct{}),
 	}
 }
 
@@ -49,7 +68,7 @@ func (r *Renewer) renewPaths(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for p := range r.paths {
-		if _, err := r.storage.SetTTL(ctx, p, r.ttl); err != nil {
+		if err := r.renew(ctx, p, r.ttl); err != nil {
 			return err
 		}
 	}

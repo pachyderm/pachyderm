@@ -55,7 +55,7 @@ func handleDatumSetV2(driver driver.Driver, logger logs.TaggedLogger, datumSet *
 		return pachClient.WithFileOperationClientV2(outputCommit.Repo.Name, outputCommit.ID, func(focPFS *client.FileOperationClient) error {
 			// Setup datum set for processing.
 			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, tmpRepo, datumSet.FileSet)
+				di := datum.NewFileSetIterator(pachClient, client.TmpRepoName, datumSet.FileSet)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
