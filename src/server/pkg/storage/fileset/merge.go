@@ -213,7 +213,7 @@ func (fmr *FileMergeReader) Index() *index.Index {
 }
 
 // Header returns the tar header for the merged file.
-func (fmr *FileMergeReader) Header() (*tar.Header, error) {
+func (fmr *FileMergeReader) Header() (_ *tar.Header, retErr error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
 		for _, fr := range fmr.frs {
@@ -243,7 +243,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 }
 
 // WriteTo writes the merged file to the passed in fileset writer.
-func (fmr *FileMergeReader) WriteTo(w *Writer) error {
+func (fmr *FileMergeReader) WriteTo(w *Writer) (retErr error) {
 	hdr, err := fmr.Header()
 	if err != nil {
 		return err

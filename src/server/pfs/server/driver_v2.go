@@ -36,8 +36,8 @@ import (
 const (
 	storageTaskNamespace = "storage"
 	tmpRepo              = client.TmpRepoName
+	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
-	defaultTTL           = 10 * time.Minute
 )
 
 type driverV2 struct {
@@ -66,12 +66,12 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts, err := chunk.ServiceEnvToOptions(env)
+	chunkStorageOpts, err := env.ChunkStorageOptions()
 	if err != nil {
 		return nil, err
 	}
 	chunkStorageOpts = append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkStorageOpts...)
-	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
+	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), env.FileSetStorageOptions()...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb 
 func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
 	id := uuid.NewWithoutDashes()
 	inputPath := path.Join(tmpRepo, id)
-	opts := []fileset.UnorderedWriterOption{fileset.WithRenewer(defaultTTL, renewer)}
+	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
 	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
 	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
 	if err != nil {
@@ -1083,6 +1083,9 @@ func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (stri
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
+	if ttl.Seconds() == 0 {
+		return errors.Errorf("ttl (%d) must be at least one second", ttl)
+	}
 	if ttl > maxTTL {
 		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
 	}

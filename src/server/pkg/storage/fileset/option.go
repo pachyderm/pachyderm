@@ -3,7 +3,6 @@ package fileset
 import (
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"golang.org/x/sync/semaphore"
 )
@@ -54,8 +53,9 @@ func WithMaxOpenFileSets(max int) StorageOption {
 // UnorderedWriterOption configures an UnorderedWriter.
 type UnorderedWriterOption func(f *UnorderedWriter)
 
-// WithRenewer sets the UnorderedWriter's Renewer.
-func WithRenewer(ttl time.Duration, r *Renewer) UnorderedWriterOption {
+// WithRenewal configures the UnorderedWriter to renew subfileset paths
+// with the provided renewer.
+func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r
@@ -85,23 +85,4 @@ func WithTTL(ttl time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.ttl = ttl
 	}
-}
-
-// ServiceEnvToOptions converts a service environment configuration (specifically
-// the storage configuration) to a set of storage options.
-func ServiceEnvToOptions(env *serviceenv.ServiceEnv) []StorageOption {
-	var opts []StorageOption
-	if env.StorageMemoryThreshold > 0 {
-		opts = append(opts, WithMemoryThreshold(env.StorageMemoryThreshold))
-	}
-	if env.StorageShardThreshold > 0 {
-		opts = append(opts, WithShardThreshold(env.StorageShardThreshold))
-	}
-	if env.StorageLevelZeroSize > 0 {
-		opts = append(opts, WithLevelZeroSize(env.StorageLevelZeroSize))
-	}
-	if env.StorageLevelSizeBase > 0 {
-		opts = append(opts, WithLevelSizeBase(env.StorageLevelSizeBase))
-	}
-	return opts
 }
