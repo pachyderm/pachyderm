@@ -171,8 +171,7 @@ func forEachDatum(driver driver.Driver, object string, cb func(int64, []*common.
 		return err
 	}
 
-	for i, datum := range allDatums.Datums {
-		fmt.Println("datum:", i, len(datum.Inputs))
+	for _, datum := range allDatums.Datums {
 		if err := cb(datum.Index, datum.Inputs); err != nil {
 			return err
 		}

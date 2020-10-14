@@ -435,7 +435,6 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	}
 
 	// Build up chunks to be put into work tasks from the datum iterator
-	fmt.Println("num datums:", numDatums)
 	for i := int64(0); i < numDatums; i++ {
 		inputs, index := pj.jdit.NextDatum()
 		if inputs == nil {

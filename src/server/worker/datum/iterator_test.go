@@ -457,10 +457,9 @@ func validateDI(t testing.TB, dit Iterator, datums ...string) {
 		}
 
 		if len(datums) > 0 {
-			// require.Equal(t, datums[i], key)
+			require.Equal(t, datums[i], key)
 		}
-		fmt.Println(key)
-		// require.Equal(t, key, key2)
+		require.Equal(t, key, key2)
 		i++
 	}
 	if len(datums) > 0 {

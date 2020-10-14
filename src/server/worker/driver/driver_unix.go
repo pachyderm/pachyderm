@@ -107,7 +107,6 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		return err
 	}
 
-	linked := make(map[string]bool)
 	for _, input := range inputs {
 		if input.S3 {
 			continue // S3 data is not downloaded
@@ -115,16 +114,13 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		if input.Name == "" {
 			return errors.New("input does not have a name")
 		}
-		if _, ok := linked[input.Name]; ok {
-			break // input is already linked
-		}
+
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.InputDir(), input.Name)
 
 		if err := os.Symlink(src, dst); err != nil {
 			return err
 		}
-		linked[input.Name] = true
 	}
 
 	if d.PipelineInfo().Spout != nil && d.PipelineInfo().Spout.Marker != "" {

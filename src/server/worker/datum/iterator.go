@@ -1,7 +1,6 @@
 package datum
 
 import (
-	"fmt"
 	"io"
 	"sort"
 
@@ -330,13 +329,12 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 	defer result.Reset()
 
 	// okay, so we have a slice of pps Inputs
-	for i, input := range group {
+	for _, input := range group {
 		// turn our inputs into iterators
 		datumIterator, err := NewIterator(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("running:", i)
 		// iterate through each iterator to get the individual datums
 		for datumIterator.Next() {
 			datum := datumIterator.Datum()
@@ -344,34 +342,20 @@ func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterato
 				// put the datums in an map keyed by GroupBy
 				groupDatum, ok := groupMap[datumInput.GroupBy]
 				if !ok || groupDatum == nil {
+					// make sure we keep track of new keys
 					keys = append(keys, datumInput.GroupBy)
-					// groupMap[datumInput.GroupBy] = datum
-					// continue
 				}
-				// if groupDatums.FileInfo == nil {
-				// 	groupDatums.FileInfo = make([]*pfs.FileInfo, 0, len(datum.FileInfo))
-				// }
-				// groupDatums.FileInfo =
-				// datumInput.Name = datumInput.GroupBy + "/" + datumInput.Name
-				fmt.Println("group:", datumInput.GroupBy, len(groupMap[datumInput.GroupBy]))
-				fmt.Println("gots this:", datumInput.FileInfo.File.Path)
 				groupMap[datumInput.GroupBy] = append(groupDatum, datumInput)
 			}
 		}
 	}
-
 	// sort everything by the group_by
 	sort.Strings(keys)
+
 	// put each equivalence class into its own datum
 	for _, key := range keys {
-		fmt.Println("key:", key, len(groupMap[key]))
-		for _, dat := range groupMap[key] {
-			fmt.Println("  item:", dat.FileInfo.File.Path)
-		}
 		result.datums = append(result.datums, groupMap[key])
-
 	}
-
 	return result, nil
 }
 
