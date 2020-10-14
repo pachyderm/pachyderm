@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -5524,7 +5525,6 @@ func TestJoinInput(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("find /pfs"),
 			fmt.Sprintf("touch /pfs/out/$(echo $(ls -r /pfs/%s/)$(ls -r /pfs/%s/))", repos[0], repos[1]),
 		},
 		&pps.ParallelismSpec{
@@ -5601,34 +5601,37 @@ func TestGroupInput(t *testing.T) {
 		require.Equal(t, 1, len(jobs))
 
 		// We're grouping by the third digit in the filename
-
 		// for 0 and 1, this is just a space
-
-		// then we should see the 6 files with a zero there, and the 8 with a one there
+		// then we should see the 8 files with a one there, and the 6 files with a zero there
 		expected := `
 /file-0.   0
 /file-0.   1
 
-/file-0.1100
-/file-0.1101
-/file-0. 100
-/file-0. 101
-/file-0.1000
-/file-0.1001
-
-/file-0.1010
-/file-0.1011
-/file-0.1110
-/file-0.1111
 /file-0.  10
 /file-0.  11
 /file-0. 110
 /file-0. 111
+/file-0.1010
+/file-0.1011
+/file-0.1110
+/file-0.1111
+
+/file-0. 100
+/file-0. 101
+/file-0.1000
+/file-0.1001
+/file-0.1100
+/file-0.1101
 
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
 		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			for _, fi := range di.Data {
 				actual += fmt.Sprintln(fi.File.Path)
 			}
@@ -5691,44 +5694,48 @@ func TestGroupInput(t *testing.T) {
 /file-1.  10
 /file-1.  11
 
-/file-0.1100
-/file-0.1101
-/file-0. 100
-/file-0. 101
-/file-0.1000
-/file-0.1001
-/file-1.1010
-/file-1.1011
-/file-1.1000
-/file-1.1001
-
-/file-0.1010
-/file-0.1011
-/file-0.1110
-/file-0.1111
 /file-0.  10
 /file-0.  11
 /file-0. 110
 /file-0. 111
-/file-1.1100
-/file-1.1101
-/file-1.1110
-/file-1.1111
+/file-0.1010
+/file-0.1011
+/file-0.1110
+/file-0.1111
 /file-1. 100
 /file-1. 101
 /file-1. 110
 /file-1. 111
+/file-1.1100
+/file-1.1101
+/file-1.1110
+/file-1.1111
+
+/file-0. 100
+/file-0. 101
+/file-0.1000
+/file-0.1001
+/file-0.1100
+/file-0.1101
+/file-1.1000
+/file-1.1001
+/file-1.1010
+/file-1.1011
 
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
 		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			for _, fi := range di.Data {
 				actual += fmt.Sprintln(fi.File.Path)
 			}
 			actual += "\n"
 		}
-
 		require.Equal(t, expected, actual)
 	})
 
@@ -5780,20 +5787,25 @@ func TestGroupInput(t *testing.T) {
 		// then, we're grouping the files in these pairs by the third digit/second digit as before
 		// this should regroup things into two groups of four
 		expected := `
-/file-0.1101
-/file-1.1011
-/file-0.1001
-/file-1.1001
-
 /file-0.1011
-/file-1.1101
 /file-0.1111
+/file-1.1101
 /file-1.1111
+
+/file-0.1001
+/file-0.1101
+/file-1.1001
+/file-1.1011
 
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
 		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
 			for _, fi := range di.Data {
 				actual += fmt.Sprintln(fi.File.Path)
 			}
@@ -12526,7 +12538,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", false),
+		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false),
 		"",
 		false,
 	))
@@ -12540,7 +12552,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", false),
+		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false),
 		"",
 		false,
 	))
