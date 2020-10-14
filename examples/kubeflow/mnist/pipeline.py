@@ -17,6 +17,16 @@ def mnist(s3_endpoint: str, input_bucket: str):
     # install boto3 - kinda nasty, but this is the way to do it in kubeflow's
     # lightweight components
     import sys, subprocess
+
+    out = subprocess.check_output(
+        "mount",
+        stderr=subprocess.STDOUT,
+        shell=True)
+
+    print("==== MOUNTS ===")
+    print(out)
+    print("==========================")
+
     subprocess.run([sys.executable, '-m', 'pip', 'install', 'boto3'])
 
     # imports are done here because it's required for kubeflow's lightweight
@@ -124,9 +134,9 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
 
     dataset_prefix = os.environ["DATASET_PREFIX"]
     res.add_pod_label("dataset.0.id", f"{dataset_prefix}-{input_bucket}")
-    res.add_pod_label("dataset.0.useas", "configmap")
+    res.add_pod_label("dataset.0.useas", "mount")
     res.add_pod_label("dataset.1.id", f"{dataset_prefix}-out")
-    res.add_pod_label("dataset.1.useas", "configmap")
+    res.add_pod_label("dataset.1.useas", "mount")
 
     # XXX how will multiple datasets be manifested as automatically working env
     # vars? maybe useas: mount is better...? Although I guess overriding the

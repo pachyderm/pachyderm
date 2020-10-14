@@ -442,9 +442,9 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 					},
 					"spec": map[string]interface{}{
 						"local": map[string]interface{}{
-							"type":            "COS", // "cloud object storage"
-							"accessKeyID":     "",    // not needed
-							"secretAccessKey": "",    // not needed
+							"type":            "COS",       // "cloud object storage"
+							"accessKeyID":     "pachyderm", // not needed
+							"secretAccessKey": "pachyderm", // not needed
 							// refer to service name defined above accessible in-cluster e.g.
 							// http://s3-1c414f4-ba38c01.default.svc.cluster.local:600
 							"endpoint": fmt.Sprintf(
