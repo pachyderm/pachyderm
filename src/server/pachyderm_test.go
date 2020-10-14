@@ -5560,72 +5560,247 @@ func TestGroupInput(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	var repos []string
-	for i := 0; i < 2; i++ {
-		repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
-		require.NoError(t, c.CreateRepo(repos[i]))
-	}
+	t.Run("Basic", func(t *testing.T) {
+		var repos []string
+		for i := 0; i < 2; i++ {
+			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+			require.NoError(t, c.CreateRepo(repos[i]))
+		}
 
-	numFiles := 16
-	var commits []*pfs.Commit
-	for r, repo := range repos {
-		commit, err := c.StartCommit(repo, "master")
-		require.NoError(t, err)
-		commits = append(commits, commit)
-		for i := 0; i < numFiles; i++ {
-			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+		numFiles := 16
+		var commits []*pfs.Commit
+		for r, repo := range repos {
+			commit, err := c.StartCommit(repo, "master")
 			require.NoError(t, err)
+			commits = append(commits, commit)
+			for i := 0; i < numFiles; i++ {
+				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+				require.NoError(t, err)
+			}
+			require.NoError(t, c.FinishCommit(repo, "master"))
 		}
-		require.NoError(t, c.FinishCommit(repo, "master"))
-	}
 
-	pipeline := "group-pipeline"
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("touch /pfs/out/$(echo $(ls -r /pfs/%s/)$(ls -r /pfs/%s/))", repos[0], repos[1]),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewGroupInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
-		),
-		"",
-		false,
-	))
+		pipeline := "group-pipeline"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
+			),
+			"",
+			false,
+		))
 
-	_, err := c.FlushCommit(commits, nil)
-	require.NoError(t, err)
-	time.Sleep(time.Minute)
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
 
-	// Check we can list datums before job completion
-	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-	for _, di := range resp.DatumInfos {
-		for _, fi := range di.Data {
-			fmt.Println(fi.File.Path)
+		// We're grouping by the third digit in the filename
+
+		// for 0 and 1, this is just a space
+
+		// then we should see the 6 files with a zero there, and the 8 with a one there
+		expected := `
+/file-0.   0
+/file-0.   1
+
+/file-0.1100
+/file-0.1101
+/file-0. 100
+/file-0. 101
+/file-0.1000
+/file-0.1001
+
+/file-0.1010
+/file-0.1011
+/file-0.1110
+/file-0.1111
+/file-0.  10
+/file-0.  11
+/file-0. 110
+/file-0. 111
+
+`
+		actual := "\n"
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		for _, di := range resp.DatumInfos {
+			for _, fi := range di.Data {
+				actual += fmt.Sprintln(fi.File.Path)
+			}
+			actual += "\n"
 		}
-		fmt.Println()
-		fmt.Println()
-	}
+		require.Equal(t, expected, actual)
+	})
 
-	// commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
-	// require.NoError(t, err)
-	// // require.Equal(t, 1, len(commitInfos))
-	// outCommit := commitInfos[0].Commit
-	// fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
-	// require.NoError(t, err)
-	// require.Equal(t, 2, len(fileInfos))
-	// expectedNames := []string{"/file-0.1100file-1.1100", "/file-0.1110file-1.1110"}
-	// for i, fi := range fileInfos {
-	// 	// 1 byte per repo
-	// 	require.Equal(t, expectedNames[i], fi.File.Path)
-	// }
+	t.Run("MultiInput", func(t *testing.T) {
+		var repos []string
+		for i := 0; i < 2; i++ {
+			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+			require.NoError(t, c.CreateRepo(repos[i]))
+		}
+
+		numFiles := 16
+		var commits []*pfs.Commit
+		for r, repo := range repos {
+			commit, err := c.StartCommit(repo, "master")
+			require.NoError(t, err)
+			commits = append(commits, commit)
+			for i := 0; i < numFiles; i++ {
+				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+				require.NoError(t, err)
+			}
+			require.NoError(t, c.FinishCommit(repo, "master"))
+		}
+
+		pipeline := "group-pipeline-multi-input"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
+				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false),
+			),
+			"",
+			false,
+		))
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		// this time, we are grouping by the third digit in the 0 repo, and the second digit in the 1 repo
+		// so the first group should have all the things from the 0 repo with a space in the third digit
+		// and all the things from the 1 repo with a space in the second digit
+		//
+		// similarly for the second and third groups
+		expected := `
+/file-0.   0
+/file-0.   1
+/file-1.   0
+/file-1.   1
+/file-1.  10
+/file-1.  11
+
+/file-0.1100
+/file-0.1101
+/file-0. 100
+/file-0. 101
+/file-0.1000
+/file-0.1001
+/file-1.1010
+/file-1.1011
+/file-1.1000
+/file-1.1001
+
+/file-0.1010
+/file-0.1011
+/file-0.1110
+/file-0.1111
+/file-0.  10
+/file-0.  11
+/file-0. 110
+/file-0. 111
+/file-1.1100
+/file-1.1101
+/file-1.1110
+/file-1.1111
+/file-1. 100
+/file-1. 101
+/file-1. 110
+/file-1. 111
+
+`
+		actual := "\n"
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		for _, di := range resp.DatumInfos {
+			for _, fi := range di.Data {
+				actual += fmt.Sprintln(fi.File.Path)
+			}
+			actual += "\n"
+		}
+
+		require.Equal(t, expected, actual)
+	})
+
+	t.Run("GroupJoinCombo", func(t *testing.T) {
+		var repos []string
+		for i := 0; i < 2; i++ {
+			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+			require.NoError(t, c.CreateRepo(repos[i]))
+		}
+
+		numFiles := 16
+		var commits []*pfs.Commit
+		for r, repo := range repos {
+			commit, err := c.StartCommit(repo, "master")
+			require.NoError(t, err)
+			commits = append(commits, commit)
+			for i := 0; i < numFiles; i++ {
+				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+				require.NoError(t, err)
+			}
+			require.NoError(t, c.FinishCommit(repo, "master"))
+		}
+
+		pipeline := "group-join-pipeline"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewJoinInput(
+					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false),
+					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false),
+				),
+			),
+			"",
+			false,
+		))
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		// here, we're first doing a join to get pairs of files (one from each repo) that have the reverse numbers
+		// we should see four pairs
+		// then, we're grouping the files in these pairs by the third digit/second digit as before
+		// this should regroup things into two groups of four
+		expected := `
+/file-0.1101
+/file-1.1011
+/file-0.1001
+/file-1.1001
+
+/file-0.1011
+/file-1.1101
+/file-0.1111
+/file-1.1111
+
+`
+		actual := "\n"
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		for _, di := range resp.DatumInfos {
+			for _, fi := range di.Data {
+				actual += fmt.Sprintln(fi.File.Path)
+			}
+			actual += "\n"
+		}
+		require.Equal(t, expected, actual)
+	})
 }
 
 func TestUnionRegression4688(t *testing.T) {
