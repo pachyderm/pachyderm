@@ -5561,23 +5561,12 @@ func TestGroupInput(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 
 	t.Run("Basic", func(t *testing.T) {
-		var repos []string
-		for i := 0; i < 2; i++ {
-			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
-			require.NoError(t, c.CreateRepo(repos[i]))
-		}
-
+		repo := tu.UniqueString("TestGroupInput")
+		require.NoError(t, c.CreateRepo(repo))
 		numFiles := 16
-		var commits []*pfs.Commit
-		for r, repo := range repos {
-			commit, err := c.StartCommit(repo, "master")
+		for i := 0; i < numFiles; i++ {
+			_, err := c.PutFile(repo, "master", fmt.Sprintf("file.%4b", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
 			require.NoError(t, err)
-			commits = append(commits, commit)
-			for i := 0; i < numFiles; i++ {
-				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
-				require.NoError(t, err)
-			}
-			require.NoError(t, c.FinishCommit(repo, "master"))
 		}
 
 		pipeline := "group-pipeline"
@@ -5590,13 +5579,13 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
+				client.NewPFSInputOpts("", repo, "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
 			),
 			"",
 			false,
 		))
 
-		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 
@@ -5626,6 +5615,7 @@ func TestGroupInput(t *testing.T) {
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
 		sort.Slice(resp.DatumInfos, func(i, j int) bool {
 			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
@@ -5648,16 +5638,11 @@ func TestGroupInput(t *testing.T) {
 		}
 
 		numFiles := 16
-		var commits []*pfs.Commit
 		for r, repo := range repos {
-			commit, err := c.StartCommit(repo, "master")
-			require.NoError(t, err)
-			commits = append(commits, commit)
 			for i := 0; i < numFiles; i++ {
-				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+				_, err := c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
 				require.NoError(t, err)
 			}
-			require.NoError(t, c.FinishCommit(repo, "master"))
 		}
 
 		pipeline := "group-pipeline-multi-input"
@@ -5725,6 +5710,7 @@ func TestGroupInput(t *testing.T) {
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
 		sort.Slice(resp.DatumInfos, func(i, j int) bool {
 			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
@@ -5747,16 +5733,11 @@ func TestGroupInput(t *testing.T) {
 		}
 
 		numFiles := 16
-		var commits []*pfs.Commit
 		for r, repo := range repos {
-			commit, err := c.StartCommit(repo, "master")
-			require.NoError(t, err)
-			commits = append(commits, commit)
 			for i := 0; i < numFiles; i++ {
-				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+				_, err := c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
 				require.NoError(t, err)
 			}
-			require.NoError(t, c.FinishCommit(repo, "master"))
 		}
 
 		pipeline := "group-join-pipeline"
@@ -5800,6 +5781,7 @@ func TestGroupInput(t *testing.T) {
 `
 		actual := "\n"
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
 		sort.Slice(resp.DatumInfos, func(i, j int) bool {
 			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
