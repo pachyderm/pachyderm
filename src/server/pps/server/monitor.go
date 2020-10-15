@@ -140,18 +140,22 @@ func (a *apiServer) cancelCrashingMonitor(pipeline string) {
 // cancelCrashingMonitor, but also iterates over the existing members of
 // a.{crashingM,m}onitorCancels in the critical section, so that all monitors
 // can be cancelled without the risk that a new monitor is added between cancels
-func (a *apiServer) cancelAllMonitorsAndCrashingMonitors() {
-	// cancel all monitorPipeline goroutines
+func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) {
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
-	for _, c := range a.monitorCancels {
-		c()
+	for _, monitorMap := range []map[string]func(){a.monitorCancels, a.crashingMonitorCancels} {
+		remove := make([]string, 0, len(monitorMap))
+		for p, _ := range monitorMap {
+			if !leave[p] {
+				remove = append(remove, p)
+			}
+		}
+		for _, p := range remove {
+			cancel := monitorMap[p]
+			cancel()
+			delete(monitorMap, p)
+		}
 	}
-	for _, c := range a.crashingMonitorCancels {
-		c()
-	}
-	a.monitorCancels = make(map[string]func())
-	a.crashingMonitorCancels = make(map[string]func())
 }
 
 //////////////////////////////////////////////////////////////////////////////

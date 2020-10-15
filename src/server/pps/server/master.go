@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -43,14 +44,15 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
-		// a.sudo()) to authenticate requests.
-		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
+
+		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
+		// a.sudo()) to authenticate requests.
+		pachClient := a.env.GetPachClient(ctx)
 		kubeClient := a.env.GetKubeClient()
 
 		log.Infof("PPS master: launching master process")
@@ -59,9 +61,10 @@ func (a *apiServer) master() {
 		func() {
 			a.monitorCancelsMu.Lock()
 			defer a.monitorCancelsMu.Unlock()
-			var pollCtx context.Context
-			pollCtx, a.pollCancel = context.WithCancel(ctx)
-			go a.pollPipelines(pollCtx)
+			a.pollCancel = startMonitorThread(pachClient, "pollPipelines",
+				func(pachClient *client.APIClient) {
+					a.pollPipelines(pachClient.Ctx())
+				})
 		}()
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
@@ -165,7 +168,7 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		a.cancelAllMonitorsAndCrashingMonitors()
+		a.cancelAllMonitorsAndCrashingMonitors(nil)
 		a.monitorCancelsMu.Lock()
 		defer a.monitorCancelsMu.Unlock()
 		if a.pollCancel != nil {
@@ -301,31 +304,7 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 			continue // sleep and try again
 		}
 
-		// Check for orphaned monitorPipeline/monitorCrashingPipeline goros
-		func() {
-			a.monitorCancelsMu.Lock()
-			defer a.monitorCancelsMu.Unlock()
-			for pipeline := range a.monitorCancels {
-				log.Infof("PPS master: cleaning up orphaned resources for %q", pipeline)
-				if !etcdPipelines[pipeline] {
-					// This is also called by master() above, if it receives a Delete
-					// event from etcd. If this is changed, that should too. Note that
-					// this doesn't affect the EtcdPipelineInfo, so even if this somehow
-					// races with startup, it will be fixed by the next round of polling
-					if err := a.deletePipelineResources(ctx, pipeline); err != nil {
-						log.Errorf("PPS master: pollPipelines could not delete pipeline resources for %q: %v", err)
-					}
-				}
-			}
-			for pipeline := range a.crashingMonitorCancels {
-				if !etcdPipelines[pipeline] {
-					log.Infof("PPS master: cleaning up orphaned resources for %q", pipeline)
-					// This is also called by master(), see note immediately above
-					if err := a.deletePipelineResources(ctx, pipeline); err != nil {
-						log.Errorf("PPS master: pollPipelines could not delete monitor for %q: %v", err)
-					}
-				}
-			}
-		}()
+		// Clean up any orphaned monitorPipeline and monitorCrashingPipeline goros
+		a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
 	}
 }
