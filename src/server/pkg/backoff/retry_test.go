@@ -48,8 +48,8 @@ func TestRetryUntilCancel(t *testing.T) {
 		if len(results) >= 3 {
 			cancel()
 		}
-		return Loop
-	}, &ZeroBackOff{}, NotifyLoop(func(err error, d time.Duration) error {
+		return Continue
+	}, &ZeroBackOff{}, NotifyContinue(func(err error, d time.Duration) error {
 		panic("this should not be called due to cancellation")
 	}))
 	require.Equal(t, []int{0, 1, 2}, results)
@@ -71,38 +71,50 @@ func TestRetryUntilCancelZeroBackoff(t *testing.T) {
 	})
 }
 
-func TestNotifyLoop(t *testing.T) {
-	t.Run("NotifyLoopWithNotify", func(t *testing.T) {
+func TestNotifyContinue(t *testing.T) {
+	t.Run("NotifyContinueWithNil", func(t *testing.T) {
 		var results []int
 		RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Loop // notify fn below will be elided by NotifyLoop
+				return Continue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
-		}, &ZeroBackOff{}, NotifyLoop(Notify(func(err error, d time.Duration) error {
+		}, &ZeroBackOff{}, NotifyContinue(nil))
+		require.Equal(t, []int{0, 1, 2}, results)
+	})
+
+	t.Run("NotifyContinueWithNotify", func(t *testing.T) {
+		var results []int
+		RetryNotify(func() error {
+			results = append(results, len(results))
+			if len(results) < 3 {
+				return Continue // notify fn below will be elided by NotifyContinue
+			}
+			return errors.New("done")
+		}, &ZeroBackOff{}, NotifyContinue(Notify(func(err error, d time.Duration) error {
 			results = append(results, -1)
 			return errors.New("done")
 		})))
 		require.Equal(t, []int{0, 1, 2, -1}, results)
 	})
 
-	t.Run("NotifyLoopWithFunction", func(t *testing.T) {
+	t.Run("NotifyContinueWithFunction", func(t *testing.T) {
 		var results []int
 		RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Loop // notify fn below will be elided by NotifyLoop
+				return Continue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
-		}, &ZeroBackOff{}, NotifyLoop(func(err error, d time.Duration) error {
+		}, &ZeroBackOff{}, NotifyContinue(func(err error, d time.Duration) error {
 			results = append(results, -1)
 			return errors.New("done")
 		}))
 		require.Equal(t, []int{0, 1, 2, -1}, results)
 	})
 
-	t.Run("NotifyLoopWithString", func(t *testing.T) {
+	t.Run("NotifyContinueWithString", func(t *testing.T) {
 		var buf bytes.Buffer
 		log.SetOutput(&buf)
 		defer log.SetOutput(os.Stdout)
@@ -111,13 +123,13 @@ func TestNotifyLoop(t *testing.T) {
 		RetryUntilCancel(ctx, func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Loop // causes NotifyLoop to re-run
+				return Continue // causes NotifyContinue to re-run
 			} else if len(results) < 4 {
-				return errors.New("done") // causes NotifyLoop to log & re-run
+				return errors.New("done") // causes NotifyContinue to log & re-run
 			}
 			cancel() // actually breaks out
 			return nil
-		}, &ZeroBackOff{}, NotifyLoop(t.Name()))
+		}, &ZeroBackOff{}, NotifyContinue(t.Name()))
 		require.Equal(t, []int{0, 1, 2, 3}, results)
 		require.Equal(t, 1, strings.Count(buf.String(), t.Name())) // logged once
 	})

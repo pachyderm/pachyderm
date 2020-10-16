@@ -43,19 +43,19 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 	}
 }
 
-var Loop = errors.New("looping through backoff")
+var Continue = errors.New("looping through backoff")
 
-// NotifyLoop is a convenience function for use with RetryUntilCancel. If
+// NotifyContinue is a convenience function for use with RetryUntilCancel. If
 // 'inner' is set to a Notify function, it's called if 'err' is anything other
-// than Loop. If 'inner' is a string or any other type, any error other than
-// Loop is logged, and the loop is re-run (there is no way to escape the backoff
-// in this case--RetryUntilCancel must be used to avoid an infinite loop).
+// than Continue. If 'inner' is a string or any other type, any error other than
+// Continue is logged, and the loop is re-run (in this case, there is no way to
+// escape the backoff--RetryUntilCancel must be used to avoid an infinite loop).
 //
 // This is useful for e.g. monitoring functions that want to repeatedly execute
 // the same control loop until their context is cancelled.
-func NotifyLoop(inner interface{}) Notify {
+func NotifyContinue(inner interface{}) Notify {
 	return func(err error, d time.Duration) error {
-		if errors.Is(err, Loop) {
+		if errors.Is(err, Continue) {
 			return nil
 		}
 		switch n := inner.(type) {
