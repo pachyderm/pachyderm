@@ -519,6 +519,9 @@ message ListJobRequest {
   // and jobs.
   // Note that if 'input_commit' is set, this field is coerced to "true"
   bool full = 5;
+
+  // A jq program string for additional result filtering
+  string jqFilter = 6;
 }
 
 message FlushJobRequest {
@@ -719,6 +722,9 @@ message ListPipelineRequest {
   // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
   // will have the fields present in EtcdPipelineInfo.
   bool allow_incomplete = 3;
+
+  // A jq program string for additional result filtering
+  string jqFilter = 4;
 }
 
 message DeletePipelineRequest {
