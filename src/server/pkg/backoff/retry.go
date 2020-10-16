@@ -2,7 +2,10 @@ package backoff
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // An Operation is executing by Retry() or RetryNotify().
@@ -18,6 +21,54 @@ type Operation func() error
 // NOTE that if the backoff policy stated to stop retrying,
 // the notify function isn't called.
 type Notify func(error, time.Duration) error
+
+// NotifyCtx is a convenience function for use with RetryNotify that exits if
+// 'ctx' is closed, and otherwise logs the error and retries.
+//
+// Note that an alternative, if the only goal is to retry until 'ctx' is closed,
+// is to use RetryUntilCancel, which will not even call the given 'notify'
+// function if its context is cancelled (RetryUntilCancel with notify=nil is
+// similar to RetryNotify with NotifyCtx, except that with the former, the
+// backoff will be ended early if the ctx is cancelled, whereas the latter will
+// sleep for the full backoff duration and then call the operation again).
+func NotifyCtx(ctx context.Context, name string) Notify {
+	return func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			log.Errorf("error in %s: %v: retrying in: %v", name, err, d)
+		}
+		return nil
+	}
+}
+
+var Loop = errors.New("looping through backoff")
+
+// NotifyLoop is a convenience function for use with RetryUntilCancel. If
+// 'inner' is set to a Notify function, it's called if 'err' is anything other
+// than Loop. If 'inner' is a string or any other type, any error other than
+// Loop is logged, and the loop is re-run (there is no way to escape the backoff
+// in this case--RetryUntilCancel must be used to avoid an infinite loop).
+//
+// This is useful for e.g. monitoring functions that want to repeatedly execute
+// the same control loop until their context is cancelled.
+func NotifyLoop(inner interface{}) Notify {
+	return func(err error, d time.Duration) error {
+		if errors.Is(err, Loop) {
+			return nil
+		}
+		switch n := inner.(type) {
+		case Notify:
+			return n(err, d) // fallthrough doesn't work for type switches
+		case func(error, time.Duration) error:
+			return n(err, d)
+		default:
+			log.Errorf("error in %v: %v (retrying in: %v) (%T)", n, err, d, n)
+		}
+		return nil
+	}
+}
 
 // Retry the operation o until it does not return error or BackOff stops.
 // o is guaranteed to be run at least once.
