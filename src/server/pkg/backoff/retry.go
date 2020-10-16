@@ -47,9 +47,11 @@ var Continue = errors.New("looping through backoff")
 
 // NotifyContinue is a convenience function for use with RetryUntilCancel. If
 // 'inner' is set to a Notify function, it's called if 'err' is anything other
-// than Continue. If 'inner' is a string or any other type, any error other than
-// Continue is logged, and the loop is re-run (in this case, there is no way to
-// escape the backoff--RetryUntilCancel must be used to avoid an infinite loop).
+// than Continue. If 'inner' is a string or any other non-nil value of another
+// type, any error other than Continue is logged, and the loop is re-run (in
+// this case, there is no way to escape the backoff--RetryUntilCancel must be
+// used to avoid an infinite loop). If 'inner' is nil, any error other than
+// Continue is returned.
 //
 // This is useful for e.g. monitoring functions that want to repeatedly execute
 // the same control loop until their context is cancelled.
@@ -58,15 +60,18 @@ func NotifyContinue(inner interface{}) Notify {
 		if errors.Is(err, Continue) {
 			return nil
 		}
-		switch n := inner.(type) {
-		case Notify:
-			return n(err, d) // fallthrough doesn't work for type switches
-		case func(error, time.Duration) error:
-			return n(err, d)
-		default:
-			log.Errorf("error in %v: %v (retrying in: %v) (%T)", n, err, d, n)
+		if inner != nil {
+			switch n := inner.(type) {
+			case Notify:
+				return n(err, d) // fallthrough doesn't work for type switches
+			case func(error, time.Duration) error:
+				return n(err, d)
+			default:
+				log.Errorf("error in %v: %v (retrying in: %v) (%T)", n, err, d, n)
+				return nil
+			}
 		}
-		return nil
+		return err
 	}
 }
 
