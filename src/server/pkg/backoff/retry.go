@@ -114,7 +114,7 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 			if ctx.Err() != nil {
 				// Corner case: if 'b' is ZeroBackOff, and 'ctx' is cancelled inside of
 				// notify(), then it's random which case is chosen, and the cancellation
-				// won't necessarily prevent opration() from running again. We can't
+				// won't necessarily prevent operation() from running again. We can't
 				// guarantee that 'operation' is called with a live context, but this
 				// protects against this corner case.
 				return ctx.Err()
