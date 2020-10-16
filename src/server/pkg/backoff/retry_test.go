@@ -1,8 +1,10 @@
 package backoff
 
 import (
+	"context"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
@@ -32,4 +34,20 @@ func TestRetry(t *testing.T) {
 	if i != successOn {
 		t.Errorf("invalid number of retries: %d", i)
 	}
+}
+
+func TestRetryUntilCancelZeroBackoff(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	first := true
+	RetryUntilCancel(ctx, func() error {
+		if first {
+			first = false
+		} else {
+			t.Fatal("operation() should only run once")
+		}
+		return nil
+	}, &ZeroBackOff{}, func(err error, d time.Duration) error {
+		cancel() // This should prevent operation() from running
+		return nil
+	})
 }
