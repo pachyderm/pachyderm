@@ -701,6 +701,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 		var serviceType = v1.ServiceType(options.service.Type)
 		if serviceType == v1.ServiceTypeNodePort {
 			servicePort[0].NodePort = options.service.ExternalPort
+			servicePort[0].Port = options.service.InternalPort
 		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
