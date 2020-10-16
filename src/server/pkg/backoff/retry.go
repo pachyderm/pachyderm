@@ -92,8 +92,19 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 
 	b.Reset()
 	for {
-		if err = operation(); err == nil {
-			return nil
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// See comment on the select below re: the ZeroBackOff corner case.
+			//
+			// Note: we can't totally guarantee that 'operation' is called with a live
+			// context (e.g. it could hit deadline exceeded immediately *after*
+			// branching), but this second select protects against the ZeroBackoff vs
+			// cancel-in-notify corner case.
+			if err = operation(); err == nil {
+				return nil
+			}
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -109,18 +120,16 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 			}
 		}
 
+		// Corner case: if 'b' is ZeroBackOff, and 'ctx' is cancelled inside of
+		// notify() (on the previous run), then it's random which case is chosen
+		// here. To ensure that calling cancel() inside notify() prevents
+		// operation() from running again, we have a second 'select' at the top (see
+		// comment there).
 		select {
-		case <-time.After(next):
-			if ctx.Err() != nil {
-				// Corner case: if 'b' is ZeroBackOff, and 'ctx' is cancelled inside of
-				// notify(), then it's random which case is chosen, and the cancellation
-				// won't necessarily prevent operation() from running again. We can't
-				// guarantee that 'operation' is called with a live context, but this
-				// protects against this corner case.
-				return ctx.Err()
-			}
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-time.After(next):
+			break
 		}
 	}
 }
