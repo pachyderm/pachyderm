@@ -48,7 +48,7 @@ func TestRetryUntilCancel(t *testing.T) {
 		if len(results) >= 3 {
 			cancel()
 		}
-		return Continue
+		return ErrContinue
 	}, &ZeroBackOff{}, NotifyContinue(func(err error, d time.Duration) error {
 		panic("this should not be called due to cancellation")
 	}))
@@ -77,7 +77,7 @@ func TestNotifyContinue(t *testing.T) {
 		RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Continue // notify fn below will be elided by NotifyContinue
+				return ErrContinue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
 		}, &ZeroBackOff{}, NotifyContinue(nil))
@@ -89,7 +89,7 @@ func TestNotifyContinue(t *testing.T) {
 		RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Continue // notify fn below will be elided by NotifyContinue
+				return ErrContinue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
 		}, &ZeroBackOff{}, NotifyContinue(Notify(func(err error, d time.Duration) error {
@@ -104,7 +104,7 @@ func TestNotifyContinue(t *testing.T) {
 		RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Continue // notify fn below will be elided by NotifyContinue
+				return ErrContinue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
 		}, &ZeroBackOff{}, NotifyContinue(func(err error, d time.Duration) error {
@@ -123,7 +123,7 @@ func TestNotifyContinue(t *testing.T) {
 		RetryUntilCancel(ctx, func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
-				return Continue // causes NotifyContinue to re-run
+				return ErrContinue // causes NotifyContinue to re-run
 			} else if len(results) < 4 {
 				return errors.New("done") // causes NotifyContinue to log & re-run
 			}

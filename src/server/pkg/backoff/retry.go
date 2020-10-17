@@ -43,21 +43,26 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 	}
 }
 
-var Continue = errors.New("looping through backoff")
+// ErrContinue is a sentinel error designed to be used with NotifyContinue.
+// NotifyContinue always returns nil (causing operation() to be retried) when
+// operation() returns ErrContinue. The two combined allow semantics similar to
+// 'continue' in a regular loop: operation() is re-run from the beginning, as a
+// loop's body would be.
+var ErrContinue = errors.New("looping through backoff")
 
 // NotifyContinue is a convenience function for use with RetryUntilCancel. If
 // 'inner' is set to a Notify function, it's called if 'err' is anything other
-// than Continue. If 'inner' is a string or any other non-nil value of another
-// type, any error other than Continue is logged, and the loop is re-run (in
+// than ErrContinue. If 'inner' is a string or any other non-nil value of another
+// type, any error other than ErrContinue is logged, and the loop is re-run (in
 // this case, there is no way to escape the backoff--RetryUntilCancel must be
 // used to avoid an infinite loop). If 'inner' is nil, any error other than
-// Continue is returned.
+// ErrContinue is returned.
 //
 // This is useful for e.g. monitoring functions that want to repeatedly execute
 // the same control loop until their context is cancelled.
 func NotifyContinue(inner interface{}) Notify {
 	return func(err error, d time.Duration) error {
-		if errors.Is(err, Continue) {
+		if errors.Is(err, ErrContinue) {
 			return nil
 		}
 		if inner != nil {
@@ -122,7 +127,6 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 		case <-ctx.Done():
 			return ctx.Err() // break early if ctx is cancelled in another goro
 		case <-time.After(next):
-			break
 		}
 	}
 }
