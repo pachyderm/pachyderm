@@ -5579,7 +5579,7 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repo, "", "/file-?.(?)(?)(?)(?)", "", "$3", false),
+				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false),
 			),
 			"",
 			false,
@@ -5592,28 +5592,26 @@ func TestGroupInput(t *testing.T) {
 		// We're grouping by the third digit in the filename
 		// for 0 and 1, this is just a space
 		// then we should see the 8 files with a one there, and the 6 files with a zero there
-		expected := `
-/file-0.   0
-/file-0.   1
+		expected := [][]string{
+			{"/file.   0",
+				"/file.   1"},
 
-/file-0.  10
-/file-0.  11
-/file-0. 110
-/file-0. 111
-/file-0.1010
-/file-0.1011
-/file-0.1110
-/file-0.1111
+			{"/file.  10",
+				"/file.  11",
+				"/file. 110",
+				"/file. 111",
+				"/file.1010",
+				"/file.1011",
+				"/file.1110",
+				"/file.1111"},
 
-/file-0. 100
-/file-0. 101
-/file-0.1000
-/file-0.1001
-/file-0.1100
-/file-0.1101
-
-`
-		actual := "\n"
+			{"/file. 100",
+				"/file. 101",
+				"/file.1000",
+				"/file.1001",
+				"/file.1100",
+				"/file.1101"}}
+		actual := make([][]string, 0, 3)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
@@ -5622,10 +5620,11 @@ func TestGroupInput(t *testing.T) {
 		})
 		for _, di := range resp.DatumInfos {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
 			for _, fi := range di.Data {
-				actual += fmt.Sprintln(fi.File.Path)
+				datumFiles = append(datumFiles, fi.File.Path)
 			}
-			actual += "\n"
+			actual = append(actual, datumFiles)
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -5671,44 +5670,42 @@ func TestGroupInput(t *testing.T) {
 		// and all the things from the 1 repo with a space in the second digit
 		//
 		// similarly for the second and third groups
-		expected := `
-/file-0.   0
-/file-0.   1
-/file-1.   0
-/file-1.   1
-/file-1.  10
-/file-1.  11
+		expected := [][]string{
+			{"/file-0.   0",
+				"/file-0.   1",
+				"/file-1.   0",
+				"/file-1.   1",
+				"/file-1.  10",
+				"/file-1.  11"},
 
-/file-0.  10
-/file-0.  11
-/file-0. 110
-/file-0. 111
-/file-0.1010
-/file-0.1011
-/file-0.1110
-/file-0.1111
-/file-1. 100
-/file-1. 101
-/file-1. 110
-/file-1. 111
-/file-1.1100
-/file-1.1101
-/file-1.1110
-/file-1.1111
+			{"/file-0.  10",
+				"/file-0.  11",
+				"/file-0. 110",
+				"/file-0. 111",
+				"/file-0.1010",
+				"/file-0.1011",
+				"/file-0.1110",
+				"/file-0.1111",
+				"/file-1. 100",
+				"/file-1. 101",
+				"/file-1. 110",
+				"/file-1. 111",
+				"/file-1.1100",
+				"/file-1.1101",
+				"/file-1.1110",
+				"/file-1.1111"},
 
-/file-0. 100
-/file-0. 101
-/file-0.1000
-/file-0.1001
-/file-0.1100
-/file-0.1101
-/file-1.1000
-/file-1.1001
-/file-1.1010
-/file-1.1011
-
-`
-		actual := "\n"
+			{"/file-0. 100",
+				"/file-0. 101",
+				"/file-0.1000",
+				"/file-0.1001",
+				"/file-0.1100",
+				"/file-0.1101",
+				"/file-1.1000",
+				"/file-1.1001",
+				"/file-1.1010",
+				"/file-1.1011"}}
+		actual := make([][]string, 0, 3)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
@@ -5717,10 +5714,11 @@ func TestGroupInput(t *testing.T) {
 		})
 		for _, di := range resp.DatumInfos {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
 			for _, fi := range di.Data {
-				actual += fmt.Sprintln(fi.File.Path)
+				datumFiles = append(datumFiles, fi.File.Path)
 			}
-			actual += "\n"
+			actual = append(actual, datumFiles)
 		}
 		require.Equal(t, expected, actual)
 	})
@@ -5767,19 +5765,17 @@ func TestGroupInput(t *testing.T) {
 		// we should see four pairs
 		// then, we're grouping the files in these pairs by the third digit/second digit as before
 		// this should regroup things into two groups of four
-		expected := `
-/file-0.1011
-/file-0.1111
-/file-1.1101
-/file-1.1111
+		expected := [][]string{
+			{"/file-0.1011",
+				"/file-0.1111",
+				"/file-1.1101",
+				"/file-1.1111"},
 
-/file-0.1001
-/file-0.1101
-/file-1.1001
-/file-1.1011
-
-`
-		actual := "\n"
+			{"/file-0.1001",
+				"/file-0.1101",
+				"/file-1.1001",
+				"/file-1.1011"}}
+		actual := make([][]string, 0, 2)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
@@ -5788,10 +5784,11 @@ func TestGroupInput(t *testing.T) {
 		})
 		for _, di := range resp.DatumInfos {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
 			for _, fi := range di.Data {
-				actual += fmt.Sprintln(fi.File.Path)
+				datumFiles = append(datumFiles, fi.File.Path)
 			}
-			actual += "\n"
+			actual = append(actual, datumFiles)
 		}
 		require.Equal(t, expected, actual)
 	})

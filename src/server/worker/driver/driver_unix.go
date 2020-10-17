@@ -114,10 +114,8 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		if input.Name == "" {
 			return errors.New("input does not have a name")
 		}
-
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.InputDir(), input.Name)
-
 		if err := os.Symlink(src, dst); err != nil {
 			return err
 		}
