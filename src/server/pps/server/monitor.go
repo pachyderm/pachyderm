@@ -35,6 +35,30 @@ import (
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
 
+// startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
+// and startPipelinePoller. It doesn't manipulate any of APIServer's fields,
+// just wrapps the passed function in a goroutine, and returns a cancel() fn to
+// cancel it and block until it returns.
+func startMonitorThread(parent context.Context, name string, f func(context.Context)) func() {
+	ctx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	go func() {
+		f(ctx)
+		close(done)
+	}()
+	return func() {
+		cancel()
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Minute):
+			// restart pod rather than permanently locking up the PPS master (which
+			// would break the PPS API)
+			panic(name + " blocked for over a minute after cancellation; restarting pod")
+		}
+	}
+}
+
 // startMonitor starts a new goroutine running monitorPipeline for
 // 'pipelineInfo.Pipeline'.
 //
@@ -42,18 +66,24 @@ import (
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (a *apiServer) startMonitor(pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) startMonitor(ppsMasterCtx context.Context, pipelineInfo *pps.PipelineInfo) {
+	pipeline := pipelineInfo.Pipeline.Name
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
-	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		// use context.Background because we expect this goro to run for the rest of
-		// pachd's lifetime
-		ctx, cancel := context.WithCancel(context.Background())
-		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		go a.sudo(a.env.GetPachClient(ctx),
-			func(superUserClient *client.APIClient) error {
-				a.monitorPipeline(superUserClient, pipelineInfo)
-				return nil
+	if _, ok := a.monitorCancels[pipeline]; !ok {
+		a.monitorCancels[pipeline] = startMonitorThread(
+			ppsMasterCtx, "monitorPipeline for "+pipeline, func(ctx context.Context) {
+				// monitorPipeline needs auth privileges to call subscribeCommit and
+				// blockCommit
+				// TODO(msteffen): run the pipeline monitor as the pipeline user, rather
+				// than as the PPS superuser
+				if err := a.sudo(a.env.GetPachClient(ctx),
+					func(superUserClient *client.APIClient) error {
+						a.monitorPipeline(superUserClient, pipelineInfo)
+						return nil
+					}); err != nil {
+					log.Errorf("error monitoring %q: %v", pipeline, err)
+				}
 			})
 	}
 }
@@ -75,13 +105,16 @@ func (a *apiServer) cancelMonitor(pipeline string) {
 // Every crashing pipeline has a corresponding goro running
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
-func (a *apiServer) startCrashingMonitor(masterCtx context.Context, parallelism int64, pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) startCrashingMonitor(ppsMasterCtx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+	pipeline := pipelineInfo.Pipeline.Name
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
-	if _, ok := a.crashingMonitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		a.crashingMonitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		go a.monitorCrashingPipeline(ctx, parallelism, pipelineInfo)
+	if _, ok := a.crashingMonitorCancels[pipeline]; !ok {
+		a.crashingMonitorCancels[pipeline] = startMonitorThread(ppsMasterCtx,
+			"monitorCrashingPipeline for "+pipeline,
+			func(ctx context.Context) {
+				a.monitorCrashingPipeline(ctx, parallelism, pipelineInfo)
+			})
 	}
 }
 
@@ -269,7 +302,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 }
 
 // allWorkersUp is a helper used by monitorCrashingPipelinejkjk
-func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 int64, pipelineInfo *pps.PipelineInfo) (bool, error) {
+func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
 	parallelism := int(parallelism64)
 	if parallelism == 0 {
 		parallelism = 1
@@ -284,7 +317,7 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 int64, pipel
 	return parallelism == len(workerStatus), nil
 }
 
-func (a *apiServer) monitorCrashingPipeline(ctx context.Context, parallelism int64, pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) monitorCrashingPipeline(ctx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 For:
 	for {
 		select {

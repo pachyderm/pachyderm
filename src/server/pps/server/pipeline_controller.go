@@ -401,12 +401,12 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.apiServer.startMonitor(op.pipelineInfo)
+	op.apiServer.startMonitor(op.pachClient.Ctx(), op.pipelineInfo)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
 	op.stopPipelineMonitor()
-	op.apiServer.startCrashingMonitor(op.pachClient.Ctx(), op.pipelineInfo)
+	op.apiServer.startCrashingMonitor(op.pachClient.Ctx(), op.ptr.Parallelism, op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
