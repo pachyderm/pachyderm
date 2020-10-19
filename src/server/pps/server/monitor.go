@@ -153,10 +153,13 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors() {
 //////////////////////////////////////////////////////////////////////////////
 //                     Monitor Functions                                    //
 // - These do not lock monitorCancelsMu, but they are called by the         //
-//   functions above, which do. They can in turn call each other but cannot //
-//   call any of the functions above or any functions outside this file (or //
-//   else they will trigger a reentrancy deadlock:                          //
-//                 A (lock succeeds) -> B -> A (lock fails)                 //
+// functions above, which do. They should not be called by functions        //
+// outside monitor.go (to avoid data races). They can in turn call each     //
+// other but also should not call any of the functions above or any         //
+// functions outside this file (or else they will trigger a reentrancy      //
+// deadlock):                                                               //
+// master.go -> monitor.go(lock succeeds) -> master -> monitor(lock fails,  //
+//                                                              deadlock)   //
 //////////////////////////////////////////////////////////////////////////////
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
