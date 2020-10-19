@@ -4,6 +4,15 @@
 //   - crashingMonitorCancels,
 //   - pollCancel, and
 //   - monitorCancelsMu (which protects all of the other fields).
+//
+// Other functions of APIServer.go should not access any of
+// these fields directly (particularly APIServer.monitorCancelsMu, to avoid
+// deadlocks) and should instead interact with monitorPipeline and such via
+// methods in this file.
+//
+// Likewise, to avoid reentrancy deadlocks (A -> B -> A), methods in this file
+// should avoid calling other methods of APIServer defined outside this file and
+// shouldn't call each other.
 package server
 
 import (
@@ -107,15 +116,15 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors() {
 
 //////////////////////////////////////////////////////////////////////////////
 //                     Monitor Functions                                    //
+// - These do not lock monitorCancelsMu, but they are called by the         //
+//   functions above, which do. They can in turn call each other but cannot //
+//   call any of the functions above or any functions outside this file (or //
+//   else they will trigger a reentrancy deadlock:                          //
+//                 A (lock succeeds) -> B -> A (lock fails)                 //
 //////////////////////////////////////////////////////////////////////////////
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline.Name)
-	// If this exits (e.g. b/c Standby is false, and pipeline has no cron inputs),
-	// remove this fn's cancel() call from a.monitorCancels (if it hasn't already
-	// been removed, e.g. by deletePipelineResources cancelling this call), so
-	// that it can be called again
-	defer a.cancelMonitor(pipelineInfo.Pipeline.Name)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
