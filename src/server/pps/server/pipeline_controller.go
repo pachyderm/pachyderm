@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -403,30 +401,12 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.apiServer.monitorCancelsMu.Lock()
-	defer op.apiServer.monitorCancelsMu.Unlock()
-	if _, ok := op.apiServer.monitorCancels[op.name]; !ok {
-		// use context.Background because we expect this goro to run for the rest of
-		// pachd's lifetime
-		ctx, cancel := context.WithCancel(context.Background())
-		op.apiServer.monitorCancels[op.name] = cancel
-		go op.apiServer.sudo(op.apiServer.env.GetPachClient(ctx),
-			func(superUserClient *client.APIClient) error {
-				op.apiServer.monitorPipeline(superUserClient, op.pipelineInfo)
-				return nil
-			})
-	}
+	op.apiServer.startMonitor(op.pipelineInfo)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
 	op.stopPipelineMonitor()
-	op.apiServer.monitorCancelsMu.Lock()
-	defer op.apiServer.monitorCancelsMu.Unlock()
-	if _, ok := op.apiServer.crashingMonitorCancels[op.name]; !ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		op.apiServer.crashingMonitorCancels[op.name] = cancel
-		go op.apiServer.monitorCrashingPipeline(ctx, op)
-	}
+	op.apiServer.startCrashingMonitor(op.pachClient.Ctx(), op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
@@ -666,19 +646,4 @@ func (op *pipelineOp) failPipeline(reason string) error {
 		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
-}
-
-func (op *pipelineOp) allWorkersUp() (bool, error) {
-	parallelism := int(op.ptr.Parallelism)
-	if parallelism == 0 {
-		parallelism = 1
-	}
-	workerPoolID := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
-	workerStatus, err := workerserver.Status(op.pachClient.Ctx(), workerPoolID,
-		op.apiServer.env.GetEtcdClient(), op.apiServer.etcdPrefix,
-		op.apiServer.workerGrpcPort)
-	if err != nil {
-		return false, err
-	}
-	return parallelism == len(workerStatus), nil
 }
