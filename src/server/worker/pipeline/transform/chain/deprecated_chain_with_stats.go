@@ -37,8 +37,8 @@ type deprecatedJobWithStatsChain struct {
 	jobs   []*deprecatedJobWithStatsDatumIterator
 }
 
-// NewJobChain constructs a JobChain
-func NewDeprecatedJobWithStatsChain(hasher DatumHasher, baseDatums DatumSet, baseStatsDatums DatumSet) JobChain {
+// NewDeprecatedJobWithStatsChain constructs a JobChain
+func NewDeprecatedJobWithStatsChain(hasher DatumHasher, baseDatums DatumSet, dit datum.Iterator) JobChain {
 	jc := &deprecatedJobWithStatsChain{
 		hasher: hasher,
 	}
@@ -50,6 +50,7 @@ func NewDeprecatedJobWithStatsChain(hasher DatumHasher, baseDatums DatumSet, bas
 		allDatums: baseDatums,
 		finished:  true,
 		done:      make(chan struct{}),
+		dit:       dit,
 		ditIndex:  -1,
 	}
 	close(jdi.done)

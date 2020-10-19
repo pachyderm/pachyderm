@@ -361,13 +361,21 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 				},
 			)
 		} else if reg.driver.PipelineInfo().EnableStats {
+			var dit datum.Iterator
+			if err := reg.logger.LogStep("constructing base datum iterator", func() (err error) {
+				dit, err = datum.NewIterator(reg.driver.PachClient(), ppsutil.JobInput(reg.driver.PipelineInfo(), commitInfo))
+				return err
+			}); err != nil {
+				return err
+			}
+
 			reg.jobChain = chain.NewDeprecatedJobWithStatsChain(
 				&hasher{
 					name: reg.driver.PipelineInfo().Pipeline.Name,
 					salt: reg.driver.PipelineInfo().Salt,
 				},
 				baseDatums,
-				baseDatums, // TODO: pass in stats datum set
+				dit,
 			)
 		} else {
 			reg.jobChain = chain.NewJobChain(
