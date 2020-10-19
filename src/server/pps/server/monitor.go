@@ -286,15 +286,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						return pachClient.Ctx().Err()
 					}
 				}
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				select {
-				case <-pachClient.Ctx().Done():
-					return context.DeadlineExceeded
-				default:
-					log.Printf("error in monitorPipeline: %v: retrying in: %v", err, d)
-				}
-				return nil
-			})
+			}, backoff.NewInfiniteBackOff(),
+				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipelineInfo.Pipeline.Name))
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -319,33 +312,34 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipe
 }
 
 func (a *apiServer) monitorCrashingPipeline(ctx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
-For:
-	for {
-		select {
-		case <-time.After(crashingBackoff):
-		case <-ctx.Done():
-			break For
-		}
-		time.Sleep(crashingBackoff)
-		workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
-		if err != nil {
-			log.Printf("error in monitorCrashingPipeline: %v", err)
-			continue
-		}
-		if workersUp {
-			if err := a.transitionPipelineState(ctx, pipelineInfo.Pipeline.Name,
-				pps.PipelineState_PIPELINE_CRASHING,
-				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
-
-				pte := &ppsutil.PipelineTransitionError{}
-				if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_CRASHING {
-					log.Print(err) // Pipeline has moved to STOPPED or been updated--give up
-					return
-				}
-				log.Printf("error in monitorCrashingPipeline: %v", err)
-				continue
+	pipeline := pipelineInfo.Pipeline.Name
+	if err := backoff.RetryUntilCancel(ctx,
+		func() error {
+			workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
+			if err != nil {
+				return errors.Wrap(err, "could not check if all workers are up")
 			}
-			break
-		}
+			if workersUp {
+				if err := a.transitionPipelineState(ctx, pipeline,
+					pps.PipelineState_PIPELINE_CRASHING,
+					pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+
+					pte := &ppsutil.PipelineTransitionError{}
+					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_CRASHING {
+						log.Error(err)
+						return nil // Pipeline has moved to STOPPED or been updated--give up
+					}
+					return errors.Wrap(err, "could not transition pipeline to RUNNING")
+				}
+			}
+			return nil
+		},
+		&backoff.ZeroBackOff{},
+		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
+	); err != nil && ctx.Err() == nil {
+		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
+		// unreachable (restart master if not)
+		panic("monitorCrashingPipeline is exiting early, this should never happen")
 	}
+
 }
