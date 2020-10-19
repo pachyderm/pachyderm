@@ -39,11 +39,11 @@ import (
 // and startPipelinePoller. It doesn't manipulate any of APIServer's fields,
 // just wrapps the passed function in a goroutine, and returns a cancel() fn to
 // cancel it and block until it returns.
-func startMonitorThread(parent context.Context, name string, f func(context.Context)) func() {
-	ctx, cancel := context.WithCancel(parent)
+func startMonitorThread(parentPachClient *client.APIClient, name string, f func(pachClient *client.APIClient)) func() {
+	childCtx, cancel := context.WithCancel(parentPachClient.Ctx())
 	done := make(chan struct{})
 	go func() {
-		f(ctx)
+		f(parentPachClient.WithCtx(childCtx))
 		close(done)
 	}()
 	return func() {
@@ -66,22 +66,21 @@ func startMonitorThread(parent context.Context, name string, f func(context.Cont
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (a *apiServer) startMonitor(ppsMasterCtx context.Context, pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) startMonitor(ppsMasterClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
 	if _, ok := a.monitorCancels[pipeline]; !ok {
-		a.monitorCancels[pipeline] = startMonitorThread(
-			ppsMasterCtx, "monitorPipeline for "+pipeline, func(ctx context.Context) {
+		a.monitorCancels[pipeline] = startMonitorThread(ppsMasterClient,
+			"monitorPipeline for "+pipeline, func(pachClient *client.APIClient) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// blockCommit
 				// TODO(msteffen): run the pipeline monitor as the pipeline user, rather
 				// than as the PPS superuser
-				if err := a.sudo(a.env.GetPachClient(ctx),
-					func(superUserClient *client.APIClient) error {
-						a.monitorPipeline(superUserClient, pipelineInfo)
-						return nil
-					}); err != nil {
+				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					a.monitorPipeline(superUserClient, pipelineInfo)
+					return nil
+				}); err != nil {
 					log.Errorf("error monitoring %q: %v", pipeline, err)
 				}
 			})
@@ -105,15 +104,15 @@ func (a *apiServer) cancelMonitor(pipeline string) {
 // Every crashing pipeline has a corresponding goro running
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
-func (a *apiServer) startCrashingMonitor(ppsMasterCtx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) startCrashingMonitor(ppsMasterClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
 	if _, ok := a.crashingMonitorCancels[pipeline]; !ok {
-		a.crashingMonitorCancels[pipeline] = startMonitorThread(ppsMasterCtx,
+		a.crashingMonitorCancels[pipeline] = startMonitorThread(ppsMasterClient,
 			"monitorCrashingPipeline for "+pipeline,
-			func(ctx context.Context) {
-				a.monitorCrashingPipeline(ctx, parallelism, pipelineInfo)
+			func(pachClient *client.APIClient) {
+				a.monitorCrashingPipeline(pachClient, parallelism, pipelineInfo)
 			})
 	}
 }
@@ -312,8 +311,9 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipe
 	return parallelism == len(workerStatus), nil
 }
 
-func (a *apiServer) monitorCrashingPipeline(ctx context.Context, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
+	ctx := pachClient.Ctx()
 	if err := backoff.RetryUntilCancel(ctx,
 		func() error {
 			workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
