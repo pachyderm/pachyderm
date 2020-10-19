@@ -4,21 +4,16 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -250,92 +245,4 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
 		pipeline, &from, to, reason)
-}
-
-func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
-	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
-		return latestTime, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return latestTime, err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return latestTime, err
-		}
-	}
-	return latestTime, nil
-}
-
-// makeCronCommits makes commits to a single cron input's repo. It's
-// a helper function called by monitorPipeline.
-func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
-	schedule, err := cron.ParseStandard(in.Cron.Spec)
-	if err != nil {
-		return err // Shouldn't happen, as the input is validated in CreatePipeline
-	}
-	// make sure there isn't an unfinished commit on the branch
-	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
-		return err
-	} else if commitInfo != nil && commitInfo.Finished == nil {
-		// and if there is, delete it
-		if err = pachClient.DeleteCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
-			return err
-		}
-	}
-
-	latestTime, err := a.getLatestCronTime(pachClient, in)
-	if err != nil {
-		return err
-	}
-
-	for {
-		// get the time of the next time from the latest time using the cron schedule
-		next := schedule.Next(latestTime)
-		// and wait until then to make the next commit
-		select {
-		case <-time.After(time.Until(next)):
-		case <-pachClient.Ctx().Done():
-			return pachClient.Ctx().Err()
-		}
-		if err != nil {
-			return err
-		}
-
-		// We need the DeleteFile and the PutFile to happen in the same commit
-		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
-		if err != nil {
-			return err
-		}
-		if in.Cron.Overwrite {
-			// get rid of any files, so the new file "overwrites" previous runs
-			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
-			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-				return errors.Wrapf(err, "delete error")
-			}
-		}
-
-		// Put in an empty file named by the timestamp
-		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
-		if err != nil {
-			return errors.Wrapf(err, "put error")
-		}
-
-		err = pachClient.FinishCommit(in.Cron.Repo, "master")
-		if err != nil {
-			return err
-		}
-
-		// set latestTime to the next time
-		latestTime = next
-	}
 }
