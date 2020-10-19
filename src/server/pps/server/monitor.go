@@ -173,6 +173,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
 		eg.Go(func() error {
+			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
 				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, "",
 					client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
