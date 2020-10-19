@@ -157,7 +157,8 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors() {
 //////////////////////////////////////////////////////////////////////////////
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
-	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline.Name)
+	pipeline := pipelineInfo.Pipeline.Name
+	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
@@ -175,8 +176,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, "",
-					client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
+				return pachClient.SubscribeCommitF(pipeline, "",
+					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
 						return nil
@@ -186,7 +187,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
 				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
-					a.env.GetEtcdClient(), pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
+					a.env.GetEtcdClient(), pipeline, "/pps.Master/MonitorPipeline",
 					"standby", pipelineInfo.Standby)
 				if span != nil {
 					pachClient = pachClient.WithCtx(ctx)
@@ -194,7 +195,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 				defer tracing.FinishAnySpan(span)
 
 				if err := a.transitionPipelineState(pachClient.Ctx(),
-					pipelineInfo.Pipeline.Name,
+					pipeline,
 					pps.PipelineState_PIPELINE_RUNNING,
 					pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
@@ -230,13 +231,13 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						}
 						childSpan, ctx = tracing.AddSpanToAnyExisting(
 							oldCtx, "/pps.Master/MonitorPipeline_SpinUp",
-							"pipeline", pipelineInfo.Pipeline.Name, "commit", ci.Commit.ID)
+							"pipeline", pipeline, "commit", ci.Commit.ID)
 						if childSpan != nil {
 							pachClient = oldPachClient.WithCtx(ctx)
 						}
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
-							pipelineInfo.Pipeline.Name,
+							pipeline,
 							pps.PipelineState_PIPELINE_STANDBY,
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
@@ -268,7 +269,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						}
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
-							pipelineInfo.Pipeline.Name,
+							pipeline,
 							pps.PipelineState_PIPELINE_RUNNING,
 							pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
@@ -287,7 +288,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipelineInfo.Pipeline.Name))
+				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
 		})
 	}
 	if err := eg.Wait(); err != nil {
