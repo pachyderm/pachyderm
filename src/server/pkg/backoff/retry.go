@@ -72,7 +72,7 @@ func NotifyContinue(inner interface{}) Notify {
 			case func(error, time.Duration) error:
 				return n(err, d)
 			default:
-				log.Errorf("error in %v: %v (retrying in: %v) (%T)", n, err, d, n)
+				log.Errorf("error in %v: %v (retrying in: %v)", n, err, d)
 				return nil
 			}
 		}
