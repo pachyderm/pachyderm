@@ -283,7 +283,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							return err
 						}
 					case <-pachClient.Ctx().Done():
-						return context.DeadlineExceeded
+						return pachClient.Ctx().Err()
 					}
 				}
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
