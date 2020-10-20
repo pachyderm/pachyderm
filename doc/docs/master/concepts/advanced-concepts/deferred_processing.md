@@ -273,3 +273,13 @@ $ pachctl create branch data@master --head staging
 Notice that you don't need to respecify the trigger when you call `create
 branch` to change the head. If you do want to clear the trigger delete the
 branch and recreate it.
+
+There are three conditions on which you can trigger the repointing of a branch.
+
+- time, using a cron specification (--trigger-cron)
+- size (--trigger-cron)
+- number of commits (--trigger-commits)
+
+When more than one is specified, a branch repoint will be triggered when any of
+the conditions is met. To guarantee that they all must be met, add
+--trigger-all.
