@@ -283,3 +283,10 @@ There are three conditions on which you can trigger the repointing of a branch.
 When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
+
+## More advanced automation
+
+More advanced use cases might not be covered by the trigger methods above. For
+those, you need to create a Kubernetes application that uses Pachyderm APIs and
+watches the repositories for the specified condition. When the condition is
+met, the application switches the Pachyderm branch from `staging` to `master`.
