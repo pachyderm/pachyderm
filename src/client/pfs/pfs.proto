@@ -551,7 +551,7 @@ message CreateTmpFileSetResponse {
 
 message RenewTmpFileSetRequest {
   string fileset_id = 1;
-  int64 ttl = 2;
+  int64 ttl_seconds = 2;
 }
 
 message ClearCommitRequestV2 {

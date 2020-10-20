@@ -300,7 +300,7 @@ func (a *apiServerV2) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) er
 
 // RenewTmpFileSet implements the pfs.RenewTmpFileSet RPC
 func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
-	err := a.driver.renewTmpFileSet(ctx, req.FilesetId, time.Duration(req.Ttl))
+	err := a.driver.renewTmpFileSet(ctx, req.FilesetId, time.Duration(req.TtlSeconds)*time.Second)
 	if err != nil {
 		return nil, err
 	}

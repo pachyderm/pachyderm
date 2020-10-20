@@ -1083,7 +1083,7 @@ func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (stri
 }
 
 func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
-	if ttl.Seconds() == 0 {
+	if ttl < time.Second {
 		return errors.Errorf("ttl (%d) must be at least one second", ttl)
 	}
 	if ttl > maxTTL {
