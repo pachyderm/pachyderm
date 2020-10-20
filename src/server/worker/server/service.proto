@@ -28,4 +28,5 @@ service Worker {
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
   rpc GetChunk(GetChunkRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc Exec(pps.ExecRequest) returns (stream pps.ExecResponse) {}
 }

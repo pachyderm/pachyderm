@@ -793,6 +793,16 @@ message GarbageCollectResponse {}
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message ExecRequest {
+  repeated string cmd = 2;
+}
+
+message ExecResponse {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  int64 exit_code = 3;
+}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -820,6 +830,8 @@ service API {
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
+
+  rpc Exec(ExecRequest) returns (stream ExecResponse) {}
 
   rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
   rpc DeleteSecret(DeleteSecretRequest) returns (google.protobuf.Empty) {}
