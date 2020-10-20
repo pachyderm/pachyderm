@@ -236,7 +236,7 @@ does `pachctl create branch data@master --head staging` automatically when the
 trigger condition is met.
 
 Building on the example above, to make `master` automatically trigger when
-there's 1 Megabyte of new data on `staging` run:
+there's 1 Megabyte of new data on `staging`, run:
 
 ```bash
 $ pachctl create branch data@master --trigger staging --trigger-size 1MB
