@@ -42,6 +42,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
+	pps_cmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -7532,6 +7533,7 @@ func TestListJobOutput(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestListJobOutput_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7587,6 +7589,7 @@ func TestListJobTruncated(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestListJobTruncated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7642,6 +7645,68 @@ func TestListJobTruncated(t *testing.T) {
 		require.NotNil(t, fullJobInfos[0].Transform)
 		require.NotNil(t, fullJobInfos[0].Input)
 		require.Equal(t, pipeline, fullJobInfos[0].Pipeline.Name)
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
+
+func TestListJobFilter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestListJobFiltered_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	successFilter, err := pps_cmds.ParseJobStates([]string{"starting", "running", "success", "merging"})
+	require.Nil(t, err)
+	failureFilter, err := pps_cmds.ParseJobStates([]string{"failure"})
+	require.Nil(t, err)
+
+	require.NoError(t, backoff.Retry(func() error {
+		allJobInfos, err := c.ListJob("", nil, nil, 0, true)
+		if err != nil {
+			return err
+		}
+		var successInfos, failureInfos []*pps.JobInfo
+		err = c.ListJobFilterF("", nil, nil, 0, true, successFilter, func(ji *pps.JobInfo) error {
+			successInfos = append(successInfos, ji)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		err = c.ListJobFilterF("", nil, nil, 0, true, failureFilter, func(ji *pps.JobInfo) error {
+			failureInfos = append(failureInfos, ji)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if len(allJobInfos) != 1 {
+			return errors.Errorf("expected 1 job from ListJob")
+		}
+		// check that the job matches our acceptable state filter, and that we found no failed jobs
+		require.Equal(t, len(successInfos), 1)
+		require.Equal(t, len(failureInfos), 0)
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
