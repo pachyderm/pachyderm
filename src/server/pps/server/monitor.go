@@ -1,3 +1,5 @@
+package server
+
 // monitor.go contains methods of s/s/pps/server/api_server.go:APIServer that
 // pertain to these fields of APIServer:
 //   - monitorCancels,
@@ -13,7 +15,6 @@
 // Likewise, to avoid reentrancy deadlocks (A -> B -> A), methods in this file
 // should avoid calling other methods of APIServer defined outside this file and
 // shouldn't call each other.
-package server
 
 import (
 	"context"
