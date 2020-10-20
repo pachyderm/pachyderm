@@ -246,7 +246,7 @@ staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
 master  -                                staging on Size(1MB)
 ```
 
-When you run that command it may or may not set the head of `master` it depends
+When you run that command, it may or may not set the head of `master`.  It depends
 on the difference between the size of the head of `staging` and the existing
 head of `master`, or `0` if it doesn't exist. Notice that in the example above
 `staging` had an existing head with less than a MB of data in it so `master`
