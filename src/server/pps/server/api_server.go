@@ -70,6 +70,10 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+
+	// ExecPipeline is the name of the pipeline responsibly for running exec
+	// calls.
+	ExecPipeline = "exec"
 )
 
 var (
@@ -123,6 +127,8 @@ type apiServer struct {
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
+
+	execPipelineOnce sync.Once
 }
 
 func merge(from, to map[string]bool) {
@@ -3277,6 +3283,56 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// Exec implements the protobuf pps.Exec RPC
+func (a *apiServer) Exec(request *pps.ExecRequest, server pps.API_ExecServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d ExecResponses", sent), retErr, time.Since(start))
+	}(time.Now())
+	ctx := server.Context()
+	if err := a.createExecPipeline(ctx); err != nil {
+		return err
+	}
+	workerPoolID := ppsutil.PipelineRcName(ExecPipeline, 1)
+	clients, err := workerserver.Clients(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	if err != nil {
+		return err
+	}
+	if len(clients) == 0 {
+		return errors.New("no workers found for exec request")
+	}
+	c := clients[0]
+	execClient, err := c.Exec(ctx, request)
+	if err != nil {
+		return err
+	}
+	for msg, err := execClient.Recv(); err == nil; msg, err = execClient.Recv() {
+		if err := server.Send(msg); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	if !errors.Is(err, io.EOF) {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+func (a *apiServer) createExecPipeline(ctx context.Context) error {
+	var err error
+	a.execPipelineOnce.Do(func() {
+		pipeline := client.NewPipeline(ExecPipeline)
+		if _, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: pipeline}); err == nil {
+			return
+		}
+		_, err = a.CreatePipeline(ctx, &pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(ExecPipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+		})
+	})
+	return err
 }
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC

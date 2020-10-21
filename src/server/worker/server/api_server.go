@@ -66,3 +66,11 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 	}
 	return errors.New("hashtree chunk not found")
 }
+
+// Exec executes an adhoc command
+func (a *APIServer) Exec(request *pps.ExecRequest, server Worker_ExecServer) (retErr error) {
+	if err := server.Send(&pps.ExecResponse{Stdout: []byte("Hello World!")}); err != nil {
+		return err
+	}
+	return nil
+}

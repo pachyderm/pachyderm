@@ -652,12 +652,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 	runCron := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
-		Short: "Run an existing Pachyderm cron pipeline now",
-		Long:  "Run an existing Pachyderm cron pipeline now",
+		Short: "Run an existing Pachyderm cron pipeline now.",
+		Long:  "Run an existing Pachyderm cron pipeline now.",
 		Example: `
 		# Run a cron pipeline "clock" now
 		$ {{alias}} clock`,
-		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -671,6 +671,21 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
+
+	exec := &cobra.Command{
+		Use:   "{{alias}} cmd",
+		Short: "Execute a command in pachyderm.",
+		Long:  "Execute a command in pachyderm.",
+		Run: cmdutil.RunMinimumArgs(1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			return client.Exec(os.Stdout, os.Stderr, args...)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(exec, "exec"))
 
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",

@@ -529,6 +529,9 @@ func (c *ppsBuilderClient) StopPipeline(ctx context.Context, req *pps.StopPipeli
 func (c *ppsBuilderClient) RunPipeline(ctx context.Context, req *pps.RunPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RunPipeline")
 }
+func (c *ppsBuilderClient) Exec(ctx context.Context, in *pps.ExecRequest, opts ...grpc.CallOption) (pps.API_ExecClient, error) {
+	return nil, unsupportedError("Exec")
+}
 func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }

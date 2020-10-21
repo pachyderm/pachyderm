@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"os"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -744,6 +745,26 @@ func (c APIClient) RunCron(name string) error {
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+func (c APIClient) Exec(stdout, stderr io.Writer, cmd ...string) error {
+	execClient, err := c.PpsAPIClient.Exec(
+		c.Ctx(),
+		&pps.ExecRequest{
+			Cmd: cmd,
+		},
+	)
+	for resp, err := execClient.Recv(); err == nil; resp, err = execClient.Recv() {
+		stdout.Write(resp.Stdout)
+		stderr.Write(resp.Stderr)
+		if resp.ExitCode != 0 {
+			os.Exit(int(resp.ExitCode))
+		}
+	}
+	if !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
 }
 
 // CreateSecret creates a secret on the cluster.
