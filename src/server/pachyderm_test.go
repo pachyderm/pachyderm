@@ -2193,6 +2193,77 @@ func TestRecreatePipeline(t *testing.T) {
 	createPipeline()
 }
 
+// TestRecreateStandbyPipeline ensures that deleting and recreating a pipeline
+// with standby:true works. Because the PPS master now blocks after cancelling a
+// standby pipeline's 'monitorPipeline' goroutine, successfully recreating a
+// deleted pipeline proves that the old pipeline's `monitorPipeline` goroutine
+// successfully exited.
+//
+// This tests the fix for https://github.com/pachyderm/pachyderm/issues/5346
+func TestRecreateStandbyPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	for i := 0; i < 2; i++ {
+		// Create a new data repo for each iteration, as it prevents the second
+		// iteration from having to process the first iteration's commit, and it
+		// doesn't affect the fidelity of the test (If DeletePipeline orphans the
+		// monitorPipeline goro, this pipeline should never leave STARTING because
+		// the pipeline controller should be blocked/crash)
+		dataRepo := tu.UniqueString(fmt.Sprintf("%s-%d-data", t.Name(), i))
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// Create a standby-enabled pipeline
+		pipeline := tu.UniqueString(t.Name())
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"sh"},
+					Stdin: []string{
+						"echo $PPS_POD_NAME >/pfs/out/pod",
+					},
+				},
+				Input:           client.NewPFSInput(dataRepo, "/"),
+				Standby:         true,
+				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+				ResourceRequests: &pps.ResourceSpec{
+					Cpu: 0.5,
+				},
+			},
+		)
+		require.NoError(t, err)
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+			pi, err := c.InspectPipeline(pipeline)
+			require.NoError(t, err)
+			if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+				return fmt.Errorf("expected %q to be in STANDBY but was in %s", pipeline, pi.State)
+			}
+			return nil
+		})
+
+		// Run a job, to prove that 'monitorPipeline' is running and works
+		_, err = c.PutFile(dataRepo, "master", "/foo", strings.NewReader("data"))
+		require.NoError(t, err)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		_, err = commitIter.Next()
+		require.NoError(t, err)
+
+		// Delete the pipeline and wait for it to disappear from etcd
+		require.NoError(t, c.DeletePipeline(pipeline, false))
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+			_, err := c.InspectPipeline(pipeline)
+			require.YesError(t, err)
+			return nil
+		})
+	}
+}
+
 func TestDeletePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
