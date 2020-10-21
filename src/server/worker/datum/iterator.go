@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 
 	"github.com/cevaris/ordered_map"
@@ -55,7 +56,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		} else if err != nil {
 			return nil, err
 		}
-		g, err := glob.Compile(input.Glob, '/')
+		g, err := glob.Compile(path.Clean(input.Glob), '/')
 		if err != nil {
 			return nil, err
 		}

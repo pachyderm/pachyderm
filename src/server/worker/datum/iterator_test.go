@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -332,6 +333,77 @@ func TestIterators(t *testing.T) {
 				"/foo18/foo28/foo38/foo48",
 				"/foo19/foo29/foo39/foo49")
 		})
+		return nil
+	}))
+}
+
+// TestJoinOnTrailingSlash tests that the same glob pattern is used for
+// extracting JoinOn and GroupBy capture groups as is used to match paths. Tests
+// the fix for https://github.com/pachyderm/pachyderm/issues/5365
+func TestJoinTrailingSlash(t *testing.T) {
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		repo := []string{ // singular name b/c we only refer to individual elements
+			tu.UniqueString(t.Name() + "_0"),
+			tu.UniqueString(t.Name() + "_1"),
+		}
+		input := []*pps.Input{ // singular name b/c only use individual elements
+			client.NewPFSInputOpts("", repo[0],
+				/* commit--set below */ "", "/*", "$1", "", false),
+			client.NewPFSInputOpts("", repo[1],
+				/* commit--set below */ "", "/*", "$1", "", false),
+		}
+		require.NoError(t, c.CreateRepo(repo[0]))
+		require.NoError(t, c.CreateRepo(repo[1]))
+
+		// put files in structured in a way so that there are many ways to glob it
+		for i := 0; i < 2; i++ {
+			commit, err := c.StartCommit(repo[i], "master")
+			require.NoError(t, err)
+			for j := 0; j < 10; j++ {
+				_, err = c.PutFile(repo[i], commit.ID, fmt.Sprintf("foo-%v", j), strings.NewReader("bar"))
+				require.NoError(t, err)
+			}
+			require.NoError(t, err)
+			require.NoError(t, c.FinishCommit(repo[i], commit.ID))
+			input[i].Pfs.Commit = commit.ID
+		}
+
+		// Test without trailing slashes
+		input[0].Pfs.Glob = "/(*)"
+		input[1].Pfs.Glob = "/(*)"
+		itr, err := NewIterator(c, client.NewJoinInput(input...))
+		require.NoError(t, err)
+		validateDI(t, itr,
+			"/foo-0/foo-0",
+			"/foo-1/foo-1",
+			"/foo-2/foo-2",
+			"/foo-3/foo-3",
+			"/foo-4/foo-4",
+			"/foo-5/foo-5",
+			"/foo-6/foo-6",
+			"/foo-7/foo-7",
+			"/foo-8/foo-8",
+			"/foo-9/foo-9",
+		)
+		// Test with trailing slashes
+		input[0].Pfs.Glob = "/(*)/"
+		input[1].Pfs.Glob = "/(*)/"
+		itr, err = NewIterator(c, client.NewJoinInput(input...))
+		require.NoError(t, err)
+		validateDI(t, itr,
+			"/foo-0/foo-0",
+			"/foo-1/foo-1",
+			"/foo-2/foo-2",
+			"/foo-3/foo-3",
+			"/foo-4/foo-4",
+			"/foo-5/foo-5",
+			"/foo-6/foo-6",
+			"/foo-7/foo-7",
+			"/foo-8/foo-8",
+			"/foo-9/foo-9",
+		)
+
 		return nil
 	}))
 }
