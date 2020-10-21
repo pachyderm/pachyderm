@@ -8,15 +8,25 @@
      "description": "A spout pipeline that listens for `object added` notifications on an Amazon™ SQS queue.",
      "transform": {
          "cmd": [ "python3", "./sqs-spout.py" ],
-         "image": "pachyderm/sqs-spout:1.9.8",
+         "image": "pachyderm/sqs-spout:1.11",
          "env": {
-             "AWS_ACCESS_KEY_ID": "access-key",
-             "AWS_SECRET_ACCESS_KEY": "secret",
              "AWS_REGION": "region",
              "OUTPUT_PIPE": "/pfs/out",
              "S3_BUCKET": "s3://bucket/",
              "SQS_QUEUE_URL": "https://sqs.us-west-1.amazonaws.com/ID/Name",
              "LOGGING_VERBOSITY": "debug"
          }
+        "secrets" : [
+            {
+                "name": "aws-credentials",
+                "key": "AWS_ACCESS_KEY_ID",
+                "env_var": "AWS_ACCESS_KEY_ID"
+            },
+            {
+                "name": "aws-credentials",
+                "key": "AWS_SECRET_ACCESS_KEY",
+                "env_var": "AWS_SECRET_ACCESS_KEY"
+            }
+        ]
      }
  }

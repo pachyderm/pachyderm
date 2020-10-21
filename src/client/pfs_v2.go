@@ -372,8 +372,8 @@ func (c APIClient) RenewTmpFileSet(ID string, ttl time.Duration) (retErr error) 
 	_, err := c.PfsAPIClient.RenewTmpFileSet(
 		c.Ctx(),
 		&pfs.RenewTmpFileSetRequest{
-			FilesetId: ID,
-			Ttl:       int64(ttl),
+			FilesetId:  ID,
+			TtlSeconds: int64(ttl.Seconds()),
 		},
 	)
 	return err

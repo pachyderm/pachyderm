@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -33,8 +32,6 @@ const (
 	rcExpected
 )
 
-const crashingBackoff = time.Second * 15
-
 func max(is ...int) int {
 	if len(is) == 0 {
 		return 0
@@ -51,8 +48,15 @@ func max(is ...int) int {
 // pipelineOp contains all of the relevent current state for a pipeline. It's
 // used by step() to take any necessary actions
 type pipelineOp struct {
-	apiServer    *apiServer
-	pachClient   *client.APIClient
+	apiServer *apiServer
+	// a pachyderm client wrapping the PPS Master's context. This should only be
+	// used in startPipelineMonitor and startCrashingPipelineMonitor
+	// TODO(msteffen): refactor master() into its own service and make those
+	// methods of that service
+	masterClient *client.APIClient
+	// a pachyderm client wrapping this operation's context (child of the PPS
+	// master's context, and cancelled at the end of step())
+	opClient     *client.APIClient
 	ptr          *pps.EtcdPipelineInfo
 	name         string // also in pipelineInfo, but that may not be set initially
 	pipelineInfo *pps.PipelineInfo
@@ -70,14 +74,30 @@ var (
 // 1. retrieves its full pipeline spec and RC
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'ptr', if needed, to reflect the action it just took
-func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, keyRev int64) error {
+func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) error {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
+	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
+	// resources). op.opClient wraps opCtx, whereas masterClient is passed by the
+	// PPS master and used in case a monitor needs to be spawned for 'pipeline',
+	// whose lifetime is tied to the master rather than this op.
+	opCtx, cancel := context.WithCancel(masterClient.Ctx())
+	defer cancel()
+
+	// Handle tracing
+	span, opCtx := extended.AddPipelineSpanToAnyTrace(opCtx,
+		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
+		"key-version", keyVer,
+		"mod-revision")
+	if span != nil {
+		defer tracing.FinishAnySpan(span)
+	}
+
 	// Retrieve pipelineInfo from the spec repo
-	op, err := a.newPipelineOp(pachClient, pipeline)
+	op, err := a.newPipelineOp(masterClient, masterClient.WithCtx(opCtx), pipeline)
 	if err != nil {
 		// op is nil, so can't use op.failPipeline
-		return a.setPipelineFailure(pachClient.Ctx(), pipeline,
+		return a.setPipelineFailure(opCtx, pipeline,
 			fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
 	// set op.rc
@@ -87,18 +107,34 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		return err
 	}
 
-	// Handle tracing
-	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
-		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
-		"key-version", keyVer,
-		"mod-revision", keyRev,
+	// Process the pipeline event
+	return op.run()
+}
+
+func (a *apiServer) newPipelineOp(masterClient *client.APIClient, opClient *client.APIClient, pipeline string) (*pipelineOp, error) {
+	op := &pipelineOp{
+		apiServer:    a,
+		masterClient: masterClient,
+		opClient:     opClient,
+		ptr:          &pps.EtcdPipelineInfo{},
+		name:         pipeline,
+	}
+	// get latest EtcdPipelineInfo (events can pile up, so that the current state
+	// doesn't match the event being processed)
+	if err := a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
+		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
+	}
+	tracing.TagAnySpan(opClient.Ctx(),
 		"state", op.ptr.State.String(),
 		"spec-commit", op.ptr.SpecCommit)
-	if span != nil {
-		defer tracing.FinishAnySpan(span)
-		pachClient = pachClient.WithCtx(ctx) //lint:ignore SA4006 pachClient is unused but we want the right one in scope in case someone uses it below in the future
+	// set op.pipelineInfo
+	if err := op.getPipelineInfo(); err != nil {
+		return nil, err
 	}
+	return op, nil
+}
 
+func (op *pipelineOp) run() error {
 	// Bring 'pipeline' into the correct state by taking appropriate action
 	switch op.ptr.State {
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
@@ -175,25 +211,6 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	return nil
 }
 
-func (a *apiServer) newPipelineOp(pachClient *client.APIClient, pipeline string) (*pipelineOp, error) {
-	op := &pipelineOp{
-		apiServer:  a,
-		pachClient: pachClient,
-		ptr:        &pps.EtcdPipelineInfo{},
-		name:       pipeline,
-	}
-	// get latest EtcdPipelineInfo (events can pile up, so that the current state
-	// doesn't match the event being processed)
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(pipeline, op.ptr); err != nil {
-		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
-	}
-	// set op.pipelineInfo
-	if err := op.getPipelineInfo(); err != nil {
-		return nil, err
-	}
-	return op, nil
-}
-
 // getPipelineInfo reads the pipelineInfo associated with 'op's pipeline. This
 // should be one of the first calls made on 'op', as most other methods (e.g.
 // getRC, though not failPipeline) assume that op.pipelineInfo is set.
@@ -204,7 +221,7 @@ func (a *apiServer) newPipelineOp(pachClient *client.APIClient, pipeline string)
 func (op *pipelineOp) getPipelineInfo() error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.sudo(op.pachClient, func(superUserClient *client.APIClient) error {
+		return op.apiServer.sudo(op.opClient, func(superUserClient *client.APIClient) error {
 			var err error
 			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.name, op.ptr)
 			return err
@@ -233,7 +250,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
 func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/GetRC", "pipeline", op.name)
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
@@ -358,7 +375,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.setPipelineState(op.pachClient.Ctx(),
+		return op.apiServer.setPipelineState(op.opClient.Ctx(),
 			op.pipelineInfo.Pipeline.Name, state, reason)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
@@ -378,7 +395,7 @@ func (op *pipelineOp) createPipelineResources() error {
 	log.Infof("PPS master: creating resources for pipeline %q", op.name)
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.createWorkerSvcAndRc(op.pachClient.Ctx(), op.ptr, op.pipelineInfo)
+		return op.apiServer.createWorkerSvcAndRc(op.opClient.Ctx(), op.ptr, op.pipelineInfo)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		invalidOpts := errors.As(err, &noValidOptionsErr{})
 		errCount++
@@ -403,30 +420,12 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.apiServer.monitorCancelsMu.Lock()
-	defer op.apiServer.monitorCancelsMu.Unlock()
-	if _, ok := op.apiServer.monitorCancels[op.name]; !ok {
-		// use context.Background because we expect this goro to run for the rest of
-		// pachd's lifetime
-		ctx, cancel := context.WithCancel(context.Background())
-		op.apiServer.monitorCancels[op.name] = cancel
-		go op.apiServer.sudo(op.apiServer.env.GetPachClient(ctx),
-			func(superUserClient *client.APIClient) error {
-				op.apiServer.monitorPipeline(superUserClient, op.pipelineInfo)
-				return nil
-			})
-	}
+	op.apiServer.startMonitor(op.masterClient, op.pipelineInfo)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
 	op.stopPipelineMonitor()
-	op.apiServer.monitorCancelsMu.Lock()
-	defer op.apiServer.monitorCancelsMu.Unlock()
-	if _, ok := op.apiServer.crashingMonitorCancels[op.name]; !ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		op.apiServer.crashingMonitorCancels[op.name] = cancel
-		go op.apiServer.monitorCrashingPipeline(ctx, op)
-	}
+	op.apiServer.startCrashingMonitor(op.masterClient, op.ptr.Parallelism, op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
@@ -453,15 +452,15 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	log.Infof("PPS master: finishing output commits for pipeline %q", op.name)
 
 	var pachClient *client.APIClient
-	if span, _ctx := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
+	if span, _ctx := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/FinishPipelineOutputCommits", "pipeline", op.name); span != nil {
-		pachClient = op.pachClient.WithCtx(_ctx) // copy span back into pachClient
+		pachClient = op.opClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 			tracing.FinishAnySpan(span)
 		}()
 	} else {
-		pachClient = op.pachClient
+		pachClient = op.opClient
 	}
 
 	return op.apiServer.sudo(pachClient, func(superUserClient *client.APIClient) error {
@@ -504,7 +503,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 //   deleted, then (per step() above) the error will be logged and the PPS
 //   master will move on
 func (op *pipelineOp) deletePipelineResources() error {
-	return op.apiServer.deletePipelineResources(op.pachClient.Ctx(), op.name)
+	return op.apiServer.deletePipelineResources(op.opClient.Ctx(), op.name)
 }
 
 // updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
@@ -554,7 +553,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 // failing/restarting op's pipeline if it can't update its RC (via updateRC)
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	log.Infof("PPS master: scaling up workers for %q", op.name)
-	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/ScaleUpPipeline", "pipeline", op.name)
 	defer func() {
 		if retErr != nil {
@@ -588,7 +587,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 // failing/restarting op's pipeline if it can't update its RC (via updateRC)
 func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 	log.Infof("PPS master: scaling down workers for %q", op.name)
-	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
+	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
 		"/pps.Master/ScaleDownPipeline", "pipeline", op.name)
 	defer func() {
 		if retErr != nil {
@@ -662,23 +661,8 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 // Like other functions in this file, failPipeline takes responsibility for
 // retrying.
 func (op *pipelineOp) failPipeline(reason string) error {
-	if err := op.apiServer.setPipelineFailure(op.pachClient.Ctx(), op.name, reason); err != nil {
+	if err := op.apiServer.setPipelineFailure(op.opClient.Ctx(), op.name, reason); err != nil {
 		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
-}
-
-func (op *pipelineOp) allWorkersUp() (bool, error) {
-	parallelism := int(op.ptr.Parallelism)
-	if parallelism == 0 {
-		parallelism = 1
-	}
-	workerPoolID := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
-	workerStatus, err := workerserver.Status(op.pachClient.Ctx(), workerPoolID,
-		op.apiServer.env.GetEtcdClient(), op.apiServer.etcdPrefix,
-		op.apiServer.workerGrpcPort)
-	if err != nil {
-		return false, err
-	}
-	return parallelism == len(workerStatus), nil
 }

@@ -451,6 +451,12 @@ func ShorthandInput(input *ppsclient.Input) string {
 			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⋈ ") + ")"
+	case input.Group != nil:
+		var subInput []string
+		for _, input := range input.Group {
+			subInput = append(subInput, ShorthandInput(input))
+		}
+		return "(Group: " + strings.Join(subInput, ", ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union {

@@ -36,7 +36,7 @@ func (mr *MergeReader) iterate(cb func(*FileMergeReader) error) error {
 	})
 }
 
-func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, deleter ...func(string, ...string)) (retErr error) {
+func (mr *MergeReader) mergeFile(ss []stream, cb func(*FileMergeReader) error, deleter ...func(string, ...string)) error {
 	// Convert generic streams to file streams.
 	var fss []*fileStream
 	for _, s := range ss {
@@ -321,7 +321,7 @@ func (tsmr *TagSetMergeReader) Iterate(cb func(*TagMergeReader) error) error {
 	})
 }
 
-func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) error, deleter ...func(string)) (retErr error) {
+func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) error, deleter ...func(string)) error {
 	// Convert generic streams to tag streams.
 	var i int
 	var tss []*tagStream
@@ -355,7 +355,7 @@ func (tsmr *TagSetMergeReader) mergeTag(ss []stream, cb func(*TagMergeReader) er
 
 // WriteTo writes the merged tagset to the passed in fileset writer.
 func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
-	return tsmr.pq.iterate(func(ss []stream, next ...string) (retErr error) {
+	return tsmr.pq.iterate(func(ss []stream, next ...string) error {
 		deleter := func(tag string) {
 			w.DeleteTag(tag)
 		}

@@ -121,9 +121,9 @@ func TestIterators(t *testing.T) {
 	})
 
 	// in[8-9] are elements of in10, which is a join input
-	in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", false)
+	in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", "", false)
 	in8.Pfs.Commit = commit.ID
-	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", false)
+	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", "", false)
 	in9.Pfs.Commit = commit.ID
 	in10 := client.NewJoinInput(in8, in9)
 	t.Run("Join", func(t *testing.T) {
@@ -218,6 +218,121 @@ func TestIterators(t *testing.T) {
 		require.True(t, checked > 0 && 3*checked == s3Count,
 			"checked: %v, s3Count: %v", checked, s3Count)
 	})
+
+	in14 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$1", false)
+	in14.Pfs.Commit = commit.ID
+	in15 := client.NewGroupInput(in14)
+	t.Run("GroupSingle", func(t *testing.T) {
+		group1, err := NewIterator(c, in15)
+		require.NoError(t, err)
+		validateDI(t, group1,
+			"/foo10/foo11/foo12/foo13/foo14/foo15/foo16/foo17/foo18/foo19",
+			"/foo20/foo21/foo22/foo23/foo24/foo25/foo26/foo27/foo28/foo29",
+			"/foo30/foo31/foo32/foo33/foo34/foo35/foo36/foo37/foo38/foo39",
+			"/foo40/foo41/foo42/foo43/foo44/foo45/foo46/foo47/foo48/foo49")
+	})
+
+	in16 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$1", false)
+	in16.Pfs.Commit = commit.ID
+	in17 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$2", false)
+	in17.Pfs.Commit = commit.ID
+	in18 := client.NewGroupInput(in16, in17)
+	t.Run("GroupDoubles", func(t *testing.T) {
+		group2, err := NewIterator(c, in18)
+		require.NoError(t, err)
+		validateDI(t, group2,
+			"/foo10/foo20/foo30/foo40",
+			"/foo10/foo11/foo12/foo13/foo14/foo15/foo16/foo17/foo18/foo19/foo11/foo21/foo31/foo41",
+			"/foo20/foo21/foo22/foo23/foo24/foo25/foo26/foo27/foo28/foo29/foo12/foo22/foo32/foo42",
+			"/foo30/foo31/foo32/foo33/foo34/foo35/foo36/foo37/foo38/foo39/foo13/foo23/foo33/foo43",
+			"/foo40/foo41/foo42/foo43/foo44/foo45/foo46/foo47/foo48/foo49/foo14/foo24/foo34/foo44",
+			"/foo15/foo25/foo35/foo45",
+			"/foo16/foo26/foo36/foo46",
+			"/foo17/foo27/foo37/foo47",
+			"/foo18/foo28/foo38/foo48",
+			"/foo19/foo29/foo39/foo49")
+	})
+
+	in19 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false)
+	in19.Pfs.Commit = commit.ID
+	in20 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false)
+	in20.Pfs.Commit = commit.ID
+
+	in21 := client.NewJoinInput(in19, in20)
+	in22 := client.NewGroupInput(in21)
+	t.Run("GroupJoin", func(t *testing.T) {
+		groupJoin1, err := NewIterator(c, in22)
+		require.NoError(t, err)
+		validateDI(t, groupJoin1,
+			"/foo11/foo11/foo12/foo21/foo13/foo31/foo14/foo41",
+			"/foo21/foo12/foo22/foo22/foo23/foo32/foo24/foo42",
+			"/foo31/foo13/foo32/foo23/foo33/foo33/foo34/foo43",
+			"/foo41/foo14/foo42/foo24/foo43/foo34/foo44/foo44")
+	})
+
+	in23 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false)
+	in23.Pfs.Commit = commit.ID
+	in24 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false)
+	in24.Pfs.Commit = commit.ID
+
+	in25 := client.NewGroupInput(in24)
+	in26 := client.NewUnionInput(in23, in25)
+
+	t.Run("UnionGroup", func(t *testing.T) {
+		unionGroup1, err := NewIterator(c, in26)
+		require.NoError(t, err)
+		validateDI(t, unionGroup1,
+			"/foo10",
+			"/foo11",
+			"/foo12",
+			"/foo13",
+			"/foo14",
+			"/foo15",
+			"/foo16",
+			"/foo17",
+			"/foo18",
+			"/foo19",
+			"/foo20",
+			"/foo21",
+			"/foo22",
+			"/foo23",
+			"/foo24",
+			"/foo25",
+			"/foo26",
+			"/foo27",
+			"/foo28",
+			"/foo29",
+			"/foo30",
+			"/foo31",
+			"/foo32",
+			"/foo33",
+			"/foo34",
+			"/foo35",
+			"/foo36",
+			"/foo37",
+			"/foo38",
+			"/foo39",
+			"/foo40",
+			"/foo41",
+			"/foo42",
+			"/foo43",
+			"/foo44",
+			"/foo45",
+			"/foo46",
+			"/foo47",
+			"/foo48",
+			"/foo49",
+			"/foo10/foo20/foo30/foo40",
+			"/foo11/foo21/foo31/foo41",
+			"/foo12/foo22/foo32/foo42",
+			"/foo13/foo23/foo33/foo43",
+			"/foo14/foo24/foo34/foo44",
+			"/foo15/foo25/foo35/foo45",
+			"/foo16/foo26/foo36/foo46",
+			"/foo17/foo27/foo37/foo47",
+			"/foo18/foo28/foo38/foo48",
+			"/foo19/foo29/foo39/foo49")
+	})
 }
 
 func benchmarkIterators(j int, b *testing.B) {
@@ -275,13 +390,21 @@ func benchmarkIterators(j int, b *testing.B) {
 		})
 
 		b.Run("join", func(b *testing.B) {
-			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", false)
+			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", "", false)
 			in8.Pfs.Commit = commit.ID
-			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
+			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", "", false)
 			in9.Pfs.Commit = commit.ID
 			join1, err := newJoinIterator(c, []*pps.Input{in8, in9})
 			require.NoError(b, err)
 			validateDI(b, join1)
+		})
+
+		b.Run("group", func(b *testing.B) {
+			in10 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "", "$2", false)
+			in10.Pfs.Commit = commit.ID
+			group1, err := newGroupIterator(c, []*pps.Input{in10})
+			require.NoError(b, err)
+			validateDI(b, group1)
 		})
 
 		b.Run("iterated", func(b *testing.B) {
@@ -323,14 +446,14 @@ func validateDI(t testing.TB, dit Iterator, datums ...string) {
 	clone := dit
 	for dit.Next() {
 		key := ""
-		for _, file := range dit.Datum() {
-			key += file.FileInfo.File.Path
+		for _, input := range dit.Datum() {
+			key += input.FileInfo.File.Path
 		}
 
 		key2 := ""
 		clone.DatumN(0)
-		for _, file := range clone.DatumN(i) {
-			key2 += file.FileInfo.File.Path
+		for _, input := range clone.DatumN(i) {
+			key2 += input.FileInfo.File.Path
 		}
 
 		if len(datums) > 0 {

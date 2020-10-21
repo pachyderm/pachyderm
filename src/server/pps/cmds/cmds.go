@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -32,9 +31,11 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
+	"github.com/fatih/color"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/itchyny/gojq"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -144,6 +145,7 @@ If the job fails, the output commit will not be populated with data.`,
 	var outputCommitStr string
 	var inputCommitStrs []string
 	var history string
+	var stateStrs []string
 	listJob := &cobra.Command{
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
@@ -178,6 +180,13 @@ $ {{alias}} -p foo -i bar@YYY`,
 					return err
 				}
 			}
+			var filter string
+			if len(stateStrs) > 0 {
+				filter, err = ParseJobStates(stateStrs)
+				if err != nil {
+					return errors.Wrap(err, "error parsing state")
+				}
+			}
 
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -188,14 +197,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
 						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
 					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -215,6 +224,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -802,7 +812,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
-
+			var filter string
+			if len(stateStrs) > 0 {
+				filter, err = ParsePipelineStates(stateStrs)
+				if err != nil {
+					return errors.Wrap(err, "error parsing state")
+				}
+			}
 			// init client & get pipeline info
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -813,7 +829,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true}
+			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true, JqFilter: filter}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
@@ -856,6 +872,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var (
@@ -1481,4 +1498,42 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	}
 
 	return false
+}
+
+func validateJQConditionString(filter string) (string, error) {
+	q, err := gojq.Parse(filter)
+	if err != nil {
+		return "", err
+	}
+	_, err = gojq.Compile(q)
+	if err != nil {
+		return "", err
+	}
+	return filter, nil
+}
+
+// ParseJobStates parses a slice of state names into a jq filter suitable for ListJob
+func ParseJobStates(stateStrs []string) (string, error) {
+	var conditions []string
+	for _, stateStr := range stateStrs {
+		if state, err := ppsclient.JobStateFromName(stateStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
+		} else {
+			return "", err
+		}
+	}
+	return validateJQConditionString(strings.Join(conditions, " or "))
+}
+
+// ParsePipelineStates parses a slice of state names into a jq filter suitable for ListPipeline
+func ParsePipelineStates(stateStrs []string) (string, error) {
+	var conditions []string
+	for _, stateStr := range stateStrs {
+		if state, err := ppsclient.PipelineStateFromName(stateStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
+		} else {
+			return "", err
+		}
+	}
+	return validateJQConditionString(strings.Join(conditions, " or "))
 }

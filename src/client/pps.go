@@ -94,15 +94,16 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			JoinOn: joinOn,
-			Lazy:   lazy,
+			Name:    name,
+			Repo:    repo,
+			Branch:  branch,
+			Glob:    glob,
+			JoinOn:  joinOn,
+			GroupBy: groupBy,
+			Lazy:    lazy,
 		},
 	}
 }
@@ -143,6 +144,15 @@ func NewJoinInput(input ...*pps.Input) *pps.Input {
 func NewUnionInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Union: input,
+	}
+}
+
+// NewGroupInput returns an input which groups the inputs by the GroupBy pattern.
+// That means that it will return a datum for each group of input datums matching
+// a particular GroupBy pattern
+func NewGroupInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Group: input,
 	}
 }
 
@@ -254,7 +264,15 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 	return result, nil
 }
 
-// ListJobF returns info about all jobs, calling f with each JobInfo.
+// ListJobF is a previous version of ListJobFilterF, returning info about all jobs
+// and calling f on each JobInfo
+func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+	f func(*pps.JobInfo) error) error {
+	return c.ListJobFilterF(pipelineName, inputCommit, outputCommit, history, includePipelineInfo, "", f)
+}
+
+// ListJobFilterF returns info about all jobs, calling f with each JobInfo.
 // If f returns an error iteration of jobs will stop and ListJobF will return
 // that error, unless the error is errutil.ErrBreak in which case it will
 // return nil.
@@ -270,8 +288,8 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
 // details fromt the pipeline spec--setting this to 'false' can improve
 // performance.
-func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
@@ -285,6 +303,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			OutputCommit: outputCommit,
 			History:      history,
 			Full:         includePipelineInfo,
+			JqFilter:     jqFilter,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)

@@ -1,6 +1,7 @@
 package pps
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -9,6 +10,26 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"gopkg.in/src-d/go-git.v4"
 )
+
+var (
+	// format strings for state name parsing errors
+	errInvalidJobStateName      string
+	errInvalidPipelineStateName string
+)
+
+func init() {
+	// construct error messages from all current job and pipeline state names
+	var states []string
+	for i := int32(0); JobState_name[i] != ""; i++ {
+		states = append(states, strings.ToLower(strings.TrimPrefix(JobState_name[i], "JOB_")))
+	}
+	errInvalidJobStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), JobState_name[0])
+	states = states[:0]
+	for i := int32(0); PipelineState_name[i] != ""; i++ {
+		states = append(states, strings.ToLower(strings.TrimPrefix(PipelineState_name[i], "PIPELINE_")))
+	}
+	errInvalidPipelineStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineState_name[0])
+}
 
 // VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input)) {
@@ -21,6 +42,10 @@ func VisitInput(input *Input, f func(*Input)) {
 		}
 	case input.Join != nil:
 		for _, input := range input.Join {
+			VisitInput(input, f)
+		}
+	case input.Group != nil:
+		for _, input := range input.Group {
 			VisitInput(input, f)
 		}
 	case input.Union != nil:
@@ -46,6 +71,10 @@ func InputName(input *Input) string {
 		if len(input.Join) > 0 {
 			return InputName(input.Join[0])
 		}
+	case input.Group != nil:
+		if len(input.Group) > 0 {
+			return InputName(input.Group[0])
+		}
 	case input.Union != nil:
 		if len(input.Union) > 0 {
 			return InputName(input.Union[0])
@@ -65,6 +94,8 @@ func SortInput(input *Input) {
 			SortInputs(input.Cross)
 		case input.Join != nil:
 			SortInputs(input.Join)
+		case input.Group != nil:
+			SortInputs(input.Group)
 		case input.Union != nil:
 			SortInputs(input.Union)
 		}
@@ -128,4 +159,24 @@ func ValidateGitCloneURL(url string) error {
 	}
 
 	return nil
+}
+
+// JobStateFromName attempts to interpret a string as a JobState,
+// accepting either the enum names or the pretty printed state names
+func JobStateFromName(name string) (JobState, error) {
+	canonical := "JOB_" + strings.TrimPrefix(strings.ToUpper(name), "JOB_")
+	if value, ok := JobState_value[canonical]; ok {
+		return JobState(value), nil
+	}
+	return 0, fmt.Errorf(errInvalidJobStateName, name)
+}
+
+// PipelineStateFromName attempts to interpret a string as a PipelineState,
+// accepting either the enum names or the pretty printed state names
+func PipelineStateFromName(name string) (PipelineState, error) {
+	canonical := "PIPELINE_" + strings.TrimPrefix(strings.ToUpper(name), "PIPELINE_")
+	if value, ok := PipelineState_value[canonical]; ok {
+		return PipelineState(value), nil
+	}
+	return 0, fmt.Errorf(errInvalidPipelineStateName, name)
 }
