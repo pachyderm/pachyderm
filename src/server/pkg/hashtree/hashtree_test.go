@@ -705,7 +705,7 @@ func blocks(ss ...string) []*pfs.BlockRef {
 }
 
 func writeMergeNode(w *Writer, path, hash string, size int64, blockRefs ...*pfs.BlockRef) {
-	path = clean(path)
+	path = Clean(path)
 	n := mergeNode(path, hash, size)
 	if len(blockRefs) == 0 {
 		n.nodeProto.DirNode = &DirectoryNodeProto{}

@@ -157,7 +157,7 @@ func get(tx *bolt.Tx, path string) (*NodeProto, error) {
 
 // Get gets a hashtree node.
 func (h *dbHashTree) Get(path string) (*NodeProto, error) {
-	path = clean(path)
+	path = Clean(path)
 	var node *NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
 		var err error
@@ -171,7 +171,7 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 
 // Get gets a hashtree node.
 func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
-	filePath = clean(filePath)
+	filePath = Clean(filePath)
 	var fileNode *NodeProto
 	if err := nodes(rs, func(path string, node *NodeProto) error {
 		if path == filePath {
@@ -221,7 +221,7 @@ func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
 
 // List executes a callback for each file under a directory (or a file if the path is a file).
 func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
-	path = clean(path)
+	path = Clean(path)
 	err := h.View(func(tx *bolt.Tx) error {
 		return list(tx, path, f)
 	})
@@ -242,7 +242,7 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 
 // List executes a callback for each file under a directory (or a file if the path is a file).
 func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
+	pattern = Clean(pattern)
 	if pattern == "" {
 		pattern = "/"
 	}
@@ -291,7 +291,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 
 // Glob executes a callback for each path that matches the glob pattern.
 func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) error {
-	pattern = clean(pattern)
+	pattern = Clean(pattern)
 	err := h.View(func(tx *bolt.Tx) error {
 		return glob(tx, pattern, f)
 	})
@@ -300,7 +300,7 @@ func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) erro
 
 // Glob executes a callback for each path that matches the glob pattern.
 func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
+	pattern = Clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
@@ -324,7 +324,7 @@ func (h *dbHashTree) FSSize() int64 {
 
 // Walk executes a callback against every node in the subtree of path.
 func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) error) error {
-	path = clean(path)
+	path = Clean(path)
 	err := h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
 		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
@@ -354,7 +354,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 
 // Walk executes a callback against every node in the subtree of path.
 func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodeProto) error) error {
-	walkPath = clean(walkPath)
+	walkPath = Clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if path == "" {
 			path = "/"
@@ -373,11 +373,11 @@ func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodePro
 }
 
 func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
-	newNode, err := get(newTx, clean(newPath))
+	newNode, err := get(newTx, Clean(newPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
-	oldNode, err := get(oldTx, clean(oldPath))
+	oldNode, err := get(oldTx, Clean(oldPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
@@ -719,7 +719,7 @@ func (h *dbHashTree) PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef,
 // PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
 // method
 func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerSize, footerSize int64) error {
-	path = clean(path)
+	path = Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to directory (or nothing--may not be
 		// created yet)
@@ -774,7 +774,7 @@ func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, siz
 
 func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.BlockRef,
 	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
-	path = clean(path)
+	path = Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to file
 		node, err := get(tx, path)
@@ -864,7 +864,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 
 // PutDir creates a directory (or does nothing if one exists).
 func (h *dbHashTree) PutDir(path string) error {
-	path = clean(path)
+	path = Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
@@ -911,7 +911,7 @@ func deleteDir(tx *bolt.Tx, path string) error {
 
 // DeleteFile deletes a regular file or directory (along with its children).
 func (h *dbHashTree) DeleteFile(path string) error {
-	path = clean(path)
+	path = Clean(path)
 
 	// Delete root means delete all files
 	if path == "" {
@@ -1115,7 +1115,7 @@ func (w *Writer) Index() ([]byte, error) {
 
 // GetRangeFromIndex returns a subtree byte range in a serialized hashtree based on a passed in prefix.
 func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
-	prefix = clean(prefix)
+	prefix = Clean(prefix)
 	pbr := pbutil.NewReader(r)
 	idx := &Index{}
 	k := b(prefix)
@@ -1180,7 +1180,7 @@ func NewFilter(numTrees int64, tree int64) Filter {
 
 // PathToTree computes the hashtree shard for a path.
 func PathToTree(path string, numTrees int64) uint64 {
-	path = clean(path)
+	path = Clean(path)
 	return pathToTree(b(path), numTrees)
 }
 
@@ -1385,7 +1385,7 @@ func HashFileNode(n *FileNodeProto) []byte {
 }
 
 func canonicalize(tx *bolt.Tx, path string) error {
-	path = clean(path)
+	path = Clean(path)
 	if !hasChanged(tx, path) {
 		return nil // Node is already canonical
 	}
@@ -1492,13 +1492,13 @@ var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 
 // IsGlob checks if the pattern contains a glob character
 func IsGlob(pattern string) bool {
-	pattern = clean(pattern)
+	pattern = Clean(pattern)
 	return globRegex.Match([]byte(pattern))
 }
 
 // GlobLiteralPrefix returns the prefix before the first glob character
 func GlobLiteralPrefix(pattern string) string {
-	pattern = clean(pattern)
+	pattern = Clean(pattern)
 	idx := globRegex.FindStringIndex(pattern)
 	if idx == nil {
 		return pattern
@@ -1581,7 +1581,7 @@ type ChildCursor struct {
 
 // NewChildCursor creates a new child cursor.
 func NewChildCursor(tx *bolt.Tx, path string) *ChildCursor {
-	path = clean(path)
+	path = Clean(path)
 	c := fs(tx).Cursor()
 	dir := b(path)
 	k, v := c.Seek(append(dir, nullByte[0]))
@@ -1650,7 +1650,7 @@ type node struct {
 
 // NewOrdered creates a new ordered hashtree.
 func NewOrdered(root string) *Ordered {
-	root = clean(root)
+	root = Clean(root)
 	o := &Ordered{}
 	n := &node{
 		path: "",
@@ -1682,7 +1682,7 @@ func (o *Ordered) MkdirAll(path string) {
 
 // PutDir puts a directory in the hashtree.
 func (o *Ordered) PutDir(path string) {
-	path = clean(path)
+	path = Clean(path)
 	if path == "" {
 		return
 	}
@@ -1707,7 +1707,7 @@ func (o *Ordered) putDir(path string, nodeProto *NodeProto) {
 
 // PutFile puts a file in the hashtree.
 func (o *Ordered) PutFile(path string, hash []byte, size int64, fileNodeProto *FileNodeProto) {
-	path = clean(path)
+	path = Clean(path)
 	nodeProto := &NodeProto{
 		Name:        base(path),
 		Hash:        hash,
@@ -1775,7 +1775,7 @@ type Unordered struct {
 func NewUnordered(root string) *Unordered {
 	return &Unordered{
 		fs:   make(map[string]*NodeProto),
-		root: clean(root),
+		root: Clean(root),
 	}
 }
 
@@ -1797,7 +1797,7 @@ func (u *Unordered) PutFile(path string, hash []byte, size int64, blockRefs ...*
 func (u *Unordered) createParents(path string) {
 	if path != "" {
 		path, _ = split(path)
-		path = clean(path)
+		path = Clean(path)
 		if _, ok := u.fs[path]; ok {
 			return
 		}
