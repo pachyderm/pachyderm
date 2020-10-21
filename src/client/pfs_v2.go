@@ -5,10 +5,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
@@ -89,45 +91,6 @@ func (foc *FileOperationClient) Close() error {
 		_, err := foc.client.CloseAndRecv()
 		return err
 	})
-}
-
-// CreateTmpFileSetClient is used to create a temporary fileset.
-type CreateTmpFileSetClient struct {
-	client pfs.API_CreateTmpFileSetClient
-	fileOperationCore
-}
-
-// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
-func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.CreateTmpFileSet(c.Ctx())
-	if err != nil {
-		return nil, err
-	}
-	return &CreateTmpFileSetClient{
-		client: client,
-		fileOperationCore: fileOperationCore{
-			client: client,
-		},
-	}, nil
-}
-
-// Close closes the CreateTmpFileSetClient.
-func (foc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
-	var ret *pfs.CreateTmpFileSetResponse
-	if err := foc.maybeError(func() error {
-		resp, err := foc.client.CloseAndRecv()
-		if err != nil {
-			return err
-		}
-		ret = resp
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
 }
 
 type fileOperationCore struct {
@@ -326,6 +289,96 @@ func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Write
 	}, true)
 }
 
+// TmpRepoName is a reserved repo name used for namespacing temporary filesets
+const TmpRepoName = "__tmp__"
+
+// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
+func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
+	return &pfs.Commit{
+		ID:   fileSetID,
+		Repo: &pfs.Repo{Name: TmpRepoName},
+	}
+}
+
+// DefaultTTL is the default time-to-live for a temporary fileset.
+const DefaultTTL = 10 * time.Minute
+
+// WithRenewer provides a scoped temporary fileset renewer.
+func (c APIClient) WithRenewer(cb func(context.Context, *fileset.Renewer) error) error {
+	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+		return c.WithCtx(ctx).RenewTmpFileSet(p, ttl)
+	}
+	return fileset.WithRenewer(c.Ctx(), DefaultTTL, renew, cb)
+}
+
+// WithCreateTmpFileSetClient provides a scoped temporary fileset client.
+func (c APIClient) WithCreateTmpFileSetClient(cb func(*CreateTmpFileSetClient) error) (resp *pfs.CreateTmpFileSetResponse, retErr error) {
+	ctfsc, err := c.NewCreateTmpFileSetClient()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if retErr == nil {
+			resp, retErr = ctfsc.Close()
+		}
+	}()
+	return nil, cb(ctfsc)
+}
+
+// CreateTmpFileSetClient is used to create a temporary fileset.
+type CreateTmpFileSetClient struct {
+	client pfs.API_CreateTmpFileSetClient
+	fileOperationCore
+}
+
+// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
+func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.CreateTmpFileSet(c.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	return &CreateTmpFileSetClient{
+		client: client,
+		fileOperationCore: fileOperationCore{
+			client: client,
+		},
+	}, nil
+}
+
+// Close closes the CreateTmpFileSetClient.
+func (ctfsc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
+	var ret *pfs.CreateTmpFileSetResponse
+	if err := ctfsc.maybeError(func() error {
+		resp, err := ctfsc.client.CloseAndRecv()
+		if err != nil {
+			return err
+		}
+		ret = resp
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// RenewTmpFileSet renews a temporary fileset.
+func (c APIClient) RenewTmpFileSet(ID string, ttl time.Duration) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PfsAPIClient.RenewTmpFileSet(
+		c.Ctx(),
+		&pfs.RenewTmpFileSetRequest{
+			FilesetId:  ID,
+			TtlSeconds: int64(ttl.Seconds()),
+		},
+	)
+	return err
+}
+
 var errV1NotImplemented = errors.Errorf("V1 method not implemented")
 
 type putFileClientV2 struct {
@@ -368,15 +421,4 @@ func (pfc *putFileClientV2) DeleteFile(repo, commit, path string) error {
 
 func (pfc *putFileClientV2) Close() error {
 	return nil
-}
-
-// TmpRepoName is a reserved repo name used for namespacing temporary filesets
-const TmpRepoName = "__tmp__"
-
-// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
-func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
-	return &pfs.Commit{
-		ID:   fileSetID,
-		Repo: &pfs.Repo{Name: TmpRepoName},
-	}
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,6 +34,25 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
+
+// Environment variables for determining storage backend and pathing
+const (
+	PachRootEnvVar = "PACH_ROOT"
+)
+
+// BlockPathFromEnv gets the path to an object storage block based on environment variables.
+func BlockPathFromEnv(block *pfsclient.Block) (string, error) {
+	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
+	if !ok {
+		return "", errors.Errorf("%s not found", PachRootEnvVar)
+	}
+	var err error
+	storageRoot, err = obj.StorageRootFromEnv(storageRoot)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(storageRoot, "block", block.Hash), nil
+}
 
 const (
 	prefixLength          = 2
