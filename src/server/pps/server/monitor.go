@@ -41,6 +41,8 @@ import (
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
 
+const crashingBackoff = time.Second * 15
+
 // startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
 // and startPipelinePoller. It doesn't manipulate any of APIServer's fields,
 // just wrapps the passed function in a goroutine, and returns a cancel() fn to
@@ -344,7 +346,7 @@ func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parall
 			}
 			return nil
 		},
-		&backoff.ZeroBackOff{},
+		backoff.NewConstantBackOff(crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
