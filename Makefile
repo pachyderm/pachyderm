@@ -338,7 +338,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT)
+	  go test -v -count=1 ./src/server/worker/... -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
 
