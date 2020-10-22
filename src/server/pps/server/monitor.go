@@ -327,28 +327,21 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipe
 func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx := pachClient.Ctx()
-	if err := backoff.RetryUntilCancel(ctx,
-		func() error {
-			workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
-			if err != nil {
-				return errors.Wrap(err, "could not check if all workers are up")
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
+		if err != nil {
+			return errors.Wrap(err, "could not check if all workers are up")
+		}
+		if workersUp {
+			if err := a.transitionPipelineState(ctx, pipeline,
+				pps.PipelineState_PIPELINE_CRASHING,
+				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+				return errors.Wrap(err, "could not transition pipeline to RUNNING")
 			}
-			if workersUp {
-				if err := a.transitionPipelineState(ctx, pipeline,
-					pps.PipelineState_PIPELINE_CRASHING,
-					pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
-
-					pte := &ppsutil.PipelineTransitionError{}
-					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_CRASHING {
-						log.Error(err)
-						return nil // Pipeline has moved to STOPPED or been updated--give up
-					}
-					return errors.Wrap(err, "could not transition pipeline to RUNNING")
-				}
-			}
-			return nil
-		},
-		backoff.NewConstantBackOff(crashingBackoff),
+			return nil // done--pipeline is out of CRASHING
+		}
+		return backoff.ErrContinue // loop again to check for new workers
+	}, backoff.NewConstantBackOff(crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
