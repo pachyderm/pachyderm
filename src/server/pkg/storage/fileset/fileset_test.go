@@ -3,6 +3,7 @@ package fileset
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"io"
 	"math/rand"
 	"path"
@@ -107,7 +108,7 @@ func dataRefsToHashes(dataRefs []*chunk.DataRef) []string {
 	var hashes []string
 	for _, dataRef := range dataRefs {
 		if dataRef.Hash == "" {
-			hashes = append(hashes, dataRef.ChunkInfo.Chunk.Hash)
+			hashes = append(hashes, hex.EncodeToString(dataRef.ChunkRef.Id))
 			continue
 		}
 		hashes = append(hashes, dataRef.Hash)

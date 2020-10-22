@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 // Reader reads data from chunk storage.
@@ -20,9 +19,7 @@ type Reader struct {
 	prev     *DataReader
 }
 
-func newReader(ctx context.Context, objC obj.Client, tracker Tracker, dataRefs ...*DataRef) *Reader {
-	// reader should never get a lock, so the empty chunkSet is fine.
-	client := NewClient(objC, tracker, "")
+func newReader(ctx context.Context, client *Client, dataRefs ...*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		client:   client,
@@ -267,7 +264,7 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Use seed chunk if possible.
-	if dr.seed != nil && dr.dataRef.ChunkInfo.Chunk.Hash == dr.seed.dataRef.ChunkInfo.Chunk.Hash {
+	if dr.seed != nil && bytes.Equal(dr.dataRef.ChunkRef.Id, dr.seed.dataRef.ChunkRef.Id) {
 		if err := dr.seed.getChunk(); err != nil {
 			return err
 		}

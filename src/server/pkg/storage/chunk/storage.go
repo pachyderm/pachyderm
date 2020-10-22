@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 )
 
 const (
@@ -16,15 +17,17 @@ const (
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient obj.Client
-	tracker   Tracker
+	tracker   tracker.Tracker
+	mdstore   MetadataStore
 
 	defaultChunkTTL time.Duration
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objClient obj.Client, tracker Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker tracker.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:       objClient,
+		mdstore:         mdstore,
 		defaultChunkTTL: defaultChunkTTL,
 		tracker:         tracker,
 	}
@@ -36,7 +39,9 @@ func NewStorage(objClient obj.Client, tracker Tracker, opts ...StorageOption) *S
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
-	return newReader(ctx, s.objClient, s.tracker, dataRefs...)
+	// using the empty chunkset for the reader
+	client := NewClient(s.objClient, s.mdstore, s.tracker, "")
+	return newReader(ctx, client, dataRefs...)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
@@ -44,7 +49,8 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // object storage.
 func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
 	opts = append([]WriterOption{WithChunkTTL(defaultChunkTTL)}, opts...)
-	return newWriter(ctx, s.objClient, s.tracker, tmpID, f, opts...)
+	client := NewClient(s.objClient, s.mdstore, s.tracker, tmpID)
+	return newWriter(ctx, client, f, opts...)
 }
 
 // List lists all of the chunks in object storage.

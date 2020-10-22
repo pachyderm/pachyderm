@@ -2,12 +2,14 @@ package chunk
 
 import (
 	"context"
+	fmt "fmt"
 	io "io"
+	"io/ioutil"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 )
 
 // Client allows manipulation of individual chunks, by maintaining consistency between
@@ -15,86 +17,88 @@ import (
 // Client is not safe for concurrent use.
 type Client struct {
 	objc     obj.Client
-	tracker  Tracker
+	mdstore  MetadataStore
+	tracker  tracker.Tracker
 	chunkSet string
 	ttl      time.Duration
 
-	mu   sync.Mutex // prevent mode switching during a call to SetTTL
-	mode *bool
-
+	n      int
 	cancel context.CancelFunc
 	err    error
 	done   chan struct{}
 }
 
-func NewClient(objc obj.Client, tracker Tracker, chunkSet string) *Client {
+func NewClient(objc obj.Client, mdstore MetadataStore, tracker tracker.Tracker, chunkSet string) *Client {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	c := &Client{
 		objc:     objc,
 		tracker:  tracker,
+		mdstore:  mdstore,
 		chunkSet: chunkSet,
 		ttl:      defaultChunkTTL,
 		done:     make(chan struct{}),
 		cancel:   cancel,
 	}
-	go func() {
-		c.err = c.runLoop(ctx)
+	if chunkSet != "" {
+		go func() {
+			c.err = c.runLoop(ctx)
+			close(c.done)
+		}()
+	} else {
 		close(c.done)
-	}()
+	}
 	return c
 }
 
-/*
-	Create gets a lock on the chunk, does an existence check and then adds the metadata
-	to the tracker and uploads the chunk data to object storage.  This ensures the data in
-	the tracker is a superset of the data in object storage.
-	Chunks locked to an upload set do not conflict, so multiple uploaders (writers) can get a lock
-	in the event of a concurrent upload, there will be a race to write the same data to postgres (last write wins not an issue)
-	and only the first writer will upload the object, the others will get exist errors which they can ignore.
-	This will ensure that if a writer fails another writer will not skip the upload assuming someone has succeeded.
-
-	No one will be deleting the chunk during the existence check, metadata put, or data upload.
-
-	The chunk is not unlocked until the client is closed.
-*/
-
-// Create adds a chunk with data provided by r and metadata md.
-// TODO: it would be nice if this returned (ChunkID, error), and we hashed the data here.
-func (c *Client) Create(ctx context.Context, chunkID ChunkID, md ChunkMetadata, r io.Reader) error {
-	if err := c.ensureMode(ctx, false); err != nil {
-		return err
+func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (ChunkID, error) {
+	chunkData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
 	}
-	// TODO: retry until done
-	if err := c.tracker.LockChunk(ctx, c.chunkSet, chunkID); err != nil {
-		return err
+	chunkID := Hash(chunkData)
+
+	var pointsTo []string
+	for _, cid := range md.PointsTo {
+		pointsTo = append(pointsTo, chunkObjectID(cid))
 	}
-	// at this point no one will be trying to delete the chunk
+	// TODO: retry on ErrTombstone
+	chunkOID := chunkObjectID(chunkID)
+	if err := c.tracker.CreateObject(ctx, chunkOID, pointsTo, c.ttl); err != nil {
+		if err != tracker.ErrObjectExists {
+			return nil, err
+		}
+	}
+	// create an object whos sole purpose is to reference the chunk we created, and to have a structured name
+	// which can be renewed in bulk by prefix
+	c.n++
+	if err := c.tracker.CreateObject(ctx, fmt.Sprintf("tmp/%s/%d", c.chunkSet, c.n), []string{chunkOID}, c.ttl); err != nil {
+		if err != tracker.ErrObjectExists {
+			return nil, err
+		}
+	}
+	// at this point no one will be trying to delete the chunk, because there is an object pointing to it.
 	p := chunkPath(chunkID)
 	if c.objc.Exists(ctx, p) {
-		return nil
+		return chunkID, nil
 	}
-	if err := c.tracker.SetChunkInfo(ctx, chunkID, md); err != nil {
-		return err
+	if err := c.mdstore.SetChunkMetadata(ctx, chunkID, md); err != nil {
+		return nil, err
 	}
 	objW, err := c.objc.Writer(ctx, p)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer objW.Close()
 	if _, err = io.Copy(objW, r); err != nil {
-		return err
+		return nil, err
 	}
-	return objW.Close()
+	if err := objW.Close(); err != nil {
+		return nil, err
+	}
+	return chunkID, nil
 }
 
-/*
-	If there is a chunk in object storage, it is good to use, no lock required.
-	Get should not be used to implement an existence check because conditionally
-	uploading based on a check done without a lock is not okay.
-*/
-
-// Get writes the chunk data for a chunk with id chunkID to w.
 func (c *Client) Get(ctx context.Context, chunkID ChunkID, w io.Writer) error {
 	p := chunkPath(chunkID)
 	objR, err := c.objc.Reader(ctx, p, 0, 0)
@@ -106,53 +110,10 @@ func (c *Client) Get(ctx context.Context, chunkID ChunkID, w io.Writer) error {
 	return err
 }
 
-/*
-	Delete ensures a delete mode chunk set exists for this client, then locks the chunk.
-	It deletes the chunk from object storage first, then the metadata.
-	This ensures the tracker has a superset of what is in object storage.
-	After the chunk is gone the lock can be released, there is no point in
-	maintaining a lock on a resource that doesn't exist.  This allows a creation to happen before the client is closed.
-
-	If another client is trying to delete, or is uploading the chunk, delete will fail with ErrChunkLocked
-*/
-
-// Delete removes a chunk and metadata with ID chunkID
-func (c *Client) Delete(ctx context.Context, chunkID ChunkID) error {
-	if err := c.ensureMode(ctx, true); err != nil {
-		return err
-	}
-	if err := c.tracker.LockChunk(ctx, c.chunkSet, chunkID); err != nil {
-		return err
-	}
-	defer c.tracker.UnlockChunk(ctx, c.chunkSet, chunkID)
-	p := chunkPath(chunkID)
-	if err := c.objc.Delete(ctx, p); err != nil {
-		return err
-	}
-	return c.tracker.DeleteChunkInfo(ctx, chunkID)
-}
-
 func (c *Client) Close() error {
 	c.cancel()
 	<-c.done
 	return c.err
-}
-
-func (c *Client) ensureMode(ctx context.Context, delete bool) error {
-	const defaultTTL = 60 * time.Second
-	if c.mode != nil && *c.mode == delete {
-		return nil
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, err := c.tracker.DropChunkSet(ctx, c.chunkSet); err != nil {
-		return err
-	}
-	if err := c.tracker.NewChunkSet(ctx, c.chunkSet, delete, defaultTTL); err != nil {
-		return err
-	}
-	c.mode = &delete
-	return nil
 }
 
 func (c *Client) runLoop(ctx context.Context) error {
@@ -163,16 +124,17 @@ func (c *Client) runLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			c.mu.Lock()
-			if _, err := c.tracker.SetTTL(ctx, c.chunkSet, c.ttl); err != nil {
-				c.mu.Unlock()
+			if _, err := c.tracker.SetTTLPrefix(ctx, fmt.Sprintf("tmp/%s/", c.chunkSet), c.ttl); err != nil {
 				return err
 			}
-			c.mu.Unlock()
 		}
 	}
 }
 
 func chunkPath(chunkID ChunkID) string {
 	return path.Join(prefix, chunkID.HexString())
+}
+
+func chunkObjectID(chunkID ChunkID) string {
+	return "chunk/" + chunkID.HexString()
 }

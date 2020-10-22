@@ -6,14 +6,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 )
 
 // WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func WithTestStorage(t testing.TB, f func(obj.Client, *Storage) error, opts ...StorageOption) {
-	WithTestTracker(t, func(tracker Tracker) {
+	tracker.WithTestTracker(t, func(tracker tracker.Tracker) {
 		require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
-			return f(objClient, NewStorage(objClient, nil, opts...))
+			return f(objClient, NewStorage(objClient, nil, tracker, opts...))
 		}))
 	})
 }
@@ -32,12 +33,12 @@ func RandSeq(n int) []byte {
 // Reference creates a data reference for the full chunk referenced by a data reference.
 func Reference(dataRef *DataRef, tag string) *DataRef {
 	chunkRef := &DataRef{}
-	chunkRef.ChunkInfo = dataRef.ChunkInfo
-	chunkRef.SizeBytes = dataRef.ChunkInfo.SizeBytes
+	chunkRef.ChunkRef = dataRef.ChunkRef
+	chunkRef.SizeBytes = dataRef.ChunkRef.SizeBytes
 	chunkRef.Tags = []*Tag{
 		&Tag{
 			Id:        tag,
-			SizeBytes: dataRef.ChunkInfo.SizeBytes,
+			SizeBytes: dataRef.ChunkRef.SizeBytes,
 		},
 	}
 	return chunkRef
