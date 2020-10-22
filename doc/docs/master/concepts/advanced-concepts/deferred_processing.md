@@ -277,7 +277,7 @@ branch and recreate it.
 There are three conditions on which you can trigger the repointing of a branch.
 
 - time, using a cron specification (--trigger-cron)
-- size (--trigger-cron)
+- size (--trigger-size)
 - number of commits (--trigger-commits)
 
 When more than one is specified, a branch repoint will be triggered when any of
