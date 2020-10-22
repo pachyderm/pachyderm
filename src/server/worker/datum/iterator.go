@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 
 	"github.com/cevaris/ordered_map"
@@ -55,7 +56,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		} else if err != nil {
 			return nil, err
 		}
-		g := glob.MustCompile(input.Glob, '/')
+		g := glob.MustCompile(hashtree.Clean(input.Glob), '/')
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
 		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,

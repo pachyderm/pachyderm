@@ -45,9 +45,9 @@ func externalDefault(s string) string {
 	return s
 }
 
-// clean canonicalizes 'path' for internal use: leading slash and no trailing
+// Clean canonicalizes 'path' for internal use: leading slash and no trailing
 // slash. Also, clean the result with internalDefault.
-func clean(p string) string {
+func Clean(p string) string {
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
 	}
@@ -62,18 +62,18 @@ func base(p string) string {
 // split is like path.Split, but uses this library's defaults for canonical
 // paths
 func split(p string) (string, string) {
-	return clean(path.Dir(p)), base(p)
+	return Clean(path.Dir(p)), base(p)
 }
 
 // join is like path.Join, but uses our version of 'clean()' instead of
 // path.Clean()
 func join(ps ...string) string {
-	return clean(path.Join(ps...))
+	return Clean(path.Join(ps...))
 }
 
 // ValidatePath checks if a file path is legal
 func ValidatePath(path string) error {
-	path = clean(path)
+	path = Clean(path)
 	match, _ := regexp.MatchString("^[ -~]+$", path)
 
 	if !match {
