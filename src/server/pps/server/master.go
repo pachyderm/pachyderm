@@ -223,7 +223,7 @@ func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state
 
 // transitionPipelineState is similar to setPipelineState, except that it sets
 // 'from' and logs a different trace
-func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string, from, to pps.PipelineState, reason string) (retErr error) {
+func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState", "pipeline", pipeline,
 		"from-state", from, "to-state", to)
@@ -232,5 +232,5 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 		tracing.FinishAnySpan(span)
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
-		pipeline, &from, to, reason)
+		pipeline, from, to, reason)
 }

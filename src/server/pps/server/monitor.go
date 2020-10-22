@@ -208,8 +208,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 				if err := a.transitionPipelineState(pachClient.Ctx(),
 					pipeline,
-					pps.PipelineState_PIPELINE_RUNNING,
-					pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+					[]pps.PipelineState{
+						pps.PipelineState_PIPELINE_RUNNING,
+						pps.PipelineState_PIPELINE_CRASHING,
+					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -250,7 +252,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
-							pps.PipelineState_PIPELINE_STANDBY,
+							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
 							pte := &ppsutil.PipelineTransitionError{}
@@ -282,8 +284,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
-							pps.PipelineState_PIPELINE_RUNNING,
-							pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+							[]pps.PipelineState{
+								pps.PipelineState_PIPELINE_RUNNING,
+								pps.PipelineState_PIPELINE_CRASHING,
+							}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 							pte := &ppsutil.PipelineTransitionError{}
 							if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -334,7 +338,7 @@ func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parall
 		}
 		if workersUp {
 			if err := a.transitionPipelineState(ctx, pipeline,
-				pps.PipelineState_PIPELINE_CRASHING,
+				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")
 			}
