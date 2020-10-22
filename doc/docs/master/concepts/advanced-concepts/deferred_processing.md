@@ -231,7 +231,7 @@ reaches a certain size, or at a specific time interval, such as daily, or
 other. This can be automated using branch triggers. A trigger is a relationship
 between two branches, such as `master` and `staging` in the examples above,
 that says: when the head commit of `staging` meets a certain condition it
-should trigger `master` to update its head that same commit. In other words it
+should trigger `master` to update its head to that same commit. In other words it
 does `pachctl create branch data@master --head staging` automatically when the
 trigger condition is met.
 
