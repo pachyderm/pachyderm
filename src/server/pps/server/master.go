@@ -168,6 +168,12 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		// cancel all monitorPipeline and monitorCrashingPipeline goroutines.
+		// Strictly speaking, this should be unnecessary, as the base context for
+		// all monitor goros is cancelled by 'defer cancel()' at the beginning of
+		// 'RetryNotify' above. However, these cancel calls also block until the
+		// monitor goros exit, ensuring that a leftover goro won't interfere with a
+		// subsequent iteration
 		a.cancelAllMonitorsAndCrashingMonitors(nil)
 		a.monitorCancelsMu.Lock()
 		defer a.monitorCancelsMu.Unlock()
