@@ -207,14 +207,23 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
-					a.env.GetEtcdClient(), pipeline, "/pps.Master/MonitorPipeline",
-					"standby", pipelineInfo.Standby)
-				if span != nil {
-					pachClient = pachClient.WithCtx(ctx)
+				var (
+					oldCtx        = pachClient.Ctx()
+					oldPachClient = pachClient
+					childSpan     opentracing.Span
+					ctx           context.Context
+				)
+				defer func() {
+					// childSpan is overwritten so wrap in a lambda for late binding
+					tracing.FinishAnySpan(childSpan)
+				}()
+				// start span to capture & contextualize etcd state transition
+				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+					a.env.GetEtcdClient(), pipeline,
+					"/pps.Master/MonitorPipeline/Begin")
+				if childSpan != nil {
+					pachClient = oldPachClient.WithCtx(ctx)
 				}
-				defer tracing.FinishAnySpan(span)
-
 				if err := a.transitionPipelineState(pachClient.Ctx(),
 					pipeline,
 					[]pps.PipelineState{
@@ -233,14 +242,6 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					}
 					return err
 				}
-				var (
-					childSpan     opentracing.Span
-					oldCtx        = ctx
-					oldPachClient = pachClient
-				)
-				defer func() {
-					tracing.FinishAnySpan(childSpan) // Finish any dangling children of 'span'
-				}()
 				for {
 					// finish span from previous loops
 					tracing.FinishAnySpan(childSpan)
@@ -256,9 +257,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						if ci.Finished != nil {
 							continue
 						}
-						childSpan, ctx = tracing.AddSpanToAnyExisting(
-							oldCtx, "/pps.Master/MonitorPipeline_SpinUp",
-							"pipeline", pipeline, "commit", ci.Commit.ID)
+						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+							a.env.GetEtcdClient(), pipeline,
+							"/pps.Master/MonitorPipeline/SpinUp",
+							"commit", ci.Commit.ID)
 						if childSpan != nil {
 							pachClient = oldPachClient.WithCtx(ctx)
 						}
@@ -288,10 +290,19 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 								return err
 							}
 
+							tracing.FinishAnySpan(childSpan)
+							childSpan = nil
 							select {
 							case ci, ok = <-ciChan:
 								if !ok {
 									return nil // subscribeCommit exited, nothing left to do
+								}
+								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+									a.env.GetEtcdClient(), pipeline,
+									"/pps.Master/MonitorPipeline/WatchNext",
+									"commit", ci.Commit.ID)
+								if childSpan != nil {
+									pachClient = oldPachClient.WithCtx(ctx)
 								}
 							default:
 								break running
