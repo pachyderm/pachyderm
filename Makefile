@@ -269,6 +269,7 @@ test-cmds:
 	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
+	go test -v -count=20 ./src/server/pps/cmds -run TestPipelineBuildLifecycleGo -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)

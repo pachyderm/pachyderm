@@ -673,6 +673,9 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 		"dir", dir,
 		"spec", spec,
 	).Run())
+	require.YesError(t, tu.BashCmd(`
+		pachctl list pipeline --state failure | match test-pipeline-build
+	`).Run())
 	verifyPipelineBuildOutput(t, "0")
 
 	// update the barebones pipeline and verify results

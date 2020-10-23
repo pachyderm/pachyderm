@@ -3,7 +3,7 @@
 set -Eex
 
 # Parse flags
-VERSION=v1.13.0
+VERSION=v1.18.0
 minikube_args=(
   "--vm-driver=none"
   "--kubernetes-version=${VERSION}"
