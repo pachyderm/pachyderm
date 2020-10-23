@@ -58,14 +58,7 @@ func (a *apiServer) master() {
 		log.Infof("PPS master: launching master process")
 
 		// start pollPipelines in the background to regularly refresh pipelines
-		func() {
-			a.monitorCancelsMu.Lock()
-			defer a.monitorCancelsMu.Unlock()
-			a.pollCancel = startMonitorThread(pachClient, "pollPipelines",
-				func(pachClient *client.APIClient) {
-					a.pollPipelines(pachClient.Ctx())
-				})
-		}()
+		a.startPipelinePoller(ctx)
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -175,12 +168,7 @@ func (a *apiServer) master() {
 		// monitor goros exit, ensuring that a leftover goro won't interfere with a
 		// subsequent iteration
 		a.cancelAllMonitorsAndCrashingMonitors(nil)
-		a.monitorCancelsMu.Lock()
-		defer a.monitorCancelsMu.Unlock()
-		if a.pollCancel != nil {
-			a.pollCancel()
-			a.pollCancel = nil
-		}
+		a.cancelPipelinePoller()
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -265,69 +253,4 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
 		pipeline, from, to, reason)
-}
-
-func (a *apiServer) pollPipelines(ctx context.Context) {
-	if err := backoff.RetryUntilCancel(ctx, func() error {
-		// 1. Get the set of pipelines currently in etcd, and generate an etcd event
-		// for each one (to trigger the pipeline controller)
-		etcdPipelines := map[string]bool{}
-		pachClient := a.env.GetPachClient(ctx)
-		// collect all pipelines in etcd
-		if err := a.listPipelinePtr(pachClient, nil, 0,
-			func(pipeline string, listPI *pps.EtcdPipelineInfo) error {
-				log.Debugf("PPS master: polling pipeline %q", pipeline)
-				etcdPipelines[pipeline] = true
-				var curPI pps.EtcdPipelineInfo
-				_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-					// Read & immediately write
-					return a.pipelines.ReadWrite(stm).Update(pipeline, &curPI, func() error { return nil })
-				})
-				if col.IsErrNotFound(err) {
-					log.Warnf("%q polling conflicted with delete, will retry", pipeline)
-				} else if err != nil {
-					log.Errorf("could not poll %q: %v", pipeline, err)
-				}
-				return nil // no error recovery to do here, just keep polling...
-			}); err != nil {
-			// listPipelinePtr results (etcdPipelines) are used by the next two
-			// steps (RC cleanup and Monitor cleanup), so if that didn't work, sleep
-			// and try again
-			return errors.Wrap(err, "error polling pipelines")
-		}
-
-		// 2. Clean up any orphaned RCs (because we can't generate etcd delete
-		// events for the master to process)
-		kc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.env.Namespace)
-		rcs, err := kc.List(metav1.ListOptions{
-			LabelSelector: "suite=pachyderm,pipelineName",
-		})
-		if err != nil {
-			return errors.Wrap(err, "error polling pipeline RCs")
-		}
-		for _, rc := range rcs.Items {
-			pipeline, ok := rc.Labels["pipelineName"]
-			if !ok {
-				return errors.New("'pipelineName' label missing from rc " + rc.Name)
-			}
-			if !etcdPipelines[pipeline] {
-				if err := a.deletePipelineResources(ctx, pipeline); err != nil {
-					// log the error but don't return it, so that one broken RC doesn't
-					// block pollPipelines
-					log.Errorf("could not delete resources for %q: %v", pipeline, err)
-				}
-			}
-		}
-
-		// 3. Clean up any orphaned monitorPipeline and monitorCrashingPipeline
-		// goros
-		a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
-		return backoff.ErrContinue
-	}, backoff.NewConstantBackOff(30*time.Second),
-		backoff.NotifyContinue("pollPipelines"),
-	); err != nil {
-		if ctx.Err() == nil {
-			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
-		}
-	}
 }
