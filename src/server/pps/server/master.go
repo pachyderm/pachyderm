@@ -102,6 +102,8 @@ func (a *apiServer) master() {
 					}
 				case watch.EventDelete:
 					// TODO(msteffen) trace this call
+					// This is also called by pollPipelines below, if it discovers
+					// dangling monitorPipeline goroutines
 					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
 						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", err)
 					}
@@ -273,7 +275,8 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 			log.Errorf("could not list pipelines for polling: %v\n", err)
 			continue // sleep and try again
 		}
-		// check for orphaned monitorPipeline/monitorCrashingPipeline goros
+
+		// Check for orphaned monitorPipeline/monitorCrashingPipeline goros
 		func() {
 			a.monitorCancelsMu.Lock()
 			defer a.monitorCancelsMu.Unlock()
