@@ -285,7 +285,7 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 				})
 				if col.IsErrNotFound(err) {
 					log.Warnf("%q polling conflicted with delete, will retry", pipeline)
-				} else {
+				} else if err != nil {
 					log.Errorf("could not poll %q: %v", pipeline, err)
 				}
 				return nil // no error recovery to do here, just keep polling...
