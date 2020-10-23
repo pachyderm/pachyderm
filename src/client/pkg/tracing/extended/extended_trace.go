@@ -141,7 +141,7 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	// return new span
 	span, ctx := opentracing.StartSpanFromContext(ctx,
 		operation, opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{"pipeline", pipeline})
+		opentracing.Tag{Key: "pipeline", Value: pipeline})
 	tracing.TagAnySpan(span, kvs...)
 	return span, ctx
 }
