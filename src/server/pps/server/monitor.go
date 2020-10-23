@@ -27,6 +27,7 @@ import (
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -36,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
@@ -155,6 +157,22 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) 
 			cancel()
 			delete(monitorMap, p)
 		}
+	}
+}
+
+// startPipelinePoller starts a new goroutine running pollPipelines
+func (a *apiServer) startPipelinePoller(ppsMasterClient *client.APIClient) {
+	a.monitorCancelsMu.Lock()
+	defer a.monitorCancelsMu.Unlock()
+	a.pollCancel = startMonitorThread(ppsMasterClient, "pollPipelines", a.pollPipelines)
+}
+
+func (a *apiServer) cancelPipelinePoller() {
+	a.monitorCancelsMu.Lock()
+	defer a.monitorCancelsMu.Unlock()
+	if a.pollCancel != nil {
+		a.pollCancel()
+		a.pollCancel = nil
 	}
 }
 
@@ -443,5 +461,70 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 
 		// set latestTime to the next time
 		latestTime = next
+	}
+}
+
+func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
+	ctx := pachClient.Ctx()
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		// 1. Get the set of pipelines currently in etcd, and generate an etcd event
+		// for each one (to trigger the pipeline controller)
+		etcdPipelines := map[string]bool{}
+		// collect all pipelines in etcd
+		if err := a.listPipelinePtr(pachClient, nil, 0,
+			func(pipeline string, listPI *pps.EtcdPipelineInfo) error {
+				log.Debugf("PPS master: polling pipeline %q", pipeline)
+				etcdPipelines[pipeline] = true
+				var curPI pps.EtcdPipelineInfo
+				_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+					// Read & immediately write
+					return a.pipelines.ReadWrite(stm).Update(pipeline, &curPI, func() error { return nil })
+				})
+				if col.IsErrNotFound(err) {
+					log.Warnf("%q polling conflicted with delete, will retry", pipeline)
+				} else if err != nil {
+					log.Errorf("could not poll %q: %v", pipeline, err)
+				}
+				return nil // no error recovery to do here, just keep polling...
+			}); err != nil {
+			// listPipelinePtr results (etcdPipelines) are used by the next two
+			// steps (RC cleanup and Monitor cleanup), so if that didn't work, sleep
+			// and try again
+			return errors.Wrap(err, "error polling pipelines")
+		}
+
+		// 2. Clean up any orphaned RCs (because we can't generate etcd delete
+		// events for the master to process)
+		kc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.env.Namespace)
+		rcs, err := kc.List(metav1.ListOptions{
+			LabelSelector: "suite=pachyderm,pipelineName",
+		})
+		if err != nil {
+			return errors.Wrap(err, "error polling pipeline RCs")
+		}
+		for _, rc := range rcs.Items {
+			pipeline, ok := rc.Labels["pipelineName"]
+			if !ok {
+				return errors.New("'pipelineName' label missing from rc " + rc.Name)
+			}
+			if !etcdPipelines[pipeline] {
+				if err := a.deletePipelineResources(ctx, pipeline); err != nil {
+					// log the error but don't return it, so that one broken RC doesn't
+					// block pollPipelines
+					log.Errorf("could not delete resources for %q: %v", pipeline, err)
+				}
+			}
+		}
+
+		// 3. Clean up any orphaned monitorPipeline and monitorCrashingPipeline
+		// goros
+		a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
+		return backoff.ErrContinue
+	}, backoff.NewConstantBackOff(30*time.Second),
+		backoff.NotifyContinue("pollPipelines"),
+	); err != nil {
+		if ctx.Err() == nil {
+			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
+		}
 	}
 }
