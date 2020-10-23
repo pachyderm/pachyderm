@@ -442,7 +442,6 @@ func (op *pipelineOp) startPipelineMonitor() {
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.stopPipelineMonitor()
 	op.apiServer.startCrashingMonitor(op.masterClient, op.ptr.Parallelism, op.pipelineInfo)
 }
 
