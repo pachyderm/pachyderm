@@ -189,9 +189,9 @@ func (p PipelineTransitionError) Error() string {
 		p.Pipeline, froms.String(), p.Target, p.Current)
 }
 
-// SetPipelineState is a helper that moves the state of 'pipeline' from 'from'
-// (if not nil) to 'to'. It will annotate any trace in 'ctx' with information
-// about 'pipeline' that it reads.
+// SetPipelineState is a helper that moves the state of 'pipeline' from any of
+// the states in 'from' (if not nil) to 'to'. It will annotate any trace in
+// 'ctx' with information about 'pipeline' that it reads.
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
