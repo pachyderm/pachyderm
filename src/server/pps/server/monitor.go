@@ -339,7 +339,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
-// allWorkersUp is a helper used by monitorCrashingPipelinejkjk
+// allWorkersUp is a helper used by monitorCrashingPipeline
 func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
 	parallelism := int(parallelism64)
 	if parallelism == 0 {
