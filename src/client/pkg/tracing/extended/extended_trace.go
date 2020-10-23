@@ -2,17 +2,14 @@ package extended
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
@@ -61,9 +58,9 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	if !tracing.IsActive() {
 		return
 	}
-	// No incoming trace, so nothing to propagate
-	parentSpan := opentracing.SpanFromContext(ctx)
-	if parentSpan == nil {
+	span := opentracing.SpanFromContext(ctx)
+	if span == nil {
+		// No incoming trace, so nothing to propagate
 		return
 	}
 
@@ -89,19 +86,13 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		duration = defaultDuration
 	}
 
-	// Create trace
-	extendedSpan := opentracing.StartSpan("/pps.API/PipelineLifetime",
-		opentracing.FollowsFrom(parentSpan.Context()),
-		opentracing.Tag{"pipeline", pipeline})
-
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
 		Pipeline:        pipeline,
 	}
 	opentracing.GlobalTracer().Inject(
-		extendedSpan.Context(),
-		opentracing.TextMap,
+		span.Context(), opentracing.TextMap,
 		opentracing.TextMapCarrier(traceProto.SerializedTrace),
 	)
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
@@ -127,21 +118,21 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 		return nil, ctx // no Jaeger instance to send trace info to
 	}
 
-	var extendedTrace TraceProto
+	traceProto := &TraceProto{}
 	tracesCol := TracesCol(c).ReadOnly(ctx)
-	if err := tracesCol.Get(pipeline, &extendedTrace); err != nil {
+	if err := tracesCol.Get(pipeline, traceProto); err != nil {
 		if !col.IsErrNotFound(err) {
 			log.Errorf("error getting trace for pipeline %q: %v", pipeline, err)
 		}
 		return nil, ctx
 	}
-	if !extendedTrace.isValid() {
+	if !traceProto.isValid() {
 		return nil, ctx // no trace found
 	}
 
-	// Deserialize opentracing span from 'extendedTrace'
+	// Deserialize opentracing span from 'traceProto'
 	spanCtx, err := opentracing.GlobalTracer().Extract(opentracing.TextMap,
-		opentracing.TextMapCarrier(extendedTrace.SerializedTrace))
+		opentracing.TextMapCarrier(traceProto.SerializedTrace))
 	if err != nil {
 		log.Errorf("could not extract span context from ExtendedTrace proto: %v", err)
 		return nil, ctx
