@@ -268,25 +268,9 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 }
 
 func (a *apiServer) pollPipelines(ctx context.Context) {
-	start := time.Now()
-	for {
-		// wait until at least 10s after last loop, so this doesn't ping too
-		// frequently (current cap: once/10s)
-		select {
-		case <-time.After(start.Add(10 * time.Second).Sub(time.Now())):
-			// Inner select: confirm that ctx is not done. It's possible that both
-			// time.After() and ctx.Done() are ready, and time.After() is randomly
-			// chosen over ctx.Done().
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-		case <-ctx.Done():
-			return
-		}
-		start = time.Now()
-
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		// 1. Get the set of pipelines currently in etcd, and generate an etcd event
+		// for each one (to trigger the pipeline controller)
 		etcdPipelines := map[string]bool{}
 		pachClient := a.env.GetPachClient(ctx)
 		// collect all pipelines in etcd
@@ -306,11 +290,20 @@ func (a *apiServer) pollPipelines(ctx context.Context) {
 				}
 				return nil // no error recovery to do here, just keep polling...
 			}); err != nil {
-			log.Errorf("could not list pipelines for polling: %v\n", err)
-			continue // sleep and try again
+			// listPipelinePtr results (etcdPipelines) are used by the next two
+			// steps (RC cleanup and Monitor cleanup), so if that didn't work, sleep
+			// and try again
+			return errors.Wrap(err, "error polling pipelines")
 		}
 
 		// Clean up any orphaned monitorPipeline and monitorCrashingPipeline goros
 		a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
+		return backoff.ErrContinue
+	}, backoff.NewConstantBackOff(30*time.Second),
+		backoff.NotifyContinue("pollPipelines"),
+	); err != nil {
+		if ctx.Err() == nil {
+			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
+		}
 	}
 }
