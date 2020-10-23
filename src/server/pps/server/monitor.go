@@ -147,7 +147,7 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) 
 	defer a.monitorCancelsMu.Unlock()
 	for _, monitorMap := range []map[string]func(){a.monitorCancels, a.crashingMonitorCancels} {
 		remove := make([]string, 0, len(monitorMap))
-		for p, _ := range monitorMap {
+		for p := range monitorMap {
 			if !leave[p] {
 				remove = append(remove, p)
 			}
