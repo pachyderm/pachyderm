@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
@@ -124,9 +125,10 @@ func (a *apiServer) newPipelineOp(masterClient *client.APIClient, opClient *clie
 	if err := a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
 	}
+	// Update trace with any new pipeline info from getPipelineInfo()
 	tracing.TagAnySpan(opClient.Ctx(),
-		"state", op.ptr.State.String(),
-		"spec-commit", op.ptr.SpecCommit)
+		"current-state", op.ptr.State.String(),
+		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
 	// set op.pipelineInfo
 	if err := op.getPipelineInfo(); err != nil {
 		return nil, err
