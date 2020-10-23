@@ -208,18 +208,6 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 	return nil
 }
 
-func notifyCtx(ctx context.Context, name string) func(error, time.Duration) error {
-	return func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
-			return context.DeadlineExceeded
-		default:
-			log.Errorf("error in %s: %v: retrying in: %v", name, err, d)
-		}
-		return nil
-	}
-}
-
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
 func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state pps.PipelineState, reason string) (retErr error) {

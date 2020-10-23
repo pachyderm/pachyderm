@@ -175,7 +175,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
 					return a.makeCronCommits(pachClient, in)
-				}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
+				}, backoff.NewInfiniteBackOff(),
+					backoff.NotifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
 			})
 		}
 	})
@@ -192,7 +193,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						ciChan <- ci
 						return nil
 					})
-			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
+			}, backoff.NewInfiniteBackOff(),
+				backoff.NotifyCtx(pachClient.Ctx(), "SubscribeCommit for "+pipeline))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
