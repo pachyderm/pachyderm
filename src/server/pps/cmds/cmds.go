@@ -1139,7 +1139,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 		}
 
 		// Add trace if env var is set
-		ctx, err := extended.SetTraceDuration(pc.Ctx())
+		ctx, err := extended.EmbedAnyDuration(pc.Ctx())
 		pc = pc.WithCtx(ctx)
 		if err != nil {
 			logrus.Warning(err)

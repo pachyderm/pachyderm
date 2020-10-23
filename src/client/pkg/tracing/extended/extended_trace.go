@@ -146,12 +146,12 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	return span, ctx
 }
 
-// SetTraceDuration 'ctx' (and returns an augmented context) based on whether
-// the environment variable in 'ExtendedTraceEnvVar' is set.
-// Returns a context that may have the new span attached, and 'true' if an an
-// extended trace was created, or 'false' otherwise. Currently only called by
-// the CreatePipeline cobra command
-func SetTraceDuration(ctx context.Context) (newCtx context.Context, err error) {
+// EmbedAnyDuration augments 'ctx' (and returns a new ctx) based on whether
+// the environment variable in 'ExtendedTraceEnvVar' is set.  Returns a context
+// that may have the new span attached, and 'true' if an an extended trace was
+// created, or 'false' otherwise. Currently only called by the CreatePipeline
+// cobra command
+func EmbedAnyDuration(ctx context.Context) (newCtx context.Context, err error) {
 	duration, ok := os.LookupEnv(TraceDurationEnvVar)
 	if !ok {
 		return ctx, nil // PACH_TRACE_DURATION is not set
