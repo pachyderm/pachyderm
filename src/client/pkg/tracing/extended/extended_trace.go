@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	// traceCtxKey is the grpc metadata key whose value is a serialized
+	// traceMDKey is the grpc metadata key whose value is a serialized
 	// ExtendedTrace proto tied to the current CreatePipeline request. In a grpc
 	// quirk, this key must end in '-bin' so that the value (a serialized
 	// timestamp) is treated as arbitrary bytes and base-64 encoded before being
 	// transmitted (see
 	// https://github.com/grpc/grpc-go/blob/b2c5f4a808fd5de543c4e987cd85d356140ed681/Documentation/grpc-metadata.md)
-	traceCtxKey = "pipeline-trace-duration-bin"
+	traceMDKey = "pipeline-trace-duration-bin"
 
 	// TracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
@@ -70,7 +70,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	}
 
 	// Expected len('vals') is 0 or 1
-	vals := md.Get(traceCtxKey)
+	vals := md.Get(traceMDKey)
 	if len(vals) == 0 {
 		return // no extended trace attached to RPC
 	}
@@ -161,9 +161,11 @@ func EmbedAnyDuration(ctx context.Context) (newCtx context.Context, err error) {
 			TraceDurationEnvVar, tracing.ShortTraceEnvVar)
 	}
 	if _, err := time.ParseDuration(duration); err != nil {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceCtxKey, defaultDuration.String()))
-		return ctx, errors.Wrapf(err, "could not parse duration %q (using default duration %q)", duration, defaultDuration)
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceMDKey,
+			defaultDuration.String()))
+		return ctx, errors.Wrapf(err,
+			"could not parse duration %q (using default duration %q)", duration, defaultDuration)
 	}
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceCtxKey, duration))
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(traceMDKey, duration))
 	return ctx, nil
 }
