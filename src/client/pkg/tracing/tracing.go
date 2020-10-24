@@ -32,6 +32,10 @@ const JaegerServiceName = "pachd"
 // traces hard to find in Jaeger, so you may not want this variable set for
 // every call.
 const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
+
+// ShortTraceEnvVar is what the client reads to decide whether to send a trace.
+// Below, this is implemented by the span inclusion func
+// addTraceIfTracingEnabled() (which is itself used by the GRPC interceptor)
 const ShortTraceEnvVar = "PACH_TRACE"
 
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once

@@ -28,7 +28,7 @@ const (
 	// collection in etcd (which maps pipelines and commits to extended traces)
 	tracesCollectionPrefix = "commit_traces"
 
-	// ExtendedTraceEnvVar determines whether a traced 'CreatePipeline' RPC is
+	// TraceDurationEnvVar determines whether a traced 'CreatePipeline' RPC is
 	// propagated to the PPS master, and whether worker creation and such is
 	// traced in addition to the original RPC. This value should be set to a
 	// go duration to create an extended trace
@@ -102,7 +102,6 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v. ",
 			vals[0], pipeline, err, defaultDuration)
 	}
-	return
 }
 
 func (t *TraceProto) isValid() bool {
