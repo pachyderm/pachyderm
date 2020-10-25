@@ -105,7 +105,7 @@ func (a *apiServer) master() {
 					// This is also called by pollPipelines below, if it discovers
 					// dangling monitorPipeline goroutines
 					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
-						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", err)
+						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
 					}
 				}
 			case event := <-watchChan:
