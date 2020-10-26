@@ -6,8 +6,10 @@ import (
 	io "io"
 	"io/ioutil"
 	"path"
+	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 )
@@ -137,4 +139,26 @@ func chunkPath(chunkID ChunkID) string {
 
 func chunkObjectID(chunkID ChunkID) string {
 	return "chunk/" + chunkID.HexString()
+}
+
+var _ tracker.Deleter = &deleter{}
+
+type deleter struct {
+	mdstore MetadataStore
+	objc    obj.Client
+}
+
+func (d *deleter) Delete(ctx context.Context, id string) error {
+	const prefix = "chunks/"
+	if !strings.HasPrefix(id, prefix) {
+		return errors.Errorf("cannot delete (%s)", id)
+	}
+	chunkID, err := ChunkIDFromHex(id[len(prefix):])
+	if err != nil {
+		return err
+	}
+	if err := d.objc.Delete(ctx, chunkPath(chunkID)); err != nil {
+		return err
+	}
+	return d.mdstore.DeleteChunkMetadata(ctx, chunkID)
 }

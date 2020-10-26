@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,19 +12,27 @@ type Deleter interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type DeleterFactory func(string) Deleter
+type DeleterMux func(string) Deleter
 
-type GC struct {
-	tracker    Tracker
-	period     time.Duration
-	getDeleter DeleterFactory
+func (dm DeleterMux) Delete(ctx context.Context, id string) error {
+	deleter := dm(id)
+	if deleter == nil {
+		return errors.Errorf("deleter mux does not have deleter for (%s)", id)
+	}
+	return deleter.Delete(ctx, id)
 }
 
-func NewGC(tracker Tracker, period time.Duration, getDeleter DeleterFactory) *GC {
+type GC struct {
+	tracker Tracker
+	period  time.Duration
+	deleter Deleter
+}
+
+func NewGC(tracker Tracker, period time.Duration, deleter Deleter) *GC {
 	return &GC{
-		tracker:    tracker,
-		period:     period,
-		getDeleter: getDeleter,
+		tracker: tracker,
+		period:  period,
+		deleter: deleter,
 	}
 }
 
@@ -54,11 +63,10 @@ func (gc *GC) runOnce(ctx context.Context) error {
 }
 
 func (gc *GC) deleteObject(ctx context.Context, id string) error {
-	deleter := gc.getDeleter(id)
 	if err := gc.tracker.MarkTombstone(ctx, id); err != nil {
 		return err
 	}
-	if err := deleter.Delete(ctx, id); err != nil {
+	if err := gc.deleter.Delete(ctx, id); err != nil {
 		return err
 	}
 	if err := gc.tracker.DeleteObject(ctx, id); err != nil {

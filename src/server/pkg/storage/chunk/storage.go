@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"context"
-	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -58,59 +57,24 @@ func (s *Storage) List(ctx context.Context, f func(string) error) error {
 	return s.objClient.Walk(ctx, prefix, f)
 }
 
-// DeleteAll deletes all of the chunks in object storage.
-func (s *Storage) DeleteAll(ctx context.Context) error {
-	return s.objClient.Walk(ctx, prefix, func(hash string) error {
-		return s.objClient.Delete(ctx, hash)
-	})
+// // DeleteAll deletes all of the chunks in object storage.
+// func (s *Storage) DeleteAll(ctx context.Context) error {
+// 	panic("don't call this")
+// 	return s.objClient.Walk(ctx, prefix, func(hash string) error {
+// 		return s.objClient.Delete(ctx, hash)
+// 	})
+// }
+
+// // Delete deletes a chunk in object storage.
+// func (s *Storage) Delete(ctx context.Context, hash string) error {
+// 	panic("don't call this")
+// 	return s.objClient.Delete(ctx, path.Join(prefix, hash))
+// }
+
+// NewDeleter creates a deleter for use with a tracker.GC
+func (s *Storage) NewDeleter() tracker.Deleter {
+	return &deleter{
+		mdstore: s.mdstore,
+		objc:    s.objClient,
+	}
 }
-
-// Delete deletes a chunk in object storage.
-func (s *Storage) Delete(ctx context.Context, hash string) error {
-	return s.objClient.Delete(ctx, path.Join(prefix, hash))
-}
-
-// // CreateSemanticReference creates a semantic reference to a chunk.
-// func (s *Storage) CreateSemanticReference(ctx context.Context, name string, chunk *Chunk) error {
-// 	return s.gcClient.CreateReference(ctx, semanticReference(name, chunk.Hash))
-// }
-
-// // CreateTemporaryReference creates a semantic reference to a chunk.
-// func (s *Storage) CreateTemporaryReference(ctx context.Context, name string, chunk *Chunk, ttl time.Duration) (time.Time, error) {
-// 	expiresAt := time.Now().Add(ttl)
-// 	if err := s.gcClient.CreateReference(ctx, temporaryReference(name, chunk.Hash, expiresAt)); err != nil {
-// 		return time.Time{}, err
-// 	}
-// 	return expiresAt, nil
-// }
-
-// // DeleteSemanticReference deletes a semantic reference.
-// func (s *Storage) DeleteSemanticReference(ctx context.Context, name string) error {
-// 	return s.gcClient.DeleteReference(ctx, semanticReference(name, ""))
-// }
-
-// // RenewReference sets the time to live for a reference to now + ttl, and returns the new expire time.
-// func (s *Storage) RenewReference(ctx context.Context, name string, ttl time.Duration) (time.Time, error) {
-// 	expiresAt := time.Now().Add(ttl)
-// 	if err := s.gcClient.RenewReference(ctx, name, expiresAt); err != nil {
-// 		return time.Time{}, err
-// 	}
-// 	return expiresAt, nil
-// }
-
-// func semanticReference(name, chunk string) *gc.Reference {
-// 	return &gc.Reference{
-// 		Sourcetype: gc.STSemantic,
-// 		Source:     name,
-// 		Chunk:      path.Join(prefix, chunk),
-// 	}
-// }
-
-// func temporaryReference(name, chunk string, expiresAt time.Time) *gc.Reference {
-// 	return &gc.Reference{
-// 		Sourcetype: gc.STTemporary,
-// 		Source:     name,
-// 		Chunk:      path.Join(prefix, chunk),
-// 		ExpiresAt:  &expiresAt,
-// 	}
-// }
