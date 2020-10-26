@@ -12059,6 +12059,15 @@ func TestExtractPipeline(t *testing.T) {
 	if request.Spout != nil {
 		request.EnableStats = false
 	}
+	// Spouts and services can't use S3 inputs/outputs
+	if request.Spout != nil || request.Service != nil {
+		request.S3Out = false
+		pps.VisitInput(request.Input, func(input *pps.Input) {
+			if input.Pfs != nil {
+				input.Pfs.S3 = false
+			}
+		})
+	}
 
 	// Create the pipeline
 	_, err := c.PpsAPIClient.CreatePipeline(
