@@ -12458,8 +12458,8 @@ func TestCrashingToStandby(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestStandby_data")
-	pipeline := tu.UniqueString("TestStandby")
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	pipeline := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(dataRepo))
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
