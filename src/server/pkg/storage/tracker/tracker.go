@@ -5,13 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 )
 
 var (
 	ErrObjectExists = errors.Errorf("object exists")
-	ErrDanglingRef  = errors.Errorf("cannot create object because references a non-existant object")
+	ErrDanglingRef  = errors.Errorf("the operation would create a dangling reference")
 	ErrTombstone    = errors.Errorf("cannot create object because it is marked as a tombstone")
 	ErrNotTombstone = errors.Errorf("object cannot be deleted because it is not marked as a tombstone")
 )
@@ -80,6 +82,46 @@ func TestTracker(t *testing.T, withTracker func(func(Tracker))) {
 				require.Nil(t, tracker.CreateObject(ctx, "3", []string{"1", "2"}, 0))
 			},
 		},
+		{
+			"GetReferences",
+			func(t *testing.T, tracker Tracker) {
+				require.Nil(t, tracker.CreateObject(ctx, "1", []string{}, 0))
+				require.Nil(t, tracker.CreateObject(ctx, "2", []string{}, 0))
+				require.Nil(t, tracker.CreateObject(ctx, "3", []string{"1", "2"}, 0))
+
+				dwn, err := tracker.GetDownstream(ctx, "3")
+				require.Nil(t, err)
+				require.ElementsEqual(t, []string{"1", "2"}, dwn)
+				ups, err := tracker.GetUpstream(ctx, "2")
+				require.Nil(t, err)
+				require.ElementsEqual(t, []string{"3"}, ups)
+			},
+		},
+		{
+			"DeleteSingleObject",
+			func(t *testing.T, tracker Tracker) {
+				id := "test"
+				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, 0))
+				require.Nil(t, tracker.MarkTombstone(ctx, id))
+				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
+				require.Nil(t, tracker.DeleteObject(ctx, id))
+			},
+		},
+		{
+			"ExpireSingleObject",
+			func(t *testing.T, tracker Tracker) {
+				require.Nil(t, tracker.CreateObject(ctx, "keep", []string{}, time.Hour))
+				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, time.Microsecond))
+				time.Sleep(time.Millisecond)
+
+				var toExpire []string
+				tracker.IterateExpired(ctx, func(id string) error {
+					toExpire = append(toExpire, id)
+					return nil
+				})
+				require.ElementsEqual(t, []string{"expire"}, toExpire)
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
@@ -91,6 +133,10 @@ func TestTracker(t *testing.T, withTracker func(func(Tracker))) {
 }
 
 func WithTestTracker(t testing.TB, cb func(tracker Tracker)) {
-	// TODO: in memory tracker
-	cb(nil)
+	dbutil.WithTestDB(t, func(db *sqlx.DB) {
+		db.MustExec("CREATE SCHEMA storage")
+		db.MustExec(schema)
+		tr := NewPGTracker(db)
+		cb(tr)
+	})
 }

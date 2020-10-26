@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 )
 

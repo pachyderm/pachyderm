@@ -22,7 +22,7 @@ const (
 // WithTestDB connects to postgres using the default settings, creates a database with a unique name
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
-func WithTestDB(t *testing.T, cb func(db *sqlx.DB)) {
+func WithTestDB(t testing.TB, cb func(db *sqlx.DB)) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", DefaultPostgresHost, DefaultPostgresPort, TestPostgresUser)
 	db := sqlx.MustOpen("postgres", dsn)
 	dbName := fmt.Sprintf("test_%d", time.Now().UnixNano())
