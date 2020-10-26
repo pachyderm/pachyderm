@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -3074,7 +3075,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	if err := checkFilePath(file.Path); err != nil {
 		return nil, err
 	}
-	if err := hashtree.ValidatePath(file.Path); err != nil {
+	if err := ppath.ValidatePath(file.Path); err != nil {
 		return nil, err
 	}
 
@@ -3367,7 +3368,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err := checkFilePath(dst.Path); err != nil {
 		return err
 	}
-	if err := hashtree.ValidatePath(dst.Path); err != nil {
+	if err := ppath.ValidatePath(dst.Path); err != nil {
 		return err
 	}
 	branch := ""
@@ -3527,7 +3528,7 @@ func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInf
 }
 
 func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, pattern string) (rs []io.ReadCloser, retErr error) {
-	prefix := hashtree.GlobLiteralPrefix(pattern)
+	prefix := ppath.GlobLiteralPrefix(pattern)
 	limiter := limit.New(hashtree.DefaultMergeConcurrency)
 	var eg errgroup.Group
 	var mu sync.Mutex
@@ -3787,7 +3788,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
-	if !hashtree.IsGlob(file.Path) {
+	if !ppath.IsGlob(file.Path) {
 		rs, err = d.getTree(pachClient, commitInfo, file.Path)
 	} else {
 		rs, err = d.getTrees(pachClient, commitInfo, file.Path)
@@ -4193,7 +4194,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
-	if !hashtree.IsGlob(pattern) {
+	if !ppath.IsGlob(pattern) {
 		rs, err = d.getTree(pachClient, commitInfo, pattern)
 	} else {
 		rs, err = d.getTrees(pachClient, commitInfo, pattern)
