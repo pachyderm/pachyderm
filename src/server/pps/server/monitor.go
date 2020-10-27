@@ -247,8 +247,12 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					childSpan = nil
 
 					var ci *pfs.CommitInfo
+					var ok bool
 					select {
-					case ci = <-ciChan:
+					case ci, ok = <-ciChan:
+						if !ok {
+							return nil // subscribeCommit exited, nothing left to do
+						}
 						if ci.Finished != nil {
 							continue
 						}
@@ -285,7 +289,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 
 							select {
-							case ci = <-ciChan:
+							case ci, ok = <-ciChan:
+								if !ok {
+									return nil // subscribeCommit exited, nothing left to do
+								}
 							default:
 								break running
 							}
