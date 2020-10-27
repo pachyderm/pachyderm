@@ -170,9 +170,8 @@ func (f *UnorderedWriter) Delete(name string, customTag ...string) {
 
 // PathsWritten returns the full paths (not prefixes) written by this UnorderedWriter
 func (f *UnorderedWriter) PathsWritten() (ret []string) {
-	name := removePrefix(f.name)
 	for i := int64(0); i < f.subFileSet; i++ {
-		p := path.Join(name, SubFileSetStr(i))
+		p := path.Join(f.name, SubFileSetStr(i))
 		ret = append(ret, p)
 	}
 	return ret

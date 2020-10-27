@@ -87,10 +87,3 @@ func WithNoUpload() WriterOption {
 		w.noUpload = true
 	}
 }
-
-// WithChunkTTL sets the ttl for chunks written with this writer
-func WithChunkTTL(ttl time.Duration) WriterOption {
-	return func(w *Writer) {
-		w.chunkTTL = ttl
-	}
-}

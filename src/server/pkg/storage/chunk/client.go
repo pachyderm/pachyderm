@@ -59,13 +59,12 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (Chu
 		return nil, err
 	}
 	chunkID := Hash(chunkData)
-
 	var pointsTo []string
 	for _, cid := range md.PointsTo {
-		pointsTo = append(pointsTo, chunkObjectID(cid))
+		pointsTo = append(pointsTo, ChunkObjectID(cid))
 	}
 	// TODO: retry on ErrTombstone
-	chunkOID := chunkObjectID(chunkID)
+	chunkOID := ChunkObjectID(chunkID)
 	if err := c.tracker.CreateObject(ctx, chunkOID, pointsTo, c.ttl); err != nil {
 		if err != tracker.ErrObjectExists {
 			return nil, err
@@ -92,7 +91,7 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (Chu
 		return nil, err
 	}
 	defer objW.Close()
-	if _, err = io.Copy(objW, r); err != nil {
+	if _, err = objW.Write(chunkData); err != nil {
 		return nil, err
 	}
 	if err := objW.Close(); err != nil {
@@ -134,10 +133,13 @@ func (c *Client) runLoop(ctx context.Context) error {
 }
 
 func chunkPath(chunkID ChunkID) string {
+	if len(chunkID) == 0 {
+		panic("chunkID cannot be empty")
+	}
 	return path.Join(prefix, chunkID.HexString())
 }
 
-func chunkObjectID(chunkID ChunkID) string {
+func ChunkObjectID(chunkID ChunkID) string {
 	return "chunk/" + chunkID.HexString()
 }
 

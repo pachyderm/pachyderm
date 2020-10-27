@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const (
@@ -47,7 +48,6 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
-	opts = append([]WriterOption{WithChunkTTL(defaultChunkTTL)}, opts...)
 	client := NewClient(s.objClient, s.mdstore, s.tracker, tmpID)
 	return newWriter(ctx, client, f, opts...)
 }
@@ -55,6 +55,11 @@ func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opt
 // List lists all of the chunks in object storage.
 func (s *Storage) List(ctx context.Context, f func(string) error) error {
 	return s.objClient.Walk(ctx, prefix, f)
+}
+
+// NewClient returns a Client for direct chunk manipulation
+func (s *Storage) NewClient() *Client {
+	return NewClient(s.objClient, s.mdstore, s.tracker, "client-"+uuid.NewWithoutDashes())
 }
 
 // // DeleteAll deletes all of the chunks in object storage.

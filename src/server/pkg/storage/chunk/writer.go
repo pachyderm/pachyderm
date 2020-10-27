@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
@@ -72,7 +71,6 @@ type Writer struct {
 	f                       WriterFunc
 	noUpload                bool
 	stats                   *stats
-	chunkTTL                time.Duration
 }
 
 func newWriter(ctx context.Context, client *Client, f WriterFunc, opts ...WriterOption) *Writer {
@@ -241,14 +239,7 @@ func copyAnnotation(a *Annotation) *Annotation {
 }
 
 func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-	// Process the annotations for the current chunk.
-	if err := w.processAnnotations(chunkRef, chunkBytes, annotations); err != nil {
-		return err
-	}
-	chunkID, err := w.maybeUpload(chunkBytes, pointsTo)
-	if err != nil {
-		return err
-	}
+	chunkID := Hash(chunkBytes)
 	chunkRef := &DataRef{
 		ChunkRef: &ChunkRef{
 			Id:        chunkID,
@@ -256,6 +247,14 @@ func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prev
 			Edge:      prevChan == nil || nextChan == nil,
 		},
 		SizeBytes: int64(len(chunkBytes)),
+	}
+	// Process the annotations for the current chunk.
+	pointsTo, err := w.processAnnotations(chunkRef, chunkBytes, annotations)
+	if err != nil {
+		return err
+	}
+	if _, err = w.maybeUpload(chunkBytes, pointsTo); err != nil {
+		return err
 	}
 	return w.executeFunc(annotations, prevChan, nextChan)
 }

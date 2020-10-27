@@ -4,7 +4,9 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 )
@@ -13,9 +15,14 @@ import (
 // the callback.
 func WithTestStorage(t testing.TB, f func(obj.Client, *Storage) error, opts ...StorageOption) {
 	tracker.WithTestTracker(t, func(tracker tracker.Tracker) {
-		require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
-			return f(objClient, NewStorage(objClient, nil, tracker, opts...))
-		}))
+		dbutil.WithTestDB(t, func(db *sqlx.DB) {
+			db.MustExec(schema)
+			mdstore := NewPGStore(db)
+			require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
+				return f(objClient, NewStorage(objClient, mdstore, tracker, opts...))
+			}))
+		})
+
 	})
 }
 

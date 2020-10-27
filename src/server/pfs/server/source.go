@@ -136,11 +136,7 @@ func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
 	h := pfs.NewHash()
 	if idx.DataOp != nil {
 		for _, dataRef := range idx.DataOp.DataRefs {
-			if dataRef.Hash == "" {
-				h.Write([]byte(dataRef.ChunkInfo.Chunk.Hash))
-			} else {
-				h.Write([]byte(dataRef.Hash))
-			}
+			h.Write([]byte(dataRef.Hash))
 		}
 	}
 	return &pfs.FileInfo{

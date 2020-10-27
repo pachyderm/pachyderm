@@ -2,10 +2,8 @@ package index
 
 import (
 	"context"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
@@ -32,30 +30,21 @@ type data struct {
 // Writer is used for creating a multilevel index into a serialized file set.
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
-	ctx     context.Context
-	objC    obj.Client
-	chunks  *chunk.Storage
-	path    string
-	tmpID   string
-	levels  []*levelWriter
-	closed  bool
-	root    *Index
-	rootTTL time.Duration
+	ctx    context.Context
+	chunks *chunk.Storage
+	tmpID  string
+	levels []*levelWriter
+	closed bool
+	root   *Index
 }
 
 // NewWriter create a new Writer.
-func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, tmpID string, opts ...WriterOption) *Writer {
-	w := &Writer{
+func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
+	return &Writer{
 		ctx:    ctx,
-		objC:   objC,
 		chunks: chunks,
-		path:   path,
 		tmpID:  tmpID,
 	}
-	for _, opt := range opts {
-		opt(w)
-	}
-	return w
 }
 
 // WriteIndexes writes a set of index entries.
@@ -140,7 +129,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() (retErr error) {
+func (w *Writer) Close() (ret *Index, retErr error) {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
@@ -149,39 +138,11 @@ func (w *Writer) Close() (retErr error) {
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
 		if err := l.cw.Close(); err != nil {
-			return err
+			return nil, err
 		}
 		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
 			break
 		}
 	}
-	// Write the final index level to the path.
-	objW, err := w.objC.Writer(w.ctx, w.path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := objW.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	// Handles the empty file set case.
-	if w.root == nil {
-		_, err = pbutil.NewWriter(objW).Write(&Index{})
-		return err
-	}
-	// TODO: this section is changed in the semantic path migration
-	//chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	// if w.rootTTL > 0 {
-	// 	_, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
-	// 		return err
-	// 	}
-	// }
-	_, err = pbutil.NewWriter(objW).Write(w.root)
-	return err
+	return w.root, nil
 }

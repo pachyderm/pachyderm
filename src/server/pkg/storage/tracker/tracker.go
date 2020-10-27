@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	ErrObjectExists = errors.Errorf("object exists")
-	ErrDanglingRef  = errors.Errorf("the operation would create a dangling reference")
-	ErrTombstone    = errors.Errorf("cannot create object because it is marked as a tombstone")
-	ErrNotTombstone = errors.Errorf("object cannot be deleted because it is not marked as a tombstone")
+	ErrObjectExists  = errors.Errorf("object exists")
+	ErrDanglingRef   = errors.Errorf("the operation would create a dangling reference")
+	ErrTombstone     = errors.Errorf("cannot create object because it is marked as a tombstone")
+	ErrNotTombstone  = errors.Errorf("object cannot be deleted because it is not marked as a tombstone")
+	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
 
 // Tracker tracks objects and their references to one another.
@@ -46,9 +47,9 @@ type Tracker interface {
 	// Marking something as a tombstone which is already a tombstone is not an error
 	MarkTombstone(ctx context.Context, id string) error
 
-	// Delete object deletes the object
-	// It is an error to call DeleteObject without calling SetTombstone.
-	DeleteObject(ctx context.Context, id string) error
+	// FinishDelete deletes the object
+	// It is an error to call DeleteObject without calling MarkTombstone.
+	FinishDelete(ctx context.Context, id string) error
 
 	// IterateExpired calls cb with all the objects which have expired or are tombstones.
 	IterateExpired(ctx context.Context, cb func(id string) error) error
@@ -104,7 +105,7 @@ func TestTracker(t *testing.T, withTracker func(func(Tracker))) {
 				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, 0))
 				require.Nil(t, tracker.MarkTombstone(ctx, id))
 				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
-				require.Nil(t, tracker.DeleteObject(ctx, id))
+				require.Nil(t, tracker.FinishDelete(ctx, id))
 			},
 		},
 		{

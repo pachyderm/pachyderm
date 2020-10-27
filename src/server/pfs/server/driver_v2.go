@@ -11,7 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -19,12 +19,13 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -62,37 +63,55 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	gcClient, err := gc.NewClient(db)
-	if err != nil {
-		return nil, err
-	}
+	tracker := tracker.NewPGTracker(db)
 	chunkStorageOpts, err := chunk.ServiceEnvToOptions(env)
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts = append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkStorageOpts...)
-	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
+	chunkStorage := chunk.NewStorage(objClient, chunk.NewPGStore(db), tracker, chunkStorageOpts...)
+	d2.storage = fileset.NewStorage(fileset.NewPGStore(db), tracker, chunkStorage, fileset.ServiceEnvToOptions(env)...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
-	go d2.master(env, objClient, db)
+	go d2.master(env)
 	go d2.compactionWorker()
 	return d2, nil
 }
 
-func newDB() (*gorm.DB, error) {
+func newDB() (db *sqlx.DB, retErr error) {
+	defer func() {
+		if db != nil {
+			fileset.PGStoreApplySchema(db)
+			chunk.PGStoreApplySchema(db)
+		}
+	}()
 	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
 	if !ok {
 		// TODO: Probably not the right long term approach here, but this is necessary to handle the mock pachd instance used in tests.
 		// It does not run in kubernetes, so we need to fallback on setting up a local database.
-		return gc.NewLocalDB()
+		return dbutil.NewDB(dbutil.DBParams{
+			Host:   dbutil.DefaultPostgresHost,
+			Port:   dbutil.DefaultPostgresPort,
+			User:   dbutil.TestPostgresUser,
+			DBName: "pgc",
+		})
 	}
-	postgresPort, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
 	if !ok {
 		return nil, errors.Errorf("postgres service port not found")
 	}
-	return gc.NewDB(postgresHost, postgresPort)
+	postgresPort, err := strconv.Atoi(postgresPortStr)
+	if err != nil {
+		return nil, err
+	}
+	return dbutil.NewDB(dbutil.DBParams{
+		Host:   postgresHost,
+		Port:   postgresPort,
+		User:   "pachyderm",
+		Pass:   "elephantastic",
+		DBName: "pgc",
+	})
 }
 
 func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
@@ -427,7 +446,10 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 		return nil
 	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
-		fsr := d.storage.NewReader(ctx, inputPath)
+		fsr, err := d.storage.NewReader(ctx, inputPath)
+		if err != nil {
+			return nil, err
+		}
 		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
 			return nil, err
 		}

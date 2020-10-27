@@ -7,7 +7,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 var _ Tracker = &PGTracker{}
@@ -23,10 +22,10 @@ func NewPGTracker(db *sqlx.DB) *PGTracker {
 func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []string, ttl time.Duration) error {
 	for _, dwn := range pointsTo {
 		if dwn == id {
-			return errors.Errorf("object cannot reference itself")
+			return ErrSelfReference
 		}
 	}
-	return t.withTx(ctx, func(tx *sqlx.Tx) error {
+	err := t.withTx(ctx, func(tx *sqlx.Tx) error {
 		var oid int
 		if ttl > 0 {
 			if err := tx.GetContext(ctx, &oid,
@@ -56,6 +55,13 @@ func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []stri
 		}
 		return nil
 	})
+	if pqErr, ok := err.(*pq.Error); ok {
+		// https://github.com/lib/pq/blob/master/error.go#L178
+		if pqErr.Code == "23505" {
+			err = ErrObjectExists
+		}
+	}
+	return err
 }
 
 func (t *PGTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
@@ -134,7 +140,7 @@ func (t *PGTracker) MarkTombstone(ctx context.Context, id string) error {
 	return nil
 }
 
-func (t *PGTracker) DeleteObject(ctx context.Context, id string) error {
+func (t *PGTracker) FinishDelete(ctx context.Context, id string) error {
 	err := t.withTx(ctx, func(tx *sqlx.Tx) error {
 		var tombstone bool
 		if err := tx.GetContext(ctx, &tombstone,
@@ -164,8 +170,8 @@ func (t *PGTracker) DeleteObject(ctx context.Context, id string) error {
 func (t *PGTracker) IterateExpired(ctx context.Context, cb func(id string) error) error {
 	rows, err := t.db.QueryxContext(ctx,
 		`SELECT str_id FROM storage.tracker_objects
-		WHERE expires_at <= CURRENT_TIMESTAMP
-		AND int_id NOT IN ( SELECT DISTINCT to_id FROM storage.tracker_refs )`)
+		WHERE (expires_at <= CURRENT_TIMESTAMP OR tombstone)
+		AND int_id NOT IN (SELECT DISTINCT to_id FROM storage.tracker_refs)`)
 	if err != nil {
 		return err
 	}

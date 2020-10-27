@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"modernc.org/mathutil"
 )
@@ -15,10 +14,10 @@ import (
 // Reader is used for reading a multilevel index.
 type Reader struct {
 	ctx     context.Context
-	objC    obj.Client
 	chunks  *chunk.Storage
 	path    string
 	filter  *pathFilter
+	topIdx  *Index
 	levels  []pbutil.Reader
 	peekIdx *Index
 	done    bool
@@ -30,12 +29,11 @@ type pathFilter struct {
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...Option) *Reader {
+func NewReader(ctx context.Context, topIdx *Index, chunks *chunk.Storage, opts ...Option) *Reader {
 	r := &Reader{
 		ctx:    ctx,
-		objC:   objC,
 		chunks: chunks,
-		path:   path,
+		topIdx: topIdx,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -61,7 +59,7 @@ func (r *Reader) setup() error {
 	}
 	if r.levels == nil {
 		// Setup top level reader.
-		pbr, err := topLevel(r.ctx, r.objC, r.path)
+		pbr, err := r.topLevel()
 		if err != nil {
 			return err
 		}
@@ -70,18 +68,10 @@ func (r *Reader) setup() error {
 	return nil
 }
 
-func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Reader, retErr error) {
-	objR, err := objC.Reader(ctx, path, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := objR.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+func (r *Reader) topLevel() (_ pbutil.Reader, retErr error) {
 	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, objR); err != nil {
+	pbw := pbutil.NewWriter(buf)
+	if _, err := pbw.Write(r.topIdx); err != nil {
 		return nil, err
 	}
 	return pbutil.NewReader(buf), nil
@@ -244,18 +234,4 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 			return err
 		}
 	}
-}
-
-// GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
-// for the file set.
-func GetTopLevelIndex(ctx context.Context, objC obj.Client, path string) (*Index, error) {
-	pbr, err := topLevel(ctx, objC, path)
-	if err != nil {
-		return nil, err
-	}
-	idx := &Index{}
-	if err := pbr.Read(idx); err != nil {
-		return nil, err
-	}
-	return idx, nil
 }

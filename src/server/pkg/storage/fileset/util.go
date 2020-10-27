@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -15,7 +17,11 @@ import (
 // the callback.
 func WithTestStorage(t testing.TB, f func(*Storage) error) {
 	chunk.WithTestStorage(t, func(objC obj.Client, chunks *chunk.Storage) error {
-		return f(NewStorage(objC, chunks))
+		var err error
+		dbutil.WithTestDB(t, func(db *sqlx.DB) {
+			err = f(NewStorage(nil, nil, chunks))
+		})
+		return err
 	})
 }
 

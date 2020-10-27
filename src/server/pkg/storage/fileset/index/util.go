@@ -1,6 +1,10 @@
 package index
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+)
 
 // Perm calls f with each permutation of a.
 func Perm(a []rune, f func([]rune)) {
@@ -29,4 +33,12 @@ func Generate(s string) []string {
 	})
 	sort.Strings(fileNames)
 	return fileNames
+}
+
+// IndexPointsTo returns a list of all the chunks this index references
+func IndexPointsTo(idx *Index) (ids []chunk.ChunkID) {
+	for _, dr := range idx.DataOp.DataRefs {
+		ids = append(ids, chunk.ChunkID(dr.ChunkRef.Id))
+	}
+	return ids
 }
