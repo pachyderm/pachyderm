@@ -115,7 +115,8 @@ type apiServer struct {
 	monitorCancelsMu       sync.Mutex
 	monitorCancels         map[string]func() // protected by monitorCancelsMu
 	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
-	pollCancel             func()            // also protected by monitorCancelsMu
+	pollPipelinesMu        sync.Mutex
+	pollCancel             func() // protected by pollPipelinesMu
 	workerUsesRoot         bool
 	workerGrpcPort         uint16
 	port                   uint16
