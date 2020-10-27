@@ -141,7 +141,12 @@ func (a *apiServer) cancelCrashingMonitor(pipeline string) {
 // cancelAllMonitorsAndCrashingMonitors overlaps with cancelMonitor and
 // cancelCrashingMonitor, but also iterates over the existing members of
 // a.{crashingM,m}onitorCancels in the critical section, so that all monitors
-// can be cancelled without the risk that a new monitor is added between cancels
+// can be cancelled without the risk that a new monitor is added between
+// cancellations.
+//
+// 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
+// cancelled. It's set by pollPipelines, which does not cancel any pipeline in
+// etcd at the time that it runs
 func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) {
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
@@ -469,10 +474,14 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 	etcdPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if len(etcdPipelines) == 0 {
-			// 1. Get the current set of pipeline RCs (we'll delete any stragglers
-			// after querying etcd, but we limit the possibility of a race with
-			// CreatePipeline() by querying k8s first. If we do delete a new
-			// pipeline's RC, it'll be fixed in the next cycle)
+			// 1. Get the current set of pipeline RCs.
+			//
+			// We'll delete any RCs that don't correspond to a live pipeline after
+			// querying etcd to determine the set of live pipelines, but we query k8s
+			// first to avoid a race (if we were to query etcd first, and
+			// CreatePipeline(foo) were to run between querying etcd and querying k8s,
+			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
+			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
 			kc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.env.Namespace)
 			rcs, err := kc.List(metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
@@ -514,7 +523,12 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 			}
 
 			// 4. Clean up any orphaned monitorPipeline and monitorCrashingPipeline
-			// goros
+			// goros. Note that this may delete a new pipeline's monitorPipeline goro
+			// (if CreatePipeline(foo) runs between 'listPipelinePtr' above and here,
+			// then this may delete brand-new pipeline 'foo's monitorPipeline goro).
+			// However, the next run through this loop will restore it, by generating
+			// an etcd event for 'foo', which will cause the pipeline controller to
+			// restart monitorPipeline(foo).
 			a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
 		}
 
