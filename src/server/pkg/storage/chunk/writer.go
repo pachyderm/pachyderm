@@ -241,6 +241,7 @@ func copyAnnotation(a *Annotation) *Annotation {
 func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prevChan, nextChan chan struct{}) error {
 	chunkID := Hash(chunkBytes)
 	chunkRef := &DataRef{
+		Hash: Hash(chunkBytes).HexString(),
 		ChunkRef: &ChunkRef{
 			Id:        chunkID,
 			SizeBytes: int64(len(chunkBytes)),
@@ -253,7 +254,7 @@ func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prev
 	if err != nil {
 		return err
 	}
-	if _, err = w.maybeUpload(chunkBytes, pointsTo); err != nil {
+	if _, err := w.maybeUpload(chunkBytes, pointsTo); err != nil {
 		return err
 	}
 	return w.executeFunc(annotations, prevChan, nextChan)
@@ -268,7 +269,7 @@ func (w *Writer) maybeUpload(chunkBytes []byte, pointsTo []ChunkID) (ChunkID, er
 		PointsTo: pointsTo,
 		Size:     len(chunkBytes),
 	}
-	return w.client.Create(w.ctx, md, w.buf)
+	return w.client.Create(w.ctx, md, bytes.NewReader(chunkBytes))
 }
 
 func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) ([]ChunkID, error) {

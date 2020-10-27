@@ -273,10 +273,7 @@ func (dr *DataReader) getChunk() error {
 	}
 	// Get chunk from object storage.
 	buf := &bytes.Buffer{}
-	chunkID, err := ChunkIDFromHex(dr.dataRef.Hash)
-	if err != nil {
-		return err
-	}
+	chunkID := dr.dataRef.ChunkRef.Id
 	if err := dr.client.Get(dr.ctx, chunkID, buf); err != nil {
 		return err
 	}

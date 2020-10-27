@@ -62,20 +62,6 @@ func (s *Storage) NewClient() *Client {
 	return NewClient(s.objClient, s.mdstore, s.tracker, "client-"+uuid.NewWithoutDashes())
 }
 
-// // DeleteAll deletes all of the chunks in object storage.
-// func (s *Storage) DeleteAll(ctx context.Context) error {
-// 	panic("don't call this")
-// 	return s.objClient.Walk(ctx, prefix, func(hash string) error {
-// 		return s.objClient.Delete(ctx, hash)
-// 	})
-// }
-
-// // Delete deletes a chunk in object storage.
-// func (s *Storage) Delete(ctx context.Context, hash string) error {
-// 	panic("don't call this")
-// 	return s.objClient.Delete(ctx, path.Join(prefix, hash))
-// }
-
 // NewDeleter creates a deleter for use with a tracker.GC
 func (s *Storage) NewDeleter() tracker.Deleter {
 	return &deleter{

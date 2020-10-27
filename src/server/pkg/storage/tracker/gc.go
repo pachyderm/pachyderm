@@ -41,7 +41,7 @@ func (gc *GC) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		ctx, cf := context.WithTimeout(ctx, gc.period/2)
-		if err := gc.runOnce(ctx); err != nil {
+		if err := gc.runUntilEmpty(ctx); err != nil {
 			logrus.Error(err)
 		}
 		cf()
@@ -53,13 +53,30 @@ func (gc *GC) Run(ctx context.Context) error {
 	}
 }
 
-func (gc *GC) runOnce(ctx context.Context) error {
-	return gc.tracker.IterateExpired(ctx, func(id string) error {
+func (gc *GC) runUntilEmpty(ctx context.Context) error {
+	for {
+		n, err := gc.runOnce(ctx)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+	}
+	return nil
+}
+
+func (gc *GC) runOnce(ctx context.Context) (int, error) {
+	var n int
+	err := gc.tracker.IterateExpired(ctx, func(id string) error {
 		if err := gc.deleteObject(ctx, id); err != nil {
 			logrus.Errorf("error deleting object (%s): %v", id, err)
+		} else {
+			n++
 		}
 		return nil
 	})
+	return n, err
 }
 
 func (gc *GC) deleteObject(ctx context.Context, id string) error {

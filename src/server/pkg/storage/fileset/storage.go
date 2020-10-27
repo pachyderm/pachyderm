@@ -314,6 +314,7 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 }
 
 func (s *Storage) GC(ctx context.Context) error {
+	const period = 10 * time.Second
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
 		store: s.store,
@@ -328,7 +329,7 @@ func (s *Storage) GC(ctx context.Context) error {
 			return nil
 		}
 	})
-	gc := tracker.NewGC(s.tracker, time.Minute, mux)
+	gc := tracker.NewGC(s.tracker, period, mux)
 	return gc.Run(ctx)
 }
 
