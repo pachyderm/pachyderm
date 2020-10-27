@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 )
 
 func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
-	iw := NewWriter(context.Background(), chunks, testPath)
+	iw := NewWriter(context.Background(), chunks, uuid.NewWithoutDashes())
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path:   fileName,

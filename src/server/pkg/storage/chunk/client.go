@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -16,7 +17,6 @@ import (
 
 // Client allows manipulation of individual chunks, by maintaining consistency between
 // a tracker and an obj.Client.
-// Client is not safe for concurrent use.
 type Client struct {
 	objc     obj.Client
 	mdstore  MetadataStore
@@ -24,7 +24,9 @@ type Client struct {
 	chunkSet string
 	ttl      time.Duration
 
-	n      int
+	mu sync.Mutex
+	n  int
+
 	cancel context.CancelFunc
 	err    error
 	done   chan struct{}
@@ -72,11 +74,9 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (Chu
 	}
 	// create an object whos sole purpose is to reference the chunk we created, and to have a structured name
 	// which can be renewed in bulk by prefix
-	c.n++
-	if err := c.tracker.CreateObject(ctx, fmt.Sprintf("tmp/%s/%d", c.chunkSet, c.n), []string{chunkOID}, c.ttl); err != nil {
-		if err != tracker.ErrObjectExists {
-			return nil, err
-		}
+	n := c.getInt()
+	if err := c.tracker.CreateObject(ctx, fmt.Sprintf("client-tmp/%s/%d", c.chunkSet, n), []string{chunkOID}, c.ttl); err != nil {
+		return nil, err
 	}
 	// at this point no one will be trying to delete the chunk, because there is an object pointing to it.
 	p := chunkPath(chunkID)
@@ -125,11 +125,18 @@ func (c *Client) runLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if _, err := c.tracker.SetTTLPrefix(ctx, fmt.Sprintf("tmp/%s/", c.chunkSet), c.ttl); err != nil {
+			if _, err := c.tracker.SetTTLPrefix(ctx, fmt.Sprintf("client-tmp/%s/", c.chunkSet), c.ttl); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+func (c *Client) getInt() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n++
+	return c.n
 }
 
 func chunkPath(chunkID ChunkID) string {

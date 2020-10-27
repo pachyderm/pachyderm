@@ -10,18 +10,22 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // WithTestStorage constructs a local storage instance for testing during the lifetime of
 // the callback.
 func WithTestStorage(t testing.TB, f func(*Storage) error) {
-	chunk.WithTestStorage(t, func(objC obj.Client, chunks *chunk.Storage) error {
-		var err error
-		dbutil.WithTestDB(t, func(db *sqlx.DB) {
-			err = f(NewStorage(nil, nil, chunks))
+	dbutil.WithTestDB(t, func(db *sqlx.DB) {
+		chunk.PGStoreApplySchema(db)
+		tracker.PGTrackerApplySchema(db)
+		PGStoreApplySchema(db)
+		tr := tracker.NewPGTracker(db)
+		obj.WithLocalClient(func(objC obj.Client) error {
+			chunkStorage := chunk.NewStorage(objC, chunk.NewPGStore(db), tr)
+			return f(NewStorage(NewPGStore(db), tr, chunkStorage))
 		})
-		return err
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 var (
@@ -117,7 +118,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
+			cw := w.chunks.NewWriter(w.ctx, uuid.NewWithoutDashes(), w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
 			w.levels = append(w.levels, &levelWriter{
 				cw:  cw,
 				pbw: pbutil.NewWriter(cw),

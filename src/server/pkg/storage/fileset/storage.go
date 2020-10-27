@@ -93,7 +93,7 @@ func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterO
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s.store, s.chunks, fileSet, opts...)
+	return newWriter(ctx, s.store, s.tracker, s.chunks, fileSet, opts...)
 }
 
 // NewReader makes a Reader backed by the path `fileSet` in object storage.

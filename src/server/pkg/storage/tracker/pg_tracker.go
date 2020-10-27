@@ -200,10 +200,14 @@ func (t *PGTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error) erro
 	return tx.Commit()
 }
 
+func PGTrackerApplySchema(db *sqlx.DB) {
+	db.MustExec(schema)
+}
+
 var schema = `
 	CREATE TABLE storage.tracker_objects (
 		int_id BIGSERIAL PRIMARY KEY,
-		str_id VARCHAR(250) UNIQUE,
+		str_id VARCHAR(4096) UNIQUE,
 		tombstone BOOLEAN NOT NULL DEFAULT FALSE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP

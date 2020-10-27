@@ -35,12 +35,13 @@ type Writer struct {
 	ttl       time.Duration
 }
 
-func newWriter(ctx context.Context, pathStore Store, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
-	tmpID := path + uuid.NewWithoutDashes()
+func newWriter(ctx context.Context, pathStore Store, tracker tracker.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+	uuidStr := uuid.NewWithoutDashes()
 	w := &Writer{
-		ctx:   ctx,
-		paths: pathStore,
-		path:  path,
+		ctx:     ctx,
+		paths:   pathStore,
+		tracker: tracker,
+		path:    path,
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -49,8 +50,8 @@ func newWriter(ctx context.Context, pathStore Store, chunks *chunk.Storage, path
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.iw = index.NewWriter(ctx, chunks, tmpID)
-	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
+	w.iw = index.NewWriter(ctx, chunks, "index-writer-"+uuidStr)
+	cw := chunks.NewWriter(ctx, "chunk-writer-"+uuidStr, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w

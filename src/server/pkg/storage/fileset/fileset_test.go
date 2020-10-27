@@ -131,8 +131,8 @@ func TestWriteThenRead(t *testing.T) {
 		}
 		// Write out ten filesets where each subsequent fileset has the content of one random file changed.
 		// Confirm that all of the content and hashes other than the changed file remain the same.
-		fileSet := path.Join(testPath, "0")
 		for i := 0; i < 10; i++ {
+			fileSet := path.Join(testPath, strconv.Itoa(i))
 			// Write the files to the fileset.
 			writeFileSet(t, fileSets, fileSet, files, msg)
 			// Read the files from the fileset, checking against the recorded files.

@@ -99,7 +99,7 @@ func PGStoreApplySchema(db *sqlx.DB) {
 	db.MustExec(schema)
 }
 
-func WithTestStore(t *testing.T, cb func(Store)) {
+func WithTestStore(t testing.TB, cb func(Store)) {
 	dbutil.WithTestDB(t, func(db *sqlx.DB) {
 		PGStoreApplySchema(db)
 		s := NewPGStore(db)
