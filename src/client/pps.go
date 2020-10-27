@@ -402,15 +402,29 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+// ListDatum returns info about datums in a Job
+func (c APIClient) ListDatum(jobID string, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum(jobID, nil, pageSize, page)
+}
+
+// ListDatumInput returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInput(input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum("", input, pageSize, page)
+}
+
+func (c APIClient) listDatum(jobID string, input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	req := &pps.ListDatumRequest{
+		Input:    input,
+		PageSize: pageSize,
+		Page:     page,
+	}
+	if jobID != "" {
+		req.Job = NewJob(jobID)
+	}
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
-		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
-			PageSize: pageSize,
-			Page:     page,
-		},
+		req,
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -434,15 +448,29 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	return resp, nil
 }
 
-// ListDatumF returns info about all datums in a Job, calling f with each datum info.
+// ListDatumF returns info about datums in a Job, calling f with each datum info.
 func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(jobID, nil, pageSize, page, f)
+}
+
+// ListDatumInputF returns info about datums for a pipeline with input, calling
+// f with each datum info. The pipeline doesn't need to exist.
+func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF("", input, pageSize, page, f)
+}
+
+func (c APIClient) listDatumF(jobID string, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
+	req := &pps.ListDatumRequest{
+		Input:    input,
+		PageSize: pageSize,
+		Page:     page,
+	}
+	if jobID != "" {
+		req.Job = NewJob(jobID)
+	}
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
-		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
-			PageSize: pageSize,
-			Page:     page,
-		},
+		req,
 	)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)

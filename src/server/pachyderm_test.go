@@ -12719,6 +12719,41 @@ func TestTrigger(t *testing.T) {
 	require.Equal(t, 1, len(cis))
 }
 
+func TestListDatum(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repo1 := tu.UniqueString("TestListDatum1")
+	repo2 := tu.UniqueString("TestListDatum2")
+
+	require.NoError(t, c.CreateRepo(repo1))
+	require.NoError(t, c.CreateRepo(repo2))
+
+	numFiles := 5
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFile(repo1, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo2, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+
+	resp, err := c.ListDatumInput(&pps.Input{
+		Cross: []*pps.Input{{
+			Pfs: &pps.PFSInput{
+				Repo: repo1,
+				Glob: "/*",
+			},
+		}, {
+			Pfs: &pps.PFSInput{
+				Repo: repo2,
+				Glob: "/*",
+			},
+		}},
+	}, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 25, len(resp.DatumInfos))
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
