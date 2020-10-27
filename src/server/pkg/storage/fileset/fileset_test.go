@@ -14,7 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil/random"
 )
 
 const (
@@ -117,7 +117,7 @@ func dataRefsToHashes(dataRefs []*chunk.DataRef) []string {
 
 func TestWriteThenRead(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := testutil.SeedRand()
+		msg := random.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		for _, fileName := range fileNames {
@@ -158,7 +158,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := testutil.SeedRand()
+		msg := random.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		// Write the initial fileset and count the chunks.
@@ -205,14 +205,14 @@ func TestCopy(t *testing.T) {
 
 func TestCompaction(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := testutil.SeedRand()
+		msg := random.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
 		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
 		// Get the file hashes.
 		getHashes(t, fileSets, files, msg)
 		// Compact the files.
-		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath})
+		_, err := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), []string{testPath}, 0)
 		require.NoError(t, err, msg)
 		// Check the files.
 		r := fileSets.NewReader(context.Background(), path.Join(testPath, Compacted))

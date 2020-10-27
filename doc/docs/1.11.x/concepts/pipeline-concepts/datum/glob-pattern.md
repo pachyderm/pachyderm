@@ -121,7 +121,7 @@ datum:
     /    dir  15.11KiB
     ```
 
-* If you set the `glob` property to `/`, Pachyderm detects each
+* If you set the `glob` property to `/*`, Pachyderm detects each
 top-level filesystem object in the `train` repository as a separate
 datum:
 

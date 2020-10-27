@@ -2,7 +2,6 @@ package server
 
 import (
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,15 +29,15 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
 const (
-	// tmpPrefix is for temporary storage paths.
-	// TODO Temporary prefix cleanup needs some work.
-	// Paths should get cleaned up in the background.
-	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
+	tmpRepo              = client.TmpRepoName
+	defaultTTL           = client.DefaultTTL
+	maxTTL               = 30 * time.Minute
 )
 
 type driverV2 struct {
@@ -67,8 +66,12 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
-	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
+	chunkStorageOpts, err := env.ChunkStorageOptions()
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts = append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkStorageOpts...)
+	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), env.FileSetStorageOptions()...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
@@ -105,10 +108,6 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 		commitInfo.Description = description
 	}
 	commitPath := commitKey(commit)
-	// Clean up temporary filesets leftover from failed operations.
-	if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(tmpPrefix, commitPath)); err != nil {
-		return err
-	}
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
 		if err := backoff.Retry(func() error {
@@ -149,41 +148,87 @@ func (d *driverV2) getSubFileSet() int64 {
 	return time.Now().UnixNano()
 }
 
-func (d *driverV2) withUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+func (d *driverV2) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	ctx := pachClient.Ctx()
+	repo := commit.Repo.Name
+	var branch string
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
+	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
-		return err
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			return err
+		}
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commitInfo.Commit}
-	}
-	commit = commitInfo.Commit
-	n := d.getSubFileSet()
-	subFileSetStr := fileset.SubFileSetStr(n)
-	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
-			retErr = err
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{commitInfo.Commit}
 		}
-	}()
-	if err := cb(fs); err != nil {
-		return err
+		return d.oneOffFileOperation(ctx, repo, branch, cb)
 	}
-	if err := fs.Close(); err != nil {
-		return err
-	}
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		_, err := d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-		return err
+	return d.withCommitWriter(ctx, commitInfo.Commit, cb)
+}
+
+// TODO: Cleanup after failure?
+func (d *driverV2) oneOffFileOperation(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
+		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if retErr == nil {
+				retErr = d.finishCommitV2(txnCtx, commit, "")
+			}
+		}()
+		return d.withCommitWriter(txnCtx.ClientContext, commit, cb)
 	})
 }
 
-func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(int64, *fileset.Writer) error) (retErr error) {
+// withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
+func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	n := d.getSubFileSet()
+	subFileSetStr := fileset.SubFileSetStr(n)
+	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
+		if err != nil {
+			return err
+		}
+		tmpPath := path.Join(tmpRepo, id)
+		return d.storage.Copy(ctx, tmpPath, subFileSetPath, 0)
+	})
+}
+
+func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
+	id := uuid.NewWithoutDashes()
+	inputPath := path.Join(tmpRepo, id)
+	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
+	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
+	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
+	if err != nil {
+		return "", err
+	}
+	if err := cb(uw); err != nil {
+		return "", err
+	}
+	if err := uw.Close(); err != nil {
+		return "", err
+	}
+	if compact {
+		outputPath := path.Join(tmpRepo, id, fileset.Compacted)
+		_, err := d.storage.Compact(ctx, outputPath, []string{inputPath}, defaultTTL)
+		if err != nil {
+			return "", err
+		}
+		renewer.Add(outputPath)
+	}
+	return id, nil
+}
+
+func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(string, *fileset.Writer) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -196,22 +241,11 @@ func (d *driverV2) withWriter(pachClient *client.APIClient, commit *pfs.Commit, 
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	fsw := d.storage.NewWriter(ctx, path.Join(tmpPrefix, subFileSetPath))
-	defer func() {
-		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := cb(n, fsw); err != nil {
+	fsw := d.storage.NewWriter(ctx, subFileSetPath)
+	if err := cb(subFileSetStr, fsw); err != nil {
 		return err
 	}
-	if err := fsw.Close(); err != nil {
-		return err
-	}
-	// There is no need to queue this because we just wrote to one place.  We expect the storage layer
-	// to handle the single file case efficiently.
-	_, err = d.storage.Compact(ctx, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
-	return err
+	return fsw.Close()
 }
 
 func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob string, w io.Writer) error {
@@ -224,13 +258,21 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	var dir string
 	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
-		return mf(idx.Path)
+		if dir != "" && strings.HasPrefix(idx.Path, dir) {
+			return true
+		}
+		match := mf(idx.Path)
+		if match && fileset.IsDir(idx.Path) {
+			dir = idx.Path
+		}
+		return match
 	})
 	// TODO: remove absolute paths on the way out?
 	// nonAbsolute := &fileset.HeaderMapper{
@@ -244,6 +286,9 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 }
 
 func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfo) error) error {
+	if _, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED); err != nil {
+		return err
+	}
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -295,34 +340,42 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			return nil, err
 		}
 	}
-	return d.compactIter(ctx, compactSpec{
-		master:     master,
-		inputPaths: inputPaths,
-		outputPath: outputPath,
-		maxFanIn:   d.env.StorageCompactionMaxFanIn,
-	})
+	var outputSize int64
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		res, err := d.compactIter(ctx, compactSpec{
+			master:     master,
+			inputPaths: inputPaths,
+			maxFanIn:   d.env.StorageCompactionMaxFanIn,
+		})
+		if err != nil {
+			return err
+		}
+		renewer.Add(res.OutputPath)
+		outputSize = res.OutputSize
+		return d.storage.Copy(ctx, res.OutputPath, outputPath, 0)
+	}); err != nil {
+		return nil, err
+	}
+	return &compactStats{OutputSize: outputSize}, nil
 }
 
 type compactSpec struct {
 	master     *work.Master
-	outputPath string
 	inputPaths []string
 	maxFanIn   int
 }
 
+type compactResult struct {
+	OutputPath string
+	OutputSize int64
+}
+
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *compactStats, retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (*compactResult, error) {
 	if len(params.inputPaths) <= params.maxFanIn {
-		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
+		return d.shardedCompact(ctx, params.master, params.inputPaths)
 	}
-	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
-	defer func() {
-		if err := d.storage.Delete(ctx, scratch); retErr == nil {
-			retErr = err
-		}
-	}()
-	childOutputPaths := []string{}
 	childSize := len(params.inputPaths) / params.maxFanIn
 	if len(params.inputPaths)%params.maxFanIn != 0 {
 		childSize++
@@ -330,37 +383,46 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (_ *comp
 	// TODO: use an errgroup to make the recursion concurrecnt.
 	// this requires changing the master to allow multiple calls to RunSubtasks
 	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
-	for i := 0; i < params.maxFanIn; i++ {
-		start := i * childSize
-		end := (i + 1) * childSize
-		if end > len(params.inputPaths) {
-			end = len(params.inputPaths)
+	// TODO: change this such that the fan in is maxed at the lower levels first rather
+	// than the higher.
+	var res *compactResult
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		var childOutputPaths []string
+		for i := 0; i < params.maxFanIn; i++ {
+			start := i * childSize
+			if start >= len(params.inputPaths) {
+				break
+			}
+			end := (i + 1) * childSize
+			if end > len(params.inputPaths) {
+				end = len(params.inputPaths)
+			}
+			res, err := d.compactIter(ctx, compactSpec{
+				master:     params.master,
+				inputPaths: params.inputPaths[start:end],
+				maxFanIn:   params.maxFanIn,
+			})
+			if err != nil {
+				return err
+			}
+			renewer.Add(res.OutputPath)
+			childOutputPaths = append(childOutputPaths, res.OutputPath)
 		}
-		childOutputPath := path.Join(scratch, strconv.Itoa(i))
-		childOutputPaths = append(childOutputPaths, childOutputPath)
-		if _, err := d.compactIter(ctx, compactSpec{
-			master:     params.master,
-			inputPaths: params.inputPaths[start:end],
-			outputPath: childOutputPath,
-			maxFanIn:   params.maxFanIn,
-		}); err != nil {
-			return nil, err
-		}
+		var err error
+		res, err = d.shardedCompact(ctx, params.master, childOutputPaths)
+		return err
+	}); err != nil {
+		return nil, err
 	}
-	return d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
+	return res, nil
 }
 
 // shardedCompact generates shards for the fileset(s) in inputPaths,
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (_ *compactStats, retErr error) {
-	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
-	defer func() {
-		if err := d.storage.Delete(ctx, scratch); retErr == nil {
-			retErr = err
-		}
-	}()
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inputPaths []string) (*compactResult, error) {
+	scratch := path.Join(tmpRepo, uuid.NewWithoutDashes())
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
 	var shardOutputs []string
@@ -383,25 +445,39 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outp
 	}); err != nil {
 		return nil, err
 	}
-	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
-		if taskInfo.State == work.State_FAILURE {
-			return errors.Errorf(taskInfo.Reason)
+	var res *compactResult
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+			if taskInfo.State == work.State_FAILURE {
+				return errors.Errorf(taskInfo.Reason)
+			}
+			shard, err := deserializeShard(taskInfo.Task.Data)
+			if err != nil {
+				return err
+			}
+			renewer.Add(shard.OutputPath)
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
+		var err error
+		res, err = d.concatFileSets(ctx, shardOutputs)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	return d.concatFileSets(ctx, outputPath, shardOutputs)
+	return res, nil
 }
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) (*compactStats, error) {
+func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*compactResult, error) {
+	outputPath := path.Join(tmpRepo, uuid.NewWithoutDashes())
 	var size int64
 	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
 		size += idx.SizeBytes
 		return nil
-	}))
+	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
 		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
@@ -411,7 +487,7 @@ func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputP
 	if err := fsw.Close(); err != nil {
 		return nil, err
 	}
-	return &compactStats{OutputSize: size}, nil
+	return &compactResult{OutputPath: outputPath, OutputSize: size}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -446,7 +522,7 @@ func (d *driverV2) compactionWorker() {
 				Lower: shard.Range.Lower,
 				Upper: shard.Range.Upper,
 			}
-			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
@@ -467,18 +543,18 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	indexOpt, mf, err := parseGlob(cleanPath(glob))
+	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
 	s := NewSource(commit, true, func() fileset.FileSet {
 		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
-		x = fileset.NewIndexResolver(x)
-		return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return mf(cleanPath(idx.Path))
-		})
+		return fileset.NewIndexResolver(x)
 	})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		if !mf(fi.File.Path) {
+			return nil
+		}
 		return cb(fi)
 	})
 }
@@ -523,7 +599,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 		return th
 	})
 	s = fileset.NewDirInserter(s)
-	return d.withWriter(pachClient, dstCommit, func(n int64, dst *fileset.Writer) error {
+	return d.withWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
 		return s.Iterate(ctx, func(f fileset.File) error {
 			hdr, err := f.Header()
 			if err != nil {
@@ -532,7 +608,7 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 			if err := dst.WriteHeader(hdr); err != nil {
 				return err
 			}
-			dst.Tag(fileset.SubFileSetStr(n))
+			dst.Tag(tag)
 			return f.Content(dst)
 		})
 	})
@@ -985,4 +1061,52 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	}
 
 	return nil
+}
+
+func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
+	ctx := server.Context()
+	var id string
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		var err error
+		id, err = d.withTmpUnorderedWriter(ctx, renewer, true, func(uw *fileset.UnorderedWriter) error {
+			req := &pfs.PutTarRequestV2{
+				Tag: "",
+			}
+			_, err := putTar(uw, server, req)
+			return err
+		})
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (d *driverV2) renewTmpFileSet(ctx context.Context, id string, ttl time.Duration) error {
+	if ttl < time.Second {
+		return errors.Errorf("ttl (%d) must be at least one second", ttl)
+	}
+	if ttl > maxTTL {
+		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
+	}
+	// check that it is the correct length, to prevent malicious renewing of multiple filesets
+	// len(hex(uuid)) == 32
+	if len(id) != 32 {
+		return errors.Errorf("invalid id (%s)", id)
+	}
+	p := path.Join(tmpRepo, id)
+	_, err := d.storage.SetTTL(ctx, p, ttl)
+	return err
+}
+
+func (d *driverV2) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+	if commit.GetRepo().GetName() == tmpRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "Temporary FileSet",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	return d.driver.inspectCommit(pachClient, commit, blockState)
 }

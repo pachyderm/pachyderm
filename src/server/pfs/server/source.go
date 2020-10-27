@@ -48,12 +48,15 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return fs1.Iterate(ctx, func(fr fileset.File) error {
 		idx := fr.Index()
 		fi := &pfs.FileInfo{
-			File: client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
+			File:     client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
+			FileType: pfs.FileType_FILE,
+		}
+		if fileset.IsDir(idx.Path) {
+			fi.FileType = pfs.FileType_DIR
 		}
 		if s.full {
 			cachedFi, ok := checkFileInfoCache(cache, idx)
 			if ok {
-				fi.FileType = cachedFi.FileType
 				fi.SizeBytes = cachedFi.SizeBytes
 				fi.Hash = cachedFi.Hash
 			} else {
@@ -61,7 +64,6 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 				if err != nil {
 					return err
 				}
-				fi.FileType = computedFi.FileType
 				fi.SizeBytes = computedFi.SizeBytes
 				fi.Hash = computedFi.Hash
 			}
@@ -99,7 +101,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 	if idx.Path != target {
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
-	if !indexIsDir(idx) {
+	if !fileset.IsDir(idx.Path) {
 		return computeRegularFileInfo(idx), nil
 	}
 	var size uint64
@@ -124,7 +126,6 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 		h.Write(childFi.Hash)
 	}
 	fi := &pfs.FileInfo{
-		FileType:  pfs.FileType_DIR,
 		SizeBytes: size,
 		Hash:      h.Sum(nil),
 	}
@@ -225,10 +226,6 @@ func (s *stream) Next() (fileset.File, error) {
 	case err := <-s.errChan:
 		return nil, err
 	}
-}
-
-func indexIsDir(idx *index.Index) bool {
-	return strings.HasSuffix(idx.Path, "/")
 }
 
 type emptySource struct{}

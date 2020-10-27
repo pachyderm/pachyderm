@@ -47,6 +47,9 @@ const (
 	MaxListItemsLog = 10
 	// StorageSecretName is the name of the Kubernetes secret in which
 	// storage credentials are stored.
+	// TODO: The value "pachyderm-storage-secret" is hardcoded in the obj package to avoid a
+	// obj -> client dependency, so any changes to this variable need to be applied there.
+	// The obj package should eventually get refactored so that it does not have this dependency.
 	StorageSecretName = "pachyderm-storage-secret"
 )
 
@@ -145,6 +148,9 @@ type clientSettings struct {
 	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
+	storageV2            bool
+	unaryInterceptors    []grpc.UnaryClientInterceptor
+	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
@@ -158,27 +164,33 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
+	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
+	if ok {
+		storageV2, err := strconv.ParseBool(storageV2Env)
+		if err != nil {
+			return nil, err
+		}
+		if storageV2 {
+			settings.storageV2 = storageV2
+		}
+	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
 		}
+	}
+	if tracing.IsActive() {
+		settings.unaryInterceptors = append(settings.unaryInterceptors, tracing.UnaryClientInterceptor())
+		settings.streamInterceptors = append(settings.streamInterceptors, tracing.StreamClientInterceptor())
 	}
 	c := &APIClient{
 		addr:         addr,
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
+		storageV2:    settings.storageV2,
 	}
-	// TODO: There is probably a cleaner way to handle the V2 config.
-	storageV2, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		var err error
-		c.storageV2, err = strconv.ParseBool(storageV2)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err := c.connect(settings.dialTimeout); err != nil {
+	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -273,6 +285,34 @@ func WithAdditionalPachdCert() Option {
 			}
 			return addCertFromFile(settings.caCerts, path.Join(tls.VolumePath, tls.CertFile))
 		}
+		return nil
+	}
+}
+
+// WithAdditionalUnaryClientInterceptors instructs the New* functions to add the provided
+// UnaryClientInterceptors to the gRPC dial options when opening a client connection.  Internally,
+// all of the provided options are coalesced into one chain, so it is safe to provide this option
+// more than once.
+//
+// This client creates both Unary and Stream client connections, so you will probably want to supply
+// a corresponding WithAdditionalStreamClientInterceptors call.
+func WithAdditionalUnaryClientInterceptors(interceptors ...grpc.UnaryClientInterceptor) Option {
+	return func(settings *clientSettings) error {
+		settings.unaryInterceptors = append(settings.unaryInterceptors, interceptors...)
+		return nil
+	}
+}
+
+// WithAdditionalStreamClientInterceptors instructs the New* functions to add the provided
+// StreamClientInterceptors to the gRPC dial options when opening a client connection.  Internally,
+// all of the provided options are coalesced into one chain, so it is safe to provide this option
+// more than once.
+//
+// This client creates both Unary and Stream client connections, so you will probably want to supply
+// a corresponding WithAdditionalUnaryClientInterceptors option.
+func WithAdditionalStreamClientInterceptors(interceptors ...grpc.StreamClientInterceptor) Option {
+	return func(settings *clientSettings) error {
+		settings.streamInterceptors = append(settings.streamInterceptors, interceptors...)
 		return nil
 	}
 }
@@ -601,7 +641,8 @@ func DefaultDialOptions() []grpc.DialOption {
 	}
 }
 
-func (c *APIClient) connect(timeout time.Duration) error {
+func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
+
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
@@ -609,14 +650,14 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	if tracing.IsActive() {
-		dialOptions = append(dialOptions,
-			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
-			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
-		)
-	}
 	if c.gzipCompress {
 		dialOptions = append(dialOptions, grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")))
+	}
+	if len(unaryInterceptors) > 0 {
+		dialOptions = append(dialOptions, grpc.WithChainUnaryInterceptor(unaryInterceptors...))
+	}
+	if len(streamInterceptors) > 0 {
+		dialOptions = append(dialOptions, grpc.WithChainStreamInterceptor(streamInterceptors...))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -624,6 +665,12 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	if !strings.HasPrefix(addr, "dns:///") {
 		addr = "dns:///" + c.addr
 	}
+
+	// TODO: the 'dns:///' prefix above causes connecting to hang on windows
+	// unless we also prevent the resolver from fetching a service config (which
+	// we don't use anyway).  Don't ask me why.
+	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
+
 	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
 	if err != nil {
 		return err

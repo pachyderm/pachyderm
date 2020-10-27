@@ -56,6 +56,9 @@ func (a *apiServerV2) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext,
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServerV2) FinishCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
+		if request.Empty {
+			request.Description += pfs.EmptyStr
+		}
 		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }
@@ -167,7 +170,7 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 			return 0, err
 		}
 		var bytesRead int64
-		if err := a.driver.withUnorderedWriter(a.env.GetPachClient(server.Context()), request.Commit, func(fs *fileset.UnorderedWriter) error {
+		if err := a.driver.fileOperation(a.env.GetPachClient(server.Context()), request.Commit, func(uw *fileset.UnorderedWriter) error {
 			for {
 				request, err := server.Recv()
 				if err != nil {
@@ -179,13 +182,13 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 				// TODO Validation.
 				switch op := request.Operation.(type) {
 				case *pfs.FileOperationRequestV2_PutTar:
-					n, err := putTar(fs, server, op.PutTar)
+					n, err := putTar(uw, server, op.PutTar)
 					bytesRead += n
 					if err != nil {
 						return err
 					}
 				case *pfs.FileOperationRequestV2_DeleteFiles:
-					if err := deleteFiles(fs, op.DeleteFiles); err != nil {
+					if err := deleteFiles(uw, op.DeleteFiles); err != nil {
 						return err
 					}
 				}
@@ -197,32 +200,33 @@ func (a *apiServerV2) FileOperationV2(server pfs.API_FileOperationV2Server) (ret
 	})
 }
 
-func putTar(uw *fileset.UnorderedWriter, server pfs.API_FileOperationV2Server, request *pfs.PutTarRequestV2) (int64, error) {
+type fileOpSource interface {
+	Recv() (*pfs.FileOperationRequestV2, error)
+}
+
+func putTar(uw *fileset.UnorderedWriter, server fileOpSource, req *pfs.PutTarRequestV2) (int64, error) {
 	ptr := &putTarReader{
 		server: server,
-		r:      bytes.NewReader(request.Data),
+		r:      bytes.NewReader(req.Data),
 	}
-	err := uw.Put(ptr, request.Tag)
+	err := uw.Put(ptr, req.Overwrite, req.Tag)
 	return ptr.bytesRead, err
 }
 
 type putTarReader struct {
-	server    pfs.API_FileOperationV2Server
+	server    fileOpSource
 	r         *bytes.Reader
 	bytesRead int64
 }
 
 func (ptr *putTarReader) Read(data []byte) (int, error) {
-	if ptr.r.Len() == 0 {
+	for ptr.r.Len() == 0 {
 		request, err := ptr.server.Recv()
 		if err != nil {
 			return 0, err
 		}
 		op := request.Operation.(*pfs.FileOperationRequestV2_PutTar)
 		putTarReq := op.PutTar
-		if putTarReq.EOF {
-			return 0, io.EOF
-		}
 		ptr.r = bytes.NewReader(putTarReq.Data)
 	}
 	n, err := ptr.r.Read(data)
@@ -230,9 +234,9 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func deleteFiles(fs *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
+func deleteFiles(uw *fileset.UnorderedWriter, request *pfs.DeleteFilesRequestV2) error {
 	for _, file := range request.Files {
-		fs.Delete(file, request.Tag)
+		uw.Delete(file, request.Tag)
 	}
 	return nil
 }
@@ -281,4 +285,36 @@ func (a *apiServerV2) ClearCommitV2(ctx context.Context, request *pfs.ClearCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return nil, a.driver.clearCommitV2(a.env.GetPachClient(ctx), request.Commit)
+}
+
+// CreateTmpFileset implements the pfs.CreateTmpFileSet RPC
+func (a *apiServerV2) CreateTmpFileSet(server pfs.API_CreateTmpFileSetServer) error {
+	fsID, err := a.driver.createTmpFileSet(server)
+	if err != nil {
+		return err
+	}
+	return server.SendAndClose(&pfs.CreateTmpFileSetResponse{
+		FilesetId: fsID,
+	})
+}
+
+// RenewTmpFileSet implements the pfs.RenewTmpFileSet RPC
+func (a *apiServerV2) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest) (*types.Empty, error) {
+	err := a.driver.renewTmpFileSet(ctx, req.FilesetId, time.Duration(req.TtlSeconds)*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// CreateRepoInTransaction is identical to CreateRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) CreateRepoInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.CreateRepoRequest,
+) error {
+	if repo := request.GetRepo(); repo != nil && repo.Name == tmpRepo {
+		return errors.Errorf("%s is a reserved name", tmpRepo)
+	}
+	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
 }

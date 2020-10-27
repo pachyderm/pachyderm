@@ -1042,15 +1042,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("canonicalized username is:", username)
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
-
-		logrus.Info("expired cluster check has passed")
 
 		// Generate a new Pachyderm token and write it
 		pachToken = uuid.NewWithoutDashes()
@@ -1115,7 +1112,57 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}); err != nil {
 			return nil, err
 		}
+	case req.IdToken != "":
+		// confirm OIDC has been configured and get OIDC prefix
+		oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("error authorizing OIDC id token: no OIDC ID provider is configured")
+		}
 
+		// Determine caller's Pachyderm/OIDC user info (email)
+		token, claims, err := oidcSP.validateIDToken(ctx, req.IdToken)
+		if err != nil {
+			return nil, err
+		}
+
+		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+claims.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
+		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
+			return nil, err
+		}
+
+		// Sync the user's group membership from the groups claim
+		if err := oidcSP.syncGroupMembership(ctx, claims); err != nil {
+			return nil, err
+		}
+
+		// Compute the remaining time before the ID token expires,
+		// and limit the pach token to the same expiration time.
+		// If the token would be longer-lived than the default pach token,
+		// TTL clamp the expiration to the default TTL.
+		expirationSecs := int64(time.Until(token.Expiry).Seconds())
+		if expirationSecs > defaultSessionTTLSecs {
+			expirationSecs = defaultSessionTTLSecs
+		}
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&auth.TokenInfo{
+					Subject: username,
+					Source:  auth.TokenInfo_AUTHENTICATE,
+				},
+				expirationSecs)
+		}); err != nil {
+			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
+		}
 	default:
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
@@ -1371,7 +1418,7 @@ func (a *apiServer) Authorize(
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC
 func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
-	a.LogReq(req)
+	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
 		return nil, auth.ErrNotActivated
@@ -2177,9 +2224,9 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
-// also by handleSAMLResponse (which updates group membership information based
-// on signed SAML assertions). This does no auth checks, so the caller must do
-// all relevant authorization.
+// also by handleSAMLResponse and handleOIDCExchangeInternal (which updates
+// group membership information based on signed SAML assertions or JWT claims).
+// This does no auth checks, so the caller must do all relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)

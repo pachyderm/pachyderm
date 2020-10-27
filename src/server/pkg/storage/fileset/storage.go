@@ -3,10 +3,10 @@ package fileset
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"path"
 	"strings"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -43,6 +43,11 @@ const (
 	Compacted = "compacted"
 )
 
+var (
+	// ErrNoFileSetFound is returned by the methods on Storage when a fileset does not exist
+	ErrNoFileSetFound = errors.Errorf("no fileset found")
+)
+
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
 	objC                         obj.Client
@@ -76,7 +81,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UWriterOption) (*UnorderedWriter, error) {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	fileSet = applyPrefix(fileSet)
 	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
@@ -143,13 +148,32 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// Copy copies the fileset at srcPrefix to dstPrefix. It does *not* perform compaction
+// ttl sets the time to live on the keys under dstPrefix if ttl == 0, it is ignored
+func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl time.Duration) error {
+	srcPrefix = applyPrefix(srcPrefix)
+	dstPrefix = applyPrefix(dstPrefix)
+	// TODO: perform this atomically with postgres
+	return s.objC.Walk(ctx, srcPrefix, func(srcPath string) error {
+		dstPath := dstPrefix + srcPath[len(srcPrefix):]
+		if err := obj.Copy(ctx, s.objC, s.objC, srcPath, dstPath); err != nil {
+			return err
+		}
+		if ttl > 0 {
+			_, err := s.SetTTL(ctx, removePrefix(dstPath), ttl)
+			return err
+		}
+		return nil
+	})
+}
+
 // CompactStats contains information about what was compacted.
 type CompactStats struct {
 	OutputSize int64
 }
 
 // Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) (*CompactStats, error) {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
 	var size int64
@@ -166,6 +190,11 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 	}
 	if err := w.Close(); err != nil {
 		return nil, err
+	}
+	if ttl > 0 {
+		if _, err := s.SetTTL(ctx, removePrefix(outputFileSet), ttl); err != nil {
+			return nil, err
+		}
 	}
 	return &CompactStats{OutputSize: size}, nil
 }
@@ -240,7 +269,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := copyObject(ctx, s.objC, src, dst); err != nil {
+			if err := obj.Copy(ctx, s.objC, s.objC, src, dst); err != nil {
 				return err
 			}
 		}
@@ -271,6 +300,25 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string)
 	return s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
 		return f(removePrefix(p))
 	})
+}
+
+// SetTTL sets the time-to-live for the path p.
+// if no fileset is found SetTTL returns ErrNoFileSetFound
+func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
+	p = applyPrefix(p)
+	if !s.objC.Exists(ctx, p) {
+		return time.Time{}, ErrNoFileSetFound
+	}
+	return s.chunks.RenewReference(ctx, p, ttl)
+}
+
+// WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
+	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+		_, err := s.SetTTL(ctx, p, ttl)
+		return err
+	}
+	return WithRenewer(ctx, ttl, renew, cb)
 }
 
 func (s *Storage) levelSize(i int) int64 {
@@ -324,21 +372,4 @@ func parseLevel(x string) (int, error) {
 	var y int
 	_, err := fmt.Sscanf(x, levelFmt, &y)
 	return y, err
-}
-
-func copyObject(ctx context.Context, objC obj.Client, src, dst string) error {
-	w, err := objC.Writer(ctx, dst)
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-	r, err := objC.Reader(ctx, src, 0, 0)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-	return w.Close()
 }

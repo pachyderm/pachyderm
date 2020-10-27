@@ -2,7 +2,9 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -71,7 +73,7 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 // have a trailing slash.
 func CleanTarPath(x string, isDir bool) string {
 	y := "/" + strings.Trim(x, "/")
-	if isDir && !strings.HasSuffix(y, "/") {
+	if isDir && !IsDir(y) {
 		y += "/"
 	}
 	return y
@@ -81,4 +83,28 @@ func CleanTarPath(x string, isDir bool) string {
 func IsCleanTarPath(x string, isDir bool) bool {
 	y := CleanTarPath(x, isDir)
 	return y == x
+}
+
+func getSortedKeys(set map[string]struct{}) []string {
+	keys := make([]string, len(set))
+	var i int
+	for key := range set {
+		keys[i] = key
+		i++
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// IsDir determines if a path is for a directory.
+func IsDir(p string) bool {
+	return strings.HasSuffix(p, "/")
+}
+
+// DirUpperBound returns the immediate next path after a directory in a lexicographical ordering.
+func DirUpperBound(p string) string {
+	if !IsDir(p) {
+		panic(fmt.Sprintf("%v is not a directory path", p))
+	}
+	return strings.TrimRight(p, "/") + "0"
 }

@@ -593,6 +593,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
+	trigger := &pfsclient.Trigger{}
 	createBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
@@ -606,6 +607,13 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
+			if len(provenance) != 0 && trigger.Branch != "" {
+				return errors.Errorf("cannot use provenance and triggers on the same branch")
+			}
+			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) &&
+				trigger.Branch == "" {
+				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
+			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -613,6 +621,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				if trigger.Branch != "" {
+					return c.CreateBranchTrigger(branch.Repo.Name, branch.Name, head, trigger)
+				}
 				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
 			})
 		}),
@@ -621,6 +632,11 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	createBranch.Flags().StringVarP(&trigger.Branch, "trigger", "t", "", "The branch to trigger this branch on.")
+	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
+	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
+	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
+	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
 	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
 
 	inspectBranch := &cobra.Command{

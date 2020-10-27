@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,6 +34,25 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
+
+// Environment variables for determining storage backend and pathing
+const (
+	PachRootEnvVar = "PACH_ROOT"
+)
+
+// BlockPathFromEnv gets the path to an object storage block based on environment variables.
+func BlockPathFromEnv(block *pfsclient.Block) (string, error) {
+	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
+	if !ok {
+		return "", errors.Errorf("%s not found", PachRootEnvVar)
+	}
+	var err error
+	storageRoot, err = obj.StorageRootFromEnv(storageRoot)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(storageRoot, "block", block.Hash), nil
+}
 
 const (
 	prefixLength          = 2
@@ -460,7 +480,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-		if offset > objectSize {
+		if offset >= objectSize {
 			offset -= objectSize
 			continue
 		}
@@ -712,7 +732,7 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 	size := request.SizeBytes
 	for _, blockRef := range request.BlockRefs {
 		blockSize := blockRef.Range.Upper - blockRef.Range.Lower
-		if offset > blockSize {
+		if offset >= blockSize {
 			offset -= blockSize
 			continue
 		}
@@ -889,9 +909,9 @@ func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest,
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	r, err := s.objClient.Reader(server.Context(), request.Obj, 0, 0)
 	if err != nil {
-		return err
-	}
-	if err := grpcutil.WriteToStreamingBytesServer(r, server); err != nil {
+		if s.isNotFoundErr(err) {
+			return errors.Errorf("object %s not found with direct access", request.Obj)
+		}
 		return err
 	}
 	defer func() {
@@ -899,7 +919,57 @@ func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest,
 			retErr = err
 		}
 	}()
+	if err := grpcutil.WriteToStreamingBytesServer(r, server); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s *objBlockAPIServer) DeleteObjDirect(ctx context.Context, request *pfsclient.DeleteObjDirectRequest) (response *types.Empty, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if (request.Object != "") == (request.Prefix != "") {
+		return nil, errors.New("must specify either 'obj' or 'prefix' to delete")
+	}
+
+	if request.Prefix != "" {
+		cleanPrefix := path.Clean(request.Prefix)
+
+		// Try to avoid footguns that would delete everything
+		if cleanPrefix == "." ||
+			strings.HasPrefix(cleanPrefix, s.blockDir()) ||
+			strings.HasPrefix(cleanPrefix, s.objectDir()) ||
+			strings.HasPrefix(cleanPrefix, s.tagDir()) ||
+			strings.HasPrefix(cleanPrefix, s.indexDir()) {
+			return nil, errors.New("prefix-based direct object deletion is not allowed on system paths")
+		}
+
+		eg, ctx := errgroup.WithContext(ctx)
+		limiter := limit.New(20)
+
+		if err := s.objClient.Walk(ctx, request.Prefix, func(name string) error {
+			object := name
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return s.objClient.Delete(ctx, object)
+			})
+			return nil
+		}); err != nil {
+			eg.Wait()
+			return nil, err
+		}
+
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.objClient.Delete(ctx, request.Object); err != nil {
+			return nil, err
+		}
+	}
+
+	return &types.Empty{}, nil
 }
 
 func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {

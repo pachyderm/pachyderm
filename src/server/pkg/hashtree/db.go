@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	pathlib "path"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/OneOfOne/xxhash"
@@ -49,6 +49,13 @@ var (
 	// A path should not have a globbing character.
 	SentinelByte = []byte{'*'}
 )
+
+func externalDefault(s string) string {
+	if s == "" {
+		return "/"
+	}
+	return s
+}
 
 // Filter is a function for filtering hashtree keys.
 type Filter func(k []byte) bool
@@ -157,7 +164,7 @@ func get(tx *bolt.Tx, path string) (*NodeProto, error) {
 
 // Get gets a hashtree node.
 func (h *dbHashTree) Get(path string) (*NodeProto, error) {
-	path = clean(path)
+	path = ppath.Clean(path)
 	var node *NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
 		var err error
@@ -171,7 +178,7 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 
 // Get gets a hashtree node.
 func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
-	filePath = clean(filePath)
+	filePath = ppath.Clean(filePath)
 	var fileNode *NodeProto
 	if err := nodes(rs, func(path string, node *NodeProto) error {
 		if path == filePath {
@@ -221,7 +228,7 @@ func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
 
 // List executes a callback for each file under a directory (or a file if the path is a file).
 func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	err := h.View(func(tx *bolt.Tx) error {
 		return list(tx, path, f)
 	})
@@ -242,7 +249,7 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 
 // List executes a callback for each file under a directory (or a file if the path is a file).
 func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
+	pattern = ppath.Clean(pattern)
 	if pattern == "" {
 		pattern = "/"
 	}
@@ -259,7 +266,7 @@ func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) 
 }
 
 func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
-	if !IsGlob(pattern) {
+	if !ppath.IsGlob(pattern) {
 		node, err := get(tx, pattern)
 		if err != nil {
 			return err
@@ -291,7 +298,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 
 // Glob executes a callback for each path that matches the glob pattern.
 func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) error {
-	pattern = clean(pattern)
+	pattern = ppath.Clean(pattern)
 	err := h.View(func(tx *bolt.Tx) error {
 		return glob(tx, pattern, f)
 	})
@@ -300,7 +307,7 @@ func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) erro
 
 // Glob executes a callback for each path that matches the glob pattern.
 func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
+	pattern = ppath.Clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
@@ -324,7 +331,7 @@ func (h *dbHashTree) FSSize() int64 {
 
 // Walk executes a callback against every node in the subtree of path.
 func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) error) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	err := h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
 		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
@@ -354,7 +361,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 
 // Walk executes a callback against every node in the subtree of path.
 func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodeProto) error) error {
-	walkPath = clean(walkPath)
+	walkPath = ppath.Clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if path == "" {
 			path = "/"
@@ -373,11 +380,11 @@ func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodePro
 }
 
 func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
-	newNode, err := get(newTx, clean(newPath))
+	newNode, err := get(newTx, ppath.Clean(newPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
-	oldNode, err := get(oldTx, clean(oldPath))
+	oldNode, err := get(oldTx, ppath.Clean(oldPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
@@ -671,7 +678,7 @@ func put(tx *bolt.Tx, path string, node *NodeProto) error {
 // This is useful for propagating changes to size upwards.
 func visit(tx *bolt.Tx, path string, update updateFn) error {
 	for path != "" {
-		parent, child := split(path)
+		parent, child := ppath.Split(path)
 		pnode, err := get(tx, parent)
 		if err != nil && Code(err) != PathNotFound {
 			return err
@@ -719,7 +726,7 @@ func (h *dbHashTree) PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef,
 // PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
 // method
 func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerSize, footerSize int64) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to directory (or nothing--may not be
 		// created yet)
@@ -737,7 +744,7 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 		if node == nil {
 			newNode = true
 			node = &NodeProto{
-				Name: base(path),
+				Name: ppath.Base(path),
 				DirNode: &DirectoryNodeProto{
 					Shared: &Shared{},
 				},
@@ -774,7 +781,7 @@ func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, siz
 
 func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.BlockRef,
 	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to file
 		node, err := get(tx, path)
@@ -790,7 +797,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 		// field for header and footer data (indicating other children of this dir
 		// have headers too--can't mix header and non-header files)
 		if hasHeaderFooter {
-			parentPath, _ := split(path)
+			parentPath, _ := ppath.Split(path)
 			parent, err := get(tx, parentPath)
 			if err != nil {
 				// Note that ErrNotFound gets returned here too--you must create the
@@ -813,7 +820,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 		// Request is valid--update node at 'path'
 		if node == nil {
 			node = &NodeProto{
-				Name: base(path),
+				Name: ppath.Base(path),
 				FileNode: &FileNodeProto{
 					HasHeaderFooter: hasHeaderFooter,
 				},
@@ -852,7 +859,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 		return visit(tx, path, func(node *NodeProto, parent, child string) error {
 			if node.DirNode == nil {
 				// node created as part of this visit call, fill in the basics
-				node.Name = base(parent)
+				node.Name = ppath.Base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
 			node.SubtreeSize += sizeDelta
@@ -864,7 +871,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 
 // PutDir creates a directory (or does nothing if one exists).
 func (h *dbHashTree) PutDir(path string) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	err := h.Batch(func(tx *bolt.Tx) error {
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
@@ -879,7 +886,7 @@ func (h *dbHashTree) PutDir(path string) error {
 			}
 		}
 		node = &NodeProto{
-			Name:    base(path),
+			Name:    ppath.Base(path),
 			DirNode: &DirectoryNodeProto{},
 		}
 		if err := put(tx, path, node); err != nil {
@@ -888,7 +895,7 @@ func (h *dbHashTree) PutDir(path string) error {
 		return visit(tx, path, func(node *NodeProto, parent, child string) error {
 			if node.DirNode == nil {
 				// node created as part of this visit call, fill in the basics
-				node.Name = base(parent)
+				node.Name = ppath.Base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
 			return nil
@@ -911,7 +918,7 @@ func deleteDir(tx *bolt.Tx, path string) error {
 
 // DeleteFile deletes a regular file or directory (along with its children).
 func (h *dbHashTree) DeleteFile(path string) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 
 	// Delete root means delete all files
 	if path == "" {
@@ -930,7 +937,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 			size := node.SubtreeSize
 			// Remove 'path' from its parent directory
 			// TODO(bryce) Decide if this should be removed.
-			parent, _ := split(path)
+			parent, _ := ppath.Split(path)
 			pnode, err := get(tx, parent)
 			if err != nil {
 				if Code(err) == PathNotFound {
@@ -951,7 +958,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 				if node.DirNode == nil {
 					return errorf(Internal,
 						"encountered orphaned file \"%s\" while deleting \"%s\"", path,
-						join(parent, child))
+						ppath.Join(parent, child))
 				}
 				node.SubtreeSize -= size
 				return nil
@@ -1115,7 +1122,7 @@ func (w *Writer) Index() ([]byte, error) {
 
 // GetRangeFromIndex returns a subtree byte range in a serialized hashtree based on a passed in prefix.
 func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
-	prefix = clean(prefix)
+	prefix = ppath.Clean(prefix)
 	pbr := pbutil.NewReader(r)
 	idx := &Index{}
 	k := b(prefix)
@@ -1180,7 +1187,7 @@ func NewFilter(numTrees int64, tree int64) Filter {
 
 // PathToTree computes the hashtree shard for a path.
 func PathToTree(path string, numTrees int64) uint64 {
-	path = clean(path)
+	path = ppath.Clean(path)
 	return pathToTree(b(path), numTrees)
 }
 
@@ -1385,7 +1392,7 @@ func HashFileNode(n *FileNodeProto) []byte {
 }
 
 func canonicalize(tx *bolt.Tx, path string) error {
-	path = clean(path)
+	path = ppath.Clean(path)
 	if !hasChanged(tx, path) {
 		return nil // Node is already canonical
 	}
@@ -1488,24 +1495,6 @@ func (n nodetype) String() string {
 // returns a 'PathConflict' error otherwise.
 type updateFn func(*NodeProto, string, string) error
 
-var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
-
-// IsGlob checks if the pattern contains a glob character
-func IsGlob(pattern string) bool {
-	pattern = clean(pattern)
-	return globRegex.Match([]byte(pattern))
-}
-
-// GlobLiteralPrefix returns the prefix before the first glob character
-func GlobLiteralPrefix(pattern string) string {
-	pattern = clean(pattern)
-	idx := globRegex.FindStringIndex(pattern)
-	if idx == nil {
-		return pattern
-	}
-	return pattern[:idx[0]]
-}
-
 // GetHashTreeObject is a convenience function to deserialize a HashTree from an object in the object store.
 func GetHashTreeObject(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Object) (HashTree, error) {
 	return getHashTree(storageRoot, func(w io.Writer) error {
@@ -1581,7 +1570,7 @@ type ChildCursor struct {
 
 // NewChildCursor creates a new child cursor.
 func NewChildCursor(tx *bolt.Tx, path string) *ChildCursor {
-	path = clean(path)
+	path = ppath.Clean(path)
 	c := fs(tx).Cursor()
 	dir := b(path)
 	k, v := c.Seek(append(dir, nullByte[0]))
@@ -1650,7 +1639,7 @@ type node struct {
 
 // NewOrdered creates a new ordered hashtree.
 func NewOrdered(root string) *Ordered {
-	root = clean(root)
+	root = ppath.Clean(root)
 	o := &Ordered{}
 	n := &node{
 		path: "",
@@ -1673,7 +1662,7 @@ func (o *Ordered) MkdirAll(path string) {
 	var paths []string
 	for path != "" {
 		paths = append(paths, path)
-		path, _ = split(path)
+		path, _ = ppath.Split(path)
 	}
 	for i := len(paths) - 1; i >= 0; i-- {
 		o.PutDir(paths[i])
@@ -1682,19 +1671,19 @@ func (o *Ordered) MkdirAll(path string) {
 
 // PutDir puts a directory in the hashtree.
 func (o *Ordered) PutDir(path string) {
-	path = clean(path)
+	path = ppath.Clean(path)
 	if path == "" {
 		return
 	}
 	nodeProto := &NodeProto{
-		Name:    base(path),
+		Name:    ppath.Base(path),
 		DirNode: &DirectoryNodeProto{},
 	}
 	o.putDir(path, nodeProto)
 }
 
 func (o *Ordered) putDir(path string, nodeProto *NodeProto) {
-	path = join(o.root, path)
+	path = ppath.Join(o.root, path)
 	o.handleEndOfDirectory(path)
 	n := &node{
 		path:      path,
@@ -1707,9 +1696,9 @@ func (o *Ordered) putDir(path string, nodeProto *NodeProto) {
 
 // PutFile puts a file in the hashtree.
 func (o *Ordered) PutFile(path string, hash []byte, size int64, fileNodeProto *FileNodeProto) {
-	path = clean(path)
+	path = ppath.Clean(path)
 	nodeProto := &NodeProto{
-		Name:        base(path),
+		Name:        ppath.Base(path),
 		Hash:        hash,
 		SubtreeSize: size,
 		FileNode:    fileNodeProto,
@@ -1718,7 +1707,7 @@ func (o *Ordered) PutFile(path string, hash []byte, size int64, fileNodeProto *F
 }
 
 func (o *Ordered) putFile(path string, nodeProto *NodeProto) {
-	path = join(o.root, path)
+	path = ppath.Join(o.root, path)
 	o.handleEndOfDirectory(path)
 	n := &node{
 		path:      path,
@@ -1730,7 +1719,7 @@ func (o *Ordered) putFile(path string, nodeProto *NodeProto) {
 }
 
 func (o *Ordered) handleEndOfDirectory(path string) {
-	nextParent, _ := split(path)
+	nextParent, _ := ppath.Split(path)
 	for nextParent != o.dirStack[len(o.dirStack)-1].path {
 		child := o.dirStack[len(o.dirStack)-1]
 		child.nodeProto.Hash = child.hash.Sum(nil)
@@ -1775,15 +1764,15 @@ type Unordered struct {
 func NewUnordered(root string) *Unordered {
 	return &Unordered{
 		fs:   make(map[string]*NodeProto),
-		root: clean(root),
+		root: ppath.Clean(root),
 	}
 }
 
 // PutFile puts a file in the hashtree.
 func (u *Unordered) PutFile(path string, hash []byte, size int64, blockRefs ...*pfs.BlockRef) {
-	path = join(u.root, path)
+	path = ppath.Join(u.root, path)
 	nodeProto := &NodeProto{
-		Name:        base(path),
+		Name:        ppath.Base(path),
 		Hash:        hash,
 		SubtreeSize: size,
 		FileNode: &FileNodeProto{
@@ -1796,13 +1785,13 @@ func (u *Unordered) PutFile(path string, hash []byte, size int64, blockRefs ...*
 
 func (u *Unordered) createParents(path string) {
 	if path != "" {
-		path, _ = split(path)
-		path = clean(path)
+		path, _ = ppath.Split(path)
+		path = ppath.Clean(path)
 		if _, ok := u.fs[path]; ok {
 			return
 		}
 		nodeProto := &NodeProto{
-			Name:    base(path),
+			Name:    ppath.Base(path),
 			DirNode: &DirectoryNodeProto{},
 		}
 		u.fs[path] = nodeProto
