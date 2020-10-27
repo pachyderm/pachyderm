@@ -53,13 +53,7 @@ before_cache:
   # & copy them all elsewhere
   - etc/testing/travis_cache.sh
 after_failure:
-  - kubectl version
-  - kubectl get all
-  - kubectl get all --namespace kafka
-  - kubectl describe pod -l app=pachd
-  - kubectl describe pod -l suite=pachyderm,app=etcd
-  - kubectl logs -l app=pachd | tail -n 100
-  - kubectl logs -l app=pachd --previous | tail -n 100
+  - etc/testing/travis_failure.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
 branches:
