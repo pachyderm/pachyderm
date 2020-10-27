@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.5
+- Changes to fix multiple error log messages when processing `list pipeline` (#5304)
+- Fixes a bug that can cause get file request to fail when the request falls on a certain boundary condition (#5316)
+- Fixes a bug that can leave a stats commit open when stats enabled pipeline is updated with `--reprocess` option. This bug will also prevent new jobs from getting created. (#5321)
+- Changes for better error handling when pipelines info cannot be fully initialized due to transient failures or user errors (#5322)
+- Fixes a bug that did not stop a job before deleting a job when `delete job` is called (#5326)
+- Fixes a family of bugs to handle pipeline state transitions. The change resolves a few issues: pipelines getting stuck in STARTING state if Kubernetes is unavailable; cannot delete and recreate pipelines in STANDBY state; fixes jobs occasionally getting stuck in CRASHING state (#5330) (#5357)
+- Fixes a family of bug that did not properly clean up temporary artifacts from a job (#5332)
+- Changes to move some noisy log message to DEBUG level (#5352)
+- Fixes a bug that can sometimes leave pipeline in STANDBY state (#5364)
+- Fixes a bug that causes incorrect datums to be processed due to trailing slashes in joins (#5366)
+- Changes the metric reporting interval to 60mins (#5375)
+- Fixes a bug that loses auth credentials from pipelines after 30 days (#5388)
+
 ## 1.11.4
 - Fixes a race condition that prevents a standby pipeline from transitioning out of crashing state (#5273)
 - Fixes a bug that leaked goroutine (#5288)
