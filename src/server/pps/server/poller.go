@@ -58,7 +58,8 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 				log.Errorf("error polling pipeline RCs: %v", err)
 			}
 
-			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in etcd
+			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
+			// etcd. Note that there may be zero, and etcdPipelines may be empty
 			if err := a.listPipelinePtr(pachClient, nil, 0,
 				func(pipeline string, _ *pps.EtcdPipelineInfo) error {
 					etcdPipelines[pipeline] = true
@@ -96,14 +97,23 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 			// this loop will restore it, by generating an etcd event for 'foo', which
 			// will cause the pipeline controller to restart monitorPipeline(foo).
 			a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
+
+			// 5. Retry if there are no etcd pipelines to read/write
+			if len(etcdPipelines) == 0 {
+				return backoff.ErrContinue
+			}
 		}
 
 		// Generate one etcd event for a pipeline (to trigger the pipeline
-		// controller) and remove this pipeline from etcdPipelines
+		// controller) and remove this pipeline from etcdPipelines. Always choose
+		// the lexicographically smallest pipeline so that pipelines are always
+		// traversed in the same order and the period between polls is stable across
+		// all pipelines.
 		var pipeline string
 		for p := range etcdPipelines {
-			pipeline = p
-			break // we only want to generate one event
+			if pipeline == "" || p < pipeline {
+				pipeline = p
+			}
 		}
 
 		// always rm 'pipeline', to advance loop
