@@ -2440,6 +2440,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 			tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
 				Subject: auth.PipelinePrefix + request.Pipeline.Name,
+				TTL:     -1,
 			})
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
