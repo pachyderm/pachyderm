@@ -190,7 +190,7 @@ Occasionally we have a need for a custom release off a non master branch. This i
 Assuming the prerequisites are met, making a custom release should simply be a matter of running `make custom-release`. This will create a release like `v1.2.3-2342345aefda9879e87ad`, which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.4/pachctl_1.11.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.5/pachctl_1.11.5_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
