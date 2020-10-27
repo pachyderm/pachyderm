@@ -282,10 +282,12 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 		if size == 0 {
 			continue
 		}
-		dataRef := &DataRef{}
+		dataRef := &DataRef{
+			Hash: hash.EncodeHash(Hash(chunkBytes)),
+		}
 		dataRef.ChunkRef = chunkRef.ChunkRef
 		if len(annotations) > 1 {
-			dataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
+			dataRef.Hash = hash.EncodeHash(Hash(chunkBytes[offset : offset+size]))
 		}
 		dataRef.OffsetBytes = offset
 		dataRef.SizeBytes = size
