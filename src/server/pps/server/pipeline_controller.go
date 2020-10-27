@@ -202,8 +202,8 @@ func (op *pipelineOp) run() error {
 		if err := op.finishPipelineOutputCommits(); err != nil {
 			return err
 		}
-		op.stopPipelineMonitor()
-		op.stopCrashingPipelineMonitor()
+		// deletePipelineResources calls cancelMonitor() and cancelCrashingMonitor()
+		// in addition to deleting the RC, so those calls aren't necessary here.
 		return op.deletePipelineResources()
 	case pps.PipelineState_PIPELINE_CRASHING:
 		if !op.rcIsFresh() {
