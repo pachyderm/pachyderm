@@ -577,6 +577,12 @@ spec:
               key: no-verify-ssl
               name: pachyderm-storage-secret
               optional: true
+        - name: OBJ_LOG_OPTS
+          valueFrom:
+            secretKeyRef:
+              key: log-options
+              name: pachyderm-storage-secret
+              optional: true
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: "100"
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
@@ -707,6 +713,7 @@ data:
   amazon-token: ""
   custom-endpoint: ""
   disable-ssl: ZmFsc2U=
+  log-options: ""
   max-upload-parts: MTAwMDA=
   no-verify-ssl: ZmFsc2U=
   part-size: NTI0Mjg4MA==
