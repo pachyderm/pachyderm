@@ -1,18 +1,18 @@
 #!/bin/bash
 
-set -x
 
-echo
-kubectl version
-echo
-kubectl get all
-echo
-kubectl get all --namespace kafka
-echo
-kubectl describe pod -l app=pachd
-echo
-kubectl describe pod -l suite=pachyderm,app=etcd
-echo
-kubectl logs -l app=pachd | tail -n 100
-echo
-kubectl logs -l app=pachd --previous | tail -n 100
+cmds=(
+  'kubectl version'
+  'kubectl get all'
+  'kubectl get all --namespace kafka'
+  'kubectl describe pod -l app=pachd'
+  'kubectl describe pod -l suite=pachyderm,app=etcd'
+  'kubectl logs --tail=100 -l app=pachd'
+  'kubectl logs --tail=100 -l app=pachd --previous'
+)
+for c in "${cmds[@]}"; do
+  echo "======================================================================"
+  echo "${c}"
+  echo "----------------------------------------------------------------------"
+  eval "${c}"
+done
