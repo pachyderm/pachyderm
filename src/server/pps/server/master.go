@@ -42,17 +42,21 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
-		// a.sudo()) to authenticate requests.
-		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
+
+		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
+		// a.sudo()) to authenticate requests.
+		pachClient := a.env.GetPachClient(ctx)
 		kubeClient := a.env.GetKubeClient()
 
 		log.Infof("PPS master: launching master process")
+
+		// start pollPipelines in the background to regularly refresh pipelines
+		a.startPipelinePoller(pachClient)
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -95,6 +99,13 @@ func (a *apiServer) master() {
 					// Create/Modify/Delete pipeline resources as needed per new state
 					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
 						log.Errorf("PPS master: %v", err)
+					}
+				case watch.EventDelete:
+					// TODO(msteffen) trace this call
+					// This is also called by pollPipelines below, if it discovers
+					// dangling monitorPipeline goroutines
+					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
+						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
 					}
 				}
 			case event := <-watchChan:
@@ -148,7 +159,14 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		a.cancelAllMonitorsAndCrashingMonitors()
+		// cancel all monitorPipeline and monitorCrashingPipeline goroutines.
+		// Strictly speaking, this should be unnecessary, as the base context for
+		// all monitor goros is cancelled by 'defer cancel()' at the beginning of
+		// 'RetryNotify' above. However, these cancel calls also block until the
+		// monitor goros exit, ensuring that a leftover goro won't interfere with a
+		// subsequent iteration
+		a.cancelAllMonitorsAndCrashingMonitors(nil)
+		a.cancelPipelinePoller()
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -208,18 +226,6 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 	return nil
 }
 
-func notifyCtx(ctx context.Context, name string) func(error, time.Duration) error {
-	return func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
-			return context.DeadlineExceeded
-		default:
-			log.Errorf("error in %s: %v: retrying in: %v", name, err, d)
-		}
-		return nil
-	}
-}
-
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
 func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state pps.PipelineState, reason string) (retErr error) {
@@ -235,7 +241,7 @@ func (a *apiServer) setPipelineState(ctx context.Context, pipeline string, state
 
 // transitionPipelineState is similar to setPipelineState, except that it sets
 // 'from' and logs a different trace
-func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string, from, to pps.PipelineState, reason string) (retErr error) {
+func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState", "pipeline", pipeline,
 		"from-state", from, "to-state", to)
@@ -244,5 +250,5 @@ func (a *apiServer) transitionPipelineState(ctx context.Context, pipeline string
 		tracing.FinishAnySpan(span)
 	}()
 	return ppsutil.SetPipelineState(ctx, a.env.GetEtcdClient(), a.pipelines,
-		pipeline, &from, to, reason)
+		pipeline, from, to, reason)
 }

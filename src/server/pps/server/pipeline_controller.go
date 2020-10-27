@@ -151,6 +151,7 @@ func (op *pipelineOp) run() error {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// trigger another event
+		op.stopCrashingPipelineMonitor()
 		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
@@ -160,6 +161,7 @@ func (op *pipelineOp) run() error {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
+		op.stopCrashingPipelineMonitor()
 		op.startPipelineMonitor()
 		// default: scale up if pipeline start hasn't propagated to etcd yet
 		// Note: mostly this should do nothing, as this runs several times per job
@@ -171,8 +173,11 @@ func (op *pipelineOp) run() error {
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		// default: scale down if standby hasn't propagated to kube RC yet
+
+		op.stopCrashingPipelineMonitor()
+		// Make sure pipelineMonitor is running to pull it out of standby
 		op.startPipelineMonitor()
+		// default: scale down if standby hasn't propagated to kube RC yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_PAUSED:
 		if !op.rcIsFresh() {
@@ -197,6 +202,8 @@ func (op *pipelineOp) run() error {
 		if err := op.finishPipelineOutputCommits(); err != nil {
 			return err
 		}
+		// deletePipelineResources calls cancelMonitor() and cancelCrashingMonitor()
+		// in addition to deleting the RC, so those calls aren't necessary here.
 		return op.deletePipelineResources()
 	case pps.PipelineState_PIPELINE_CRASHING:
 		if !op.rcIsFresh() {
@@ -207,6 +214,17 @@ func (op *pipelineOp) run() error {
 		}
 		// start a monitor to poll k8s and update us when it goes into a running state
 		op.startCrashingPipelineMonitor()
+		op.startPipelineMonitor()
+		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
+		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
+		// pipeline controller reads the current state of the pipeline after each
+		// event (to avoid getting backlogged), it might never actually see the
+		// pipeline in RUNNING. However, if the RC is never scaled up, the pipeline
+		// can never come out of CRASHING, so do it here in case it never happened.
+		//
+		// In general, CRASHING is actually almost identical to RUNNING (except for
+		// the monitorCrashing goro)
+		return op.scaleUpPipeline()
 	}
 	return nil
 }
@@ -424,7 +442,6 @@ func (op *pipelineOp) startPipelineMonitor() {
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.stopPipelineMonitor()
 	op.apiServer.startCrashingMonitor(op.masterClient, op.ptr.Parallelism, op.pipelineInfo)
 }
 

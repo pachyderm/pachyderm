@@ -8,6 +8,7 @@ cache:
     - ${HOME}/cached-deps
     - ${HOME}/gopath/pkg/mod
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
+
 language: go
 go:
   - "1.13.1"
@@ -40,25 +41,24 @@ stages:
 jobs:
   include:
     - stage: build
-      script: etc/testing/travis_build.sh
+      script: etc/testing/travis_build_check_and_stash.sh && etc/testing/travis_build.sh
 
 before_install:
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
+
 install:
   - etc/testing/travis_install.sh
-script: etc/testing/travis.sh
+
+# NB: Have to switch directories because travis_test_check_and_pull.sh moves the build dir out under our feet
+script: etc/testing/travis_test_check_and_pull.sh && cd /home/travis/gopath/src/github.com/pachyderm/pachyderm && bash -c 'timeout 28m etc/testing/travis.sh; status=$?; if [ "$status" -ne 0 ]; then etc/testing/travis_failure.sh; fi; exit $status'
+
 before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
   - etc/testing/travis_cache.sh
 after_failure:
-  - kubectl version
-  - kubectl get all
-  - kubectl get all --namespace kafka
-  - kubectl describe pod -l app=pachd
-  - kubectl describe pod -l suite=pachyderm,app=etcd
-  - kubectl logs -l app=pachd | tail -n 100
+  - etc/testing/travis_failure.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
 branches:
