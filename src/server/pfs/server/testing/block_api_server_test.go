@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -136,6 +137,29 @@ func TestReadObjects(t *testing.T) {
 		value, err = env.PachClient.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 4, 0)
 		require.NoError(t, err)
 		require.Equal(t, []byte("ar"), value)
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestDirectObjects(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		fmt.Printf("test path: %s\n", env.Directory)
+		path := "direct-foo"
+		data := []byte("foo")
+		fooWriter, err := env.PachClient.DirectObjWriter(path)
+		_, err = fooWriter.Write(data)
+		require.NoError(t, err)
+		require.NoError(t, fooWriter.Close())
+
+		fooReader, err := env.PachClient.DirectObjReader(path)
+		readData := &bytes.Buffer{}
+		_, err = readData.ReadFrom(fooReader)
+		require.NoError(t, err)
+		require.Equal(t, data, readData.Bytes())
+		require.NoError(t, fooReader.Close())
 
 		return nil
 	})
