@@ -68,8 +68,9 @@ func (t *PGTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Du
 	var expiresAt time.Time
 	err := t.db.GetContext(ctx, &expiresAt,
 		`UPDATE storage.tracker_objects
-		SET WHERE str_id = LIKE $1 || '%'
-		RETURNING expires_at`, prefix)
+		SET expires_at = CURRENT_TIMESTAMP + $2 * interval '1 microsecond'
+		WHERE str_id LIKE $1 || '%'
+		RETURNING expires_at`, prefix, ttl.Microseconds())
 	if err != nil {
 		return time.Time{}, err
 	}
