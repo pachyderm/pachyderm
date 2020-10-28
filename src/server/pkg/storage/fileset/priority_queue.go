@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
+// TODO: Change the code that depends on this to use the stream package priority queue.
 type stream interface {
 	next() error
 	key() string

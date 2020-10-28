@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -300,17 +299,11 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
-	r := newRenewer(s, ttl)
-	cancelCtx, cf := context.WithCancel(ctx)
-	eg, errCtx := errgroup.WithContext(cancelCtx)
-	eg.Go(func() error {
-		return r.run(errCtx)
-	})
-	eg.Go(func() error {
-		defer cf()
-		return cb(errCtx, r)
-	})
-	return eg.Wait()
+	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+		_, err := s.SetTTL(ctx, p, ttl)
+		return err
+	}
+	return WithRenewer(ctx, ttl, renew, cb)
 }
 
 func (s *Storage) GC(ctx context.Context) error {

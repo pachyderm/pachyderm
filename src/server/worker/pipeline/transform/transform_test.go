@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -50,7 +51,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			return err
 		}
 		// TODO: this is global and complicates running tests in parallel
-		if err := os.Setenv(obj.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
+		if err := os.Setenv(pfsserver.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
 
@@ -286,6 +287,7 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []*input
 func TestJobSuccess(t *testing.T) {
 	pi := defaultPipelineInfo()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		env.logger.Writer = os.Stdout
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
 		ctx = withTimeout(ctx, 10*time.Second)

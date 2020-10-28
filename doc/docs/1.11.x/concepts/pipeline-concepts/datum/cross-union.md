@@ -173,14 +173,14 @@ a total of nine combinations of datums to your code.
 
 ```bash
 Run 1: /pfs/A/1.txt
-       /pfs/B/1.txt
+       /pfs/B/4.txt
 
 Run 2: /pfs/A/1.txt
-       /pfs/B/2.txt
+       /pfs/B/5.txt
 ...
 
 Run 9: /pfs/A/3.txt
-       /pfs/B/3.txt
+       /pfs/B/6.txt
 ```
 
 !!! note

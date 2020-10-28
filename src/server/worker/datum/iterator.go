@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 
 	"github.com/cevaris/ordered_map"
@@ -55,11 +56,16 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 		} else if err != nil {
 			return nil, err
 		}
-		g := glob.MustCompile(input.Glob, '/')
+		g, err := glob.Compile(path.Clean(input.Glob), '/')
+		if err != nil {
+			return nil, err
+		}
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
+		groupBy := g.Replace(fileInfo.File.Path, input.GroupBy)
 		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,
 			JoinOn:     joinOn,
+			GroupBy:    groupBy,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
@@ -312,6 +318,72 @@ func (d *crossIterator) DatumN(n int) []*common.Input {
 	return result
 }
 
+type groupIterator struct {
+	datums   [][]*common.Input
+	location int
+}
+
+func newGroupIterator(pachClient *client.APIClient, group []*pps.Input) (Iterator, error) {
+	groupMap := make(map[string][]*common.Input)
+	keys := make([]string, 0, len(group))
+	result := &groupIterator{}
+	defer result.Reset()
+
+	// okay, so we have a slice of pps Inputs
+	for _, input := range group {
+		// turn our inputs into iterators
+		datumIterator, err := NewIterator(pachClient, input)
+		if err != nil {
+			return nil, err
+		}
+		// iterate through each iterator to get the individual datums
+		for datumIterator.Next() {
+			datum := datumIterator.Datum()
+			for _, datumInput := range datum {
+				// put the datums in an map keyed by GroupBy
+				groupDatum, ok := groupMap[datumInput.GroupBy]
+				if !ok || groupDatum == nil {
+					// make sure we keep track of new keys
+					keys = append(keys, datumInput.GroupBy)
+				}
+				groupMap[datumInput.GroupBy] = append(groupDatum, datumInput)
+			}
+		}
+	}
+	// sort everything by the group_by
+	sort.Strings(keys)
+
+	// put each equivalence class into its own datum
+	for _, key := range keys {
+		result.datums = append(result.datums, groupMap[key])
+	}
+	return result, nil
+}
+
+func (d *groupIterator) Reset() {
+	d.location = -1
+}
+
+func (d *groupIterator) Len() int {
+	return len(d.datums)
+}
+
+func (d *groupIterator) Next() bool {
+	if d.location < len(d.datums) {
+		d.location++
+	}
+	return d.location < len(d.datums)
+}
+
+func (d *groupIterator) Datum() []*common.Input {
+	return d.datums[d.location]
+}
+
+func (d *groupIterator) DatumN(n int) []*common.Input {
+	d.location = n
+	return d.Datum()
+}
+
 type joinIterator struct {
 	datums   [][]*common.Input
 	location int
@@ -463,6 +535,8 @@ func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, erro
 		return newCrossIterator(pachClient, input.Cross)
 	case input.Join != nil:
 		return newJoinIterator(pachClient, input.Join)
+	case input.Group != nil:
+		return newGroupIterator(pachClient, input.Group)
 	case input.Cron != nil:
 		return newCronIterator(pachClient, input.Cron)
 	case input.Git != nil:

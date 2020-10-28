@@ -93,6 +93,7 @@ message PFSInput {
   string commit = 4;
   string glob = 5;
   string join_on = 8;
+  string group_by = 11;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
@@ -130,6 +131,7 @@ message GitInput {
 message Input {
   PFSInput pfs = 6;
   repeated Input join = 7;
+  repeated Input group = 8;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
@@ -519,6 +521,9 @@ message ListJobRequest {
   // and jobs.
   // Note that if 'input_commit' is set, this field is coerced to "true"
   bool full = 5;
+
+  // A jq program string for additional result filtering
+  string jqFilter = 6;
 }
 
 message FlushJobRequest {
@@ -714,6 +719,14 @@ message ListPipelineRequest {
   // 2: etc.
   //-1: Return all historical versions.
   int64 history = 2;
+
+  // Return PipelineInfos with incomplete data if the pipeline spec cannot be
+  // retrieved. Incomplete PipelineInfos will have a nil Transform field, but
+  // will have the fields present in EtcdPipelineInfo.
+  bool allow_incomplete = 3;
+
+  // A jq program string for additional result filtering
+  string jqFilter = 4;
 }
 
 message DeletePipelineRequest {

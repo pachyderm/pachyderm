@@ -36,7 +36,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("out", dataRepo, "", "/*", "", false),
+		client.NewPFSInputOpts("out", dataRepo, "", "/*", "", "", false),
 		"master",
 		false,
 	)
@@ -52,7 +52,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("input", dataRepo, "", "", "", false),
+		client.NewPFSInputOpts("input", dataRepo, "", "", "", "", false),
 		"master",
 		false,
 	)
@@ -76,7 +76,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("whatever", "nonexistent", "", "/*", "", false),
+		client.NewPFSInputOpts("whatever", "nonexistent", "", "/*", "", "", false),
 		"master",
 		false,
 	))

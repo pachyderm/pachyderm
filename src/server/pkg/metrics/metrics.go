@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -166,11 +167,11 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
 		return err
 	}
 	metrics.ActivationCode = enterpriseState.ActivationCode
-	pis, err := pachClient.ListPipeline()
+	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
 	if err != nil {
 		return err
 	}
-	metrics.Pipelines = int64(len(pis))
+	metrics.Pipelines = int64(len(resp.PipelineInfo))
 	ris, err := pachClient.ListRepo()
 	if err != nil {
 		return err

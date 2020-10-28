@@ -517,17 +517,6 @@ message FsckResponse {
 
 // Messages specific to Pachyderm 2.
 
-// PutTar Protocol:
-//   Client sends an initial request with only the commit field set.
-//   For each tar stream to put:
-//     If the client wants to tag the tar stream:
-//       Client sends a request with the tag field set (the first batch
-//       of data can be optionally sent with this request).
-//     For bytes in the tar stream:
-//       Client sends a request with the bytes stored in the data field.
-//     Client sends a request with the EOF field set to true.
-//   Client connection is closed.
-
 message FileOperationRequestV2 {
   Commit commit = 1;
   oneof operation {
@@ -537,9 +526,9 @@ message FileOperationRequestV2 {
 }
 
 message PutTarRequestV2 {
-  string tag = 1;
-  bytes data = 2;
-  bool EOF = 3;
+  bool overwrite = 1;
+  string tag = 2;
+  bytes data = 3;
 }
 
 message DeleteFilesRequestV2 {
@@ -746,12 +735,25 @@ message Objects {
 }
 
 message PutObjDirectRequest {
-    string obj = 1;
-    bytes value = 2;
+  string obj = 1;
+  bytes value = 2;
 }
 
 message GetObjDirectRequest {
-    string obj = 1;
+  string obj = 1;
+}
+
+message DeleteObjDirectRequest {
+  // The 'object' and 'prefix' fields are mutually exclusive.
+
+  // Delete a single object by its path.
+  string object = 1;
+
+  // Delete all objects with paths matching this prefix, cannot be applied to
+  // the core storage layer paths, as those are generally not safe to delete
+  // (use garbage collection for that). This is for deleting objects generated
+  // vi `PutObjDirect`.
+  string prefix = 2;
 }
 
 service ObjectAPI {
@@ -783,6 +785,7 @@ service ObjectAPI {
   // GetObjDirect gets an obj directly out of object store, bypassing the
   // content addressing layer.
   rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteObjDirect(DeleteObjDirectRequest) returns (google.protobuf.Empty) {}
 }
 
 message ObjectIndex {

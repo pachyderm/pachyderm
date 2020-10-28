@@ -42,8 +42,11 @@ func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix strin
 		taskQueue: newTaskQueue(ctx),
 	}
 	// Clear etcd key space.
-	if err := tq.deleteAllTasks(); err != nil {
-		return nil, err
+	// TODO: Multiple storage task queues are setup, so deleting the existing tasks is problematic.
+	if taskNamespace != "storage" {
+		if err := tq.deleteAllTasks(); err != nil {
+			return nil, err
+		}
 	}
 	return tq, nil
 }

@@ -17,6 +17,7 @@ import (
 	"unicode"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/itchyny/gojq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -34,9 +35,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -168,6 +171,12 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Group != nil:
+		for _, input := range input.Group {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
 	case input.Git != nil:
 		if names[input.Git.Name] {
 			return errors.Errorf(`name "%s" was used more than once`, input.Git.Name)
@@ -246,6 +255,17 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					// are not yet clear, and we see no use case for them yet, so block
 					// them until we know how they should work
 					return errors.Errorf("S3 inputs in join expressions are not supported")
+				}
+			}
+			if input.Group != nil {
+				if set {
+					return errors.Errorf("multiple input types set")
+				}
+				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// See above for "joins"; block s3 inputs in group expressions until
+					// we know how they should work
+					return errors.Errorf("S3 inputs in group expressions are not supported")
 				}
 			}
 			if input.Union != nil {
@@ -599,7 +619,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		if err != nil {
 			return nil, err
 		}
-		if err := a.listJob(pachClient, nil, ci.Commit, nil, -1, false, func(ji *pps.JobInfo) error {
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, -1, false, "", func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return errors.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
@@ -679,7 +699,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // ListJobStream.
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline,
 	outputCommit *pfs.Commit, inputCommits []*pfs.Commit, history int64, full bool,
-	f func(*pps.JobInfo) error) error {
+	jqFilter string, f func(*pps.JobInfo) error) error {
 	authIsActive := true
 	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
@@ -721,6 +741,21 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		if err != nil {
 			return err
 		}
+	}
+	var jqCode *gojq.Code
+	var enc serde.Encoder
+	var jsonBuffer bytes.Buffer
+	if jqFilter != "" {
+		jqQuery, err := gojq.Parse(jqFilter)
+		if err != nil {
+			return err
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return err
+		}
+		// ensure field names and enum values match with --raw output
+		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 	// specCommits holds the specCommits of pipelines that we're interested in
 	specCommits := make(map[string]bool)
@@ -767,6 +802,18 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		}
 		if !specCommits[jobInfo.SpecCommit.ID] {
 			return nil
+		}
+		if jqCode != nil {
+			jsonBuffer.Reset()
+			// convert jobInfo to a map[string]interface{} for use with gojq
+			enc.EncodeProto(jobInfo)
+			var jobInterface interface{}
+			json.Unmarshal(jsonBuffer.Bytes(), &jobInterface)
+			iter := jqCode.Run(jobInterface)
+			// treat either jq false-y value as rejection
+			if v, _ := iter.Next(); v == false || v == nil {
+				return nil
+			}
 		}
 		return f(jobInfo)
 	}
@@ -869,7 +916,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 	var jobInfos []*pps.JobInfo
-	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, func(ji *pps.JobInfo) error {
+	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(ji *pps.JobInfo) error {
 		jobInfos = append(jobInfos, ji)
 		return nil
 	}); err != nil {
@@ -886,7 +933,7 @@ func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.env.GetPachClient(resp.Context())
-	return a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, func(ji *pps.JobInfo) error {
+	return a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(ji *pps.JobInfo) error {
 		if err := resp.Send(ji); err != nil {
 			return err
 		}
@@ -915,7 +962,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		var jis []*pps.JobInfo
 		// FlushJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.
-		if err := a.listJob(pachClient, nil, ci.Commit, nil, -1, false, func(ji *pps.JobInfo) error {
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, -1, false, "", func(ji *pps.JobInfo) error {
 			jis = append(jis, ji)
 			return nil
 		}); err != nil {
@@ -1801,7 +1848,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 		if pipelineInfo.Spout.Marker != "" {
 			// we need to make sure the marker name is also a valid file name, since it is used in file names
-			if err := hashtree.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
+			if err := ppath.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
 				return errors.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
 			}
 		}
@@ -2272,6 +2319,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
+
+				// We can't recover from an incomplete pipeline info here because
+				// modifying the spec repo depends on being able to access the previous
+				// commit. We therefore use `GetPipelineInfo` which will error if the
+				// spec commit isn't working.
 				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 				if err != nil {
 					return err
@@ -2632,11 +2684,49 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 }
 
 func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.ListPipelineRequest, f func(*pps.PipelineInfo) error) error {
+	var jqCode *gojq.Code
+	var enc serde.Encoder
+	var jsonBuffer bytes.Buffer
+	if request.JqFilter != "" {
+		jqQuery, err := gojq.Parse(request.JqFilter)
+		if err != nil {
+			return err
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return err
+		}
+		// ensure field names and enum values match with --raw output
+		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+	}
 	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
 		func(name string, ptr *pps.EtcdPipelineInfo) error {
-			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, ptr)
-			if err != nil {
-				return err
+			var pipelineInfo *pps.PipelineInfo
+			var err error
+			if request.AllowIncomplete {
+				pipelineInfo, err = ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+			} else {
+				pipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, name, ptr)
+				if err != nil {
+					return err
+				}
+			}
+			// apply jq filter to the full pipelineInfo object
+			// could have issues if the filter uses fields from .transform which aren't filled in due to AllowIncomplete
+			if jqCode != nil {
+				jsonBuffer.Reset()
+				// convert pipelineInfo to a map[string]interface{} for use with gojq
+				enc.EncodeProto(pipelineInfo)
+				var pipelineInterface interface{}
+				json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
+				iter := jqCode.Run(pipelineInterface)
+				// treat either jq false-y value as rejection
+				if v, _ := iter.Next(); v == false || v == nil {
+					return nil
+				}
 			}
 			return f(pipelineInfo)
 		})

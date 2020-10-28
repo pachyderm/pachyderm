@@ -1418,7 +1418,7 @@ func (a *apiServer) Authorize(
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC
 func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
-	a.LogReq(req)
+	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
 		return nil, auth.ErrNotActivated

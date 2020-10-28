@@ -5,21 +5,23 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 
 // PutTarV2 puts a tar stream into PFS.
-func (c APIClient) PutTarV2(repo, commit string, r io.Reader, tag ...string) error {
+func (c APIClient) PutTarV2(repo, commit string, r io.Reader, overwrite bool, tag ...string) error {
 	foc, err := c.NewFileOperationClientV2(repo, commit)
 	if err != nil {
 		return err
 	}
-	if err := foc.PutTar(r, tag...); err != nil {
+	if err := foc.PutTar(r, overwrite, tag...); err != nil {
 		return err
 	}
 	return foc.Close()
@@ -45,6 +47,20 @@ func (c APIClient) DeleteFilesV2(repo, commit string, files []string, tag ...str
 type FileOperationClient struct {
 	client pfs.API_FileOperationV2Client
 	fileOperationCore
+}
+
+// WithFileOperationClientV2 creates a new FileOperationClient that is scoped to the passed in callback.
+func (c APIClient) WithFileOperationClientV2(repo, commit string, cb func(*FileOperationClient) error) (retErr error) {
+	foc, err := c.NewFileOperationClientV2(repo, commit)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if retErr == nil {
+			retErr = foc.Close()
+		}
+	}()
+	return cb(foc)
 }
 
 // NewFileOperationClientV2 creates a new FileOperationClient.
@@ -77,45 +93,6 @@ func (foc *FileOperationClient) Close() error {
 	})
 }
 
-// CreateTmpFileSetClient is used to create a temporary fileset.
-type CreateTmpFileSetClient struct {
-	client pfs.API_CreateTmpFileSetClient
-	fileOperationCore
-}
-
-// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
-func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	client, err := c.PfsAPIClient.CreateTmpFileSet(c.Ctx())
-	if err != nil {
-		return nil, err
-	}
-	return &CreateTmpFileSetClient{
-		client: client,
-		fileOperationCore: fileOperationCore{
-			client: client,
-		},
-	}, nil
-}
-
-// Close closes the CreateTmpFileSetClient.
-func (foc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
-	var ret *pfs.CreateTmpFileSetResponse
-	if err := foc.maybeError(func() error {
-		resp, err := foc.client.CloseAndRecv()
-		if err != nil {
-			return err
-		}
-		ret = resp
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 type fileOperationCore struct {
 	client interface {
 		Send(*pfs.FileOperationRequestV2) error
@@ -124,22 +101,22 @@ type fileOperationCore struct {
 }
 
 // PutTar puts a tar stream into PFS.
-func (foc *fileOperationCore) PutTar(r io.Reader, tag ...string) error {
+func (foc *fileOperationCore) PutTar(r io.Reader, overwrite bool, tag ...string) error {
 	return foc.maybeError(func() error {
+		ptr := &pfs.PutTarRequestV2{Overwrite: overwrite}
 		if len(tag) > 0 {
 			if len(tag) > 1 {
 				return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
 			}
-			if err := foc.sendPutTar(&pfs.PutTarRequestV2{Tag: tag[0]}); err != nil {
-				return err
-			}
+			ptr.Tag = tag[0]
 		}
-		if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
-			return foc.sendPutTar(&pfs.PutTarRequestV2{Data: data})
-		}); err != nil {
+		if err := foc.sendPutTar(ptr); err != nil {
 			return err
 		}
-		return foc.sendPutTar(&pfs.PutTarRequestV2{EOF: true})
+		_, err := grpcutil.ChunkReader(r, func(data []byte) error {
+			return foc.sendPutTar(&pfs.PutTarRequestV2{Data: data})
+		})
+		return err
 	})
 }
 
@@ -239,10 +216,24 @@ func (c APIClient) DiffFileV2(newRepo, newCommit, newPath, oldRepo,
 	return nil
 }
 
+// ClearCommitV2 clears the state of an open commit.
+func (c APIClient) ClearCommitV2(repo, commit string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PfsAPIClient.ClearCommitV2(
+		c.Ctx(),
+		&pfs.ClearCommitRequestV2{
+			Commit: NewCommit(repo, commit),
+		},
+	)
+	return err
+}
+
 // PutFileV2 puts a file into PFS.
 // TODO: Change this to not buffer the file locally.
 // We will want to move to a model where we buffer in chunk storage.
-func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader) error {
+func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reader, overwrite bool) error {
 	return withTmpFile(func(tarF *os.File) error {
 		if err := withTmpFile(func(f *os.File) error {
 			size, err := io.Copy(f, r)
@@ -263,7 +254,7 @@ func (c APIClient) PutFileV2(repo string, commit string, path string, r io.Reade
 		if err != nil {
 			return err
 		}
-		return c.PutTarV2(repo, commit, tarF)
+		return c.PutTarV2(repo, commit, tarF, overwrite)
 	})
 }
 
@@ -298,7 +289,97 @@ func (c APIClient) GetFileV2(repo string, commit string, path string, w io.Write
 	}, true)
 }
 
-var errV1NotImplemented = errors.Errorf("v1 method not implemented")
+// TmpRepoName is a reserved repo name used for namespacing temporary filesets
+const TmpRepoName = "__tmp__"
+
+// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
+func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
+	return &pfs.Commit{
+		ID:   fileSetID,
+		Repo: &pfs.Repo{Name: TmpRepoName},
+	}
+}
+
+// DefaultTTL is the default time-to-live for a temporary fileset.
+const DefaultTTL = 10 * time.Minute
+
+// WithRenewer provides a scoped temporary fileset renewer.
+func (c APIClient) WithRenewer(cb func(context.Context, *fileset.Renewer) error) error {
+	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+		return c.WithCtx(ctx).RenewTmpFileSet(p, ttl)
+	}
+	return fileset.WithRenewer(c.Ctx(), DefaultTTL, renew, cb)
+}
+
+// WithCreateTmpFileSetClient provides a scoped temporary fileset client.
+func (c APIClient) WithCreateTmpFileSetClient(cb func(*CreateTmpFileSetClient) error) (resp *pfs.CreateTmpFileSetResponse, retErr error) {
+	ctfsc, err := c.NewCreateTmpFileSetClient()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if retErr == nil {
+			resp, retErr = ctfsc.Close()
+		}
+	}()
+	return nil, cb(ctfsc)
+}
+
+// CreateTmpFileSetClient is used to create a temporary fileset.
+type CreateTmpFileSetClient struct {
+	client pfs.API_CreateTmpFileSetClient
+	fileOperationCore
+}
+
+// NewCreateTmpFileSetClient returns a CreateTmpFileSetClient instance backed by this client
+func (c APIClient) NewCreateTmpFileSetClient() (_ *CreateTmpFileSetClient, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.CreateTmpFileSet(c.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	return &CreateTmpFileSetClient{
+		client: client,
+		fileOperationCore: fileOperationCore{
+			client: client,
+		},
+	}, nil
+}
+
+// Close closes the CreateTmpFileSetClient.
+func (ctfsc *CreateTmpFileSetClient) Close() (*pfs.CreateTmpFileSetResponse, error) {
+	var ret *pfs.CreateTmpFileSetResponse
+	if err := ctfsc.maybeError(func() error {
+		resp, err := ctfsc.client.CloseAndRecv()
+		if err != nil {
+			return err
+		}
+		ret = resp
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// RenewTmpFileSet renews a temporary fileset.
+func (c APIClient) RenewTmpFileSet(ID string, ttl time.Duration) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PfsAPIClient.RenewTmpFileSet(
+		c.Ctx(),
+		&pfs.RenewTmpFileSetRequest{
+			FilesetId:  ID,
+			TtlSeconds: int64(ttl.Seconds()),
+		},
+	)
+	return err
+}
+
+var errV1NotImplemented = errors.Errorf("V1 method not implemented")
 
 type putFileClientV2 struct {
 	c APIClient
@@ -317,11 +398,11 @@ func (pfc *putFileClientV2) PutFileSplitWriter(repo, commit, path string, delimi
 }
 
 func (pfc *putFileClientV2) PutFile(repo, commit, path string, r io.Reader) (int, error) {
-	return 0, pfc.c.PutFileV2(repo, commit, path, r)
+	return 0, pfc.c.PutFileV2(repo, commit, path, r, false)
 }
 
-func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, reader io.Reader, overwriteIndex int64) (int, error) {
-	return 0, errV1NotImplemented
+func (pfc *putFileClientV2) PutFileOverwrite(repo, commit, path string, r io.Reader, overwriteIndex int64) (int, error) {
+	return 0, pfc.c.PutFileV2(repo, commit, path, r, true)
 }
 
 func (pfc *putFileClientV2) PutFileSplit(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, r io.Reader) (int, error) {
@@ -340,15 +421,4 @@ func (pfc *putFileClientV2) DeleteFile(repo, commit, path string) error {
 
 func (pfc *putFileClientV2) Close() error {
 	return nil
-}
-
-// TmpRepoName is a reserved repo name used for namespacing temporary filesets
-const TmpRepoName = "__tmp__"
-
-// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
-func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
-	return &pfs.Commit{
-		ID:   fileSetID,
-		Repo: &pfs.Repo{Name: TmpRepoName},
-	}
 }

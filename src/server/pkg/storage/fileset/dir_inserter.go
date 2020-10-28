@@ -59,7 +59,7 @@ func parentOf(x string) string {
 	if y == x {
 		return "/"
 	}
-	if !strings.HasSuffix(y, "/") {
+	if !IsDir(y) {
 		y += "/"
 	}
 	return y

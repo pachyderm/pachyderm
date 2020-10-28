@@ -375,6 +375,50 @@ func TestYAMLPipelineSpec(t *testing.T) {
 	).Run())
 }
 
+func TestListPipelineFilter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl garbage-collect
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		pachctl create pipeline -f - <<EOF
+		{
+		"pipeline": {
+			"name": "first"
+		},
+		"input": {
+			"pfs": {
+			"glob": "/*",
+			"repo": "input"
+			}
+		},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+		"transform": {
+			"cmd": [ "/bin/bash" ],
+			"stdin": [
+			"cp /pfs/input/* /pfs/out"
+			]
+		}
+		}
+		EOF
+
+		echo foo | pachctl put file input@master:/foo
+		pachctl flush commit input@master
+		# make sure we see the pipeline with the appropriate state filters
+		pachctl list pipeline | match first
+		pachctl list pipeline --state starting --state running | match first
+		pachctl list pipeline --state crashing --state failure | match -v first
+	`,
+	).Run())
+}
+
 // TestYAMLError tests that when creating pipelines using a YAML spec with an
 // error, you get an error indicating the problem in the YAML, rather than an
 // error complaining about multiple documents.

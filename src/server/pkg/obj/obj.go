@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -29,8 +27,25 @@ import (
 // Environment variables for determining storage backend and pathing
 const (
 	StorageBackendEnvVar = "STORAGE_BACKEND"
-	PachRootEnvVar       = "PACH_ROOT"
 )
+
+// StorageRootFromEnv gets the storage root based on environment variables.
+func StorageRootFromEnv(storageRoot string) (string, error) {
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
+	}
+	// These storage backends do not like leading slashes
+	switch storageBackend {
+	case Amazon:
+		fallthrough
+	case Minio:
+		if len(storageRoot) > 0 && storageRoot[0] == '/' {
+			storageRoot = storageRoot[1:]
+		}
+	}
+	return storageRoot, nil
+}
 
 // Valid object storage backends
 const (
@@ -164,37 +179,6 @@ var EnvVarToSecretKey = []struct {
 	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
 }
 
-// StorageRootFromEnv gets the storage root based on environment variables.
-func StorageRootFromEnv() (string, error) {
-	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
-	if !ok {
-		return "", errors.Errorf("%s not found", PachRootEnvVar)
-	}
-	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
-	if !ok {
-		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
-	}
-	// These storage backends do not like leading slashes
-	switch storageBackend {
-	case Amazon:
-		fallthrough
-	case Minio:
-		if len(storageRoot) > 0 && storageRoot[0] == '/' {
-			storageRoot = storageRoot[1:]
-		}
-	}
-	return storageRoot, nil
-}
-
-// BlockPathFromEnv gets the path to an object storage block based on environment variables.
-func BlockPathFromEnv(block *pfs.Block) (string, error) {
-	storageRoot, err := StorageRootFromEnv()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(storageRoot, "block", block.Hash), nil
-}
-
 // Client is an interface to object storage.
 type Client interface {
 	// Writer returns a writer which writes to an object.
@@ -293,7 +277,7 @@ func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err e
 }
 
 func secretFile(name string) string {
-	return filepath.Join("/", client.StorageSecretName, name)
+	return filepath.Join("/", "pachyderm-storage-secret", name)
 }
 
 func readSecretFile(name string) (string, error) {

@@ -13,7 +13,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil/random"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"modernc.org/mathutil"
 )
@@ -38,7 +38,7 @@ var tests = []test{
 
 func TestWriteThenRead(t *testing.T) {
 	WithTestStorage(t, func(objC obj.Client, chunks *Storage) error {
-		msg := testutil.SeedRand()
+		msg := random.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
 				// Generate set of annotations.
@@ -54,7 +54,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	WithTestStorage(t, func(objC obj.Client, chunks *Storage) error {
-		msg := testutil.SeedRand()
+		msg := random.SeedRand()
 		for _, test := range tests {
 			t.Run(test.name(), func(t *testing.T) {
 				// Generate two sets of annotations.

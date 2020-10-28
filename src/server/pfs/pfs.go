@@ -122,6 +122,7 @@ var (
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
 	repoNotFoundRe            = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
 	branchNotFoundRe          = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
@@ -163,6 +164,15 @@ func IsRepoNotFoundErr(err error) bool {
 		return false
 	}
 	return repoNotFoundRe.MatchString(err.Error())
+}
+
+// IsRepoExistsErr returns true if 'err' is an error message about a repo
+// existing
+func IsRepoExistsErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return repoExistsRe.MatchString(err.Error())
 }
 
 // IsBranchNotFoundErr returns true if 'err' is an error message about a
