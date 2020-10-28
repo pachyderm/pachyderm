@@ -1089,7 +1089,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 
 	var pipelineName string
 	var statsCommit *pfs.Commit
-	var salt string
+	var ji *pps.JobInfo
 
 	if job != nil {
 		// get information about 'job'
@@ -1104,7 +1104,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 		input = jobInfo.Input
 		pipelineName = jobInfo.Pipeline.Name
 		statsCommit = jobInfo.StatsCommit
-		salt = jobInfo.Salt
+		ji = jobInfo
 	}
 	if input != nil {
 		setInputDefaults("", input)
@@ -1118,6 +1118,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 				ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch)
 				if err != nil {
 					visitErr = err
+					return
 				}
 				input.Pfs.Commit = ci.Commit.ID
 			}
@@ -1125,6 +1126,9 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 				visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
 			}
 		})
+		if visitErr != nil {
+			return nil, visitErr
+		}
 	}
 
 	// authorize ListDatum (must have READER access to all inputs)
@@ -1183,7 +1187,10 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
 			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
-			id := workercommon.HashDatum(pipelineName, salt, datum)
+			id := ""
+			if ji != nil {
+				id = workercommon.HashDatum(pipelineName, ji.Salt, datum)
+			}
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,
