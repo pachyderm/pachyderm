@@ -30,7 +30,7 @@ func (d *driverV2) master(env *serviceenv.ServiceEnv) {
 			return d.storage.GC(masterCtx)
 		}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 			log.Errorf("error in pfs master: %v", err)
-			return err
+			return nil
 		})
 		// TODO: Always panic, remove this check, see above.
 		if err != nil {
