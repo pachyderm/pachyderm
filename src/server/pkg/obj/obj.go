@@ -132,7 +132,7 @@ type AmazonAdvancedConfiguration struct {
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
 	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
-	Reverse        bool   `env:"REVERSE, default=true"`
+	Reverse        bool   `env:"REVERSE, default=false"`
 	PartSize       int64  `env:"PART_SIZE, default=5242880"`
 	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
 	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
