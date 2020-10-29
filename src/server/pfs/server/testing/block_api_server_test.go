@@ -146,20 +146,42 @@ func TestReadObjects(t *testing.T) {
 func TestDirectObjects(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		fmt.Printf("test path: %s\n", env.Directory)
 		path := "direct-foo"
 		data := []byte("foo")
 		fooWriter, err := env.PachClient.DirectObjWriter(path)
+		require.NoError(t, err)
 		_, err = fooWriter.Write(data)
 		require.NoError(t, err)
 		require.NoError(t, fooWriter.Close())
 
 		fooReader, err := env.PachClient.DirectObjReader(path)
+		require.NoError(t, err)
 		readData := &bytes.Buffer{}
 		_, err = readData.ReadFrom(fooReader)
 		require.NoError(t, err)
-		require.Equal(t, data, readData.Bytes())
 		require.NoError(t, fooReader.Close())
+		require.Equal(t, data, readData.Bytes())
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestEmptyDirectObjects(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		path := "empty-foo"
+		fooWriter, err := env.PachClient.DirectObjWriter(path)
+		require.NoError(t, err)
+		require.NoError(t, fooWriter.Close())
+
+		fooReader, err := env.PachClient.DirectObjReader(path)
+		require.NoError(t, err)
+		readData := &bytes.Buffer{}
+		_, err = readData.ReadFrom(fooReader)
+		require.NoError(t, err)
+		require.NoError(t, fooReader.Close())
+		require.Equal(t, 0, len(readData.Bytes()))
 
 		return nil
 	})
