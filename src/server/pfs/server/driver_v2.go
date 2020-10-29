@@ -82,7 +82,7 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func newDB() (db *sqlx.DB, retErr error) {
 	defer func() {
 		if db != nil {
-			db.MustExec(`DROP SCHEMA storage CASCADE`)
+			db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
 			fileset.PGStoreApplySchema(db)
 			chunk.PGStoreApplySchema(db)
 			tracker.PGTrackerApplySchema(db)
