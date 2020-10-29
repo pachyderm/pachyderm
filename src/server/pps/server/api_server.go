@@ -2359,9 +2359,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				// Update pipeline parallelism
 				pipelinePtr.Parallelism = uint64(parallelism)
 
-				// Generate pipeline's auth token & add pipeline to the ACLs of input/output
+				// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
 				// repos
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					oldAuthToken := pipelinePtr.AuthToken
 					tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
 						Subject: auth.PipelinePrefix + request.Pipeline.Name,
 						TTL:     -1,
@@ -2373,6 +2374,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 						return grpcutil.ScrubGRPC(err)
 					}
 					pipelinePtr.AuthToken = tokenResp.Token
+
+					// If getting a new auth token worked, we should revoke the old one
+					if oldAuthToken != "" {
+						_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+							&auth.RevokeAuthTokenRequest{
+								Token: oldAuthToken,
+							})
+						if err != nil {
+							if auth.IsErrNotActivated(err) {
+								return nil // no auth work to do
+							}
+							return grpcutil.ScrubGRPC(err)
+						}
+					}
 					return nil
 				}); err != nil {
 					return err
