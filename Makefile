@@ -82,7 +82,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version docker-build docker-push docker-build-pachctl docker-push-pachctl docker-push-pipeline-build
+release-helper: release-version docker-build docker-push docker-push-pachctl docker-push-pipeline-build
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
@@ -97,20 +97,19 @@ docker-build:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
 
-	docker build \
-		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
-		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		$(DOCKER_BUILD_FLAGS) \
-		-t pachyderm/worker etc/worker
-	docker tag pachyderm/worker pachyderm/worker:local
-
-docker-build-pachctl:
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		--build-arg GC_FLAGS="$(GC_FLAGS)" \
 		$(DOCKER_BUILD_FLAGS) \
 		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
+
+	docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		-t pachyderm/worker etc/worker
+	docker tag pachyderm/worker pachyderm/worker:local
 
 docker-build-pipeline-build:
 	cd etc/pipeline-build && make docker-build
@@ -504,7 +503,6 @@ goxc-build:
 	release-helper \
 	release-version \
 	docker-build \
-	docker-build-pachctl \
 	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-netcat \

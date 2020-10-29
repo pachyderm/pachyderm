@@ -126,6 +126,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			Name:  "PACH_NAMESPACE",
 			Value: a.namespace,
 		},
+		{
+			Name:  "PACH_IN_WORKER",
+			Value: "true",
+		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers
 		// can discover the workers.
