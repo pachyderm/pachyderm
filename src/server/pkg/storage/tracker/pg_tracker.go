@@ -25,22 +25,29 @@ func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []stri
 			return ErrSelfReference
 		}
 	}
-	err := t.withTx(ctx, func(tx *sqlx.Tx) error {
+	return t.withTx(ctx, func(tx *sqlx.Tx) error {
 		var oid int
-		if ttl > 0 {
-			if err := tx.GetContext(ctx, &oid,
-				`INSERT INTO storage.tracker_objects (str_id, expires_at)
-			VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
-			RETURNING int_id`, id, ttl.Microseconds()); err != nil {
-				return err
+		if err := func() error {
+			if ttl > 0 {
+				return tx.GetContext(ctx, &oid,
+					`INSERT INTO storage.tracker_objects (str_id, expires_at)
+				VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
+				ON CONFLICT (str_id) DO NOTHING
+				RETURNING int_id
+				`, id, ttl.Microseconds())
+			} else {
+				return tx.GetContext(ctx, &oid,
+					`INSERT INTO storage.tracker_objects (str_id)
+				VALUES ($1)
+				ON CONFLICT (str_id) DO NOTHING
+				RETURNING int_id
+				`, id)
 			}
-		} else {
-			if err := tx.GetContext(ctx, &oid,
-				`INSERT INTO storage.tracker_objects (str_id)
-			VALUES ($1)
-			RETURNING int_id`, id); err != nil {
-				return err
+		}(); err != nil {
+			if err == sql.ErrNoRows {
+				err = ErrObjectExists
 			}
+			return err
 		}
 		var pointsToInts []int
 		if err := tx.SelectContext(ctx, &pointsToInts,
@@ -55,13 +62,6 @@ func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []stri
 		}
 		return nil
 	})
-	if pqErr, ok := err.(*pq.Error); ok {
-		// https://github.com/lib/pq/blob/master/error.go#L178
-		if pqErr.Code == "23505" {
-			err = ErrObjectExists
-		}
-	}
-	return err
 }
 
 func (t *PGTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {

@@ -76,6 +76,13 @@ func TestTracker(t *testing.T, withTracker func(func(Tracker))) {
 			},
 		},
 		{
+			"ErrObjectExists",
+			func(t *testing.T, tracker Tracker) {
+				require.Nil(t, tracker.CreateObject(ctx, "test-id", []string{}, 0))
+				require.Equal(t, ErrObjectExists, tracker.CreateObject(ctx, "test-id", []string{}, 0))
+			},
+		},
+		{
 			"CreateMultipleObjects",
 			func(t *testing.T, tracker Tracker) {
 				require.Nil(t, tracker.CreateObject(ctx, "1", []string{}, 0))
