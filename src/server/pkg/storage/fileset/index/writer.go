@@ -2,6 +2,7 @@ package index
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -34,6 +35,8 @@ type Writer struct {
 	ctx    context.Context
 	chunks *chunk.Storage
 	tmpID  string
+
+	mu     sync.Mutex
 	levels []*levelWriter
 	closed bool
 	root   *Index
@@ -50,6 +53,8 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 
 // WriteIndexes writes a set of index entries.
 func (w *Writer) WriteIndexes(idxs []*Index) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.setupLevels()
 	return w.writeIndexes(idxs, 0)
 }
@@ -86,6 +91,8 @@ func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 
 func (w *Writer) callback(level int) chunk.WriterFunc {
 	return func(annotations []*chunk.Annotation) error {
+		w.mu.Lock()
+		defer w.mu.Unlock()
 		if len(annotations) == 0 {
 			return nil
 		}
@@ -131,13 +138,18 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 
 // Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() (ret *Index, retErr error) {
+	w.mu.Lock()
 	w.closed = true
+	w.mu.Unlock()
+
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
 	// created when the top level chunk writer has been closed and the number of
 	// annotations and chunks it has is one (one annotation in one chunk).
 	for i := 0; i < len(w.levels); i++ {
+		w.mu.Lock()
 		l := w.levels[i]
+		w.mu.Unlock()
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
