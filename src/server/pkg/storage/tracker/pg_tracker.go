@@ -146,9 +146,9 @@ func (t *PGTracker) FinishDelete(ctx context.Context, id string) error {
 		var tombstone bool
 		if err := tx.GetContext(ctx, &tombstone,
 			`DELETE FROM storage.tracker_objects
-			WHERE id = $1
+			WHERE str_id = $1
 			RETURNING tombstone
-			`); err != nil {
+			`, id); err != nil {
 			return err
 		}
 		if !tombstone {
