@@ -10,8 +10,13 @@ builds:
   -
     id: "pachctl"
     dir: src/server/cmd/pachctl
-    main: src/server/cmd/pachctl/main.go
-    binary: $GOPATH/bin/pachctl
+    main: main.go
+    binary: pachctl
+    ldflags:
+      #- -s -w -X src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+    gcflags:
+      - all=-trimpath={${PWD}}
     env:
       - CGO_ENABLED=0
     goos:
@@ -19,7 +24,7 @@ builds:
       - darwin
     goarch:
       - amd64
-    gobinary: "go1.13.8"
+    #gobinary: "go1.13.8"
 archives:
   - replacements:
       amd64: x86_64
@@ -33,3 +38,31 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+scoop:
+  url_template: "http://github.com/pachyderm/pachyderm/releases/{{ .Tag }}/{{ .ArtifactName }}"
+  bucket:
+    owner: pachyderm
+    name: pachyderm
+  commit_author:
+    name: nitin
+    email: nitin@pachyderm.com
+  commit_msg_template: "Update for {{ .ProjectName }} version {{ .Tag }}"
+  homepage: "https://www.pachyderm.com/"
+  description: "Reproducible data science"
+nfpms:
+  -
+    id: pachctl
+    package_name: pachctl
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds: 
+      - pachctl
+    replacements:
+      linux: 
+      amd64: amd64
+    vendor: Pachyderm
+    homepage: https://www.pachyderm.com/
+    maintainer: nitin@pachyderm.com
+    description: "Reproducible data science"
+    formats:
+      - deb
+    bindir: /usr/bin
