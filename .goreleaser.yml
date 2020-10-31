@@ -76,9 +76,3 @@ release:
     - pachctl-deb
   prerelease: auto
   disable: true
-
-
-# Don't enable the source option. Upload to github automatically creates the source code
-#source:
-#  # default is false
-#  enabled: true
