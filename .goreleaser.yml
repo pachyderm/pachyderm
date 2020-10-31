@@ -1,20 +1,22 @@
 # This is an example goreleaser.yaml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
+
+project_name: pachctl
 before:
   hooks:
     # You may remove this if you don't use go modules.
     - go mod download
     # you may remove this if you don't need go generate
     - go generate ./...
+    - git tag v{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}
 builds:
   -
-    id: "pachctl"
     dir: src/server/cmd/pachctl
     main: main.go
     binary: pachctl
     ldflags:
-      #- -s -w -X src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
-      - -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      # - -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
     gcflags:
       - all=-trimpath={${PWD}}
     env:
@@ -26,12 +28,17 @@ builds:
       - amd64
     #gobinary: "go1.13.8"
 archives:
-  - replacements:
-      amd64: x86_64
+  -
+    format_overrides:
+      - goos: darwin
+        format: zip
+    wrap_in_directory: true
+    files:
+      - pachctl*/pachctl
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}"
 changelog:
   sort: asc
   filters:
@@ -42,7 +49,7 @@ scoop:
   url_template: "http://github.com/pachyderm/pachyderm/releases/{{ .Tag }}/{{ .ArtifactName }}"
   bucket:
     owner: pachyderm
-    name: pachyderm
+    name: pachctl
   commit_author:
     name: nitin
     email: nitin@pachyderm.com
@@ -53,11 +60,11 @@ nfpms:
   -
     id: pachctl
     package_name: pachctl
-    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}_{{ .Arch }}"
     builds: 
       - pachctl
     replacements:
-      linux: 
+      linux: ""
       amd64: amd64
     vendor: Pachyderm
     homepage: https://www.pachyderm.com/
