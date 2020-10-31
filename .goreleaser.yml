@@ -8,9 +8,9 @@ before:
     - go mod download
     # you may remove this if you don't need go generate
     - go generate ./...
-    # - git tag v{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}
 builds:
   -
+    id: pachctl
     dir: src/server/cmd/pachctl
     main: main.go
     binary: pachctl
@@ -18,7 +18,7 @@ builds:
       - -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
       # - -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
     gcflags:
-      - all=-trimpath={${PWD}}
+      - all=-trimpath={{.Env.GOPATH}}
     env:
       - CGO_ENABLED=0
     goos:
@@ -29,6 +29,7 @@ builds:
     #gobinary: "go1.13.8"
 archives:
   -
+    id: pachctl-archives
     format_overrides:
       - goos: darwin
         format: zip
@@ -36,15 +37,11 @@ archives:
     files:
       - pachctl*/pachctl
 checksum:
-  name_template: 'checksums.txt'
+  disable: true
 snapshot:
   name_template: "{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}"
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
+  skip: true
 scoop:
   url_template: "http://github.com/pachyderm/pachyderm/releases/{{ .Tag }}/{{ .ArtifactName }}"
   bucket:
@@ -58,7 +55,7 @@ scoop:
   description: "Reproducible data science"
 nfpms:
   -
-    id: pachctl
+    id: pachctl-deb
     package_name: pachctl
     file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}_{{ .Arch }}"
     builds: 
@@ -73,3 +70,15 @@ nfpms:
     formats:
       - deb
     bindir: /usr/bin
+release:
+  ids:
+    - pachctl-archives
+    - pachctl-deb
+  prerelease: auto
+  disable: true
+
+
+# Don't enable the source option. Upload to github automatically creates the source code
+#source:
+#  # default is false
+#  enabled: true
