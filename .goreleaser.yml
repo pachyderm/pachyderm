@@ -42,13 +42,6 @@ snapshot:
 changelog:
   skip: true
 
-scoop:
-  bucket:
-    owner: pachyderm
-    name: pachyderm-scoop
-  homepage: "https://www.pachyderm.com/"
-  description: "Reproducible data science"
-
 nfpms:
   -
     id: pachctl-deb
@@ -69,4 +62,3 @@ nfpms:
 
 release:
   prerelease: auto
-  #disable: true
