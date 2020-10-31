@@ -71,8 +71,5 @@ nfpms:
       - deb
     bindir: /usr/bin
 release:
-  ids:
-    - pachctl-archives
-    - pachctl-deb
   prerelease: auto
   disable: true
