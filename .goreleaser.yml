@@ -8,7 +8,7 @@ before:
     - go mod download
     # you may remove this if you don't need go generate
     - go generate ./...
-    - git tag v{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}
+    # - git tag v{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}
 builds:
   -
     dir: src/server/cmd/pachctl
