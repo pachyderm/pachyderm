@@ -14,7 +14,7 @@ builds:
     ldflags:
       - -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
     gcflags:
-      - all=-trimpath={{.Env.GOPATH}}
+      - all=-trimpath={{.Env.TRIMPATH}}
     env:
       - CGO_ENABLED=0
     goos:
