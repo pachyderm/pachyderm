@@ -1,13 +1,10 @@
-# This is an example goreleaser.yaml file with some sane defaults.
-# Make sure to check the documentation at http://goreleaser.com
-
 project_name: pachctl
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod download
-    # you may remove this if you don't need go generate
     - go generate ./...
+
 builds:
   -
     id: pachctl
@@ -16,7 +13,6 @@ builds:
     binary: pachctl
     ldflags:
       - -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion={{.Env.VERSION_ADDITIONAL}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
-      # - -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
     gcflags:
       - all=-trimpath={{.Env.GOPATH}}
     env:
@@ -26,7 +22,7 @@ builds:
       - darwin
     goarch:
       - amd64
-    #gobinary: "go1.13.8"
+
 archives:
   -
     id: pachctl-archives
@@ -36,23 +32,23 @@ archives:
     wrap_in_directory: true
     files:
       - pachctl*/pachctl
+
 checksum:
   disable: true
+
 snapshot:
   name_template: "{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}"
+
 changelog:
   skip: true
+
 scoop:
-  url_template: "http://github.com/pachyderm/pachyderm/releases/{{ .Tag }}/{{ .ArtifactName }}"
   bucket:
     owner: pachyderm
-    name: pachctl
-  commit_author:
-    name: nitin
-    email: nitin@pachyderm.com
-  commit_msg_template: "Update for {{ .ProjectName }} version {{ .Tag }}"
+    name: pachyderm-scoop
   homepage: "https://www.pachyderm.com/"
   description: "Reproducible data science"
+
 nfpms:
   -
     id: pachctl-deb
@@ -70,6 +66,7 @@ nfpms:
     formats:
       - deb
     bindir: /usr/bin
+
 release:
   prerelease: auto
-  disable: true
+  #disable: true
