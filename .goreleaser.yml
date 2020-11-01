@@ -40,7 +40,7 @@ snapshot:
   name_template: "{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}"
 
 changelog:
-  skip: true
+  skip: false
 
 nfpms:
   -
@@ -62,3 +62,23 @@ nfpms:
 
 release:
   prerelease: auto
+
+brews:
+  -
+    name: pachctl@{{.Major}}.{{.Minor}}
+    ids:
+      - pachctl-archives
+    homepage: "github.com/pachyderm/pachyderm"
+    description: "Reproducible data science"
+    tap:
+      owner: pachyderm
+      name: homebrew-tap
+    url_template: "https://github.com/pachyderm/pachyderm/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    commit_author:
+      name: pachyderm
+      email: nitin@pachyderm.com
+    test: |
+      system "#{bin}/pachctl version"
+    install: |
+      bin.install buildpath/"pachctl"
+    skip_upload: true
