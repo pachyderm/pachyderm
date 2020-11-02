@@ -117,7 +117,7 @@ type AmazonAdvancedConfiguration struct {
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
 	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
-	Reverse        bool   `env:"REVERSE, default=true"`
+	Reverse        bool   `env:"REVERSE, default=false"`
 	PartSize       int64  `env:"PART_SIZE, default=5242880"`
 	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
 	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
@@ -299,7 +299,7 @@ func secretFile(name string) string {
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(secretFile(name))
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return strings.TrimSpace(string(bytes)), nil
 }
@@ -419,7 +419,7 @@ func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution str
 	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if len(reverse) > 0 {
 		advancedConfig.Reverse = reverse[0]
