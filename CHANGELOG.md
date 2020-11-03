@@ -1,9 +1,5 @@
 # Changelog
 
-## 1.11.6-rc1
-
-- This is a test release
-
 ## 1.11.0
 
 Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will reach end-of-life in 1.12.0. Users who are using S3V4-capable storage should make sure their deployment is using the supported storage backend by redeploying without `--isS3V2` flag. If you need help, please reach out to Pachyderm support.

@@ -6,11 +6,10 @@
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Label it w the go version we bundle in:
-VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 export LD_FLAGS = github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
-export VERSION = 
 
 CLUSTER_NAME ?= pachyderm
 CLUSTER_MACHINE_TYPE ?= n1-standard-4
@@ -21,7 +20,7 @@ MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
 CHLOGFILE = /tmp/pachyderm/release/changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
-GORELSNAP = --snapshot
+GORELSNAP = # --snapshot # uncomment --snapshot if you want to do a dry run.
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -35,7 +34,7 @@ endif
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	@go install -ldflags "-X $(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -ldflags "-X $(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -52,7 +51,7 @@ doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
 point-release:
-	@git diff HEAD^ HEAD -- CHANGELOG.md | sed -n /##/,/##/p | grep -v "##" | cut -d '+' -f 2 > $(CHLOGFILE)
+	@./etc/build/make_changelog.sh $(CHLOGFILE)
 	@VERSION_ADDITIONAL= ./etc/build/make_release.sh
 	@make doc
 	@echo "Release completed"
@@ -66,10 +65,10 @@ custom-release:
 	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh
 	# Need to check for homebrew updates from release-pachctl-custom
 
-# This is getting called from make_release.sh
+# This is getting called from etc/build/make_release.sh
+# Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
 release:
-	@echo "---"$(VERSION)"---"
-	@git tag -am "Release tag v$(VERSION)" v$(VERSION)
+	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
 	@git push origin v$(VERSION)
 	@make release-helper
 	@make release-pachctl
