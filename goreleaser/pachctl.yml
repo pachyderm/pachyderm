@@ -41,7 +41,7 @@ checksum:
   disable: true
 
 snapshot:
-  name_template: "{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}"
+  name_template: "{{ .Env.VERSION }}"
 
 changelog:
   skip: false
@@ -50,7 +50,7 @@ nfpms:
   -
     id: pachctl-deb
     package_name: pachctl
-    file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}{{ .Env.VERSION_ADDITIONAL }}_{{ .Arch }}"
+    file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}_{{ .Arch }}"
     builds: 
       - pachctl
     replacements:
@@ -65,6 +65,7 @@ nfpms:
     bindir: /usr/bin
 
 release:
+  name_template: "{{ .Env.VERSION }}"
   prerelease: auto
   disable: false
 
@@ -78,7 +79,7 @@ brews:
     tap:
       owner: pachyderm
       name: homebrew-tap
-    url_template: "https://github.com/pachyderm/pachyderm/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    url_template: "https://github.com/pachyderm/pachyderm/releases/download/v{{ .Env.VERSION }}/{{ .ArtifactName }}"
     commit_author:
       name: pachyderm
       email: nitin@pachyderm.com
@@ -86,4 +87,4 @@ brews:
       system "#{bin}/pachctl version"
     install: |
       bin.install buildpath/"pachctl"
-    skip_upload: false
+    skip_upload: true

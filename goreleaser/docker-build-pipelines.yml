@@ -36,14 +36,14 @@ release:
 dockers:
   -
     image_templates:
-      - pachyderm/go-build:{{.Env.REL_VERSION}}
+      - pachyderm/go-build:{{.Env.VERSION}}
     skip_push: false
     dockerfile: etc/pipeline-build/go/Dockerfile
     extra_files:
       - etc/pipeline-build/go
   -
     image_templates:
-      - pachyderm/python-build:{{.Env.REL_VERSION}}
+      - pachyderm/python-build:{{.Env.VERSION}}
     skip_push: false
     dockerfile: etc/pipeline-build/python/Dockerfile
     extra_files:
