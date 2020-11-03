@@ -1,0 +1,46 @@
+dist: /tmp/pachyderm/release/docker-build-pipeline
+
+builds:
+  -
+    id: pachctl
+    dir: src/server/cmd/pachctl
+    main: main.go
+    binary: pachctl
+    ldflags:
+      - -X {{ .Env.LD_FLAGS }} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+    gcflags:
+      - all=-trimpath={{ .Env.PWD }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+archives:
+  - format: binary
+
+checksum:
+  disable: true
+
+changelog:
+  skip: true
+
+release:
+  disable: true
+
+dockers:
+  -
+    image_templates:
+      - pachyderm/go-build:{{.Env.REL_VERSION}}
+    skip_push: {{.Env.LOCAL_RELEASE}}
+    dockerfile: etc/pipeline-build/go/Dockerfile
+    extra_files:
+      - etc/pipeline-build/go
+  -
+    image_templates:
+      - pachyderm/python-build:{{.Env.REL_VERSION}}
+    skip_push: {{.Env.LOCAL_RELEASE}}
+    dockerfile: etc/pipeline-build/python/Dockerfile
+    extra_files:
+      - etc/pipeline-build/python
