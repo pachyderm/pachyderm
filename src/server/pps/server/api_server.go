@@ -1105,8 +1105,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 		pipelineName = jobInfo.Pipeline.Name
 		statsCommit = jobInfo.StatsCommit
 		ji = jobInfo
-	}
-	if input != nil {
+	} else if input != nil {
 		setInputDefaults("", input)
 
 		var visitErr error
