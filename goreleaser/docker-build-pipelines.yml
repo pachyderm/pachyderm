@@ -1,5 +1,9 @@
 dist: /tmp/pachyderm/release/docker-build-pipeline
 
+before:
+  hooks:
+    - docker login
+
 builds:
   -
     id: pachctl

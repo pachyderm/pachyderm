@@ -1,5 +1,9 @@
 dist: /tmp/pachyderm/release/docker
 
+before:
+  hooks:
+    - docker login
+
 builds:
   -
     id: pachctl
