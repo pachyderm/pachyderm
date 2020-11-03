@@ -13,11 +13,6 @@ var (
 	averageBits = 20
 )
 
-// TODO might want to move this into the chunk storage layer as a default tag.
-const (
-	indexTag = ""
-)
-
 type levelWriter struct {
 	cw      *chunk.Writer
 	pbw     pbutil.Writer
@@ -58,10 +53,10 @@ func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	return w
 }
 
-// WriteIndexes writes a set of index entries.
-func (w *Writer) WriteIndexes(idxs []*Index) error {
+// WriteIndex writes an index entry.
+func (w *Writer) WriteIndex(idx *Index) error {
 	w.setupLevels()
-	return w.writeIndexes(idxs, 0)
+	return w.writeIndex(idx, 0)
 }
 
 func (w *Writer) setupLevels() {
@@ -75,30 +70,33 @@ func (w *Writer) setupLevels() {
 	}
 }
 
-func (w *Writer) writeIndexes(idxs []*Index, level int) error {
+func (w *Writer) writeIndex(idx *Index, level int) error {
 	l := w.levels[level]
-	for _, idx := range idxs {
-		// Create an annotation for each index.
-		l.cw.Annotate(&chunk.Annotation{
-			RefDataRefs: idx.DataOp.DataRefs,
-			Data: &data{
-				idx:   idx,
-				level: level,
-			},
-		})
-		l.cw.Tag(indexTag)
-		if _, err := l.pbw.Write(idx); err != nil {
-			return err
+	var refDataRefs []*chunk.DataRef
+	if idx.Range != nil {
+		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
+	}
+	if idx.FileOp != nil {
+		for _, dataOp := range idx.FileOp.DataOps {
+			refDataRefs = append(refDataRefs, dataOp.DataRefs...)
 		}
 	}
-	return nil
+	// Create an annotation for each index.
+	if err := l.cw.Annotate(&chunk.Annotation{
+		RefDataRefs: refDataRefs,
+		Data: &data{
+			idx:   idx,
+			level: level,
+		},
+	}); err != nil {
+		return err
+	}
+	_, err := l.pbw.Write(idx)
+	return err
 }
 
-func (w *Writer) callback(level int) chunk.WriterFunc {
+func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
-		if len(annotations) == 0 {
-			return nil
-		}
 		lw := w.levels[level]
 		// Extract first and last index and setup file range.
 		idx := annotations[0].Data.(*data).idx
@@ -120,8 +118,8 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		idx.Range = &Range{
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
+			ChunkRef: chunk.Reference(dataRef),
 		}
-		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef, indexTag)}}
 		// Set the root index when the writer is closed and we are at the top index level.
 		if w.closed {
 			w.root = idx
@@ -135,7 +133,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 			})
 		}
 		// Write index entry in next index level.
-		return w.writeIndexes([]*Index{idx}, level+1)
+		return w.writeIndex(idx, level+1)
 	}
 }
 
@@ -170,7 +168,7 @@ func (w *Writer) Close() (retErr error) {
 		_, err = pbutil.NewWriter(objW).Write(&Index{})
 		return err
 	}
-	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
+	chunk := w.root.Range.ChunkRef.ChunkInfo.Chunk
 	if w.rootTTL > 0 {
 		_, err := w.chunks.CreateTemporaryReference(w.ctx, w.path, chunk, w.rootTTL)
 		if err != nil {

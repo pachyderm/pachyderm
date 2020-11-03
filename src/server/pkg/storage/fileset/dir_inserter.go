@@ -21,7 +21,7 @@ func NewDirInserter(x FileSet) FileSet {
 }
 
 // Iterate calls cb once for every file in lexicographical order by path
-func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
+func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error) error {
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {
@@ -50,7 +50,7 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, stopBefo
 			return err
 		}
 		return emit(hdr.Name, f)
-	}, stopBefore...)
+	})
 }
 
 func parentOf(x string) string {

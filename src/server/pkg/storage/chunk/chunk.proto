@@ -13,7 +13,6 @@ message DataRef {
   // The offset and size used for accessing the data within the chunk.
   int64 offset_bytes = 3;
   int64 size_bytes = 4;
-  repeated Tag tags = 5;
 }
 
 message Chunk {
@@ -24,9 +23,4 @@ message ChunkInfo {
   Chunk chunk = 1;
   int64 size_bytes = 2;
   bool edge = 3;
-}
-
-message Tag {
-  string id = 1;
-  int64 size_bytes = 2;
 }
