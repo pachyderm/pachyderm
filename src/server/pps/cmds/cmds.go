@@ -415,7 +415,9 @@ each datum.`,
 					return e.EncodeProto(di)
 				}
 			}
-			if pipelineInputPath != "" {
+			if pipelineInputPath != "" && len(args) == 1 {
+				return errors.Errorf("can't specify both a job and a pipeline spec")
+			} else if pipelineInputPath != "" {
 				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
 				if err != nil {
 					return err
@@ -434,7 +436,7 @@ each datum.`,
 	}
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
-	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist.")
+	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
