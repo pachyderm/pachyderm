@@ -1872,7 +1872,7 @@ func (w *putObjWriteCloser) Write(p []byte) (int, error) {
 }
 
 func (w *putObjWriteCloser) Close() error {
-	if w.request.Obj == "" {
+	if w.request.Obj != "" {
 		// This happens if the block is empty in which case Write was never
 		// called, so we need to send an empty request to identify the block.
 		if err := w.client.Send(w.request); err != nil {

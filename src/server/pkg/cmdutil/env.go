@@ -151,7 +151,7 @@ func getEnvTag(structField reflect.StructField) (*envTag, error) {
 	if len(split) == 1 {
 		return envTag, nil
 	}
-	split = strings.SplitN(split[1], "=", 2)
+	split = strings.SplitN(strings.TrimSpace(split[1]), "=", 2)
 	switch split[0] {
 	case "required":
 		envTag.required = true
