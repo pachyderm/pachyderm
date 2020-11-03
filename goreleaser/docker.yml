@@ -33,7 +33,7 @@ dockers:
   -
     image_templates:
       - pachyderm_build
-    skip_push: {{.Env.LOCAL_RELEASE}}
+    skip_push: false
     dockerfile: Dockerfile.pachd
     build_flag_templates:
       - "--build-arg=GO_VERSION={{ .Env.GOVERSION }}"
@@ -48,12 +48,12 @@ dockers:
     image_templates:
       - pachyderm/pachd
       - pachyderm/pachd:local
-    skip_push: {{.Env.LOCAL_RELEASE}}
+    skip_push: false
     dockerfile: etc/pachd/Dockerfile
   -
     image_templates:
       - pachyderm/pachctl
-    skip_push: {{.Env.LOCAL_RELEASE}}
+    skip_push: false
     dockerfile: Dockerfile.pachctl
     build_flag_templates:
       - "--build-arg=GO_VERSION={{ .Env.GOVERSION }}"
@@ -68,7 +68,7 @@ dockers:
     image_templates:
       - pachyderm/worker
       - pachyderm/worker:local
-    skip_push: {{.Env.LOCAL_RELEASE}}
+    skip_push: false
     dockerfile: etc/worker/Dockerfile
     build_flag_templates:
       - "--build-arg=GO_VERSION={{ .Env.GOVERSION }}"
