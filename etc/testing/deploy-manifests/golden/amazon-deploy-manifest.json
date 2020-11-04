@@ -947,6 +947,16 @@
                 }
               },
               {
+                "name": "OBJ_LOG_OPTS",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "log-options",
+                    "optional": true
+                  }
+                }
+              },
+              {
                 "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
                 "value": "100"
               },
@@ -1113,6 +1123,7 @@
     "amazon-token": "",
     "custom-endpoint": "",
     "disable-ssl": "ZmFsc2U=",
+    "log-options": "",
     "max-upload-parts": "MTAwMDA=",
     "no-verify-ssl": "ZmFsc2U=",
     "part-size": "NTI0Mjg4MA==",
