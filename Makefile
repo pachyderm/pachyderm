@@ -20,7 +20,8 @@ MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
 CHLOGFILE = /tmp/pachyderm/release/changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
-GORELSNAP = # --snapshot # uncomment --snapshot if you want to do a dry run.
+GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
+SKIP = #\# # To skip push to docker and github remove # in front of \#
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -69,7 +70,7 @@ custom-release:
 # Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
 release:
 	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
-	@git push origin v$(VERSION)
+	$(SKIP) @git push origin v$(VERSION)
 	@make release-helper
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
@@ -103,11 +104,11 @@ docker-build-spout-test:
 	docker build -t spout-test etc/testing/spout
 
 docker-push-gpu:
-	docker push pachyderm/nvidia_driver_install
+	$(SKIP) docker push pachyderm/nvidia_driver_install
 
 docker-push-gpu-dev:
 	docker tag pachyderm/nvidia_driver_install pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
-	docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	$(SKIP) docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 	echo pushed pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 
 docker-gpu: docker-build-gpu docker-push-gpu
@@ -123,14 +124,14 @@ docker-tag:
 	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
 
 docker-push: docker-tag
-	docker push pachyderm/etcd:v3.3.5
-	docker push pachyderm/pachd:$(VERSION)
-	docker push pachyderm/worker:$(VERSION)
-	docker push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker push pachyderm/etcd:v3.3.5
+	$(SKIP) docker push pachyderm/pachd:$(VERSION)
+	$(SKIP) docker push pachyderm/worker:$(VERSION)
+	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
 docker-push-pipeline-build:
-	docker push pachyderm/go-build:$(VERSION)
-	docker push pachyderm/python-build:$(VERSION)
+	$(SKIP) docker push pachyderm/go-build:$(VERSION)
+	$(SKIP) docker push pachyderm/python-build:$(VERSION)
 
 check-kubectl:
 	@# check that kubectl is installed
