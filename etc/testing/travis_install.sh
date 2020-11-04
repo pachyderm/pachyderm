@@ -9,8 +9,9 @@ sudo apt-get update -y
 sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 # install goreleaser
-pushd /usr/local/
+pushd /tmp
 curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+sudo cp /tmp/bin/goreleaser /usr/local/bin
 popd
 goreleaser -v
 
