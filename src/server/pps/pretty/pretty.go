@@ -26,7 +26,7 @@ const (
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
-	DatumHeader = "ID\tSTATUS\tTIME\t\n"
+	DatumHeader = "ID\tFILES\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
 	SecretHeader = "NAME\tTYPE\tCREATED\t\n"
 	// jobReasonLen is the amount of the job reason that we print
@@ -250,8 +250,22 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	if datumInfo.Stats != nil {
 		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\t", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+	if datumInfo.Datum.ID == "" {
+		datumInfo.Datum.ID = "-"
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t", datumInfo.Datum.ID, datumFiles(datumInfo), datumState(datumInfo.State), totalTime)
 	fmt.Fprintln(w)
+}
+
+func datumFiles(datumInfo *ppsclient.DatumInfo) string {
+	builder := &strings.Builder{}
+	for i, fi := range datumInfo.Data {
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		fmt.Fprintf(builder, "%s@%s:%s", fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path)
+	}
+	return builder.String()
 }
 
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum

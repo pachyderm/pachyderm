@@ -377,11 +377,12 @@ each datum.`,
 
 	var pageSize int64
 	var page int64
+	var pipelineInputPath string
 	listDatum := &cobra.Command{
 		Use:   "{{alias}} <job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -393,26 +394,49 @@ each datum.`,
 			if page < 0 {
 				return errors.Errorf("page must be zero or positive")
 			}
-			if raw {
+			var printF func(*ppsclient.DatumInfo) error
+			if !raw {
+				if output != "" {
+					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				}
+				writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
+				printF = func(di *ppsclient.DatumInfo) error {
+					pretty.PrintDatumInfo(writer, di)
+					return nil
+				}
+				defer func() {
+					if err := writer.Flush(); retErr == nil {
+						retErr = err
+					}
+				}()
+			} else {
 				e := encoder(output)
-				return client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
+				printF = func(di *ppsclient.DatumInfo) error {
 					return e.EncodeProto(di)
-				})
-			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				}
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
-			if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
-				pretty.PrintDatumInfo(writer, di)
-				return nil
-			}); err != nil {
-				return err
+			if pipelineInputPath != "" && len(args) == 1 {
+				return errors.Errorf("can't specify both a job and a pipeline spec")
+			} else if pipelineInputPath != "" {
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
+				if err != nil {
+					return err
+				}
+				request, err := pipelineReader.NextCreatePipelineRequest()
+				if err != nil {
+					return err
+				}
+				return client.ListDatumInputF(request.Input, pageSize, page, printF)
+			} else if len(args) == 1 {
+				return client.ListDatumF(args[0], pageSize, page, printF)
+			} else {
+				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
-			return writer.Flush()
 		}),
 	}
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
+	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
