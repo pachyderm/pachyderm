@@ -547,6 +547,9 @@ func (d *driverV2) compactionWorker() {
 				Upper: shard.Range.Upper,
 			}
 			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
+			if err != nil {
+				panic(err)
+			}
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {

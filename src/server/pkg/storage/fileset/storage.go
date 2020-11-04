@@ -170,7 +170,7 @@ type CompactStats struct {
 // Compact compacts a set of filesets into an output fileset.
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
 	var size int64
-	w := s.newWriter(ctx, outputFileSet, WithIndexCallback(func(idx *index.Index) error {
+	w := s.newWriter(ctx, outputFileSet, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
 		size += idx.SizeBytes
 		return nil
 	}))
@@ -183,11 +183,6 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 	}
 	if err := w.Close(); err != nil {
 		return nil, err
-	}
-	if ttl > 0 {
-		if _, err := s.SetTTL(ctx, outputFileSet, ttl); err != nil {
-			return nil, err
-		}
 	}
 	return &CompactStats{OutputSize: size}, nil
 }

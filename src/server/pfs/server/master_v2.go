@@ -27,7 +27,15 @@ func (d *driverV2) master(env *serviceenv.ServiceEnv) {
 				return err
 			}
 			defer masterLock.Unlock(masterCtx)
-			return d.storage.GC(masterCtx)
+
+			return backoff.RetryNotify(func() error {
+				return d.storage.GC(masterCtx)
+			}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+				if err != nil {
+					log.Errorf("error during gc: %v", err)
+				}
+				return nil
+			})
 		}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 			log.Errorf("error in pfs master: %v", err)
 			return nil
