@@ -260,7 +260,7 @@ func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prev
 	return w.executeFunc(annotations, prevChan, nextChan)
 }
 
-func (w *Writer) maybeUpload(chunkBytes []byte, pointsTo []ChunkID) (ChunkID, error) {
+func (w *Writer) maybeUpload(chunkBytes []byte, pointsTo []ID) (ID, error) {
 	// Skip the upload if no upload is configured.
 	if w.noUpload {
 		return Hash(chunkBytes), nil
@@ -272,10 +272,10 @@ func (w *Writer) maybeUpload(chunkBytes []byte, pointsTo []ChunkID) (ChunkID, er
 	return w.client.Create(w.ctx, md, bytes.NewReader(chunkBytes))
 }
 
-func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) ([]ChunkID, error) {
+func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) ([]ID, error) {
 	var offset int64
-	var prevRefChunk ChunkID
-	pointsTo := []ChunkID{}
+	var prevRefChunk ID
+	pointsTo := []ID{}
 	for _, a := range annotations {
 		// Update the annotation fields.
 		size := sizeOfTags(a.tags)

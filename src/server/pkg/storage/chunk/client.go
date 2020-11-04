@@ -55,7 +55,7 @@ func NewClient(objc obj.Client, mdstore MetadataStore, tracker tracker.Tracker, 
 	return c
 }
 
-func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (ChunkID, error) {
+func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (ID, error) {
 	chunkData, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (Chu
 	return chunkID, nil
 }
 
-func (c *Client) Get(ctx context.Context, chunkID ChunkID, w io.Writer) error {
+func (c *Client) Get(ctx context.Context, chunkID ID, w io.Writer) error {
 	p := chunkPath(chunkID)
 	objR, err := c.objc.Reader(ctx, p, 0, 0)
 	if err != nil {
@@ -138,14 +138,14 @@ func (c *Client) getInt() int {
 	return c.n
 }
 
-func chunkPath(chunkID ChunkID) string {
+func chunkPath(chunkID ID) string {
 	if len(chunkID) == 0 {
 		panic("chunkID cannot be empty")
 	}
 	return path.Join(prefix, chunkID.HexString())
 }
 
-func ChunkObjectID(chunkID ChunkID) string {
+func ChunkObjectID(chunkID ID) string {
 	return "chunk/" + chunkID.HexString()
 }
 

@@ -8,34 +8,34 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type ChunkID []byte
+type ID []byte
 
-func Hash(data []byte) ChunkID {
+func Hash(data []byte) ID {
 	h := sha512.New()
 	h.Write(data)
 	return h.Sum(nil)[:32]
 }
 
-func ChunkIDFromHex(h string) (ChunkID, error) {
+func ChunkIDFromHex(h string) (ID, error) {
 	return hex.DecodeString(h)
 }
 
-func (id ChunkID) HexString() string {
+func (id ID) HexString() string {
 	return hex.EncodeToString(id)
 }
 
 type ChunkMetadata struct {
 	Size     int
-	PointsTo []ChunkID
+	PointsTo []ID
 }
 
 type MetadataStore interface {
 	// SetChunkInfo adds chunk metadata to the tracker
-	SetChunkMetadata(ctx context.Context, chunkID ChunkID, md ChunkMetadata) error
+	SetChunkMetadata(ctx context.Context, chunkID ID, md ChunkMetadata) error
 	// GetChunkInfo returns info about the chunk if it exists
-	GetChunkMetadata(ctx context.Context, chunkID ChunkID) (*ChunkMetadata, error)
+	GetChunkMetadata(ctx context.Context, chunkID ID) (*ChunkMetadata, error)
 	// DeleteChunkInfo removes chunk metadata from the tracker
-	DeleteChunkMetadata(ctx context.Context, chunkID ChunkID) error
+	DeleteChunkMetadata(ctx context.Context, chunkID ID) error
 }
 
 var _ MetadataStore = &PostgresStore{}
@@ -48,7 +48,7 @@ func NewPostgresStore(db *sqlx.DB) *PostgresStore {
 	return &PostgresStore{db: db}
 }
 
-func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ChunkID, md ChunkMetadata) error {
+func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ID, md ChunkMetadata) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
 		ON CONFLICT (hash_id) DO UPDATE SET size = $2 WHERE storage.chunks.hash_id = $1
@@ -56,7 +56,7 @@ func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ChunkID, m
 	return err
 }
 
-func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ChunkID) (*ChunkMetadata, error) {
+func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ID) (*ChunkMetadata, error) {
 	type chunkRow struct {
 		size int `db:"size"`
 	}
@@ -69,7 +69,7 @@ func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ChunkID) (
 	}, nil
 }
 
-func (s *PostgresStore) DeleteChunkMetadata(ctx context.Context, chunkID ChunkID) error {
+func (s *PostgresStore) DeleteChunkMetadata(ctx context.Context, chunkID ID) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }

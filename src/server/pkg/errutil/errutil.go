@@ -61,3 +61,11 @@ func IsInvalidPathError(err error) bool {
 	return strings.Contains(err.Error(), "only printable ASCII characters allowed") ||
 		strings.Contains(err.Error(), "not allowed in path")
 }
+
+// SetRetErrIfNil is used to set the returned error (conventionally retErr) to
+// err if it is not already set. This is useful in defers.
+func SetRetErrIfNil(retErr *error, err error) {
+	if *retErr == nil {
+		*retErr = err
+	}
+}

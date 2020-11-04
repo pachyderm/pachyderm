@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
@@ -58,13 +59,7 @@ func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			if retErr == nil {
-				retErr = err
-			}
-		}
-	}()
+	defer func() { errutil.SetRetErrIfNil(&retErr, rows.Close()) }()
 	var p string
 	for rows.Next() {
 		if err := rows.Scan(&p); err != nil {

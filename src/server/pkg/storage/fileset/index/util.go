@@ -36,12 +36,12 @@ func Generate(s string) []string {
 }
 
 // IndexPointsTo returns a list of all the chunks this index references
-func PointsTo(idx *Index) (ids []chunk.ChunkID) {
+func PointsTo(idx *Index) (ids []chunk.ID) {
 	if idx == nil || idx.DataOp == nil {
 		return nil
 	}
 	for _, dr := range idx.DataOp.DataRefs {
-		ids = append(ids, chunk.ChunkID(dr.ChunkRef.Id))
+		ids = append(ids, chunk.ID(dr.ChunkRef.Id))
 	}
 	return ids
 }
