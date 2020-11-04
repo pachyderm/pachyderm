@@ -41,14 +41,11 @@ type FileReader struct {
 	hdr    *tar.Header
 }
 
-// TODO: Need more thought put into when to resolve idx.
 func newFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index) *FileReader {
-	idx = proto.Clone(idx).(*index.Index)
-	resolveDataOps(idx)
 	return &FileReader{
 		ctx:    ctx,
 		chunks: chunks,
-		idx:    idx,
+		idx:    proto.Clone(idx).(*index.Index),
 	}
 }
 

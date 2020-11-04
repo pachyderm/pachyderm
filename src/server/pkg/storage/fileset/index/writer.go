@@ -56,6 +56,7 @@ func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
 	w.setupLevels()
+	unresolveDataOps(idx)
 	return w.writeIndex(idx, 0)
 }
 

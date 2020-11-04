@@ -221,7 +221,6 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 			w.lastIdx = idx
 		}
 		if idx.Path != w.lastIdx.Path {
-			unresolveDataOps(w.lastIdx)
 			if !w.noUpload {
 				if err := w.iw.WriteIndex(w.lastIdx); err != nil {
 					return err
@@ -248,7 +247,6 @@ func (w *Writer) Close() error {
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
-		unresolveDataOps(w.lastIdx)
 		idx := w.lastIdx
 		if !w.noUpload {
 			if err := w.iw.WriteIndex(idx); err != nil {

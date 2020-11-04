@@ -71,6 +71,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			if !r.atStart(idx.Path) {
 				continue
 			}
+			resolveDataOps(idx)
 			if err := cb(idx); err != nil {
 				return err
 			}
