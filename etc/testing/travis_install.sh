@@ -9,7 +9,7 @@ sudo apt-get update -y
 sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 # install goreleaser
-curl -sfL https://git.io/goreleaser | sh -s -- check # check goreleaser config for deprecations
+curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
 
 # reconfigure & restart docker
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
