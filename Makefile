@@ -439,30 +439,31 @@ spellcheck:
 	install \
 	install-clean \
 	install-doc \
+	doc-custom \
+	doc \
 	point-release \
 	release-candidate \
 	custom-release \
 	release \
-	release-pachctl-custom \
-	release-pachctl \
 	release-helper \
+	release-pachctl \
 	docker-build \
-	docker-build-pachctl \
 	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
+	docker-build-kafka \
 	docker-build-spout-test \
 	docker-push-gpu \
 	docker-push-gpu-dev \
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
-	check-kubectl \
-	check-kubectl-connection \
 	docker-tag \
 	docker-push \
 	docker-push-pipeline-build \
+	check-kubectl \
+	check-kubectl-connection \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
@@ -498,8 +499,6 @@ spellcheck:
 	test-worker \
 	test-worker-helper \
 	clean \
-	doc-custom \
-	doc \
 	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
@@ -509,6 +508,10 @@ spellcheck:
 	launch-monitoring \
 	clean-launch-logging \
 	launch-logging \
+	launch-loki \
+	clean-launch-loki \
+	launch-dex \
+	clean-launch-dex \
 	logs \
 	follow-logs \
 	google-cluster-manifest \
