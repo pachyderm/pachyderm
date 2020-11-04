@@ -317,7 +317,7 @@ func (s *Storage) GC(ctx context.Context) error {
 			return nil
 		}
 	})
-	gc := tracker.NewGC(s.tracker, period, mux)
+	gc := tracker.NewGarbageCollector(s.tracker, period, mux)
 	return gc.Run(ctx)
 }
 

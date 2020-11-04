@@ -53,12 +53,18 @@ func (s *postgresStore) GetIndex(ctx context.Context, p string) (*index.Index, e
 	return idx, nil
 }
 
-func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
+func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) (retErr error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.paths WHERE path LIKE $1 || '%'`, prefix)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			if retErr == nil {
+				retErr = err
+			}
+		}
+	}()
 	var p string
 	for rows.Next() {
 		if err := rows.Scan(&p); err != nil {

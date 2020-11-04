@@ -36,7 +36,7 @@ func Generate(s string) []string {
 }
 
 // IndexPointsTo returns a list of all the chunks this index references
-func IndexPointsTo(idx *Index) (ids []chunk.ChunkID) {
+func PointsTo(idx *Index) (ids []chunk.ChunkID) {
 	if idx == nil || idx.DataOp == nil {
 		return nil
 	}

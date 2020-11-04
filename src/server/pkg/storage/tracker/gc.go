@@ -22,26 +22,26 @@ func (dm DeleterMux) Delete(ctx context.Context, id string) error {
 	return deleter.Delete(ctx, id)
 }
 
-type GC struct {
+type GarbageCollector struct {
 	tracker Tracker
 	period  time.Duration
 	deleter Deleter
 }
 
-func NewGC(tracker Tracker, period time.Duration, deleter Deleter) *GC {
-	return &GC{
+func NewGarbageCollector(tracker Tracker, period time.Duration, deleter Deleter) *GarbageCollector {
+	return &GarbageCollector{
 		tracker: tracker,
 		period:  period,
 		deleter: deleter,
 	}
 }
 
-func (gc *GC) Run(ctx context.Context) error {
-	ticker := time.NewTicker(gc.period)
+func (GarbageCollector *GarbageCollector) Run(ctx context.Context) error {
+	ticker := time.NewTicker(GarbageCollector.period)
 	defer ticker.Stop()
 	for {
-		ctx, cf := context.WithTimeout(ctx, gc.period/2)
-		if err := gc.runUntilEmpty(ctx); err != nil {
+		ctx, cf := context.WithTimeout(ctx, GarbageCollector.period/2)
+		if err := GarbageCollector.runUntilEmpty(ctx); err != nil {
 			logrus.Error(err)
 		}
 		cf()
@@ -53,9 +53,9 @@ func (gc *GC) Run(ctx context.Context) error {
 	}
 }
 
-func (gc *GC) runUntilEmpty(ctx context.Context) error {
+func (GarbageCollector *GarbageCollector) runUntilEmpty(ctx context.Context) error {
 	for {
-		n, err := gc.runOnce(ctx)
+		n, err := GarbageCollector.runOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -66,10 +66,10 @@ func (gc *GC) runUntilEmpty(ctx context.Context) error {
 	return nil
 }
 
-func (gc *GC) runOnce(ctx context.Context) (int, error) {
+func (GarbageCollector *GarbageCollector) runOnce(ctx context.Context) (int, error) {
 	var n int
-	err := gc.tracker.IterateExpired(ctx, func(id string) error {
-		if err := gc.deleteObject(ctx, id); err != nil {
+	err := GarbageCollector.tracker.IterateExpired(ctx, func(id string) error {
+		if err := GarbageCollector.deleteObject(ctx, id); err != nil {
 			logrus.Errorf("error deleting object (%s): %v", id, err)
 		} else {
 			n++
@@ -79,14 +79,14 @@ func (gc *GC) runOnce(ctx context.Context) (int, error) {
 	return n, err
 }
 
-func (gc *GC) deleteObject(ctx context.Context, id string) error {
-	if err := gc.tracker.MarkTombstone(ctx, id); err != nil {
+func (GarbageCollector *GarbageCollector) deleteObject(ctx context.Context, id string) error {
+	if err := GarbageCollector.tracker.MarkTombstone(ctx, id); err != nil {
 		return err
 	}
-	if err := gc.deleter.Delete(ctx, id); err != nil {
+	if err := GarbageCollector.deleter.Delete(ctx, id); err != nil {
 		return err
 	}
-	if err := gc.tracker.FinishDelete(ctx, id); err != nil {
+	if err := GarbageCollector.tracker.FinishDelete(ctx, id); err != nil {
 		return err
 	}
 	return nil

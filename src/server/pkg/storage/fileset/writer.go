@@ -236,7 +236,7 @@ func (w *Writer) Close() error {
 		return err
 	}
 	var pointsTo []string
-	for _, cid := range index.IndexPointsTo(idx) {
+	for _, cid := range index.PointsTo(idx) {
 		pointsTo = append(pointsTo, chunk.ChunkObjectID(cid))
 	}
 	if err := w.tracker.CreateObject(w.ctx, filesetObjectID(w.path), pointsTo, w.ttl); err != nil {

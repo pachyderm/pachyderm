@@ -90,7 +90,6 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (Chu
 	if err != nil {
 		return nil, err
 	}
-	defer objW.Close()
 	if _, err = objW.Write(chunkData); err != nil {
 		return nil, err
 	}
