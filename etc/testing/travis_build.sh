@@ -15,6 +15,6 @@ if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     docker push "pachyderm/worker:${version}"
 
     # Push pipeline build images
-    make docker-build-pipeline-build
-    make docker-push-pipeline-build
+    make VERSION=${version} docker-build-pipeline-build
+    make VERSION=${version} docker-push-pipeline-build
 fi
