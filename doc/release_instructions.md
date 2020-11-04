@@ -22,14 +22,18 @@ You'll need the following credentials / tools:
 - A GitHub *Personal Access Token* with **repo** access
   - You can get your personal oauth token here: https://github.com/settings/tokens
 - Add your GITHUB token as env variable in your profile. This is required by goreleaser
-  - Eg. in ~/.bash_profile add the following line
-  - export GITHUB_TOKEN="<YOUR-TOKEN-FROM-GH>"
+  - Eg. in ~/.bash_profile add the following line `export GITHUB_TOKEN="YOUR-GH-TOKEN"`
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
 - A dockerhub account, with write access to
   [pachyderm](https://hub.docker.com/u/pachyderm/) (run `docker login`)
-- `goreleaser` -- make sure goreleaser is in your PATH. Eg. in /usr/local/bin
-    - on linux: `curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh`
+- `goreleaser`
+    - on linux: 
+    ```bash
+    pushd /usr/local/
+    curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sudo sh
+    popd
+    ```
     - on mac: `brew install goreleaser/tap/goreleaser`
 - `silversearcher`
     - on linux: `apt-get install -y silversearcher-ag`
@@ -93,11 +97,12 @@ manually.
 
 ### Rebuild docs
 
-Run `make doc`. Make sure you add any newly created (untracked) doc files, in
+After running make. Make sure you add any newly created (untracked) doc files, in
 addition to docs that have been updated (`git commit -a` might not get
 everything):
 
 ```bash
+make doc
 git add doc
 git commit -m"Run make doc for $(pachctl version --client-only)"
 ```
