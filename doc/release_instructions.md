@@ -21,10 +21,9 @@ You'll need the following credentials / tools:
 
 - A GitHub *Personal Access Token* with **repo** access
   - You can get your personal oauth token here: https://github.com/settings/tokens
-- `goxc` (`go get github.com/laher/goxc`)
-- `goxc` configured ...
-    - run: `make GITHUB_OAUTH_TOKEN=<persional access token from #1> goxc-generate-local`
-- `sha256sum`
+- Add your GITHUB token as env variable in your profile. This is required by goreleaser
+  - Eg. in ~/.bash_profile add the following line
+  - export GITHUB_TOKEN="<YOUR-TOKEN-FROM-GH>"
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
 - A dockerhub account, with write access to
