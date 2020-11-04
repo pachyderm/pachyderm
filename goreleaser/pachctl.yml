@@ -87,4 +87,4 @@ brews:
       system "#{bin}/pachctl version"
     install: |
       bin.install buildpath/"pachctl"
-    skip_upload: true
+    skip_upload: false

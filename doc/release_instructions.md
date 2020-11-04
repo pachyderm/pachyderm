@@ -28,6 +28,9 @@ You'll need the following credentials / tools:
 - S3 credentials
 - A dockerhub account, with write access to
   [pachyderm](https://hub.docker.com/u/pachyderm/) (run `docker login`)
+- `goreleaser` -- make sure goreleaser is in your PATH. Eg. in /usr/local/bin
+    - on linux: `curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh`
+    - on mac: `brew install goreleaser/tap/goreleaser`
 - `silversearcher`
     - on linux: `apt-get install -y silversearcher-ag`
     - on mac: `brew install the_silver_searcher`
