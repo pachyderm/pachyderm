@@ -45,7 +45,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -66,7 +66,7 @@ func IsPermissionError(err error) bool {
 
 func destroyHashtree(tree hashtree.HashTree) {
 	if err := tree.Destroy(); err != nil {
-		logrus.Infof("failed to destroy hashtree: %v", err)
+		log.Infof("failed to destroy hashtree: %v", err)
 	}
 }
 
@@ -1178,12 +1178,12 @@ func (d *driver) makeCommit(
 		started = finished
 	case !started.IsZero() && finished.IsZero():
 		if now := time.Now(); now.Before(started) {
-			logrus.Warnf("attempted to start commit at future time %v, resetting start time to now (%v)", started, now)
+			log.Warnf("attempted to start commit at future time %v, resetting start time to now (%v)", started, now)
 			started = now // prevent finished < started (if user finishes commit soon)
 		}
 	case !started.IsZero() && !finished.IsZero():
 		if finished.Before(started) {
-			logrus.Warnf("attempted to create commit with finish time %[1]v that is before start time %[2]v, resetting start time to %[1]v", finished, started)
+			log.Warnf("attempted to create commit with finish time %[1]v that is before start time %[2]v, resetting start time to %[1]v", finished, started)
 			started = finished // prevent finished < started
 		}
 	}
@@ -3019,6 +3019,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
+		log.Debugf("Writing to %v@%v:/%v", req.File.Commit.Repo.Name, req.File.Commit.ID, req.File.Path)
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
 		if err != nil {
@@ -4758,7 +4759,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
-								logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+								log.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
