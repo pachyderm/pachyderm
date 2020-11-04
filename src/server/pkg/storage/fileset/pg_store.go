@@ -12,17 +12,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
-var _ Store = &pgStore{}
+var _ Store = &postgresStore{}
 
-type pgStore struct {
+type postgresStore struct {
 	db *sqlx.DB
 }
 
-func NewPGStore(db *sqlx.DB) Store {
-	return &pgStore{db: db}
+func NewPostgresStore(db *sqlx.DB) Store {
+	return &postgresStore{db: db}
 }
 
-func (s *pgStore) PutIndex(ctx context.Context, p string, idx *index.Index) error {
+func (s *postgresStore) PutIndex(ctx context.Context, p string, idx *index.Index) error {
 	if idx == nil {
 		idx = &index.Index{}
 	}
@@ -38,7 +38,7 @@ func (s *pgStore) PutIndex(ctx context.Context, p string, idx *index.Index) erro
 	return err
 }
 
-func (s *pgStore) GetIndex(ctx context.Context, p string) (*index.Index, error) {
+func (s *postgresStore) GetIndex(ctx context.Context, p string) (*index.Index, error) {
 	var indexData []byte
 	if err := s.db.GetContext(ctx, &indexData, `SELECT index_pb FROM storage.paths WHERE path = $1`, p); err != nil {
 		if err == sql.ErrNoRows {
@@ -53,7 +53,7 @@ func (s *pgStore) GetIndex(ctx context.Context, p string) (*index.Index, error) 
 	return idx, nil
 }
 
-func (s *pgStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
+func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.paths WHERE path LIKE $1 || '%'`, prefix)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (s *pgStore) Walk(ctx context.Context, prefix string, cb func(string) error
 	return nil
 }
 
-func (s *pgStore) Delete(ctx context.Context, p string) error {
+func (s *postgresStore) Delete(ctx context.Context, p string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.paths WHERE path = $1`, p)
 	return err
 }
@@ -95,14 +95,14 @@ type pathRow struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-func PGStoreApplySchema(db *sqlx.DB) {
+func SetupPostgresStore(db *sqlx.DB) {
 	db.MustExec(schema)
 }
 
 func WithTestStore(t testing.TB, cb func(Store)) {
 	dbutil.WithTestDB(t, func(db *sqlx.DB) {
-		PGStoreApplySchema(db)
-		s := NewPGStore(db)
+		SetupPostgresStore(db)
+		s := NewPostgresStore(db)
 		cb(s)
 	})
 }

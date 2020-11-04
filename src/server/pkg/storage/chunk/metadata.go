@@ -38,17 +38,17 @@ type MetadataStore interface {
 	DeleteChunkMetadata(ctx context.Context, chunkID ChunkID) error
 }
 
-var _ MetadataStore = &PGStore{}
+var _ MetadataStore = &PostgresStore{}
 
-type PGStore struct {
+type PostgresStore struct {
 	db *sqlx.DB
 }
 
-func NewPGStore(db *sqlx.DB) *PGStore {
-	return &PGStore{db: db}
+func NewPostgresStore(db *sqlx.DB) *PostgresStore {
+	return &PostgresStore{db: db}
 }
 
-func (s *PGStore) SetChunkMetadata(ctx context.Context, chunkID ChunkID, md ChunkMetadata) error {
+func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ChunkID, md ChunkMetadata) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
 		ON CONFLICT (hash_id) DO UPDATE SET size = $2 WHERE storage.chunks.hash_id = $1
@@ -56,7 +56,7 @@ func (s *PGStore) SetChunkMetadata(ctx context.Context, chunkID ChunkID, md Chun
 	return err
 }
 
-func (s *PGStore) GetChunkMetadata(ctx context.Context, chunkID ChunkID) (*ChunkMetadata, error) {
+func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ChunkID) (*ChunkMetadata, error) {
 	type chunkRow struct {
 		size int `db:"size"`
 	}
@@ -69,12 +69,12 @@ func (s *PGStore) GetChunkMetadata(ctx context.Context, chunkID ChunkID) (*Chunk
 	}, nil
 }
 
-func (s *PGStore) DeleteChunkMetadata(ctx context.Context, chunkID ChunkID) error {
+func (s *PostgresStore) DeleteChunkMetadata(ctx context.Context, chunkID ChunkID) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }
 
-func PGStoreApplySchema(db *sqlx.DB) {
+func SetupPostgresStore(db *sqlx.DB) {
 	db.MustExec(schema)
 }
 

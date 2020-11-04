@@ -17,7 +17,7 @@ func WithTestStorage(t testing.TB, f func(obj.Client, *Storage) error, opts ...S
 	tracker.WithTestTracker(t, func(tracker tracker.Tracker) {
 		dbutil.WithTestDB(t, func(db *sqlx.DB) {
 			db.MustExec(schema)
-			mdstore := NewPGStore(db)
+			mdstore := NewPostgresStore(db)
 			require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
 				return f(objClient, NewStorage(objClient, mdstore, tracker, opts...))
 			}))

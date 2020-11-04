@@ -68,8 +68,8 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	chunkStorage := chunk.NewStorage(objClient, chunk.NewPGStore(db), tracker, chunkStorageOpts...)
-	d2.storage = fileset.NewStorage(fileset.NewPGStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
+	chunkStorage := chunk.NewStorage(objClient, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	d2.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
@@ -83,8 +83,8 @@ func newDB() (db *sqlx.DB, retErr error) {
 	defer func() {
 		if db != nil {
 			db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
-			fileset.PGStoreApplySchema(db)
-			chunk.PGStoreApplySchema(db)
+			fileset.SetupPostgresStore(db)
+			chunk.SetupPostgresStore(db)
 			tracker.PGTrackerApplySchema(db)
 		}
 	}()

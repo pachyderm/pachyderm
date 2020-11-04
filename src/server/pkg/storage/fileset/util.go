@@ -20,13 +20,13 @@ import (
 // the callback.
 func WithTestStorage(t testing.TB, f func(*Storage) error) {
 	dbutil.WithTestDB(t, func(db *sqlx.DB) {
-		chunk.PGStoreApplySchema(db)
+		chunk.SetupPostgresStore(db)
 		tracker.PGTrackerApplySchema(db)
-		PGStoreApplySchema(db)
+		SetupPostgresStore(db)
 		tr := tracker.NewPGTracker(db)
 		obj.WithLocalClient(func(objC obj.Client) error {
-			chunkStorage := chunk.NewStorage(objC, chunk.NewPGStore(db), tr)
-			return f(NewStorage(NewPGStore(db), tr, chunkStorage))
+			chunkStorage := chunk.NewStorage(objC, chunk.NewPostgresStore(db), tr)
+			return f(NewStorage(NewPostgresStore(db), tr, chunkStorage))
 		})
 	})
 }
