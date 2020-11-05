@@ -6,6 +6,11 @@ if [[ $# -ne 1 ]]; then
   echo "error: need the name of the docker image to push"
 fi
 
+if [ -f /TESTFASTER_PREWARM_COMPLETE ]; then
+    echo "Detected running in CI, nothing to do."
+    exit 0
+fi
+
 # Detect if minikube was started with --vm-driver=none by inspecting the output
 # from 'minikube docker-env'
 if minikube docker-env \
