@@ -593,11 +593,11 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo in
-		pachctl start commit
+		pachctl start commit in@master
 		pachctl put file in@master:/ -f ../../../../etc/testing/pipeline-build/input/111.txt
 		pachctl put file in@master:/ -f ../../../../etc/testing/pipeline-build/11.txt
 		pachctl put file in@master:/ -f ../../../../etc/testing/pipeline-build/input/1.txt
-		pachctl finish commit
+		pachctl finish commit in@master
 	`).Run())
 
 	spec := fmt.Sprintf(`
