@@ -89,7 +89,6 @@ base:
     touch /TESTFASTER_PREWARM_COMPLETE
 
     #make launch-dex # XXX doesn't seem to start, need to investigate
-    # bump 2
 
   kubernetes_version: 'v1.18.3'
 
