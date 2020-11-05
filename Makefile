@@ -5,10 +5,17 @@
 ####
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-# Label it w the go version we bundle in:
-export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
-export GC_FLAGS = "all=-trimpath=${PWD}"
+
+# Don't set the version to the git hash in CI, as it breaks the go build cache.
+ifdef CIRCLE_BRANCH
+	export VERSION_ADDITIONAL = "ci_build"
+	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+	export GC_FLAGS = ""
+else
+	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+	export GC_FLAGS = "all=-trimpath=${PWD}"
+endif
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
