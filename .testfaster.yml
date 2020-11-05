@@ -47,13 +47,11 @@ base:
     ENV cache-bust 1
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY" >> /etc/ssh/sshd_config
-    # TODO: switch this back to pachyderm/pachyderm once we land this
-    # experiment
     WORKDIR /root
-    RUN git clone https://github.com/pachyderm/pachyderm-ci-experiment pachyderm
+    RUN git clone https://github.com/pachyderm/pachyderm
     # warm up go mod cache and go build cache
     RUN cd pachyderm && \
-        git checkout afdde5ac0060bc0e9ecdffb74fd09fb53fa52a1e && \
+        git checkout fa32fd9011dcd50186e61f4e0d7de45535f769c2 && \
         make install && \
         go get -t ./...
 
