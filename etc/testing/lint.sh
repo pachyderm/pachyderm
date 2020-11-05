@@ -18,7 +18,7 @@ done
 
 go get -u golang.org/x/lint/golint
 find "./src" \
-  \( -path "*.pb.go" -o "${skip_paths[@]}" \) -prune -o -name '*.go' -print \
+  \( -path "*.pb.go" "${skip_paths[@]}" \) -prune -o -name '*.go' -print \
 | while read -r file; do
     if [[ "${file}" == *pkg/tar* ]]; then
         continue
@@ -38,7 +38,7 @@ staticcheck "${GIT_REPO_DIR}/..."
 
 # shellcheck disable=SC2046
 find . \
-  \( -path ./etc/plugin -o "${skip_paths[@]}" \) -prune -o -name "*.sh" -print \
+  \( -path ./etc/plugin "${skip_paths[@]}" \) -prune -o -name "*.sh" -print \
 | while read -r file; do
     shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219 "${file}"
 done
