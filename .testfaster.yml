@@ -1,0 +1,107 @@
+name: pachyderm
+
+base:
+  # NB: use:
+  #     testctl ssh --tty=false -- docker images --format "{{.Repository}}:{{.Tag}}" |sort |sed 's/^/   - /g'
+  # to refresh this list
+  # (to get extra fancy, highlight the following lines in vim and type :! and then
+  # the above command to replace it inline)
+  preload_docker_images:
+   - bash:4
+   - dockermuenster/caddy:0.9.3
+   - gcr.io/google_containers/kube-state-metrics:v0.5.0
+   - gcr.io/k8s-minikube/storage-provisioner:v1.8.1
+   - giantswarm/tiny-tools:latest
+   - golang:1.12.1
+   - golang:1.13.8
+   - grafana/grafana:4.2.0
+   - grafana/loki:2.0.0
+   - grafana/promtail:2.0.0
+   - k8s.gcr.io/coredns:1.6.7
+   - k8s.gcr.io/etcd:3.4.3-0
+   - k8s.gcr.io/kube-apiserver:v1.18.3
+   - k8s.gcr.io/kube-controller-manager:v1.18.3
+   - k8s.gcr.io/kube-proxy:v1.18.3
+   - k8s.gcr.io/kube-scheduler:v1.18.3
+   - k8s.gcr.io/pause:3.2
+   - pachyderm/dash:0.5.48
+   - pachyderm/etcd:v3.3.5
+   - pachyderm/grpc-proxy:0.4.10
+   - pachyderm/opencv:latest
+   - pachyderm/ubuntuplusnetcat:latest
+   - postgres:13.0-alpine
+   - prom/node-exporter:v0.14.0
+   - prom/prometheus:v1.7.0
+   - python:latest
+   - quay.io/prometheus/alertmanager:v0.7.1
+   - ubuntu:16.04
+   - ubuntu:18.04
+   - ubuntu:latest
+   - v4tech/imagemagick:latest
+
+  # TODO: make this optional
+  kernel_image: "quay.io/testfaster/ignite-kernel"
+
+  os_dockerfile: |-
+    FROM quay.io/testfaster/kube-ubuntu
+    ENV cache-bust 1
+    RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
+    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY" >> /etc/ssh/sshd_config
+    # TODO: switch this back to pachyderm/pachyderm once we land this
+    # experiment
+    WORKDIR /root
+    RUN git clone https://github.com/pachyderm/pachyderm-ci-experiment pachyderm
+    # warm up go mod cache and go build cache
+    RUN cd pachyderm && \
+        git checkout afdde5ac0060bc0e9ecdffb74fd09fb53fa52a1e && \
+        make install && \
+        go get -t ./...
+
+  docker_bake_script: |-
+    #!/bin/bash
+    set -xeuo pipefail
+    cd /root/pachyderm
+    # warm up docker buildkit go mod cache and go build cache
+    make docker-build
+    # build docker images that are used in tests
+    (cd etc/testing/images/ubuntu_with_s3_clients; make image)
+    make docker-build-kafka
+    make docker-build-spout-test
+    make docker-build-test-entrypoint
+    echo "============= POST BAKE IMAGES =================="
+    docker images
+    echo "================================================="
+
+  prewarm_script: |-
+    #!/bin/bash
+    set -euo pipefail
+
+    cd /root/pachyderm
+
+    # re-warm OS file cache etc, e.g. load the file metadata into VM memory to
+    # make the actual build faster (it's already been cached on disk from the
+    # previous stages)
+    make install
+    make docker-build
+
+    # start services used by tests
+    make launch-loki
+
+    # leave a clue that the VM is ready
+    touch /TESTFASTER_PREWARM_COMPLETE
+
+    #make launch-dex # XXX doesn't seem to start, need to investigate
+    # bump 2
+
+  kubernetes_version: 'v1.18.3'
+
+runtime:
+  cpus: 16
+  memory: 4GB
+  disk: 50GB
+
+prewarm_pool_size: 32
+max_pool_size: 32
+# timeout vms after 1hr. hopefully tests will clean them up sooner, but if the
+# tests themselves timeout and cleanup doesn't get run...
+default_lease_timeout: 1h
