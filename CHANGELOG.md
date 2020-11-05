@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.6
+- Added a deploy option to enable verbose logging in S3 client (#5340)
+- Fix a bug that would leak a revoked pipeline token object (#5397)
+- Fix a bug causing extra data to be written to small job artifact files in some cases (#5401)
+- Fix a bug causing workers to attempt to read certain job artifacts before they were fully written (#5402)
+- Added support to display when a job is in the egress state (#5411)
+
 ## 1.11.5
 - Changes to fix multiple error log messages when processing `list pipeline` (#5304)
 - Fixes a bug that can cause get file request to fail when the request falls on a certain boundary condition (#5316)
