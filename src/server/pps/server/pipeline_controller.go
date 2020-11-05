@@ -89,7 +89,7 @@ func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
 		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
 		"key-version", keyVer,
-		"mod-revision")
+		"mod-revision", keyRev)
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
