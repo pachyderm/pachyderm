@@ -265,7 +265,7 @@ func (w *Writer) maybeUpload(chunkBytes []byte, pointsTo []ID) (ID, error) {
 	if w.noUpload {
 		return Hash(chunkBytes), nil
 	}
-	md := ChunkMetadata{
+	md := Metadata{
 		PointsTo: pointsTo,
 		Size:     len(chunkBytes),
 	}

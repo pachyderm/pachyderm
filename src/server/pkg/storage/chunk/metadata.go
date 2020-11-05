@@ -24,18 +24,18 @@ func (id ID) HexString() string {
 	return hex.EncodeToString(id)
 }
 
-type ChunkMetadata struct {
+type Metadata struct {
 	Size     int
 	PointsTo []ID
 }
 
 type MetadataStore interface {
 	// SetChunkInfo adds chunk metadata to the tracker
-	SetChunkMetadata(ctx context.Context, chunkID ID, md ChunkMetadata) error
+	Set(ctx context.Context, chunkID ID, md Metadata) error
 	// GetChunkInfo returns info about the chunk if it exists
-	GetChunkMetadata(ctx context.Context, chunkID ID) (*ChunkMetadata, error)
+	Get(ctx context.Context, chunkID ID) (*Metadata, error)
 	// DeleteChunkInfo removes chunk metadata from the tracker
-	DeleteChunkMetadata(ctx context.Context, chunkID ID) error
+	Delete(ctx context.Context, chunkID ID) error
 }
 
 var _ MetadataStore = &PostgresStore{}
@@ -48,7 +48,7 @@ func NewPostgresStore(db *sqlx.DB) *PostgresStore {
 	return &PostgresStore{db: db}
 }
 
-func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ID, md ChunkMetadata) error {
+func (s *PostgresStore) Set(ctx context.Context, chunkID ID, md Metadata) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
 		ON CONFLICT (hash_id) DO UPDATE SET size = $2 WHERE storage.chunks.hash_id = $1
@@ -56,7 +56,7 @@ func (s *PostgresStore) SetChunkMetadata(ctx context.Context, chunkID ID, md Chu
 	return err
 }
 
-func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ID) (*ChunkMetadata, error) {
+func (s *PostgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) {
 	type chunkRow struct {
 		size int `db:"size"`
 	}
@@ -64,12 +64,12 @@ func (s *PostgresStore) GetChunkMetadata(ctx context.Context, chunkID ID) (*Chun
 	if err := s.db.GetContext(ctx, &x, `SELECT size FROM storage.chunks WHERE hash_id = $1`, chunkID); err != nil {
 		return nil, err
 	}
-	return &ChunkMetadata{
+	return &Metadata{
 		Size: x.size,
 	}, nil
 }
 
-func (s *PostgresStore) DeleteChunkMetadata(ctx context.Context, chunkID ID) error {
+func (s *PostgresStore) Delete(ctx context.Context, chunkID ID) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }

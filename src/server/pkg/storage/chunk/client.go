@@ -55,7 +55,7 @@ func NewClient(objc obj.Client, mdstore MetadataStore, tracker tracker.Tracker, 
 	return c
 }
 
-func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (ID, error) {
+func (c *Client) Create(ctx context.Context, md Metadata, r io.Reader) (ID, error) {
 	chunkData, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *Client) Create(ctx context.Context, md ChunkMetadata, r io.Reader) (ID,
 	if c.objc.Exists(ctx, p) {
 		return chunkID, nil
 	}
-	if err := c.mdstore.SetChunkMetadata(ctx, chunkID, md); err != nil {
+	if err := c.mdstore.Set(ctx, chunkID, md); err != nil {
 		return nil, err
 	}
 	objW, err := c.objc.Writer(ctx, p)
@@ -168,5 +168,5 @@ func (d *deleter) Delete(ctx context.Context, id string) error {
 	if err := d.objc.Delete(ctx, chunkPath(chunkID)); err != nil {
 		return err
 	}
-	return d.mdstore.DeleteChunkMetadata(ctx, chunkID)
+	return d.mdstore.Delete(ctx, chunkID)
 }
