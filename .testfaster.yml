@@ -46,19 +46,24 @@ base:
     FROM quay.io/testfaster/kube-ubuntu
     ENV cache-bust 1
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
-    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY" >> /etc/ssh/sshd_config
+  RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH" >> /etc/ssh/sshd_config
     WORKDIR /root
     RUN git clone https://github.com/pachyderm/pachyderm
     # warm up go mod cache and go build cache
+    # we set CIRCLE_BRANCH so that Makefile uses cacheable
+    # build params (version)
     RUN cd pachyderm && \
         git checkout fa32fd9011dcd50186e61f4e0d7de45535f769c2 && \
-        make install && \
+        CIRCLE_BRANCH=1 make install && \
         go get -t ./...
 
   docker_bake_script: |-
     #!/bin/bash
     set -xeuo pipefail
     cd /root/pachyderm
+    # we set CIRCLE_BRANCH so that Makefile uses cacheable
+    # build params (version)
+    export CIRCLE_BRANCH=1
     # warm up docker buildkit go mod cache and go build cache
     make docker-build
     # build docker images that are used in tests
@@ -79,6 +84,7 @@ base:
     # re-warm OS file cache etc, e.g. load the file metadata into VM memory to
     # make the actual build faster (it's already been cached on disk from the
     # previous stages)
+    export CIRCLE_BRANCH=1
     make install
     make docker-build
 
