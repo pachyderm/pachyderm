@@ -228,7 +228,7 @@ func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *fileset.
 	inputPath := path.Join(tmpRepo, id)
 	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
 	defaultTag := fileset.SubFileSetStr(d.getSubFileSet())
-	uw, err := d.storage.New(ctx, inputPath, defaultTag, opts...)
+	uw, err := d.storage.NewUnorderedWriter(ctx, inputPath, defaultTag, opts...)
 	if err != nil {
 		return "", err
 	}
@@ -283,9 +283,12 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 	if err != nil {
 		return err
 	}
-	s := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, indexOpt)
+	if err != nil {
+		return err
+	}
 	var dir string
-	filter := fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+	filter := fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if dir != "" && strings.HasPrefix(idx.Path, dir) {
 			return true
 		}
@@ -320,23 +323,24 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 	}
 	commit := commitInfo.Commit
 	name := cleanPath(file.Path)
-	s := NewSource(commit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(name))
-		x = fileset.NewIndexResolver(x)
-		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			if idx.Path == "/" {
-				return false
-			}
-			if idx.Path == name {
-				return true
-			}
-			if idx.Path == name+"/" {
-				return false
-			}
-			return strings.HasPrefix(idx.Path, name)
-		})
-		return x
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(name))
+	if err != nil {
+		return err
+	}
+	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		if idx.Path == "/" {
+			return false
+		}
+		if idx.Path == name {
+			return true
+		}
+		if idx.Path == name+"/" {
+			return false
+		}
+		return strings.HasPrefix(idx.Path, name)
 	})
+	s := NewSource(commit, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, cleanPath(fi.File.Path)) {
 			return cb(fi)
@@ -447,7 +451,11 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
 	var shardOutputs []string
-	if err := d.storage.Shard(ctx, inputPaths, func(pathRange *index.PathRange) error {
+	fs, err := d.storage.OpenWithDeletes(ctx, inputPaths)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.storage.Shard(ctx, fs, func(pathRange *index.PathRange) error {
 		shardOutputPath := path.Join(scratch, strconv.Itoa(len(subtasks)))
 		shard, err := serializeShard(&pfs.Shard{
 			Compaction: compaction,
@@ -500,11 +508,11 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 		return nil
 	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
-		fsr, err := d.storage.NewReader(ctx, inputPath)
+		fs, err := d.storage.OpenWithDeletes(ctx, []string{inputPath})
 		if err != nil {
 			return nil, err
 		}
-		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
+		if err := fileset.CopyFiles(ctx, fsw, fs); err != nil {
 			return nil, err
 		}
 	}
@@ -574,10 +582,12 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 	if err != nil {
 		return err
 	}
-	s := NewSource(commit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), indexOpt)
-		return fileset.NewIndexResolver(x)
-	})
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, indexOpt)
+	if err != nil {
+		return err
+	}
+	fs = d.storage.NewIndexResolver(fs)
+	s := NewSource(commit, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if !mf(fi.File.Path) {
 			return nil
@@ -617,26 +627,34 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 		}
 		return path.Join(dstPath, relPath)
 	}
-	s := d.storage.OpenFileSet(ctx, compactedCommitPath(srcCommit), index.WithPrefix(srcPath))
-	s = fileset.NewIndexFilter(s, func(idx *index.Index) bool {
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(srcCommit)}, index.WithPrefix(srcPath))
+	if err != nil {
+		return err
+	}
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
-	s = fileset.NewHeaderMapper(s, func(th *tar.Header) *tar.Header {
+	fs = fileset.NewHeaderMapper(fs, func(th *tar.Header) *tar.Header {
 		th.Name = pathTransform(th.Name)
 		return th
 	})
-	s = fileset.NewDirInserter(s)
+	fs = fileset.NewDirInserter(fs)
 	return d.withWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
-		return s.Iterate(ctx, func(f fileset.File) error {
+		return fs.Iterate(ctx, func(f fileset.File) error {
 			hdr, err := f.Header()
 			if err != nil {
 				return err
 			}
-			if err := dst.WriteHeader(hdr); err != nil {
-				return err
-			}
-			dst.Tag(tag)
-			return f.Content(dst)
+			return dst.Append(hdr.Name, func(fw *fileset.FileWriter) error {
+				hdr, err := f.Header()
+				if err != nil {
+					return err
+				}
+				return fileset.WithTarFileWriter(fw, hdr, func(tfw *fileset.TarFileWriter) error {
+					tfw.Append(tag)
+					return f.Content(tfw)
+				})
+			})
 		})
 	})
 }
@@ -687,23 +705,25 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		old = NewSource(oldCommit, true, func() fileset.FileSet {
-			x := d.storage.OpenFileSet(ctx, compactedCommitPath(oldCommit), index.WithPrefix(oldName))
-			x = fileset.NewIndexResolver(x)
-			x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-				return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
-			})
-			return x
+		fs, err := d.storage.Open(ctx, []string{compactedCommitPath(oldCommit)}, index.WithPrefix(oldName))
+		if err != nil {
+			return err
+		}
+		fs = d.storage.NewIndexResolver(fs)
+		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
 		})
+		old = NewSource(oldCommit, fs, true)
 	}
-	new := NewSource(newCommit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(newCommit), index.WithPrefix(newName))
-		x = fileset.NewIndexResolver(x)
-		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
-		})
-		return x
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(newCommit)}, index.WithPrefix(newName))
+	if err != nil {
+		return err
+	}
+	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
 	})
+	new := NewSource(newCommit, fs, true)
 	diff := NewDiffer(old, new)
 	return diff.Iterate(pachClient.Ctx(), cb)
 }
@@ -722,14 +742,15 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 	if p == "/" {
 		p = ""
 	}
-	s := NewSource(commit, true, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(p))
-		x = fileset.NewIndexResolver(x)
-		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
-		})
-		return x
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(p))
+	if err != nil {
+		return nil, err
+	}
+	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
+	s := NewSource(commit, fs, true)
 	var ret *pfs.FileInfo
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
@@ -758,13 +779,14 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	if p == "/" {
 		p = ""
 	}
-	s := NewSource(commit, false, func() fileset.FileSet {
-		x := d.storage.OpenFileSet(ctx, compactedCommitPath(commit), index.WithPrefix(p))
-		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
-			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
-		})
-		return x
+	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(p))
+	if err != nil {
+		return err
+	}
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
+	s := NewSource(commit, fs, false)
 	s = NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file})
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		return cb(fi)

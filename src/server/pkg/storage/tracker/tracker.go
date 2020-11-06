@@ -8,7 +8,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 )
 
 var (
@@ -140,11 +139,9 @@ func TestTracker(t *testing.T, withTracker func(func(Tracker))) {
 	}
 }
 
-func WithTestTracker(t testing.TB, cb func(tracker Tracker)) {
-	dbutil.WithTestDB(t, func(db *sqlx.DB) {
-		db.MustExec("CREATE SCHEMA storage")
-		db.MustExec(schema)
-		tr := NewPGTracker(db)
-		cb(tr)
-	})
+func WithTestTracker(t testing.TB, db *sqlx.DB, cb func(tracker Tracker)) {
+	db.MustExec("CREATE SCHEMA storage")
+	db.MustExec(schema)
+	tr := NewPGTracker(db)
+	cb(tr)
 }

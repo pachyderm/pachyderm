@@ -14,15 +14,14 @@ import (
 // WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func WithTestStorage(t testing.TB, f func(obj.Client, *Storage) error, opts ...StorageOption) {
-	tracker.WithTestTracker(t, func(tracker tracker.Tracker) {
-		dbutil.WithTestDB(t, func(db *sqlx.DB) {
+	dbutil.WithTestDB(t, func(db *sqlx.DB) {
+		tracker.WithTestTracker(t, db, func(tracker tracker.Tracker) {
 			db.MustExec(schema)
 			mdstore := NewPostgresStore(db)
 			require.NoError(t, obj.WithLocalClient(func(objClient obj.Client) error {
 				return f(objClient, NewStorage(objClient, mdstore, tracker, opts...))
 			}))
 		})
-
 	})
 }
 
@@ -38,26 +37,9 @@ func RandSeq(n int) []byte {
 }
 
 // Reference creates a data reference for the full chunk referenced by a data reference.
-func Reference(dataRef *DataRef, tag string) *DataRef {
-	chunkRef := &DataRef{}
-	chunkRef.ChunkRef = dataRef.ChunkRef
-	chunkRef.SizeBytes = dataRef.ChunkRef.SizeBytes
-	chunkRef.Tags = []*Tag{
-		&Tag{
-			Id:        tag,
-			SizeBytes: dataRef.ChunkRef.SizeBytes,
-		},
-	}
-	return chunkRef
-}
-
-func joinTags(ts1, ts2 []*Tag) []*Tag {
-	if ts1 != nil {
-		lastT := ts1[len(ts1)-1]
-		if lastT.Id == ts2[0].Id {
-			lastT.SizeBytes += ts2[0].SizeBytes
-			ts2 = ts2[1:]
-		}
-	}
-	return append(ts1, ts2...)
+func Reference(dataRef *DataRef) *DataRef {
+	chunkDataRef := &DataRef{}
+	chunkDataRef.Ref = dataRef.Ref
+	chunkDataRef.SizeBytes = dataRef.Ref.SizeBytes
+	return chunkDataRef
 }

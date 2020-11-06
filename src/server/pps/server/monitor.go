@@ -44,9 +44,9 @@ import (
 const crashingBackoff = time.Second * 15
 
 // startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
-// and startPipelinePoller. It doesn't manipulate any of APIServer's fields,
-// just wrapps the passed function in a goroutine, and returns a cancel() fn to
-// cancel it and block until it returns.
+// and startPipelinePoller (in poller.go). It doesn't manipulate any of
+// APIServer's fields, just wrapps the passed function in a goroutine, and
+// returns a cancel() fn to cancel it and block until it returns.
 func startMonitorThread(parentPachClient *client.APIClient, name string, f func(pachClient *client.APIClient)) func() {
 	childCtx, cancel := context.WithCancel(parentPachClient.Ctx())
 	done := make(chan struct{})
@@ -139,19 +139,28 @@ func (a *apiServer) cancelCrashingMonitor(pipeline string) {
 // cancelAllMonitorsAndCrashingMonitors overlaps with cancelMonitor and
 // cancelCrashingMonitor, but also iterates over the existing members of
 // a.{crashingM,m}onitorCancels in the critical section, so that all monitors
-// can be cancelled without the risk that a new monitor is added between cancels
-func (a *apiServer) cancelAllMonitorsAndCrashingMonitors() {
-	// cancel all monitorPipeline goroutines
+// can be cancelled without the risk that a new monitor is added between
+// cancellations.
+//
+// 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
+// cancelled. It's set by pollPipelines, which does not cancel any pipeline in
+// etcd at the time that it runs
+func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) {
 	a.monitorCancelsMu.Lock()
 	defer a.monitorCancelsMu.Unlock()
-	for _, c := range a.monitorCancels {
-		c()
+	for _, monitorMap := range []map[string]func(){a.monitorCancels, a.crashingMonitorCancels} {
+		remove := make([]string, 0, len(monitorMap))
+		for p := range monitorMap {
+			if !leave[p] {
+				remove = append(remove, p)
+			}
+		}
+		for _, p := range remove {
+			cancel := monitorMap[p]
+			cancel()
+			delete(monitorMap, p)
+		}
 	}
-	for _, c := range a.crashingMonitorCancels {
-		c()
-	}
-	a.monitorCancels = make(map[string]func())
-	a.crashingMonitorCancels = make(map[string]func())
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -175,7 +184,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
 					return a.makeCronCommits(pachClient, in)
-				}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
+				}, backoff.NewInfiniteBackOff(),
+					backoff.NotifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
 			})
 		}
 	})
@@ -192,22 +202,34 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						ciChan <- ci
 						return nil
 					})
-			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
+			}, backoff.NewInfiniteBackOff(),
+				backoff.NotifyCtx(pachClient.Ctx(), "SubscribeCommit for "+pipeline))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
-					a.env.GetEtcdClient(), pipeline, "/pps.Master/MonitorPipeline",
-					"standby", pipelineInfo.Standby)
-				if span != nil {
-					pachClient = pachClient.WithCtx(ctx)
+				var (
+					oldCtx        = pachClient.Ctx()
+					oldPachClient = pachClient
+					childSpan     opentracing.Span
+					ctx           context.Context
+				)
+				defer func() {
+					// childSpan is overwritten so wrap in a lambda for late binding
+					tracing.FinishAnySpan(childSpan)
+				}()
+				// start span to capture & contextualize etcd state transition
+				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+					a.env.GetEtcdClient(), pipeline,
+					"/pps.Master/MonitorPipeline/Begin")
+				if childSpan != nil {
+					pachClient = oldPachClient.WithCtx(ctx)
 				}
-				defer tracing.FinishAnySpan(span)
-
 				if err := a.transitionPipelineState(pachClient.Ctx(),
 					pipeline,
-					pps.PipelineState_PIPELINE_RUNNING,
-					pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+					[]pps.PipelineState{
+						pps.PipelineState_PIPELINE_RUNNING,
+						pps.PipelineState_PIPELINE_CRASHING,
+					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -220,35 +242,32 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					}
 					return err
 				}
-				var (
-					childSpan     opentracing.Span
-					oldCtx        = ctx
-					oldPachClient = pachClient
-				)
-				defer func() {
-					tracing.FinishAnySpan(childSpan) // Finish any dangling children of 'span'
-				}()
 				for {
 					// finish span from previous loops
 					tracing.FinishAnySpan(childSpan)
 					childSpan = nil
 
 					var ci *pfs.CommitInfo
+					var ok bool
 					select {
-					case ci = <-ciChan:
+					case ci, ok = <-ciChan:
+						if !ok {
+							return nil // subscribeCommit exited, nothing left to do
+						}
 						if ci.Finished != nil {
 							continue
 						}
-						childSpan, ctx = tracing.AddSpanToAnyExisting(
-							oldCtx, "/pps.Master/MonitorPipeline_SpinUp",
-							"pipeline", pipeline, "commit", ci.Commit.ID)
+						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+							a.env.GetEtcdClient(), pipeline,
+							"/pps.Master/MonitorPipeline/SpinUp",
+							"commit", ci.Commit.ID)
 						if childSpan != nil {
 							pachClient = oldPachClient.WithCtx(ctx)
 						}
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
-							pps.PipelineState_PIPELINE_STANDBY,
+							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 
 							pte := &ppsutil.PipelineTransitionError{}
@@ -271,8 +290,20 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 								return err
 							}
 
+							tracing.FinishAnySpan(childSpan)
+							childSpan = nil
 							select {
-							case ci = <-ciChan:
+							case ci, ok = <-ciChan:
+								if !ok {
+									return nil // subscribeCommit exited, nothing left to do
+								}
+								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
+									a.env.GetEtcdClient(), pipeline,
+									"/pps.Master/MonitorPipeline/WatchNext",
+									"commit", ci.Commit.ID)
+								if childSpan != nil {
+									pachClient = oldPachClient.WithCtx(ctx)
+								}
 							default:
 								break running
 							}
@@ -280,8 +311,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 						if err := a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
-							pps.PipelineState_PIPELINE_RUNNING,
-							pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+							[]pps.PipelineState{
+								pps.PipelineState_PIPELINE_RUNNING,
+								pps.PipelineState_PIPELINE_CRASHING,
+							}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 
 							pte := &ppsutil.PipelineTransitionError{}
 							if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -306,7 +339,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
-// allWorkersUp is a helper used by monitorCrashingPipelinejkjk
+// allWorkersUp is a helper used by monitorCrashingPipeline
 func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
 	parallelism := int(parallelism64)
 	if parallelism == 0 {
@@ -325,28 +358,21 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipe
 func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx := pachClient.Ctx()
-	if err := backoff.RetryUntilCancel(ctx,
-		func() error {
-			workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
-			if err != nil {
-				return errors.Wrap(err, "could not check if all workers are up")
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
+		if err != nil {
+			return errors.Wrap(err, "could not check if all workers are up")
+		}
+		if workersUp {
+			if err := a.transitionPipelineState(ctx, pipeline,
+				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
+				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+				return errors.Wrap(err, "could not transition pipeline to RUNNING")
 			}
-			if workersUp {
-				if err := a.transitionPipelineState(ctx, pipeline,
-					pps.PipelineState_PIPELINE_CRASHING,
-					pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
-
-					pte := &ppsutil.PipelineTransitionError{}
-					if errors.As(err, &pte) && pte.Current == pps.PipelineState_PIPELINE_CRASHING {
-						log.Error(err)
-						return nil // Pipeline has moved to STOPPED or been updated--give up
-					}
-					return errors.Wrap(err, "could not transition pipeline to RUNNING")
-				}
-			}
-			return nil
-		},
-		backoff.NewConstantBackOff(crashingBackoff),
+			return nil // done--pipeline is out of CRASHING
+		}
+		return backoff.ErrContinue // loop again to check for new workers
+	}, backoff.NewConstantBackOff(crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be

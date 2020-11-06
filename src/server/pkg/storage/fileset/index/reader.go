@@ -13,14 +13,9 @@ import (
 
 // Reader is used for reading a multilevel index.
 type Reader struct {
-	ctx     context.Context
-	chunks  *chunk.Storage
-	path    string
-	filter  *pathFilter
-	topIdx  *Index
-	levels  []pbutil.Reader
-	peekIdx *Index
-	done    bool
+	chunks *chunk.Storage
+	filter *pathFilter
+	topIdx *Index
 }
 
 type pathFilter struct {
@@ -29,9 +24,8 @@ type pathFilter struct {
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, topIdx *Index, chunks *chunk.Storage, opts ...Option) *Reader {
+func NewReader(chunks *chunk.Storage, topIdx *Index, opts ...Option) *Reader {
 	r := &Reader{
-		ctx:    ctx,
 		chunks: chunks,
 		topIdx: topIdx,
 	}
@@ -41,72 +35,29 @@ func NewReader(ctx context.Context, topIdx *Index, chunks *chunk.Storage, opts .
 	return r
 }
 
-// Peek returns the next index without progressing the reader.
-func (r *Reader) Peek() (*Index, error) {
-	if err := r.setup(); err != nil {
-		return nil, err
-	}
-	var err error
-	if r.peekIdx == nil {
-		r.peekIdx, err = r.next()
-	}
-	return r.peekIdx, err
-}
-
-func (r *Reader) setup() error {
-	if r.done {
-		return io.EOF
-	}
-	if r.levels == nil {
-		// Setup top level reader.
-		pbr, err := r.topLevel()
-		if err != nil {
-			return err
-		}
-		r.levels = []pbutil.Reader{pbr}
-	}
-	return nil
-}
-
-func (r *Reader) topLevel() (_ pbutil.Reader, retErr error) {
-	buf := &bytes.Buffer{}
-	pbw := pbutil.NewWriter(buf)
-	if _, err := pbw.Write(r.topIdx); err != nil {
-		return nil, err
-	}
-	return pbutil.NewReader(buf), nil
-}
-
-// Next returns the next index and progresses the reader.
-func (r *Reader) Next() (*Index, error) {
-	if err := r.setup(); err != nil {
-		return nil, err
-	}
-	if r.peekIdx != nil {
-		idx := r.peekIdx
-		r.peekIdx = nil
-		return idx, nil
-	}
-	return r.next()
-}
-
-func (r *Reader) next() (*Index, error) {
+// Iterate iterates over the indexes.
+func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
+	// Setup top level reader.
+	pbr := r.topLevel()
+	levels := []pbutil.Reader{pbr}
 	for {
-		pbr := r.levels[len(r.levels)-1]
+		pbr := levels[len(levels)-1]
 		idx := &Index{}
 		if err := pbr.Read(idx); err != nil {
-			return nil, err
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
 		}
-		// TODO An empty fileset is represented by the DataOp field being nil in the index
+		// TODO An empty fileset is represented by no referenced data
 		// stored in the semantic path for the fileset. We should probably spend some more time
 		// thinking through the implications of this representation.
-		if idx.DataOp == nil {
-			return nil, io.EOF
+		if idx.Range == nil && idx.FileOp == nil {
+			return nil
 		}
 		// Return if done.
 		if r.atEnd(idx.Path) {
-			r.done = true
-			return nil, io.EOF
+			return nil
 		}
 		// Handle lowest level index.
 		if idx.Range == nil {
@@ -114,14 +65,25 @@ func (r *Reader) next() (*Index, error) {
 			if !r.atStart(idx.Path) {
 				continue
 			}
-			return idx, nil
+			resolveDataOps(idx)
+			if err := cb(idx); err != nil {
+				return err
+			}
+			continue
 		}
 		// Skip to the starting index.
 		if !r.atStart(idx.Range.LastPath) {
 			continue
 		}
-		r.levels = append(r.levels, pbutil.NewReader(newLevelReader(pbr, r.chunks.NewReader(r.ctx), idx)))
+		levels = append(levels, pbutil.NewReader(newLevelReader(ctx, pbr, r.chunks, idx)))
 	}
+}
+
+func (r *Reader) topLevel() pbutil.Reader {
+	buf := bytes.Buffer{}
+	pbw := pbutil.NewWriter(&buf)
+	pbw.Write(r.topIdx)
+	return pbutil.NewReader(&buf)
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
@@ -157,16 +119,18 @@ func (r *Reader) atEnd(name string) bool {
 }
 
 type levelReader struct {
+	ctx    context.Context
 	parent pbutil.Reader
-	cr     *chunk.Reader
+	chunks *chunk.Storage
 	idx    *Index
 	buf    *bytes.Buffer
 }
 
-func newLevelReader(parent pbutil.Reader, cr *chunk.Reader, idx *Index) *levelReader {
+func newLevelReader(ctx context.Context, parent pbutil.Reader, chunks *chunk.Storage, idx *Index) *levelReader {
 	return &levelReader{
+		ctx:    ctx,
 		parent: parent,
-		cr:     cr,
+		chunks: chunks,
 		idx:    idx,
 	}
 }
@@ -192,9 +156,9 @@ func (lr *levelReader) Read(data []byte) (int, error) {
 
 func (lr *levelReader) setup() error {
 	if lr.buf == nil {
-		lr.cr.NextDataRefs(lr.idx.DataOp.DataRefs)
+		r := lr.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
 		lr.buf = &bytes.Buffer{}
-		if err := lr.cr.Get(lr.buf); err != nil {
+		if err := r.Get(lr.buf); err != nil {
 			return err
 		}
 		// Skip offset bytes to get to first index entry in chunk.
@@ -208,30 +172,7 @@ func (lr *levelReader) next() error {
 	if err := lr.parent.Read(lr.idx); err != nil {
 		return err
 	}
-	lr.cr.NextDataRefs(lr.idx.DataOp.DataRefs)
+	r := lr.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
 	lr.buf.Reset()
-	return lr.cr.Get(lr.buf)
-}
-
-// Iterate iterates over the indexes.
-// pathBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
-func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
-	for {
-		idx, err := r.Peek()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		if !chunk.BeforeBound(idx.Path, pathBound...) {
-			return nil
-		}
-		if err := f(idx); err != nil {
-			return err
-		}
-		if _, err := r.Next(); err != nil {
-			return err
-		}
-	}
+	return r.Get(lr.buf)
 }
