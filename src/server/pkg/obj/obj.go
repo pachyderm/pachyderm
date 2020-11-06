@@ -288,7 +288,7 @@ func secretFile(name string) string {
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(secretFile(name))
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	return strings.TrimSpace(string(bytes)), nil
 }
@@ -408,7 +408,7 @@ func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution str
 	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if len(reverse) > 0 {
 		advancedConfig.Reverse = reverse[0]
