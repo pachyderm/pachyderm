@@ -671,6 +671,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl create pipeline <<EOF
 			{{.spec}}
 		EOF
+		pachctl get file "test-pipeline-build_build@source:/$(ls | head -n 1)"
 		pachctl flush commit in@master
 		`,
 		"dir", dir,
