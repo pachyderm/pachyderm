@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.7
+- Changes to fix Jaeger tracing functionality (#5331)
+- Reverted a change that accidentally made storage credentials required in custom deployment when upgrading to 1.11.6 (#5421)
+
 ## 1.11.6
 - Added a deploy option to enable verbose logging in S3 client (#5340)
 - Fix a bug that would leak a revoked pipeline token object (#5397)
