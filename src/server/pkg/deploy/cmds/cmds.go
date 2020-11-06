@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
@@ -122,7 +121,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 				return errors.Wrapf(err, "failed to discover default kube config: could not get user home directory")
 			}
 			kubeconfig = path.Join(home, ".kube", "config")
-			if _, err = os.Stat(kubeconfig); os.IsNotExist(err) {
+			if _, err = os.Stat(kubeconfig); errors.Is(err, os.ErrNotExist) {
 				return errors.Wrapf(err, "failed to discover default kube config: %q does not exist", kubeconfig)
 			}
 		}
@@ -479,7 +478,7 @@ func standardDeployCmds() []*cobra.Command {
 
 	deployPreRun := cmdutil.Run(func(args []string) error {
 		if version.IsUnstable() {
-			fmt.Printf("WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
+			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
 
 			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 				return err
@@ -698,7 +697,6 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			// populate 'amazonCreds' & validate
 			var amazonCreds *assets.AmazonCreds
-			s := bufio.NewScanner(os.Stdin)
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
@@ -710,19 +708,20 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not "+
-						"match %q). Do you want to continue deploying? [yN]\n",
-						awsAccessKeyIDRE)
-					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-						os.Exit(1)
+					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not match %q)\n", awsAccessKeyIDRE)
+					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+						return err
+					} else if !ok {
+						return errors.Errorf("aborted")
 					}
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not "+
-						"match %q). Do you want to continue deploying? [yN]\n", awsSecretRE)
-					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-						os.Exit(1)
+					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not match %q)\n", awsSecretRE)
+					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+						return err
+					} else if !ok {
+						return errors.Errorf("aborted")
 					}
 				}
 			}
@@ -754,10 +753,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match "+
-					"%q). Do you want to continue deploying? [yN]\n", awsRegionRE)
-				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-					os.Exit(1)
+				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("aborted")
 				}
 			}
 			// Setup advanced configuration.
@@ -1198,7 +1198,7 @@ func Cmds() []*cobra.Command {
 			}
 
 			if includingMetadata {
-				fmt.Printf(`
+				fmt.Fprintf(os.Stderr, `
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
 "--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making

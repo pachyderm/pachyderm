@@ -501,38 +501,38 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// use IAM roles (i.e. the EC2 metadata service)
 	var creds AmazonCreds
 	creds.ID, err = readSecretFile("/amazon-id")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.Secret, err = readSecretFile("/amazon-secret")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.Token, err = readSecretFile("/amazon-token")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultAddress, err = readSecretFile("/amazon-vault-addr")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultRole, err = readSecretFile("/amazon-vault-role")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultToken, err = readSecretFile("/amazon-vault-token")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)

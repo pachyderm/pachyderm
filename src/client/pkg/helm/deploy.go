@@ -19,7 +19,7 @@ import (
 
 func updateConfig(envSettings *cli.EnvSettings, repoName, repoURL string) (*repo.ChartRepository, error) {
 	configBytes, err := ioutil.ReadFile(envSettings.RepositoryConfig)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, errors.Wrapf(err, "failed to read helm config")
 	}
 

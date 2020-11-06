@@ -116,15 +116,15 @@ var (
 	IAMAnnotation = "iam.amazonaws.com/role"
 )
 
-type backend int
+type Backend int
 
 const (
-	localBackend backend = iota
-	amazonBackend
-	googleBackend
-	microsoftBackend
-	minioBackend
-	s3CustomArgs = 6
+	LocalBackend Backend = iota
+	AmazonBackend
+	GoogleBackend
+	MicrosoftBackend
+	MinioBackend
+	S3CustomArgs = 6
 )
 
 // TLSOpts indicates the cert and key file that Pachd should use to
@@ -316,8 +316,8 @@ func replicas(r int32) *int32 {
 // that are unset in 'opts' to the appropriate default ('persistentDiskBackend'
 // just used to determine if this is a local deployment, and if so, make the
 // resource requests smaller)
-func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend) {
-	if persistentDiskBackend == localBackend {
+func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend Backend) {
+	if persistentDiskBackend == LocalBackend {
 		// For local deployments, we set the resource requirements and cache sizes
 		// low so that pachyderm clusters will fit inside e.g. minikube or travis
 		if opts.BlockCacheSize == "" {
@@ -574,7 +574,7 @@ func imagePullSecrets(opts *AssetOpts) []v1.LocalObjectReference {
 }
 
 // PachdDeployment returns a pachd k8s Deployment.
-func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *apps.Deployment {
+func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath string) *apps.Deployment {
 	// set port defaults
 	if opts.PachdPort == 0 {
 		opts.PachdPort = 650
@@ -608,7 +608,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var backendEnvVar string
 	var storageHostPath string
 	switch objectStoreBackend {
-	case localBackend:
+	case LocalBackend:
 		storageHostPath = path.Join(hostPath, "pachd")
 		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
@@ -616,13 +616,13 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			Type: &pathType,
 		}
 		backendEnvVar = pfs.LocalBackendEnvVar
-	case minioBackend:
+	case MinioBackend:
 		backendEnvVar = pfs.MinioBackendEnvVar
-	case amazonBackend:
+	case AmazonBackend:
 		backendEnvVar = pfs.AmazonBackendEnvVar
-	case googleBackend:
+	case GoogleBackend:
 		backendEnvVar = pfs.GoogleBackendEnvVar
-	case microsoftBackend:
+	case MicrosoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
 	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
@@ -1003,20 +1003,20 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // EtcdStorageClass creates a storage class used for dynamic volume
 // provisioning.  Currently dynamic volume provisioning only works
 // on AWS and GCE.
-func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
+func EtcdStorageClass(opts *AssetOpts, backend Backend) (interface{}, error) {
 	return makeStorageClass(opts, backend, defaultEtcdStorageClassName, labels(etcdName))
 }
 
 // PostgresStorageClass creates a storage class used for dynamic volume
 // provisioning.  Currently dynamic volume provisioning only works
 // on AWS and GCE.
-func PostgresStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
+func PostgresStorageClass(opts *AssetOpts, backend Backend) (interface{}, error) {
 	return makeStorageClass(opts, backend, defaultPostgresStorageClassName, labels(postgresName))
 }
 
 func makeStorageClass(
 	opts *AssetOpts,
-	backend backend,
+	backend Backend,
 	storageClassName string,
 	storageClassLabels map[string]string,
 ) (interface{}, error) {
@@ -1031,12 +1031,12 @@ func makeStorageClass(
 		"allowVolumeExpansion": true,
 	}
 	switch backend {
-	case googleBackend:
+	case GoogleBackend:
 		sc["provisioner"] = "kubernetes.io/gce-pd"
 		sc["parameters"] = map[string]string{
 			"type": "pd-ssd",
 		}
-	case amazonBackend:
+	case AmazonBackend:
 		sc["provisioner"] = "kubernetes.io/aws-ebs"
 		sc["parameters"] = map[string]string{
 			"type": "gp2",
@@ -1048,19 +1048,19 @@ func makeStorageClass(
 }
 
 // EtcdVolume creates a persistent volume backed by a volume with name "name"
-func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
+func EtcdVolume(persistentDiskBackend Backend, opts *AssetOpts,
 	hostPath string, name string, size int) (*v1.PersistentVolume, error) {
 	return makePersistentVolume(persistentDiskBackend, opts, hostPath, name, size, etcdVolumeName, labels(etcdName))
 }
 
 // PostgresVolume creates a persistent volume backed by a volume with name "name"
-func PostgresVolume(persistentDiskBackend backend, opts *AssetOpts,
+func PostgresVolume(persistentDiskBackend Backend, opts *AssetOpts,
 	hostPath string, name string, size int) (*v1.PersistentVolume, error) {
 	return makePersistentVolume(persistentDiskBackend, opts, hostPath, name, size, postgresVolumeName, labels(postgresName))
 }
 
 func makePersistentVolume(
-	persistentDiskBackend backend,
+	persistentDiskBackend Backend,
 	opts *AssetOpts,
 	hostPath string,
 	name string,
@@ -1084,21 +1084,21 @@ func makePersistentVolume(
 	}
 
 	switch persistentDiskBackend {
-	case amazonBackend:
+	case AmazonBackend:
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			AWSElasticBlockStore: &v1.AWSElasticBlockStoreVolumeSource{
 				FSType:   "ext4",
 				VolumeID: name,
 			},
 		}
-	case googleBackend:
+	case GoogleBackend:
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			GCEPersistentDisk: &v1.GCEPersistentDiskVolumeSource{
 				FSType: "ext4",
 				PDName: name,
 			},
 		}
-	case microsoftBackend:
+	case MicrosoftBackend:
 		dataDiskURI := name
 		split := strings.Split(name, "/")
 		diskName := split[len(split)-1]
@@ -1109,9 +1109,9 @@ func makePersistentVolume(
 				DataDiskURI: dataDiskURI,
 			},
 		}
-	case minioBackend:
+	case MinioBackend:
 		fallthrough
-	case localBackend:
+	case LocalBackend:
 		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
@@ -1220,7 +1220,7 @@ func EtcdHeadlessService(opts *AssetOpts) *v1.Service {
 }
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
-func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{} {
+func EtcdStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interface{} {
 	mem := resource.MustParse(opts.EtcdMemRequest)
 	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
@@ -1243,7 +1243,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 
 	var pvcTemplates []interface{}
 	switch backend {
-	case googleBackend, amazonBackend:
+	case GoogleBackend, amazonBackend:
 		storageClassName := opts.EtcdStorageClassName
 		if storageClassName == "" {
 			storageClassName = defaultEtcdStorageClassName
@@ -1712,16 +1712,9 @@ func WriteDashboardAssets(encoder serde.Encoder, opts *AssetOpts) error {
 }
 
 // WriteAssets writes the assets to encoder.
-func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend backend,
-	persistentDiskBackend backend, volumeSize int,
+func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Backend,
+	persistentDiskBackend Backend, volumeSize int,
 	hostPath string) error {
-	// If either backend is "local", both must be "local"
-	if (persistentDiskBackend == localBackend || objectStoreBackend == localBackend) &&
-		persistentDiskBackend != objectStoreBackend {
-		return errors.Errorf("if either persistentDiskBackend or objectStoreBackend "+
-			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
-			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
-	}
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
 	if opts.DashOnly {
 		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
@@ -1767,7 +1760,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	// provisions volumes, and run etcd as a stateful set.
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
-	if objectStoreBackend == localBackend {
+	if objectStoreBackend == LocalBackend {
 		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
 			return err
 		}
@@ -1790,7 +1783,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			return err
 		}
-	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
+	} else if opts.EtcdVolume != "" || persistentDiskBackend == LocalBackend {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdVolume, volumeSize)
 		if err != nil {
 			return err
@@ -1807,7 +1800,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts)); err != nil {
+	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == LocalBackend, opts)); err != nil {
 		return err
 	}
 
@@ -1816,7 +1809,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		// provisions volumes, and run postgres as a stateful set.
 		// In the static route, we create a single volume, a single volume
 		// claim, and run etcd as a replication controller with a single node.
-		if objectStoreBackend == localBackend {
+		if objectStoreBackend == LocalBackend {
 			if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
 				return err
 			}
@@ -1841,7 +1834,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 			// if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			// 	return err
 			// }
-		} else if opts.PostgresVolume != "" || persistentDiskBackend == localBackend {
+		} else if opts.PostgresVolume != "" || persistentDiskBackend == LocalBackend {
 			volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresVolume, volumeSize)
 			if err != nil {
 				return err
@@ -1858,7 +1851,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		} else {
 			return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 		}
-		if err := encoder.Encode(PostgresService(objectStoreBackend == localBackend, opts)); err != nil {
+		if err := encoder.Encode(PostgresService(objectStoreBackend == LocalBackend, opts)); err != nil {
 			return err
 		}
 	}
@@ -1930,7 +1923,7 @@ func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(encoder serde.Encoder, opts *AssetOpts, hostPath string) error {
-	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
+	if err := WriteAssets(encoder, opts, LocalBackend, LocalBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
 	if secretErr := WriteSecret(encoder, LocalSecret(), opts); secretErr != nil {
@@ -1951,22 +1944,22 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 		if err != nil {
 			return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
-		objectStoreBackend := amazonBackend
+		objectStoreBackend := AmazonBackend
 		// (bryce) use minio if we need v2 signing enabled.
 		if isS3V2 {
-			objectStoreBackend = minioBackend
+			objectStoreBackend = MinioBackend
 		}
 		switch persistentDiskBackend {
 		case "aws":
-			if err := WriteAssets(encoder, opts, objectStoreBackend, amazonBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, AmazonBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "google":
-			if err := WriteAssets(encoder, opts, objectStoreBackend, googleBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, GoogleBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "azure":
-			if err := WriteAssets(encoder, opts, objectStoreBackend, microsoftBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, MicrosoftBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		default:
@@ -1976,7 +1969,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 		id := args[3]
 		secret := args[4]
 		endpoint := args[5]
-		if objectStoreBackend == minioBackend {
+		if objectStoreBackend == MinioBackend {
 			return WriteSecret(encoder, MinioSecret(bucket, id, secret, endpoint, secure, isS3V2), opts)
 		}
 		// (bryce) hardcode region?
@@ -2003,7 +1996,7 @@ type AmazonCreds struct {
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string, advancedConfig *obj.AmazonAdvancedConfiguration) error {
-	if err := WriteAssets(encoder, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
+	if err := WriteAssets(encoder, opts, AmazonBackend, AmazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	var secret map[string][]byte
@@ -2019,7 +2012,7 @@ func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bu
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(encoder serde.Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
-	if err := WriteAssets(encoder, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
+	if err := WriteAssets(encoder, opts, GoogleBackend, GoogleBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	return WriteSecret(encoder, GoogleSecret(bucket, cred), opts)
@@ -2027,7 +2020,7 @@ func WriteGoogleAssets(encoder serde.Encoder, opts *AssetOpts, bucket string, cr
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
-	if err := WriteAssets(encoder, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
+	if err := WriteAssets(encoder, opts, MicrosoftBackend, MicrosoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	return WriteSecret(encoder, MicrosoftSecret(container, id, secret), opts)

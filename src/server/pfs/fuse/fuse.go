@@ -85,7 +85,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		if err := func() (retErr error) {
 			f, err := progress.Open(filepath.Join(root.rootPath, path))
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, os.ErrNotExist) {
 					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
 				}
 				return errors.WithStack(err)

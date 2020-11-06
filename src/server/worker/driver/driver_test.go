@@ -305,7 +305,7 @@ func newInputData(path string, contents string) *inputData {
 func requireEmptyScratch(t *testing.T, inputDir string) {
 	entries, err := ioutil.ReadDir(filepath.Join(inputDir, client.PPSScratchSpace))
 
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, os.ErrNotExist) {
 		require.ElementsEqual(t, []os.FileInfo{}, entries)
 	}
 }

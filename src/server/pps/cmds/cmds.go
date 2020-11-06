@@ -1370,7 +1370,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		buildPath = filepath.Join(pipelineParentPath, buildPath)
 	}
 	if _, err := os.Stat(buildPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("build path %q does not exist", buildPath)
 		}
 		return errors.Wrapf(err, "could not stat build path %q", buildPath)
