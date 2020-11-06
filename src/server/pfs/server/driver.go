@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -44,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -2948,17 +2950,43 @@ func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
 	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
 }
 
+func logPutFileStart(req *pfs.PutFileRequest) {
+	verb := "Writing"
+	if req.Delete {
+		verb = "Deleting"
+	}
+	log.Debugf(`pfs.API.PutFile/%s {"to":%q}`, verb, pretty.CompactPrintFile(req.File))
+}
+
+func logPutFileEnd(req *pfs.PutFileRequest, start time.Time, records *pfs.PutFileRecords, retErr error) {
+	verb := "Wrote"
+	if req.Delete {
+		verb = "Deleted"
+	}
+	var bytes float64
+	for _, r := range records.Records {
+		bytes += float64(r.SizeBytes)
+	}
+	dur := time.Now().Sub(start).Truncate(time.Millisecond)
+	rate := float64(bytes) / dur.Seconds()
+	log.Debugf(`pfs.API.PutFile/%s {"to":%q,"sz":%q,"dur":"%s (%s/s)","err":"%v"`,
+		verb, pretty.CompactPrintFile(req.File), units.BytesSize(bytes), dur, units.BytesSize(rate), retErr)
+}
+
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		log.Debugf("Writing to %v@%v:/%v", req.File.Commit.Repo.Name, req.File.Commit.ID, req.File.Path)
-		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
+	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) (retErr error) {
+		start := time.Now()
+		var records *pfs.PutFileRecords
+		logPutFileStart(req)
+		defer func() { logPutFileEnd(req, start, records, retErr) }() //late binding
+		records, retErr = d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
-		if err != nil {
-			return err
+		if retErr != nil {
+			return retErr
 		}
 		mu.Lock()
 		defer mu.Unlock()
