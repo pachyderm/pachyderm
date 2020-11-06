@@ -671,7 +671,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl create pipeline <<EOF
 			{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -687,7 +687,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl update pipeline <<EOF
 			{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -725,7 +725,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		pachctl update pipeline --reprocess <<EOF
 			{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
@@ -738,7 +738,7 @@ func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
 	t.Helper()
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		pachctl get file {{.pipeline}}@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
 		pachctl get file {{.pipeline}}@master:/11.txt | match {{.prefix}}{{.prefix}}11
 		pachctl get file {{.pipeline}}@master:/111.txt | match {{.prefix}}111
