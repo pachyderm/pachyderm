@@ -145,7 +145,7 @@ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.11
 
 # For Linux (64 bit) or Window 10+ on WSL:
 
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.6/pachctl_1.11.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.7/pachctl_1.11.7_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can then run `pachctl version --client-only` to check that the installation was successful.

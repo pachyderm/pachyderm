@@ -42,7 +42,7 @@ Install the following prerequisites:
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.6/pachctl_1.11.6_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.7/pachctl_1.11.7_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
