@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"math"
-	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -19,17 +18,24 @@ func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	}
 }
 
-// WithGCTimeout sets the default chunk ttl for this Storage instance
-func WithGCTimeout(timeout time.Duration) StorageOption {
-	return func(s *Storage) {
-		s.defaultChunkTTL = timeout
-	}
-}
-
 // WithObjectCache adds a cache around the currently configured object client
 func WithObjectCache(fastLayer obj.Client, size int) StorageOption {
 	return func(s *Storage) {
 		s.objClient = obj.NewCacheClient(s.objClient, fastLayer, size)
+	}
+}
+
+// WithSecret sets the secret used to generate chunk encryption keys
+func WithSecret(secret []byte) StorageOption {
+	return func(s *Storage) {
+		s.createOpts.Secret = append([]byte{}, secret...)
+	}
+}
+
+// WithCompression sets the compression algorithm used to compress chunks
+func WithCompression(algo CompressionAlgo) StorageOption {
+	return func(s *Storage) {
+		s.createOpts.Compression = algo
 	}
 }
 

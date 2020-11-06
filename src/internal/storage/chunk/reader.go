@@ -101,8 +101,9 @@ func (dr *DataReader) getChunk() error {
 	}
 	// Get chunk from object storage.
 	buf := &bytes.Buffer{}
-	chunkID := dr.dataRef.Ref.Id
-	if err := dr.client.Get(dr.ctx, chunkID, buf); err != nil {
+	if err := Get(dr.ctx, dr.dataRef.Ref, buf, func(ctx context.Context, id ID, w io.Writer) error {
+		return dr.client.Get(ctx, id, w)
+	}); err != nil {
 		return err
 	}
 	dr.chunk = buf.Bytes()
