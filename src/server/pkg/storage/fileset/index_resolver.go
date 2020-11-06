@@ -7,50 +7,32 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
-// NewIndexResolver ensures the indexes in the FileSource are correct
-// based on the content
-func NewIndexResolver(x FileSet) FileSet {
-	switch x := x.(type) {
-	case *mergeSource:
-		return &mergeResolver{
-			getReader: x.getReader,
-			s:         x.s,
-		}
-	default:
-		panic("cannot resolve indexes")
+// NewIndexResolver creates a file set that resolves index entries.
+func (s *Storage) NewIndexResolver(fs FileSet) FileSet {
+	return &indexResolver{
+		s:  s,
+		fs: fs,
 	}
 }
 
-type mergeResolver struct {
-	s         *Storage
-	getReader func() (*MergeReader, error)
+type indexResolver struct {
+	s  *Storage
+	fs FileSet
 }
 
-func (mr *mergeResolver) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
-	mr1, err := mr.getReader()
-	if err != nil {
-		return err
-	}
-	mr2, err := mr.getReader()
-	if err != nil {
-		return err
-	}
-	w := mr.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
-		// Index entries that do not reference any data are for propagating deletes.
-		if len(idx.DataOp.DataRefs) == 0 {
-			return nil
-		}
-		fmr, err := mr2.Next()
+func (ir *indexResolver) Iterate(ctx context.Context, cb func(File) error) error {
+	iter := NewIterator(ctx, ir.fs)
+	w := ir.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
+		f, err := iter.Next()
 		if err != nil {
 			return err
 		}
-		if fmr.Index().Path != idx.Path {
-			return errors.Errorf("merge resolver has been given 2 different merge readers")
+		if f.Index().Path != idx.Path {
+			return errors.Errorf("index resolver paths out of sync")
 		}
-		fmr.fullIdx = idx
-		return cb(fmr)
+		return cb(newFileReader(ctx, ir.s.ChunkStorage(), idx))
 	}))
-	if err := mr1.WriteTo(w); err != nil {
+	if err := CopyFiles(ctx, w, ir.fs); err != nil {
 		return err
 	}
 	return w.Close()

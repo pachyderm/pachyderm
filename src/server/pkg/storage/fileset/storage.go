@@ -80,13 +80,13 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 	return s.chunks
 }
 
-// New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+// NewUnorderedWriter creates a new unordered file set writer.
+func (s *Storage) NewUnorderedWriter(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	fileSet = applyPrefix(fileSet)
 	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
-// NewWriter makes a Writer backed by the path `fileSet` in object storage.
+// NewWriter creates a new file set writer.
 func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
 	fileSet = applyPrefix(fileSet)
 	return s.newWriter(ctx, fileSet, opts...)
@@ -96,56 +96,86 @@ func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterO
 	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
-// NewReader makes a Reader backed by the path `fileSet` in object storage.
-func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	fileSet = applyPrefix(fileSet)
-	return s.newReader(ctx, fileSet, opts...)
-}
-
-// TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
+// TODO: Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
-func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
+func (s *Storage) newReader(fileSet string, opts ...index.Option) *Reader {
+	return newReader(s.objC, s.chunks, fileSet, opts...)
 }
 
-// NewMergeReader returns a merge reader for a set for filesets.
-func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
+// Open opens a file set for reading.
+// TODO: It might make sense to have some of the file set transforms as functional options here.
+func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
 	fileSets = applyPrefixes(fileSets)
-	return s.newMergeReader(ctx, fileSets, opts...)
+	fs, err := s.open(ctx, fileSets, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return NewDeleteFilter(fs), nil
 }
 
-func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
-	var rs []*Reader
+func (s *Storage) open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
+	var fss []FileSet
 	for _, fileSet := range fileSets {
 		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-			rs = append(rs, s.newReader(ctx, name, opts...))
+			fss = append(fss, s.newReader(name, opts...))
 			return nil
 		}); err != nil {
 			return nil, err
 		}
 	}
-	return newMergeReader(rs), nil
-}
-
-// OpenFileSet makes a source which will iterate over the prefix fileSet
-func (s *Storage) OpenFileSet(ctx context.Context, fileSet string, opts ...index.Option) FileSet {
-	return &mergeSource{
-		s: s,
-		getReader: func() (*MergeReader, error) {
-			return s.NewMergeReader(ctx, []string{fileSet}, opts...)
-		},
+	// TODO: Error if no filesets found?
+	if len(fss) == 1 {
+		return fss[0], nil
 	}
+	return newMergeReader(s.chunks, fss), nil
 }
 
-// Shard shards the merge of the file sets with the passed in prefix into file ranges.
+// OpenWithDeletes opens a file set for reading and does not filter out deleted files.
+// TODO: This should be a functional option on New.
+func (s *Storage) OpenWithDeletes(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
+	fileSets = applyPrefixes(fileSets)
+	fs, err := s.open(ctx, fileSets, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return fs, nil
+}
+
+// Shard shards the file set into path ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
-func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
-	mr, err := s.NewMergeReader(ctx, fileSets)
-	if err != nil {
+func (s *Storage) Shard(ctx context.Context, fs FileSet, cb ShardCallback) error {
+	return shard(ctx, fs, s.shardThreshold, cb)
+}
+
+// ShardCallback is a callback that returns a path range for each shard.
+type ShardCallback func(*index.PathRange) error
+
+// shard creates shards (path ranges) from the file set streams being merged.
+// A shard is created when the size of the content for a path range is greater than
+// the passed in shard threshold.
+// For each shard, the callback is called with the path range for the shard.
+func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallback) error {
+	var size int64
+	pathRange := &index.PathRange{}
+	if err := fs.Iterate(ctx, func(f File) error {
+		// A shard is created when we have encountered more than shardThreshold content bytes.
+		if size >= shardThreshold {
+			pathRange.Upper = f.Index().Path
+			if err := cb(pathRange); err != nil {
+				return err
+			}
+			size = 0
+			pathRange = &index.PathRange{
+				Lower: f.Index().Path,
+			}
+		}
+		size += f.Index().SizeBytes
+		return nil
+	}); err != nil {
 		return err
 	}
-	return shard(mr, s.shardThreshold, shardFunc)
+	return cb(pathRange)
 }
 
 // Copy copies the fileset at srcPrefix to dstPrefix. It does *not* perform compaction
@@ -181,11 +211,11 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 		size += idx.SizeBytes
 		return nil
 	}))
-	mr, err := s.newMergeReader(ctx, inputFileSets, opts...)
+	fs, err := s.open(ctx, inputFileSets)
 	if err != nil {
 		return nil, err
 	}
-	if err := mr.WriteTo(w); err != nil {
+	if err := CopyFiles(ctx, w, fs); err != nil {
 		return nil, err
 	}
 	if err := w.Close(); err != nil {

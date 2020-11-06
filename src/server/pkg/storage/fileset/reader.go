@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -12,83 +13,54 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
-// Reader reads the serialized format of a fileset.
+// Reader is an abstraction for reading a fileset.
 type Reader struct {
-	ctx context.Context
-	ir  *index.Reader
-	cr  *chunk.Reader
+	chunks *chunk.Storage
+	ir     *index.Reader
 }
 
-func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
-	cr := chunks.NewReader(ctx)
+func newReader(objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
 	return &Reader{
-		ctx: ctx,
-		ir:  index.NewReader(ctx, objC, chunks, path, opts...),
-		cr:  cr,
+		chunks: chunks,
+		ir:     index.NewReader(objC, chunks, path, opts...),
 	}
 }
 
-// Peek returns the next file index without progressing the reader.
-func (r *Reader) Peek() (*index.Index, error) {
-	return r.ir.Peek()
-}
-
-// Next returns the next file reader and progresses the reader.
-func (r *Reader) Next() (*FileReader, error) {
-	idx, err := r.ir.Next()
-	if err != nil {
-		return nil, err
-	}
-	r.cr.NextDataRefs(idx.DataOp.DataRefs)
-	return newFileReader(idx, r.cr), nil
-}
-
-// Iterate iterates over the file readers in the fileset.
-// pathBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
-func (r *Reader) Iterate(ctx context.Context, f func(File) error, pathBound ...string) error {
-	return r.iterate(func(fr *FileReader) error {
-		return f(fr)
-	}, pathBound...)
-}
-
-func (r *Reader) iterate(f func(*FileReader) error, pathBound ...string) error {
-	return r.ir.Iterate(func(idx *index.Index) error {
-		r.cr.NextDataRefs(idx.DataOp.DataRefs)
-		return f(newFileReader(idx, r.cr))
-	}, pathBound...)
-}
-
-// Get writes the fileset.
-func (r *Reader) Get(w io.Writer) error {
-	return r.iterate(func(fr *FileReader) error {
-		return fr.Get(w)
+// Iterate iterates over the files in the fileset.
+func (r *Reader) Iterate(ctx context.Context, cb func(File) error) error {
+	return r.ir.Iterate(ctx, func(idx *index.Index) error {
+		return cb(newFileReader(ctx, r.chunks, idx))
 	})
 }
 
 // FileReader is an abstraction for reading a file.
 type FileReader struct {
-	idx *index.Index
-	cr  *chunk.Reader
-	hdr *tar.Header
+	ctx    context.Context
+	chunks *chunk.Storage
+	idx    *index.Index
+	hdr    *tar.Header
 }
 
-func newFileReader(idx *index.Index, cr *chunk.Reader) *FileReader {
+func newFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index) *FileReader {
 	return &FileReader{
-		idx: idx,
-		cr:  cr,
+		ctx:    ctx,
+		chunks: chunks,
+		idx:    proto.Clone(idx).(*index.Index),
 	}
 }
 
 // Index returns the index for the file.
 func (fr *FileReader) Index() *index.Index {
-	return fr.idx
+	return proto.Clone(fr.idx).(*index.Index)
 }
 
 // Header returns the tar header for the file.
 func (fr *FileReader) Header() (*tar.Header, error) {
 	if fr.hdr == nil {
 		buf := &bytes.Buffer{}
-		if err := fr.cr.NextTagReader().Get(buf); err != nil {
+		dataRefs := getHeaderDataOp(fr.idx.FileOp.DataOps).DataRefs
+		r := fr.chunks.NewReader(fr.ctx, dataRefs)
+		if err := r.Get(buf); err != nil {
 			return nil, err
 		}
 		hdr, err := tar.NewReader(buf).Next()
@@ -103,31 +75,9 @@ func (fr *FileReader) Header() (*tar.Header, error) {
 	return fr.hdr, nil
 }
 
-// PeekTag returns the next tag in the file without progressing the reader.
-func (fr *FileReader) PeekTag() (*chunk.Tag, error) {
-	return fr.cr.PeekTag()
-}
-
-// NextTagReader returns a tag reader for the next tagged data in the file.
-func (fr *FileReader) NextTagReader() *chunk.TagReader {
-	return fr.cr.NextTagReader()
-}
-
-// Iterate iterates over the data readers for the data in the file.
-// tagUpperBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
-func (fr *FileReader) Iterate(f func(*chunk.DataReader) error, tagUpperBound ...string) error {
-	return fr.cr.Iterate(f, tagUpperBound...)
-}
-
-// Get writes the file.
-func (fr *FileReader) Get(w io.Writer) error {
-	if _, err := fr.Header(); err != nil {
-		return err
-	}
-	return fr.cr.Get(w)
-}
-
-// Content writes the contents of the file excluding the header to w.
+// Content writes the content of the file.
 func (fr *FileReader) Content(w io.Writer) error {
-	return errors.New("FileReader.GetContents not implemented")
+	dataRefs := getDataRefs(getContentDataOps(fr.idx.FileOp.DataOps))
+	r := fr.chunks.NewReader(fr.ctx, dataRefs)
+	return r.Get(w)
 }
