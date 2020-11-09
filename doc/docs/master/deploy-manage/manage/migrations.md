@@ -228,7 +228,6 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
     pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
     ```
 
-<<<<<<< HEAD
 === "GKE"
     ```shell
     pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>

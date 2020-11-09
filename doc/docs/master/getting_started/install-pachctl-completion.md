@@ -85,7 +85,7 @@ steps:
 1. Install `pachctl` autocompletion for `zsh`:
 
    ```zsh
-   pachctl completion zsh --install --path <path/to/zfs-completions>
+   pachctl completion zsh --install --path <path/to/zsh-completions>
    ```
 
    **Example:**
