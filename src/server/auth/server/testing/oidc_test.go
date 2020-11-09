@@ -13,6 +13,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
+// Dex's mock connector always returns the same identity for all authentication
+// requests, and this is that identity's email (see
+// https://github.com/dexidp/dex/blob/c113df2730052e20881dd68561289f8ae121300b/connector/mock/connectortest.go#L21)
+// Kilgore Trout is a recurring character of Kurt Vonnegut's
+const dexMockConnectorEmail = `kilgore@kilgore.trout`
+
 var OIDCAuthConfig = &auth.AuthConfig{
 	LiveConfigVersion: 0,
 	IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -34,13 +40,13 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	adminClient, testClient := getPachClient(t, admin), getPachClient(t, "")
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
 	require.NoError(t, err)
 
-	loginInfo, err := adminClient.GetOIDCLogin(adminClient.Ctx(), &auth.GetOIDCLoginRequest{})
+	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
 	require.NoError(t, err)
 
 	// Create an HTTP client that doesn't follow redirects.
@@ -53,7 +59,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
-	resp, err := c.Get(rewriteURL(t, loginInfo.LoginURL, dexHost(adminClient)))
+	resp, err := c.Get(rewriteURL(t, loginInfo.LoginURL, dexHost(testClient)))
 	require.NoError(t, err)
 
 	// Because we've only configured username/password login, there's a redirect
@@ -63,20 +69,28 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(adminClient)), vals)
+	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(testClient)), vals)
 	require.NoError(t, err)
 
 	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(adminClient)))
+	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
 	require.NoError(t, err)
 
 	// Follow the resulting redirect back to pachd to complete the flow
-	_, err = c.Get(rewriteRedirect(t, resp, pachHost(adminClient)))
+	_, err = c.Get(rewriteRedirect(t, resp, pachHost(testClient)))
 	require.NoError(t, err)
 
 	// Check that pachd recorded the response from the redirect
-	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{OIDCState: loginInfo.State})
+	authResp, err := testClient.Authenticate(testClient.Ctx(),
+		&auth.AuthenticateRequest{OIDCState: loginInfo.State})
 	require.NoError(t, err)
+	testClient.SetAuthToken(authResp.PachToken)
+
+	// Check that testClient authenticated as the right user
+	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "idp:"+dexMockConnectorEmail, whoAmIResp.Username)
+	require.False(t, whoAmIResp.IsAdmin)
 
 	deleteAll(t)
 }
@@ -87,7 +101,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	adminClient, testClient := getPachClient(t, admin), getPachClient(t, "")
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -103,15 +117,24 @@ func TestOIDCTrustedApp(t *testing.T) {
 	}
 
 	c := &http.Client{}
-	resp, err := c.PostForm(fmt.Sprintf("http://%v/token", dexHost(adminClient)), vals)
+	resp, err := c.PostForm(fmt.Sprintf("http://%v/token", dexHost(testClient)), vals)
 	require.NoError(t, err)
 
 	tokenResp := make(map[string]interface{})
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&tokenResp))
 
 	// Authenticate using an OIDC token with pachyderm in the audience claim
-	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{IdToken: tokenResp["id_token"].(string)})
+	authResp, err := testClient.Authenticate(testClient.Ctx(),
+		&auth.AuthenticateRequest{IdToken: tokenResp["id_token"].(string)})
 	require.NoError(t, err)
+	testClient.SetAuthToken(authResp.PachToken)
+
+	// Check that testClient authenticated as the right user
+	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "idp:"+dexMockConnectorEmail, whoAmIResp.Username)
+	// idp:admin is an admin of the IDP but not Pachyderm
+	require.False(t, whoAmIResp.IsAdmin)
 
 	deleteAll(t)
 }
