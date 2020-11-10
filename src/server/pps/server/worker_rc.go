@@ -62,7 +62,7 @@ type workerOptions struct {
 	service          *pps.Service
 }
 
-func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
+func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
@@ -109,7 +109,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Value: strconv.FormatInt(int64(a.gcPercent), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
-	storageEnvVars, err := getStorageEnvVars()
+	storageEnvVars, err := getStorageEnvVars(pipelineInfo)
 	if err != nil {
 		return v1.PodSpec{}, err
 	}
@@ -404,10 +404,17 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-func getStorageEnvVars() ([]v1.EnvVar, error) {
+func getStorageEnvVars(pipelineInfo *pps.PipelineInfo) ([]v1.EnvVar, error) {
 	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
 	if !ok {
 		return nil, errors.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+	}
+	if pipelineInfo.Spout != nil {
+		return []v1.EnvVar{
+			{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
+			{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name},
+			{Name: "SPOUT_PIPELINE_SPEC_COMMIT", Value: pipelineInfo.SpecCommit.ID},
+		}, nil
 	}
 	return []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
@@ -623,7 +630,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
-	podSpec, err := a.workerPodSpec(options)
+	podSpec, err := a.workerPodSpec(options, pipelineInfo)
 	if err != nil {
 		return err
 	}
