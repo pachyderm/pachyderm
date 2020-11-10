@@ -67,7 +67,7 @@ in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-depl
 
    **Example:**
 
-   ```bash
+   ```shell
    aws s3 sync s3://mybucket s3://mybucket2
    ```
 
@@ -100,7 +100,7 @@ To restore all paused pipelines, complete the following steps:
 
 1. Confirm that each pipeline is started using the `list pipeline` command:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
@@ -109,7 +109,7 @@ To restore all paused pipelines, complete the following steps:
 
      1. Back up the current configuration:
 
-        ```bash
+        ```shell
         kubectl get svc/pachd -o json >pachd_service_backup_30649.json
         kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
         kubectl get svc/dash -o json >dash_svc_backup_30080.json
@@ -118,7 +118,7 @@ To restore all paused pipelines, complete the following steps:
      1. Modify the services to accept traffic on the corresponding ports to
      avoid collisions with the migration cluster:
 
-        ```bash
+        ```shell
         # Modify the pachd API endpoint to run on 30650:
         kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
         # Modify the pachd trace port to run on 30651:
@@ -140,13 +140,13 @@ To restore all paused pipelines, complete the following steps:
 
 1. Modify your environment so that you can access `pachd` on the old port:
 
-   ```bash
+   ```shell
    pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
    ```
 
 1. Verify that you can access `pachd`:
 
-   ```bash
+   ```shell
    pachctl version
    ```
 
@@ -198,7 +198,7 @@ steps:
 
 1. Upgrade your Pachyderm version to the latest version:
 
-   ```bash
+   ```shell
    brew upgrade pachyderm/tap/pachctl@1.11
    ```
 
@@ -209,7 +209,7 @@ brew upgrade pachyderm/tap/pachctl@1.11
 * If you are deploying your cluster in a separate Kubernetes namespace,
  create a new namespace:
 
-  ```bash
+  ```shell
   kubectl create namespace <new-cluster-namespace>
   ```
 
@@ -228,6 +228,7 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
     pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
     ```
 
+<<<<<<< HEAD
 === "GKE"
     ```shell
     pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
@@ -272,7 +273,7 @@ To restore your cluster, complete the following steps:
 * If you deployed your new cluster into a different namespace on the same
 Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
-  ```bash
+  ```shell
   $ pachctl config get context `pachctl config get active-context`
   ```
 
@@ -292,7 +293,7 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 
 1. Check that the cluster does not have any existing Pachyderm objects:
 
-   ```bash
+   ```shell
    pachctl list repo & pachctl list pipeline
    ```
 
@@ -326,14 +327,14 @@ Confirm that the data output is as expected and the new cluster is operating as 
 * If you have deployed the new cluster on the same Kuberenetes cluster
 switch to the old cluster's Pachyderm context:
 
-   ```bash
+   ```shell
    pachctl config set active-context <old-context>
    ```
 
    * If you have deployed the new cluster to a different Kubernetes cluster,
    switch to the old cluster's Kubernetes context:
 
-   ```bash
+   ```shell
    kubectl config use-context <old cluster>
    ```
 

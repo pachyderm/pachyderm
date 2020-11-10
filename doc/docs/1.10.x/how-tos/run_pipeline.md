@@ -29,7 +29,7 @@ To get the result of this combination, you can run the `pachctl run pipeline
 cross-pipe` command.
 
 !!! example
-    ```bash
+    ```shell
     pachctl run pipeline cross-pipe A4 B1 C2
     ```
 
@@ -53,7 +53,7 @@ name.
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl run pipeline cross-pipe A B1 C2
     ```
 

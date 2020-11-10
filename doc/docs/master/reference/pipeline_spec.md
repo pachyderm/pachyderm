@@ -310,7 +310,7 @@ containers are created so they can be used to provide credentials for image
 pulling. For example, if you are using a private Docker registry for your
 images, you can specify it by running the following command:
 
-```sh
+```shell
 kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
 ```
 

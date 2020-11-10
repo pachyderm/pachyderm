@@ -16,7 +16,7 @@ The repositories have the following structures:
 
 * `readings`:
 
-    ```bash
+    ```shell
     └── ID1234
         ├── file1.txt
         ├── file2.txt
@@ -28,7 +28,7 @@ The repositories have the following structures:
 
  * `parameters`:
 
-    ```bash
+    ```shell
     ├── file1.txt
     ├── file2.txt
     ├── file3.txt
@@ -57,20 +57,20 @@ To set up your environment, complete the following steps:
 1. Verify that you have all the components described in [Prerequisites](#prerequisites).
 1. If you have not done so already, clone the Pachyderm repository:
 
-   ```bash
+   ```shell
    git clone https://github.com/pachyderm/pachyderm.git
    ```
 
    Or, if you prefer to use SSH, run:
 
-   ```bash
+   ```shell
    git clone git@github.com:pachyderm/pachyderm.git
    ```
 
 1. Go to the `pachyderm/examples/joins` directory.
 1. Create the dummy data by running:
 
-   ```bash
+   ```shell
    make setup
    ```
 
@@ -89,20 +89,20 @@ To set up the Pachyderm repositories, complete the following steps:
 
 1. Create the repositories:
 
-   ```bash
+   ```shell
    $ pachctl create repo readings
    $ pachctl create repo parameters
    ```
 
 1. Upload the test files to the `parameters` repository:
 
-    ```bash
+    ```shell
     $ pachctl put file -r parameters@master:/ -f parameters
     ```
 
  1. Verify that the files were uploaded:
 
-    ```bash
+    ```shell
     $ pachctl list file parameters@master
     NAME       TYPE SIZE
     /file1.txt file 9B
@@ -116,13 +116,13 @@ To set up the Pachyderm repositories, complete the following steps:
 1. From the `readings` directory, run the following command to upload
    the test files to the `readings` repository:
 
-   ```bash
+   ```shell
    $ pachctl put file -r readings@master -f ID1234
    ```
 
 1. Verify that the files were uploaded:
 
-   ```bash
+   ```shell
    $ pachctl list file readings@master:/ID1234
    NAME              TYPE SIZE
    /ID1234/file1.txt file 9B
@@ -140,13 +140,13 @@ from the [joins.json](joins.json) file by completing the following steps:
 
 1. From the `examples/joins/` directory, run:
 
-   ```bash
+   ```shell
    $ pachctl create pipeline -f joins.json
    ```
    The pipeline will be in state "running" when it's ready,
    which you can check with the following command.
 
-   ```bash
+   ```shell
    $ pachctl list pipeline
    NAME  VERSION INPUT                                       CREATED       STATE / LAST JOB   DESCRIPTION                                                                       
    joins 1       (parameters:/(*).txt ⋈ readings:/*/(*).txt) 4 seconds ago running / starting A pipeline that combines files from two repositories that match a naming pattern. 
@@ -160,7 +160,7 @@ from the [joins.json](joins.json) file by completing the following steps:
    for the newly created pipeline and processes the data. You can view the job
    status by running the following command:
 
-   ```bash
+   ```shell
    $ pachctl list job
    ID                               PIPELINE STARTED       DURATION           RESTART PROGRESS  DL   UL  STATE
    7390b0c29ac247c893422a5c04565719 joins    2 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
@@ -171,7 +171,7 @@ from the [joins.json](joins.json) file by completing the following steps:
 
 1. Get the contents of the file to view the result:
 
-   ```bash
+   ```shell
    $ pachctl list file joins@master
    NAME       TYPE SIZE
    /file1.txt file 4B

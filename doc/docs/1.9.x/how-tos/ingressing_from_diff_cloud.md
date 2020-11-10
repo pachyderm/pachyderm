@@ -18,7 +18,7 @@ store by using the following methods:
 * Egress data to an external object store by configuring the
   `egress` files in the pipeline specification. Example:
 
-  ```bash
+  ```shell
   # pipeline.json
   "egress": {
     "URL": "s3://bucket/dir"
@@ -45,7 +45,7 @@ the following steps:
 
 1. Deploy object storage:
 
-   ```bash
+   ```shell
    $ pachctl deploy storage <storage-provider> ...
    ```
 
@@ -59,7 +59,7 @@ the following steps:
    For example, if you select `amazon`, you need to specify the following
    parameters:
 
-   ```bash
+   ```shell
    $ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
    ```
 

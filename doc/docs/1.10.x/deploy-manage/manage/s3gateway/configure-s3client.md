@@ -16,7 +16,7 @@ described on the [MinIO download page](https://min.io/download#/macos).
 1. Verify that MinIO components are successfully installed by running
 the following command:
 
-   ```bash
+   ```shell
    minio version
    mc version
    ```
@@ -31,7 +31,7 @@ the following command:
 
 1. Set up the MinIO configuration file to use the `30600` port for your host:
 
-   ```bash
+   ```shell
    vi ~/.mc/config.json
    ```
 
@@ -67,13 +67,13 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
 1. Verify that the AWS CLI is installed:
 
-   ```bash
+   ```shell
    aws --version
    ```
 
 1. Configure AWS CLI:
 
-   ```bash
+   ```shell
    aws configure
    ```
 

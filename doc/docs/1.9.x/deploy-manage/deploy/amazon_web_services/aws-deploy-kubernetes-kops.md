@@ -51,7 +51,7 @@ with the following permissions:
 location on your computer.
 1. Configure an AWS CLI client:
 
-   ```bash
+   ```shell
    $ aws configure
    ```
 
@@ -59,13 +59,13 @@ location on your computer.
 
 1. Create an S3 bucket for your cluster:
 
-   ```bash
+   ```shell
    $ aws s3api create-bucket --bucket <name> --region <region>
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    $ aws s3api create-bucket --bucket test-pachyderm --region us-east-1
    {
         "Location": "/test-pachyderm"
@@ -81,26 +81,26 @@ cluster as variables.
 
    **Example:**
 
-   ```bash
+   ```shell
    export NAME=test-pachyderm.k8s.local
    export KOPS_STATE_STORE=s3://test-pachyderm
    ```
 
 1. Create the cluster configuration:
 
-   ```bash
+   ```shell
    kops create cluster --zones <region> ${NAME}
    ```
 
 1. Optionally, edit your cluster:
 
-   ```bash
+   ```shell
    kops edit cluster ${NAME}
    ```
 
 1. Build and deploy the cluster:
 
-   ```bash
+   ```shell
    kops update cluster ${NAME} --yes
    ```
 
@@ -110,7 +110,7 @@ cluster as variables.
    When `kops` finishes deploying the cluster, you should see the output
    similar to the following:
 
-   ```bash
+   ```shell
    $ kops validate cluster
    Using cluster from kubectl context: test-pachyderm.k8s.local
 

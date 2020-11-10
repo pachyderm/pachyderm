@@ -61,7 +61,7 @@ Update `src/client/version/client.go` version values.
 
 Commit these changes locally (you will push to GitHub in a later step):
 
-```bash
+```shell
 make VERSION_ADDITIONAL= install
 git add src/client/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
@@ -77,7 +77,7 @@ this release, change `defaultDashVersion` or `defaultIDEVersion` respectively in
 
 Commit these changes locally (you will push to GitHub in a later step):
 
-```bash
+```shell
 make compatibility
 git add etc/compatibility
 git commit -m"Update compatibility for $(pachctl version --client-only) release"
@@ -95,14 +95,14 @@ Run `make doc`. Make sure you add any newly created (untracked) doc files, in
 addition to docs that have been updated (`git commit -a` might not get
 everything):
 
-```bash
+```shell
 git add doc
 git commit -m"Run make doc for $(pachctl version --client-only)"
 ```
 
 ### Regenerate golden deployment manifests
 
-```bash
+```shell
 make regenerate-test-deploy-manifests
 git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
 ```
@@ -113,7 +113,7 @@ Update the changelog in the branch and commit it locally.
 
 ### Push changes
 
-```bash
+```shell
 git push
 ```
 
@@ -147,13 +147,13 @@ Assuming the prerequisites are met, making a custom release should simply be a
 matter of running `make custom-release`. This will create a release like
 `v1.2.3-2342345aefda9879e87ad`, which can be installed like:
 
-```bash
+```shell
 curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
 
-```bash
+```shell
 # Where 1.7 is the major.minor version of the release you just did,
 # and you use the right commit SHA as well in the URL
 brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb

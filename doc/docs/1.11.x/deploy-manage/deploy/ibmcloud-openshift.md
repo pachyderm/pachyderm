@@ -502,13 +502,13 @@ It uses storage class to create a PVC based on the volume claim template in the 
 
 ## 7. Deploy the Pachyderm manifest you modified.
 
-```bash
+```shell
 oc create -f manifest-statefulset.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream OpenShift:
 
-```bash
+```shell
     oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-78c4b487dc-sm56p    2/2       Running   0          1m

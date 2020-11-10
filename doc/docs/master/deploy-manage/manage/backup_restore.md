@@ -41,7 +41,6 @@ To stop a running pipeline, complete the following steps:
    pachctl stop pipeline <pipeline-name>
    ```
 
-
 === "Script"
    ```shell
    pachctl list pipeline --raw \
@@ -52,13 +51,13 @@ To stop a running pipeline, complete the following steps:
 1. Optionally, run the `watch` command to monitor the pods
    terminating:
 
-   ```bash
+   ```shell
    watch -n 5 kubectl get pods
    ```
 
 1. Confirm that pipelines are paused:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
@@ -111,19 +110,19 @@ following steps:
 
 1. Verify that all Pachyderm pipelines are paused:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
 1. For safery, save the Pachyderm service spec in a `json`:
 
-   ```bash
+   ```shell
    kubectl get svc/pachd -o json >pach_service_backup_30650.json
    ```
 
 1. Modify the `pachd` service to accept traffic on port 30649:
 
-   ```bash
+   ```shell
    kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
    ```
 
@@ -135,14 +134,14 @@ following steps:
 
    1. Back up the `etcd` and dashboard manifests:
 
-   ```bash
+   ```shell
    kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
    kubectl get svc/dash -o json >dash_svc_backup_30080.json
    ```
 
    1. Switch the `etcd` and dashboard manifests:
 
-      ```bash
+      ```shell
       kubectl get svc/pachd -o json | sed 's/30651/30648/g' | kubectl apply -f -
       kubectl get svc/pachd -o json | sed 's/30652/30647/g' | kubectl apply -f -
       kubectl get svc/pachd -o json | sed 's/30654/30646/g' | kubectl apply -f -
@@ -156,13 +155,13 @@ following steps:
 1. Modify your environment so that you can access `pachd` on this new
 port
 
-   ```bash
+   ```shell
    pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
    ```
 
 1. Verify that you can talk to `pachd`: (if not, firewall rules are a common culprit)
 
-   ```bash
+   ```shell
    pachctl version
    ```
 
@@ -177,7 +176,7 @@ port
 ??? note "pause-pipelines.sh"
     Alternatively, you can run **Steps 1 - 3** by using the following script:
 
-    ```bash
+    ```shell
     #!/bin/bash
     # Stop all pipelines:
     pachctl list pipeline --raw \
@@ -238,20 +237,20 @@ To back up your Pachyderm cluster, run one of the following commands:
 
 * To create a partial back up of metadata-only, run:
 
-  ```bash
+  ```shell
   pachctl extract --no-objects > path/to/your/backup/file
   ```
 
   * If you want to save this partial backup in an object store by using the
   `--url` flag, run:
 
-    ```bash
+    ```shell
     pachctl extract --no-objects --url s3://...
     ```
 
 * To back up everything in one local file:
 
-  ```bash
+  ```shell
   pachctl extract > path/to/your/backup/file
   ```
 
@@ -292,13 +291,13 @@ To restore your Cluster from a Backup, run the following command:
 
 * If you have backed up your cluster to a local file:, run:
 
-  ```bash
+  ```shell
   pachctl restore < path/to/your/backup/file
   ```
 
 * If you have backed up your cluster to an object store, run:
 
-  ```bash
+  ```shell
   pachctl restore --url s3://<path-to-backup>>
   ```
 

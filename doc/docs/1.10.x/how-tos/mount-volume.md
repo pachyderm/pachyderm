@@ -51,13 +51,13 @@ described in [Configure a Pod to Use a PersistentVolume for Storage](https://kub
 
 1. Get the ReplicationController (RC) manifest from your pipeline:
 
-   ```bash
+   ```shell
    kubectl get rc <rc-pipeline> -o json > <filename>.yaml
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    kubectl get rc pipeline-edges-v7 -o json > test-rc.yaml
    ```
 
@@ -128,7 +128,7 @@ field.
 
 1. After modifying the pipeline spec, update the pipeline:
 
-   ```bash
+   ```shell
    pachctl update pipeline -f <pipeline-spec.yaml>
    ```
 
@@ -141,11 +141,11 @@ example, it is `/data`.
 
    **Example:**
 
-   ```bash
+   ```shell
    kubectl exec -it <pipeline-pod> -- /bin/bash
    ```
 
-   ```bash
+   ```shell
    ls /data
    ```
 

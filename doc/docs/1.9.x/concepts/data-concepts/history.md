@@ -66,7 +66,7 @@ takes a single argument, an integer, which indicates how many historical
 versions you want to display. For example, you can get
 the two most recent versions of a file with the following command:
 
-```sh
+```shell
 $ pachctl list file repo@master:/file --history 2
 COMMIT                           NAME  TYPE COMMITTED      SIZE
 73ba56144be94f5bad1ce64e6b96eade /file file 16 seconds ago 8B
@@ -84,7 +84,7 @@ expensive. You can get back the full history of a file by passing
 
 **Example:**
 
-```bash
+```shell
 $ pachctl list file edges@master:liberty.png --history all
 COMMIT                           NAME         TYPE COMMITTED    SIZE
 ff479f3a639344daa9474e729619d258 /liberty.png file 23 hours ago 22.22KiB
@@ -105,7 +105,7 @@ this syntax in all operations and scripts that accept pipeline names.
 To view historical versions of a pipeline use the `--history`
 flag with the `pachctl list pipeline` command:
 
-```bash
+```shell
 $ pachctl list pipeline --history all
 NAME      VERSION INPUT     CREATED     STATE / LAST JOB
 Pipeline2 1       input2:/* 4 hours ago running / success
@@ -118,7 +118,7 @@ A common operation with pipelines is reverting a pipeline to a previous
 version.
 To revert a pipeline to a previous version, run the following command:
 
-```bash
+```shell
 $ pachctl extract pipeline pipeline^ | pachctl create pipeline
 ```
 
@@ -142,12 +142,12 @@ To view job history, run the following command:
 
 * By using the `-p` flag:
 
-  ```bash
+  ```shell
   $ pachctl list job -p <pipeline^>
   ```
 
 * By using the `history` flag:
 
-  ```bash
+  ```shell
   $ pachctl list job --history all
   ```
