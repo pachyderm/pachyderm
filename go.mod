@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm
 
-go 1.13
+go 1.15
 
 require (
 	cloud.google.com/go/storage v1.3.0
