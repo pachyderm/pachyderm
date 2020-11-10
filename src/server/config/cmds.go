@@ -48,6 +48,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(getMetrics, "config get metrics"))
 
 	setMetrics := &cobra.Command{
+		Use:   "{{alias}} (true | false)",
 		Short: "Sets whether metrics are enabled.",
 		Long:  "Sets whether metrics are enabled.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -92,6 +93,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(getActiveContext, "config get active-context"))
 
 	setActiveContext := &cobra.Command{
+		Use:   "{{alias}} <context>",
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -110,6 +112,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(setActiveContext, "config set active-context"))
 
 	getContext := &cobra.Command{
+		Use:   "{{alias}} <context>",
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -137,6 +140,7 @@ func Cmds() []*cobra.Command {
 	var overwrite bool
 	var kubeContextName string
 	setContext := &cobra.Command{
+		Use:   "{{alias}} <context>",
 		Short: "Set a context.",
 		Long:  "Set a context config from a given name and either JSON stdin, or a given kubernetes context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -214,10 +218,10 @@ func Cmds() []*cobra.Command {
 	var removeClusterDeploymentID bool
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{
+		Use:   "{{alias}} [<context>]",
 		Short: "Updates a context.",
 		Long: "Updates an existing context config from a given name (or the " +
 			"currently-active context, if no name is given).",
-		Use: "context [context]",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			cfg, err := config.Read(false)
 			if err != nil {
@@ -286,6 +290,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
 	deleteContext := &cobra.Command{
+		Use:   "{{alias}} <context>",
 		Short: "Deletes a context.",
 		Long:  "Deletes a context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -345,7 +350,7 @@ func Cmds() []*cobra.Command {
 		Short: "Manages the pachyderm config.",
 		Long:  "Gets/sets pachyderm config values.",
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(configDocs, "config", "^pachctl config "))
+	commands = append(commands, cmdutil.CreateDocsAlias(configDocs, "config", " config "))
 
 	configGetRoot := &cobra.Command{
 		Short: "Commands for getting pachyderm config values",

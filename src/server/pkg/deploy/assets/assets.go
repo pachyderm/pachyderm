@@ -1243,7 +1243,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interface{
 
 	var pvcTemplates []interface{}
 	switch backend {
-	case GoogleBackend, amazonBackend:
+	case GoogleBackend, AmazonBackend:
 		storageClassName := opts.EtcdStorageClassName
 		if storageClassName == "" {
 			storageClassName = defaultEtcdStorageClassName
@@ -1760,7 +1760,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	// provisions volumes, and run etcd as a stateful set.
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
-	if objectStoreBackend == LocalBackend {
+	if persistentDiskBackend == LocalBackend {
 		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
 			return err
 		}
@@ -1783,7 +1783,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			return err
 		}
-	} else if opts.EtcdVolume != "" || persistentDiskBackend == LocalBackend {
+	} else if opts.EtcdVolume != "" {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdVolume, volumeSize)
 		if err != nil {
 			return err
@@ -1800,7 +1800,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == LocalBackend, opts)); err != nil {
+	if err := encoder.Encode(EtcdNodePortService(persistentDiskBackend == LocalBackend, opts)); err != nil {
 		return err
 	}
 
@@ -1809,7 +1809,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		// provisions volumes, and run postgres as a stateful set.
 		// In the static route, we create a single volume, a single volume
 		// claim, and run etcd as a replication controller with a single node.
-		if objectStoreBackend == LocalBackend {
+		if persistentDiskBackend == LocalBackend {
 			if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
 				return err
 			}
@@ -1834,7 +1834,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 			// if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			// 	return err
 			// }
-		} else if opts.PostgresVolume != "" || persistentDiskBackend == LocalBackend {
+		} else if opts.PostgresVolume != "" {
 			volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresVolume, volumeSize)
 			if err != nil {
 				return err
@@ -1851,7 +1851,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		} else {
 			return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 		}
-		if err := encoder.Encode(PostgresService(objectStoreBackend == LocalBackend, opts)); err != nil {
+		if err := encoder.Encode(PostgresService(persistentDiskBackend == LocalBackend, opts)); err != nil {
 			return err
 		}
 	}
@@ -1937,8 +1937,8 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 	persistentDiskBackend string, secure, isS3V2 bool, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	switch objectStoreBackend {
 	case "s3":
-		if len(args) != s3CustomArgs {
-			return errors.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
+		if len(args) != S3CustomArgs {
+			return errors.Errorf("expected %d arguments for disk+s3 backend", S3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {

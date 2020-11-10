@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	v1 "k8s.io/api/core/v1"
@@ -16,54 +17,110 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 )
 
-func makeManifest(opts *assets.AssetOpts, backend assets.Backend, secrets map[string][]byte) (string, error) {
+var _ = fmt.Printf
+
+func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *client.APIClient {
+	// Get the pachd service from kubernetes
+	pachd, err := kubeClient.CoreV1().Services(namespace).Get("pachd", metav1.GetOptions{})
+	require.NoError(t, err)
+
+	var port int32
+	for _, servicePort := range pachd.Spec.Ports {
+		if servicePort.Name == "api-grpc-port" {
+			port = servicePort.Port
+		}
+	}
+	require.NotEqual(t, 0, port)
+	address := fmt.Sprintf("%s:%d", pachd.Spec.ClusterIP, port)
+
+	// Wait until pachd pod is ready
+	waitForReadiness(t, namespace)
+
+	// Connect to pachd
+	fmt.Printf("connecting to pachd: %s\n", address)
+	client, err := client.NewFromAddress(address)
+	require.NoError(t, err)
+	return client
+}
+
+func makeManifest(t *testing.T, backend assets.Backend, secrets map[string][]byte, opts *assets.AssetOpts) string {
 	manifest := &strings.Builder{}
 	encoder, err := serde.GetEncoder("json", manifest,
 		serde.WithIndent(2),
 		serde.WithOrigName(true),
 	)
-	if err != nil {
-		return "", err
-	}
+	require.NoError(t, err)
 
-	if err := assets.WriteAssets(encoder, opts, backend, assets.LocalBackend, "1", ""); err != nil {
-		return "", err
-	}
+	err = assets.WriteAssets(encoder, opts, backend, assets.LocalBackend, 1, "/var/pachyderm")
+	require.NoError(t, err)
 
-	if err := assets.WriteSecret(encoder, secrets, opts); err != nil {
-		return "", err
-	}
+	err = assets.WriteSecret(encoder, secrets, opts)
+	require.NoError(t, err)
 
-	return manifest.String(), nil
+	return manifest.String()
 }
 
-func withManifest(kubeClient *kube.Clientset, deployArgs []string, callback func(*v1.Namespace) error) (retErr error) {
+func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byte, callback func(namespace string, pachClient *client.APIClient)) {
 	namespaceName := tu.UniqueString("deployment-test-")
-
-	manifest, err := makeManifest(namespaceName, deployArgs)
-	if err != nil {
-		return err
+	opts := &assets.AssetOpts{
+		StorageOpts: assets.StorageOpts{
+			UploadConcurrencyLimit:  assets.DefaultUploadConcurrencyLimit,
+			PutFileConcurrencyLimit: assets.DefaultPutFileConcurrencyLimit,
+		},
+		PachdShards:                16,
+		Version:                    "latest",
+		LogLevel:                   "info",
+		Namespace:                  namespaceName,
+		RequireCriticalServersOnly: assets.DefaultRequireCriticalServersOnly,
+		WorkerServiceAccountName:   assets.DefaultWorkerServiceAccountName,
+		NoDash:                     true,
+		/*
+			PachdCPURequest:            "",
+			PachdNonCacheMemRequest:    "",
+			BlockCacheSize:             "",
+			EtcdCPURequest:             "",
+			EtcdMemRequest:             "",
+			EtcdNodes:                  0,
+			EtcdVolume:                 "",
+			EtcdStorageClassName:       "",
+			DashOnly:                   false,
+			DashImage:                  "",
+			Registry:                   "",
+			ImagePullSecret:            "",
+			NoGuaranteed:               false,
+			NoRBAC:                     false,
+			LocalRoles:                 false,
+			NoExposeDockerSocket:       false,
+			ExposeObjectAPI:            false,
+			Metrics:                    false,
+			ClusterDeploymentID:        "",
+		*/
 	}
 
+	manifest := makeManifest(t, backend, secrets, opts)
+
+	fmt.Printf("manifest:\n%s\n", manifest)
+
+	kubeClient := tu.GetKubeClient(t)
 	namespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
-	if _, err := kubeClient.CoreV1().Namespaces().Create(namespace); err != nil {
-		return err
-	}
+	_, err := kubeClient.CoreV1().Namespaces().Create(namespace)
+	require.NoError(t, err)
 	/*
 		defer func() {
-			if err := kubeClient.CoreV1().Namespaces().Delete(namespaceName, nil); err != nil && retErr == nil {
-				retErr = err
-			}
+			err := kubeClient.CoreV1().Namespaces().Delete(namespaceName, nil)
+			require.NoError(t, err)
 		}()
 	*/
 
 	cmd := tu.Cmd("kubectl", "apply", "--namespace", namespaceName, "-f", "-")
 	cmd.Stdin = strings.NewReader(manifest)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
+	err = cmd.Run()
+	require.NoError(t, err)
 
-	return callback(namespace)
+	pachClient := getPachClient(t, kubeClient, namespaceName)
+	defer pachClient.Close()
+
+	callback(namespaceName, pachClient)
 }
 
 /*
@@ -82,34 +139,30 @@ func makeManifest(namespace string, args []string) (string, error) {
 */
 
 func TestAmazonDeployment(t *testing.T) {
-	amazonID := os.Getenv("AMAZON_DEPLOYMENT_ID")
-	amazonSecret := os.Getenv("AMAZON_DEPLOYMENT_SECRET")
-	amazonBucket := os.Getenv("AMAZON_DEPLOYMENT_BUCKET")
-	amazonRegion := os.Getenv("AMAZON_DEPLOYMENT_REGION")
-	require.NotEqual(t, "", amazonID)
-	require.NotEqual(t, "", amazonSecret)
-	require.NotEqual(t, "", amazonBucket)
-	require.NotEqual(t, "", amazonRegion)
+	id := os.Getenv("AMAZON_DEPLOYMENT_ID")
+	secret := os.Getenv("AMAZON_DEPLOYMENT_SECRET")
+	bucket := os.Getenv("AMAZON_DEPLOYMENT_BUCKET")
+	region := os.Getenv("AMAZON_DEPLOYMENT_REGION")
+	require.NotEqual(t, "", id)
+	require.NotEqual(t, "", secret)
+	require.NotEqual(t, "", bucket)
+	require.NotEqual(t, "", region)
 
-	creds := fmt.Sprintf("%s,%s", amazonID, amazonSecret)
-	deployArgs := []string{
-		"amazon",
-		amazonBucket,
-		amazonRegion,
-		"1", // GB of disk space
-		"--credentials", creds,
-		"--dynamic-etcd-nodes=1",
+	advancedConfig := &obj.AmazonAdvancedConfiguration{
+		Retries:        obj.DefaultRetries,
+		Timeout:        obj.DefaultTimeout,
+		UploadACL:      obj.DefaultUploadACL,
+		Reverse:        obj.DefaultReverse,
+		PartSize:       obj.DefaultPartSize,
+		MaxUploadParts: obj.DefaultMaxUploadParts,
+		DisableSSL:     obj.DefaultDisableSSL,
+		NoVerifySSL:    obj.DefaultNoVerifySSL,
+		LogOptions:     obj.DefaultAwsLogOptions,
 	}
 
-	kubeClient := tu.GetKubeClient(t)
-	err := withManifest(kubeClient, deployArgs, func(namespace *v1.Namespace) error {
-		return nil
+	secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", "", advancedConfig)
+	withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 	})
-	require.NoError(t, err)
-}
-
-func getPachClient(namespace *v1.Namespace) (*client.APIClient, error) {
-	return nil, nil
 }
 
 func runBasicTest(t *testing.T) {
