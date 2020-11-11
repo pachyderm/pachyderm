@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -112,8 +113,10 @@ type apiServer struct {
 	noExposeDockerSocket   bool
 	reporter               *metrics.Reporter
 	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func()
-	crashingMonitorCancels map[string]func()
+	monitorCancels         map[string]func() // protected by monitorCancelsMu
+	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
+	pollPipelinesMu        sync.Mutex
+	pollCancel             func() // protected by pollPipelinesMu
 	workerUsesRoot         bool
 	workerGrpcPort         uint16
 	port                   uint16
@@ -483,41 +486,43 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	// repo yet, and it's possible to check that the output repo doesn't exist
 	// (if it did exist, we'd have to check that the user has permission to write
 	// to it, and this is simpler)
-	var required auth.Scope
-	switch operation {
-	case pipelineOpCreate:
-		if _, err := pachClient.InspectRepo(output); err == nil {
-			return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
-		} else if !isNotFoundErr(err) {
-			return err
+	if output != "" {
+		var required auth.Scope
+		switch operation {
+		case pipelineOpCreate:
+			if _, err := pachClient.InspectRepo(output); err == nil {
+				return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
+			} else if !isNotFoundErr(err) {
+				return err
+			}
+		case pipelineOpListDatum, pipelineOpGetLogs:
+			required = auth.Scope_READER
+		case pipelineOpUpdate:
+			required = auth.Scope_WRITER
+		case pipelineOpDelete:
+			if _, err := pachClient.InspectRepo(output); isNotFoundErr(err) {
+				// special case: the pipeline output repo has been deleted (so the
+				// pipeline is now invalid). It should be possible to delete the pipeline.
+				return nil
+			}
+			required = auth.Scope_OWNER
+		default:
+			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-	case pipelineOpListDatum, pipelineOpGetLogs:
-		required = auth.Scope_READER
-	case pipelineOpUpdate:
-		required = auth.Scope_WRITER
-	case pipelineOpDelete:
-		if _, err := pachClient.InspectRepo(output); isNotFoundErr(err) {
-			// special case: the pipeline output repo has been deleted (so the
-			// pipeline is now invalid). It should be possible to delete the pipeline.
-			return nil
-		}
-		required = auth.Scope_OWNER
-	default:
-		return errors.Errorf("internal error, unrecognized operation %v", operation)
-	}
-	if required != auth.Scope_NONE {
-		resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
-			Repo:  output,
-			Scope: required,
-		})
-		if err != nil {
-			return err
-		}
-		if !resp.Authorized {
-			return &auth.ErrNotAuthorized{
-				Subject:  me.Username,
-				Repo:     output,
-				Required: required,
+		if required != auth.Scope_NONE {
+			resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
+				Repo:  output,
+				Scope: required,
+			})
+			if err != nil {
+				return err
+			}
+			if !resp.Authorized {
+				return &auth.ErrNotAuthorized{
+					Subject:  me.Username,
+					Repo:     output,
+					Required: required,
+				}
 			}
 		}
 	}
@@ -1070,29 +1075,68 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // listDatum contains our internal implementation of ListDatum, which is shared
 // between ListDatum and ListDatumStream. When ListDatum is removed, this should
 // be inlined into ListDatumStream
-func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
+func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input *pps.Input, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
 	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	response = &pps.ListDatumResponse{}
 	ctx := pachClient.Ctx()
 	pfsClient := pachClient.PfsAPIClient
+	if job == nil && input == nil {
+		return nil, errors.Errorf("must specify either job or input to list datums from")
+	}
+	if job != nil && input != nil {
+		return nil, errors.Errorf("can't specify both job and input to list datums from")
+	}
 
-	// get information about 'job'
-	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-		Job: &pps.Job{
-			ID: job.ID,
-		},
-	})
-	if err != nil {
-		return nil, err
+	var pipelineName string
+	var statsCommit *pfs.Commit
+	var ji *pps.JobInfo
+
+	if job != nil {
+		// get information about 'job'
+		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+			Job: &pps.Job{
+				ID: job.ID,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		input = jobInfo.Input
+		pipelineName = jobInfo.Pipeline.Name
+		statsCommit = jobInfo.StatsCommit
+		ji = jobInfo
+	} else if input != nil {
+		setInputDefaults("", input)
+
+		var visitErr error
+		pps.VisitInput(input, func(input *pps.Input) {
+			if visitErr != nil {
+				return
+			}
+			if input.Pfs != nil {
+				ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch)
+				if err != nil {
+					visitErr = err
+					return
+				}
+				input.Pfs.Commit = ci.Commit.ID
+			}
+			if input.Cron != nil {
+				visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
+			}
+		})
+		if visitErr != nil {
+			return nil, visitErr
+		}
 	}
 
 	// authorize ListDatum (must have READER access to all inputs)
 	if err := a.authorizePipelineOp(pachClient,
 		pipelineOpListDatum,
-		jobInfo.Input,
-		jobInfo.Pipeline.Name,
+		input,
+		pipelineName,
 	); err != nil {
 		return nil, err
 	}
@@ -1115,14 +1159,14 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, errors.New("getPageBounds: unreachable code")
 	}
 
-	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, input)
 	if err != nil {
 		return nil, err
 	}
 
 	var statsCommitInfo *pfs.CommitInfo
-	if jobInfo.StatsCommit != nil {
-		statsCommitInfo, err = pachClient.InspectCommit(jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+	if statsCommit != nil {
+		statsCommitInfo, err = pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -1144,11 +1188,14 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
 			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
-			id := workercommon.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			id := ""
+			if ji != nil {
+				id = workercommon.HashDatum(pipelineName, ji.Salt, datum)
+			}
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,
-					Job: jobInfo.Job,
+					Job: job,
 				},
 				State: pps.DatumState_STARTING,
 			}
@@ -1164,7 +1211,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	// The stats commit is closed -- job is finished
 	// List the files under / in the stats branch to get all the datums
 	file := &pfs.File{
-		Commit: jobInfo.StatsCommit,
+		Commit: statsCommit,
 		Path:   "/",
 	}
 
@@ -1214,7 +1261,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, dit)
+			datum, err := a.getDatum(pachClient, statsCommit.Repo.Name, statsCommit, job.ID, datumHash, dit)
 			if err != nil {
 				return err
 			}
@@ -1258,7 +1305,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Page, request.PageSize)
+	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Input, request.Page, request.PageSize)
 }
 
 // ListDatumStream implements the protobuf pps.ListDatumStream RPC
@@ -1268,7 +1315,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Page, req.PageSize)
+	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Input, req.Page, req.PageSize)
 	if err != nil {
 		return err
 	}
@@ -1847,7 +1894,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 		if pipelineInfo.Spout.Marker != "" {
 			// we need to make sure the marker name is also a valid file name, since it is used in file names
-			if err := hashtree.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
+			if err := ppath.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
 				return errors.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
 			}
 		}
@@ -2172,18 +2219,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
-	// Annotate current span with pipeline name
+	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
+	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
-	// propagate trace info (doesn't affect intra-RPC trace)
-	ctx = extended.TraceIn2Out(ctx)
+	// Propagate auth info & initialize context+clients
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
+
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
@@ -2357,6 +2405,40 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				pipelinePtr.Reason = ""
 				// Update pipeline parallelism
 				pipelinePtr.Parallelism = uint64(parallelism)
+
+				// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
+				// repos
+				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					oldAuthToken := pipelinePtr.AuthToken
+					tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
+						Subject: auth.PipelinePrefix + request.Pipeline.Name,
+						TTL:     -1,
+					})
+					if err != nil {
+						if auth.IsErrNotActivated(err) {
+							return nil // no auth work to do
+						}
+						return grpcutil.ScrubGRPC(err)
+					}
+					pipelinePtr.AuthToken = tokenResp.Token
+
+					// If getting a new auth token worked, we should revoke the old one
+					if oldAuthToken != "" {
+						_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+							&auth.RevokeAuthTokenRequest{
+								Token: oldAuthToken,
+							})
+						if err != nil {
+							if auth.IsErrNotActivated(err) {
+								return nil // no auth work to do
+							}
+							return grpcutil.ScrubGRPC(err)
+						}
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
 				return nil
 			})
 		}); err != nil {
@@ -2439,6 +2521,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 			tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
 				Subject: auth.PipelinePrefix + request.Pipeline.Name,
+				TTL:     -1,
 			})
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
@@ -2511,40 +2594,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
-	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
 	}
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Pfs != nil {
-			if input.Pfs.Branch == "" {
-				input.Pfs.Branch = "master"
-			}
-			if input.Pfs.Name == "" {
-				input.Pfs.Name = input.Pfs.Repo
-			}
-		}
-		if input.Cron != nil {
-			if input.Cron.Start == nil {
-				start, _ := types.TimestampProto(now)
-				input.Cron.Start = start
-			}
-			if input.Cron.Repo == "" {
-				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
-			}
-		}
-		if input.Git != nil {
-			if input.Git.Branch == "" {
-				input.Git.Branch = "master"
-			}
-			if input.Git.Name == "" {
-				// We know URL looks like:
-				// "https://github.com/sjezewski/testgithook.git",
-				tokens := strings.Split(path.Base(input.Git.URL), ".")
-				input.Git.Name = tokens[0]
-			}
-		}
-	})
+	setInputDefaults(pipelineInfo.Pipeline.Name, pipelineInfo.Input)
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
@@ -2567,6 +2620,40 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
 	}
 	return nil
+}
+
+func setInputDefaults(pipelineName string, input *pps.Input) {
+	now := time.Now()
+	pps.VisitInput(input, func(input *pps.Input) {
+		if input.Pfs != nil {
+			if input.Pfs.Branch == "" {
+				input.Pfs.Branch = "master"
+			}
+			if input.Pfs.Name == "" {
+				input.Pfs.Name = input.Pfs.Repo
+			}
+		}
+		if input.Cron != nil {
+			if input.Cron.Start == nil {
+				start, _ := types.TimestampProto(now)
+				input.Cron.Start = start
+			}
+			if input.Cron.Repo == "" {
+				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
+			}
+		}
+		if input.Git != nil {
+			if input.Git.Branch == "" {
+				input.Git.Branch = "master"
+			}
+			if input.Git.Name == "" {
+				// We know URL looks like:
+				// "https://github.com/sjezewski/testgithook.git",
+				tokens := strings.Split(path.Base(input.Git.URL), ".")
+				input.Git.Name = tokens[0]
+			}
+		}
+	})
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2737,10 +2824,17 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 	pipeline *pps.Pipeline, history int64, f func(string, *pps.EtcdPipelineInfo) error) error {
 	p := &pps.EtcdPipelineInfo{}
 	forEachPipeline := func(name string) error {
-		for i := int64(0); i <= history || history == -1; i++ {
+		for i := int64(0); ; i++ {
+			// call f() if i <= history (esp. if history == 0, call f() once)
 			if err := f(name, p); err != nil {
 				return err
 			}
+			// however, only call InspectCommit if i < history (i.e. don't call it on
+			// the last iteration, and if history == 0, don't call it at all)
+			if history >= 0 && i >= history {
+				return nil
+			}
+			// Get parent commit
 			ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, p.SpecCommit.ID)
 			switch {
 			case err != nil:

@@ -611,7 +611,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
 			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) &&
-				trigger.Branch != "" {
+				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
 			c, err := client.NewOnUserMachine("user")
@@ -636,6 +636,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
 	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
+	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
 	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
 
 	inspectBranch := &cobra.Command{

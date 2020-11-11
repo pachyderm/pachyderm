@@ -19,17 +19,17 @@ func write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []st
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path:   fileName,
-			DataOp: &DataOp{},
+			FileOp: &FileOp{},
 		}
-		require.NoError(tb, iw.WriteIndexes([]*Index{idx}))
+		require.NoError(tb, iw.WriteIndex(idx))
 	}
 	require.NoError(tb, iw.Close())
 }
 
 func actualFiles(tb testing.TB, objC obj.Client, chunks *chunk.Storage, opts ...Option) []string {
-	ir := NewReader(context.Background(), objC, chunks, testPath, opts...)
+	ir := NewReader(objC, chunks, testPath, opts...)
 	result := []string{}
-	require.NoError(tb, ir.Iterate(func(idx *Index) error {
+	require.NoError(tb, ir.Iterate(context.Background(), func(idx *Index) error {
 		result = append(result, idx.Path)
 		return nil
 	}))

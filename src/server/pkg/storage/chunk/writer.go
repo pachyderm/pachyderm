@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
 	"path"
@@ -13,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -31,14 +29,11 @@ type Annotation struct {
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
 	Data        interface{}
-	// TODO Find a way around needing this field (for deletions).
-	Empty bool
-
-	tags []*Tag
+	size        int64
 }
 
-// WriterFunc is a callback that returns the annotations within a chunk.
-type WriterFunc func([]*Annotation) error
+// WriterCallback is a callback that returns the updated annotations within a chunk.
+type WriterCallback func([]*Annotation) error
 
 type stats struct {
 	chunkCount      int64
@@ -60,44 +55,44 @@ type chunkSize struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	err                     error
 	objC                    obj.Client
 	gcC                     gc.Client
 	chunkSize               *chunkSize
+	cb                      WriterCallback
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	err                     error
+	chain                   *TaskChain
 	annotations             []*Annotation
 	numChunkBytesAnnotation int
-	splitMask               uint64
 	hash                    *buzhash64.Buzhash64
+	splitMask               uint64
 	buf                     *bytes.Buffer
-	drs                     []*DataReader
-	prevChan                chan struct{}
-	eg                      *errgroup.Group
 	tmpID                   string
-	f                       WriterFunc
 	noUpload                bool
 	stats                   *stats
 	chunkTTL                time.Duration
+	buffering               bool
+	first, last             bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
-	eg, errCtx := errgroup.WithContext(cancelCtx)
 	w := &Writer{
-		ctx:    errCtx,
-		cancel: cancel,
-		objC:   objC,
-		gcC:    gcC,
+		objC: objC,
+		gcC:  gcC,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
 		},
-		buf:   &bytes.Buffer{},
-		eg:    eg,
-		tmpID: tmpID,
-		f:     f,
-		stats: &stats{},
+		cb:     cb,
+		ctx:    cancelCtx,
+		cancel: cancel,
+		chain:  NewTaskChain(cancelCtx),
+		buf:    &bytes.Buffer{},
+		tmpID:  tmpID,
+		stats:  &stats{},
+		first:  true,
 	}
 	WithRollingHashConfig(defaultAverageBits, defaultSeed)(w)
 	for _, opt := range opts {
@@ -125,30 +120,23 @@ func (w *Writer) ChunkCount() int64 {
 }
 
 // Annotate associates an annotation with the current data.
-// TODO Maybe add some validation for calling Annotate / Tag function in incorrect order.
-func (w *Writer) Annotate(a *Annotation) {
+func (w *Writer) Annotate(a *Annotation) error {
 	// Create chunks at annotation boundaries if past the average chunk size.
 	if w.buf.Len() >= w.chunkSize.avg {
-		w.createChunk()
-	}
-	if w.buf.Len() == 0 && w.drs == nil && len(w.annotations) > 0 && !w.annotations[len(w.annotations)-1].Empty {
-		w.annotations = nil
+		if err := w.createChunk(); err != nil {
+			return err
+		}
 	}
 	w.annotations = append(w.annotations, a)
 	w.numChunkBytesAnnotation = 0
-	w.resetHash()
 	w.stats.annotationCount++
-}
-
-// Tag starts a tag in the current annotation with the passed in id.
-func (w *Writer) Tag(id string) {
-	lastA := w.annotations[len(w.annotations)-1]
-	lastA.tags = joinTags(lastA.tags, []*Tag{&Tag{Id: id}})
+	w.resetHash()
+	return nil
 }
 
 func (w *Writer) Write(data []byte) (int, error) {
 	if err := w.maybeDone(func() error {
-		if err := w.flushDataReaders(); err != nil {
+		if err := w.flushBuffer(); err != nil {
 			return err
 		}
 		w.roll(data)
@@ -159,7 +147,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (w *Writer) maybeDone(f func() error) (retErr error) {
+func (w *Writer) maybeDone(cb func() error) (retErr error) {
 	if w.err != nil {
 		return w.err
 	}
@@ -171,16 +159,13 @@ func (w *Writer) maybeDone(f func() error) (retErr error) {
 	}()
 	select {
 	case <-w.ctx.Done():
-		if err := w.eg.Wait(); err != nil {
-			return err
-		}
 		return w.ctx.Err()
 	default:
 	}
-	return f()
+	return cb()
 }
 
-func (w *Writer) roll(data []byte) {
+func (w *Writer) roll(data []byte) error {
 	offset := 0
 	for i, b := range data {
 		w.hash.Roll(b)
@@ -189,133 +174,120 @@ func (w *Writer) roll(data []byte) {
 				continue
 			}
 			w.writeData(data[offset : i+1])
-			w.createChunk()
+			if err := w.createChunk(); err != nil {
+				return err
+			}
 			offset = i + 1
 		}
 	}
 	for w.numChunkBytesAnnotation+len(data[offset:]) >= w.chunkSize.max {
 		bytesLeft := w.chunkSize.max - w.numChunkBytesAnnotation
 		w.writeData(data[offset : offset+bytesLeft])
-		w.createChunk()
+		if err := w.createChunk(); err != nil {
+			return err
+		}
 		offset += bytesLeft
 	}
 	w.writeData(data[offset:])
+	return nil
 }
 
 func (w *Writer) writeData(data []byte) {
 	lastA := w.annotations[len(w.annotations)-1]
-	lastTag := lastA.tags[len(lastA.tags)-1]
-	lastTag.SizeBytes += int64(len(data))
+	lastA.size += int64(len(data))
 	w.numChunkBytesAnnotation += len(data)
 	w.buf.Write(data)
 }
 
-func (w *Writer) createChunk() {
+func (w *Writer) createChunk() error {
 	chunk := w.buf.Bytes()
-	w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-		return w.processChunk(chunk, annotations, prevChan, nextChan)
-	})
+	edge := w.first || w.last
+	annotations := w.splitAnnotations()
+	if err := w.chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
+		return w.processChunk(ctx, chunk, edge, annotations, serial)
+	}); err != nil {
+		return err
+	}
+	w.first = false
 	w.numChunkBytesAnnotation = 0
-	w.resetHash()
 	w.buf = &bytes.Buffer{}
+	w.stats.chunkCount++
+	w.resetHash()
+	return nil
 }
 
-func (w *Writer) appendToChain(f func([]*Annotation, chan struct{}, chan struct{}) error, last ...bool) {
-	// TODO Need a global limiter (associated with chunk storage) that limits upload concurrency.
+func (w *Writer) splitAnnotations() []*Annotation {
 	annotations := w.annotations
-	w.annotations = []*Annotation{copyAnnotation(w.annotations[len(w.annotations)-1])}
-	prevChan := w.prevChan
-	var nextChan chan struct{}
-	if len(last) == 0 || !last[0] {
-		nextChan = make(chan struct{})
-	}
-	w.prevChan = nextChan
-	w.eg.Go(func() error {
-		return f(annotations, prevChan, nextChan)
-	})
-	w.stats.chunkCount++
+	lastA := w.annotations[len(w.annotations)-1]
+	w.annotations = []*Annotation{copyAnnotation(lastA)}
+	return annotations
 }
 
 func copyAnnotation(a *Annotation) *Annotation {
-	copyA := &Annotation{Data: a.Data}
+	copyA := &Annotation{}
 	if a.RefDataRefs != nil {
 		copyA.RefDataRefs = a.RefDataRefs
 	}
-	if len(a.tags) != 0 {
-		lastTag := a.tags[len(a.tags)-1]
-		copyA.tags = []*Tag{&Tag{Id: lastTag.Id}}
+	if a.Data != nil {
+		copyA.Data = a.Data
 	}
 	return copyA
 }
 
-func (w *Writer) processChunk(chunkBytes []byte, annotations []*Annotation, prevChan, nextChan chan struct{}) error {
+func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation, serial func(func() error) error) error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
-	if err := w.maybeUpload(chunk, chunkBytes); err != nil {
+	if err := w.maybeUpload(ctx, chunk, chunkBytes); err != nil {
 		return err
 	}
 	chunkRef := &DataRef{
 		ChunkInfo: &ChunkInfo{
 			Chunk:     chunk,
 			SizeBytes: int64(len(chunkBytes)),
-			Edge:      prevChan == nil || nextChan == nil,
+			Edge:      edge,
 		},
 		SizeBytes: int64(len(chunkBytes)),
 	}
-	// Process the annotations for the current chunk.
-	if err := w.processAnnotations(chunkRef, chunkBytes, annotations); err != nil {
+	if err := w.processAnnotations(ctx, chunkRef, chunkBytes, annotations); err != nil {
 		return err
 	}
-	return w.executeFunc(annotations, prevChan, nextChan)
+	return serial(func() error {
+		return w.cb(annotations)
+	})
 }
 
-func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
+func (w *Writer) maybeUpload(ctx context.Context, chunk *Chunk, chunkBytes []byte) error {
 	// Skip the upload if no upload is configured.
 	if w.noUpload {
 		return nil
 	}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID, w.getExpiresAt()); err != nil {
+	if err := w.gcC.ReserveChunk(ctx, path, w.tmpID, w.getExpiresAt()); err != nil {
 		return err
 	}
 	// Skip the upload if the chunk already exists.
-	if w.objC.Exists(w.ctx, path) {
+	if w.objC.Exists(ctx, path) {
 		return nil
 	}
-	objW, err := w.objC.Writer(w.ctx, path)
+	objW, err := w.objC.Writer(ctx, path)
 	if err != nil {
 		return err
 	}
 	defer objW.Close()
-	gzipW, err := gzip.NewWriterLevel(objW, gzip.BestSpeed)
-	if err != nil {
-		return err
-	}
-	defer gzipW.Close()
-	// TODO Encryption?
-	_, err = io.Copy(gzipW, bytes.NewReader(chunkBytes))
+	_, err = io.Copy(objW, bytes.NewReader(chunkBytes))
 	return err
 }
 
-func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
+func (w *Writer) processAnnotations(ctx context.Context, chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
 	var offset int64
 	var prevRefChunk string
 	for _, a := range annotations {
-		// Update the annotation fields.
-		size := sizeOfTags(a.tags)
-		if size == 0 {
+		// TODO: Empty data reference for size zero annotation?
+		if a.size == 0 {
 			continue
 		}
-		dataRef := &DataRef{}
-		dataRef.ChunkInfo = chunkRef.ChunkInfo
-		if len(annotations) > 1 {
-			dataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
-		}
-		dataRef.OffsetBytes = offset
-		dataRef.SizeBytes = size
-		dataRef.Tags = a.tags
-		a.NextDataRef = dataRef
-		offset += size
-		// Skip creating the cross chunk references if no upload is configured.
+		a.NextDataRef = newDataRef(chunkRef, chunkBytes, offset, a.size)
+		offset += a.size
+		// Skip references if no upload is configured.
 		if w.noUpload {
 			continue
 		}
@@ -327,7 +299,7 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 			if prevRefChunk == refChunk {
 				continue
 			}
-			if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
+			if err := w.gcC.CreateReference(ctx, &gc.Reference{
 				Sourcetype: "chunk",
 				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
 				Chunk:      path.Join(prefix, refChunk),
@@ -340,139 +312,141 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 	return nil
 }
 
-func sizeOfTags(tags []*Tag) int64 {
-	var size int64
-	for _, tag := range tags {
-		size += tag.SizeBytes
+func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataRef {
+	dataRef := &DataRef{}
+	dataRef.ChunkInfo = chunkRef.ChunkInfo
+	if chunkRef.SizeBytes == size {
+		dataRef.Hash = chunkRef.Hash
+	} else {
+		dataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
 	}
-	return size
+	dataRef.OffsetBytes = offset
+	dataRef.SizeBytes = size
+	return dataRef
 }
 
-func (w *Writer) executeFunc(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-	// Wait for the previous chunk to be processed before executing callback.
-	if prevChan != nil {
-		select {
-		case <-prevChan:
-		case <-w.ctx.Done():
-			return w.ctx.Err()
-		}
-	}
-	if err := w.f(annotations); err != nil {
-		return err
-	}
-	if nextChan != nil {
-		close(nextChan)
-	}
-	return nil
-}
-
-// Copy copies data from a data reader to the writer.
-// The copy will either be by reading the referenced data, or just
-// copying the data reference (cheap copy).
-func (w *Writer) Copy(dr *DataReader) error {
+// Copy copies a data reference to the writer.
+func (w *Writer) Copy(dataRef *DataRef) error {
 	return w.maybeDone(func() error {
-		if err := w.maybeBufferDataReader(dr); err != nil {
+		if err := w.maybeBufferDataRef(dataRef); err != nil {
 			return err
 		}
-		w.maybeCheapCopy()
-		return nil
+		return w.maybeCheapCopy()
 	})
 }
 
-func (w *Writer) maybeBufferDataReader(dr *DataReader) error {
-	if len(w.drs) > 0 {
-		// Flush the buffered data readers if the next data reader is for a different chunk
-		// or it is not the next data reader for the chunk.
-		lastBufDataRef := w.drs[len(w.drs)-1].DataRef()
-		if lastBufDataRef.ChunkInfo.Chunk.Hash != dr.DataRef().ChunkInfo.Chunk.Hash ||
-			lastBufDataRef.OffsetBytes+lastBufDataRef.SizeBytes != dr.DataRef().OffsetBytes {
-			if err := w.flushDataReaders(); err != nil {
-				return err
-			}
-		}
-	}
-	// We can only consider a data reader for buffering / cheap copying when:
-	// - We are at a chunk split point.
-	// - It does not reference an edge chunk.
-	// - If no other data readers are buffered, it is the first data reader in the chunk.
-	// - The full data reference is readable (bounded data readers don't return the
-	//   full data reference).
-	if w.buf.Len() > 0 || dr.DataRef().ChunkInfo.Edge || (len(w.drs) == 0 && dr.DataRef().OffsetBytes > 0) || dr.Len() != dr.DataRef().SizeBytes {
-		if err := w.flushDataReaders(); err != nil {
+func (w *Writer) maybeBufferDataRef(dataRef *DataRef) error {
+	lastA := w.annotations[len(w.annotations)-1]
+	if lastA.NextDataRef != nil && lastA.NextDataRef.OffsetBytes != 0 {
+		if err := w.flushBuffer(); err != nil {
 			return err
 		}
-		return w.flushDataReader(dr)
 	}
-	lastA := w.annotations[len(w.annotations)-1]
-	lastA.NextDataRef = dr.DataRef()
-	w.drs = append(w.drs, dr)
+	if !w.buffering {
+		// We can only begin buffering data refs when:
+		// - We are at a chunk split point.
+		// - The data ref does not reference an edge chunk.
+		// - It is the first data reference for the chunk.
+		if w.buf.Len() != 0 || dataRef.ChunkInfo.Edge || dataRef.OffsetBytes != 0 {
+			return w.flushDataRef(dataRef)
+		}
+	} else {
+		// We can only continue buffering data refs if each subsequent data ref is the next in the chunk.
+		prevDataRef := w.getPrevDataRef()
+		if prevDataRef.ChunkInfo.Chunk.Hash != dataRef.ChunkInfo.Chunk.Hash || prevDataRef.OffsetBytes+prevDataRef.SizeBytes != dataRef.OffsetBytes {
+			if err := w.flushBuffer(); err != nil {
+				return err
+			}
+			return w.flushDataRef(dataRef)
+		}
+	}
+	lastA.NextDataRef = mergeDataRef(lastA.NextDataRef, dataRef)
+	w.buffering = true
 	return nil
 }
 
-func (w *Writer) flushDataReaders() error {
-	if w.drs != nil {
-		// TODO This could probably be refactored, we are basically replaying the
-		// annotations and writing the buffered readers.
+func mergeDataRef(dr1, dr2 *DataRef) *DataRef {
+	if dr1 == nil {
+		return dr2
+	}
+	dr1.SizeBytes += dr2.SizeBytes
+	if dr1.SizeBytes == dr1.ChunkInfo.SizeBytes {
+		dr1.Hash = dr1.ChunkInfo.Chunk.Hash
+	}
+	return dr1
+}
+
+func (w *Writer) getPrevDataRef() *DataRef {
+	for i := len(w.annotations) - 1; i >= 0; i-- {
+		if w.annotations[i].NextDataRef != nil {
+			return w.annotations[i].NextDataRef
+		}
+	}
+	// TODO: Reaching here would be a bug, maybe panic?
+	return nil
+}
+
+func (w *Writer) flushBuffer() error {
+	if w.buffering {
 		annotations := w.annotations
 		w.annotations = nil
-		for i, dr := range w.drs {
-			w.Annotate(copyAnnotation(annotations[i]))
-			w.stats.annotationCount--
-			if err := w.flushDataReader(dr); err != nil {
+		for _, annotation := range annotations {
+			if err := w.Annotate(copyAnnotation(annotation)); err != nil {
 				return err
 			}
-		}
-		if len(annotations) > len(w.drs) {
-			w.Annotate(copyAnnotation(annotations[len(annotations)-1]))
 			w.stats.annotationCount--
+			if annotation.NextDataRef != nil {
+				if err := w.flushDataRef(annotation.NextDataRef); err != nil {
+					return err
+				}
+			}
 		}
-		w.drs = nil
+		w.buffering = false
 	}
 	return nil
 }
 
-func (w *Writer) flushDataReader(dr *DataReader) error {
-	return dr.Iterate(func(tag *Tag, r io.Reader) error {
-		w.Tag(tag.Id)
-		buf := &bytes.Buffer{}
-		if _, err := io.Copy(buf, r); err != nil {
-			return err
-		}
-		w.roll(buf.Bytes())
-		return nil
-	})
+func (w *Writer) flushDataRef(dataRef *DataRef) error {
+	buf := &bytes.Buffer{}
+	r := newDataReader(w.ctx, w.objC, dataRef, nil)
+	if err := r.Get(buf); err != nil {
+		return err
+	}
+	return w.roll(buf.Bytes())
 }
 
-func (w *Writer) maybeCheapCopy() {
-	if len(w.drs) == 0 {
-		return
+func (w *Writer) maybeCheapCopy() error {
+	if w.buffering {
+		// Cheap copy if a full chunk is buffered.
+		lastDataRef := w.annotations[len(w.annotations)-1].NextDataRef
+		if lastDataRef.OffsetBytes+lastDataRef.SizeBytes == lastDataRef.ChunkInfo.SizeBytes {
+			annotations := w.splitAnnotations()
+			if err := w.chain.CreateTask(func(_ context.Context, serial func(func() error) error) error {
+				return serial(func() error {
+					return w.cb(annotations)
+				})
+			}); err != nil {
+				return err
+			}
+			w.buffering = false
+		}
 	}
-	// Cheap copy if full chunk is buffered.
-	lastBufDataRef := w.drs[len(w.drs)-1].DataRef()
-	if lastBufDataRef.OffsetBytes+lastBufDataRef.SizeBytes == lastBufDataRef.ChunkInfo.SizeBytes {
-		lastA := w.annotations[len(w.annotations)-1]
-		lastA.tags = lastA.NextDataRef.Tags
-		w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-			return w.executeFunc(annotations, prevChan, nextChan)
-		})
-		w.drs = nil
-	}
+	return nil
 }
 
 // Close closes the writer.
 func (w *Writer) Close() error {
 	defer w.cancel()
 	return w.maybeDone(func() error {
-		if err := w.flushDataReaders(); err != nil {
+		if err := w.flushBuffer(); err != nil {
 			return err
 		}
 		if len(w.annotations) > 0 {
-			chunk := w.buf.Bytes()
-			w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-				return w.processChunk(chunk, annotations, prevChan, nextChan)
-			}, true)
+			if err := w.createChunk(); err != nil {
+				return err
+			}
 		}
-		return w.eg.Wait()
+		return w.chain.Wait()
 	})
 }
 
