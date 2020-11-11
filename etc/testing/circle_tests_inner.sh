@@ -17,8 +17,8 @@ export PATH
 # Some tests (e.g. TestMigrateFrom1_7) expect
 # $GOPATH/src/github.com/pachyderm/pachyderm to point to .
 # a hangover from a pre-go mod world.
-mkdir -p $GOPATH/src/github.com/pachyderm
-ln -s $(pwd) $GOPATH/src/github.com/pachyderm/pachyderm
+mkdir -p "$GOPATH"/src/github.com/pachyderm
+ln -s $(pwd) "$GOPATH"/src/github.com/pachyderm/pachyderm
 
 kubectl version
 
