@@ -51,7 +51,7 @@ base:
     RUN git clone https://github.com/pachyderm/pachyderm
     # warm up go mod cache and go build cache
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
-    # build params (version)
+    # build params (version).
     RUN cd pachyderm && \
         git checkout circleci-testfaster && \
         git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
