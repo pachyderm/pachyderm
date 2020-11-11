@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+if [ -z "$RUN_BAD_TESTS" ]; then
+    echo "Skipping because RUN_BAD_TESTS is empty"
+    exit 0
+fi
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 cd "$DIR"/../..
