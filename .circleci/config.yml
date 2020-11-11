@@ -16,7 +16,7 @@ jobs:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
 
-    #resource_class: large
+    resource_class: small
 
     steps:
       - run: |
