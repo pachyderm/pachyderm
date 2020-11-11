@@ -11,7 +11,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - -X {{ .Env.LD_FLAGS }} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -X {{ .Env.LD_FLAGS }}
     gcflags:
       - all=-trimpath={{ .Env.PWD }}
     env:

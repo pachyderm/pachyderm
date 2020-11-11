@@ -14,7 +14,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - -X {{ .Env.LD_FLAGS }} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+      - -X {{ .Env.LD_FLAGS }}
     gcflags:
       - all=-trimpath={{ .Env.PWD }}
     env:
@@ -51,14 +51,13 @@ nfpms:
     id: pachctl-deb
     package_name: pachctl
     file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}_{{ .Arch }}"
-    builds: 
+    builds:
       - pachctl
     replacements:
       linux: ""
       amd64: amd64
     vendor: Pachyderm
     homepage: https://www.pachyderm.com/
-    maintainer: nitin@pachyderm.com
     description: "Reproducible data science"
     formats:
       - deb
@@ -74,7 +73,7 @@ brews:
     name: pachctl@{{.Major}}.{{.Minor}}
     ids:
       - pachctl-archives
-    homepage: "github.com/pachyderm/pachyderm"
+    homepage: "https://www.pachyderm.com/"
     description: "Reproducible data science"
     tap:
       owner: pachyderm
@@ -82,7 +81,7 @@ brews:
     url_template: "https://github.com/pachyderm/pachyderm/releases/download/v{{ .Env.VERSION }}/{{ .ArtifactName }}"
     commit_author:
       name: pachyderm
-      email: nitin@pachyderm.com
+      email: pachydermbuildbot@pachyderm.com
     test: |
       system "#{bin}/pachctl version"
     install: |
