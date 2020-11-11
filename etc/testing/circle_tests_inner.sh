@@ -18,7 +18,7 @@ export PATH
 # $GOPATH/src/github.com/pachyderm/pachyderm to point to .
 # a hangover from a pre-go mod world.
 mkdir -p "$GOPATH"/src/github.com/pachyderm
-ln -s $(pwd) "$GOPATH"/src/github.com/pachyderm/pachyderm
+ln -s "$(pwd)" "$GOPATH"/src/github.com/pachyderm/pachyderm
 
 kubectl version
 
