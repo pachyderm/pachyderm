@@ -241,9 +241,8 @@ func withSpoutCommit(ctx context.Context, pachClient *client.APIClient, pipeline
 	repo := pipelineInfo.Pipeline.Name
 	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-			Parent:     client.NewCommit(repo, ""),
-			Branch:     pipelineInfo.OutputBranch,
-			Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+			Parent: client.NewCommit(repo, ""),
+			Branch: pipelineInfo.OutputBranch,
 		})
 		if err != nil {
 			return err

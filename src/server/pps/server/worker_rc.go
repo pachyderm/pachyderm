@@ -413,7 +413,6 @@ func getStorageEnvVars(pipelineInfo *pps.PipelineInfo) ([]v1.EnvVar, error) {
 		return []v1.EnvVar{
 			{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
 			{Name: "SPOUT_PIPELINE_NAME", Value: pipelineInfo.Pipeline.Name},
-			{Name: "SPOUT_PIPELINE_SPEC_COMMIT", Value: pipelineInfo.SpecCommit.ID},
 		}, nil
 	}
 	return []v1.EnvVar{

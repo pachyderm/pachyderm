@@ -48,7 +48,8 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault v1.1.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
-	github.com/itchyny/gojq v0.11.2
+	github.com/itchyny/gojq v0.11.1
+	github.com/itchyny/timefmt-go v0.1.1 // indirect
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jinzhu/gorm v1.9.12
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
@@ -90,7 +91,7 @@ require (
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
 	golang.org/x/tools v0.0.0-20201009032223-96877f285f7e // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
