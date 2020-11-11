@@ -53,6 +53,7 @@ base:
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
     RUN cd pachyderm && \
+        git checkout circleci-testfaster && \
         git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
         CIRCLE_BRANCH=1 make install
 
