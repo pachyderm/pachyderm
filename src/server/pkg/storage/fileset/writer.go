@@ -11,71 +11,37 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-// FileWriter provides functionality for writing a file.
 type FileWriter struct {
-	idx    *index.Index
-	cw     *chunk.Writer
-	dataOp *index.DataOp
+	idx  *index.Index
+	cw   *chunk.Writer
+	part *index.Part
 }
 
-// Append sets an append tag for the next set of bytes.
 func (fw *FileWriter) Append(tag string) {
-	fw.newDataOp(index.Op_APPEND, tag)
-}
-
-// Overwrite sets an overwrite tag for the next set of bytes.
-func (fw *FileWriter) Overwrite(tag string) {
-	fw.newDataOp(index.Op_OVERWRITE, tag)
-}
-
-// Delete sets a delete tag.
-func (fw *FileWriter) Delete(tag string) {
-	fw.newDataOp(index.Op_DELETE, tag)
-}
-
-func (fw *FileWriter) newDataOp(op index.Op, tag string) {
-	fw.dataOp = &index.DataOp{
-		Op:  op,
-		Tag: tag,
-	}
-	fw.idx.FileOp.DataOps = append(fw.idx.FileOp.DataOps, fw.dataOp)
-}
-
-// Copy copies a set of data ops to the file writer.
-func (fw *FileWriter) Copy(dataOps []*index.DataOp) error {
-	fw.idx.FileOp.DataOps = append(fw.idx.FileOp.DataOps, dataOps...)
-	for _, dataOp := range dataOps {
-		for _, dataRef := range dataOp.DataRefs {
-			fw.idx.SizeBytes += int64(dataRef.SizeBytes)
-			if err := fw.cw.Copy(dataRef); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
 }
 
 func (fw *FileWriter) Write(data []byte) (int, error) {
-	if fw.dataOp.Tag != headerTag && fw.dataOp.Tag != paddingTag {
+	if fw.part.Tag != headerTag {
 		fw.idx.SizeBytes += int64(len(data))
 	}
-	fw.dataOp.SizeBytes += int64(len(data))
+	fw.part.SizeBytes += int64(len(data))
 	return fw.cw.Write(data)
 }
 
 // Writer provides functionality for writing a file set.
 type Writer struct {
-	ctx       context.Context
-	tracker   tracker.Tracker
-	store     Store
-	path      string
-	iw        *index.Writer
-	cw        *chunk.Writer
-	idx       *index.Index
-	lastIdx   *index.Index
-	noUpload  bool
-	indexFunc func(*index.Index) error
-	ttl       time.Duration
+	ctx                context.Context
+	tracker            tracker.Tracker
+	store              Store
+	path               string
+	additive, deletive *index.Writer
+	cw                 *chunk.Writer
+	idx                *index.Index
+	lastIdx            *index.Index
+	noUpload           bool
+	indexFunc          func(*index.Index) error
+	ttl                time.Duration
 }
 
 func newWriter(ctx context.Context, store Store, tracker tracker.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
@@ -93,35 +59,25 @@ func newWriter(ctx context.Context, store Store, tracker tracker.Tracker, chunks
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.iw = index.NewWriter(ctx, chunks, "index-writer-"+uuidStr)
+	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer-"+uuidStr)
+	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer-"+uuidStr)
 	w.cw = chunks.NewWriter(ctx, "chunk-writer-"+uuidStr, w.callback, chunkWriterOpts...)
 	return w
 }
 
 // Append creates an append operation for a file and provides a scoped file writer.
 func (w *Writer) Append(p string, cb func(*FileWriter) error) error {
-	fw, err := w.newFileWriter(p, index.Op_APPEND, w.cw)
+	fw, err := w.newFileWriter(p, w.cw)
 	if err != nil {
 		return err
 	}
 	return cb(fw)
 }
 
-// Overwrite creates an overwrite operation for a file and provides a scoped file writer.
-func (w *Writer) Overwrite(p string, cb func(*FileWriter) error) error {
-	fw, err := w.newFileWriter(p, index.Op_OVERWRITE, w.cw)
-	if err != nil {
-		return err
-	}
-	return cb(fw)
-}
-
-func (w *Writer) newFileWriter(p string, op index.Op, cw *chunk.Writer) (*FileWriter, error) {
+func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) {
 	idx := &index.Index{
 		Path: p,
-		FileOp: &index.FileOp{
-			Op: op,
-		},
+		File: &index.File{},
 	}
 	if err := w.nextIdx(idx); err != nil {
 		return nil, err
@@ -155,64 +111,46 @@ func (w *Writer) checkPath(p string) error {
 }
 
 // Delete creates a delete operation for a file.
-func (w *Writer) Delete(p string) error {
+// TODO: Check path order.
+func (w *Writer) Delete(p string, tags ...string) error {
 	idx := &index.Index{
 		Path: p,
-		FileOp: &index.FileOp{
-			Op: index.Op_DELETE,
-		},
+		File: &index.File{},
 	}
-	return w.nextIdx(idx)
+	for _, tag := range tags {
+		idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+	}
+	return w.deletive.WriteIndex(idx)
 }
 
 // Copy copies a file to the file set writer.
 func (w *Writer) Copy(file File) error {
 	idx := file.Index()
-	if idx.FileOp.DataRefs != nil {
-		return w.copyIndex(idx)
-	}
-	switch idx.FileOp.Op {
-	case index.Op_APPEND:
-		return w.Append(idx.Path, func(fw *FileWriter) error {
-			hdr, err := file.Header()
-			if err != nil {
-				return err
-			}
-			return WithTarFileWriter(fw, hdr, func(tfw *TarFileWriter) error {
-				return tfw.Copy(getContentDataOps(idx.FileOp.DataOps))
-			})
-		})
-	case index.Op_OVERWRITE:
-		return w.Overwrite(idx.Path, func(fw *FileWriter) error {
-			hdr, err := file.Header()
-			if err != nil {
-				return err
-			}
-			return WithTarFileWriter(fw, hdr, func(tfw *TarFileWriter) error {
-				return tfw.Copy(getContentDataOps(idx.FileOp.DataOps))
-			})
-		})
-	case index.Op_DELETE:
-		return w.Delete(idx.Path)
-	}
-	return nil
-}
-
-func (w *Writer) copyIndex(idx *index.Index) error {
 	copyIdx := &index.Index{
 		Path: idx.Path,
-		FileOp: &index.FileOp{
-			Op:      idx.FileOp.Op,
-			DataOps: idx.FileOp.DataOps,
+		File: &index.File{
+			Parts: idx.File.Parts,
 		},
 		SizeBytes: idx.SizeBytes,
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
 	}
-	for _, dataRef := range idx.FileOp.DataRefs {
-		if err := w.cw.Copy(dataRef); err != nil {
-			return err
+	// Copy the file data refs if they are resolved.
+	if idx.File.DataRefs != nil {
+		for _, dataRef := range idx.File.DataRefs {
+			if err := w.cw.Copy(dataRef); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// Copy the file part data refs otherwise.
+	for _, part := range idx.File.Parts {
+		for _, dataRef := range part.DataRefs {
+			if err := w.cw.Copy(dataRef); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -226,7 +164,7 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 		}
 		if idx.Path != w.lastIdx.Path {
 			if !w.noUpload {
-				if err := w.iw.WriteIndex(w.lastIdx); err != nil {
+				if err := w.additive.WriteIndex(w.lastIdx); err != nil {
 					return err
 				}
 			}
@@ -238,7 +176,7 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 			w.lastIdx = idx
 		}
 		if annotation.NextDataRef != nil {
-			w.lastIdx.FileOp.DataRefs = append(w.lastIdx.FileOp.DataRefs, annotation.NextDataRef)
+			w.lastIdx.File.DataRefs = append(w.lastIdx.File.DataRefs, annotation.NextDataRef)
 		}
 	}
 	return nil
@@ -253,7 +191,7 @@ func (w *Writer) Close() error {
 	if w.lastIdx != nil {
 		idx := w.lastIdx
 		if !w.noUpload {
-			if err := w.iw.WriteIndex(idx); err != nil {
+			if err := w.additive.WriteIndex(idx); err != nil {
 				return err
 			}
 		}
@@ -266,17 +204,28 @@ func (w *Writer) Close() error {
 	if w.noUpload {
 		return nil
 	}
-	// Close the index writer.
-	idx, err := w.iw.Close()
+	// Close the index writers.
+	additiveIdx, err := w.additive.Close()
+	if err != nil {
+		return err
+	}
+	deletiveIdx, err := w.deletive.Close()
 	if err != nil {
 		return err
 	}
 	var pointsTo []string
-	for _, cid := range index.PointsTo(idx) {
+	for _, cid := range index.PointsTo(additiveIdx) {
+		pointsTo = append(pointsTo, chunk.ChunkObjectID(cid))
+	}
+	for _, cid := range index.PointsTo(deletiveIdx) {
 		pointsTo = append(pointsTo, chunk.ChunkObjectID(cid))
 	}
 	if err := w.tracker.CreateObject(w.ctx, filesetObjectID(w.path), pointsTo, w.ttl); err != nil {
 		return err
 	}
-	return w.store.PutIndex(w.ctx, w.path, idx)
+	return w.store.Set(w.ctx, w.path, &Metadata{
+		Path:     w.path,
+		Additive: additiveIdx,
+		Deletive: deletiveIdx,
+	})
 }

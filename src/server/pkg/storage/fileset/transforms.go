@@ -20,7 +20,7 @@ func NewHeaderFilter(x FileSet, pred func(th *tar.Header) bool) FileSet {
 	return &headerFilter{x: x, pred: pred}
 }
 
-func (hf *headerFilter) Iterate(ctx context.Context, cb func(File) error) error {
+func (hf *headerFilter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	return hf.x.Iterate(ctx, func(fr File) error {
 		th, err := fr.Header()
 		if err != nil {
@@ -45,26 +45,13 @@ func NewIndexFilter(x FileSet, pred func(idx *index.Index) bool) FileSet {
 	return &indexFilter{x: x, pred: pred}
 }
 
-func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error) error {
+func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	return fil.x.Iterate(ctx, func(fr File) error {
 		idx := fr.Index()
 		if fil.pred(idx) {
 			return cb(fr)
 		}
 		return nil
-	})
-}
-
-// NewDeleteFilter creates an index filter that filters out deleted files.
-func NewDeleteFilter(x FileSet) FileSet {
-	return NewIndexFilter(x, func(idx *index.Index) bool {
-		if idx.FileOp.Op == index.Op_DELETE {
-			return false
-		}
-		if len(idx.FileOp.DataRefs) == 0 && len(getDataRefs(idx.FileOp.DataOps)) == 0 {
-			return false
-		}
-		return true
 	})
 }
 
@@ -80,7 +67,7 @@ func NewHeaderMapper(x FileSet, fn func(*tar.Header) *tar.Header) FileSet {
 	return &headerMapper{x: x, fn: fn}
 }
 
-func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error) error {
+func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	return hm.x.Iterate(ctx, func(fr File) error {
 		x, err := fr.Header()
 		if err != nil {

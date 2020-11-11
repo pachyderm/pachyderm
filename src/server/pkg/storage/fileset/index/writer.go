@@ -51,7 +51,7 @@ func (w *Writer) WriteIndex(idx *Index) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.setupLevels()
-	unresolveDataOps(idx)
+	unresolveParts(idx)
 	return w.writeIndex(idx, 0)
 }
 
@@ -72,9 +72,9 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	if idx.Range != nil {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
 	}
-	if idx.FileOp != nil {
-		for _, dataOp := range idx.FileOp.DataOps {
-			refDataRefs = append(refDataRefs, dataOp.DataRefs...)
+	if idx.File != nil {
+		for _, part := range idx.File.Parts {
+			refDataRefs = append(refDataRefs, part.DataRefs...)
 		}
 	}
 	// Create an annotation for each index.

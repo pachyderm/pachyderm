@@ -24,7 +24,7 @@ var _ File = &FileReader{}
 // FileSet represents a set of files.
 type FileSet interface {
 	// Iterate iterates over the files in the file set.
-	Iterate(ctx context.Context, cb func(File) error) error
+	Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error
 }
 
 var _ FileSet = &MergeReader{}

@@ -21,7 +21,7 @@ func NewDirInserter(x FileSet) FileSet {
 }
 
 // Iterate calls cb once for every file in lexicographical order by path
-func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error) error {
+func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {

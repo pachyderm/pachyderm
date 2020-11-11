@@ -451,7 +451,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
 	var shardOutputs []string
-	fs, err := d.storage.OpenWithDeletes(ctx, inputPaths)
+	fs, err := d.storage.Open(ctx, inputPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -508,11 +508,11 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 		return nil
 	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
-		fs, err := d.storage.OpenWithDeletes(ctx, []string{inputPath})
+		fs, err := d.storage.Open(ctx, []string{inputPath})
 		if err != nil {
 			return nil, err
 		}
-		if err := fileset.CopyFiles(ctx, fsw, fs); err != nil {
+		if err := fileset.CopyFiles(ctx, fsw, fs, true); err != nil {
 			return nil, err
 		}
 	}
@@ -646,14 +646,11 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 				return err
 			}
 			return dst.Append(hdr.Name, func(fw *fileset.FileWriter) error {
-				hdr, err := f.Header()
-				if err != nil {
+				if err := fileset.WriteTarHeader(fw, hdr); err != nil {
 					return err
 				}
-				return fileset.WithTarFileWriter(fw, hdr, func(tfw *fileset.TarFileWriter) error {
-					tfw.Append(tag)
-					return f.Content(tfw)
-				})
+				fw.Append(tag)
+				return f.Content(fw)
 			})
 		})
 	})

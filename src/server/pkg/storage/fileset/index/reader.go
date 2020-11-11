@@ -37,6 +37,9 @@ func NewReader(chunks *chunk.Storage, topIdx *Index, opts ...Option) *Reader {
 
 // Iterate iterates over the indexes.
 func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
+	if r.topIdx == nil {
+		return nil
+	}
 	// Setup top level reader.
 	pbr := r.topLevel()
 	levels := []pbutil.Reader{pbr}
@@ -49,12 +52,6 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			}
 			return err
 		}
-		// TODO An empty fileset is represented by no referenced data
-		// stored in the semantic path for the fileset. We should probably spend some more time
-		// thinking through the implications of this representation.
-		if idx.Range == nil && idx.FileOp == nil {
-			return nil
-		}
 		// Return if done.
 		if r.atEnd(idx.Path) {
 			return nil
@@ -65,7 +62,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			if !r.atStart(idx.Path) {
 				continue
 			}
-			resolveDataOps(idx)
+			resolveParts(idx)
 			if err := cb(idx); err != nil {
 				return err
 			}

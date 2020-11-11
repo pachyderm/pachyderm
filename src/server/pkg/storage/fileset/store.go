@@ -7,7 +7,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
 var (
@@ -18,39 +17,39 @@ var (
 // Store stores filesets. A fileset is a path -> index relationship
 // All filesets exist in the same keyspace and can be merged by prefix
 type Store interface {
-	PutIndex(ctx context.Context, p string, idx *index.Index) error
-	GetIndex(ctx context.Context, p string) (*index.Index, error)
+	Set(ctx context.Context, p string, md *Metadata) error
+	Get(ctx context.Context, p string) (*Metadata, error)
 	Delete(ctx context.Context, p string) error
 	Walk(ctx context.Context, prefix string, cb func(string) error) error
 }
 
 func StoreTestSuite(t *testing.T, withStore func(func(Store))) {
 	ctx := context.Background()
-	t.Run("PutGet", func(t *testing.T) {
+	t.Run("SetGet", func(t *testing.T) {
 		withStore(func(x Store) {
-			idx := &index.Index{}
-			require.NoError(t, x.PutIndex(ctx, "test", idx))
-			actual, err := x.GetIndex(ctx, "test")
+			md := &Metadata{}
+			require.NoError(t, x.Set(ctx, "test", md))
+			actual, err := x.Get(ctx, "test")
 			require.NoError(t, err)
-			require.Equal(t, idx, actual)
+			require.Equal(t, md, actual)
 		})
 	})
 	t.Run("Delete", func(t *testing.T) {
 		withStore(func(x Store) {
 			require.NoError(t, x.Delete(ctx, "keys that don't exist should not cause delete to error"))
-			idx := &index.Index{}
-			require.NoError(t, x.PutIndex(ctx, "test", idx))
+			md := &Metadata{}
+			require.NoError(t, x.Set(ctx, "test", md))
 			require.NoError(t, x.Delete(ctx, "test"))
-			_, err := x.GetIndex(ctx, "test")
+			_, err := x.Get(ctx, "test")
 			require.Equal(t, ErrPathNotExists, err)
 		})
 	})
 }
 
 func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string) error {
-	idx, err := src.GetIndex(ctx, srcPath)
+	md, err := src.Get(ctx, srcPath)
 	if err != nil {
 		return err
 	}
-	return dst.PutIndex(ctx, dstPath, idx)
+	return dst.Set(ctx, dstPath, md)
 }

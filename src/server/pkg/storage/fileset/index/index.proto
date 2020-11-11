@@ -9,7 +9,7 @@ import "server/pkg/storage/chunk/chunk.proto";
 message Index {
   string path = 1;
   Range range = 2;
-  FileOp file_op = 3;
+  File file = 3;
   // Size of the content being indexed (does not include headers or padding).
   int64 size_bytes = 4;
 }
@@ -20,22 +20,13 @@ message Range {
   chunk.DataRef chunk_ref = 3;
 }
 
-message FileOp {
-  Op op = 1;
-  repeated DataOp data_ops = 2;
+message File {
+  repeated Part parts = 1;
+  repeated chunk.DataRef data_refs = 2;
+}
+
+message Part {
+  string tag = 1;
+  int64 size_bytes = 2;
   repeated chunk.DataRef data_refs = 3;
-}
-
-// TODO: Overwrite op is technically unecessary, but it might be better to be explicit.
-enum Op {
-  APPEND = 0;
-  DELETE = 1;
-  OVERWRITE = 2;
-}
-
-message DataOp {
-  Op op = 1;
-  string tag = 2;
-  int64 size_bytes = 3;
-  repeated chunk.DataRef data_refs = 4;
 }

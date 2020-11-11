@@ -19,8 +19,8 @@ func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
 	iw := NewWriter(context.Background(), chunks, uuid.NewWithoutDashes())
 	for _, fileName := range fileNames {
 		idx := &Index{
-			Path:   fileName,
-			FileOp: &FileOp{},
+			Path: fileName,
+			File: &File{},
 		}
 		require.NoError(tb, iw.WriteIndex(idx))
 	}

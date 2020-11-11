@@ -14,30 +14,46 @@ import (
 
 // Reader is an abstraction for reading a fileset.
 type Reader struct {
-	chunks       *chunk.Storage
-	indexFactory func(ctx context.Context) (*index.Reader, error)
+	store              Store
+	chunks             *chunk.Storage
+	path               string
+	indexOpts          []index.Option
+	additive, deletive *index.Reader
 }
 
 func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Option) *Reader {
-	return &Reader{
-		chunks: chunks,
-		indexFactory: func(ctx context.Context) (*index.Reader, error) {
-			topIdx, err := store.GetIndex(ctx, p)
-			if err != nil {
-				return nil, err
-			}
-			return index.NewReader(chunks, topIdx, opts...), nil
-		},
+	r := &Reader{
+		store:     store,
+		chunks:    chunks,
+		path:      p,
+		indexOpts: opts,
 	}
+	return r
 }
 
-// Iterate iterates over the files in the fileset.
-func (r *Reader) Iterate(ctx context.Context, cb func(File) error) error {
-	ir, err := r.indexFactory(ctx)
-	if err != nil {
+func (r *Reader) setup(ctx context.Context) error {
+	if r.additive == nil {
+		md, err := r.store.Get(ctx, r.path)
+		if err != nil {
+			return err
+		}
+		r.additive = index.NewReader(r.chunks, md.Additive, r.indexOpts...)
+		r.deletive = index.NewReader(r.chunks, md.Deletive, r.indexOpts...)
+	}
+	return nil
+}
+
+// Iterate iterates over the files in the file set.
+func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+	if err := r.setup(ctx); err != nil {
 		return err
 	}
-	return ir.Iterate(ctx, func(idx *index.Index) error {
+	if len(deletive) > 0 && deletive[0] {
+		return r.deletive.Iterate(ctx, func(idx *index.Index) error {
+			return cb(newFileReader(ctx, r.chunks, idx))
+		})
+	}
+	return r.additive.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(ctx, r.chunks, idx))
 	})
 }
@@ -67,7 +83,7 @@ func (fr *FileReader) Index() *index.Index {
 func (fr *FileReader) Header() (*tar.Header, error) {
 	if fr.hdr == nil {
 		buf := &bytes.Buffer{}
-		dataRefs := getHeaderDataOp(fr.idx.FileOp.DataOps).DataRefs
+		dataRefs := getHeaderPart(fr.idx.File.Parts).DataRefs
 		r := fr.chunks.NewReader(fr.ctx, dataRefs)
 		if err := r.Get(buf); err != nil {
 			return nil, err
@@ -80,13 +96,14 @@ func (fr *FileReader) Header() (*tar.Header, error) {
 			return nil, errors.Errorf("uncleaned tar header name: %s", hdr.Name)
 		}
 		fr.hdr = hdr
+		fr.hdr.Size = fr.idx.SizeBytes
 	}
 	return fr.hdr, nil
 }
 
 // Content writes the content of the file.
 func (fr *FileReader) Content(w io.Writer) error {
-	dataRefs := getDataRefs(getContentDataOps(fr.idx.FileOp.DataOps))
+	dataRefs := getDataRefs(getContentParts(fr.idx.File.Parts))
 	r := fr.chunks.NewReader(fr.ctx, dataRefs)
 	return r.Get(w)
 }

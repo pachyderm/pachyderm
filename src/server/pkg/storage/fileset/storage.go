@@ -18,12 +18,9 @@ import (
 
 const (
 	semanticPrefix = "root"
-	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
-	// lexicographical ordering of file content tags.
+	// TODO Not sure if this is the tags we should use, but the header tag should show up before the lexicographical ordering of file content tags.
 	// headerTag is the tag used for the tar header bytes.
 	headerTag = ""
-	// paddingTag is the tag used for the padding bytes at the end of a tar entry.
-	paddingTag = "~"
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * units.MB
@@ -104,14 +101,6 @@ func (s *Storage) newReader(fileSet string, opts ...index.Option) *Reader {
 // Open opens a file set for reading.
 // TODO: It might make sense to have some of the file set transforms as functional options here.
 func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
-	fs, err := s.open(ctx, fileSets, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return NewDeleteFilter(fs), nil
-}
-
-func (s *Storage) open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
 	var fss []FileSet
 	for _, fileSet := range fileSets {
 		if err := s.store.Walk(ctx, fileSet, func(name string) error {
@@ -126,16 +115,6 @@ func (s *Storage) open(ctx context.Context, fileSets []string, opts ...index.Opt
 		return fss[0], nil
 	}
 	return newMergeReader(s.chunks, fss), nil
-}
-
-// OpenWithDeletes opens a file set for reading and does not filter out deleted files.
-// TODO: This should be a functional option on New.
-func (s *Storage) OpenWithDeletes(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
-	fs, err := s.open(ctx, fileSets, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
 }
 
 // Shard shards the file set into path ranges.
@@ -204,11 +183,11 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 		size += idx.SizeBytes
 		return nil
 	}))
-	fs, err := s.open(ctx, inputFileSets)
+	fs, err := s.Open(ctx, inputFileSets)
 	if err != nil {
 		return nil, err
 	}
-	if err := CopyFiles(ctx, w, fs); err != nil {
+	if err := CopyFiles(ctx, w, fs, true); err != nil {
 		return nil, err
 	}
 	if err := w.Close(); err != nil {
@@ -237,11 +216,11 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 }
 
 func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
-	idx, err := s.store.GetIndex(ctx, path.Join(fileSet, Diff))
+	md, err := s.store.Get(ctx, path.Join(fileSet, Diff))
 	if err != nil {
 		return nil, err
 	}
-	size := idx.SizeBytes
+	size := md.Additive.SizeBytes
 	spec := &CompactSpec{
 		Input: []string{path.Join(fileSet, Diff)},
 	}
@@ -257,14 +236,14 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// While we can't fit it all in the current level
 	for {
 		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
-		idx, err := s.store.GetIndex(ctx, levelPath)
+		md, err := s.store.Get(ctx, levelPath)
 		if err != nil {
 			if err != ErrPathNotExists {
 				return nil, err
 			}
 		} else {
 			spec.Input = append(spec.Input, levelPath)
-			size += idx.SizeBytes
+			size += md.Additive.SizeBytes
 		}
 		if size <= s.levelSize(level) {
 			break
