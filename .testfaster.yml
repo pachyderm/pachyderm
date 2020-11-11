@@ -94,8 +94,6 @@ base:
     # leave a clue that the VM is ready
     touch /TESTFASTER_PREWARM_COMPLETE
 
-    #make launch-dex # XXX doesn't seem to start, need to investigate
-
   kubernetes_version: 'v1.18.3'
 
 runtime:
