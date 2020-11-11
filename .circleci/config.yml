@@ -15,6 +15,7 @@ jobs:
       AUTH_BUCKETS: "2"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
+      RUN_BAD_TESTS: ""
 
     resource_class: small
 
