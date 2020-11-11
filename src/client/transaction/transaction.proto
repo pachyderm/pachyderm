@@ -24,6 +24,7 @@ message TransactionRequest {
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
   pps.UpdateJobStateRequest update_job_state = 11;
+  pps.CreatePipelineRequest create_pipeline = 12;
   DeleteAllRequest delete_all = 10;
 }
 

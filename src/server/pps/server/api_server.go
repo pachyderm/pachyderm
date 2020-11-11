@@ -2048,18 +2048,18 @@ func (a *apiServer) sudoTransaction(txnCtx *txnenv.TransactionContext, f func(*t
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline.
-func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (result *pfs.Commit, retErr error) {
-	pipelineName := pipelineInfo.Pipeline.Name
+func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, branchSuffix string) (result *pfs.Commit, retErr error) {
+	branchName := pipelineInfo.Pipeline.Name + branchSuffix
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		data, err := pipelineInfo.Marshal()
 		if err != nil {
 			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
-		if _, err = superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, pipelineName, ppsconsts.SpecFile, bytes.NewReader(data), 0); err != nil {
+		if _, err = superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data), 0); err != nil {
 			return err
 		}
-		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName)
+		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, branchName)
 		if err != nil {
 			return err
 		}
@@ -2243,6 +2243,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		_, err := txn.CreatePipeline(request, nil)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit *pfs.Commit) (specCommit *pfs.Commit, retErr error) {
 	// Validate request
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
@@ -2308,7 +2318,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
@@ -2317,7 +2327,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Git != nil {
-			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Git.Name),
 					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
@@ -2391,85 +2401,98 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			pipelinePtr     pps.EtcdPipelineInfo
 			oldPipelineInfo *pps.PipelineInfo
 		)
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			// Read existing PipelineInfo from PFS output repo
-			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
-				var err error
+		// Read existing PipelineInfo from PFS output repo
+		if err := a.pipelines.ReadWrite(txnCtx.Stm).Update(pipelineName, &pipelinePtr, func() error {
+			var err error
 
-				// We can't recover from an incomplete pipeline info here because
-				// modifying the spec repo depends on being able to access the previous
-				// commit. We therefore use `GetPipelineInfo` which will error if the
-				// spec commit isn't working.
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+			// We can't recover from an incomplete pipeline info here because
+			// modifying the spec repo depends on being able to access the previous
+			// commit. We therefore use `GetPipelineInfo` which will error if the
+			// spec commit isn't working.
+			oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+			if err != nil {
+				return err
+			}
+
+			// Cannot disable stats after it has been enabled.
+			if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
+				return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
+			}
+
+			// Modify pipelineInfo (increment Version, and *preserve Stopped* so
+			// that updating a pipeline doesn't restart it)
+			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if oldPipelineInfo.Stopped {
+				provenance = nil // CreateBranch() below shouldn't create new output
+				pipelineInfo.Stopped = true
+			}
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
+			// Must create spec commit before restoring output branch provenance, so
+			// that no commits are created with a mismatched spec commit
+			if prevSpecCommit == nil {
+				// put the pipeline info file into the spec repo if we haven't already
+				tempBranch := pipelineInfo.Pipeline.Name + uuid.NewWithoutDashes()
+				// make an explicit commit (not in the transaction) so we can control the parent
+				txnCtx.Client.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineInfo.Pipeline.Name)
+				specCommit, err = a.makePipelineInfoCommit(txnCtx.Client, pipelineInfo, tempBranch)
+				txnCtx.Client.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
+				// delete branch here? or should we worry about garbage collection
+				txnCtx.Pfs().DeleteBranchInTransaction(txnCtx, &pfs.DeleteBranchRequest{Branch: client.NewBranch(ppsconsts.SpecRepo, tempBranch)}) // need to save temp branch, too
+			} else {
+				specCommit = prevSpecCommit
+			}
+
+			// move the spec branch for this pipeline to the new commit
+			err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Head:   specCommit,
+				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+			})
+
+			// Update pipelinePtr to point to new commit
+			pipelinePtr.SpecCommit = specCommit
+			// Reset pipeline state (PPS master/pipeline controller recreates RC)
+			pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
+			// Clear any failure reasons
+			pipelinePtr.Reason = ""
+			// Update pipeline parallelism
+			pipelinePtr.Parallelism = uint64(parallelism)
+
+			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
+			// repos
+			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+				oldAuthToken := pipelinePtr.AuthToken
+				tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
+					Subject: auth.PipelinePrefix + request.Pipeline.Name,
+					TTL:     -1,
+				})
 				if err != nil {
-					return err
+					if auth.IsErrNotActivated(err) {
+						return nil // no auth work to do
+					}
+					return grpcutil.ScrubGRPC(err)
 				}
+				pipelinePtr.AuthToken = tokenResp.Token
 
-				// Cannot disable stats after it has been enabled.
-				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
-					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
-				}
-
-				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
-				// that updating a pipeline doesn't restart it)
-				pipelineInfo.Version = oldPipelineInfo.Version + 1
-				if oldPipelineInfo.Stopped {
-					provenance = nil // CreateBranch() below shouldn't create new output
-					pipelineInfo.Stopped = true
-				}
-				if !request.Reprocess {
-					pipelineInfo.Salt = oldPipelineInfo.Salt
-				}
-				// Must create spec commit before restoring output branch provenance, so
-				// that no commits are created with a mismatched spec commit
-				specCommit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-				if err != nil {
-					return err
-				}
-				// Update pipelinePtr to point to new commit
-				pipelinePtr.SpecCommit = specCommit
-				// Reset pipeline state (PPS master/pipeline controller recreates RC)
-				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
-				// Clear any failure reasons
-				pipelinePtr.Reason = ""
-				// Update pipeline parallelism
-				pipelinePtr.Parallelism = uint64(parallelism)
-
-				// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
-				// repos
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					oldAuthToken := pipelinePtr.AuthToken
-					tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-						Subject: auth.PipelinePrefix + request.Pipeline.Name,
-						TTL:     -1,
-					})
+				// If getting a new auth token worked, we should revoke the old one
+				if oldAuthToken != "" {
+					_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+						&auth.RevokeAuthTokenRequest{
+							Token: oldAuthToken,
+						})
 					if err != nil {
 						if auth.IsErrNotActivated(err) {
 							return nil // no auth work to do
 						}
 						return grpcutil.ScrubGRPC(err)
 					}
-					pipelinePtr.AuthToken = tokenResp.Token
-
-					// If getting a new auth token worked, we should revoke the old one
-					if oldAuthToken != "" {
-						_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
-							&auth.RevokeAuthTokenRequest{
-								Token: oldAuthToken,
-							})
-						if err != nil {
-							if auth.IsErrNotActivated(err) {
-								return nil // no auth work to do
-							}
-							return grpcutil.ScrubGRPC(err)
-						}
-					}
-					return nil
-				}); err != nil {
-					return err
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			return nil
 		}); err != nil {
 			return nil, err
 		}
@@ -2519,6 +2542,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// that no commits are created with a missing spec commit
 		var commit *pfs.Commit
 		if request.SpecCommit != nil {
+			// if we're restoring from an extracted pipeline, don't change any other logic
 			// Make sure that the spec commit actually exists
 			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{Commit: request.SpecCommit})
 			if err != nil {
@@ -2530,11 +2554,25 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
 			statsBranchHead = client.NewCommit(pipelineName, "stats")
 		} else {
-			var err error
-			commit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
-			if err != nil {
-				return nil, err
+			if prevSpecCommit == nil {
+				// put the pipeline info file into the spec repo if we haven't already
+				tempBranch := pipelineInfo.Pipeline.Name + uuid.NewWithoutDashes()
+				// make an explicit commit (not in the transaction) so we can control the parent
+				txnCtx.Client.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineInfo.Pipeline.Name)
+				specCommit, err = a.makePipelineInfoCommit(txnCtx.Client, pipelineInfo, tempBranch)
+				txnCtx.Client.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
+				// delete branch here? or should we worry about garbage collection
+				txnCtx.Pfs().DeleteBranchInTransaction(txnCtx, &pfs.DeleteBranchRequest{Branch: client.NewBranch(ppsconsts.SpecRepo, tempBranch)}) // need to save temp branch, too
+			} else {
+				specCommit = prevSpecCommit
 			}
+
+			commit = specCommit
+			// move the spec branch for this pipeline to the new commit
+			err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Head:   specCommit,
+				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+			})
 		}
 
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an

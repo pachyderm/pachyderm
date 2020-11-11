@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 func TestEmptyTransaction(t *testing.T) {
@@ -565,5 +566,18 @@ func TestBatchTransaction(t *testing.T) {
 
 		return nil
 	})
+	require.NoError(t, err)
+}
+
+func TestCreatePipelineTransaction(t *testing.T) {
+	client := testutil.GetPachClient(t)
+	txn, err := client.StartTransaction()
+	require.NoError(t, err)
+	txnClient := client.WithTransaction(txn)
+
+	require.NoError(t, txnClient.CreateRepo("input"))
+	txnClient.CreatePipeline()
+
+	_, err = txnClient.FinishTransaction(txn)
 	require.NoError(t, err)
 }

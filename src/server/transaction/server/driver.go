@@ -112,10 +112,28 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return d.transactions.ReadWrite(stm).Delete(txn.ID)
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		// first try to clean up any aspects of the transaction that live outside the STM
+		info := &transaction.TransactionInfo{}
+		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
+		directTxn := txnenv.NewDirectTransaction(txnCtx)
+		if err != nil {
+			return err
+		}
+		for i, req := range info.Requests {
+			if req.CreatePipeline == nil || len(info.Responses) <= i {
+				continue
+			}
+			commit := info.Responses[i].Commit
+			if commit != nil {
+				if err := directTxn.DeleteCommit(&pfs.DeleteCommitRequest{Commit: commit}); err != nil {
+					return err
+				}
+			}
+		}
+		// now that all side effects are undone, delete the transaction
+		return d.transactions.ReadWrite(txnCtx.Stm).Delete(txn.ID)
 	})
-	return err
 }
 
 func (d *driver) listTransaction(ctx context.Context) ([]*transaction.TransactionInfo, error) {
@@ -200,6 +218,19 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			// RPCs.
 			err = d.deleteAll(txnCtx.ClientContext, txnCtx.Stm, info.Transaction)
 			response = &transaction.TransactionResponse{}
+		} else if request.CreatePipeline != nil {
+			// find the existing spec commit, if it exists
+			var commit *pfs.Commit
+			if len(info.Responses) > i {
+				commit = info.Responses[i].Commit
+				if commit == nil {
+					err = errors.Errorf("unexpected stored response type for CreatePipeline")
+				}
+			}
+			if err == nil {
+				commit, err = directTxn.CreatePipeline(request.CreatePipeline, commit)
+				response = client.NewCommitResponse(commit)
+			}
 		} else {
 			err = errors.Errorf("unrecognized transaction request type")
 		}
