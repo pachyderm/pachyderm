@@ -91,7 +91,7 @@ base:
     # start services used by tests
     make launch-loki
 
-    # leave a clue that the VM is ready
+    # leave a clue that the VM is ready.
     touch /TESTFASTER_PREWARM_COMPLETE
 
   kubernetes_version: 'v1.18.3'
