@@ -627,6 +627,9 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
