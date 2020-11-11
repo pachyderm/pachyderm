@@ -53,9 +53,8 @@ base:
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
     RUN cd pachyderm && \
-        git checkout fa32fd9011dcd50186e61f4e0d7de45535f769c2 && \
-        CIRCLE_BRANCH=1 make install && \
-        go get -t ./...
+        git checkout bdb930c7e4eec60b59fec2ab2cd670c3ac79bf9e && \
+        CIRCLE_BRANCH=1 make install
 
   docker_bake_script: |-
     #!/bin/bash
@@ -71,6 +70,7 @@ base:
     make docker-build-kafka
     make docker-build-spout-test
     make docker-build-test-entrypoint
+    set +x
     echo "============= POST BAKE IMAGES =================="
     docker images
     echo "================================================="
