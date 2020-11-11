@@ -424,7 +424,7 @@ func newJoinIterator(pachClient *client.APIClient, join []*pps.Input) (Iterator,
 				missing = true
 				continue
 			}
-			if join[i].Pfs.OuterJoin {
+			if join[i].Pfs != nil && join[i].Pfs.OuterJoin {
 				filteredTuple = append(filteredTuple, inputs)
 			}
 		}
