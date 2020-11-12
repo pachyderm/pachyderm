@@ -2969,7 +2969,7 @@ func logPutFileEnd(req *pfs.PutFileRequest, start time.Time, records *pfs.PutFil
 			bytes += float64(r.SizeBytes)
 		}
 	}
-	dur := time.Now().Sub(start).Truncate(time.Millisecond)
+	dur := time.Since(start).Truncate(time.Millisecond)
 	rate := float64(bytes) / dur.Seconds()
 	log.Debugf(`pfs.API.PutFile/%s {"to":%q,"sz":%q,"dur":"%s (%s/s)","err":"%v"`,
 		verb, pretty.CompactPrintFile(req.File), units.BytesSize(bytes), dur, units.BytesSize(rate), retErr)
