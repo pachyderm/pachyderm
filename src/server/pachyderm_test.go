@@ -11791,6 +11791,9 @@ func TestFileHistory(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
