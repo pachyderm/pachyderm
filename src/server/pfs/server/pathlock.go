@@ -37,7 +37,7 @@ type pathlock struct {
 	// it may proceed
 	blocking string
 
-	// This is used to limit the total concurrency of putFile request. It's
+	// This is used to limit the total # of concurrent of putFile requests. It's
 	// included in pathlock as a convenience, as everywhere that putFile calls
 	// pathlock.start(), it would also call putFileLimiter.Acquire() (and likewise
 	// for pathlock.finish() and putFileLimiter.Release). This is unset for tests.
@@ -65,28 +65,22 @@ func (p *pathlock) start(path string) (retErr error) {
 	}()
 	p.Lock()
 	defer p.Unlock()
-	for { // Check block condition in loop--see sync.Cond documentation
+	for { // Check block condition in a loop--see sync.Cond documentation
 		if blocking := func() string {
-			// Find if there's any path P in 'running' such that 'path' is a prefix of
-			// P
-			//
-			// minGe is the smallest entry in 'running' that is greater than or equal
-			// to 'path'. If there is a P in running such that 'path' is a prefix of
-			// P, then 'path' must be a prefix of 'running[minGe]'[1]
-			minGe := sort.SearchStrings(p.running, path)
-			if minGe < len(p.running) && strings.HasPrefix(p.running[minGe], path) {
-				return p.running[minGe]
+			// Find if there's any P in 'running' such that 'path' is a prefix of P[1]
+			lub := sort.SearchStrings(p.running, path)
+			if lub < len(p.running) && strings.HasPrefix(p.running[lub], path) {
+				return p.running[lub]
 			}
-			// Find if there's any path P in 'running' such that P is a prefix of
-			// 'path'. Do this by checking if every prefix of 'path' is in 'running'.
-			for i := len(path) - 1; i > 0 && minGe > 0; i-- {
-				// Loop invariant: minGe is the smallest entry in running that is >=
-				//   path[:i+1] (note loop starts at len-1).
-				//   path[:i] < path[:i+1] --> path[:i] must be in [0,minGe)
-				// Loop invariant: path[:i] and [0, minGe) are non-empty
-				minGe = sort.SearchStrings(p.running[:minGe], path[:i])
-				if minGe < len(p.running) && p.running[minGe] == path[:i] {
-					return p.running[minGe]
+			// Find if there's any P in 'running' such that P is a prefix of 'path'.
+			for i := len(path) - 1; i > 0 && lub >= 0; i-- {
+				// Loop invariants:
+				// 1. lub is the smallest entry in running that is >= path[:i+1] (note
+				//    loop starts at len-1). [2]
+				// 2. path[:i] and [0, lub) are non-empty
+				lub = sort.SearchStrings(p.running[:lub], path[:i])
+				if lub < len(p.running) && p.running[lub] == path[:i] {
+					return p.running[lub]
 				}
 			}
 			return ""
@@ -101,10 +95,10 @@ func (p *pathlock) start(path string) (retErr error) {
 			break
 		}
 	}
-	minGe := sort.SearchStrings(p.running, path)
+	lub := sort.SearchStrings(p.running, path)
 	p.running = append(p.running, "")
-	copy(p.running[minGe+1:], p.running[minGe:]) // OK even if minGe == len(running)
-	p.running[minGe] = path
+	copy(p.running[lub+1:], p.running[lub:]) // OK even if lub == len(running)-1
+	p.running[lub] = path
 	return nil
 }
 
@@ -121,11 +115,11 @@ func (p *pathlock) finish(path string) (retErr error) {
 	p.Lock()
 	defer p.Unlock()
 	// remove 'path' from 'running
-	minGe := sort.SearchStrings(p.running, path)
-	if minGe == len(p.running) || p.running[minGe] != path {
+	lub := sort.SearchStrings(p.running, path)
+	if lub == len(p.running) || p.running[lub] != path {
 		return errors.Errorf("no path lock found for PutFile operation on %q", path)
 	}
-	copy(p.running[minGe:], p.running[minGe+1:]) // OK even if (minGe+1) == len(running)
+	copy(p.running[lub:], p.running[lub+1:]) // OK even if (lub+1) == len(running)
 	p.running = p.running[:len(p.running)-1]
 
 	// Wake up any blocked threads
@@ -140,17 +134,24 @@ func (p *pathlock) finish(path string) (retErr error) {
 	return nil
 }
 
-// [1] Proof:
-// By assumption, we know I = { i ∈ ℕ | path is a prefix of running[i] }
-// is nonempty. Let i be the smallest element of I (well-ordering).
+// [1] lub ("least upper bound") is the smallest entry in 'running' that is
+// greater than or equal to 'path'. This code depends on the fact that if there
+// is a P in 'running' such that 'path' is a prefix of P, then 'path' must be a
+// prefix of 'running[lub]'. Proof:
 //
-// Because path is a prefix of running[i], we know path <= running[i], therefore
-// minGe <= i (by the definition of minGe). Then, because
-//                   path <= running[minGe] <= running[i]
-// path must be a prefix of running[minGe] as well.
+// Let i be the smallest int such that 'path' is a prefix of running[i]. Then,
+// we know 'path' <= running[i] (b/c it's a prefix), and therefore lub <= i (by
+// the definition of lub). Thus, path <= running[lub] <= running[i] and because
+// 'path' is a prefix of running[i], 'path' must be a prefix of running[lub] as
+// well (if any letter was different, it would place running[lub] either before
+// 'path' or after 'running[i]').
 //
-// (if there were some j s.t.  j < len(path) && path[j] != running[minGe], then
-// let j be minimal (w.o.) and we have either 1) path[j] < running[minGe][j]
-// --> running[i][j] < running[minGe][j] --> running[i] < running[minGe], a
-// contradition. Or 2) path[j] > running[minGe][j] --> path > running[minGe], a
-// contradiction)
+// [2] To see that the loop invariant is maintained, we need to show that
+// SearchStrings(running[:lub], path[:i]) yields the least upper bound of
+// path[:i] in running. To see that, observe:
+//   path[:i] < path[:i+1] <= running[lub]
+//   --> SearchStrings(running[:lub], path[:i])
+//         = 1. lub of path[:i] in running[:lub], if any values in running[:lub]
+//              are >= path[:i], or
+//           2. lub, if everything in running[:lub] is < path[:i]
+//         = smallest value in 'running' that is >= path[:i]
