@@ -47,11 +47,11 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/pachyderm/pachyderm
+      link: https://pachdm.com/github
     - icon: fontawesome/brands/twitter
-      link: https://twitter.com/pachydermio
+      link: https://pachdm.com/twitter
     - icon: fontawesome/brands/linkedin
-      link: https://www.linkedin.com/company/pachyderm-inc-
+      link: https://pachdm.com/linkedin
 
 extra_css:
     - stylesheets/extra.css
