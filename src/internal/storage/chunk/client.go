@@ -39,7 +39,7 @@ func NewClient(objc obj.Client, mdstore MetadataStore, tr track.Tracker, name st
 	return c
 }
 
-func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (ID, error) {
+func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
 	chunkID := Hash(chunkData)
 	var pointsTo []string
 	for _, cid := range md.PointsTo {

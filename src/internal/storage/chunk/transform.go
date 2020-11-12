@@ -63,6 +63,10 @@ func Get(ctx context.Context, ref *Ref, w io.Writer, getFunc func(ctx context.Co
 	return err
 }
 
+// compress attempts to compress src using algo. If the compressed data is bigger
+// then no compression is used.
+// compress returns the compression algorithm used (algo or NONE), the number of bytes written to dst
+// or an error
 func compress(algo CompressionAlgo, dst, src []byte) (CompressionAlgo, int, error) {
 	switch algo {
 	case CompressionAlgo_NONE:
@@ -126,14 +130,14 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// encrypt generates a key using secret and src, and encrypts src, writing the output to dst
 func encrypt(secret []byte, dst, src []byte) (dek []byte) {
-	x := append([]byte{}, secret...)
-	x = append(x, Hash(src)...)
-	dek = Hash(x)[:32]
-	cryptoXOR(dek, dst, src)
+	dek = deriveKey(secret, src)
+	cryptoXOR(dek[:32], dst, src)
 	return dek
 }
 
+// decrypt returns an io.Reader containing r decrypted using dek
 func decrypt(dek []byte, r io.Reader) (io.Reader, error) {
 	if len(dek) != 32 {
 		return nil, errors.Errorf("data encryption key is wrong length")
@@ -146,6 +150,15 @@ func decrypt(dek []byte, r io.Reader) (io.Reader, error) {
 	return cipher.StreamReader{S: ciph, R: r}, nil
 }
 
+// deriveKey returns Hash(secret + Hash(ptext))
+func deriveKey(secret, ptext []byte) []byte {
+	var x []byte
+	x = append(x, secret...)
+	x = append(x, Hash(ptext)...)
+	return Hash(x)[:32]
+}
+
+// cryptoXOR setups up a stream cipher using key, and writes (src XOR keystream) to dst
 func cryptoXOR(key, dst, src []byte) {
 	nonce := [chacha20.NonceSize]byte{}
 	ciph, err := chacha20.NewUnauthenticatedCipher(key, nonce[:])
