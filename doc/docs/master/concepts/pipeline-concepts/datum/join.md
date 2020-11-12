@@ -137,7 +137,7 @@ To experiment further, see the full [joins example](https://github.com/pachyderm
 
 Pachyderm also supports outer joins. Outer joins include everything a normal
 (inner) join does, and files that didn't match anything. Inputs can be set to
-outer semantics independantly. So while there isn't an explicit notion of
+outer semantics independently. So while there isn't an explicit notion of
 "left" or "right" outer joins, you can still get those semantics, and even
 extend them to multiway joins.
 
