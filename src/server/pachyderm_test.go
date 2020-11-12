@@ -4470,10 +4470,16 @@ func TestStopJob(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testGetLogs(t, false)
 }
 
 func TestGetLogsWithStats(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testGetLogs(t, true)
 }
 
