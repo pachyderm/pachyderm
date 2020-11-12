@@ -9,7 +9,7 @@ RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 export GC_FLAGS = ""
 # Set by CircleCI - don't deduce version string from git hash in CI case, as it
 # breaks the go build cache.
-ifdef VERSION_ADDITIONAL
+ifndef VERSION_ADDITIONAL
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 	# Don't trimpath in CI, lest we break the build cache
 	export GC_FLAGS = "all=-trimpath=${PWD}"
