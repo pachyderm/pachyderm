@@ -17,6 +17,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -1124,12 +1125,19 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 
 // TODO: Figure out logs for V2.
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	if a.env.LokiLogging || request.UseLokiBackend {
-		return a.getLogsLoki(request, apiGetLogsServer)
+		resp, err := pachClient.Enterprise.GetState(context.Background(),
+			&enterpriseclient.GetStateRequest{})
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
+		}
+		if resp.State == enterpriseclient.State_ACTIVE {
+			return a.getLogsLoki(request, apiGetLogsServer)
+		}
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
 	// Authorize request and get list of pods containing logs we're interested in
