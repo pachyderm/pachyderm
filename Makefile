@@ -6,16 +6,15 @@
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 
-# Don't set the version to the git hash in CI, as it breaks the go build cache.
-ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = "ci_build"
-	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
-	export GC_FLAGS = ""
-else
+export GC_FLAGS = ""
+# Set by CircleCI - don't deduce version string from git hash in CI case, as it
+# breaks the go build cache.
+ifdef VERSION_ADDITIONAL
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+	# Don't trimpath in CI, lest we break the build cache
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
