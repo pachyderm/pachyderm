@@ -3029,8 +3029,10 @@ func logPutFileEnd(req *pfs.PutFileRequest, start time.Time, records *pfs.PutFil
 		verb = "Deleted"
 	}
 	var bytes float64
-	for _, r := range records.Records {
-		bytes += float64(r.SizeBytes)
+	if records != nil {
+		for _, r := range records.Records {
+			bytes += float64(r.SizeBytes)
+		}
 	}
 	dur := time.Now().Sub(start).Truncate(time.Millisecond)
 	rate := float64(bytes) / dur.Seconds()
