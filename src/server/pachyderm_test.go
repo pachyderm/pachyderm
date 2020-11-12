@@ -26,6 +26,7 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -36,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
@@ -4230,13 +4232,15 @@ func TestLokiLogs(t *testing.T) {
 	}
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
+	_, err := c.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n")))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
