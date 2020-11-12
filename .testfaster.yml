@@ -56,6 +56,10 @@ base:
         git checkout circleci-testfaster && \
         git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
         CIRCLE_BRANCH=1 make install
+    RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
+        tar xf kubeval-linux-amd64.tar.gz && \
+        cp kubeval /usr/local/bin && \
+        rm kubeval-linux-amd64.tar.gz
 
   docker_bake_script: |-
     #!/bin/bash
