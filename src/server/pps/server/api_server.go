@@ -1451,10 +1451,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		resp, err := pachClient.Enterprise.GetState(context.Background(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
 		}
 		if resp.State == enterpriseclient.State_ACTIVE {
 			return a.getLogsLoki(request, apiGetLogsServer)
+		} else {
+			return errors.Errorf("enterprise must be enable to use loki logging")
 		}
 	}
 	func() { a.Log(request, nil, nil, 0) }()

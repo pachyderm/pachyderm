@@ -28,6 +28,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -39,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
@@ -4741,10 +4743,12 @@ func TestLokiLogs(t *testing.T) {
 	}
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
+	_, err := c.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
