@@ -12125,6 +12125,15 @@ func TestExtractPipeline(t *testing.T) {
 	if request.Spout != nil {
 		request.EnableStats = false
 	}
+	// Spouts and services can't use S3 inputs/outputs
+	if request.Spout != nil || request.Service != nil {
+		request.S3Out = false
+		pps.VisitInput(request.Input, func(input *pps.Input) {
+			if input.Pfs != nil {
+				input.Pfs.S3 = false
+			}
+		})
+	}
 
 	// Create the pipeline
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -12516,6 +12525,74 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
+func TestCrashingToStandby(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	pipeline := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"sleep 30", // enough time for pipeline to go into CRASHING
+					"echo $PPS_POD_NAME >/pfs/out/pod",
+				},
+			},
+			Input:   client.NewPFSInput(dataRepo, "/"),
+			Standby: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 10, // larger than our test env, so not all pods schedule
+			},
+			ResourceRequests: &pps.ResourceSpec{
+				Cpu: 0.5,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	_, err = c.PutFile(dataRepo, "master", "/foo", strings.NewReader("data"))
+	require.NoError(t, err)
+	// We should see the pipeline go into CRASHING while it's running
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_CRASHING {
+			return fmt.Errorf("expected %q to be in CRASHING but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+	// Let the pipeline finish--it should go into STANDBY at the end
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	_, err = commitIter.Next()
+	require.NoError(t, err)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+}
+
 // Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
 func TestMalformedPipeline(t *testing.T) {
 	c := tu.GetPachClient(t)
@@ -12783,6 +12860,41 @@ func TestTrigger(t *testing.T) {
 	cis, err = c.ListCommit(pipeline2, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cis))
+}
+
+func TestListDatum(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repo1 := tu.UniqueString("TestListDatum1")
+	repo2 := tu.UniqueString("TestListDatum2")
+
+	require.NoError(t, c.CreateRepo(repo1))
+	require.NoError(t, c.CreateRepo(repo2))
+
+	numFiles := 5
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFile(repo1, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo2, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+
+	resp, err := c.ListDatumInput(&pps.Input{
+		Cross: []*pps.Input{{
+			Pfs: &pps.PFSInput{
+				Repo: repo1,
+				Glob: "/*",
+			},
+		}, {
+			Pfs: &pps.PFSInput{
+				Repo: repo2,
+				Glob: "/*",
+			},
+		}},
+	}, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 25, len(resp.DatumInfos))
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {

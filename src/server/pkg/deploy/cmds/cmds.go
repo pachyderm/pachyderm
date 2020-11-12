@@ -378,6 +378,7 @@ func standardDeployCmds() []*cobra.Command {
 	var maxUploadParts int
 	var disableSSL bool
 	var noVerifySSL bool
+	var logOptions string
 	appendS3Flags := func(cmd *cobra.Command) {
 		cmd.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 		cmd.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
@@ -387,6 +388,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 		cmd.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
 		cmd.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+		cmd.Flags().StringVar(&logOptions, "obj-log-options", obj.DefaultAwsLogOptions, "(rarely set) Enable verbose logging in Pachyderm's internal S3 client for debugging. Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries', 'RequestErrors', 'EventStreamBody', or 'all' (case-insensitive). See 'AWS SDK for Go' docs for details.")
 	}
 
 	var contextName string
@@ -629,6 +631,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			if isS3V2 {
 				fmt.Printf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version\n\n")
@@ -767,6 +770,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -909,6 +913,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),

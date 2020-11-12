@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
@@ -74,7 +75,7 @@ var (
 // 1. retrieves its full pipeline spec and RC
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'ptr', if needed, to reflect the action it just took
-func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) error {
+func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) (retErr error) {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
@@ -85,13 +86,13 @@ func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer
 	defer cancel()
 
 	// Handle tracing
-	span, opCtx := extended.AddPipelineSpanToAnyTrace(opCtx,
+	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
 		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
 		"key-version", keyVer,
-		"mod-revision")
-	if span != nil {
-		defer tracing.FinishAnySpan(span)
-	}
+		"mod-revision", keyRev)
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 
 	// Retrieve pipelineInfo from the spec repo
 	op, err := a.newPipelineOp(masterClient, masterClient.WithCtx(opCtx), pipeline)
@@ -124,9 +125,10 @@ func (a *apiServer) newPipelineOp(masterClient *client.APIClient, opClient *clie
 	if err := a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
 	}
+	// Update trace with any new pipeline info from getPipelineInfo()
 	tracing.TagAnySpan(opClient.Ctx(),
-		"state", op.ptr.State.String(),
-		"spec-commit", op.ptr.SpecCommit)
+		"current-state", op.ptr.State.String(),
+		"spec-commit", pretty.CompactPrintCommitSafe(op.ptr.SpecCommit))
 	// set op.pipelineInfo
 	if err := op.getPipelineInfo(); err != nil {
 		return nil, err
@@ -151,6 +153,7 @@ func (op *pipelineOp) run() error {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// trigger another event
+		op.stopCrashingPipelineMonitor()
 		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
@@ -160,6 +163,7 @@ func (op *pipelineOp) run() error {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
+		op.stopCrashingPipelineMonitor()
 		op.startPipelineMonitor()
 		// default: scale up if pipeline start hasn't propagated to etcd yet
 		// Note: mostly this should do nothing, as this runs several times per job
@@ -171,8 +175,11 @@ func (op *pipelineOp) run() error {
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		// default: scale down if standby hasn't propagated to kube RC yet
+
+		op.stopCrashingPipelineMonitor()
+		// Make sure pipelineMonitor is running to pull it out of standby
 		op.startPipelineMonitor()
+		// default: scale down if standby hasn't propagated to kube RC yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_PAUSED:
 		if !op.rcIsFresh() {
@@ -197,6 +204,8 @@ func (op *pipelineOp) run() error {
 		if err := op.finishPipelineOutputCommits(); err != nil {
 			return err
 		}
+		// deletePipelineResources calls cancelMonitor() and cancelCrashingMonitor()
+		// in addition to deleting the RC, so those calls aren't necessary here.
 		return op.deletePipelineResources()
 	case pps.PipelineState_PIPELINE_CRASHING:
 		if !op.rcIsFresh() {
@@ -207,6 +216,17 @@ func (op *pipelineOp) run() error {
 		}
 		// start a monitor to poll k8s and update us when it goes into a running state
 		op.startCrashingPipelineMonitor()
+		op.startPipelineMonitor()
+		// Surprisingly, scaleUpPipeline() is necessary, in case a pipelines is
+		// quickly transitioned to CRASHING after coming out of STANDBY. Because the
+		// pipeline controller reads the current state of the pipeline after each
+		// event (to avoid getting backlogged), it might never actually see the
+		// pipeline in RUNNING. However, if the RC is never scaled up, the pipeline
+		// can never come out of CRASHING, so do it here in case it never happened.
+		//
+		// In general, CRASHING is actually almost identical to RUNNING (except for
+		// the monitorCrashing goro)
+		return op.scaleUpPipeline()
 	}
 	return nil
 }
@@ -424,7 +444,6 @@ func (op *pipelineOp) startPipelineMonitor() {
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.stopPipelineMonitor()
 	op.apiServer.startCrashingMonitor(op.masterClient, op.ptr.Parallelism, op.pipelineInfo)
 }
 

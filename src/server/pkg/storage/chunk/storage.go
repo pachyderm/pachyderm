@@ -36,21 +36,21 @@ func NewStorage(objClient obj.Client, opts ...StorageOption) *Storage {
 }
 
 // NewReader creates a new Reader.
-func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
-	return newReader(ctx, s.objClient, dataRefs...)
+func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
+	return newReader(ctx, s.objClient, dataRefs)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
-func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
+func (s *Storage) NewWriter(ctx context.Context, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
 	opts = append([]WriterOption{WithChunkTTL(defaultChunkTTL)}, opts...)
-	return newWriter(ctx, s.objClient, s.gcClient, tmpID, f, opts...)
+	return newWriter(ctx, s.objClient, s.gcClient, tmpID, cb, opts...)
 }
 
 // List lists all of the chunks in object storage.
-func (s *Storage) List(ctx context.Context, f func(string) error) error {
-	return s.objClient.Walk(ctx, prefix, f)
+func (s *Storage) List(ctx context.Context, cb func(string) error) error {
+	return s.objClient.Walk(ctx, prefix, cb)
 }
 
 // DeleteAll deletes all of the chunks in object storage.
