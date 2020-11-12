@@ -58,8 +58,8 @@ func TestPathLockSomeCollisions(t *testing.T) {
 				delete(running, path)
 			}
 		}
-		p  = newPathLock() // the data structure under test
-		eg errgroup.Group  // for running the subprocesses
+		p  = newPathLock(nil) // the data structure under test
+		eg errgroup.Group     // for running the subprocesses
 	)
 	// Iterate through [0,1000) in a random order, represented as binary strings.
 	// This induces regular collisions (these strings aren't fixed-width, so small
@@ -94,7 +94,7 @@ func TestPathLockSomeCollisions(t *testing.T) {
 // goroutines' paths. There should be no overlap, and later goroutines should
 // wait on earlier goroutines
 func TestPathLockAllCollisions(t *testing.T) {
-	p := newPathLock()
+	p := newPathLock(nil)
 	// Lock every prefix of 'paths' and make sure that they're processed in order
 	paths := strings.Repeat("a", 100)
 	ch := make(chan string)
@@ -130,7 +130,7 @@ func TestPathLockAllCollisions(t *testing.T) {
 // pathlock handles that direction as well (blocking paths if they're a prefix
 // of a running operation's path)
 func TestPathLockAllCollisionsRev(t *testing.T) {
-	p := newPathLock()
+	p := newPathLock(nil)
 	// Lock every prefix of 'paths' and make sure that they're processed in order
 	paths := strings.Repeat("a", 100)
 	ch := make(chan string)
