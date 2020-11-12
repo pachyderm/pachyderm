@@ -4601,6 +4601,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, retErr error) {
 
+	var pl = newPathLock(d.putFileLimiter)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -4690,18 +4691,23 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "http":
 					fallthrough
 				case "https":
-					d.putFileLimiter.Acquire()
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
 					} else if resp.StatusCode >= 400 {
 						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
+					if err := pl.start(req.File.Path); err != nil {
+						resp.Body.Close() // drop error as we're failing anyway
+						return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+					}
 					eg.Go(func() (retErr error) {
-						defer d.putFileLimiter.Release()
 						defer func() {
 							if err := resp.Body.Close(); err != nil && retErr == nil {
 								retErr = err
+							}
+							if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+								retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 							}
 						}()
 						return f(req, resp.Body)
@@ -4726,16 +4732,21 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							d.putFileLimiter.Acquire()
 							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
+							if err := pl.start(req.File.Path); err != nil {
+								r.Close() // drop error as we're failing anyway
+								return errors.Wrapf(err, "could not lock path %q", req.File.Path)
+							}
 							eg.Go(func() (retErr error) {
-								defer d.putFileLimiter.Release()
 								defer func() {
 									if err := r.Close(); err != nil && retErr == nil {
 										retErr = err
+									}
+									if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+										retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 									}
 								}()
 								return f(&req, r)
@@ -4745,16 +4756,21 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						d.putFileLimiter.Acquire()
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}
+						if err := pl.start(req.File.Path); err != nil {
+							r.Close() // drop error as we're failing anyway
+							return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+						}
 						eg.Go(func() (retErr error) {
-							defer d.putFileLimiter.Release()
 							defer func() {
 								if err := r.Close(); err != nil && retErr == nil {
 									retErr = err
+								}
+								if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+									retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 								}
 							}()
 							return f(req, r)
@@ -4768,18 +4784,30 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				pw.Close() // can't error
 			}
 			if req.Delete {
-				d.putFileLimiter.Acquire()
-				eg.Go(func() error {
-					defer d.putFileLimiter.Release()
+				if err := pl.start(req.File.Path); err != nil {
+					return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+				}
+				eg.Go(func() (retErr error) {
+					defer func() {
+						if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+							retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
+						}
+					}()
 					return f(req, nil)
 				})
 				continue
 			}
 			pr, pw = io.Pipe()
 			pr := pr
-			d.putFileLimiter.Acquire()
-			eg.Go(func() error {
-				defer d.putFileLimiter.Release()
+			if err := pl.start(req.File.Path); err != nil {
+				return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+			}
+			eg.Go(func() (retErr error) {
+				defer func() {
+					if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+						retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
+					}
+				}()
 				if err := f(req, pr); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)
