@@ -10905,11 +10905,15 @@ func testSpout(t *testing.T, usePachctl bool) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	putFileCommand := func(pipeline, file string) string {
+	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {
-			return fmt.Sprintf("pachctl put file %s@master -f %s", pipeline, file)
+			return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
 		}
 		return fmt.Sprintf("tar -cvf /pfs/out %s", file)
+	}
+
+	basicPutFile := func(file string) string {
+		return putFileCommand("master", "", file)
 	}
 
 	t.Run("SpoutBasic", func(t *testing.T) {
@@ -10929,7 +10933,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						"do",
 						"sleep 2",
 						"date > date",
-						putFileCommand(pipeline, "./date*"),
+						basicPutFile("./date*"),
 						"done"},
 				},
 				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
@@ -10998,11 +11002,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 
 		pipeline := tu.UniqueString("pipelinespoutoverwrite")
-		cmd := putFileCommand(pipeline, "./date*")
-		if usePachctl {
-			// the pachctl version doesn't respect the spout config, so explicitly mark as overwriting
-			cmd += " -o"
-		}
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -11012,12 +11011,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 					Stdin: []string{
 						// add extra command to get around issues with put file -o on a new repo
 						"date > date",
-						putFileCommand(pipeline, "./date*"),
+						basicPutFile("./date*"),
 						"while [ : ]",
 						"do",
 						"sleep 2",
 						"date > date",
-						cmd,
+						putFileCommand("master", "-o", "./date*"),
 						"done"},
 				},
 				Spout: &pps.Spout{
@@ -11072,7 +11071,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						"do",
 						"sleep 2",
 						"date > date",
-						putFileCommand(pipeline, "./date*"),
+						basicPutFile("./date*"),
 						"done"},
 				},
 				Spout: &pps.Spout{
@@ -11115,7 +11114,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						"do",
 						"sleep 2",
 						"date > date",
-						putFileCommand(pipeline, "./date*"),
+						basicPutFile("./date*"),
 						"done"},
 				},
 				Spout:     &pps.Spout{},
@@ -11164,18 +11163,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// on internal port 8000 and dumps whatever it receives
 		// (should be in the form of a tar stream) to /pfs/out.
 
-		var netcatCommands []string
+		var netcatCommand string
 
 		pipeline := tu.UniqueString("pipelineservicespout")
 		if usePachctl {
-			netcatCommands = append(netcatCommands,
-				"mkdir -p nettmp",
-				"netcat -l -s 0.0.0.0 -p 8000 | tar -x -C nettmp",
-				"cd nettmp",
-				putFileCommand(pipeline, ".")+" -r",
-			)
+			netcatCommand = fmt.Sprintf("netcat -l -s 0.0.0.0 -p 8000  | tar -x --to-command 'pachctl put file %s@master:$TAR_FILENAME'", pipeline)
 		} else {
-			netcatCommands = append(netcatCommands, "netcat -l -s 0.0.0.0 -p 8000 >/pfs/out")
+			netcatCommand = "netcat -l -s 0.0.0.0 -p 8000 >/pfs/out"
 		}
 
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -11188,7 +11182,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntuplusnetcat:latest",
 					Cmd:   []string{"sh"},
-					Stdin: netcatCommands,
+					Stdin: []string{netcatCommand},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{
 					Constant: 1,
@@ -11237,9 +11231,6 @@ func testSpout(t *testing.T, usePachctl bool) {
 			_, err = tarwriter.Write([]byte("foo"))
 			if err != nil {
 				return err
-			}
-			if usePachctl {
-				conn.Close()
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
@@ -11290,6 +11281,13 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.YesError(t, err)
 
+		var setupCommand string
+		getMarkerCommand := "cp /pfs/mymark/test ./test"
+		if usePachctl {
+			setupCommand = "MARKER_HEAD=$(pachctl start commit $PPS_PIPELINE_NAME@marker)"
+			getMarkerCommand = "pachctl get file $PPS_PIPELINE_NAME@marker:/mymark/test >test"
+		}
+
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -11297,14 +11295,16 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/mymark/test ./test",
+						setupCommand,
+						getMarkerCommand,
+						"mkdir mymark",
 						"while [ : ]",
 						"do",
 						"sleep 1",
 						"echo $(tail -1 test)x >> test",
-						"mkdir mymark",
 						"cp test mymark/test",
-						putFileCommand(pipeline, "./mymark/test*"),
+						basicPutFile("test"),
+						putFileCommand("$MARKER_HEAD", "", "./mymark/test*"),
 						"done"},
 				},
 				Spout: &pps.Spout{
@@ -11315,7 +11315,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		// get 5 succesive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
-		iter, err := c.SubscribeCommit(pipeline, "marker", nil, "", pfs.CommitState_FINISHED)
+		followBranch := "marker"
+		if usePachctl {
+			// the spout never actually finishes its commit on marker, so follow master instead
+			followBranch = "master"
+		}
+		iter, err := c.SubscribeCommit(pipeline, followBranch, nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		var prevLength uint64
@@ -11333,6 +11338,9 @@ func testSpout(t *testing.T, usePachctl bool) {
 			prevLength = fileLength
 		}
 
+		if usePachctl {
+			require.NoError(t, c.FinishCommit(pipeline, "marker"))
+		}
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -11340,14 +11348,16 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/mymark/test ./test",
+						setupCommand,
+						getMarkerCommand,
+						"mkdir mymark",
 						"while [ : ]",
 						"do",
 						"sleep 1",
 						"echo $(tail -1 test). >> test",
-						"mkdir mymark",
 						"cp test mymark/test",
-						putFileCommand(pipeline, "./mymark/test*"),
+						basicPutFile("test"),
+						putFileCommand("$MARKER_HEAD", "", "./mymark/test*"),
 						"done"},
 				},
 				Spout: &pps.Spout{
@@ -11396,8 +11406,10 @@ func testSpout(t *testing.T, usePachctl bool) {
 		if xs == 0 {
 			t.Errorf("file has the wrong form, marker was likely overwritten")
 		}
-
 		// now let's reprocess the spout
+		if usePachctl {
+			require.NoError(t, c.FinishCommit(pipeline, "marker"))
+		}
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -11405,14 +11417,16 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/mymark/test ./test",
+						setupCommand,
+						getMarkerCommand,
+						"mkdir mymark",
 						"while [ : ]",
 						"do",
 						"sleep 1",
 						"echo $(tail -1 test). >> test",
-						"mkdir mymark",
 						"cp test mymark/test",
-						putFileCommand(pipeline, "./mymark/test*"),
+						basicPutFile("test"),
+						putFileCommand("$MARKER_HEAD", "", "./mymark/test*"),
 						"done"},
 				},
 				Spout: &pps.Spout{
@@ -11423,13 +11437,15 @@ func testSpout(t *testing.T, usePachctl bool) {
 			})
 		require.NoError(t, err)
 
-		// we should get a single file with a pyramid of '.'s
-		commitInfo, err := iter.Next()
-		require.NoError(t, err)
-		files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
-		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+		}
 
+		// we should get a single file with a pyramid of '.'s
 		err = c.GetFile(pipeline, "marker", "mymark/test", 0, 0, &buf)
 		if err != nil {
 			t.Errorf("Could not get file %v", err)
@@ -11468,7 +11484,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						"do",
 						"sleep 2",
 						"date > date",
-						putFileCommand(pipeline, "./date*"),
+						basicPutFile("./date*"),
 						"done"},
 				},
 				Input: client.NewPFSInput(dataRepo, "/*"),

@@ -48,8 +48,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault v1.1.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
-	github.com/itchyny/gojq v0.11.1
-	github.com/itchyny/timefmt-go v0.1.1 // indirect
+	github.com/itchyny/gojq v0.11.2
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a

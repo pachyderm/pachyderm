@@ -270,7 +270,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -311,7 +311,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -971,7 +971,7 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
