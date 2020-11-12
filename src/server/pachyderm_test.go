@@ -4849,7 +4849,6 @@ func TestDatumStatusRestart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -6754,6 +6753,9 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 }
 
 func TestPipelineWithStatsPaginated(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
