@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -940,14 +939,14 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
 	`).Run())
 
-	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
+	cmd := tu.BashCmd(`
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {
 		      "name": "first"
 		    },
 		    "transform": {
-		      "image": "%s"
+		      "image": "{{.image}}"
 		    },
 		    "input": {
 		      "pfs": {
@@ -957,7 +956,7 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 		    }
 		  }
 		EOF
-	`, image))
+	`, "image", image)
 	buf := &bytes.Buffer{}
 	cmd.Stderr = buf
 	// cmd.Stdout = os.Stdout // uncomment for debugging
@@ -1009,7 +1008,7 @@ func TestWarningLatestTag(t *testing.T) {
 	}
 	// should emit a warning because user specified latest tag on docker image
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
-	require.NoError(t, err)
+	require.NoError(t, err, "%v", err)
 	require.Matches(t, "WARNING", stderr)
 }
 
