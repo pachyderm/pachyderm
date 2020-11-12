@@ -86,6 +86,12 @@ const (
 	// random to avoid collisions with real usernames
 	ppsUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
+	// rootUser is a special, unrevocable cluster administrator account created
+	// when auth is activated. The auth token for the root user should be stored
+	// securely - it must be used to initially configure an IDP, and if the IDP
+	// malfunctions it may be the only way to authenticate to the cluster
+	rootUser = `magic:root`
+
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
@@ -526,44 +532,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, errors.Errorf("already activated")
 	}
 
-	// The Pachyderm token that Activate() returns will have the TTL
-	// - 'defaultSessionTTLSecs' if the initial admin is a GitHub user (who can
-	//   get a new token by re-authenticating via GitHub after this token expires)
-	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
-	//   (who has no way to acquire a new token once this token expires)
-	ttlSecs := int64(defaultSessionTTLSecs)
-	// Authenticate the caller (or generate a new auth token if req.Subject is a
-	// robot user)
-	if req.Subject != "" {
-		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	switch {
-	case req.Subject == "":
-		fallthrough
-	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-		if !a.githubEnabled() {
-			return nil, errors.New("GitHub auth is not enabled on this cluster")
-		}
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-		if err != nil {
-			return nil, err
-		}
-		if req.Subject != "" && req.Subject != username {
-			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
-		}
-		req.Subject = username
-	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
-		// req.Subject will be used verbatim, and the resulting code will
-		// authenticate the holder as the robot account therein
-		ttlSecs = 0 // no expiration for robot tokens -- see above
-	default:
-		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
-	}
-
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
@@ -603,16 +571,16 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
-		if err := admins.Put(req.Subject, epsilon); err != nil {
+		if err := admins.Put(rootUser, epsilon); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
 			hashToken(pachToken),
 			&auth.TokenInfo{
-				Subject: req.Subject,
+				Subject: rootUser,
 				Source:  auth.TokenInfo_AUTHENTICATE,
 			},
-			ttlSecs,
+			0,
 		)
 	}); err != nil {
 		return nil, err

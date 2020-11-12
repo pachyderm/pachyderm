@@ -28,31 +28,14 @@ import "google/protobuf/timestamp.proto";
 
 //// Activation API
 
-// ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
-// GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
-// caller can promote other users to Admin and remove themselves
-message ActivateRequest {
-  // If set, Pachyderm will authenticate the caller as this user.
-  // - If set to a github user (i.e. it has a 'github:' prefix or no prefix)
-  //   then Pachyderm will confirm that it matches the user associated with
-  //   'github_token'
-  // - If set to a robot user (i.e. it has a 'robot:' prefix), then Pachyderm
-  //   will generate a new token for the robot user; this token will be the only
-  //   way to administer this cluster until more admins are added.
-  string subject = 2;
-
-  // This is the token returned by GitHub and used to authenticate the caller.
-  // When Pachyderm is deployed locally, setting this value to a given string
-  // will automatically authenticate the caller as a GitHub user whose username
-  // is that string (unless this "looks like" a GitHub access code, in which
-  // case Pachyderm does retrieve the corresponding GitHub username)
-  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
-}
+// ActivateRequest enables authentication on the cluster and mints a single
+// auth token for the root user. This token has an infinite lifespan and should
+// be stored securely in the event the IDP is inaccessible or misconfigured.
+message ActivateRequest {}
 
 message ActivateResponse {
-  // pach_token authenticates the caller with Pachyderm (if you want to perform
-  // Pachyderm operations after auth has been activated as themselves, you must
-  // present this token along with your regular request)
+  // pach_token is an auth token for the root user, which must be provided
+  // to administer the cluster once authentication is enabled. 
   string pach_token = 1;
 }
 
