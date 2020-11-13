@@ -390,6 +390,7 @@ launch-logging: check-kubectl check-kubectl-connection
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 launch-loki:
+	helm repo delete loki || true
 	helm repo add loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
