@@ -101,6 +101,9 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
