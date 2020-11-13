@@ -38,16 +38,16 @@ jobs:
       - run: etc/testing/circle_tests.sh 2>&1 |ts
 
       # retry on failure
-      #- run:
-      #    name: Test (retry 2)
-      #    command: etc/testing/circle_tests.sh 2>&1 |ts
-      #    when: on_fail
+      - run:
+          name: Test (retry 2)
+          command: etc/testing/circle_tests.sh 2>&1 |ts
+          when: on_fail
 
       # retry on failure again...
-      #- run:
-      #    name: Test (retry 3)
-      #    command: etc/testing/circle_tests.sh 2>&1 |ts
-      #    when: on_fail
+      - run:
+          name: Test (retry 3)
+          command: etc/testing/circle_tests.sh 2>&1 |ts
+          when: on_fail
 
       - run:
           name: Release VM after successful run
