@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -43,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -3013,14 +3015,43 @@ func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
 	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
 }
 
+func logPutFileStart(req *pfs.PutFileRequest) {
+	verb := "Writing"
+	if req.Delete {
+		verb = "Deleting"
+	}
+	log.Debugf(`pfs.API.PutFile/%s {"to":%q}`, verb, pretty.CompactPrintFile(req.File))
+}
+
+func logPutFileEnd(req *pfs.PutFileRequest, start time.Time, records *pfs.PutFileRecords, retErr error) {
+	verb := "Wrote"
+	if req.Delete {
+		verb = "Deleted"
+	}
+	var bytes float64
+	if records != nil {
+		for _, r := range records.Records {
+			bytes += float64(r.SizeBytes)
+		}
+	}
+	dur := time.Since(start).Truncate(time.Millisecond)
+	rate := float64(bytes) / dur.Seconds()
+	log.Debugf(`pfs.API.PutFile/%s {"to":%q,"sz":%q,"dur":"%s (%s/s)","err":"%v"`,
+		verb, pretty.CompactPrintFile(req.File), units.BytesSize(bytes), dur, units.BytesSize(rate), retErr)
+}
+
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		log.Debugf("Writing to %v@%v:/%v", req.File.Commit.Repo.Name, req.File.Commit.ID, req.File.Path)
-		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
+	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) (retErr error) {
+		start := time.Now()
+		var records *pfs.PutFileRecords
+		logPutFileStart(req)
+		defer func() { logPutFileEnd(req, start, records, retErr) }() //late binding
+		var err error
+		records, err = d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
 		if err != nil {
 			return err
@@ -4638,6 +4669,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, retErr error) {
 
+	var pl = newPathLock(d.putFileLimiter)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -4727,18 +4759,23 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "http":
 					fallthrough
 				case "https":
-					d.putFileLimiter.Acquire()
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
 					} else if resp.StatusCode >= 400 {
 						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
+					if err := pl.start(req.File.Path); err != nil {
+						resp.Body.Close() // drop error as we're failing anyway
+						return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+					}
 					eg.Go(func() (retErr error) {
-						defer d.putFileLimiter.Release()
 						defer func() {
 							if err := resp.Body.Close(); err != nil && retErr == nil {
 								retErr = err
+							}
+							if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+								retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 							}
 						}()
 						return f(req, resp.Body)
@@ -4763,16 +4800,21 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							d.putFileLimiter.Acquire()
 							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
+							if err := pl.start(req.File.Path); err != nil {
+								r.Close() // drop error as we're failing anyway
+								return errors.Wrapf(err, "could not lock path %q", req.File.Path)
+							}
 							eg.Go(func() (retErr error) {
-								defer d.putFileLimiter.Release()
 								defer func() {
 									if err := r.Close(); err != nil && retErr == nil {
 										retErr = err
+									}
+									if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+										retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 									}
 								}()
 								return f(&req, r)
@@ -4782,16 +4824,21 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						d.putFileLimiter.Acquire()
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}
+						if err := pl.start(req.File.Path); err != nil {
+							r.Close() // drop error as we're failing anyway
+							return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+						}
 						eg.Go(func() (retErr error) {
-							defer d.putFileLimiter.Release()
 							defer func() {
 								if err := r.Close(); err != nil && retErr == nil {
 									retErr = err
+								}
+								if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+									retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
 								}
 							}()
 							return f(req, r)
@@ -4805,18 +4852,30 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				pw.Close() // can't error
 			}
 			if req.Delete {
-				d.putFileLimiter.Acquire()
-				eg.Go(func() error {
-					defer d.putFileLimiter.Release()
+				if err := pl.start(req.File.Path); err != nil {
+					return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+				}
+				eg.Go(func() (retErr error) {
+					defer func() {
+						if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+							retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
+						}
+					}()
 					return f(req, nil)
 				})
 				continue
 			}
 			pr, pw = io.Pipe()
 			pr := pr
-			d.putFileLimiter.Acquire()
-			eg.Go(func() error {
-				defer d.putFileLimiter.Release()
+			if err := pl.start(req.File.Path); err != nil {
+				return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
+			}
+			eg.Go(func() (retErr error) {
+				defer func() {
+					if err := pl.finish(req.File.Path); err != nil && retErr == nil {
+						retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
+					}
+				}()
 				if err := f(req, pr); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)

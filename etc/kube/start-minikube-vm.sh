@@ -24,6 +24,11 @@ function get_images {
 }
 export -f get_images
 
+function start_minikube {
+    minikube start "${MINIKUBE_FLAGS[@]}"
+}
+export -f start_minikube
+
 ## If the caller provided a tag, build and use that
 export PACH_VERSION=local
 KUBE_VERSION=v1.13.0
@@ -59,7 +64,7 @@ Running:
 EOF
 cat <<EOF | tail -c+1 | xargs -I{} -n1 -P3 -- /bin/bash -c {}
 get_images
-minikube start ${MINIKUBE_FLAGS[@]}
+start_minikube
 EOF
 
 # Print a spinning wheel while waiting for minikube to come up

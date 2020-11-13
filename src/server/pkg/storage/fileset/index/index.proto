@@ -5,27 +5,37 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/files
 
 import "server/pkg/storage/chunk/chunk.proto";
 
-message Range {
-  int64 offset = 1;
-  string last_path = 2;
-  // bloom filter, stats, etc.
-}
-
-// DataOp is a sequence of data references and an operation associated with the referenced data.
-// TODO Delete semantics are a bit weird, need to revisit before 2.0.
-// A delete will have just delete_tags set. 
-// An overwrite will have delete_tags and data_refs set.
-// An append will just have data_refs set.
-message DataOp {
-  repeated chunk.Tag delete_tags = 1;
-  repeated chunk.DataRef data_refs = 2;
-}
-
-// Index stores an index to and metadata about file sets.
+// Index stores an index to and metadata about a file.
 message Index {
   string path = 1;
   Range range = 2;
-  DataOp data_op = 3;
-  // Size of the content being indexed (does not include headers).
+  FileOp file_op = 3;
+  // Size of the content being indexed (does not include headers or padding).
   int64 size_bytes = 4;
+}
+
+message Range {
+  int64 offset = 1;
+  string last_path = 2;
+  chunk.DataRef chunk_ref = 3;
+}
+
+message FileOp {
+  Op op = 1;
+  repeated DataOp data_ops = 2;
+  repeated chunk.DataRef data_refs = 3;
+}
+
+// TODO: Overwrite op is technically unecessary, but it might be better to be explicit.
+enum Op {
+  APPEND = 0;
+  DELETE = 1;
+  OVERWRITE = 2;
+}
+
+message DataOp {
+  Op op = 1;
+  string tag = 2;
+  int64 size_bytes = 3;
+  repeated chunk.DataRef data_refs = 4;
 }

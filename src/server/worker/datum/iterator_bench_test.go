@@ -66,9 +66,9 @@ func benchmarkIterators(j int, b *testing.B) {
 		})
 
 		b.Run("join", func(b *testing.B) {
-			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", "", false)
+			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", "", false, false)
 			in8.Pfs.Commit = commit.ID
-			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", "", false)
+			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", "", false, false)
 			in9.Pfs.Commit = commit.ID
 			join1, err := newJoinIterator(c, []*pps.Input{in8, in9})
 			require.NoError(b, err)
@@ -76,7 +76,7 @@ func benchmarkIterators(j int, b *testing.B) {
 		})
 
 		b.Run("group", func(b *testing.B) {
-			in10 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "", "$2", false)
+			in10 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "", "$2", false, false)
 			in10.Pfs.Commit = commit.ID
 			group1, err := newGroupIterator(c, []*pps.Input{in10})
 			require.NoError(b, err)

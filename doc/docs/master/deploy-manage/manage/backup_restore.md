@@ -36,11 +36,14 @@ To stop a running pipeline, complete the following steps:
 1. Pause each pipeline individually by repeatedly running the single
 `pachctl` command or by running a script:
 
-   ```pachctl tab="Command"
+=== "Command"
+   ```shell
    pachctl stop pipeline <pipeline-name>
    ```
 
-   ```script tab="Script"
+
+=== "Script"
+   ```shell
    pachctl list pipeline --raw \
    | jq -r '.pipeline.name' \
    | xargs -P3 -n1 -I{} pachctl stop pipeline {}

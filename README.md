@@ -60,7 +60,7 @@ Send us PRs, we would love to see what you do! You can also check our GH issues 
 
 ## Join Us
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://jobs.lever.co/pachyderm/)
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://boards.greenhouse.io/pachyderm)
 
 ## Usage Metrics
 
