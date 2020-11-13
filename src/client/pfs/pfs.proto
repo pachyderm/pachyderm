@@ -48,20 +48,16 @@ message RepoInfo {
   string description = 5;
   repeated Branch branches = 7;
 
-  // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
-  // not stored in etcd. To set a user's auth scope for a repo, use the
-  // Pachyderm Auth API (in src/client/auth/auth.proto)
+  // Set by ListRepo and InspectRepo if Pachyderm's auth system is active.
+  // Includes the permissions the caller is granted on the repo.
   RepoAuthInfo auth_info = 6;
 }
 
-// RepoAuthInfo includes the caller's access scope for a repo, and is returned
-// by ListRepo and InspectRepo but not persisted in etcd. It's used by the
-// Pachyderm dashboard to render repo access appropriately. To set a user's auth
-// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
+// RepoAuthInfo includes the caller's permissions for a repo, and is returned
+// by ListRepo and InspectRepo. It's used by the Pachyderm dashboard to render 
+// repo access appropriately.
 message RepoAuthInfo {
-  // The callers access level to the relevant repo (e.g. may be OWNER even if
-  // the user isn't an OWNER of the repo, if they're an admin for the cluster)
-  auth.Scope access_level = 1;
+  repeated auth.Permission permissions = 1;
 }
 
 message BranchInfo {
