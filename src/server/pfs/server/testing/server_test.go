@@ -578,6 +578,44 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPutFileOverlappingPaths tests the fix for
+// https://github.com/pachyderm/pachyderm/issues/5345.
+// However, I can't get the test to fail without adding a sleep to
+// forEachPutFile in driver.go that induces the race (at:
+// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
+// doesn't seem to help. In practice, that means we're still relying on
+// TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
+// (Minikube seems to induce more races), but maybe this test will be useful in
+// conjunction with e.g. some kind of race detector.
+// TODO(msteffen): Get this test to fail reliably in the presence of the race.
+func TestPutFileOverlappingPaths(t *testing.T) {
+	t.Parallel()
+	files := []string{"/a", "/b", "/c"}
+	contents := []string{"foo", "bar", "baz"}
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		c.CreateRepo("test")
+		for i := 0; i < 100; i++ {
+			pfc, err := c.NewPutFileClient()
+			require.NoError(t, err)
+			require.NoError(t, pfc.DeleteFile("test", "master", "/"))
+			for i, f := range files {
+				_, err := pfc.PutFile("test", "master", f, strings.NewReader(contents[i]))
+				require.NoError(t, err)
+			}
+			require.NoError(t, pfc.Close())
+			var actualFiles []string
+			c.ListFileF("test", "master", "/", 0, func(f *pfs.FileInfo) error {
+				actualFiles = append(actualFiles, f.File.Path)
+				return nil
+			})
+			require.ElementsEqual(t, files, actualFiles)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestCreateInvalidBranchName(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
@@ -6422,11 +6460,16 @@ func TestAtomicHistory(t *testing.T) {
 
 type SlowReader struct {
 	underlying io.Reader
+	delay      time.Duration
 }
 
 func (r *SlowReader) Read(p []byte) (n int, err error) {
 	n, err = r.underlying.Read(p)
-	time.Sleep(1 * time.Millisecond)
+	if r.delay == 0 {
+		time.Sleep(1 * time.Millisecond)
+	} else {
+		time.Sleep(r.delay)
+	}
 	return
 }
 

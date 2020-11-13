@@ -25,7 +25,7 @@ function get_images {
 export -f get_images
 
 function start_minikube {
-    minikube start ${MINIKUBE_FLAGS[@]}
+    minikube start "${MINIKUBE_FLAGS[@]}"
 }
 export -f start_minikube
 
