@@ -581,8 +581,9 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 // TestPutFileOverlappingPaths tests the fix for
 // https://github.com/pachyderm/pachyderm/issues/5345.
 // However, I can't get the test to fail without adding a sleep to
-// forEachPutFile in driver.go that induces the race. Setting GOMAXPROCS to 1
-// and 100 doesn't seem to help. In practice, that means we're still relying on
+// forEachPutFile in driver.go that induces the race (at:
+// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
+// doesn't seem to help. In practice, that means we're still relying on
 // TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
 // (Minikube seems to induce more races), but maybe this test will be useful in
 // conjunction with e.g. some kind of race detector.
