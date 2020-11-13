@@ -7,7 +7,12 @@ if [[ $# -ne 1 ]]; then
 fi
 
 if [ -f /TESTFASTER_PREWARM_COMPLETE ]; then
-    echo "Detected running in CI, nothing to do."
+    echo "Detected running in Testfaster, nothing to do."
+    exit 0
+fi
+
+if [ ! -z "$TRAVIS_BUILD_NUMBER" ]; then
+    echo "Detected running in Travis, nothing to do."
     exit 0
 fi
 
