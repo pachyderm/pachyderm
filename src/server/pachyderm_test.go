@@ -4921,9 +4921,7 @@ func TestDatumStatusRestart(t *testing.T) {
 }
 
 func TestUseMultipleWorkers(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7224,9 +7222,7 @@ func TestSkippedDatums(t *testing.T) {
 }
 
 func TestOpencvDemo(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
