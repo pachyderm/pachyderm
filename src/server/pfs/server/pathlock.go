@@ -54,9 +54,6 @@ func newPathLock(putFileLimiter limit.ConcurrencyLimiter) *pathlock {
 
 func (p *pathlock) start(path string) (retErr error) {
 	// add leading slash, so '/' collides w/ everything.
-	// TODO(msteffen): would paths.go (in this package) or s/s/pkg/paths be
-	// better? The latter doesn't exist in 1.11.x, and the former adds a leading
-	// slash but doesn't clean the path.
 	path = gopath.Clean("/" + path)
 	defer func() {
 		if retErr == nil && p.putFileLimiter != nil {
