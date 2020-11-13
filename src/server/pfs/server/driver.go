@@ -3050,10 +3050,11 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		var records *pfs.PutFileRecords
 		logPutFileStart(req)
 		defer func() { logPutFileEnd(req, start, records, retErr) }() //late binding
-		records, retErr = d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
+		var err error
+		records, err = d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
-		if retErr != nil {
-			return retErr
+		if err != nil {
+			return err
 		}
 		mu.Lock()
 		defer mu.Unlock()
