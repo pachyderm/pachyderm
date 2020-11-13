@@ -11,7 +11,7 @@ if [ -f /TESTFASTER_PREWARM_COMPLETE ]; then
     exit 0
 fi
 
-if [ ! -z "$TRAVIS_BUILD_NUMBER" ]; then
+if [ -n "$TRAVIS_BUILD_NUMBER" ]; then
     echo "Detected running in Travis, nothing to do."
     exit 0
 fi
