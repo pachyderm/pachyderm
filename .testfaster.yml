@@ -48,14 +48,15 @@ base:
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY RUN_BAD_TESTS VERSION_ADDITIONAL" >> /etc/ssh/sshd_config
     WORKDIR /root
-    # warm up go mod cache and go build cache
-    # we set VERSION_ADDITIONAL so that Makefile uses cacheable
-    # build params (version).
+    # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
+    # Makefile uses cacheable build params (version).  Also cache the go deps
+    # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
         git checkout circleci-testfaster && \
-        git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
-        VERSION_ADDITIONAL="ci_build" make install
+        git checkout f606baa28f4ef51f0e1289bd680dfc212f447f94 && \
+        VERSION_ADDITIONAL="ci_build" make install && \
+        etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
         cp kubeval /usr/local/bin && \
