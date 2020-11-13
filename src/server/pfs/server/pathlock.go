@@ -67,12 +67,12 @@ func (p *pathlock) start(path string) (retErr error) {
 	defer p.Unlock()
 	for { // Check block condition in a loop--see sync.Cond documentation
 		if blocking := func() string {
-			// Find if there's any P in 'running' such that 'path' is a prefix of P[1]
+			// Find any P in 'running' such that 'path' is a prefix of P. [1]
 			lub := sort.SearchStrings(p.running, path)
 			if lub < len(p.running) && strings.HasPrefix(p.running[lub], path) {
 				return p.running[lub]
 			}
-			// Find if there's any P in 'running' such that P is a prefix of 'path'.
+			// Find any P in 'running' such that P is a prefix of 'path'.
 			for i := len(path) - 1; i > 0 && lub >= 0; i-- {
 				// Loop invariants:
 				// 1. lub is the smallest entry in running that is >= path[:i+1] (note
@@ -146,10 +146,11 @@ func (p *pathlock) finish(path string) (retErr error) {
 // well (if any letter was different, it would place running[lub] either before
 // 'path' or after 'running[i]').
 //
-// [2] To see that the loop invariant is maintained, we need to show that
-// SearchStrings(running[:lub], path[:i]) yields the least upper bound of
-// path[:i] in running. To see that, observe:
-//   path[:i] < path[:i+1] <= running[lub]
+// [2] To see that the loop invariant 'path[:i+1] <= running[lub]' is
+// maintained, we need to show that
+//   lub' = SearchStrings(running[:lub], path[:i]) = lub of path[:i] in running
+// yields the least upper bound of path[:i] in running. To see that, observe:
+//   path[:i] < path[:i+1] <= running[lub] <= running[lub+1:]...
 //   --> SearchStrings(running[:lub], path[:i])
 //         = 1. lub of path[:i] in running[:lub], if any values in running[:lub]
 //              are >= path[:i], or
