@@ -55,7 +55,7 @@ base:
         cd pachyderm && \
         git checkout f8384ad955683e1825b725c2da26f34cea9e3498 && \
         VERSION_ADDITIONAL="ci_build" make install && \
-        etc/testing/lint.sh || true
+        PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
         cp kubeval /usr/local/bin && \
