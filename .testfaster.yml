@@ -46,15 +46,15 @@ base:
     FROM quay.io/testfaster/kube-ubuntu
     ENV cache-bust 5
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
-    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY RUN_BAD_TESTS VERSION_ADDITIONAL" >> /etc/ssh/sshd_config
+    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
     WORKDIR /root
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
     # Makefile uses cacheable build params (version).  Also cache the go deps
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout f8384ad955683e1825b725c2da26f34cea9e3498 && \
-        VERSION_ADDITIONAL="ci_build" make install && \
+        git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
+        CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
@@ -65,9 +65,9 @@ base:
     #!/bin/bash
     set -xeuo pipefail
     cd /root/pachyderm
-    # we set VERSION_ADDITIONAL so that Makefile uses cacheable
+    # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
-    export VERSION_ADDITIONAL="ci_build"
+    export CIRCLE_BRANCH=1
     # warm up docker buildkit go mod cache and go build cache
     make docker-build
     # build docker images that are used in tests
@@ -89,7 +89,7 @@ base:
     # re-warm OS file cache etc, e.g. load the file metadata into VM memory to
     # make the actual build faster (it's already been cached on disk from the
     # previous stages)
-    export VERSION_ADDITIONAL="ci_build"
+    export CIRCLE_BRANCH=1
     make install
     make docker-build
 
@@ -102,7 +102,7 @@ base:
   kubernetes_version: 'v1.18.3'
 
 runtime:
-  cpus: 4
+  cpus: 16
   memory: 4GB
   disk: 50GB
 

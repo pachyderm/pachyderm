@@ -16,9 +16,6 @@ jobs:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
       RUN_BAD_TESTS: ""
-      # Use a static version string so that we avoid breaking the go build
-      # cache between pre-warmed builds and the latest build.
-      VERSION_ADDITIONAL: "ci_build"
 
     resource_class: small
 
@@ -57,7 +54,6 @@ jobs:
             ./etc/testing/testctl-ssh.sh -- docker images --format "{{.Repository}}:{{.Tag}}" |sort |sed 's/^/   - /g'
             echo "========================================="
             testctl drop
-
 
 workflows:
   all-tests:
