@@ -13,6 +13,9 @@ ifndef VERSION_ADDITIONAL
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 	# Don't trimpath in CI, lest we break the build cache
 	export GC_FLAGS = "all=-trimpath=${PWD}"
+else
+	# It was set in our environment, so pass the value through to subprocesses.
+	export VERSION_ADDITIONAL
 endif
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export DOCKER_BUILD_FLAGS
