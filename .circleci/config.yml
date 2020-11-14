@@ -11,6 +11,7 @@ jobs:
         type: string
       run_flaky_tests:
         type: string
+        default: ""
 
     environment:
       PPS_BUCKETS: "6"
