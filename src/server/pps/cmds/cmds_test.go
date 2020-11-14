@@ -609,6 +609,10 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
 	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
@@ -622,10 +626,16 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
