@@ -4,18 +4,19 @@ before:
   hooks:
     - docker login
 
+# Goreleaser needs a build step, so building a dummy binary.
+# Hence the name `notusedbuild`, because its not used in any
+# step.
+# TODO: the pachyderm_build step in our docker images should
+# be a build step here and we can make the pachd/worker docker
+# a simpler process. It should also cut down the docker-build
+# step.
 builds:
   -
-    id: pachctl
-    dir: src/server/cmd/pachctl
-    main: main.go
-    binary: pachctl
-    ldflags:
-      - -X {{ .Env.LD_FLAGS }}
-    gcflags:
-      - all=-trimpath={{ .Env.PWD }}
-    env:
-      - CGO_ENABLED=0
+    id: notusedbuild
+    dir: etc/worker
+    main: init.go
+    binary: notusedbuild
     goos:
       - linux
     goarch:

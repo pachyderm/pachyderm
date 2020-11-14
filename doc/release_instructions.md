@@ -97,7 +97,7 @@ manually.
 
 ### Rebuild docs
 
-After running make. Make sure you add any newly created (untracked) doc files, in
+After running make doc. Make sure you add any newly created (untracked) doc files, in
 addition to docs that have been updated (`git commit -a` might not get
 everything):
 
