@@ -1,13 +1,41 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','GTM-PGZQGKM');</script>
-  <!-- End Google Tag Manager -->
+  <script> 
+    rudderanalytics=window.rudderanalytics=[];for(var methods=["load","page","track","identify","alias","group","ready","reset","getAnonymousId","setAnonymousId"],i=0;i<methods.length;i++){var method=methods[i];rudderanalytics[method]=function(a){return function(){rudderanalytics.push([a].concat(Array.prototype.slice.call(arguments)))}}(method)}rudderanalytics.load("1iJtD7UiXR23JlGPtE8YnzQH3KG","https://pachyderm-dataplane.rudderstack.com"),rudderanalytics.page();
+    
+    function getUrlParameter(name) {
+      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+      var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      var results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    };
+
+    var anonymous_id = rudderanalytics.getAnonymousId();
+    var latest_utm_source =  getUrlParameter('utm_source');
+    var latest_utm_campaign =  getUrlParameter('utm_campaign');
+    var latest_utm_medium =  getUrlParameter('utm_medium');
+    var latest_utm_content =  getUrlParameter('utm_content');
+    var latest_utm_term =  getUrlParameter('utm_term');
+    
+    if (latest_utm_content) {
+      rudderanalytics.track(
+        "UTM",
+        {
+          context: {
+            traits: {
+              latest_utm_source,
+              latest_utm_campaign,
+              latest_utm_medium,
+              latest_utm_content,
+              latest_utm_term
+            }
+          }
+        }
+      );
+    }
+  </script>
+  <script src="https://cdn.rudderlabs.com/rudder-analytics.min.js"></script>
   
   <link href=https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
 
@@ -32,8 +60,8 @@
 
   <!-- Twitter meta tags -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:site" content="@pachyderm" />
-  <meta name="twitter:creator" content="@pachyderm" />
+  <meta name="twitter:site" content="@pachyderminc" />
+  <meta name="twitter:creator" content="@pachyderminc" />
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ config.site_description }}" />
   <meta name="twitter:image" content="{{ image }}" />

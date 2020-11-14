@@ -18,18 +18,27 @@ config:
     tlsKey: /etc/dex/tls/https/server/tls.key
     allowedOrigins: []
   staticClients:
+  - id: testapp
+    name: "Test App"
+    redirectURIs:
+    - 'http://test.example.com:657/authorization-code/callback'
+    secret: test
   - id: pachyderm
     name: "Pachyderm"
     redirectURIs:
     - 'http://pachd:657/authorization-code/callback'
-    secret: blahblahblah
-  enablePasswordDB: true
-  staticPasswords:
-  - email: "admin@example.com"
-  # bcrypt hash of the string "password"
-    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
-    username: "admin"
-    userID: "08a8684b-db88-4b73-90a9-3cd1661f5466" 
+    secret: notsecret
+    trustedPeers:
+    - testapp
+  connectors:
+  - id: test
+    name: test
+    type: mockPassword
+    config:
+      username: admin
+      password: password
+  enablePasswordDB: false
   oauth2:
     alwaysShowLoginScreen: false
     skipApprovalScreen: true
+    passwordConnector: test

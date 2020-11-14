@@ -103,6 +103,7 @@ const (
 	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
 	DisableSSLEnvVar     = "DISABLE_SSL"
 	NoVerifySSLEnvVar    = "NO_VERIFY_SSL"
+	LogOptionsEnvVar     = "OBJ_LOG_OPTS"
 )
 
 const (
@@ -122,6 +123,8 @@ const (
 	DefaultDisableSSL = false
 	// DefaultNoVerifySSL is the default for whether SSL certificate verification should be disabled.
 	DefaultNoVerifySSL = false
+	// DefaultAwsLogOptions is the default set of enabled S3 client log options
+	DefaultAwsLogOptions = ""
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -137,6 +140,7 @@ type AmazonAdvancedConfiguration struct {
 	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
 	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
 	NoVerifySSL    bool   `env:"NO_VERIFY_SSL, default=false"`
+	LogOptions     string `env:"OBJ_LOG_OPTS, default="`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -177,6 +181,7 @@ var EnvVarToSecretKey = []struct {
 	{Key: MaxUploadPartsEnvVar, Value: "max-upload-parts"},
 	{Key: DisableSSLEnvVar, Value: "disable-ssl"},
 	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
+	{Key: LogOptionsEnvVar, Value: "log-options"},
 }
 
 // Client is an interface to object storage.
@@ -283,7 +288,7 @@ func secretFile(name string) string {
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(secretFile(name))
 	if err != nil {
-		return "", errors.EnsureStack(err)
+		return "", err
 	}
 	return strings.TrimSpace(string(bytes)), nil
 }
@@ -403,7 +408,7 @@ func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution str
 	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if len(reverse) > 0 {
 		advancedConfig.Reverse = reverse[0]

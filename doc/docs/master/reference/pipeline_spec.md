@@ -178,9 +178,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
       "repo": string,
       "branch": string,
       "glob": string,
-      "join_on": string
-      "lazy": bool
-      "empty_files": bool
+      "join_on": string,
+      "outer_join": bool,
+      "lazy": bool,
+      "empty_files": bool,
       "s3": bool
     }
   },
@@ -190,9 +191,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
        "repo": string,
        "branch": string,
        "glob": string,
-       "join_on": string
-       "lazy": bool
-       "empty_files": bool
+       "join_on": string,
+      "outer_join": bool,
+       "lazy": bool,
+       "empty_files": bool,
        "s3": bool
     }
   }

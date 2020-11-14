@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm
 
-go 1.13
+go 1.15
 
 require (
 	cloud.google.com/go/storage v1.3.0
@@ -91,7 +91,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
-	golang.org/x/tools v0.0.0-20201105001634-bc3cf281b174 // indirect
+	golang.org/x/tools v0.0.0-20201027180023-8dabb740183d // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0

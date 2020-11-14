@@ -93,6 +93,7 @@ message PFSInput {
   string commit = 4;
   string glob = 5;
   string join_on = 8;
+  bool outer_join = 12;
   string group_by = 11;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
@@ -619,7 +620,14 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
+  // Job and Input are two different ways to specify the datums you want.
+  // Only one can be set.
+  // Job is the job to list datums from.
   Job job = 1;
+  // Input is the input to list datums from.
+  // The datums listed are the ones that would be run if a pipeline was created
+  // with input.
+  Input input = 4;
   int64 page_size = 2;
   int64 page = 3;
 }

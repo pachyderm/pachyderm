@@ -132,3 +132,57 @@ with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
 To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
+
+## Outer Joins
+
+Pachyderm also supports outer joins. Outer joins include everything a normal
+(inner) join does, and files that didn't match anything. Inputs can be set to
+outer semantics independently. So while there isn't an explicit notion of
+"left" or "right" outer joins, you can still get those semantics, and even
+extend them to multiway joins.
+
+## Outer Joins Example
+
+Building off the example above, notice that there are 3 files in the
+`parameters` repo, `file6.txt`, `file7.txt` and `file8.txt`, which don't match
+any files in the `readings` repo. In a normal join those files are simply
+omitted, but if you still want to see them without a match you can use an outer
+join. The change to the pipeline spec is quite simple:
+
+```json
+ {
+   "pipeline": {
+     "name": "joins"
+   },
+   "input": {
+     "join": [
+       {
+         "pfs": {
+           "repo": "readings",
+           "branch": "master",
+           "glob": "/*/(*).txt",
+           "join_on": "$1"
+         }
+       },
+      {
+        "pfs": {
+          "repo": "parameters",
+          "branch": "master",
+          "glob": "/(*).txt",
+          "join_on": "$1",
+          "outer_join": true
+        }
+      }
+    ]
+  },
+  "transform": {
+     "cmd": [ "python3", "/joins.py"],
+     "image": "joins-example"
+   }
+ }
+```
+
+Your code will still see the joined pairs that it saw before. In addition to
+those five datums your code will also see three new ones, one for each of the
+parameter files which didn't have a match. Note that this means your code needs
+to not crash when only some of the inputs are represented under `/pfs`.

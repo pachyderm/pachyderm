@@ -127,6 +127,12 @@ to create a spout pipeline:
    }
    ```
 
+1. (Pachyderm Hub) Generate a secret using pachctl
+
+   ```sh
+   $ pachctl create secret -f mongodb-credentials-secret.json
+   ```
+   
 1. Create a pipeline from `sqs-spout.json`:
 
    ```bash

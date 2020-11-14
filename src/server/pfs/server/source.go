@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Source iterates over FileInfos generated from a fileset.Source
+// Source iterates over FileInfos generated from a fileset.FileSet
 type Source interface {
 	// Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 	// during iteration, and the File.
@@ -21,18 +21,17 @@ type Source interface {
 }
 
 type source struct {
-	commit    *pfs.Commit
-	full      bool
-	getReader func() fileset.FileSet
+	commit  *pfs.Commit
+	fileSet fileset.FileSet
+	full    bool
 }
 
-// NewSource creates a Source which emits FileInfos with the information from commit, and the entries from readers
-// returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, full bool, getReader func() fileset.FileSet) Source {
+// NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
+func NewSource(commit *pfs.Commit, fileSet fileset.FileSet, full bool) Source {
 	return &source{
-		commit:    commit,
-		full:      full,
-		getReader: getReader,
+		commit:  commit,
+		fileSet: fileSet,
+		full:    full,
 	}
 }
 
@@ -41,12 +40,10 @@ func NewSource(commit *pfs.Commit, full bool, getReader func() fileset.FileSet) 
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
-	fs1 := s.getReader()
-	fs2 := s.getReader()
-	s2 := newStream(ctx, fs2)
+	iter := fileset.NewIterator(ctx, s.fileSet)
 	cache := make(map[string]*pfs.FileInfo)
-	return fs1.Iterate(ctx, func(fr fileset.File) error {
-		idx := fr.Index()
+	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
+		idx := f.Index()
 		fi := &pfs.FileInfo{
 			File:     client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
 			FileType: pfs.FileType_FILE,
@@ -60,7 +57,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 				fi.SizeBytes = cachedFi.SizeBytes
 				fi.Hash = cachedFi.Hash
 			} else {
-				computedFi, err := computeFileInfo(cache, s2, idx.Path)
+				computedFi, err := computeFileInfo(cache, iter, idx.Path)
 				if err != nil {
 					return err
 				}
@@ -69,7 +66,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			}
 		}
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
-		return cb(fi, fr)
+		return cb(fi, f)
 	})
 }
 
@@ -89,15 +86,15 @@ func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.
 	return nil, false
 }
 
-func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (*pfs.FileInfo, error) {
-	fr, err := s.Next()
+func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
+	f, err := iter.Next()
 	if err != nil {
 		if err == io.EOF {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
 		}
 		return nil, err
 	}
-	idx := fr.Index()
+	idx := f.Index()
 	if idx.Path != target {
 		return nil, errors.Errorf("stream is wrong place to compute hash for %s", target)
 	}
@@ -107,7 +104,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 	var size uint64
 	h := pfs.NewHash()
 	for {
-		f2, err := s.Peek()
+		f2, err := iter.Peek()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -118,7 +115,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 		if !strings.HasPrefix(idx2.Path, target) {
 			break
 		}
-		childFi, err := computeFileInfo(cache, s, idx2.Path)
+		childFi, err := computeFileInfo(cache, iter, idx2.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -135,14 +132,8 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, s *stream, target string) (
 
 func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
 	h := pfs.NewHash()
-	if idx.DataOp != nil {
-		for _, dataRef := range idx.DataOp.DataRefs {
-			if dataRef.Hash == "" {
-				h.Write([]byte(dataRef.ChunkInfo.Chunk.Hash))
-			} else {
-				h.Write([]byte(dataRef.Hash))
-			}
-		}
+	for _, dataRef := range idx.FileOp.DataRefs {
+		h.Write([]byte(dataRef.Hash))
 	}
 	return &pfs.FileInfo{
 		FileType:  pfs.FileType_FILE,
@@ -175,57 +166,6 @@ func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset
 		return s.err
 	}
 	return nil
-}
-
-type stream struct {
-	peek     fileset.File
-	fileChan chan fileset.File
-	errChan  chan error
-}
-
-func newStream(ctx context.Context, source fileset.FileSet) *stream {
-	fileChan := make(chan fileset.File)
-	errChan := make(chan error, 1)
-	go func() {
-		if err := source.Iterate(ctx, func(file fileset.File) error {
-			fileChan <- file
-			return nil
-		}); err != nil {
-			errChan <- err
-			return
-		}
-		close(fileChan)
-	}()
-	return &stream{
-		fileChan: fileChan,
-		errChan:  errChan,
-	}
-}
-
-func (s *stream) Peek() (fileset.File, error) {
-	if s.peek != nil {
-		return s.peek, nil
-	}
-	var err error
-	s.peek, err = s.Next()
-	return s.peek, err
-}
-
-func (s *stream) Next() (fileset.File, error) {
-	if s.peek != nil {
-		tmp := s.peek
-		s.peek = nil
-		return tmp, nil
-	}
-	select {
-	case file, more := <-s.fileChan:
-		if !more {
-			return nil, io.EOF
-		}
-		return file, nil
-	case err := <-s.errChan:
-		return nil, err
-	}
 }
 
 type emptySource struct{}

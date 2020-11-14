@@ -152,12 +152,48 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
+func parseLogOptions(optstring string) *aws.LogLevelType {
+	if optstring == "" {
+		return nil
+	}
+	toLevel := map[string]aws.LogLevelType{
+		"debug":           aws.LogDebug,
+		"signing":         aws.LogDebugWithSigning,
+		"httpbody":        aws.LogDebugWithHTTPBody,
+		"requestretries":  aws.LogDebugWithRequestRetries,
+		"requesterrors":   aws.LogDebugWithRequestErrors,
+		"eventstreambody": aws.LogDebugWithEventStreamBody,
+		"all": aws.LogDebugWithSigning |
+			aws.LogDebugWithHTTPBody |
+			aws.LogDebugWithRequestRetries |
+			aws.LogDebugWithRequestErrors |
+			aws.LogDebugWithEventStreamBody,
+	}
+	var result aws.LogLevelType
+	opts := strings.Split(optstring, ",")
+	for _, optStr := range opts {
+		result |= toLevel[strings.ToLower(optStr)]
+	}
+	var msg bytes.Buffer
+	// build log message separately, as the log flags have overlapping definitions
+	msg.WriteString("using S3 logging flags: ")
+	for _, optStr := range []string{"Debug", "Signing", "HTTPBody", "RequestRetries", "RequestErrors", "EventStreamBody"} {
+		optBits := toLevel[strings.ToLower(optStr)]
+		if (result & optBits) == optBits {
+			msg.WriteString(optStr)
+			msg.WriteString(",")
+		}
+	}
+	log.Infof(msg.String())
+	return &result
+}
+
 func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	httpClient := &http.Client{Timeout: timeout}
 	// If NoVerifySSL is true, then configure the transport to skip ssl verification (enables self-signed certificates).
@@ -171,6 +207,8 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		MaxRetries: aws.Int(advancedConfig.Retries),
 		HTTPClient: httpClient,
 		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
+		LogLevel:   parseLogOptions(advancedConfig.LogOptions),
+		Logger:     aws.NewDefaultLogger(),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -196,7 +234,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// Create new session using awsConfig
 	session, err := session.NewSession(awsConfig)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	awsClient := &amazonClient{
 		bucket: bucket,
@@ -226,7 +264,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		}
 		cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, err
 		}
 		awsClient.cloudfrontURLSigner = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
 		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))

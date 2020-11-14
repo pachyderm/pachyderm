@@ -94,16 +94,17 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:    name,
-			Repo:    repo,
-			Branch:  branch,
-			Glob:    glob,
-			JoinOn:  joinOn,
-			GroupBy: groupBy,
-			Lazy:    lazy,
+			Name:      name,
+			Repo:      repo,
+			Branch:    branch,
+			Glob:      glob,
+			JoinOn:    joinOn,
+			OuterJoin: outerJoin,
+			GroupBy:   groupBy,
+			Lazy:      lazy,
 		},
 	}
 }
@@ -402,14 +403,25 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+// ListDatum returns info about datums in a Job
+func (c APIClient) ListDatum(jobID string, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum(NewJob(jobID), nil, pageSize, page)
+}
+
+// ListDatumInput returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInput(input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum(nil, input, pageSize, page)
+}
+
+func (c APIClient) listDatum(job *pps.Job, input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
+			Input:    input,
 			PageSize: pageSize,
 			Page:     page,
+			Job:      job,
 		},
 	)
 	if err != nil {
@@ -434,14 +446,25 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	return resp, nil
 }
 
-// ListDatumF returns info about all datums in a Job, calling f with each datum info.
+// ListDatumF returns info about datums in a Job, calling f with each datum info.
 func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(NewJob(jobID), nil, pageSize, page, f)
+}
+
+// ListDatumInputF returns info about datums for a pipeline with input, calling
+// f with each datum info. The pipeline doesn't need to exist.
+func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(nil, input, pageSize, page, f)
+}
+
+func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
+			Input:    input,
 			PageSize: pageSize,
 			Page:     page,
+			Job:      job,
 		},
 	)
 	if err != nil {
