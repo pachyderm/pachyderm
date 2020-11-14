@@ -9,6 +9,8 @@ jobs:
     parameters:
       bucket:
         type: string
+      run_flaky_tests:
+        type: string
 
     environment:
       PPS_BUCKETS: "6"
