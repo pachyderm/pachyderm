@@ -10682,6 +10682,9 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 }
 
 func TestSpout(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
