@@ -25,19 +25,40 @@ jobs:
     resource_class: small
 
     steps:
-      - run: |
-          sudo apt update && sudo apt install -y pv moreutils rsync
+
+      # Hard to get this info out of the API, so reflect it back here so we can
+      # search for this and parse it.
+      - run:
+          name: Are we running flaky tests?
+          command: |
+            echo "RUN_BAD_TESTS=${RUN_BAD_TESTS}"
+
+      - run:
+          name: Install deps
+          command: |
+            sudo apt update && sudo apt install -y pv moreutils rsync
 
       - checkout
 
-      - run: |
-          set -x
-          sudo curl -sSL -o /usr/local/bin/testctl \
-              https://storage.googleapis.com/get-faster-ci/Linux-x86_64/testctl
-          sudo chmod +x /usr/local/bin/testctl
-          testctl login --token "$TESTFASTER_TOKEN"
+      - run:
+          name: Install testfaster CLI and log in
+          command: |
+            set -x
+            sudo curl -sSL -o /usr/local/bin/testctl \
+                https://storage.googleapis.com/get-faster-ci/Linux-x86_64/testctl
+            sudo chmod +x /usr/local/bin/testctl
+            testctl login --token "$TESTFASTER_TOKEN"
 
-      - run: etc/testing/circle_tests.sh 2>&1 |ts
+      - run:
+          name: Run tests
+          command: |
+            etc/testing/circle_tests.sh 2>&1 |ts
+
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: |
+            etc/testing/kube_debug.sh
 
       ## retry on failure
       #- run:
