@@ -3310,6 +3310,9 @@ func TestPutFileSplit(t *testing.T) {
 }
 
 func TestPutFileSplitBig(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
