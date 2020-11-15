@@ -58,7 +58,7 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: |
-            etc/testing/kube_debug.sh
+            etc/testing/testctl-ssh.sh -- ./project/etc/testing/kube_debug.sh
 
       ## retry on failure
       #- run:
