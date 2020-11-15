@@ -1,6 +1,11 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
+parameters:
+  run_flaky_tests:
+    type: string
+    default: ""
+
 jobs:
   build:
     docker:
@@ -9,16 +14,13 @@ jobs:
     parameters:
       bucket:
         type: string
-      run_flaky_tests:
-        type: string
-        default: ""
 
     environment:
       PPS_BUCKETS: "6"
       AUTH_BUCKETS: "2"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
-      RUN_BAD_TESTS: << parameters.run_flaky_tests >>
+      RUN_BAD_TESTS: << pipeline.parameters.run_flaky_tests >>
 
     resource_class: small
 
