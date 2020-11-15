@@ -14,6 +14,7 @@ base:
    - giantswarm/tiny-tools:latest
    - golang:1.12.1
    - golang:1.13.8
+   - golang:1.15.4
    - grafana/grafana:4.2.0
    - grafana/loki:2.0.0
    - grafana/promtail:2.0.0
@@ -53,7 +54,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
+        git checkout 92d29a0d8444add9d475da194fe3d21d2de01299 && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
