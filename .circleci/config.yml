@@ -2,7 +2,7 @@
 version: 2.1
 
 jobs:
-  test:
+  build:
     docker:
     - image: cimg/base:2020.01
 
@@ -61,7 +61,7 @@ jobs:
 workflows:
   all-tests:
     jobs:
-      - test:
+      - build:
           matrix:
             parameters:
               bucket:
