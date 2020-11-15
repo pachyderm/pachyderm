@@ -105,7 +105,7 @@ base:
   kubernetes_version: 'v1.18.3'
 
 runtime:
-  cpus: 16
+  cpus: 4
   memory: 4GB
   disk: 50GB
 
