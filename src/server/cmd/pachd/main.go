@@ -17,6 +17,7 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
+	identityclient "github.com/pachyderm/pachyderm/src/client/identity"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -33,6 +34,7 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pach_http "github.com/pachyderm/pachyderm/src/server/http"
+	identity_server "github.com/pachyderm/pachyderm/src/server/identity/server"
 	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -423,6 +425,22 @@ func doFullMode(config interface{}) (retErr error) {
 				}); err != nil {
 					return err
 				}
+			}
+		}
+		if env.EnterpriseServerEnabled {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer, err := identity_server.NewIdentityServer(
+					etcdAddress,
+					env.EtcdPrefix,
+					env.IdentityServerIssuer,
+					true)
+				if err != nil {
+					return err
+				}
+				identityclient.RegisterIdentityServer(externalServer.Server, idAPIServer)
+				return nil
+			}); err != nil {
+				return err
 			}
 		}
 		var authAPIServer authserver.APIServer
