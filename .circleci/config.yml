@@ -61,7 +61,7 @@ jobs:
             # NB: kubeconfig is used by testctl-ssh.sh, not kubectl. It has
             # address and private key for ssh embedded in it.
             export KUBECONFIG=$(pwd)/kubeconfig
-            etc/testing/testctl-ssh.sh -- ./project/etc/testing/kube_debug.sh
+            etc/testing/testctl-ssh.sh -- ./project/pachyderm/etc/testing/kube_debug.sh
 
       ## retry on failure
       #- run:
