@@ -105,6 +105,7 @@ case "${BUCKET}" in
     make test-deploy-manifests
     make test-s3gateway-unit
     make test-enterprise
+    make test-identity
     make test-worker
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         # these tests require secure env vars to run, which aren't available
@@ -125,6 +126,9 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-pfs-storage
     ;;
+ IDENTITY)
+    make test-identity
+    ;;
  PPS?)
     pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
@@ -137,7 +141,6 @@ case "${BUCKET}" in
     fi
     ;;
  AUTH?)
-    make launch-dex
     bucket_num="${BUCKET#AUTH}"
     test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     set +x

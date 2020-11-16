@@ -50,6 +50,7 @@ type PachdSpecificConfiguration struct {
 	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix             string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	IdentityEtcdPrefix         string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
 	EnterpriseEtcdPrefix       string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	Metrics                    bool   `env:"METRICS,default=true"`
@@ -68,7 +69,14 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName string `env:"PACHD_POD_NAME,required"`
+	PachdPodName        string `env:"PACHD_POD_NAME,required"`
+	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST,default=172.17.0.1"`
+	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT,default=32228"`
+	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+
+	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=pgc"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 
 // StorageConfiguration contains the storage configuration.
@@ -110,6 +118,7 @@ type WorkerSpecificConfiguration struct {
 type FeatureFlags struct {
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
 	LokiLogging                  bool `env:"LOKI_LOGGING,default=false"`
+	IdentityServerEnabled        bool `env:"IDENTITY_SERVER_ENABLED,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.

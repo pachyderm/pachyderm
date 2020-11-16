@@ -1,16 +1,19 @@
 package server
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 
+	"golang.org/x/oauth2"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -26,12 +29,67 @@ var OIDCAuthConfig = &auth.AuthConfig{
 		Name:        "idp",
 		Description: "fake IdP for testing",
 		OIDC: &auth.IDProvider_OIDCOptions{
-			Issuer:       "http://dex:32000",
-			ClientID:     "pachyderm",
-			ClientSecret: "notsecret",
-			RedirectURI:  "http://pachd:657/authorization-code/callback",
+			Issuer:          "http://localhost:30658/",
+			ClientID:        "pachyderm",
+			ClientSecret:    "notsecret",
+			RedirectURI:     "http://pachd:657/authorization-code/callback",
+			LocalhostIssuer: true,
 		},
 	}},
+}
+
+func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
+	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
+	require.NoError(t, err)
+
+	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{
+			Issuer: "http://localhost:30658/",
+		},
+	})
+	require.NoError(t, err)
+
+	// Block until the web server has restarted with the right config
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			"http://localhost:30658/", resp.Config.Issuer,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+		Connector: &identity.IDPConnector{
+			Name:       "test",
+			Id:         "test",
+			Type:       "mockPassword",
+			JsonConfig: `{"username": "admin", "password": "password"}`,
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+		Client: &identity.OIDCClient{
+			Id:           "testapp",
+			Name:         "testapp",
+			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
+			Secret:       "test",
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+		Client: &identity.OIDCClient{
+			Id:           "pachyderm",
+			Name:         "pachyderm",
+			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
+			Secret:       "notsecret",
+			TrustedPeers: []string{"testapp"},
+		},
+	})
+	require.NoError(t, err)
+
+	return nil
 }
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
@@ -42,6 +100,8 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetUnauthenticatedPachClient(t)
+
+	setupIdentityServer(t, adminClient)
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -104,29 +164,64 @@ func TestOIDCTrustedApp(t *testing.T) {
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetUnauthenticatedPachClient(t)
 
+	setupIdentityServer(t, adminClient)
+
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
 	require.NoError(t, err)
 
-	vals := url.Values{
-		"client_id":     []string{"testapp"},
-		"client_secret": []string{"test"},
-		"grant_type":    []string{"password"},
-		"scope":         []string{"openid email profile audience:server:client_id:pachyderm"},
-		"username":      []string{"admin"},
-		"password":      []string{"password"},
+	// Create an HTTP client that doesn't follow redirects.
+	// We rewrite the host names for each redirect to avoid issues because
+	// pachd is configured to reach dex with kube dns, but the tests might be
+	// outside the cluster.
+	c := &http.Client{}
+	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
-	c := &http.Client{}
-	resp, err := c.PostForm(fmt.Sprintf("http://%v/token", dexHost(testClient)), vals)
+	oauthConfig := oauth2.Config{
+		ClientID:     "testapp",
+		ClientSecret: "test",
+		RedirectURL:  "http://test.example.com:657/authorization-code/callback",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  rewriteURL(t, "http://pachd:30658/auth", dexHost(testClient)),
+			TokenURL: rewriteURL(t, "http://pachd:30658/token", dexHost(testClient)),
+		},
+		Scopes: []string{
+			"openid",
+			"profile",
+			"email",
+			"audience:server:client_id:pachyderm",
+		},
+	}
+
+	// Hit the dex login page for the test client with a fixed nonce
+	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
 	require.NoError(t, err)
 
-	tokenResp := make(map[string]interface{})
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&tokenResp))
+	// Because we've only configured username/password login, there's a redirect
+	// to the login page. The params have the session state. POST our hard-coded
+	// credentials to the login page.
+	vals := make(url.Values)
+	vals.Add("login", "admin")
+	vals.Add("password", "password")
 
-	// Authenticate using an OIDC token with pachyderm in the audience claim
+	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(testClient)), vals)
+	require.NoError(t, err)
+
+	// The username/password flow redirects back to the dex /approval endpoint
+	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
+	require.NoError(t, err)
+
+	codeURL, err := url.Parse(resp.Header.Get("Location"))
+	require.NoError(t, err)
+
+	token, err := oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
+	require.NoError(t, err)
+
+	// Use the id token from the previous OAuth flow with Pach
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{IdToken: tokenResp["id_token"].(string)})
+		&auth.AuthenticateRequest{IdToken: token.Extra("id_token").(string)})
 	require.NoError(t, err)
 	testClient.SetAuthToken(authResp.PachToken)
 
@@ -155,7 +250,10 @@ func rewriteURL(t *testing.T, urlStr, host string) string {
 
 func dexHost(c *client.APIClient) string {
 	parts := strings.Split(c.GetAddress(), ":")
-	return parts[0] + ":32000"
+	if parts[1] == "650" {
+		return parts[0] + ":658"
+	}
+	return parts[0] + ":30658"
 }
 
 func pachHost(c *client.APIClient) string {

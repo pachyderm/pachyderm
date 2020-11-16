@@ -14,6 +14,7 @@ import (
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
+	identityclient "github.com/pachyderm/pachyderm/src/client/identity"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -27,6 +28,7 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
+	identity_server "github.com/pachyderm/pachyderm/src/server/identity/server"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -321,6 +323,32 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+
+		storageProvider := identity_server.NewLazyPostgresStorage(
+			env.PostgresServiceHost,
+			env.IdentityServerDatabase,
+			env.IdentityServerUser,
+			env.IdentityServerPassword,
+			env.PostgresServiceSSL,
+			env.PostgresServicePort,
+		)
+
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer, err := identity_server.NewIdentityServer(
+				env,
+				storageProvider,
+				true,
+				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(

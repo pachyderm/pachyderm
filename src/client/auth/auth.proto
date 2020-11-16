@@ -89,6 +89,11 @@ message IDProvider {
      string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
      repeated string additional_scopes = 5;
      bool ignore_email_verified = 6;
+
+     // localhost_issuer ignores the contents of the issuer claim and makes all
+     // OIDC requests to the embedded OIDC provider. This is necessary to support
+     // some network configurations like Minikube. 
+     bool localhost_issuer = 7;
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 

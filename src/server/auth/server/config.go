@@ -47,6 +47,7 @@ type canonicalOIDCIDP struct {
 	RedirectURI         string
 	AdditionalScopes    []string
 	IgnoreEmailVerified bool
+	LocalhostIssuer     bool
 }
 
 type canonicalIDPConfig struct {
@@ -120,6 +121,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				Description: idp.Description,
 				OIDC: &auth.IDProvider_OIDCOptions{
 					Issuer:              idp.OIDC.Issuer,
+					LocalhostIssuer:     idp.OIDC.LocalhostIssuer,
 					ClientID:            idp.OIDC.ClientID,
 					ClientSecret:        idp.OIDC.ClientSecret,
 					RedirectURI:         idp.OIDC.RedirectURI,
@@ -348,6 +350,7 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 	newIDP.OIDC = &canonicalOIDCIDP{
 		Issuer:              idp.OIDC.Issuer,
+		LocalhostIssuer:     idp.OIDC.LocalhostIssuer,
 		ClientID:            idp.OIDC.ClientID,
 		ClientSecret:        idp.OIDC.ClientSecret,
 		RedirectURI:         idp.OIDC.RedirectURI,
@@ -359,8 +362,18 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		return nil, errors.Wrapf(err, "OIDC issuer must be a valid URL")
 	}
 
+	ctx := context.Background()
+	if idp.OIDC.LocalhostIssuer {
+		client, err := LocalhostRewriteClient(idp.OIDC.Issuer)
+		if err != nil {
+			errors.Wrapf(err, "unable to create OIDC issuer override client")
+		}
+		ctx = oidc.ClientContext(ctx, client)
+	}
+
 	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
-	_, err := oidc.NewProvider(context.Background(), newIDP.OIDC.Issuer)
+	_, err := oidc.NewProvider(ctx, newIDP.OIDC.Issuer)
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
 	}
@@ -539,7 +552,8 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 				idp.OIDC.ClientSecret,
 				idp.OIDC.RedirectURI,
 				idp.OIDC.AdditionalScopes,
-				idp.OIDC.IgnoreEmailVerified)
+				idp.OIDC.IgnoreEmailVerified,
+				idp.OIDC.LocalhostIssuer)
 			if err != nil {
 				return err
 			}
