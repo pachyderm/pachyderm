@@ -18,7 +18,7 @@ KUBECONFIG="$(pwd)/kubeconfig"
 export KUBECONFIG
 
 echo "Fetching new code in VM"
-time ./etc/testing/testctl-ssh.sh -- sh -c "cd project/pachyderm; git fetch; git checkout ${CIRCLE_SHA1}"
+time ./etc/testing/testctl-ssh.sh -- bash -c "set -x; cd project/pachyderm; pwd; git fetch; git checkout ${CIRCLE_SHA1}"
 echo "Finished fetching new code in VM"
 
 #echo "Copying context to runner."
