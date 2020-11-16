@@ -287,6 +287,9 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 }
 
 func TestRunPipeline(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
