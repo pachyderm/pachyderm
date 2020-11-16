@@ -17,11 +17,15 @@ echo "===================="
 KUBECONFIG="$(pwd)/kubeconfig"
 export KUBECONFIG
 
-echo "Copying context to runner."
-# trailing slash means _contents_ of this directory are copied _into_ target
-# directory.
-time ./etc/testing/testctl-rsync.sh "$(pwd)"/ /root/project/pachyderm
-echo "Finished copying context."
+echo "Fetching new code in VM"
+time ./etc/testing/testctl-ssh.sh -- sh -c "cd project/pachyderm; git fetch; git checkout ${CIRCLE_SHA1}"
+echo "Finished fetching new code in VM"
+
+#echo "Copying context to runner."
+## trailing slash means _contents_ of this directory are copied _into_ target
+## directory.
+#time ./etc/testing/testctl-rsync.sh "$(pwd)"/ /root/project/pachyderm
+#echo "Finished copying context."
 
 # NB: https://serverfault.com/questions/482907/setting-a-variable-for-a-given-ssh-host
 
