@@ -49,7 +49,8 @@ base:
     ENV cache-bust 5
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
-    WORKDIR /root
+    RUN mkdir /root/project
+    WORKDIR /root/project
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
     # Makefile uses cacheable build params (version).  Also cache the go deps
     # the linter uses (we don't really care if the linter passes)
@@ -66,7 +67,7 @@ base:
   docker_bake_script: |-
     #!/bin/bash
     set -xeuo pipefail
-    cd /root/pachyderm
+    cd /root/project/pachyderm
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
     export CIRCLE_BRANCH=1
@@ -87,7 +88,7 @@ base:
     #!/bin/bash
     set -euo pipefail
 
-    cd /root/pachyderm
+    cd /root/project/pachyderm
 
     # re-warm OS file cache etc, e.g. load the file metadata into VM memory to
     # make the actual build faster (it's already been cached on disk from the
@@ -106,7 +107,7 @@ base:
 
 runtime:
   cpus: 4
-  memory: 4GB
+  memory: 6GB
   disk: 50GB
 
 prewarm_pool_size: 24
