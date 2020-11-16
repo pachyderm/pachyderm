@@ -19,7 +19,7 @@ export KUBECONFIG
 
 echo "Copying context to runner."
 # trailing slash means contents of this directory are copied
-time ./etc/testing/testctl-rsync.sh $(pwd)/ /root/project
+time ./etc/testing/testctl-rsync.sh "$(pwd)"/ /root/project
 echo "Finished copying context."
 
 # NB: https://serverfault.com/questions/482907/setting-a-variable-for-a-given-ssh-host
