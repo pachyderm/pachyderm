@@ -24,7 +24,7 @@ import (
 )
 
 // Change this to false to keep kubernetes namespaces around after the test for debugging purposes
-const cleanup = false
+const cleanup = true
 
 // Rewrites kubernetes manifest services to auto-allocate external ports and
 // reduce cpu resource requests for parallel testing.
@@ -175,6 +175,7 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 		RequireCriticalServersOnly: assets.DefaultRequireCriticalServersOnly,
 		WorkerServiceAccountName:   assets.DefaultWorkerServiceAccountName,
 		NoDash:                     true,
+		LocalRoles:                 true,
 	}
 
 	manifest := makeManifest(t, backend, secrets, opts)
@@ -287,11 +288,11 @@ func TestAmazonDeployment(t *testing.T) {
 }
 
 func TestMinioDeployment(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
 		t.Run("S3v2", func(t *testing.T) {
 			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // TODO (this works for GCS), try upgrading to v7?
-			// t.Parallel()
+			t.Parallel()
 			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, true)
 			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 				runBasicTest(t, pachClient)
@@ -299,7 +300,7 @@ func TestMinioDeployment(t *testing.T) {
 		})
 
 		t.Run("S3v4", func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, false)
 			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 				runBasicTest(t, pachClient)
@@ -309,6 +310,7 @@ func TestMinioDeployment(t *testing.T) {
 
 	// Test the Minio client against S3 using the S3v2 and S3v4 APIs
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
+		t.Parallel()
 		id, secret, bucket, region := LoadAmazonParameters(t)
 		endpoint := fmt.Sprintf("s3.%s.amazonaws.com", region) // Note that not all AWS regions support both http/https or both S3v2/S3v4
 		minioTests(t, endpoint, bucket, id, secret)
@@ -316,19 +318,21 @@ func TestMinioDeployment(t *testing.T) {
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
+		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadECSParameters(t)
 		minioTests(t, endpoint, bucket, id, secret)
 	})
 
 	// Test the Minio client against GCP using the S3v2 and S3v4 APIs
 	t.Run("GoogleObjectStorage", func(t *testing.T) {
+		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadGoogleHMACParameters(t)
 		minioTests(t, endpoint, bucket, id, secret)
 	})
 }
 
 func TestGoogleDeployment(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	bucket, creds := LoadGoogleParameters(t)
 	secrets := assets.GoogleSecret(bucket, creds)
 	withManifest(t, assets.GoogleBackend, secrets, func(namespace string, pachClient *client.APIClient) {
@@ -337,7 +341,7 @@ func TestGoogleDeployment(t *testing.T) {
 }
 
 func TestMicrosoftDeployment(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	id, secret, container := LoadMicrosoftParameters(t)
 	secrets := assets.MicrosoftSecret(container, id, secret)
 	withManifest(t, assets.MicrosoftBackend, secrets, func(namespace string, pachClient *client.APIClient) {
