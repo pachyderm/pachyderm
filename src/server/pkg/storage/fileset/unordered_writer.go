@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
@@ -45,7 +46,7 @@ type UnorderedWriter struct {
 	fs                         map[string]*memFileOp
 	subFileSet                 int64
 	ttl                        time.Duration
-	renewer                    *Renewer
+	renewer                    *renew.StringSet
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -186,16 +187,6 @@ func (uw *UnorderedWriter) Delete(name string, customTag ...string) {
 		return
 	}
 	uw.createMemDataOp(name, index.Op_DELETE, tag, nil)
-}
-
-// PathsWritten returns the full paths (not prefixes) written by this UnorderedWriter
-func (uw *UnorderedWriter) PathsWritten() (ret []string) {
-	name := removePrefix(uw.name)
-	for i := int64(0); i < uw.subFileSet; i++ {
-		p := path.Join(name, SubFileSetStr(i))
-		ret = append(ret, p)
-	}
-	return ret
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.

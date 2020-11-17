@@ -2,33 +2,36 @@ package chunk
 
 import (
 	"context"
-	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 const (
-	prefix          = "chunks"
+	// TrackerPrefix is the prefix used when creating tracker objects for chunks
+	TrackerPrefix   = "chunk/"
+	prefix          = "chunk"
 	defaultChunkTTL = 30 * time.Minute
 )
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient obj.Client
-	gcClient  gc.Client
+	tracker   track.Tracker
+	mdstore   MetadataStore
 
 	defaultChunkTTL time.Duration
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objClient obj.Client, opts ...StorageOption) *Storage {
+func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:       objClient,
+		mdstore:         mdstore,
 		defaultChunkTTL: defaultChunkTTL,
+		tracker:         tracker,
 	}
-	s.gcClient = gc.NewMockClient()
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -37,15 +40,17 @@ func NewStorage(objClient obj.Client, opts ...StorageOption) *Storage {
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
-	return newReader(ctx, s.objClient, dataRefs)
+	// using the empty string for the tmp id to disable the renewer
+	client := NewClient(s.objClient, s.mdstore, s.tracker, "")
+	return newReader(ctx, client, dataRefs)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 func (s *Storage) NewWriter(ctx context.Context, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
-	opts = append([]WriterOption{WithChunkTTL(defaultChunkTTL)}, opts...)
-	return newWriter(ctx, s.objClient, s.gcClient, tmpID, cb, opts...)
+	client := NewClient(s.objClient, s.mdstore, s.tracker, tmpID)
+	return newWriter(ctx, client, cb, opts...)
 }
 
 // List lists all of the chunks in object storage.
@@ -53,59 +58,10 @@ func (s *Storage) List(ctx context.Context, cb func(string) error) error {
 	return s.objClient.Walk(ctx, prefix, cb)
 }
 
-// DeleteAll deletes all of the chunks in object storage.
-func (s *Storage) DeleteAll(ctx context.Context) error {
-	return s.objClient.Walk(ctx, prefix, func(hash string) error {
-		return s.objClient.Delete(ctx, hash)
-	})
-}
-
-// Delete deletes a chunk in object storage.
-func (s *Storage) Delete(ctx context.Context, hash string) error {
-	return s.objClient.Delete(ctx, path.Join(prefix, hash))
-}
-
-// CreateSemanticReference creates a semantic reference to a chunk.
-func (s *Storage) CreateSemanticReference(ctx context.Context, name string, chunk *Chunk) error {
-	return s.gcClient.CreateReference(ctx, semanticReference(name, chunk.Hash))
-}
-
-// CreateTemporaryReference creates a semantic reference to a chunk.
-func (s *Storage) CreateTemporaryReference(ctx context.Context, name string, chunk *Chunk, ttl time.Duration) (time.Time, error) {
-	expiresAt := time.Now().Add(ttl)
-	if err := s.gcClient.CreateReference(ctx, temporaryReference(name, chunk.Hash, expiresAt)); err != nil {
-		return time.Time{}, err
-	}
-	return expiresAt, nil
-}
-
-// DeleteSemanticReference deletes a semantic reference.
-func (s *Storage) DeleteSemanticReference(ctx context.Context, name string) error {
-	return s.gcClient.DeleteReference(ctx, semanticReference(name, ""))
-}
-
-// RenewReference sets the time to live for a reference to now + ttl, and returns the new expire time.
-func (s *Storage) RenewReference(ctx context.Context, name string, ttl time.Duration) (time.Time, error) {
-	expiresAt := time.Now().Add(ttl)
-	if err := s.gcClient.RenewReference(ctx, name, expiresAt); err != nil {
-		return time.Time{}, err
-	}
-	return expiresAt, nil
-}
-
-func semanticReference(name, chunk string) *gc.Reference {
-	return &gc.Reference{
-		Sourcetype: gc.STSemantic,
-		Source:     name,
-		Chunk:      path.Join(prefix, chunk),
-	}
-}
-
-func temporaryReference(name, chunk string, expiresAt time.Time) *gc.Reference {
-	return &gc.Reference{
-		Sourcetype: gc.STTemporary,
-		Source:     name,
-		Chunk:      path.Join(prefix, chunk),
-		ExpiresAt:  &expiresAt,
+// NewDeleter creates a deleter for use with a tracker.GC
+func (s *Storage) NewDeleter() track.Deleter {
+	return &deleter{
+		mdstore: s.mdstore,
+		objc:    s.objClient,
 	}
 }
