@@ -103,9 +103,10 @@ func (s *postgresStore) Delete(ctx context.Context, chunkID ID) error {
 	return err
 }
 
-// SetupPostgresStore sets up tables in db
-func SetupPostgresStore(db *sqlx.DB) {
-	db.MustExec(schema)
+// SetupPostgresStoreV0 sets up tables in db
+func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, schema)
+	return err
 }
 
 const schema = `
