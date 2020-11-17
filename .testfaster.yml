@@ -53,7 +53,7 @@ base:
         mv go /usr/local && \
         cd -
     ENV GOPATH=/usr/local/go
-    ENV PATH=$GOPATH/bin:$PATH
+    ENV PATH=/usr/local/go/bin:$PATH
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
     WORKDIR /root
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
@@ -81,6 +81,8 @@ base:
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
     export CIRCLE_BRANCH=1
+    export GOPATH=/usr/local/go
+    export PATH=/usr/local/go/bin:$PATH
     # warm up docker buildkit go mod cache and go build cache
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
@@ -107,6 +109,8 @@ base:
     # make the actual build faster (it's already been cached on disk from the
     # previous stages)
     export CIRCLE_BRANCH=1
+    export GOPATH=/usr/local/go
+    export PATH=/usr/local/go/bin:$PATH
     make install
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
