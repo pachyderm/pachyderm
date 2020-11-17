@@ -27,7 +27,7 @@ MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 CHLOGFILE = /tmp/pachyderm/release/changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
-SKIP = #\# # To skip push to docker and github remove # in front of \#
+SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = --debug # uncomment --debug for verbose goreleaser output
 
 ifdef TRAVIS_BUILD_NUMBER
