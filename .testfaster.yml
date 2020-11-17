@@ -80,9 +80,8 @@ base:
     # build params (version)
     export CIRCLE_BRANCH=1
     # warm up docker buildkit go mod cache and go build cache
-    git config user.email "donotreply@pachyderm.com" && \
-    git config user.name "anonymous" && \
-    git commit -am "Commit temp file"
+    git config user.email "donotreply@pachyderm.com"
+    git config user.name "anonymous"
     git tag -f -am "Circl CI test" c0.0.1
     make docker-build
     # build docker images that are used in tests
@@ -106,9 +105,8 @@ base:
     # previous stages)
     export CIRCLE_BRANCH=1
     make install
-    git config user.email "donotreply@pachyderm.com" && \
-    git config user.name "anonymous" && \
-    git commit -am "Commit temp file"
+    git config user.email "donotreply@pachyderm.com"
+    git config user.name "anonymous"
     git tag -f -am "Circl CI test" c0.0.1
     make docker-build
 
