@@ -299,19 +299,27 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 	}
 	var done bool
 	for !done {
+		logrus.Infof("PutObjectSplit 1")
 		object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+			logrus.Infof("PutObjectSplit 2")
 			size, err := io.CopyN(w, r, pfsclient.ChunkSize)
+			logrus.Infof("PutObjectSplit 3")
 			if errors.Is(err, io.EOF) {
 				done = true
 				return size, nil
 			}
+			logrus.Infof("PutObjectSplit 4")
 			return size, err
 		})
 		if err != nil {
+			logrus.Infof("PutObjectSplit 5")
 			return err
 		}
+		logrus.Infof("PutObjectSplit 6")
 		objects = append(objects, object)
+		logrus.Infof("PutObjectSplit 7")
 	}
+	logrus.Infof("PutObjectSplit 8")
 	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
 }
 

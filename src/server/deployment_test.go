@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -24,8 +25,12 @@ import (
 
 var _ = fmt.Printf
 
-// Rewrites kubernetes NodePort services to auto-allocate external ports
-type NodePortRewriter struct {
+// Change this to false to keep kubernetes namespaces around after the test for debugging purposes
+const cleanup = false
+
+// Rewrites kubernetes manifest services to auto-allocate external ports and
+// reduce cpu resource requests for parallel testing.
+type ManifestRewriter struct {
 	serde.Encoder
 }
 
@@ -47,27 +52,60 @@ func rewriteNodePort(data map[string]interface{}) {
 			ports := spec["ports"].([]interface{})
 			for _, port := range ports {
 				port := port.(map[string]interface{})
-				if port["nodePort"] != 0 {
+				if _, ok := port["nodePort"]; ok {
 					port["nodePort"] = 0
+				}
+			}
+		}
+	}
+
+	if data["kind"] == "Deployment" {
+		if spec, ok := data["spec"]; ok {
+			spec := spec.(map[string]interface{})
+			if template, ok := spec["template"]; ok {
+				template := template.(map[string]interface{})
+				if spec, ok := template["spec"]; ok {
+					spec := spec.(map[string]interface{})
+					if containers, ok := spec["containers"]; ok {
+						containers := containers.([]interface{})
+						for _, container := range containers {
+							container := container.(map[string]interface{})
+							if resources, ok := container["resources"]; ok {
+								resources := resources.(map[string]interface{})
+								if limits, ok := resources["limits"]; ok {
+									limits := limits.(map[string]interface{})
+									if _, ok := limits["cpu"]; ok {
+										limits["cpu"] = "0"
+									}
+								}
+								if requests, ok := resources["requests"]; ok {
+									requests := requests.(map[string]interface{})
+									if _, ok := requests["cpu"]; ok {
+										requests["cpu"] = "0"
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		}
 	}
 }
 
-func (npr *NodePortRewriter) Encode(v interface{}) error {
+func (npr *ManifestRewriter) Encode(v interface{}) error {
 	return npr.EncodeTransform(v, nil)
 }
 
-func (npr *NodePortRewriter) EncodeProto(m proto.Message) error {
+func (npr *ManifestRewriter) EncodeProto(m proto.Message) error {
 	return npr.EncodeProtoTransform(m, nil)
 }
 
-func (npr *NodePortRewriter) EncodeTransform(v interface{}, cb func(map[string]interface{}) error) error {
+func (npr *ManifestRewriter) EncodeTransform(v interface{}, cb func(map[string]interface{}) error) error {
 	return npr.Encoder.EncodeTransform(v, rewriterCallback(cb))
 }
 
-func (npr *NodePortRewriter) EncodeProtoTransform(m proto.Message, cb func(map[string]interface{}) error) error {
+func (npr *ManifestRewriter) EncodeProtoTransform(m proto.Message, cb func(map[string]interface{}) error) error {
 	return npr.Encoder.EncodeProtoTransform(m, rewriterCallback(cb))
 }
 
@@ -116,7 +154,7 @@ func makeManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	// Create a wrapper encoder that rewrites NodePort ports to be randomly
 	// assigned so that we don't get collisions across namespaces and can run
 	// these tests in parallel.
-	encoder := &NodePortRewriter{Encoder: jsonEncoder}
+	encoder := &ManifestRewriter{Encoder: jsonEncoder}
 
 	// Use a separate hostpath on the kubernetes host for each deployment
 	hostPath := fmt.Sprintf("/var/pachyderm-%s", opts.Namespace)
@@ -152,12 +190,12 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	_, err := kubeClient.CoreV1().Namespaces().Create(namespace)
 	require.NoError(t, err)
 
-	/*
+	if cleanup {
 		defer func() {
 			err := kubeClient.CoreV1().Namespaces().Delete(namespaceName, nil)
 			require.NoError(t, err)
 		}()
-	*/
+	}
 
 	cmd := tu.Cmd("kubectl", "apply", "--namespace", namespaceName, "-f", "-")
 	cmd.Stdin = strings.NewReader(manifest)
@@ -184,20 +222,26 @@ func runBasicTest(t *testing.T, pachClient *client.APIClient) {
 
 	// Create a pipeline
 	pipelineRepo := tu.UniqueString("pipeline")
-	require.NoError(t, pachClient.CreatePipeline(
-		pipelineRepo,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+	_, err = pachClient.PpsAPIClient.CreatePipeline(context.Background(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pipelineRepo),
+		Transform: &pps.Transform{
+			Image: "",
+			Cmd:   []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
 		},
-		&pps.ParallelismSpec{
+		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+		Input:                 client.NewPFSInput(dataRepo, "/*"),
+		OutputBranch:          "",
+		Update:                false,
+		ResourceRequests:      &pps.ResourceSpec{Cpu: 0.0},
+		ResourceLimits:        &pps.ResourceSpec{Cpu: 0.0},
+		SidecarResourceLimits: &pps.ResourceSpec{Cpu: 0.0},
+	})
+	require.NoError(t, err)
 
 	// Wait for the output commit
 	commitIter, err := pachClient.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -275,30 +319,38 @@ func loadMicrosoftParameters(t *testing.T) (string, string, string) {
 
 func TestAmazonDeployment(t *testing.T) {
 	advancedConfig := newDefaultAmazonConfig()
-	id, secret, bucket, region := loadAmazonParameters(t)
-	secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", "", advancedConfig)
-	withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-		runBasicTest(t, pachClient)
+
+	// Test the Amazon client against S3
+	t.Run("AmazonObjectStorage", func(t *testing.T) {
+		// t.Parallel()
+		id, secret, bucket, region := loadAmazonParameters(t)
+		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", "", advancedConfig)
+		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+			runBasicTest(t, pachClient)
+		})
+	})
+
+	// Test the Amazon client against ECS
+	t.Run("ECSObjectStorage", func(t *testing.T) {
+		// t.Parallel()
+		id, secret, bucket, region, endpoint := loadECSParameters(t)
+		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
+		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+			runBasicTest(t, pachClient)
+		})
 	})
 }
 
-func TestECSDeployment(t *testing.T) {
-	advancedConfig := newDefaultAmazonConfig()
-	id, secret, bucket, region, endpoint := loadECSParameters(t)
-	secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
-	withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-		runBasicTest(t, pachClient)
-	})
-}
-
-func TestMinioDeploymentS3V2(t *testing.T) {
+func TestMinioDeployment(t *testing.T) {
 	S3V2s := []bool{false, true}
 
+	// Test the Minio client against S3 using the S3v2 and S3v4 APIs
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
 		id, secret, bucket, region := loadAmazonParameters(t)
 		endpoint := fmt.Sprintf("s3.%s.amazonaws.com", region) // Note that not all AWS regions support both http/https or both S3v2/S3v4
 		for _, isS3V2 := range S3V2s {
 			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
+				// t.Parallel()
 				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2) // TODO: need endpoint?
 				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 					runBasicTest(t, pachClient)
@@ -307,10 +359,12 @@ func TestMinioDeploymentS3V2(t *testing.T) {
 		}
 	})
 
+	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
 		id, secret, bucket, _, endpoint := loadECSParameters(t)
 		for _, isS3V2 := range S3V2s {
 			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
+				// t.Parallel()
 				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2)
 				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 					runBasicTest(t, pachClient)
@@ -318,20 +372,38 @@ func TestMinioDeploymentS3V2(t *testing.T) {
 			})
 		}
 	})
+
+	/*
+	// Test the Minio client against GCP using the S3v2 and S3v4 APIs
+	t.Run("ECSObjectStorage", func(t *testing.T) {
+		bucket, creds := loadGoogleParameters(t)
+		for _, isS3V2 := range S3V2s {
+			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
+				// t.Parallel()
+				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2)
+				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+					runBasicTest(t, pachClient)
+				})
+			})
+		}
+	})
+	*/
 }
 
 func TestGoogleDeployment(t *testing.T) {
+	// t.Parallel()
 	bucket, creds := loadGoogleParameters(t)
 	secrets := assets.GoogleSecret(bucket, creds)
-	withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+	withManifest(t, assets.GoogleBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 		runBasicTest(t, pachClient)
 	})
 }
 
 func TestMicrosoftDeployment(t *testing.T) {
+	// t.Parallel()
 	id, secret, container := loadMicrosoftParameters(t)
 	secrets := assets.MicrosoftSecret(container, id, secret)
-	withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+	withManifest(t, assets.MicrosoftBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 		runBasicTest(t, pachClient)
 	})
 }

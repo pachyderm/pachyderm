@@ -2,11 +2,13 @@ package obj
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
-	minio "github.com/minio/minio-go"
+	minio "github.com/minio/minio-go/v6"
 )
 
 // Represents minio client instance for any s3 compatible server.
@@ -21,10 +23,12 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	if err != nil {
 		return nil, err
 	}
-	return &minioClient{
+	c := &minioClient{
 		bucket: bucket,
 		Client: mclient,
-	}, nil
+	}
+	c.TraceOn(os.Stdout)
+	return c, nil
 }
 
 // Creates a new minioClient S3V2 structure and returns
@@ -33,10 +37,12 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 	if err != nil {
 		return nil, err
 	}
-	return &minioClient{
+	c := &minioClient{
 		bucket: bucket,
 		Client: mclient,
-	}, nil
+	}
+	c.TraceOn(os.Stdout)
+	return c, nil
 }
 
 // Represents minio writer structure with pipe and the error channel
@@ -57,33 +63,49 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 	go func() {
 		opts := minio.PutObjectOptions{
 			ContentType: "application/octet-stream",
+			PartSize:    uint64(8 * 1024 * 1024),
 		}
+		fmt.Printf("newMinioWriter goroutine 1 with bucket: %v, name: %v, reader: %v, opts: %v\n", client.bucket, name, reader, opts)
 		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
+		fmt.Printf("newMinioWriter goroutine 2\n")
 		if err != nil {
+			fmt.Printf("newMinioWriter goroutine 3\n")
 			reader.CloseWithError(err)
 		}
+		fmt.Printf("newMinioWriter goroutine 4\n")
 		w.errChan <- err
+		fmt.Printf("newMinioWriter goroutine 5\n")
 	}()
 	return w
 }
 
 func (w *minioWriter) Write(p []byte) (retN int, retErr error) {
+	fmt.Printf("minioWriter.Write 1\n")
 	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Write")
+	fmt.Printf("minioWriter.Write 2\n")
 	defer func() {
+		fmt.Printf("minioWriter.Write defer\n")
 		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
 	}()
+	fmt.Printf("minioWriter.Write 3: %v\n", p)
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
 func (w *minioWriter) Close() (retErr error) {
+	fmt.Printf("minioWriter.Close 1\n")
 	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Close")
+	fmt.Printf("minioWriter.Close 2\n")
 	defer func() {
+		fmt.Printf("minioWriter.Close defer, err: %v\n", retErr)
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
+	fmt.Printf("minioWriter.Close 3\n")
 	if err := w.pipe.Close(); err != nil {
+		fmt.Printf("minioWriter.Close 4, err: %v\n", err)
 		return err
 	}
+	fmt.Printf("minioWriter.Close 5\n")
 	return <-w.errChan
 }
 

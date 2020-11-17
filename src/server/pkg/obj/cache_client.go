@@ -104,7 +104,7 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
-		log.Error("could not delete from cache's fast store: %v", err)
+		log.Errorf("could not delete from cache's fast store: %v", err)
 	}
 }
 
