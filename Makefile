@@ -28,6 +28,7 @@ CHLOGFILE = /tmp/pachyderm/release/changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of \#
+GORELDEBUG = --debug # uncomment --debug for verbose goreleaser output
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -85,13 +86,13 @@ release-helper: docker-build docker-push docker-build-pipeline-build docker-push
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@goreleaser release -p 1 $(GORELSNAP) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
+	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) --skip-publish --rm-dist -f goreleaser/docker.yml
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-pipeline-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto

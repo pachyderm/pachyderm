@@ -14,7 +14,7 @@ base:
    - giantswarm/tiny-tools:latest
    - golang:1.12.1
    - golang:1.13.8
-   - golang:1.15.2
+   - golang:1.15.4
    - grafana/grafana:4.2.0
    - grafana/loki:2.0.0
    - grafana/promtail:2.0.0
@@ -48,8 +48,8 @@ base:
     ENV cache-bust 5
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
     RUN cd /tmp && \
-        wget https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz && \
-        tar -zxf go1.15.2.linux-amd64.tar.gz && \
+        wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
+        tar -zxf go1.15.4.linux-amd64.tar.gz && \
         mv go /usr/local && \
         cd -
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
@@ -59,7 +59,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 00aa08aa4b7ad80f659fff6a958cbb7c15a23103 && \
+        git checkout 54b94818a63813dde61e1cc4b0770446cafd7cfb && \
         CIRCLE_BRANCH=1 make install && \
         git config user.email "donotreply@pachyderm.com" && \
         git config user.name "anonymous" && \
