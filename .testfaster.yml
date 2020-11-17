@@ -82,7 +82,7 @@ base:
     # warm up docker buildkit go mod cache and go build cache
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git tag -f -am "Circl CI test" c0.0.1
+    git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
     make docker-build
     # build docker images that are used in tests
     (cd etc/testing/images/ubuntu_with_s3_clients; make image)
@@ -107,7 +107,7 @@ base:
     make install
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git tag -f -am "Circl CI test" c0.0.1
+    git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
     make docker-build
 
     # start services used by tests
