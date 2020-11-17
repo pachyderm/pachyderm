@@ -1,10 +1,10 @@
-package server
+package testing
 
 import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"testing"
 
@@ -15,15 +15,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-var _ = fmt.Printf
 
 // Change this to false to keep kubernetes namespaces around after the test for debugging purposes
 const cleanup = false
@@ -135,14 +133,10 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 	}
 	require.NotEqual(t, "", address)
 
-	// Wait until pachd pod is ready
-	waitForReadiness(t, namespace)
-
 	// Connect to pachd
-	fmt.Printf("Connecting to %s:%d\n", address, port)
+	tu.WaitForPachdReady(t, namespace)
 	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port))
 	require.NoError(t, err)
-	fmt.Printf("Connected\n")
 	return client
 }
 
@@ -244,9 +238,19 @@ func runBasicTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Wait for the output commit
-	commitIter, err := pachClient.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfoIter, err := pachClient.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
+
+	// Collect commit infos
+	var commitInfos []*pfs.CommitInfo
+	for {
+		commitInfo, err := commitInfoIter.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		commitInfos = append(commitInfos, commitInfo)
+	}
 	require.Equal(t, 1, len(commitInfos))
 
 	// Check the pipeline output
@@ -255,75 +259,14 @@ func runBasicTest(t *testing.T, pachClient *client.APIClient) {
 	require.Equal(t, "foo", buf.String())
 }
 
-func newDefaultAmazonConfig() *obj.AmazonAdvancedConfiguration {
-	return &obj.AmazonAdvancedConfiguration{
-		Retries:        obj.DefaultRetries,
-		Timeout:        obj.DefaultTimeout,
-		UploadACL:      obj.DefaultUploadACL,
-		Reverse:        obj.DefaultReverse,
-		PartSize:       obj.DefaultPartSize,
-		MaxUploadParts: obj.DefaultMaxUploadParts,
-		DisableSSL:     obj.DefaultDisableSSL,
-		NoVerifySSL:    obj.DefaultNoVerifySSL,
-		LogOptions:     obj.DefaultAwsLogOptions,
-	}
-}
-
-func loadAmazonParameters(t *testing.T) (string, string, string, string) {
-	id := os.Getenv("AMAZON_DEPLOYMENT_ID")
-	secret := os.Getenv("AMAZON_DEPLOYMENT_SECRET")
-	bucket := os.Getenv("AMAZON_DEPLOYMENT_BUCKET")
-	region := os.Getenv("AMAZON_DEPLOYMENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-
-	return id, secret, bucket, region
-}
-
-func loadECSParameters(t *testing.T) (string, string, string, string, string) {
-	id := os.Getenv("ECS_DEPLOYMENT_ID")
-	secret := os.Getenv("ECS_DEPLOYMENT_SECRET")
-	bucket := os.Getenv("ECS_DEPLOYMENT_BUCKET")
-	region := os.Getenv("ECS_DEPLOYMENT_REGION") // The region is unused but needed by the object client
-	endpoint := os.Getenv("ECS_DEPLOYMENT_CUSTOM_ENDPOINT")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-	require.NotEqual(t, "", endpoint)
-
-	return id, secret, bucket, region, endpoint
-}
-
-func loadGoogleParameters(t *testing.T) (string, string) {
-	bucket := os.Getenv("GOOGLE_DEPLOYMENT_BUCKET")
-	creds := os.Getenv("GOOGLE_DEPLOYMENT_CREDS")
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", creds)
-
-	return bucket, creds
-}
-
-func loadMicrosoftParameters(t *testing.T) (string, string, string) {
-	id := os.Getenv("MICROSOFT_DEPLOYMENT_ID")
-	secret := os.Getenv("MICROSOFT_DEPLOYMENT_SECRET")
-	container := os.Getenv("MICROSOFT_DEPLOYMENT_CONTAINER")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", container)
-
-	return id, secret, container
-}
-
 func TestAmazonDeployment(t *testing.T) {
-	advancedConfig := newDefaultAmazonConfig()
+	t.Parallel()
+	advancedConfig := NewDefaultAmazonConfig()
 
 	// Test the Amazon client against S3
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
-		// t.Parallel()
-		id, secret, bucket, region := loadAmazonParameters(t)
+		t.Parallel()
+		id, secret, bucket, region := LoadAmazonParameters(t)
 		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", "", advancedConfig)
 		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 			runBasicTest(t, pachClient)
@@ -332,67 +275,61 @@ func TestAmazonDeployment(t *testing.T) {
 
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		// t.Parallel()
-		id, secret, bucket, region, endpoint := loadECSParameters(t)
+		t.Parallel()
+		id, secret, bucket, region, endpoint := LoadECSParameters(t)
 		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
 		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 			runBasicTest(t, pachClient)
 		})
 	})
+
+	// TODO: test the amazon client against GCS, although this is currently ~broken, see the client tests
 }
 
 func TestMinioDeployment(t *testing.T) {
-	S3V2s := []bool{false, true}
+	// t.Parallel()
+	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
+		t.Run("S3v2", func(t *testing.T) {
+			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // TODO (this works for GCS), try upgrading to v7?
+			// t.Parallel()
+			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, true)
+			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+				runBasicTest(t, pachClient)
+			})
+		})
+
+		t.Run("S3v4", func(t *testing.T) {
+			// t.Parallel()
+			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, false)
+			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+				runBasicTest(t, pachClient)
+			})
+		})
+	}
 
 	// Test the Minio client against S3 using the S3v2 and S3v4 APIs
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
-		id, secret, bucket, region := loadAmazonParameters(t)
+		id, secret, bucket, region := LoadAmazonParameters(t)
 		endpoint := fmt.Sprintf("s3.%s.amazonaws.com", region) // Note that not all AWS regions support both http/https or both S3v2/S3v4
-		for _, isS3V2 := range S3V2s {
-			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
-				// t.Parallel()
-				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2) // TODO: need endpoint?
-				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-					runBasicTest(t, pachClient)
-				})
-			})
-		}
+		minioTests(t, endpoint, bucket, id, secret)
 	})
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		id, secret, bucket, _, endpoint := loadECSParameters(t)
-		for _, isS3V2 := range S3V2s {
-			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
-				// t.Parallel()
-				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2)
-				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-					runBasicTest(t, pachClient)
-				})
-			})
-		}
+		id, secret, bucket, _, endpoint := LoadECSParameters(t)
+		minioTests(t, endpoint, bucket, id, secret)
 	})
 
-	/*
 	// Test the Minio client against GCP using the S3v2 and S3v4 APIs
-	t.Run("ECSObjectStorage", func(t *testing.T) {
-		bucket, creds := loadGoogleParameters(t)
-		for _, isS3V2 := range S3V2s {
-			t.Run(fmt.Sprintf("isS3V2=%v", isS3V2), func(t *testing.T) {
-				// t.Parallel()
-				secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, isS3V2)
-				withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-					runBasicTest(t, pachClient)
-				})
-			})
-		}
+	t.Run("GoogleObjectStorage", func(t *testing.T) {
+		id, secret, bucket, _, endpoint := LoadGoogleHMACParameters(t)
+		minioTests(t, endpoint, bucket, id, secret)
 	})
-	*/
 }
 
 func TestGoogleDeployment(t *testing.T) {
 	// t.Parallel()
-	bucket, creds := loadGoogleParameters(t)
+	bucket, creds := LoadGoogleParameters(t)
 	secrets := assets.GoogleSecret(bucket, creds)
 	withManifest(t, assets.GoogleBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 		runBasicTest(t, pachClient)
@@ -401,7 +338,7 @@ func TestGoogleDeployment(t *testing.T) {
 
 func TestMicrosoftDeployment(t *testing.T) {
 	// t.Parallel()
-	id, secret, container := loadMicrosoftParameters(t)
+	id, secret, container := LoadMicrosoftParameters(t)
 	secrets := assets.MicrosoftSecret(container, id, secret)
 	withManifest(t, assets.MicrosoftBackend, secrets, func(namespace string, pachClient *client.APIClient) {
 		runBasicTest(t, pachClient)

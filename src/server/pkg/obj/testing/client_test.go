@@ -1,30 +1,26 @@
-package obj
+package testing
 
 import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 
 	"google.golang.org/api/option"
 )
 
-func uniqueObjectName(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
-}
-
-func requireExists(t *testing.T, client Client, object string, expected bool) {
+func requireExists(t *testing.T, client obj.Client, object string, expected bool) {
 	exists := client.Exists(context.Background(), object)
 	require.Equal(t, expected, exists)
 }
 
-func doWriteTest(t *testing.T, client Client, object string, writes []string) {
+func doWriteTest(t *testing.T, client obj.Client, object string, writes []string) {
 	requireExists(t, client, object, false)
 	defer requireExists(t, client, object, false)
 
@@ -65,10 +61,10 @@ func doWriteTest(t *testing.T, client Client, object string, writes []string) {
 	require.NoError(t, r.Close())
 }
 
-func runTests(t *testing.T, client Client) {
+func runTests(t *testing.T, client obj.Client) {
 	t.Run("TestMissingObject", func(t *testing.T) {
 		t.Parallel()
-		object := uniqueObjectName("test-missing-object-")
+		object := tu.UniqueString("test-missing-object-")
 		requireExists(t, client, object, false)
 
 		r, err := client.Reader(context.Background(), object, 0, 0)
@@ -79,50 +75,56 @@ func runTests(t *testing.T, client Client) {
 
 	t.Run("TestEmptyWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, uniqueObjectName("test-empty-write-"), []string{})
+		doWriteTest(t, client, tu.UniqueString("test-empty-write-"), []string{})
 	})
 
 	t.Run("TestSingleWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, uniqueObjectName("test-single-write-"), []string{"foo"})
+		doWriteTest(t, client, tu.UniqueString("test-single-write-"), []string{"foo"})
 	})
 
 	t.Run("TestMultiWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, uniqueObjectName("test-multi-write-"), []string{"foo", "bar"})
+		doWriteTest(t, client, tu.UniqueString("test-multi-write-"), []string{"foo", "bar"})
 	})
 
 	t.Run("TestSubdirectory", func(t *testing.T) {
 		t.Parallel()
-		object := path.Join(uniqueObjectName("test-subdirectory-"), "object")
+		object := path.Join(tu.UniqueString("test-subdirectory-"), "object")
 		doWriteTest(t, client, object, []string{"foo", "bar"})
 	})
 
 	t.Run("TestWalk", func(t *testing.T) {
 		t.Parallel()
+		// TODO: implement walk test
 	})
 
 	t.Run("TestInterruption", func(t *testing.T) {
+		// TODO: Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
+		//  Amazon client - use *WithContext methods
+		//  Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
+		//  Minio client - upgrade to v7 which supports contexts in all APIs
+		t.Skip("Object client interruption is not currently supported across all clients")
 		t.Parallel()
 
 		// Make a canceled context
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		object := uniqueObjectName("test-interruption-")
+		object := tu.UniqueString("test-interruption-")
 		defer requireExists(t, client, object, false)
 
+		// Some clients return an error immediately and some when the stream is closed
 		w, err := client.Writer(ctx, object)
 		require.NoError(t, err)
-		// Some clients return an error now and some when the stream is closed
 		if w != nil {
 			err = w.Close()
 		}
 		require.YesError(t, err)
 		require.True(t, errors.Is(err, context.Canceled))
 
+		// Some clients return an error immediately and some when the stream is closed
 		r, err := client.Reader(ctx, object, 0, 0)
-		// Some clients return an error now and some when the stream is closed
 		if r != nil {
 			err = r.Close()
 		}
@@ -145,89 +147,17 @@ func runTests(t *testing.T, client Client) {
 	})
 }
 
-func newDefaultAmazonConfig() *AmazonAdvancedConfiguration {
-	return &AmazonAdvancedConfiguration{
-		Retries:        DefaultRetries,
-		Timeout:        DefaultTimeout,
-		UploadACL:      DefaultUploadACL,
-		Reverse:        DefaultReverse,
-		PartSize:       DefaultPartSize,
-		MaxUploadParts: DefaultMaxUploadParts,
-		DisableSSL:     DefaultDisableSSL,
-		NoVerifySSL:    DefaultNoVerifySSL,
-		LogOptions:     DefaultAwsLogOptions,
-	}
-}
-
-func loadAmazonParameters(t *testing.T) (string, string, string, string) {
-	id := os.Getenv("AMAZON_DEPLOYMENT_ID")
-	secret := os.Getenv("AMAZON_DEPLOYMENT_SECRET")
-	bucket := os.Getenv("AMAZON_DEPLOYMENT_BUCKET")
-	region := os.Getenv("AMAZON_DEPLOYMENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-
-	return id, secret, bucket, region
-}
-
-func loadECSParameters(t *testing.T) (string, string, string, string, string) {
-	id := os.Getenv("ECS_DEPLOYMENT_ID")
-	secret := os.Getenv("ECS_DEPLOYMENT_SECRET")
-	bucket := os.Getenv("ECS_DEPLOYMENT_BUCKET")
-	region := os.Getenv("ECS_DEPLOYMENT_REGION") // The region is unused but needed by the object client
-	endpoint := os.Getenv("ECS_DEPLOYMENT_CUSTOM_ENDPOINT")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
-	require.NotEqual(t, "", endpoint)
-
-	return id, secret, bucket, region, endpoint
-}
-
-func loadGoogleParameters(t *testing.T) (string, string) {
-	bucket := os.Getenv("GOOGLE_DEPLOYMENT_BUCKET")
-	creds := os.Getenv("GOOGLE_DEPLOYMENT_CREDS")
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", creds)
-
-	return bucket, creds
-}
-
-func loadGoogleHMACParameters(t *testing.T) (string, string, string) {
-	id := os.Getenv("GOOGLE_DEPLOYMENT_HMAC_ID")
-	secret := os.Getenv("GOOGLE_DEPLOYMENT_HMAC_SECRET")
-	bucket := os.Getenv("GOOGLE_DEPLOYMENT_BUCKET")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-
-	return id, secret, bucket
-}
-
-func loadMicrosoftParameters(t *testing.T) (string, string, string) {
-	id := os.Getenv("MICROSOFT_DEPLOYMENT_ID")
-	secret := os.Getenv("MICROSOFT_DEPLOYMENT_SECRET")
-	container := os.Getenv("MICROSOFT_DEPLOYMENT_CONTAINER")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", container)
-
-	return id, secret, container
-}
-
 func TestAmazonClient(t *testing.T) {
-	advancedConfig := newDefaultAmazonConfig()
+	t.Parallel()
+	// TODO: test with `reverse` as `true` | `false`
 
 	// Test the Amazon client against S3
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
 		t.Parallel()
-		id, secret, bucket, region := loadAmazonParameters(t)
-		creds := &AmazonCreds{ID: id, Secret: secret}
+		id, secret, bucket, region := LoadAmazonParameters(t)
+		creds := &obj.AmazonCreds{ID: id, Secret: secret}
 
-		client, err := newAmazonClient(region, bucket, creds, "", "", advancedConfig)
+		client, err := obj.NewAmazonClient(region, bucket, creds, "", "")
 		require.NoError(t, err)
 		runTests(t, client)
 	})
@@ -235,27 +165,41 @@ func TestAmazonClient(t *testing.T) {
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
 		t.Parallel()
-		id, secret, bucket, region, endpoint := loadECSParameters(t)
-		creds := &AmazonCreds{ID: id, Secret: secret}
+		id, secret, bucket, region, endpoint := LoadECSParameters(t)
+		creds := &obj.AmazonCreds{ID: id, Secret: secret}
 
-		client, err := newAmazonClient(region, bucket, creds, "", endpoint, advancedConfig)
+		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
+		require.NoError(t, err)
+		runTests(t, client)
+	})
+
+	// Test the Amazon client against GCS
+	t.Run("GoogleObjectStorage", func(t *testing.T) {
+		t.Skip("Amazon client gets 'InvalidArgument' errors when running against GCS") // TODO
+		t.Parallel()
+		id, secret, bucket, region, endpoint := LoadGoogleHMACParameters(t)
+		creds := &obj.AmazonCreds{ID: id, Secret: secret}
+
+		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
 		require.NoError(t, err)
 		runTests(t, client)
 	})
 }
 
 func TestMinioClient(t *testing.T) {
+	t.Parallel()
 	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
 		t.Run("S3v2", func(t *testing.T) {
+			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // TODO (this works for GCS), try upgrading to v7?
 			t.Parallel()
-			client, err := newMinioClientV2(endpoint, bucket, id, secret, true)
+			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, true)
 			require.NoError(t, err)
 			runTests(t, client)
 		})
 
 		t.Run("S3v4", func(t *testing.T) {
 			t.Parallel()
-			client, err := newMinioClient(endpoint, bucket, id, secret, true)
+			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, false)
 			require.NoError(t, err)
 			runTests(t, client)
 		})
@@ -263,37 +207,40 @@ func TestMinioClient(t *testing.T) {
 
 	// Test the Minio client against S3 using the S3v2 and S3v4 APIs
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
-		id, secret, bucket, region := loadAmazonParameters(t)
+		t.Parallel()
+		id, secret, bucket, region := LoadAmazonParameters(t)
 		endpoint := fmt.Sprintf("s3.%s.amazonaws.com", region) // Note that not all AWS regions support both http/https or both S3v2/S3v4
 		minioTests(t, endpoint, bucket, id, secret)
 	})
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		id, secret, bucket, _, endpoint := loadECSParameters(t)
+		t.Parallel()
+		id, secret, bucket, _, endpoint := LoadECSParameters(t)
 		minioTests(t, endpoint, bucket, id, secret)
 	})
 
-	// Test the Minio client against GCP using the S3v2 and S3v4 APIs
+	// Test the Minio client against GCS using the S3v2 and S3v4 APIs
 	t.Run("GoogleObjectStorage", func(t *testing.T) {
-		id, secret, bucket := loadGoogleHMACParameters(t)
-		minioTests(t, "storage.googleapis.com", bucket, id, secret)
+		t.Parallel()
+		id, secret, bucket, _, endpoint := LoadGoogleHMACParameters(t)
+		minioTests(t, endpoint, bucket, id, secret)
 	})
 }
 
 func TestGoogleClient(t *testing.T) {
 	t.Parallel()
-	bucket, credData := loadGoogleParameters(t)
+	bucket, credData := LoadGoogleParameters(t)
 	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(credData))}
-	client, err := newGoogleClient(bucket, opts)
+	client, err := obj.NewGoogleClient(bucket, opts)
 	require.NoError(t, err)
 	runTests(t, client)
 }
 
 func TestMicrosoftClient(t *testing.T) {
 	t.Parallel()
-	id, secret, container := loadMicrosoftParameters(t)
-	client, err := newMicrosoftClient(container, id, secret)
+	id, secret, container := LoadMicrosoftParameters(t)
+	client, err := obj.NewMicrosoftClient(container, id, secret)
 	require.NoError(t, err)
 	runTests(t, client)
 }

@@ -81,7 +81,7 @@ func (a *apiServer) master() {
 				Watch: true,
 			})
 		if err != nil {
-			log.Errorf("failed to watch kuburnetes pods: %v", err)
+			log.Errorf("failed to watch kubernetes pods: %v", err)
 		} else {
 			watchChan = kubePipelineWatch.ResultChan()
 			defer kubePipelineWatch.Stop()
@@ -126,7 +126,7 @@ func (a *apiServer) master() {
 							Watch: true,
 						})
 					if err != nil {
-						log.Errorf("failed to watch kuburnetes pods: %v", err)
+						log.Errorf("failed to watch kubernetes pods: %v", err)
 						watchChan = nil
 					} else {
 						watchChan = kubePipelineWatch.ResultChan()

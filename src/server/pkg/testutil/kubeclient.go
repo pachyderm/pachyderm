@@ -9,8 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -145,4 +147,59 @@ func DeletePipelineRC(t testing.TB, pipeline string) {
 		}
 		return nil
 	})
+}
+
+// PachdDeployment finds the corresponding deployment for pachd in the
+// kubernetes namespace and returns it.
+func PachdDeployment(t testing.TB, namespace string) *apps.Deployment {
+	k := GetKubeClient(t)
+	result, err := k.AppsV1().Deployments(namespace).Get("pachd", metav1.GetOptions{})
+	require.NoError(t, err)
+	return result
+}
+
+func podRunningAndReady(e watch.Event) (bool, error) {
+	if e.Type == watch.Deleted {
+		return false, errors.New("received DELETE while watching pods")
+	}
+	pod, ok := e.Object.(*v1.Pod)
+	if !ok {
+		return false, errors.Errorf("unexpected object type in watch.Event")
+	}
+	return pod.Status.Phase == v1.PodRunning, nil
+}
+
+// WaitForPachdReady finds the pachd pods within the kubernetes namespace and
+// blocks until they are all ready.
+func WaitForPachdReady(t testing.TB, namespace string) {
+	k := GetKubeClient(t)
+	deployment := PachdDeployment(t, namespace)
+	for {
+		newDeployment, err := k.AppsV1().Deployments(namespace).Get(deployment.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
+			break
+		}
+		time.Sleep(time.Second * 5)
+	}
+	watch, err := k.CoreV1().Pods(namespace).Watch(metav1.ListOptions{
+		LabelSelector: "app=pachd",
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	readyPods := make(map[string]bool)
+	for event := range watch.ResultChan() {
+		ready, err := podRunningAndReady(event)
+		require.NoError(t, err)
+		if ready {
+			pod, ok := event.Object.(*v1.Pod)
+			if !ok {
+				t.Fatal("event.Object should be an object")
+			}
+			readyPods[pod.Name] = true
+			if len(readyPods) == int(*deployment.Spec.Replicas) {
+				break
+			}
+		}
+	}
 }

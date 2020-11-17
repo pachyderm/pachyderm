@@ -11674,7 +11674,7 @@ func TestMissingPipelineSpec(t *testing.T) {
 			GracePeriodSeconds: new(int64),
 		}))
 	}
-	waitForReadiness(t, v1.NamespaceDefault)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 
 	// The old client is no longer valid
 	c = getUsablePachClient(t)
@@ -12877,7 +12877,7 @@ func restartAll(t *testing.T) {
 			GracePeriodSeconds: new(int64),
 		}))
 	}
-	waitForReadiness(t, v1.NamespaceDefault)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
 
 //lint:ignore U1000 false positive from staticcheck
@@ -12892,7 +12892,7 @@ func restartOne(t *testing.T) {
 	require.NoError(t, podsInterface.Delete(
 		podList.Items[rand.Intn(len(podList.Items))].Name,
 		&metav1.DeleteOptions{GracePeriodSeconds: new(int64)}))
-	waitForReadiness(t, v1.NamespaceDefault)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
 
 // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
@@ -12908,50 +12908,6 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 		return err
 	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
 	return c
-}
-
-func podRunningAndReady(e watch.Event) (bool, error) {
-	if e.Type == watch.Deleted {
-		return false, errors.New("received DELETE while watching pods")
-	}
-	pod, ok := e.Object.(*v1.Pod)
-	if !ok {
-		return false, errors.Errorf("unexpected object type in watch.Event")
-	}
-	return pod.Status.Phase == v1.PodRunning, nil
-}
-
-func waitForReadiness(t testing.TB, namespace string) {
-	k := tu.GetKubeClient(t)
-	deployment := pachdDeployment(t, namespace)
-	for {
-		newDeployment, err := k.AppsV1().Deployments(namespace).Get(deployment.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
-			break
-		}
-		time.Sleep(time.Second * 5)
-	}
-	watch, err := k.CoreV1().Pods(namespace).Watch(metav1.ListOptions{
-		LabelSelector: "app=pachd",
-	})
-	defer watch.Stop()
-	require.NoError(t, err)
-	readyPods := make(map[string]bool)
-	for event := range watch.ResultChan() {
-		ready, err := podRunningAndReady(event)
-		require.NoError(t, err)
-		if ready {
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				t.Fatal("event.Object should be an object")
-			}
-			readyPods[pod.Name] = true
-			if len(readyPods) == int(*deployment.Spec.Replicas) {
-				break
-			}
-		}
-	}
 }
 
 func simulateGitPush(t *testing.T, pathToPayload string) {
@@ -12976,18 +12932,11 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 	require.Equal(t, 200, resp.StatusCode)
 }
 
-func pachdDeployment(t testing.TB, namespace string) *apps.Deployment {
-	k := tu.GetKubeClient(t)
-	result, err := k.AppsV1().Deployments(namespace).Get("pachd", metav1.GetOptions{})
-	require.NoError(t, err)
-	return result
-}
-
 // scalePachd scales the number of pachd nodes up or down.
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
 func scalePachdRandom(t testing.TB, up bool) {
-	pachdRc := pachdDeployment(t, v1.NamespaceDefault)
+	pachdRc := tu.PachdDeployment(t, v1.NamespaceDefault)
 	originalReplicas := *pachdRc.Spec.Replicas
 	for {
 		if up {
@@ -13008,12 +12957,12 @@ func scalePachdN(t testing.TB, n int) {
 	k := tu.GetKubeClient(t)
 	// Modify the type metadata of the Deployment spec we read from k8s, so that
 	// k8s will accept it if we're talking to a 1.7 cluster
-	pachdDeployment := pachdDeployment(t, v1.NamespaceDefault)
+	pachdDeployment := tu.PachdDeployment(t, v1.NamespaceDefault)
 	*pachdDeployment.Spec.Replicas = int32(n)
 	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
 	_, err := k.AppsV1().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
-	waitForReadiness(t, v1.NamespaceDefault)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 	// Unfortunately, even when all pods are ready, the cluster membership
 	// protocol might still be running, thus PFS API calls might fail.  So
 	// we wait a little bit for membership to stablize.
