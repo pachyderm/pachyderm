@@ -61,7 +61,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 419386004c768918185fffc0e79c5ac167d9eae0 && \
+        git checkout 1a22de37b3ed61a8c02ae28dfd2401bf32db766f && \
         CIRCLE_BRANCH=1 make install && \
         git config user.email "donotreply@pachyderm.com" && \
         git config user.name "anonymous" && \
@@ -86,7 +86,8 @@ base:
     # warm up docker buildkit go mod cache and go build cache
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git commit -am "Checkin temp files"
+    git add -u go.sum go.mod
+    git commit -m "Checkin temp files"
     git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
     make docker-build
     # build docker images that are used in tests
@@ -114,7 +115,8 @@ base:
     make install
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git commit -am "Checkin temp files"
+    git add -u go.sum go.mod
+    git commit -m "Checkin temp files"
     git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
     make docker-build
 

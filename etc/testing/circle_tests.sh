@@ -24,16 +24,13 @@ echo "Finished copying context."
 # NB: https://serverfault.com/questions/482907/setting-a-variable-for-a-given-ssh-host
 
 echo "Starting test $BUCKET."
-#time ./etc/testing/testctl-ssh.sh \
-#    -o SendEnv=PPS_BUCKETS \
-#    -o SendEnv=AUTH_BUCKETS \
-#    -o SendEnv=GOPROXY \
-#    -o SendEnv=ENT_ACT_CODE \
-#    -o SendEnv=BUCKET \
-#    -o SendEnv=CIRCLE_BRANCH \
-#    -o SendEnv=RUN_BAD_TESTS \
-#    -- ./project/etc/testing/circle_tests_inner.sh "$@"
 time ./etc/testing/testctl-ssh.sh \
     -o SendEnv=PPS_BUCKETS \
+    -o SendEnv=AUTH_BUCKETS \
+    -o SendEnv=GOPROXY \
+    -o SendEnv=ENT_ACT_CODE \
+    -o SendEnv=BUCKET \
+    -o SendEnv=CIRCLE_BRANCH \
+    -o SendEnv=RUN_BAD_TESTS \
     -- ./project/etc/testing/circle_tests_inner.sh "$@"
 echo "Finished test $BUCKET."
