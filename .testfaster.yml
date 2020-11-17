@@ -55,6 +55,7 @@ base:
         cd pachyderm && \
         git checkout 2e329da329dbf20ddc1cbbd5d9470e8082ba355c && \
         CIRCLE_BRANCH=1 make install && \
+        git reset --hard HEAD && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
