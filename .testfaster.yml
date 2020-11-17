@@ -60,9 +60,9 @@ base:
         tar xf kubeval-linux-amd64.tar.gz && \
         cp kubeval /usr/local/bin && \
         rm kubeval-linux-amd64.tar.gz
-    RUN pushd /usr/local/ && \
+    RUN cd /usr/local/ && \
         wget -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh && \
-        popd
+        cd -
 
   docker_bake_script: |-
     #!/bin/bash
