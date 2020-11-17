@@ -24,6 +24,7 @@ kubectl version
 
 make install
 VERSION=$(pachctl version --client-only)
+git commit -am "Commit temp file"
 git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
 make docker-build
 make launch-dev
