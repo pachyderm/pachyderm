@@ -1,9 +1,5 @@
 dist: /tmp/pachyderm/release/docker
 
-before:
-  hooks:
-    - docker login
-
 # Goreleaser needs a build step, so building a dummy binary.
 # Hence the name `notusedbuild`, because its not used in any
 # step.
