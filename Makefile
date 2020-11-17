@@ -7,7 +7,7 @@
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = "ci_build"
+	export VERSION_ADDITIONAL = "-ci_build"
 	export GC_FLAGS = ""
 else
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
