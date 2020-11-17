@@ -61,7 +61,7 @@ base:
         cp kubeval /usr/local/bin && \
         rm kubeval-linux-amd64.tar.gz
     RUN pushd /usr/local/ && \
-        wget -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sudo sh && \
+        wget -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh && \
         popd
 
   docker_bake_script: |-
