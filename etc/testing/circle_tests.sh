@@ -14,7 +14,7 @@ echo "==== KUBECONFIG ===="
 cat kubeconfig
 echo "===================="
 
-KUBECONFIG="$(pwd)/kubeconfig"
+KUBECONFIG="/tmp/kubeconfig"
 export KUBECONFIG
 
 echo "Copying context to runner."
