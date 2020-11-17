@@ -104,7 +104,7 @@ a preposition.
 | ---------- | --- |
 | The `put file` API includes an option for splitting **up** the file into separate datums automatically. | The `put file` API includes an option for splitting the file into separate datums automatically. |
 
-##Use meaningful links
+## Use meaningful links
 
 Link text should mean something to the users when they read it. Phrases
 like **Click here** and **Read more** do not provide useful information.
@@ -137,15 +137,40 @@ and Markdown does not support starting lists from an arbitrary number.
 
 * Enclose code blocks in "```" and specify the correct highlighting.
 
-* While PyMdown Extensions provide advanced UI features, use them sparingly because not all browsers fully support all of them.
+* While PyMdown Extensions provide advanced UI features, use them sparingly
+because not all browsers fully support all of them.
 
-* Do not use the dollar sign `$` in code snippets. While the dollar sign
-signifies the beginning of a line, it creates usability issues. When users
-copy commands from a code block, they copy everything from that code
-block, including the dollar sign. Then, they need to navigate to the
-begining of the command prompt to remove the dollar sign, which is quite annoying.
-Most of the commands that are described in the Pachyderm documentation
-are run from a UNIX shell as a normal user.
+## Command Line Syntax
+
+Start lines for single-line or multi-line commands with the `$` prompt symbol.
+
+Don't show the current path before the prompt. However, when changing contexts
+of the prompt--such as from a local to a remote machine, then add an additional
+prompt indicator.
+
+If you need to show the output of the command, include the output in the same
+code block as the command.
+
+If additional output exists, but is cumbersome and unnecessary to show, use an
+ellipsis `...` and truncate the output.
+
+#### Examples
+
+```shell
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.11.7
+pachd               1.11.7
+```
+
+```shell
+remote@ $ pachctl logs
+started setting up External Pachd GRPC Server
+started setting up PFS API GRPC Server
+finished setting up PFS API GRPC Server
+started setting up PPS API GRPC Server
+...
+```
 
 ## Preview the Documentation Locally
 
