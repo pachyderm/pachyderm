@@ -23,6 +23,8 @@ ln -s "$(pwd)" "$GOPATH"/src/github.com/pachyderm/pachyderm
 kubectl version
 
 make install
+VERSION=$(pachctl version --client-only)
+git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
 make docker-build
 make launch-dev
 

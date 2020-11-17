@@ -53,13 +53,16 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout c6734a5f1efd2f3f30f91c4917c89998ddbea347 && \
+        git checkout c35e18b77245aa6197acb426b6162d2af1a4d255 && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
         cp kubeval /usr/local/bin && \
         rm kubeval-linux-amd64.tar.gz
+    RUN pushd /usr/local/ && \
+        wget -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sudo sh && \
+        popd
 
   docker_bake_script: |-
     #!/bin/bash
@@ -69,6 +72,7 @@ base:
     # build params (version)
     export CIRCLE_BRANCH=1
     # warm up docker buildkit go mod cache and go build cache
+    git tag -f -am "Circl CI test" c0.0.1
     make docker-build
     # build docker images that are used in tests
     (cd etc/testing/images/ubuntu_with_s3_clients; make image)
@@ -91,6 +95,7 @@ base:
     # previous stages)
     export CIRCLE_BRANCH=1
     make install
+    git tag -f -am "Circl CI test" c0.0.1
     make docker-build
 
     # start services used by tests
