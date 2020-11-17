@@ -52,6 +52,8 @@ base:
         tar -zxf go1.15.4.linux-amd64.tar.gz && \
         mv go /usr/local && \
         cd -
+    ENV GOPATH=/usr/local/go
+    ENV PATH=$GOPATH/bin:$PATH
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
     WORKDIR /root
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
