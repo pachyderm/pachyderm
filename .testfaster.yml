@@ -53,7 +53,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout c35e18b77245aa6197acb426b6162d2af1a4d255 && \
+        git checkout 06f71974f0d028f606eb3afd1b0aec7e5383c971 && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
@@ -72,6 +72,8 @@ base:
     # build params (version)
     export CIRCLE_BRANCH=1
     # warm up docker buildkit go mod cache and go build cache
+    git config user.email "donotreply@pachyderm.com"
+    git config user.name "anonymous"
     git tag -f -am "Circl CI test" c0.0.1
     make docker-build
     # build docker images that are used in tests
