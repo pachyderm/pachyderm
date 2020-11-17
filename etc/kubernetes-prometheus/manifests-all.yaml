@@ -5,6 +5,45 @@ kind: Namespace
 metadata:
   name: monitoring
 ---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-k8s
+  namespace: monitoring
+---
 apiVersion: v1
 data:
   default.tmpl: |
@@ -294,7 +333,7 @@ data:
       - channel: '#alertmanager-test'
         send_resolved: true
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: alertmanager
@@ -356,7 +395,7 @@ spec:
     port: 9093
     targetPort: 9093
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana-core
@@ -366,6 +405,9 @@ metadata:
     component: core
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
   template:
     metadata:
       labels:
@@ -389,6 +431,16 @@ spec:
           # The following env variables set up basic auth twith the default admin user and admin password.
           - name: GF_AUTH_BASIC_ENABLED
             value: "true"
+          - name: GF_SECURITY_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: grafana
+                key: admin-username
+          - name: GF_SECURITY_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana
+                key: admin-password
           - name: GF_AUTH_ANONYMOUS_ENABLED
             value: "false"
           # - name: GF_AUTH_ANONYMOUS_ORG_ROLE
@@ -404,7 +456,7 @@ spec:
           # timeoutSeconds: 1
         volumeMounts:
         - name: grafana-persistent-storage
-          mountPath: /var
+          mountPath: /var/lib/grafana
       volumes:
       - name: grafana-persistent-storage
         emptyDir: {}
@@ -487,7 +539,7 @@ data:
             "show": false
           },
           "targets": [{
-            "expr": "(time() - process_start_time_seconds{job=\"prometheus\"})",
+            "expr": "(time() - container_start_time_seconds{container_name=\"kube-apiserver\"})",
             "intervalFactor": 2,
             "refId": "A",
             "step": 4
@@ -613,7 +665,7 @@ data:
             "step": 4
           }],
           "thresholds": "500,4000",
-          "title": "Interal Storage Queue Length",
+          "title": "Internal Storage Queue Length",
           "type": "singlestat",
           "valueFontSize": "70%",
           "valueMaps": [{
@@ -949,7 +1001,7 @@ data:
           "stack": false,
           "steppedLine": false,
           "targets": [{
-            "expr": "prometheus_evaluator_duration_milliseconds{quantile!=\"0.01\", quantile!=\"0.05\"}",
+            "expr": "prometheus_evaluator_duration_seconds{quantile!=\"0.01\", quantile!=\"0.05\"}",
             "interval": "",
             "intervalFactor": 2,
             "legendFormat": "{{quantile}}",
@@ -2265,18 +2317,20 @@ spec:
       labels:
         app: grafana
         component: import-dashboards
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[
-          {
-            "name": "wait-for-endpoints",
-            "image": "giantswarm/tiny-tools",
-            "imagePullPolicy": "IfNotPresent",
-            "command": ["fish", "-c", "echo \"waiting for endpoints...\"; while true; set endpoints (curl -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --header \"Authorization: Bearer \"(cat /var/run/secrets/kubernetes.io/serviceaccount/token) https://kubernetes.default.svc/api/v1/namespaces/monitoring/endpoints/grafana); echo $endpoints | jq \".\"; if test (echo $endpoints | jq -r \".subsets[]?.addresses // [] | length\") -gt 0; exit 0; end; echo \"waiting...\";sleep 1; end"],
-            "args": ["monitoring", "grafana"]
-          }
-        ]'
     spec:
       serviceAccountName: prometheus-k8s
+      initContainers:
+      - name: wait-for-grafana
+        image: giantswarm/tiny-tools
+        args:
+        - /bin/sh
+        - -c
+        - >
+          set -x;
+          while [ $(curl -Lsw '%{http_code}' "http://grafana:3000" -o /dev/null) -ne 200 ]; do
+            echo '.'
+            sleep 15;
+          done
       containers:
       - name: grafana-import-dashboards
         image: giantswarm/tiny-tools
@@ -2288,7 +2342,7 @@ spec:
               if [ -e "$file" ] ; then
                 echo "importing $file" &&
                 curl --silent --fail --show-error \
-                  --request POST http://admin:admin@grafana:3000/api/datasources \
+                  --request POST http://${GF_ADMIN_USER}:${GF_ADMIN_PASSWORD}@grafana:3000/api/datasources \
                   --header "Content-Type: application/json" \
                   --data-binary "@$file" ;
                 echo "" ;
@@ -2302,13 +2356,24 @@ spec:
                   echo ',"overwrite":true,"inputs":[{"name":"DS_PROMETHEUS","type":"datasource","pluginId":"prometheus","value":"prometheus"}]}' ) \
                 | jq -c '.' \
                 | curl --silent --fail --show-error \
-                  --request POST http://admin:admin@grafana:3000/api/dashboards/import \
+                  --request POST http://${GF_ADMIN_USER}:${GF_ADMIN_PASSWORD}@grafana:3000/api/dashboards/import \
                   --header "Content-Type: application/json" \
                   --data-binary "@-" ;
                 echo "" ;
               fi
             done
 
+        env:
+        - name: GF_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: grafana
+              key: admin-username
+        - name: GF_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana
+              key: admin-password
         volumeMounts:
         - name: config-volume
           mountPath: /opt/grafana-import-dashboards
@@ -2332,6 +2397,16 @@ spec:
 #         backend:
 #          serviceName: grafana
 #          servicePort: 3000
+---
+apiVersion: v1
+kind: Secret
+data:
+  admin-password: YWRtaW4=
+  admin-username: YWRtaW4=
+metadata:
+  name: grafana
+  namespace: monitoring
+type: Opaque
 ---
 apiVersion: v1
 kind: Service
@@ -2455,13 +2530,32 @@ data:
           - source_labels: [__meta_kubernetes_pod_container_port_number]
             action: keep
             regex: 9\d{3}
+
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
 kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: prometheus-core
   namespace: monitoring
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-core
@@ -2471,6 +2565,9 @@ metadata:
     component: core
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       name: prometheus-main
@@ -2510,13 +2607,18 @@ spec:
         configMap:
           name: prometheus-rules
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-state-metrics
   namespace: monitoring
+  labels: 
+    app: kube-state-metrics
 spec:
-  replicas: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-state-metrics
   template:
     metadata:
       labels:
@@ -2557,7 +2659,7 @@ spec:
 #   - replicationcontrollers
 #   - limitranges
 #   verbs: ["list", "watch"]
-# - apiGroups: ["extensions"]
+# - apiGroups: ["apps"]
 #   resources:
 #   - daemonsets
 #   - deployments
@@ -2586,13 +2688,15 @@ spec:
     protocol: TCP
   selector:
     app: kube-state-metrics
-    
+
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-directory-size-metrics
   namespace: monitoring
+  labels:
+    app: node-directory-size-metrics
   annotations:
     description: |
       This `DaemonSet` provides metrics in Prometheus format about disk usage on the nodes.
@@ -2601,6 +2705,9 @@ metadata:
       These are scheduled on every node in the Kubernetes cluster.
       To choose directories from the node to check, just mount them on the `read-du` container below `/mnt`.
 spec:
+  selector:
+    matchLabels:
+      app: node-directory-size-metrics
   template:
     metadata:
       labels:
@@ -2660,7 +2767,7 @@ spec:
         emptyDir:
           medium: Memory
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: prometheus-node-exporter
@@ -2669,6 +2776,9 @@ metadata:
     app: prometheus
     component: node-exporter
 spec:
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       name: prometheus-node-exporter
@@ -2765,7 +2875,7 @@ data:
       }
 
     ALERT NodeMemoryUsage
-      IF (((node_memory_MemTotal-node_memory_MemFree-node_memory_Cached)/(node_memory_MemTotal)*100)) > 75
+      IF (((node_memory_MemTotal-node_memory_MemAvailable)/(node_memory_MemTotal)*100)) > 75
       FOR 2m
       LABELS {
         severity="page"
@@ -2778,45 +2888,6 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: prometheus-rules
-  namespace: monitoring
----
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: prometheus
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: prometheus
-subjects:
-- kind: ServiceAccount
-  name: prometheus-k8s
-  namespace: monitoring
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: prometheus
-rules:
-- apiGroups: [""]
-  resources:
-  - nodes
-  - services
-  - endpoints
-  - pods
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources:
-  - configmaps
-  verbs: ["get"]
-- nonResourceURLs: ["/metrics"]
-  verbs: ["get"]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: prometheus-k8s
   namespace: monitoring
 ---
 apiVersion: v1

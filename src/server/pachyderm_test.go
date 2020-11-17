@@ -1989,6 +1989,9 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 
 // TestFlushCommit
 func TestFlushCommit(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4467,10 +4470,16 @@ func TestStopJob(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testGetLogs(t, false)
 }
 
 func TestGetLogsWithStats(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testGetLogs(t, true)
 }
 
@@ -4837,10 +4846,12 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 }
 
 func TestDatumStatusRestart(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -6809,6 +6820,9 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 }
 
 func TestPipelineWithStatsPaginated(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7239,6 +7253,9 @@ func TestOpencvDemo(t *testing.T) {
 }
 
 func TestCronPipeline(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8074,6 +8091,9 @@ func TestHTTPGetFile(t *testing.T) {
 }
 
 func TestService(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8880,6 +8900,9 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 }
 
 func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8957,6 +8980,9 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 }
 
 func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10176,6 +10202,9 @@ func TestDontReadStdin(t *testing.T) {
 }
 
 func TestStatsDeleteAll(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -11533,6 +11562,9 @@ func TestDeferredProcessing(t *testing.T) {
 }
 
 func TestPipelineHistory(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -11839,6 +11871,9 @@ func TestFileHistory(t *testing.T) {
 // pipelines can be created (i.e. that the PPS master doesn't crashloop due to
 // the missing output repo).
 func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -12451,6 +12486,9 @@ func TestCopyOutToIn(t *testing.T) {
 }
 
 func TestKeepRepo(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -12526,6 +12564,10 @@ func TestKeepRepo(t *testing.T) {
 }
 
 func TestCrashingToStandby(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

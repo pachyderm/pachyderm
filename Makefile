@@ -5,10 +5,16 @@
 ####
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-# Label it w the go version we bundle in:
-export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+# Don't set the version to the git hash in CI, as it breaks the go build cache.
+ifdef CIRCLE_BRANCH
+	export VERSION_ADDITIONAL = "ci_build"
+	export GC_FLAGS = ""
+else
+	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+	export GC_FLAGS = "all=-trimpath=${PWD}"
+endif
+
 export LD_FLAGS = github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
-export GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME ?= pachyderm
@@ -354,7 +360,8 @@ launch-logging: check-kubectl check-kubectl-connection
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 launch-loki:
-	helm repo add --force-update loki https://grafana.github.io/loki/charts
+	helm repo delete loki || true
+	helm repo add loki https://grafana.github.io/loki/charts
 	helm repo update
 	helm upgrade --install loki loki/loki-stack
 	until timeout 1s ./etc/kube/check_ready.sh release=loki; do sleep 1; done

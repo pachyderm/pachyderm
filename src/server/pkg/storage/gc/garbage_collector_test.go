@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -138,6 +139,9 @@ func TestRecovery(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		numTrees := 10
 		var expectedChunkRows []chunkModel
