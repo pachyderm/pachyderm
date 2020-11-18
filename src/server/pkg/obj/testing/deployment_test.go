@@ -284,14 +284,23 @@ func TestAmazonDeployment(t *testing.T) {
 		})
 	})
 
-	// TODO: test the amazon client against GCS, although this is currently ~broken, see the client tests
+	// Test the Amazon client against GCS
+	t.Run("GoogleObjectStorage", func(t *testing.T) {
+		t.Skip("Amazon client does not work against GCS currently, see client_test.go")
+		t.Parallel()
+		id, secret, bucket, region, endpoint := LoadGoogleHMACParameters(t)
+		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
+		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+			runBasicTest(t, pachClient)
+		})
+	})
 }
 
 func TestMinioDeployment(t *testing.T) {
 	t.Parallel()
 	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
 		t.Run("S3v2", func(t *testing.T) {
-			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // TODO (this works for GCS), try upgrading to v7?
+			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // (this works for GCS), try upgrading to v7?
 			t.Parallel()
 			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, true)
 			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {

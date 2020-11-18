@@ -39,26 +39,66 @@ func doWriteTest(t *testing.T, client obj.Client, object string, writes []string
 
 	requireExists(t, client, object, true)
 
-	r, err := client.Reader(context.Background(), object, 0, 0)
-	require.NoError(t, err)
-
-	expected := ""
+	data := ""
 	for _, s := range writes {
-		expected += s
+		data += s
 	}
 
-	buf := make([]byte, len(expected)+1)
-	size, err := r.Read(buf)
-	require.Equal(t, len(expected), size)
-	require.True(t, err == nil || errors.Is(err, io.EOF))
+	doRead := func(offset uint64, length uint64) error {
+		expected := ""
+		if length == 0 || int(offset+length) > len(data) {
+			expected = data[offset:]
+		} else {
+			expected = data[offset : offset+length]
+		}
 
-	size, err = r.Read(buf)
-	require.Equal(t, 0, size)
-	require.True(t, err == nil || errors.Is(err, io.EOF))
+		r, err := client.Reader(context.Background(), object, offset, length)
+		require.NoError(t, err)
 
-	// TODO: test offset reads
+		buf := make([]byte, len(data)+1)
+		size, err := r.Read(buf)
+		require.Equal(t, len(expected), size)
+		if err != nil && !errors.Is(err, io.EOF) {
+			require.NoError(t, r.Close())
+			return err
+		}
 
-	require.NoError(t, r.Close())
+		size, err = r.Read(buf)
+		require.Equal(t, 0, size)
+		if err != nil && !errors.Is(err, io.EOF) {
+			require.NoError(t, r.Close())
+			return err
+		}
+
+		require.NoError(t, r.Close())
+		return nil
+	}
+
+	doRead(0, 0)
+
+	if len(data) > 0 {
+		// Read the first character
+		// TODO: this test is broken on the MicrosoftClient due to how the BlobRange is implemented
+		// err := doRead(0, 1)
+		// require.NoError(t, err)
+
+		// Read the last character
+		err = doRead(uint64(len(data)-1), 1)
+		require.NoError(t, err)
+
+		// Read through the end of the object
+		err = doRead(uint64(len(data)-1), 10)
+		require.YesError(t, err)
+		require.Matches(t, "read stream ended after the wrong length", err.Error())
+
+		// Read the middle of the object
+		err = doRead(1, uint64(len(data)-2))
+		require.NoError(t, err)
+
+		// Read past the end of the object
+		_, err = client.Reader(context.Background(), object, uint64(len(data)+1), 1)
+		require.YesError(t, err) // The precise error here varies across clients and providers
+	}
 }
 
 func runTests(t *testing.T, client obj.Client) {
@@ -94,17 +134,14 @@ func runTests(t *testing.T, client obj.Client) {
 		doWriteTest(t, client, object, []string{"foo", "bar"})
 	})
 
-	t.Run("TestWalk", func(t *testing.T) {
-		t.Parallel()
-		// TODO: implement walk test
-	})
+	// TODO: implement walk test
 
 	t.Run("TestInterruption", func(t *testing.T) {
-		// TODO: Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
+		t.Skip("Object client interruption is not currently supported across all clients")
+		// Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
 		//  Amazon client - use *WithContext methods
 		//  Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
 		//  Minio client - upgrade to v7 which supports contexts in all APIs
-		t.Skip("Object client interruption is not currently supported across all clients")
 		t.Parallel()
 
 		// Make a canceled context
@@ -149,40 +186,39 @@ func runTests(t *testing.T, client obj.Client) {
 
 func TestAmazonClient(t *testing.T) {
 	t.Parallel()
-	// TODO: test with `reverse` as `true` | `false`
+
+	amazonTests := func(t *testing.T, id string, secret string, bucket string, region string, endpoint string) {
+		for _, reverse := range []bool{true, false} {
+			t.Run(fmt.Sprintf("reverse=%v", reverse), func(t *testing.T) {
+				t.Parallel()
+				creds := &obj.AmazonCreds{ID: id, Secret: secret}
+				client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint, reverse)
+				require.NoError(t, err)
+				runTests(t, client)
+			})
+		}
+	}
 
 	// Test the Amazon client against S3
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, region := LoadAmazonParameters(t)
-		creds := &obj.AmazonCreds{ID: id, Secret: secret}
-
-		client, err := obj.NewAmazonClient(region, bucket, creds, "", "")
-		require.NoError(t, err)
-		runTests(t, client)
+		amazonTests(t, id, secret, bucket, region, "")
 	})
 
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadECSParameters(t)
-		creds := &obj.AmazonCreds{ID: id, Secret: secret}
-
-		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
-		require.NoError(t, err)
-		runTests(t, client)
+		amazonTests(t, id, secret, bucket, region, endpoint)
 	})
 
 	// Test the Amazon client against GCS
 	t.Run("GoogleObjectStorage", func(t *testing.T) {
-		t.Skip("Amazon client gets 'InvalidArgument' errors when running against GCS") // TODO
+		t.Skip("Amazon client gets 'InvalidArgument' errors when running against GCS")
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadGoogleHMACParameters(t)
-		creds := &obj.AmazonCreds{ID: id, Secret: secret}
-
-		client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
-		require.NoError(t, err)
-		runTests(t, client)
+		amazonTests(t, id, secret, bucket, region, endpoint)
 	})
 }
 
@@ -190,7 +226,7 @@ func TestMinioClient(t *testing.T) {
 	t.Parallel()
 	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
 		t.Run("S3v2", func(t *testing.T) {
-			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // TODO (this works for GCS), try upgrading to v7?
+			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // (this works for GCS), try upgrading to v7?
 			t.Parallel()
 			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, true)
 			require.NoError(t, err)

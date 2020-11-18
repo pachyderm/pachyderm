@@ -57,6 +57,12 @@ func blobRange(offset, size uint64) *storage.BlobRange {
 	} else if size == 0 {
 		return &storage.BlobRange{Start: offset}
 	}
+	// TODO: This doesn't handle a read with offset: 0, size: 1 correctly - it
+	// will end up with Start: 0, End: 0, which the client library interprets as
+	// the full range of the object. Tried a workaround with manually providing
+	// the 'Range' header, but could not make it work, it may be impossible at the
+	// Azure service level. Possible workaround - read an extra byte, and wrap the
+	// reader to throw away the extra byte.
 	return &storage.BlobRange{Start: offset, End: offset + size - 1}
 }
 
