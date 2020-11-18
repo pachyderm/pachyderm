@@ -105,14 +105,12 @@ func ReceiveSpout(
 								return errors.New("outdated spout, now shutting down")
 							}
 							_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
-							if err != nil {
-								return err
-							}
-						} else if pipelineInfo.Spout.Overwrite {
+							// return here to avoid putting the file in the output branch
+							return err
+						}
+						if pipelineInfo.Spout.Overwrite {
 							_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
-							if err != nil {
-								return err
-							}
+							return err
 						}
 						_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
 						return err
