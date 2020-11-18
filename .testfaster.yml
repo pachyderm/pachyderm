@@ -46,7 +46,7 @@ base:
 
   os_dockerfile: |-
     FROM quay.io/testfaster/kube-ubuntu
-    ENV cache-bust 7
+    ENV cache-bust 8
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck golang-go rsync jq pv silversearcher-ag
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
