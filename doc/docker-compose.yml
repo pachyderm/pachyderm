@@ -22,7 +22,5 @@ services:
       context: .. 
       dockerfile: Dockerfile.pachdoc
     command: ["netlify","dev"]
-    volumes: 
-      - .:/usr/src/app/doc
     ports:
       - "8888:8888"
