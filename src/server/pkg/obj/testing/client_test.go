@@ -105,7 +105,7 @@ func doWriteTest(t *testing.T, client obj.Client, object string, writes []string
 	}
 }
 
-func runTests(t *testing.T, client obj.Client) {
+func runClientTests(t *testing.T, client obj.Client) {
 	t.Run("TestMissingObject", func(t *testing.T) {
 		t.Parallel()
 		object := tu.UniqueString("test-missing-object-")
@@ -198,7 +198,7 @@ func TestAmazonClient(t *testing.T) {
 				creds := &obj.AmazonCreds{ID: id, Secret: secret}
 				client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint, reverse)
 				require.NoError(t, err)
-				runTests(t, client)
+				runClientTests(t, client)
 			})
 		}
 	}
@@ -234,14 +234,14 @@ func TestMinioClient(t *testing.T) {
 			t.Parallel()
 			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, true)
 			require.NoError(t, err)
-			runTests(t, client)
+			runClientTests(t, client)
 		})
 
 		t.Run("S3v4", func(t *testing.T) {
 			t.Parallel()
 			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, false)
 			require.NoError(t, err)
-			runTests(t, client)
+			runClientTests(t, client)
 		})
 	}
 
@@ -274,7 +274,7 @@ func TestGoogleClient(t *testing.T) {
 	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(credData))}
 	client, err := obj.NewGoogleClient(bucket, opts)
 	require.NoError(t, err)
-	runTests(t, client)
+	runClientTests(t, client)
 }
 
 func TestMicrosoftClient(t *testing.T) {
@@ -282,7 +282,7 @@ func TestMicrosoftClient(t *testing.T) {
 	id, secret, container := LoadMicrosoftParameters(t)
 	client, err := obj.NewMicrosoftClient(container, id, secret)
 	require.NoError(t, err)
-	runTests(t, client)
+	runClientTests(t, client)
 }
 
 func TestLocalClient(t *testing.T) {
@@ -291,7 +291,7 @@ func TestLocalClient(t *testing.T) {
 	err := testetcd.WithEnv(func(env *testetcd.Env) error {
 		client, err := obj.NewLocalClient(env.Directory)
 		require.NoError(t, err)
-		runTests(t, client)
+		runClientTests(t, client)
 		return nil
 	})
 	require.NoError(t, err)

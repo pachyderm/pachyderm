@@ -279,6 +279,9 @@ test-transaction:
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)
 
+test-object-clients:
+	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=4
+
 test-libs:
 	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off

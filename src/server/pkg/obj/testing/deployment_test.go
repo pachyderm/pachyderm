@@ -35,7 +35,8 @@ import (
 // NOTE: these tests require object storage credentials to be loaded in your
 // environment (see util.go for where they are loaded).
 
-// Change this to false to keep kubernetes namespaces around after the test for debugging purposes
+// Change this to false to keep kubernetes namespaces around after the test for
+// debugging purposes.
 const cleanup = true
 
 // Rewrites kubernetes manifest services to auto-allocate external ports and
@@ -214,7 +215,7 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	callback(namespaceName, pachClient)
 }
 
-func runBasicTest(t *testing.T, pachClient *client.APIClient) {
+func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	// Create an input repo
 	dataRepo := "data"
 	require.NoError(t, pachClient.CreateRepo(dataRepo))
@@ -291,7 +292,7 @@ func TestAmazonDeployment(t *testing.T) {
 		id, secret, bucket, region := LoadAmazonParameters(t)
 		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", "", advancedConfig)
 		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-			runBasicTest(t, pachClient)
+			runDeploymentTest(t, pachClient)
 		})
 	})
 
@@ -301,7 +302,7 @@ func TestAmazonDeployment(t *testing.T) {
 		id, secret, bucket, region, endpoint := LoadECSParameters(t)
 		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
 		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-			runBasicTest(t, pachClient)
+			runDeploymentTest(t, pachClient)
 		})
 	})
 
@@ -312,7 +313,7 @@ func TestAmazonDeployment(t *testing.T) {
 		id, secret, bucket, region, endpoint := LoadGoogleHMACParameters(t)
 		secrets := assets.AmazonSecret(region, bucket, id, secret, "", "", endpoint, advancedConfig)
 		withManifest(t, assets.AmazonBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-			runBasicTest(t, pachClient)
+			runDeploymentTest(t, pachClient)
 		})
 	})
 }
@@ -325,7 +326,7 @@ func TestMinioDeployment(t *testing.T) {
 			t.Parallel()
 			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, true)
 			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-				runBasicTest(t, pachClient)
+				runDeploymentTest(t, pachClient)
 			})
 		})
 
@@ -333,7 +334,7 @@ func TestMinioDeployment(t *testing.T) {
 			t.Parallel()
 			secrets := assets.MinioSecret(bucket, id, secret, endpoint, true, false)
 			withManifest(t, assets.MinioBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-				runBasicTest(t, pachClient)
+				runDeploymentTest(t, pachClient)
 			})
 		})
 	}
@@ -366,7 +367,7 @@ func TestGoogleDeployment(t *testing.T) {
 	bucket, creds := LoadGoogleParameters(t)
 	secrets := assets.GoogleSecret(bucket, creds)
 	withManifest(t, assets.GoogleBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-		runBasicTest(t, pachClient)
+		runDeploymentTest(t, pachClient)
 	})
 }
 
@@ -375,7 +376,7 @@ func TestMicrosoftDeployment(t *testing.T) {
 	id, secret, container := LoadMicrosoftParameters(t)
 	secrets := assets.MicrosoftSecret(container, id, secret)
 	withManifest(t, assets.MicrosoftBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-		runBasicTest(t, pachClient)
+		runDeploymentTest(t, pachClient)
 	})
 }
 
@@ -383,6 +384,6 @@ func TestLocalDeployment(t *testing.T) {
 	t.Parallel()
 	secrets := assets.LocalSecret()
 	withManifest(t, assets.LocalBackend, secrets, func(namespace string, pachClient *client.APIClient) {
-		runBasicTest(t, pachClient)
+		runDeploymentTest(t, pachClient)
 	})
 }
