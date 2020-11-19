@@ -287,6 +287,8 @@ test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)
 
 test-object-clients:
+  # The parallelism is lowered to '4' here because these tests run several pachd
+  # deployments in kubernetes which may contest resources.
 	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=4
 
 test-libs:

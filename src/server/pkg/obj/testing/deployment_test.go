@@ -181,7 +181,7 @@ func withManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 			PutFileConcurrencyLimit: assets.DefaultPutFileConcurrencyLimit,
 		},
 		PachdShards:                16,
-		Version:                    "latest",
+		Version:                    "local",
 		LogLevel:                   "info",
 		Namespace:                  namespaceName,
 		RequireCriticalServersOnly: assets.DefaultRequireCriticalServersOnly,
