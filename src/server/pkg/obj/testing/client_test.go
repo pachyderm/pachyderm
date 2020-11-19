@@ -16,6 +16,30 @@ import (
 	"google.golang.org/api/option"
 )
 
+// BackendType is used to tell the tests which backend is being tested so some
+// testing can be skipped for backends that do not support certain behavior.
+type BackendType string
+
+const (
+	AmazonBackend    BackendType = "Amazon"
+	ECSBackend                   = "ECS"
+	GoogleBackend                = "Google"
+	MicrosoftBackend             = "Microsoft"
+	LocalBackend                 = "Local"
+)
+
+// ClientType is used to tell the tests which client is being tested so some testing
+// can be skipped for clients that do not support certain behavior.
+type ClientType string
+
+const (
+	AmazonClient    ClientType = "Amazon"
+	MinioClient                = "ECS"
+	GoogleClient               = "Google"
+	MicrosoftClient            = "Microsoft"
+	LocalClient                = "Local"
+)
+
 // NOTE: these tests require object storage credentials to be loaded in your
 // environment (see util.go for where they are loaded).
 
@@ -24,7 +48,7 @@ func requireExists(t *testing.T, client obj.Client, object string, expected bool
 	require.Equal(t, expected, exists)
 }
 
-func doWriteTest(t *testing.T, client obj.Client, object string, writes []string) {
+func doWriteTest(t *testing.T, backendType BackendType, clientType ClientType, client obj.Client, object string, writes []string) {
 	requireExists(t, client, object, false)
 	defer requireExists(t, client, object, false)
 
@@ -81,10 +105,12 @@ func doWriteTest(t *testing.T, client obj.Client, object string, writes []string
 	doRead(0, 0)
 
 	if len(data) > 0 {
-		// Read the first character
-		// TODO: this test is broken on the MicrosoftClient due to how the BlobRange is implemented
-		// err := doRead(0, 1)
-		// require.NoError(t, err)
+		// TODO: this check is broken on the MicrosoftClient due to how the BlobRange is implemented
+		if clientType != MicrosoftClient {
+			// Read the first character
+			err := doRead(0, 1)
+			require.NoError(t, err)
+		}
 
 		// Read the last character
 		err = doRead(uint64(len(data)-1), 1)
@@ -105,7 +131,7 @@ func doWriteTest(t *testing.T, client obj.Client, object string, writes []string
 	}
 }
 
-func runClientTests(t *testing.T, client obj.Client) {
+func runClientTests(t *testing.T, backendType BackendType, clientType ClientType, client obj.Client) {
 	t.Run("TestMissingObject", func(t *testing.T) {
 		t.Parallel()
 		object := tu.UniqueString("test-missing-object-")
@@ -119,33 +145,36 @@ func runClientTests(t *testing.T, client obj.Client) {
 
 	t.Run("TestEmptyWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, tu.UniqueString("test-empty-write-"), []string{})
+		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-empty-write-"), []string{})
 	})
 
 	t.Run("TestSingleWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, tu.UniqueString("test-single-write-"), []string{"foo"})
+		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-single-write-"), []string{"foo"})
 	})
 
 	t.Run("TestMultiWrite", func(t *testing.T) {
 		t.Parallel()
-		doWriteTest(t, client, tu.UniqueString("test-multi-write-"), []string{"foo", "bar"})
+		doWriteTest(t, backendType, clientType, client, tu.UniqueString("test-multi-write-"), []string{"foo", "bar"})
 	})
 
 	t.Run("TestSubdirectory", func(t *testing.T) {
 		t.Parallel()
 		object := path.Join(tu.UniqueString("test-subdirectory-"), "object")
-		doWriteTest(t, client, object, []string{"foo", "bar"})
+		doWriteTest(t, backendType, clientType, client, object, []string{"foo", "bar"})
 	})
 
 	// TODO: implement walk test
 
 	t.Run("TestInterruption", func(t *testing.T) {
-		t.Skip("Object client interruption is not currently supported across all clients")
 		// Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
 		//  Amazon client - use *WithContext methods
 		//  Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
 		//  Minio client - upgrade to v7 which supports contexts in all APIs
+		//  Local client - interruptible file operations are not a thing in the stdlib
+		if clientType == AmazonClient || clientType == MicrosoftClient || clientType == MinioClient || clientType == LocalClient {
+			t.Skip("Object client interruption is not currently supported for this client")
+		}
 		t.Parallel()
 
 		// Make a canceled context
@@ -191,14 +220,14 @@ func runClientTests(t *testing.T, client obj.Client) {
 func TestAmazonClient(t *testing.T) {
 	t.Parallel()
 
-	amazonTests := func(t *testing.T, id string, secret string, bucket string, region string, endpoint string) {
+	amazonTests := func(t *testing.T, backendType BackendType, id string, secret string, bucket string, region string, endpoint string) {
 		for _, reverse := range []bool{true, false} {
 			t.Run(fmt.Sprintf("reverse=%v", reverse), func(t *testing.T) {
 				t.Parallel()
 				creds := &obj.AmazonCreds{ID: id, Secret: secret}
 				client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint, reverse)
 				require.NoError(t, err)
-				runClientTests(t, client)
+				runClientTests(t, backendType, AmazonClient, client)
 			})
 		}
 	}
@@ -207,14 +236,14 @@ func TestAmazonClient(t *testing.T) {
 	t.Run("AmazonObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, region := LoadAmazonParameters(t)
-		amazonTests(t, id, secret, bucket, region, "")
+		amazonTests(t, AmazonBackend, id, secret, bucket, region, "")
 	})
 
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadECSParameters(t)
-		amazonTests(t, id, secret, bucket, region, endpoint)
+		amazonTests(t, ECSBackend, id, secret, bucket, region, endpoint)
 	})
 
 	// Test the Amazon client against GCS
@@ -222,26 +251,28 @@ func TestAmazonClient(t *testing.T) {
 		t.Skip("Amazon client gets 'InvalidArgument' errors when running against GCS")
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadGoogleHMACParameters(t)
-		amazonTests(t, id, secret, bucket, region, endpoint)
+		amazonTests(t, GoogleBackend, id, secret, bucket, region, endpoint)
 	})
 }
 
 func TestMinioClient(t *testing.T) {
 	t.Parallel()
-	minioTests := func(t *testing.T, endpoint string, bucket string, id string, secret string) {
+	minioTests := func(t *testing.T, backend BackendType, endpoint string, bucket string, id string, secret string) {
 		t.Run("S3v2", func(t *testing.T) {
-			t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // (this works for GCS), try upgrading to v7?
+			if backend == AmazonBackend || backend == ECSBackend {
+				t.Skip("Minio client running S3v2 does not handle empty writes properly on S3 and ECS") // try upgrading to minio-go/v7?
+			}
 			t.Parallel()
 			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, true)
 			require.NoError(t, err)
-			runClientTests(t, client)
+			runClientTests(t, backend, MinioClient, client)
 		})
 
 		t.Run("S3v4", func(t *testing.T) {
 			t.Parallel()
 			client, err := obj.NewMinioClient(endpoint, bucket, id, secret, true, false)
 			require.NoError(t, err)
-			runClientTests(t, client)
+			runClientTests(t, backend, MinioClient, client)
 		})
 	}
 
@@ -250,21 +281,21 @@ func TestMinioClient(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, region := LoadAmazonParameters(t)
 		endpoint := fmt.Sprintf("s3.%s.amazonaws.com", region) // Note that not all AWS regions support both http/https or both S3v2/S3v4
-		minioTests(t, endpoint, bucket, id, secret)
+		minioTests(t, AmazonBackend, endpoint, bucket, id, secret)
 	})
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadECSParameters(t)
-		minioTests(t, endpoint, bucket, id, secret)
+		minioTests(t, ECSBackend, endpoint, bucket, id, secret)
 	})
 
 	// Test the Minio client against GCS using the S3v2 and S3v4 APIs
 	t.Run("GoogleObjectStorage", func(t *testing.T) {
 		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadGoogleHMACParameters(t)
-		minioTests(t, endpoint, bucket, id, secret)
+		minioTests(t, GoogleBackend, endpoint, bucket, id, secret)
 	})
 }
 
@@ -274,7 +305,7 @@ func TestGoogleClient(t *testing.T) {
 	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(credData))}
 	client, err := obj.NewGoogleClient(bucket, opts)
 	require.NoError(t, err)
-	runClientTests(t, client)
+	runClientTests(t, GoogleBackend, GoogleClient, client)
 }
 
 func TestMicrosoftClient(t *testing.T) {
@@ -282,7 +313,7 @@ func TestMicrosoftClient(t *testing.T) {
 	id, secret, container := LoadMicrosoftParameters(t)
 	client, err := obj.NewMicrosoftClient(container, id, secret)
 	require.NoError(t, err)
-	runClientTests(t, client)
+	runClientTests(t, MicrosoftBackend, MicrosoftClient, client)
 }
 
 func TestLocalClient(t *testing.T) {
@@ -291,7 +322,7 @@ func TestLocalClient(t *testing.T) {
 	err := testetcd.WithEnv(func(env *testetcd.Env) error {
 		client, err := obj.NewLocalClient(env.Directory)
 		require.NoError(t, err)
-		runClientTests(t, client)
+		runClientTests(t, LocalBackend, LocalClient, client)
 		return nil
 	})
 	require.NoError(t, err)
