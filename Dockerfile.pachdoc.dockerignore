@@ -1,0 +1,3 @@
+/etc
+/examples
+/src
