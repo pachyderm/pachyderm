@@ -3,11 +3,11 @@
 set -euo pipefail
 
 # Get a kubernetes cluster
-# Specify the slot so that future builds on this branch+suite id automatically
-# clean up previous VMs
+# Specify the slots so that future builds on this branch+suite id automatically
+# clean up previous VMs and pools
 BRANCH="${CIRCLE_BRANCH:-$GITHUB_REF}"
 echo "Getting VM."
-time testctl get --config .testfaster.yml --slot "${BRANCH},${BUCKET}"
+time testctl get --config .testfaster.yml --slot "${BRANCH},${BUCKET}" --pool-slot "pachyderm,${BRANCH}"
 echo "Finished getting VM."
 
 echo "==== KUBECONFIG ===="
