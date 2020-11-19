@@ -333,6 +333,10 @@ func TestRunPipeline(t *testing.T) {
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
