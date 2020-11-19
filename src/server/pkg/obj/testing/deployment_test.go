@@ -378,3 +378,11 @@ func TestMicrosoftDeployment(t *testing.T) {
 		runBasicTest(t, pachClient)
 	})
 }
+
+func TestLocalDeployment(t *testing.T) {
+	t.Parallel()
+	secrets := assets.LocalSecret()
+	withManifest(t, assets.LocalBackend, secrets, func(namespace string, pachClient *client.APIClient) {
+		runBasicTest(t, pachClient)
+	})
+}

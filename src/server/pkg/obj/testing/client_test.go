@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 
 	"google.golang.org/api/option"
@@ -286,4 +287,12 @@ func TestMicrosoftClient(t *testing.T) {
 
 func TestLocalClient(t *testing.T) {
 	t.Parallel()
+	// We don't actually need etcd, but this gives us a callback-scoped temp directory
+	err := testetcd.WithEnv(func(env *testetcd.Env) error {
+		client, err := obj.NewLocalClient(env.Directory)
+		require.NoError(t, err)
+		runTests(t, client)
+		return nil
+	})
+	require.NoError(t, err)
 }

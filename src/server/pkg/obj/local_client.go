@@ -58,12 +58,21 @@ func (c *localClient) Reader(_ context.Context, path string, offset uint64, size
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if _, err := file.Seek(int64(offset), 0); err != nil {
-		return nil, errors.EnsureStack(err)
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+
+	if offset > uint64(fileInfo.Size()) {
+		file.Close()
+		return nil, errors.Errorf("cannot read from offset past the end of the object, size: %d, offset: %d", fileInfo.Size(), offset)
 	}
 
 	if size == 0 {
 		if _, err := file.Seek(int64(offset), 0); err != nil {
+			file.Close()
 			return nil, errors.EnsureStack(err)
 		}
 		return file, nil
