@@ -1,0 +1,20 @@
+# To build the documentation image:
+# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build build-doc
+
+# To run your documentation image on a local netlify server:
+# docker-compose up build-doc
+
+version: '3.8'
+
+services:
+  build-doc:
+    build: 
+      context: .. 
+      dockerfile: Dockerfile.pachdoc
+    #command: ["netlify","dev"]
+    command: ["mkdocs","serve", "-f", "mkdocs-1.11.x.yml", "--dev-addr", "0.0.0.0:8888", "--dirtyreload"]
+    volumes: 
+      - .:/usr/src/app/doc
+    ports:
+      - "8888:8888"
+   
