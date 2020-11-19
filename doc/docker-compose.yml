@@ -1,8 +1,12 @@
 # To build the documentation image:
-# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build build-doc
+# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build mkdocs-serve
+# or
+# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build netlify-dev
 
-# To run your documentation image on a local netlify server:
-# docker-compose up build-doc
+
+# To run your documentation image locally:
+# docker-compose up mkdocs-serve then check 0.0.0.0:8889
+# docker-compose up netlify-dev then check 0.0.0.0:8888
 
 version: '3.8'
 
