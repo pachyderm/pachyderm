@@ -7,14 +7,22 @@
 version: '3.8'
 
 services:
-  build-doc:
+  mkdocs-serve:
     build: 
       context: .. 
       dockerfile: Dockerfile.pachdoc
-    #command: ["netlify","dev"]
-    command: ["mkdocs","serve", "-f", "mkdocs-1.11.x.yml", "--dev-addr", "0.0.0.0:8888", "--dirtyreload"]
+    command: ["mkdocs","serve", "-f", "mkdocs-1.11.x.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
+    volumes: 
+      - .:/usr/src/app/doc
+    ports:
+      - "8889:8889"
+
+  netlify-dev:
+    build: 
+      context: .. 
+      dockerfile: Dockerfile.pachdoc
+    command: ["netlify","dev"]
     volumes: 
       - .:/usr/src/app/doc
     ports:
       - "8888:8888"
-   
