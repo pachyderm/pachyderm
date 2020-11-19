@@ -110,7 +110,7 @@ runtime:
   memory: 8GB
   disk: 50GB
 
-prewarm_pool_size: 24
+prewarm_pool_size: 12
 max_pool_size: 24
 # timeout vms after 1hr. hopefully tests will clean them up sooner, but if the
 # tests themselves timeout and cleanup doesn't get run...
