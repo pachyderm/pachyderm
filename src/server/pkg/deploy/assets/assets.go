@@ -116,14 +116,27 @@ var (
 	IAMAnnotation = "iam.amazonaws.com/role"
 )
 
+// Backend is the type used to enumerate what system provides object storage or
+// persistent disks for the cluster (each can be configured separately).
 type Backend int
 
 const (
+	// LocalBackend is used in development (e.g. minikube) which provides a volume on the host machine
 	LocalBackend Backend = iota
+
+	// AmazonBackend uses S3 for object storage
 	AmazonBackend
+
+	// GoogleBackend uses GCS for object storage
 	GoogleBackend
+
+	// MicrosoftBackend uses Azure blobs for object storage
 	MicrosoftBackend
+
+	// MinioBackend uses the Minio client for object storage, but it can point to any S3-compatible API
 	MinioBackend
+
+	// S3CustomArgs uses the S3 or Minio clients for object storage with custom endpoint configuration
 	S3CustomArgs = 6
 )
 

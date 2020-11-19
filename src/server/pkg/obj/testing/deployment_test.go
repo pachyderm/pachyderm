@@ -19,9 +19,21 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
+
+// This test suite works by spinning up separate pachd deployments in a new
+// namespace for each configuration. There are several important bits to make
+// sure these are parallelizable, that the manifests don't step on each other's
+// toes. Once the deployment is up-and-running, we run a simple pipeline test to
+// ensure that we can round-trip data to object storage in both the worker and
+// in pachd. For testing specific corner-cases, consider modifying the client
+// test suite in this same package.
+
+// NOTE: these tests require object storage credentials to be loaded in your
+// environment (see util.go for where they are loaded).
 
 // Change this to false to keep kubernetes namespaces around after the test for debugging purposes
 const cleanup = true
@@ -38,12 +50,12 @@ func rewriterCallback(innerCb func(map[string]interface{}) error) func(map[strin
 		if innerCb != nil {
 			err = innerCb(data)
 		}
-		rewriteNodePort(data)
+		rewriteManifest(data)
 		return err
 	}
 }
 
-func rewriteNodePort(data map[string]interface{}) {
+func rewriteManifest(data map[string]interface{}) {
 	if data["kind"] == "Service" {
 		spec := data["spec"].(map[string]interface{})
 		if spec["type"] == "NodePort" {
@@ -145,9 +157,8 @@ func makeManifest(t *testing.T, backend assets.Backend, secrets map[string][]byt
 	jsonEncoder, err := serde.GetEncoder("json", manifest, serde.WithIndent(2), serde.WithOrigName(true))
 	require.NoError(t, err)
 
-	// Create a wrapper encoder that rewrites NodePort ports to be randomly
-	// assigned so that we don't get collisions across namespaces and can run
-	// these tests in parallel.
+	// Create a wrapper encoder that rewrites the manifest so that we don't get
+	// collisions across namespaces and can run these tests in parallel.
 	encoder := &ManifestRewriter{Encoder: jsonEncoder}
 
 	// Use a separate hostpath on the kubernetes host for each deployment
@@ -262,7 +273,17 @@ func runBasicTest(t *testing.T, pachClient *client.APIClient) {
 
 func TestAmazonDeployment(t *testing.T) {
 	t.Parallel()
-	advancedConfig := NewDefaultAmazonConfig()
+	advancedConfig := &obj.AmazonAdvancedConfiguration{
+		Retries:        obj.DefaultRetries,
+		Timeout:        obj.DefaultTimeout,
+		UploadACL:      obj.DefaultUploadACL,
+		Reverse:        obj.DefaultReverse,
+		PartSize:       obj.DefaultPartSize,
+		MaxUploadParts: obj.DefaultMaxUploadParts,
+		DisableSSL:     obj.DefaultDisableSSL,
+		NoVerifySSL:    obj.DefaultNoVerifySSL,
+		LogOptions:     obj.DefaultAwsLogOptions,
+	}
 
 	// Test the Amazon client against S3
 	t.Run("AmazonObjectStorage", func(t *testing.T) {

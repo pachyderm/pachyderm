@@ -15,6 +15,9 @@ import (
 	"google.golang.org/api/option"
 )
 
+// NOTE: these tests require object storage credentials to be loaded in your
+// environment (see util.go for where they are loaded).
+
 func requireExists(t *testing.T, client obj.Client, object string, expected bool) {
 	exists := client.Exists(context.Background(), object)
 	require.Equal(t, expected, exists)
@@ -279,4 +282,8 @@ func TestMicrosoftClient(t *testing.T) {
 	client, err := obj.NewMicrosoftClient(container, id, secret)
 	require.NoError(t, err)
 	runTests(t, client)
+}
+
+func TestLocalClient(t *testing.T) {
+	t.Parallel()
 }
