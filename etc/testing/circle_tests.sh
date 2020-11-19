@@ -38,5 +38,6 @@ time ./etc/testing/testctl-ssh.sh \
     -o SendEnv=BUCKET \
     -o SendEnv=CIRCLE_BRANCH \
     -o SendEnv=RUN_BAD_TESTS \
+    -o SendEnv=DOCKER_PWD \
     -- ./project/pachyderm/etc/testing/circle_tests_inner.sh "$@"
 echo "Finished test $BUCKET."
