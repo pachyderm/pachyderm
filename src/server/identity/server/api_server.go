@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	dex_api "github.com/dexidp/dex/api/v2"
+	"github.com/google/uuid"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/identity"
@@ -35,8 +37,8 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func NewIdentityServer(etcdAddr, etcdPrefix, issuer string, public bool) (*apiServer, error) {
-	server, err := newDexServer(etcdAddr, etcdPrefix, issuer, public)
+func NewIdentityServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*apiServer, error) {
+	server, err := newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer, pgPort, public)
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +49,14 @@ func NewIdentityServer(etcdAddr, etcdPrefix, issuer string, public bool) (*apiSe
 	}, nil
 }
 
-func (a *apiServer) AddConnector(ctx context.Context, req *identity.AddConnectorRequest) (resp *identity.AddConnectorResponse, retErr error) {
+func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateConnectorRequest) (resp *identity.CreateConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.server.addConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
-	return &identity.AddConnectorResponse{}, nil
+	return &identity.CreateConnectorResponse{}, nil
 }
 
 func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateConnectorRequest) (resp *identity.UpdateConnectorResponse, retErr error) {
@@ -101,4 +103,39 @@ func (a *apiServer) DeleteConnector(ctx context.Context, req *identity.DeleteCon
 		return nil, err
 	}
 	return &identity.DeleteConnectorResponse{}, nil
+}
+
+func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClientRequest) (resp *identity.CreateClientResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	secret := uuid.New().String()
+
+	client := &dex_api.CreateClientReq{
+		Client: &dex_api.Client{
+			Id:           req.Client.Id,
+			Secret:       secret,
+			RedirectUris: req.Client.RedirectUris,
+			TrustedPeers: req.Client.TrustedPeers,
+			Name:         req.Client.Name,
+		},
+	}
+
+	if _, err := a.server.CreateClient(ctx, client); err != nil {
+		return nil, err
+	}
+
+	return &identity.CreateClientResponse{
+		Secret: secret,
+	}, nil
+}
+
+func (a *apiServer) DeleteClient(ctx context.Context, req *identity.DeleteClientRequest) (resp *identity.DeleteClientResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id}); err != nil {
+		return nil, err
+	}
+	return &identity.DeleteClientResponse{}, nil
 }

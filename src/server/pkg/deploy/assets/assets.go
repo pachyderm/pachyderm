@@ -851,6 +851,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30000 + auth.OidcPort,
 				},
 				{
+					Port:     658,
+					Name:     "identity-port",
+					NodePort: 30658,
+				},
+				{
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
 					NodePort: githook.NodePort(),

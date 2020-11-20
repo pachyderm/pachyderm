@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package identity;
+option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
+
+/* ConnectorConfig represents an IDP to delegate authentication to */
+message ConnectorConfig {
+  string id = 1;
+  string name = 2;
+  string type = 3;
+  int64 configVersion = 4;
+  string jsonConfig = 5;
+}
+
+message CreateConnectorRequest {
+  ConnectorConfig config = 1; 
+}
+
+message CreateConnectorResponse {}
+
+message UpdateConnectorRequest {
+  ConnectorConfig config = 1; 
+}
+
+message UpdateConnectorResponse {}
+
+message ListConnectorsRequest {}
+
+message ListConnectorsResponse {
+  repeated ConnectorConfig config = 1; 
+}
+
+message DeleteConnectorRequest {
+  string id = 1;
+}
+
+message DeleteConnectorResponse {}
+
+message Client {
+  string id = 1;
+  repeated string redirect_uris = 2;
+  repeated string trusted_peers = 3;
+  string name = 4;
+}
+
+message CreateClientRequest {
+  Client client = 1;
+}
+
+message CreateClientResponse {
+  string secret = 1;
+}
+
+message DeleteClientRequest {
+  string id = 1;
+}
+
+message DeleteClientResponse {}
+
+service API {
+  rpc CreateConnector(CreateConnectorRequest) returns (CreateConnectorResponse) {}
+  rpc UpdateConnector(UpdateConnectorRequest) returns (UpdateConnectorResponse) {}
+  rpc ListConnectors(ListConnectorsRequest) returns (ListConnectorsResponse) {}
+  rpc DeleteConnector(DeleteConnectorRequest) returns (DeleteConnectorResponse) {}
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse) {}
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse) {}
+}

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dexidp/dex/storage"
@@ -18,8 +19,10 @@ func (s *proxyStorage) ListConnectors() ([]storage.Connector, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("got connectors: %v\n", c)
 
 	if len(c) == 0 {
+		fmt.Printf("injecting fake\n")
 		// This connector isn't actually available via `GetConnector` so it can't be used to authenticate
 		return []storage.Connector{storage.Connector{
 			ID:              "placeholder",

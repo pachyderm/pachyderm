@@ -70,9 +70,16 @@ type PachdSpecificConfiguration struct {
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
-	PachdPodName            string `env:"PACHD_POD_NAME,required"`
-	EnterpriseServerEnabled bool   `env:"ENTERPRISE_SERVER_ENABLED",default=false`
-	IdentityServerIssuer    string `env:"IDENTITY_SERVER_ISSUER"`
+	PachdPodName        string `env:"PACHD_POD_NAME,required"`
+	PostgresServiceHost string `env:"POSTGRES_SERVICE_HOST,default=172.17.0.1"`
+	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT,default=32228"`
+	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
+
+	EnterpriseServerEnabled bool   `env:"ENTERPRISE_SERVER_ENABLED,default=true"`
+	IdentityServerIssuer    string `env:"IDENTITY_SERVER_ISSUER,default=http://pachd:658/"`
+	IdentityServerDatabase  string `env:"IDENTITY_SERVER_DATABASE,default=identity"`
+	IdentityServerUser      string `env:"IDENTITY_SERVER_USER,default=identity"`
+	IdentityServerPassword  string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 
 // StorageConfiguration contains the storage configuration.

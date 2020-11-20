@@ -25,6 +25,7 @@ import (
 	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
+	identitycmds "github.com/pachyderm/pachyderm/src/server/identity/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
@@ -831,6 +832,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, deploycmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, identitycmds.Cmds()...)
 	subcommands = append(subcommands, admincmds.Cmds()...)
 	subcommands = append(subcommands, debugcmds.Cmds()...)
 	subcommands = append(subcommands, txncmds.Cmds()...)
@@ -898,7 +900,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"garbage-collect",
 			"update-dash",
 			"auth",
-			"enterprise":
+			"enterprise",
+			"idp":
 			admin = append(admin, subcmd)
 		default:
 			other = append(other, subcmd)

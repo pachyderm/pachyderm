@@ -3,31 +3,41 @@ package server
 import (
 	"context"
 	"fmt"
-	"path"
+	"net/http"
 	"strconv"
 
 	"github.com/dexidp/dex/api/v2"
 	"github.com/dexidp/dex/server"
 	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/etcd"
+	"github.com/dexidp/dex/storage/sql"
+	logrus "github.com/sirupsen/logrus"
 )
 
 const (
-	etcdNamespace = "/enterprise"
+	dexHttpPort = ":658"
 )
 
 type dexServer struct {
+	api.DexServer
+
 	dexStorage storage.Storage
-	dexAPI     api.DexServer
 }
 
-func newDexServer(etcdEndpoints, etcdPrefix, issuer string, public bool) (*dexServer, error) {
-	storageConfig := &etcd.Etcd{
-		Endpoints: []string{etcdEndpoints},
-		Namespace: path.Join(etcdPrefix, etcdNamespace),
+func newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*dexServer, error) {
+	storageConfig := &sql.Postgres{
+		NetworkDB: sql.NetworkDB{
+			Database: pgDatabase,
+			User:     pgUser,
+			Password: pgPwd,
+			Host:     pgHost,
+			Port:     uint16(pgPort),
+		},
+		SSL: sql.SSL{
+			Mode: pgSSL,
+		},
 	}
-
-	storage, err := storageConfig.Open(nil)
+	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
+	storage, err := storageConfig.Open(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -37,17 +47,27 @@ func newDexServer(etcdEndpoints, etcdPrefix, issuer string, public bool) (*dexSe
 			Storage:            storage,
 			Issuer:             issuer,
 			SkipApprovalScreen: true,
+			Web: server.WebConfig{
+				Dir: "/web",
+			},
+			Logger: logger,
 		}
 
-		_, err := server.NewServer(context.Background(), serverConfig)
+		serv, err := server.NewServer(context.Background(), serverConfig)
 		if err != nil {
 			return nil, err
 		}
+
+		go func() {
+			if err = http.ListenAndServe(dexHttpPort, serv); err != nil {
+				logger.WithError(err).Error("Dex server stopped")
+			}
+		}()
 	}
 
 	return &dexServer{
 		dexStorage: &proxyStorage{storage},
-		dexAPI:     server.NewAPI(storage, nil),
+		DexServer:  server.NewAPI(storage, nil),
 	}, nil
 }
 

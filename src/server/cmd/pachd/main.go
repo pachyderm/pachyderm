@@ -430,14 +430,18 @@ func doFullMode(config interface{}) (retErr error) {
 		if env.EnterpriseServerEnabled {
 			if err := logGRPCServerSetup("Identity API", func() error {
 				idAPIServer, err := identity_server.NewIdentityServer(
-					etcdAddress,
-					env.EtcdPrefix,
+					env.PostgresServiceHost,
+					env.IdentityServerDatabase,
+					env.IdentityServerUser,
+					env.IdentityServerPassword,
+					env.PostgresServiceSSL,
 					env.IdentityServerIssuer,
+					env.PostgresServicePort,
 					true)
 				if err != nil {
 					return err
 				}
-				identityclient.RegisterIdentityServer(externalServer.Server, idAPIServer)
+				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 				return nil
 			}); err != nil {
 				return err
