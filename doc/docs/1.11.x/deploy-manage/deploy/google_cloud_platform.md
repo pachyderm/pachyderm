@@ -145,14 +145,14 @@ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.11
 
 # For Linux (64 bit) or Window 10+ on WSL:
 
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can then run `pachctl version --client-only` to check that the installation was successful.
 
 ```bash
 pachctl version --client-only
-1.9.7
+{{ config.pach_latest_version }}
 ```
 
 ### Deploy Pachyderm on the Kubernetes cluster
@@ -228,8 +228,8 @@ pachctl version
 
 ```bash
 COMPONENT           VERSION
-pachctl             1.9.7
-pachd               1.9.7
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
 ```
 
 ### Increasing Ingress Throughput
