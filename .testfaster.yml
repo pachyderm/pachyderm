@@ -6,6 +6,7 @@ base:
   # to refresh this list
   # (to get extra fancy, highlight the following lines in vim and type :! and then
   # the above command to replace it inline)
+  # preload_docker_images: []
   preload_docker_images:
    - bash:4
    - dockermuenster/caddy:0.9.3
@@ -63,7 +64,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 0aaaa0bb217cdf234f837e9bdef1e83a5bec7949 && \
+        git checkout b46a67d1b2fee10270f9eab86f451e088da46bf9 && \
         CIRCLE_BRANCH=1 make install && \
         git config user.email "donotreply@pachyderm.com" && \
         git config user.name "anonymous" && \
