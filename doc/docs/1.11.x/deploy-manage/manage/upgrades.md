@@ -4,8 +4,8 @@ If you need to upgrade Pachyderm from one major version
 to another, such as from `1.8.x` to `1.9.x`, follow the
 instructions in the [Migrate between major versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.9.0` to
-version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
+Upgrades from one minor version to another, such as from version `1.11.0` to
+version `{{ config.pach_latest_version }}` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
 !!! warning
@@ -41,8 +41,8 @@ section.
    ```
 
    **Note:** You need to specify the version of `pachctl` to which
-   you want to upgrade. For example, if you want to upgrade `1.9.0` to
-   `1.9.2`, add `@1.9` at the end of the upgrade path.
+   you want to upgrade. For example, if you want to upgrade `1.11.0` to
+   `{{ config.pach_latest_version }}`, add `@1.9` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -55,7 +55,7 @@ the following command:
 
    ```bash
    COMPONENT           VERSION
-   pachctl             1.9.2
+   pachctl             {{ config.pach_latest_version }}
    ```
 
 1. Redeploy Pachyderm by running the `pachctl deploy` command
@@ -113,8 +113,8 @@ of Pachyderm:
 
    ```bash
    COMPONENT           VERSION
-   pachctl             1.9.2
-   pachd               1.9.2
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    The `pachd` and `pachctl` versions must both match the new version.

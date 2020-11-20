@@ -294,7 +294,7 @@ Those must be modified to match the port numbers you set above for each port.
 				"containers": [
 					{
 						"name": "pachd",
-						"image": "pachyderm/pachd:1.9.7",
+						"image": "pachyderm/pachd:{{ config.pach_latest_version }}",
 						"ports": [
 							{
 								"name": "api-grpc-port",

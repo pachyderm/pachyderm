@@ -202,8 +202,8 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 
    ```bash
    COMPONENT           VERSION
-   pachctl             1.9.7
-   pachd               1.9.7
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    * If you want to access the Pachyderm UI or use the S3 gateway, you need to
@@ -273,8 +273,8 @@ steps:
    ```bash
 
    COMPONENT           VERSION
-   pachctl             1.9.7
-   pachd               1.9.7
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    * If you want to access the Pachyderm UI or use S3 gateway, you need to
