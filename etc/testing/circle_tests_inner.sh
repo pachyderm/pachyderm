@@ -22,6 +22,10 @@ ln -s "$(pwd)" "$GOPATH"/src/github.com/pachyderm/pachyderm
 
 kubectl version
 
+# To avoid docker hub rate-limit issues.
+# Although hopefully by this point all the docker images are cached!
+docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
+
 make install
 VERSION=$(pachctl version --client-only)
 git config user.email "donotreply@pachyderm.com"

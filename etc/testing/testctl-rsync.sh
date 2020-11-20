@@ -6,4 +6,4 @@ grep "##PRIVATE_KEY_ONELINER=" "$KUBECONFIG" |cut -d '=' -f 2- |base64 -d > /tmp
 chmod 0600 /tmp/id_rsa
 local_path="$1"
 remote_path="$2"
-exec rsync -a -e "ssh -i /tmp/id_rsa -p $PORT -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" "$local_path" root@"$IP":"$remote_path"
+exec rsync -a --delete -e "ssh -i /tmp/id_rsa -p $PORT -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" "$local_path" root@"$IP":"$remote_path"
