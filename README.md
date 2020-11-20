@@ -9,7 +9,7 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io)
 [![CLA assistant](https://cla-assistant.io/readme/badge/pachyderm/pachyderm)](https://cla-assistant.io/pachyderm/pachyderm)
 
-# Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
+# Pachyderm: Data Versioning, Data Pipelines, and Data Lineage.
 
 Pachyderm is a tool for production data pipelines. If you need to chain
 together data scraping, ingestion, cleaning, munging, wrangling, processing,
