@@ -2004,6 +2004,15 @@ func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.Toke
 func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		resp, retErr = a.GetAuthTokenInTransaction(txnCtx, req)
+		return retErr
+	})
+	return resp, retErr
+}
+
+// GetAuthToken implements the protobuf auth.GetAuthToken RPC
+func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	if a.activationState() == none {
 		// GetAuthToken must work in the partially-activated state so that PPS can
 		// get tokens for all existing pipelines during activation
@@ -2015,11 +2024,11 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 
 	// Get current caller and authorize them if req.Subject is set to a different
 	// user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2029,7 +2038,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}
 
 	// check if this request is auhorized
-	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
+	req.Subject, err = a.authorizeNewToken(txnCtx.ClientContext, callerInfo, isAdmin, req.Subject)
 	if err != nil {
 		if errors.As(err, &auth.ErrNotAuthorized{}) {
 			// return more descriptive error
@@ -2058,7 +2067,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	// auth model.
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err := a.getCallerTTL(ctx)
+		ttl, err := a.getCallerTTL(txnCtx.ClientContext)
 		if err != nil {
 			return nil, err
 		}
@@ -2078,9 +2087,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
-	}); err != nil {
+	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(hashToken(token), &tokenInfo, req.TTL); err != nil {
 		if tokenInfo.Subject != ppsUser {
 			return nil, errors.Wrapf(err, "error storing token for user \"%s\"", tokenInfo.Subject)
 		}
@@ -2186,38 +2193,42 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
+		return retErr
+	})
+	return resp, retErr
+}
+
+func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	if a.activationState() != full {
 		return nil, auth.ErrNotActivated
 	}
-
 	// Get the caller. Users can revoke their own tokens, and admins can revoke
 	// any user's token
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_SUPER)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
-		var tokenInfo auth.TokenInfo
-		if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
-			if col.IsErrNotFound(err) {
-				return nil
-			}
-			return err
+	tokens := a.tokens.ReadWrite(txnCtx.Stm)
+	var tokenInfo auth.TokenInfo
+	if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
+		if !col.IsErrNotFound(err) {
+			return nil, err
 		}
-		if !isAdmin && tokenInfo.Subject != callerInfo.Subject {
-			return &auth.ErrNotAuthorized{
-				Subject: callerInfo.Subject,
-				AdminOp: "RevokeAuthToken on another user's token",
-			}
+	}
+	if !isAdmin && tokenInfo.Subject != callerInfo.Subject {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "RevokeAuthToken on another user's token",
 		}
-		return tokens.Delete(hashToken(req.Token))
-	}); err != nil {
+	}
+	if err := tokens.Delete(hashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil

@@ -58,6 +58,7 @@ import (
 	"github.com/willf/bloom"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -430,8 +431,14 @@ const (
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
 // to perform 'operation' on the pipeline in 'info'
 func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation pipelineOperation, input *pps.Input, output string) error {
-	ctx := pachClient.Ctx()
-	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	return a.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		return a.authorizePipelineOpInTransaction(txnCtx, operation, input, output)
+	})
+}
+
+// authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
+func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
+	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
 	} else if err != nil {
@@ -458,7 +465,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 			}
 			done[repo] = struct{}{}
 			eg.Go(func() error {
-				resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
+				resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
 					Repo:  repo,
 					Scope: auth.Scope_READER,
 				})
@@ -490,7 +497,9 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		var required auth.Scope
 		switch operation {
 		case pipelineOpCreate:
-			if _, err := pachClient.InspectRepo(output); err == nil {
+			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+				Repo: &pfs.Repo{Name: output},
+			}); err == nil {
 				return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
 			} else if !isNotFoundErr(err) {
 				return err
@@ -500,7 +509,9 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		case pipelineOpUpdate:
 			required = auth.Scope_WRITER
 		case pipelineOpDelete:
-			if _, err := pachClient.InspectRepo(output); isNotFoundErr(err) {
+			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+				Repo: &pfs.Repo{Name: output},
+			}); isNotFoundErr(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
 				return nil
@@ -510,7 +521,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
 		if required != auth.Scope_NONE {
-			resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
+			resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
 				Repo:  output,
 				Scope: required,
 			})
@@ -2021,6 +2032,18 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 	return f(superUserClient)
 }
 
+// sudoTransaction is a convenience wrapper around sudo for api calls in a transaction
+func (a *apiServer) sudoTransaction(txnCtx *txnenv.TransactionContext, f func(*txnenv.TransactionContext) error) error {
+	return a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
+		superCtx := *txnCtx
+		superCtx.Client = superUserClient
+		// simulate the GRPC setting outgoing as incoming - this should only change the auth token
+		outMD, _ := metadata.FromOutgoingContext(superUserClient.Ctx())
+		superCtx.ClientContext = metadata.NewIncomingContext(superUserClient.Ctx(), outMD)
+		return f(&superCtx)
+	})
+}
+
 // makePipelineInfoCommit is a helper for CreatePipeline that creates a commit
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
@@ -2048,7 +2071,13 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 	return commit, nil
 }
 
-func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
+	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
+	})
+}
+
+func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
 	add := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
@@ -2113,8 +2142,8 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 	for repo := range remove {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				_, err := superUserClient.SetScope(superUserClient.Ctx(), &auth.SetScopeRequest{
+			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
+				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
 					Repo:     repo,
 					Username: auth.PipelinePrefix + pipelineName,
 					Scope:    auth.Scope_NONE,
@@ -2123,7 +2152,7 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 					// can happen if input repo is force-deleted; nothing to remove
 					return nil
 				}
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		})
 	}
@@ -2131,26 +2160,26 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 	for repo := range add {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				_, err := superUserClient.SetScope(superUserClient.Ctx(), &auth.SetScopeRequest{
+			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
+				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
 					Repo:     repo,
 					Username: auth.PipelinePrefix + pipelineName,
 					Scope:    auth.Scope_READER,
 				})
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		})
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
-			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				_, err := superUserClient.SetScope(superUserClient.Ctx(), &auth.SetScopeRequest{
+			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
+				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
 					Repo:     pipelineName,
 					Username: auth.PipelinePrefix + pipelineName,
 					Scope:    auth.Scope_WRITER,
 				})
-				return grpcutil.ScrubGRPC(err)
+				return err
 			})
 		})
 	}
@@ -2472,7 +2501,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(pachClient, pipelineInfo, oldPipelineInfo); err != nil {
+			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, oldPipelineInfo); err != nil {
 				return nil, err
 			}
 		}
@@ -2551,7 +2580,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, err
 		}
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(pachClient, pipelineInfo, nil); err != nil {
+			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -2668,7 +2697,19 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
 // so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
-	if _, err := checkLoggedIn(pachClient); err != nil {
+	var response *pps.PipelineInfo
+	if err := a.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		var err error
+		response, err = a.inspectPipelineInTransaction(txnCtx, name)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionContext, name string) (*pps.PipelineInfo, error) {
+	if _, err := checkLoggedIn(txnCtx.Client); err != nil {
 		return nil, err
 	}
 	kubeClient := a.env.GetKubeClient()
@@ -2677,14 +2718,15 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		return nil, err
 	}
 	pipelinePtr := pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.Stm).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, errors.Errorf("pipeline \"%s\" not found", name)
 		}
 		return nil, err
 	}
 	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, &pipelinePtr)
+	// the spec commit must already exist outside of the transaction, so we can retrieve it normally
+	pipelineInfo, err := ppsutil.GetPipelineInfo(txnCtx.Client, name, &pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
@@ -2733,7 +2775,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	}
 
 	workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerStatus, err := workerserver.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	workerStatus, err := workerserver.Status(txnCtx.ClientContext, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -2984,7 +3026,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 				// 'pipelineInfo' == nil => remove pipeline from all input repos
-				if err := a.fixPipelineInputRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
+				if err := a.fixPipelineInputRepoACLs(superUserClient.Ctx(), nil, pipelineInfo); err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
 				_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
@@ -3820,7 +3862,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 			})
 		})
 		// put 'pipeline' on relevant ACLs
-		if err := a.fixPipelineInputRepoACLs(pachClient, pipeline, nil); err != nil {
+		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {
 			return nil, err
 		}
 	}
