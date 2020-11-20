@@ -53,7 +53,7 @@ func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateCon
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.server.addConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.server.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
 	return &identity.CreateConnectorResponse{}, nil
@@ -63,7 +63,7 @@ func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateCon
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.server.addConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.server.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
 	return &identity.UpdateConnectorResponse{}, nil

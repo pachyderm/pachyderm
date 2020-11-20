@@ -16,12 +16,12 @@ import (
 
 // CreateConnectorCmd returns a cobra.Command to create a new IDP integration
 func CreateConnectorCmd() *cobra.Command {
-	var name, t, file string
+	var id, name, t, file string
 	var version int
 	addConnector := &cobra.Command{
 		Short: "Create a new identity provider connector",
 		Long:  `Create a new identity provider connector`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -44,18 +44,20 @@ func CreateConnectorCmd() *cobra.Command {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			_, err = c.CreateConnector(c.Ctx(), &identity.CreateConnectorRequest{
+			req := &identity.CreateConnectorRequest{
 				Config: &identity.ConnectorConfig{
-					Id:            args[0],
+					Id:            id,
 					Name:          name,
 					Type:          t,
 					ConfigVersion: int64(version),
 					JsonConfig:    string(rawConfigBytes),
-				},
-			})
+				}}
+
+			_, err = c.CreateConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
+	addConnector.PersistentFlags().StringVar(&id, "id", "", ``)
 	addConnector.PersistentFlags().StringVar(&name, "name", "", ``)
 	addConnector.PersistentFlags().StringVar(&t, "type", "", ``)
 	addConnector.PersistentFlags().IntVar(&version, "version", 0, ``)
@@ -76,13 +78,15 @@ func CreateClientCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			resp, err := c.CreateClient(c.Ctx(), &identity.CreateClientRequest{
+			req := &identity.CreateClientRequest{
 				Client: &identity.Client{
 					Id:           id,
 					Name:         name,
 					RedirectUris: []string{redirectUri},
 				},
-			})
+			}
+
+			resp, err := c.CreateClient(c.Ctx(), req)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

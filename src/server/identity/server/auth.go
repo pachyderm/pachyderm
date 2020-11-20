@@ -66,12 +66,12 @@ func newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPor
 	}
 
 	return &dexServer{
-		dexStorage: &proxyStorage{storage},
+		dexStorage: storage,
 		DexServer:  server.NewAPI(storage, nil),
 	}, nil
 }
 
-func (s *dexServer) addConnector(id, connType, name string, resourceVersion int, jsonConfig []byte) error {
+func (s *dexServer) createConnector(id, connType, name string, resourceVersion int, jsonConfig []byte) error {
 	conn := storage.Connector{
 		ID:              id,
 		Type:            connType,

@@ -42,6 +42,7 @@ type canonicalGitHubIDP struct{}
 
 type canonicalOIDCIDP struct {
 	Issuer              string
+	IssuerOverride      string
 	ClientID            string
 	ClientSecret        string
 	RedirectURI         string
@@ -120,6 +121,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				Description: idp.Description,
 				OIDC: &auth.IDProvider_OIDCOptions{
 					Issuer:              idp.OIDC.Issuer,
+					IssuerOverride:      idp.OIDC.IssuerOverride,
 					ClientID:            idp.OIDC.ClientID,
 					ClientSecret:        idp.OIDC.ClientSecret,
 					RedirectURI:         idp.OIDC.RedirectURI,
@@ -348,6 +350,7 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 	newIDP.OIDC = &canonicalOIDCIDP{
 		Issuer:              idp.OIDC.Issuer,
+		IssuerOverride:      idp.OIDC.IssuerOverride,
 		ClientID:            idp.OIDC.ClientID,
 		ClientSecret:        idp.OIDC.ClientSecret,
 		RedirectURI:         idp.OIDC.RedirectURI,
@@ -359,8 +362,14 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		return nil, errors.Wrapf(err, "OIDC issuer must be a valid URL")
 	}
 
+	ctx := context.Background()
+	if idp.OIDC.IssuerOverride != "" {
+		ctx = oidc.ClientContext(ctx, RewriteClient(idp.OIDC.IssuerOverride))
+	}
+
 	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
-	_, err := oidc.NewProvider(context.Background(), newIDP.OIDC.Issuer)
+	_, err := oidc.NewProvider(ctx, newIDP.OIDC.Issuer)
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
 	}
@@ -535,6 +544,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			a.oidcSP, err = a.NewOIDCSP(
 				idp.Name,
 				idp.OIDC.Issuer,
+				idp.OIDC.IssuerOverride,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,
 				idp.OIDC.RedirectURI,

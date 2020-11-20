@@ -76,7 +76,7 @@ type PachdSpecificConfiguration struct {
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 
 	EnterpriseServerEnabled bool   `env:"ENTERPRISE_SERVER_ENABLED,default=true"`
-	IdentityServerIssuer    string `env:"IDENTITY_SERVER_ISSUER,default=http://pachd:658/"`
+	IdentityServerIssuer    string `env:"IDENTITY_SERVER_ISSUER,default=http://localhost:30658/"`
 	IdentityServerDatabase  string `env:"IDENTITY_SERVER_DATABASE,default=identity"`
 	IdentityServerUser      string `env:"IDENTITY_SERVER_USER,default=identity"`
 	IdentityServerPassword  string `env:"IDENTITY_SERVER_PASSWORD"`
