@@ -9,12 +9,15 @@ import (
 	"github.com/google/uuid"
 	logrus "github.com/sirupsen/logrus"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 )
 
 type apiServer struct {
 	pachLogger log.Logger
+	env        *serviceenv.ServiceEnv
 	server     *dexServer
 }
 
@@ -37,21 +40,48 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func NewIdentityServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*apiServer, error) {
+func NewIdentityServer(env *serviceenv.ServiceEnv, pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*apiServer, error) {
 	server, err := newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer, pgPort, public)
 	if err != nil {
 		return nil, err
 	}
 
 	return &apiServer{
+		env:        env,
 		pachLogger: log.NewLogger("identity.API"),
 		server:     server,
 	}, nil
 }
 
+func (a *apiServer) isAdmin(ctx context.Context, op string) error {
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+
+	// check if the caller is authorized -- they must be an admin
+	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil {
+		return err
+	}
+
+	for _, s := range me.ClusterRoles.Roles {
+		if s == auth.ClusterRole_SUPER {
+			return nil
+		}
+	}
+
+	return &auth.ErrNotAuthorized{
+		Subject: me.Username,
+		AdminOp: op,
+	}
+}
+
 func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateConnectorRequest) (resp *identity.CreateConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "CreateConnector"); err != nil {
+		return nil, err
+	}
 
 	if err := a.server.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
@@ -63,6 +93,10 @@ func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateCon
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	if err := a.isAdmin(ctx, "UpdateConnector"); err != nil {
+		return nil, err
+	}
+
 	if err := a.server.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
@@ -72,6 +106,10 @@ func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateCon
 func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnectorsRequest) (resp *identity.ListConnectorsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "ListConnectors"); err != nil {
+		return nil, err
+	}
 
 	connectors, err := a.server.listConnectors()
 	if err != nil {
@@ -99,6 +137,10 @@ func (a *apiServer) DeleteConnector(ctx context.Context, req *identity.DeleteCon
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	if err := a.isAdmin(ctx, "DeleteConnector"); err != nil {
+		return nil, err
+	}
+
 	if err := a.server.deleteConnector(req.Id); err != nil {
 		return nil, err
 	}
@@ -108,6 +150,10 @@ func (a *apiServer) DeleteConnector(ctx context.Context, req *identity.DeleteCon
 func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClientRequest) (resp *identity.CreateClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "CreateClient"); err != nil {
+		return nil, err
+	}
 
 	secret := uuid.New().String()
 
@@ -133,6 +179,10 @@ func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClient
 func (a *apiServer) DeleteClient(ctx context.Context, req *identity.DeleteClientRequest) (resp *identity.DeleteClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "DeleteClient"); err != nil {
+		return nil, err
+	}
 
 	if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id}); err != nil {
 		return nil, err
