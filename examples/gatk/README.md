@@ -12,10 +12,10 @@ You can retrieve all the input data for this pipeline from the Broad Institute [
 
 Download `GATK_Germline.zip` and unzip it to your local dir.
 
-```sh
+```shell
 wget https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip
 ``` 
-```sh
+```shell
 $ unzip GATK_Germline.zip
 Archive:  GATK_Germline.zip
    creating: data/
@@ -29,23 +29,23 @@ Archive:  GATK_Germline.zip
   etc...
 ```
 Change into the directory that contains the files we want to import
-```sh
+```shell
 $ cd data/ref
 $ ls
 Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 ```
 Next, we want to create our pachyderm repo and then instruct pachyderm to import those into our repo
-```sh
+```shell
 $ pachctl create repo reference
 $ pachctl put file reference@master -r -f .
 ```
 First milestone reached! Lets just check and make sure everything looks good
-```sh
+```shell
 $ pachctl list repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB
 ```
-```sh
+```shell
 $ pachctl list file reference@master
 NAME                TYPE                SIZE
 Icon                file                0B
@@ -60,13 +60,13 @@ $ cd ../../
 
 Next, we're going to work on commiting the `*.bam` files for Mom. Let's start by create a repositories for input `*.bam` files to go into:
 
-```sh
+```shell
 $ pachctl create repo samples
 ```
 
 Add a `*.bam` file (along with it's index file) corresponding to a first sample, in our case it's the `mother`. Here we will assume that the files corresponding to each sample are committed to separate directories (e.g., `/mother`). 
 
-```sh
+```shell
 $ cd data/bams/
 $ pachctl start commit samples@master
 $ for f in $(ls mother.*); do pachctl put file samples@master:mother/$f -f $f; done
@@ -76,7 +76,7 @@ $ cd ../../
 
 You should then be able to see the versioned sample data in Pachyderm:
 
-```sh
+```shell
 $ pachctl list file samples@master
 NAME                TYPE                SIZE
 mother              dir                 23.79MiB
@@ -92,13 +92,13 @@ To call variants for the input sample, we will run the `HaplotypeCaller` using G
 
 To create and run the variant calling pipeline to generate genotype likelihoods:
 
-```sh
+```shell
 $ pachctl create pipeline -f likelihoods.json
 ```
 
 This will automatically trigger a job:
 
-```sh
+```shell
 $ pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb 43 minutes ago 18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
@@ -106,7 +106,7 @@ c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1c
 
 And you can view the output of the variant calling as follows:
 
-```sh
+```shell
 $ pachctl list file likelihoods@master
 NAME                TYPE                SIZE
 mother.g.vcf        file                4.667MiB
@@ -119,13 +119,13 @@ The last step is to joint call all your GVCF files using the GATK tool GenotypeG
 
 To run the joint genotyping:
 
-```sh
+```shell
 $ pachctl create pipeline -f joint_call.json
 ```
 
 This will automatically trigger a job and produce our final output:
 
-```sh
+```shell
 $ pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
 67135f10-4121-4f29-a30b-1eaf6ffe2194 joint_call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  38 minutes ago 5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
@@ -140,7 +140,7 @@ joint.vcf.idx       file                10.21KiB
 
 Now that we have our pipelines running, out final results will be automatically updated any time we add new samples. To illustrate this, we can add the `father` and `son` samples as follows:
 
-```sh
+```shell
 $ cd data/bams/
 $ pachctl start commit samples@master
 dc963cc9bdc2486798b92d20eead5058
@@ -159,7 +159,7 @@ son                 dir                 9.58MiB
 
 This will trigger new jobs to process the new samples:
 
-```sh
+```shell
 pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED            DURATION   RESTART PROGRESS  DL       UL       STATE
 73222c06-c444-4dff-b370-6c7dea83258d joint_call/32d3615a036e4c0eadd3ed49435ee7db  About a minute ago 6 seconds  0       1 + 0 / 1 97.64MiB 188.6KiB success

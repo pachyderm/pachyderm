@@ -29,7 +29,7 @@ flag.
 You can find the list of `pachd` environment variables in the
 `pachd` manifest by running the following command:
 
-```bash
+```shell
 $ kubectl get deploy pachd -o yaml
 ```
 
@@ -109,7 +109,7 @@ specification like this:
 Run this pipeline and upon completion you can view the log with
 variables by running the following command:
 
-```bash
+```shell
 $ pachctl logs --pipeline=env
 PPS_WORKER_IP=172.17.0.7
 DASH_PORT_8081_TCP_PROTO=tcp

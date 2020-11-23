@@ -180,7 +180,7 @@ Failed to delete a pipeline with an `etcdserver` error.
 
 Deleting pipelines fails with the following error:
 
-```bash
+```shell
 $ pachctl delete pipeline pipeline-name
 etcdserver: too many operations in txn request (XXXXXX comparisons, YYYYYYY writes: hint: set --max-txn-ops on the ETCD cluster to at least the largest of those values)
 ```
@@ -192,13 +192,13 @@ the default parameters provided for certain `etcd` flags.
 Depending on how you deployed Pachyderm,
 you need to either edit the `etcd` `Deployment` or `StatefulSet`.
 
-```bash
+```shell
 $ kubectl edit deploy etcd
 ```
 
 or
 
-```bash
+```shell
 $ kubectl edit statefulset etcd
 ```
 

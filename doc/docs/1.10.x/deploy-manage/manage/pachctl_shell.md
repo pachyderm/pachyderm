@@ -11,7 +11,7 @@ do so.
 
 To enter the Pachyderm Shell, type:
 
-```bash
+```shell
 pachctl shell
 ```
 

@@ -52,7 +52,7 @@ on a supported Kubernetes platforms:
 After you deploy Pachyderm and enable authentication,
 deploy the Pachyderm IDE by running:
 
-```bash
+```shell
 pachctl deploy ide
 ```
 
@@ -68,13 +68,13 @@ run the following command:
 
 * If you have deployed the Pachyderm IDE in a cloud platform, run:
 
-  ```bash
+  ```shell
   kubectl --namespace=default get svc proxy-public
   ```
 
 * If you have deployed the Pachyderm IDE in Minikube, run:
 
-  ```bash
+  ```shell
   minikube service proxy-public --url
   ```
 

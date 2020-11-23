@@ -38,7 +38,7 @@ Below is a Python example of a build pipline.
 
 A build pipeline can be submitted the same way as any other pipeline, for example:
 
-```bash
+```shell
 pachctl update pipeline -f <pipeline name>
 ```
 

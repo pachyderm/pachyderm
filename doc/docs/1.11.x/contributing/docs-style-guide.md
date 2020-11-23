@@ -159,7 +159,7 @@ folder.
 
 For example, to build the master version of documentation, run:
 
-```bash
+```shell
 mkdocs serve -f mkdocs-master.yml
 ```
 
@@ -170,14 +170,14 @@ published at godoc.org. If you are adding something new, such as
 an example, and want to check how it looks in HTML, you can build the
 documentation locally. To install `godoc`, run the following command:
 
-```bash
+```shell
 go get golang.org/x/tools/cmd/godoc
 ```
 
 To build the documentation, run the following
 command from the root directory of the `pachyderm` repository:
 
-```bash
+```shell
 godoc -http=:6060 -goroot=$(pwd)
 ```
 

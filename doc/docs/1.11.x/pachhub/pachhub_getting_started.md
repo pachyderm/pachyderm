@@ -102,13 +102,13 @@ To connect to your cluster, complete the following steps:
 
 1. Verify your `pachctl` version:
 
-   ```
+   ```shell
    pachctl version --client-only
    ```
 
    **System Response:**
 
-   ```
+   ```shell
    {{ config.pach_latest_version }}
    ```
 
@@ -124,7 +124,7 @@ To connect to your cluster, complete the following steps:
       **Note:** If you get the following error, that means that your authentication
       token has expired:
 
-      ```
+      ```shell
       error authenticating with Pachyderm cluster: /pachyderm_auth/auth-codes/ e14ccfafb35d4768f4a73b2dc9238b365492b88e98b76929d82ef0c6079e0027 not found
       ```
 
@@ -133,13 +133,13 @@ To connect to your cluster, complete the following steps:
 
    1. Verify that you have set the correct context:
 
-      ```
+      ```shell
       pachctl config get active-context
       ```
 
       **System Response:**
 
-      ```
+      ```shell
       test-svet-cc0mi51i52
       ```
 
@@ -147,19 +147,19 @@ To connect to your cluster, complete the following steps:
 
    1. Create a repo called `test`:
 
-      ```
+      ```shell
       pachctl create repo test
       ```
 
    1. Verify that the repo was created:
 
-      ```
+      ```shell
       pachctl list repo
       ```
 
       **System Response:**
 
-      ```
+      ```shell
       NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
       test   3 seconds ago 0B            OWNER
       ```

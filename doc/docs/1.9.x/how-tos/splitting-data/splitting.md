@@ -51,7 +51,7 @@ To complete this example, follow the steps below:
 
 1. Create a `users` repository by running:
 
-   ```bash
+   ```shell
    $ pachctl create repo users
    ```
 
@@ -61,7 +61,7 @@ contents listed above.
 1. Put your `user_data.csv` file into Pachyderm and
 automatically split it into separate datums for each line:
 
-   ```bash
+   ```shell
    $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
    ```
 
@@ -73,7 +73,7 @@ automatically split it into separate datums for each line:
 1. View the list of files in the master branch of the `users`
 repository:
 
-   ```bash
+   ```shell
    $ pachctl list file users@master
    NAME                 TYPE                SIZE
    user_data.csv   dir                 5.346 KiB
@@ -90,7 +90,7 @@ repository:
 the `user_data.csv` file, run the command with the file name
 specified after a colon:
 
-   ```bash
+   ```shell
    $ pachctl list file users@master:user_data.csv
    NAME                             TYPE                SIZE
    user_data.csv/0000000000000000   file                43 B
@@ -115,21 +115,21 @@ JSON blobs as well. See the examples below.
 * Split a `json` file on `json` blobs by putting each `json`
 blob into a separate file.
 
-  ```bash
+  ```shell
   $ pachctl put file users@master -f user_data.json --split json --target-file-datums 1
   ```
 
 * Split a `json` file on `json` blobs by putting three `json`
 blobs into each split file.
 
-  ```bash
+  ```shell
   $ pachctl put file users@master -f user_data.json --split json --target-file-datums 3
   ```
 
 * Split a file on lines by putting each 100-bytes chunk into
 the split files.
 
-  ```bash
+  ```shell
   $ pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
   ```
 
@@ -144,32 +144,32 @@ To specify a header, complete the following steps:
 1. Create a new or use an existing data file. For example, the `user_data.csv`
 from the section above with the following header:
 
-   ```bash
+   ```shell
    NUMBER,EMAIL,IP_ADDRESS
    ```
 
 1. Create a new repository or use an existing one:
 
-   ```bash
+   ```shell
    $ pachctl create repo users
    ```
 
 1. Put your file into the repository by separating the header from
 other lines:
 
-   ```bash
+   ```shell
    $ pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
    ```
 
 1. Verify that the file was added and split:
 
-   ```bash
+   ```shell
    $ pachctl list file users@master:/user_data.csv
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    NAME                            TYPE SIZE
    /user_data.csv/0000000000000000 file 70B
    /user_data.csv/0000000000000001 file 66B
@@ -185,7 +185,7 @@ other lines:
 
 1. Get the first file from the repository:
 
-   ```bash
+   ```shell
    $ pachctl get file users@master:/user_data.csv/0000000000000000
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
@@ -243,7 +243,7 @@ steps:
 
    **Example:**
 
-   ```bash
+   ```shell
    $ pg_dump -t users -f users.pgdump
    ```
 
@@ -251,7 +251,7 @@ steps:
 
 ???+ note "Example"
 
-    ```bash
+    ```shell
     $ cat users.pgdump
     --
     -- PostgreSQL database dump
@@ -304,14 +304,14 @@ steps:
 3.  Ingest the SQL data by using the `pachctl put file` command
     with the `--split` file:
 
-    ```bash
+    ```shell
     $ pachctl put file data@master -f users.pgdump --split sql
     $ pachctl put file data@master:users --split sql -f users.pgdump
     ```
 
 4. View the information about your repository:
 
-   ```bash
+   ```shell
 
    $ pachctl list file data@master
    NAME         TYPE SIZE
@@ -323,7 +323,7 @@ steps:
 
 5. View the information about the `users.pgdump` file:
 
-   ```bash
+   ```shell
 
    $ pachctl list file data@master:users
    NAME                           TYPE SIZE

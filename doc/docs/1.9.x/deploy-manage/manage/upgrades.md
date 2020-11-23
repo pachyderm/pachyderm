@@ -27,7 +27,7 @@ section.
 
    **Example:**
 
-   ```bash
+   ```shell
    $ brew upgrade pachyderm/tap/pachctl@1.10
    ==> Upgrading 1 outdated package:
    pachyderm/tap/pachctl@1.10
@@ -42,7 +42,7 @@ section.
 1. Confirm that the new version has been successfully installed by running
 the following command:
 
-   ```sh
+   ```shell
    $ pachctl version --client-only
    COMPONENT           VERSION
    pachctl             1.9.2
@@ -53,7 +53,7 @@ with the same arguments, fields, and storage resources
 that you specified when you deployed the previous version
 of Pachyderm:
 
-   ```sh
+   ```shell
    $ pachctl deploy <args>
    serviceaccount "pachyderm" created
    storageclass "etcd-storage-class" created
@@ -75,7 +75,7 @@ of Pachyderm:
    shows all pods as `READY`:
 
 
-   ```sh
+   ```shell
    $ kubectl get pods
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-482120938-np8cc     2/2       Running   0          4m
@@ -85,7 +85,7 @@ of Pachyderm:
 
 1. Verify that the new version has been deployed:
 
-   ```sh
+   ```shell
    pachctl version
    COMPONENT           VERSION
    pachctl             1.9.2

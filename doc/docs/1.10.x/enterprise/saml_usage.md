@@ -22,18 +22,18 @@ In the CLI, that would look like:
 
 **System response:**
 
-```bash
+```shell
 Please paste your Pachyderm auth token:
 <auth token>
 ```
 
-```bash
+```shell
 (admin)$ pachctl auth whoami
 ```
 
 **System response:**
 
-```bash
+```shell
 You are "robot:admin"
 You are an administrator of this Pachyderm cluster
 ```
@@ -41,7 +41,7 @@ You are an administrator of this Pachyderm cluster
 Create a repository, pipelines, and put files into the
 repository.
 
-```bash
+```shell
 (admin)$ pachctl create repo images
 (admin)$ pachctl create pipeline -f examples/opencv/edges.json
 (admin)$ pachctl create pipeline -f examples/opencv/montage.json
@@ -51,13 +51,13 @@ repository.
 
 View the list of existing repositories:
 
-```bash
+```shell
 (admin)$ pachctl list repo
 ```
 
 **System response:**
 
-```bash
+```shell
 NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
 montage 2 minutes ago 1.653MiB      OWNER
 edges   2 minutes ago 133.6KiB      OWNER
@@ -66,13 +66,13 @@ images  2 minutes ago 238.3KiB      OWNER
 
 View the list of jobs:
 
-```bash
+```shell
 (admin)$ pachctl list job
 ```
 
 **System response:**
 
-```bash
+```shell
 ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
 023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
 fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
@@ -119,7 +119,7 @@ from the settings panel:
 
 **System response:**
 
-```bash
+```shell
 You are "saml:msteffen@pachyderm.io"
 session expires: 14 Sep 18 20:55 PDT
 ```
@@ -169,13 +169,13 @@ to add `msteffen@pachyderm.io` (the user principal) directly to that ACL:
 
 this change is reflected in the CLI as well:
 
-```bash
+```shell
 (admin)$ pachctl auth get edges
 ```
 
 **System response:**
 
-```bash
+```shell
 pipeline:edges: WRITER
 pipeline:montage: READER
 group/saml:Everyone: OWNER

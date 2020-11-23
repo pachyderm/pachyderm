@@ -21,7 +21,7 @@ All three pipelines, including `reduce`, can be run in a distributed fashion to 
 Our input data is a set of files. Each file is named for the site we want to scrape with the content being the URL or URLs for that site. 
 
 Let's create the input repo and add one URL, Wikipedia:
-```
+```shell
 $ pachctl create repo urls
 
 # We assume you're running this from the root of this example (pachyderm/examples/word_count/):
@@ -30,7 +30,7 @@ $ pachctl put file urls@master -f Wikipedia
 
 Then to actually scrape this site and save the data, we create the first pipeline based on the [scraper.json](scraper.json) pipeline specification:
 
-```
+```shell
 $ pachctl create pipeline -f scraper.json
 ```
 
@@ -38,7 +38,7 @@ This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia
 
 When you create the `scraper` pipeline, you should be able to see a job running and a new repo called `scraper` that contains the output of our scrape:
 
-```
+```shell
 $ pachctl list job
 ID                                   OUTPUT COMMIT STARTED       DURATION RESTART PROGRESS STATE            
 44190a81-a87b-4a6b-8f25-8e5d3504566a scraper/-     3 seconds ago -        0       0 / 1    running 
@@ -65,13 +65,13 @@ In this case, you don't have to build a custom Docker image yourself with this c
 
 Let's create the `map` pipeline: 
 
-```
+```shell
 $ pachctl create pipeline -f map/map.json
 ```
 
 As soon as you create this pipeline, it will start processing data from the `scraper` data repository. For each web page the `map.go` code processes, it writes a file for each encountered word. In our case, the filename for each word is the name of the word itself. To see what I mean, lets run a `pachctl list file` on the map repo:
 
-```
+```shell
 $ pachctl list file map@master
 NAME          TYPE SIZE
 a             file 4B
@@ -90,7 +90,7 @@ actor         file 2B
 ```
 As you can see, for every word on that page there is a seperate file. Inside that file is the numeric value for how many times that word appeared. You can do a `get file` on say the "about" file to see how many times that word shows up in our scrape:
 
-```
+```shell
 $ pachctl get file map@master:about
 13
 
@@ -102,19 +102,19 @@ By default, Pachyderm will spin up the same number of workers as the number of n
 
 The final pipeline, `reduce` goes through every file and adds up the numbers in each file, thus obtaining a total count per word.  For this pipeline we can use a simple bash script:
 
-```
+```shell
 find /pfs/map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done
 ```
 
 We have baked this into [reduce.json](reduce.json).  Again, creating the pipeline is as simple as:
 
-```
+```shell
 $ pachctl create pipeline -f reduce.json
 ```
 
 The output should look like:
 
-```
+```shell
 $ pachctl list repo
 NAME                CREATED             SIZE                
 reduce              43 minutes ago      4.216 KiB           
@@ -127,7 +127,7 @@ $ pachctl get file reduce@master:wikipedia
 
 To get a complete list of the words counted:
 
-```
+```shell
 $ pachctl list file reduce@master
 NAME                                   TYPE                SIZE                
 a                                      file                4 B                 
@@ -150,7 +150,7 @@ etc...
 
 Now that we've got a full end-to-end scraper and wordcount use case set up, lets add more to it. First, let's add more data. Go ahead and add a few more sites to scrape. 
 
-```
+```shell
 # Instead of using the -c shorthand flag, let's do this the long way by starting a commit, adding files, and then finishing the commit.
 $ pachctl start commit urls@master
 

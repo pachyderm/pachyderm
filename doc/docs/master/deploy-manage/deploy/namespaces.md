@@ -12,7 +12,7 @@ pachctl deploy <args> --namespace pachyderm
 
 After the Pachyderm pods are up and running, you should see something similar to:
 
-```bash
+```shell
 kubectl get pods
 ```
 

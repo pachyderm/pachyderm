@@ -7,19 +7,19 @@ can access it by using the following commands:
 
 * To view the auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth get-config
   ```
 
 * To edit the auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth set-config -f <config.json>
   ```
 
   or:
 
-  ```bash
+  ```shell
   pachctl auth set-config <<EOF
   {
     "live_config_version": ${live_config_version},
@@ -36,7 +36,7 @@ can access it by using the following commands:
 
 * To delete Pachyderm auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth deactivate
   ```
 
