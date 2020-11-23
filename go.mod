@@ -5,6 +5,7 @@ go 1.15
 require (
 	cloud.google.com/go/storage v1.3.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.1 // indirect
 	github.com/OneOfOne/xxhash v1.2.6
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
@@ -14,7 +15,7 @@ require (
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
-	github.com/coreos/bbolt v1.3.3
+	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -41,7 +42,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
-	github.com/hanwen/go-fuse/v2 v2.0.2
+	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
@@ -85,6 +86,7 @@ require (
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
+	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
@@ -112,10 +114,10 @@ require (
 
 // Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
-replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
+// replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
+//replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
-replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
+//replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
