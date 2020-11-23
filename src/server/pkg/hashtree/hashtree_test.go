@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 
-	bolt "github.com/coreos/bbolt"
+	bolt "go.etcd.io/bbolt"
 )
 
 // obj parses a string as an Object
