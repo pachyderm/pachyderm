@@ -30,6 +30,14 @@ message ListConnectorsResponse {
   repeated ConnectorConfig config = 1; 
 }
 
+message GetConnectorRequest {
+  string id = 1;
+}
+
+message GetConnectorResponse {
+  ConnectorConfig config = 1; 
+}
+
 message DeleteConnectorRequest {
   string id = 1;
 }
@@ -61,6 +69,7 @@ service API {
   rpc CreateConnector(CreateConnectorRequest) returns (CreateConnectorResponse) {}
   rpc UpdateConnector(UpdateConnectorRequest) returns (UpdateConnectorResponse) {}
   rpc ListConnectors(ListConnectorsRequest) returns (ListConnectorsResponse) {}
+  rpc GetConnector(GetConnectorRequest) returns (GetConnectorResponse) {}
   rpc DeleteConnector(DeleteConnectorRequest) returns (DeleteConnectorResponse) {}
   rpc CreateClient(CreateClientRequest) returns (CreateClientResponse) {}
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse) {}

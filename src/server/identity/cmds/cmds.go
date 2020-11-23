@@ -65,6 +65,57 @@ func CreateConnectorCmd() *cobra.Command {
 	return cmdutil.CreateAlias(addConnector, "idp connector create")
 }
 
+// ListConnectorsCmd returns a cobra.Command to list IDP integrations
+func ListConnectorCmd() *cobra.Command {
+	var id, name, t, file string
+	var version int
+	addConnector := &cobra.Command{
+		Short: "Create a new identity provider connector",
+		Long:  `Create a new identity provider connector`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			var rawConfigBytes []byte
+			if file == "-" {
+				var err error
+				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
+				if err != nil {
+					return errors.Wrapf(err, "could not read config from stdin")
+				}
+			} else if file != "" {
+				var err error
+				rawConfigBytes, err = ioutil.ReadFile(file)
+				if err != nil {
+					return errors.Wrapf(err, "could not read config from %q", file)
+				}
+			} else {
+				return errors.New("must set input file (use \"-\" to read from stdin)")
+			}
+
+			req := &identity.CreateConnectorRequest{
+				Config: &identity.ConnectorConfig{
+					Id:            id,
+					Name:          name,
+					Type:          t,
+					ConfigVersion: int64(version),
+					JsonConfig:    string(rawConfigBytes),
+				}}
+
+			_, err = c.CreateConnector(c.Ctx(), req)
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	addConnector.PersistentFlags().StringVar(&id, "id", "", ``)
+	addConnector.PersistentFlags().StringVar(&name, "name", "", ``)
+	addConnector.PersistentFlags().StringVar(&t, "type", "", ``)
+	addConnector.PersistentFlags().IntVar(&version, "version", 0, ``)
+	addConnector.PersistentFlags().StringVar(&file, "config", "", ``)
+	return cmdutil.CreateAlias(addConnector, "idp connector create")
+}
+
 // CreateClientCmd returns a cobra.Command to create a new OIDC client
 func CreateClientCmd() *cobra.Command {
 	var id, name, redirectUri string

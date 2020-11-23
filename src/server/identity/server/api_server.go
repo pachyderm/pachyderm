@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dex_api "github.com/dexidp/dex/api/v2"
+	"github.com/dexidp/dex/storage"
 	"github.com/google/uuid"
 	logrus "github.com/sirupsen/logrus"
 
@@ -75,6 +76,18 @@ func (a *apiServer) isAdmin(ctx context.Context, op string) error {
 	}
 }
 
+func dexConnectorToPach(c storage.Connector) *identity.ConnectorConfig {
+	// If the version isn't an int, set it to zero
+	version, _ := strconv.Atoi(c.ResourceVersion)
+	return &identity.ConnectorConfig{
+		Id:            c.ID,
+		Name:          c.Name,
+		Type:          c.Type,
+		ConfigVersion: int64(version),
+		JsonConfig:    string(c.Config),
+	}
+}
+
 func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateConnectorRequest) (resp *identity.CreateConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -87,6 +100,24 @@ func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateCon
 		return nil, err
 	}
 	return &identity.CreateConnectorResponse{}, nil
+}
+
+func (a *apiServer) GetConnector(ctx context.Context, req *identity.GetConnectorRequest) (resp *identity.GetConnectorResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "GetConnector"); err != nil {
+		return nil, err
+	}
+
+	c, err := a.server.getConnector(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &identity.GetConnectorResponse{
+		Config: dexConnectorToPach(c),
+	}, nil
 }
 
 func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateConnectorRequest) (resp *identity.UpdateConnectorResponse, retErr error) {
@@ -121,13 +152,7 @@ func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnec
 	}
 
 	for i, c := range connectors {
-		version, _ := strconv.Atoi(c.ResourceVersion)
-		resp.Config[i] = &identity.ConnectorConfig{
-			Id:            c.ID,
-			Name:          c.Name,
-			Type:          c.Type,
-			ConfigVersion: int64(version),
-		}
+		resp.Config[i] = dexConnectorToPach(c)
 	}
 
 	return resp, nil
