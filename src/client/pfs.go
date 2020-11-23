@@ -142,13 +142,17 @@ func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 // versions.
 // If "force" is set to true, the repo will be removed regardless of errors.
 // This argument should be used with care.
-func (c APIClient) DeleteRepo(repoName string, force bool) error {
+func (c APIClient) DeleteRepo(repoName string, force bool, splitTransaction ...bool) error {
+	request := &pfs.DeleteRepoRequest{
+		Repo:  NewRepo(repoName),
+		Force: force,
+	}
+	if len(splitTransaction) > 0 {
+		request.SplitTransaction = splitTransaction[0]
+	}
 	_, err := c.PfsAPIClient.DeleteRepo(
 		c.Ctx(),
-		&pfs.DeleteRepoRequest{
-			Repo:  NewRepo(repoName),
-			Force: force,
-		},
+		request,
 	)
 	return grpcutil.ScrubGRPC(err)
 }

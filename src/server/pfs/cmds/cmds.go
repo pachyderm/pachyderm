@@ -196,6 +196,7 @@ or type (e.g. csv, binary, images, etc).`,
 
 	var force bool
 	var all bool
+	var splitTransaction bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -208,8 +209,9 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			request := &pfsclient.DeleteRepoRequest{
-				Force: force,
-				All:   all,
+				Force:            force,
+				All:              all,
+				SplitTransaction: splitTransaction,
 			}
 			if len(args) > 0 {
 				if all {
@@ -229,6 +231,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions (Note: this must be re-run if the operation fails or Pachyderm will be left in an inconsistent state)")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 

@@ -52,6 +52,7 @@ message RepoInfo {
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
+  bool tombstone = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -241,6 +242,7 @@ message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
   bool all = 3;
+  bool split_transaction = 4;
 }
 
 // CommitState describes the states a commit can be in.
