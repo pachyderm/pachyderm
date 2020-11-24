@@ -51,12 +51,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

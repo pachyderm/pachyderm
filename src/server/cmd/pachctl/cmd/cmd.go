@@ -33,7 +33,6 @@ import (
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -42,6 +41,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"

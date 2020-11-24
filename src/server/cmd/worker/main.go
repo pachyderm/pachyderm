@@ -22,8 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
