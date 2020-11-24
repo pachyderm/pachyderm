@@ -173,7 +173,8 @@ func runClientTests(t *testing.T, backendType BackendType, clientType ClientType
 		//  Minio client - upgrade to v7 which supports contexts in all APIs
 		//  Local client - interruptible file operations are not a thing in the stdlib
 		if clientType == AmazonClient || clientType == MicrosoftClient || clientType == MinioClient || clientType == LocalClient {
-			t.Skip("Object client interruption is not currently supported for this client")
+			message := fmt.Sprintf("Interruption is not currently supported for the %s object client", clientType)
+			t.Skip(message)
 		}
 		t.Parallel()
 
