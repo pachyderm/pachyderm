@@ -9,7 +9,7 @@ As new versions of Pachyderm are released, you might need to update your
 cluster to get access to bug fixes and new features.
 
 Migrations involve moving between major releases, such as 1.x.x to
-2.x.x or minor releases, such as 1.9.x to 1.10.0.
+2.x.x or minor releases, such as 1.11.x to 1.12.0.
 
 !!! tip
     Pachyderm follows the [Semantic Versioning](https://semver.org/)
@@ -164,8 +164,8 @@ pachctl version
 
    ```
    COMPONENT           VERSION
-   pachctl             1.10.0
-   pachd               1.10.0
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    If the command above hangs, you might need to adjust your firewall rules.

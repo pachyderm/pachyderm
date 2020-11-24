@@ -42,7 +42,7 @@ Install the following prerequisites:
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```shell
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
@@ -55,7 +55,7 @@ Install the following prerequisites:
 
     ```shell
     COMPONENT           VERSION
-    pachctl             1.9.0
+    pachctl             {{ config.pach_latest_version }}
     ```
 
 ## Deploy Kubernetes
@@ -430,6 +430,6 @@ set up port forwarding to enable `pachctl` and cluster communication:
 
    ```shell
    COMPONENT           VERSION
-   pachctl             1.9.0
-   pachd               1.9.0
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```

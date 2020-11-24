@@ -52,8 +52,8 @@ pachctl version
 
 ```shell
 COMPONENT           VERSION
-pachctl             1.9.5
-pachd               1.9.5
+pachctl             {{ config.pach_latest_version }}5
+pachd               {{ config.pach_latest_version }}5
 ```
 
 To activate the Pachyderm Enterprise Edition, complete the following steps::

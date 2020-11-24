@@ -1,7 +1,7 @@
 # Upgrade Pachyderm
 
 If you need to upgrade Pachyderm from one major version
-to another, such as from `1.8.x` to `1.9.x`, follow the
+to another, such as from `1.10.x` to `1.11.x`, follow the
 instructions in the [Migrate between major versions](./migrations.md).
 
 Upgrades from one minor version to another, such as from version `1.11.0` to
