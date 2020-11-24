@@ -27,7 +27,7 @@ To delete all pipelines, use the `--all` flag.
 
 To delete a pipeline, run the following command:
 
-```bash
+```shell
 pachctl delete pipeline <pipeine_name>
 ```
 

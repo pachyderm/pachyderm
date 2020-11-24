@@ -28,7 +28,7 @@ repositories contain three files with the following names.
 
 Repository `A` has the following structure:
 
-```bash
+```shell
 A
 ├── 1.txt
 ├── 2.txt
@@ -37,7 +37,7 @@ A
 
 Repository `B` has the following structure:
 
-```bash
+```shell
 B
 ├── 4.txt
 ├── 5.txt
@@ -49,7 +49,7 @@ separate datum, use a glob pattern of `/*`. Each
 glob is applied to each input independently. The input section
 in the pipeline spec might have the following structure:
 
-```bash
+```shell
 "input": {
     "union": [
         {
@@ -73,7 +73,7 @@ directory, so three datums from each input. Therefore, the union of `A` and `B`
 has six datums in total.
 Your pipeline processes the following datums without any specific order:
 
-```bash
+```shell
 /pfs/A/1.txt
 /pfs/A/2.txt
 /pfs/A/3.txt
@@ -122,7 +122,7 @@ give the same name to each of the input repos. For example, you can add, the
 
 Then, in the pipeline, all datums appear in the same directory.
 
-```bash
+```shell
 /pfs/C/1.txt  # from A
 /pfs/C/2.txt  # from A
 /pfs/C/3.txt  # from A
@@ -148,7 +148,7 @@ with the following structure:
 
 Repository `A` has three files at the top level:
 
-```bash
+```shell
 A
 ├── 1.txt
 ├── 2.txt
@@ -157,7 +157,7 @@ A
 
 Repository `B` has three files at the top level:
 
-```bash
+```shell
 B
 ├── 4.txt
 ├── 5.txt
@@ -171,7 +171,7 @@ a total of nine combinations of datums to your code.
     In cross pipelines, both `pfs/A` and `pfs/B`
     directories are visible during each code run.
 
-```bash
+```shell
 Run 1: /pfs/A/1.txt
        /pfs/B/1.txt
 

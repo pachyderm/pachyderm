@@ -67,7 +67,7 @@ A minimum pipeline specification must include the following parameters:
 
 !!! example
 
-```bash
+```shell
 
 {
   "pipeline": {

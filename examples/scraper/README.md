@@ -92,7 +92,7 @@ they're specified with a JSON encoding. We're going to create a pipeline that si
 ```
 
 The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The full content is also below.
-```
+```json
 {
   "pipeline": {
     "name": "scraper”

@@ -39,7 +39,7 @@ modify the pipeline specification as follows:
 
 !!! example
 
-    ```bash
+    ```shell
     {
       "pipeline": {
         "name": "edges"
@@ -65,7 +65,7 @@ branch called `stats`:
 
 !!! example
 
-    ```bash
+    ```shell
     $ pachctl list file edges@stats
     NAME                                                               TYPE                SIZE
     002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868   dir                 342.7KiB

@@ -36,7 +36,7 @@ You can view the list of repositories in your Pachyderm cluster
 by running the `pachctl list repo` command.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl list repo
     NAME     CREATED     SIZE (MASTER)
     raw_data 6 hours ago 0B
@@ -46,7 +46,7 @@ The `pachctl inspect repo` command provides a more detailed overview
 of a specified repository.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl inspect repo raw_data
     Name: raw_data
     Description: A raw data repository

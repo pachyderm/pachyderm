@@ -28,7 +28,7 @@ To update a pipeline specification, complete the following steps:
 
 1. Update the pipeline with the new configuration:
 
-   ```bash
+   ```shell
    pachctl update pipeline -f pipeline.json
    ```
 
@@ -65,7 +65,7 @@ For example, if you want to push a `pachyderm/opencv` image to a
 registry located at `localhost:5000`, you need to add this in
 your pipeline spec:
 
- ```bash
+ ```shell
  "image": "localhost:5000/pachyderm/opencv"
  ```
 
@@ -79,13 +79,13 @@ To update the code in your pipeline, complete the following steps:
 1. Make the code changes.
 1. Verify that the Docker daemon is running:
 
-   ```bash
+   ```shell
    docker ps
    ```
 
    * If you get an error message similar to the following:
 
-     ```bash
+     ```shell
      Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
      ```
 
@@ -94,7 +94,7 @@ To update the code in your pipeline, complete the following steps:
      For example, if you use `minikube` on  macOS, run the following
      command:
 
-     ```bash
+     ```shell
      eval $(minikube docker-env)
      ```
 
@@ -104,7 +104,7 @@ To update the code in your pipeline, complete the following steps:
 
      1. Run the following command:
 
-        ```bash
+        ```shell
         pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
         ```
 
@@ -112,7 +112,7 @@ To update the code in your pipeline, complete the following steps:
 
         **Example:**
 
-        ```bash
+        ```shell
         pachctl update pipeline -f edges.json --build --username testuser
         ```
 
@@ -132,6 +132,6 @@ To update the code in your pipeline, complete the following steps:
 
      1. Update the pipeline:
 
-        ```bash
+        ```shell
         pachctl update pipeline -f <pipeline.json>
         ```

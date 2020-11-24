@@ -38,7 +38,7 @@ modify the pipeline specification as follows:
 
 !!! example
 
-    ```bash
+    ```shell
     {
       "pipeline": {
         "name": "edges"
@@ -66,13 +66,13 @@ branch called `stats`:
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl list file edges@stats
     ```
 
     **System response:**
 
-    ```bash
+    ```shell
     NAME                                                               TYPE                SIZE
     002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868   dir                 342.7KiB
     0597f2df3f37f1bb5b9bcd6397841f30c62b2b009e79653f9a97f5f13432cf09   dir                 1.177MiB
@@ -87,13 +87,13 @@ To view the stats for a specific datum you can use a `list file`:
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl list file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868
     ```
 
     **System response:**
 
-    ```bash
+    ```shell
     NAME                                                                                                   TYPE SIZE     
     /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/index                                file 1B       
     /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/job:e448275f92604db0aa77770bddf24610 file 0B       
@@ -106,26 +106,26 @@ The files: index, job, logs and stats are metadata files that can be accessed us
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl get file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/stats
     ```
 
     **System response:**
 
-    ```bash    {"downloadTime":"0.211353702s","processTime":"0.474949018s","uploadTime":"0.567586547s","downloadBytes":"80588","uploadBytes":"38046"}
+    ```shell    {"downloadTime":"0.211353702s","processTime":"0.474949018s","uploadTime":"0.567586547s","downloadBytes":"80588","uploadBytes":"38046"}
     ```
 
 The pfs directory has both the input and the output data that was committed in this datum:
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl list file edges@stats:/002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs
     ```
 
     **System response:**
 
-    ```bash    NAME                                                                         TYPE SIZE     
+    ```shell    NAME                                                                         TYPE SIZE     
     /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/images dir  78.7KiB  
     /002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868/pfs/out    dir  37.15KiB
     ```

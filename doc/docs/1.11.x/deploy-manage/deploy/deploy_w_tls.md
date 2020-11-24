@@ -11,7 +11,7 @@ You can enable TLS during the deployment of your Pachyderm cluster by
 providing a path to your CA certificate and your private key by using the
 `--tls` flag with the `pachctl deploy` command.
 
-```bash
+```shell
 pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
 ```
 
@@ -26,7 +26,7 @@ Pachyderm context with the cluster IP address that starts with `grpcs://`.
 You can do so by running the following command:
 
 !!! example
-    ```bash
+    ```shell
     echo '{"pachd_address": "grpcs://<cluster-ip>:31400"}' | pachctl config
     pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
     ```

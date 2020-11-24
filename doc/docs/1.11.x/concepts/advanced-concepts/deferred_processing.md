@@ -39,19 +39,19 @@ To configure a staging branch, complete the following steps:
 
 1. Create a repository. For example, `data`.
 
-   ```bash
+   ```shell
    $ pachctl create repo data
    ```
 
 1. Create a `master` branch.
 
-   ```bash
+   ```shell
    $ pachctl create branch data@master
    ```
 
 1. View the created branch:
 
-   ```bash
+   ```shell
    $ pachctl list branch data
    BRANCH HEAD
    master -
@@ -65,7 +65,7 @@ To configure a staging branch, complete the following steps:
 
 1. Commit a file to the staging branch:
 
-   ```bash
+   ```shell
    $ pachctl put file data@staging -f <file>
    ```
 
@@ -76,7 +76,7 @@ To configure a staging branch, complete the following steps:
 
 1. Verify that the branches were created:
 
-   ```bash
+   ```shell
    $ pachctl list branch data
    BRANCH  HEAD
    staging f3506f0fab6e483e8338754081109e69
@@ -92,14 +92,14 @@ To configure a staging branch, complete the following steps:
 1. When you are ready to process the data, update the `master` branch
    to point it to the head of the staging branch:
 
-   ```bash
+   ```shell
    $ pachctl create branch data@master --head staging
    ```
 
 1. List your branches to verify that the master branch has a `HEAD`
    commit:
 
-   ```bash
+   ```shell
    $ pachctl list branch
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
@@ -110,7 +110,7 @@ To configure a staging branch, complete the following steps:
 
 1. Verify that the pipeline has new jobs:
 
-   ```bash
+   ```shell
    $ pachctl list job
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
@@ -135,7 +135,7 @@ For example, if you submitted ten commits in the `staging` branch and you
 want to process the seventh, third, and most recent commits, you need
 to run the following commands respectively:
 
-```bash
+```shell
 $ pachctl create branch data@master --head staging^7
 $ pachctl create branch data@master --head staging^3
 $ pachctl create branch data@master --head staging
@@ -153,7 +153,7 @@ latest commits. For example, if you want to change the final output to be
 the result of processing `staging^1`, you can *roll back* your HEAD commit
 by running the following command:
 
-```bash
+```shell
 $ pachctl create branch data@master --head staging^1
 ```
 
@@ -176,13 +176,13 @@ To copy files from one branch to another, complete the following steps:
 
 1. Start a commit:
 
-   ```bash
+   ```shell
    $ pachctl start commit data@master
    ```
 
 1. Copy files:
 
-   ```bash
+   ```shell
    $ pachctl copy file data@staging:file1 data@master:file1
    $ pachctl copy file data@staging:file2 data@master:file2
    ...
@@ -190,7 +190,7 @@ To copy files from one branch to another, complete the following steps:
 
 1. Close the commit:
 
-   ```bash
+   ```shell
    $ pachctl finish commit data@master
    ```
 
@@ -212,13 +212,13 @@ following steps:
    the name of the branch in which you want to accumulate your data
    before processing:
 
-   ```bash
+   ```shell
    "output_branch": "staging"
    ```
 
 1. When you want to process data, run:
 
-   ```bash
+   ```shell
    $ pachctl create-branch pipeline master --head staging
    ```
 

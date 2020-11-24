@@ -159,7 +159,7 @@ folder.
 
 For example, to build the master version of documentation, run:
 
-```bash
+```shell
 mkdocs serve -f mkdocs-master.yml
 ```
 
