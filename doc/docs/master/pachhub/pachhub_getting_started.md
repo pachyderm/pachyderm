@@ -109,7 +109,7 @@ To connect to your cluster, complete the following steps:
    **System Response:**
 
    ```shell
-   1.9.8
+   {{ config.pach_latest_version }}
    ```
 
 1. Configure a Pachyderm context and log in to your

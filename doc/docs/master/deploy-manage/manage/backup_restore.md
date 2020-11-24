@@ -169,8 +169,8 @@ port
 
    ```
    COMPONENT           VERSION
-   pachctl             1.10.0
-   pachd               1.10.0
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
 ??? note "pause-pipelines.sh"

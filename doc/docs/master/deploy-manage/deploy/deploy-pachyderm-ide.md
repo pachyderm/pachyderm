@@ -30,7 +30,7 @@ using `pachctl` or the Pachyderm Python client.
 
 Before deploying Pachyderm IDE, configure the following prerequisites:
 
-* Deploy Pachyderm 1.11.0 or later as described in
+* Deploy Pachyderm {{ config.pach_latest_version }} or later as described in
 [Deploy Pachyderm](../)
 on a supported Kubernetes platforms:
 
