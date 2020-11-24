@@ -1863,11 +1863,13 @@ func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) 
 }
 
 func (w *putObjWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.client.Send(w.request); err != nil {
-		return 0, grpcutil.ScrubGRPC(err)
+	for _, dataSlice := range grpcutil.Chunk(p, grpcutil.MaxMsgPayloadSize) {
+		w.request.Value = dataSlice
+		if err := w.client.Send(w.request); err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+		w.request.Obj = ""
 	}
-	w.request.Obj = ""
 	return len(p), nil
 }
 
