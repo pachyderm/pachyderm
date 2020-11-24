@@ -142,7 +142,7 @@ func CreateClientCmd() *cobra.Command {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			fmt.Printf("Client secret: %q\n", resp.Secret)
+			fmt.Printf("Client secret: %q\n", resp.Client.Secret)
 			return nil
 		}),
 	}

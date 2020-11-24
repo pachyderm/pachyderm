@@ -315,6 +315,7 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
+	./etc/testing/start_postgres.sh
 	yes | pachctl delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
@@ -382,15 +383,6 @@ launch-loki:
 
 clean-launch-loki:
 	helm uninstall loki
-
-launch-dex:
-	helm repo add stable https://charts.helm.sh/stable
-	helm repo update
-	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
-	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
-
-clean-launch-dex:
-	helm uninstall dex
 
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'

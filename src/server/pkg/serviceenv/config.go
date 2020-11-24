@@ -77,8 +77,8 @@ type PachdSpecificConfiguration struct {
 
 	EnterpriseServerEnabled bool   `env:"ENTERPRISE_SERVER_ENABLED,default=true"`
 	IdentityServerIssuer    string `env:"IDENTITY_SERVER_ISSUER,default=http://localhost:30658/"`
-	IdentityServerDatabase  string `env:"IDENTITY_SERVER_DATABASE,default=identity"`
-	IdentityServerUser      string `env:"IDENTITY_SERVER_USER,default=identity"`
+	IdentityServerDatabase  string `env:"IDENTITY_SERVER_DATABASE,default=pgc"`
+	IdentityServerUser      string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
 	IdentityServerPassword  string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 

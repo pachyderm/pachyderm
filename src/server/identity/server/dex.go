@@ -93,7 +93,7 @@ func (s *dexServer) validateConfig(id, connType string, jsonConfig []byte) error
 	return nil
 }
 
-func (s *dexServer) createConnector(id, connType, name string, resourceVersion int, jsonConfig []byte) error {
+func (s *dexServer) createConnector(id, name, connType string, resourceVersion int, jsonConfig []byte) error {
 	if id == "" {
 		return errors.New("no id specified")
 	}
@@ -164,4 +164,8 @@ func (s *dexServer) deleteConnector(id string) error {
 
 func (s *dexServer) listConnectors() (connectors []storage.Connector, err error) {
 	return s.dexStorage.ListConnectors()
+}
+
+func (s *dexServer) listClients() (connectors []storage.Client, err error) {
+	return s.dexStorage.ListClients()
 }

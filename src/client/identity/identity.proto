@@ -5,7 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
 
 /* ConnectorConfig represents an IDP to delegate authentication to */
 message ConnectorConfig {
-  string id = 1;
+  string id = 1; 
   string name = 2;
   string type = 3;
   int64 configVersion = 4;
@@ -49,6 +49,7 @@ message Client {
   repeated string redirect_uris = 2;
   repeated string trusted_peers = 3;
   string name = 4;
+  string secret = 5;
 }
 
 message CreateClientRequest {
@@ -56,7 +57,7 @@ message CreateClientRequest {
 }
 
 message CreateClientResponse {
-  string secret = 1;
+  Client client = 1;
 }
 
 message DeleteClientRequest {
@@ -64,6 +65,9 @@ message DeleteClientRequest {
 }
 
 message DeleteClientResponse {}
+
+message DeleteAllRequest {}
+message DeleteAllResponse {}
 
 service API {
   rpc CreateConnector(CreateConnectorRequest) returns (CreateConnectorResponse) {}
@@ -73,4 +77,5 @@ service API {
   rpc DeleteConnector(DeleteConnectorRequest) returns (DeleteConnectorResponse) {}
   rpc CreateClient(CreateClientRequest) returns (CreateClientResponse) {}
   rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse) {}
+  rpc DeleteAll(DeleteAllRequest) returns (DeleteAllResponse) {}
 }

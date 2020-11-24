@@ -549,6 +549,7 @@ type Client struct {
 	RedirectUris         []string `protobuf:"bytes,2,rep,name=redirect_uris,json=redirectUris,proto3" json:"redirect_uris,omitempty"`
 	TrustedPeers         []string `protobuf:"bytes,3,rep,name=trusted_peers,json=trustedPeers,proto3" json:"trusted_peers,omitempty"`
 	Name                 string   `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Secret               string   `protobuf:"bytes,5,opt,name=secret,proto3" json:"secret,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -615,6 +616,13 @@ func (m *Client) GetName() string {
 	return ""
 }
 
+func (m *Client) GetSecret() string {
+	if m != nil {
+		return m.Secret
+	}
+	return ""
+}
+
 type CreateClientRequest struct {
 	Client               *Client  `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -663,7 +671,7 @@ func (m *CreateClientRequest) GetClient() *Client {
 }
 
 type CreateClientResponse struct {
-	Secret               string   `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
+	Client               *Client  `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -702,11 +710,11 @@ func (m *CreateClientResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CreateClientResponse proto.InternalMessageInfo
 
-func (m *CreateClientResponse) GetSecret() string {
+func (m *CreateClientResponse) GetClient() *Client {
 	if m != nil {
-		return m.Secret
+		return m.Client
 	}
-	return ""
+	return nil
 }
 
 type DeleteClientRequest struct {
@@ -795,6 +803,84 @@ func (m *DeleteClientResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_DeleteClientResponse proto.InternalMessageInfo
 
+type DeleteAllRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteAllRequest) Reset()         { *m = DeleteAllRequest{} }
+func (m *DeleteAllRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteAllRequest) ProtoMessage()    {}
+func (*DeleteAllRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{16}
+}
+func (m *DeleteAllRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeleteAllRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeleteAllRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DeleteAllRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteAllRequest.Merge(m, src)
+}
+func (m *DeleteAllRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeleteAllRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteAllRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteAllRequest proto.InternalMessageInfo
+
+type DeleteAllResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteAllResponse) Reset()         { *m = DeleteAllResponse{} }
+func (m *DeleteAllResponse) String() string { return proto.CompactTextString(m) }
+func (*DeleteAllResponse) ProtoMessage()    {}
+func (*DeleteAllResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{17}
+}
+func (m *DeleteAllResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeleteAllResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeleteAllResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DeleteAllResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteAllResponse.Merge(m, src)
+}
+func (m *DeleteAllResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeleteAllResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteAllResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteAllResponse proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*ConnectorConfig)(nil), "identity.ConnectorConfig")
 	proto.RegisterType((*CreateConnectorRequest)(nil), "identity.CreateConnectorRequest")
@@ -812,47 +898,52 @@ func init() {
 	proto.RegisterType((*CreateClientResponse)(nil), "identity.CreateClientResponse")
 	proto.RegisterType((*DeleteClientRequest)(nil), "identity.DeleteClientRequest")
 	proto.RegisterType((*DeleteClientResponse)(nil), "identity.DeleteClientResponse")
+	proto.RegisterType((*DeleteAllRequest)(nil), "identity.DeleteAllRequest")
+	proto.RegisterType((*DeleteAllResponse)(nil), "identity.DeleteAllResponse")
 }
 
 func init() { proto.RegisterFile("client/identity/identity.proto", fileDescriptor_6690f7ae40bcb229) }
 
 var fileDescriptor_6690f7ae40bcb229 = []byte{
-	// 559 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0xdd, 0x8a, 0xd3, 0x40,
-	0x14, 0xc7, 0x9b, 0xa6, 0x16, 0xf7, 0xb8, 0x1f, 0x32, 0x5b, 0xdb, 0xb4, 0x60, 0x8c, 0x51, 0x21,
-	0x57, 0x2d, 0xd6, 0x07, 0xf0, 0xa3, 0x82, 0x2c, 0x0a, 0x2e, 0x81, 0x8a, 0x78, 0xb3, 0x74, 0x93,
-	0xe3, 0xee, 0xc8, 0x6e, 0x12, 0x67, 0xa6, 0x42, 0x9f, 0xc2, 0xd7, 0xf2, 0xd2, 0x17, 0x10, 0xa4,
-	0x4f, 0x22, 0x49, 0xa6, 0xe9, 0x64, 0x32, 0x95, 0xbd, 0xd8, 0xbb, 0xc9, 0x99, 0x33, 0xff, 0x73,
-	0xe6, 0x3f, 0xbf, 0x43, 0xc0, 0x8d, 0xae, 0x28, 0x26, 0x62, 0x42, 0x63, 0x4c, 0x04, 0x15, 0xab,
-	0x6a, 0x31, 0xce, 0x58, 0x2a, 0x52, 0x72, 0x77, 0xf3, 0xed, 0xff, 0xb4, 0xe0, 0x68, 0x96, 0x26,
-	0x09, 0x46, 0x22, 0x65, 0xb3, 0x34, 0xf9, 0x4a, 0x2f, 0xc8, 0x21, 0xb4, 0x69, 0xec, 0x58, 0x9e,
-	0x15, 0xec, 0x85, 0x6d, 0x1a, 0x13, 0x02, 0x9d, 0x64, 0x71, 0x8d, 0x4e, 0xbb, 0x88, 0x14, 0xeb,
-	0x3c, 0x26, 0x56, 0x19, 0x3a, 0x76, 0x19, 0xcb, 0xd7, 0xe4, 0x29, 0x1c, 0x44, 0x85, 0xc2, 0x27,
-	0x64, 0x9c, 0xa6, 0x89, 0xd3, 0xf1, 0xac, 0xc0, 0x0e, 0xeb, 0x41, 0xe2, 0x02, 0x7c, 0xe3, 0x69,
-	0x52, 0xd6, 0x72, 0xee, 0x14, 0xe7, 0x95, 0x88, 0xff, 0x1e, 0xfa, 0x33, 0x86, 0x0b, 0x81, 0x55,
-	0x5b, 0x21, 0x7e, 0x5f, 0x22, 0x17, 0xe4, 0x39, 0x74, 0x4b, 0xa9, 0xa2, 0xb7, 0x7b, 0xd3, 0xe1,
-	0xb8, 0xba, 0x96, 0x76, 0x85, 0x50, 0x26, 0xfa, 0x43, 0x18, 0x34, 0xc4, 0x78, 0x96, 0x26, 0x1c,
-	0xf3, 0x3a, 0xf3, 0x2c, 0xbe, 0xbd, 0x3a, 0x0d, 0x31, 0x59, 0x67, 0x00, 0x0f, 0x3e, 0x50, 0x2e,
-	0xaa, 0x0d, 0x2e, 0xcb, 0xe4, 0x0d, 0xe8, 0x1b, 0xe5, 0x91, 0x5a, 0x03, 0xf6, 0xcd, 0x1a, 0x78,
-	0x06, 0xc7, 0xef, 0x50, 0x34, 0xae, 0xa2, 0x3d, 0xa5, 0x7f, 0x02, 0xbd, 0x7a, 0x9a, 0xa1, 0xe2,
-	0x0d, 0xaf, 0x1c, 0x40, 0xff, 0x2d, 0x5e, 0xa1, 0xc1, 0x3f, 0xbd, 0xe8, 0x10, 0x06, 0x8d, 0x4c,
-	0x69, 0xce, 0x0f, 0xe8, 0xce, 0x0a, 0x54, 0x1b, 0xd0, 0x3d, 0x81, 0x03, 0x86, 0x31, 0x65, 0x18,
-	0x89, 0xb3, 0x25, 0xa3, 0xdc, 0x69, 0x7b, 0x76, 0xb0, 0x17, 0xee, 0x6f, 0x82, 0x73, 0x46, 0x79,
-	0x9e, 0x24, 0xd8, 0x92, 0x0b, 0x8c, 0xcf, 0x32, 0x44, 0xc6, 0x1d, 0xbb, 0x4c, 0x92, 0xc1, 0xd3,
-	0x3c, 0x56, 0xe1, 0xdb, 0xd9, 0xe2, 0xeb, 0xbf, 0x84, 0x63, 0xc9, 0x45, 0x51, 0x7d, 0xd3, 0x79,
-	0x00, 0xdd, 0x72, 0x72, 0xa4, 0x0d, 0xf7, 0x15, 0x1b, 0xca, 0x44, 0xb9, 0xef, 0x8f, 0xa1, 0x57,
-	0x17, 0x90, 0x46, 0xf6, 0xa1, 0xcb, 0x31, 0x62, 0x28, 0xe4, 0x55, 0xe4, 0x57, 0xfe, 0x3e, 0xd2,
-	0x83, 0x5a, 0x41, 0xdd, 0xaa, 0x3e, 0xf4, 0xea, 0x69, 0xa5, 0xec, 0xf4, 0x4f, 0x07, 0xec, 0xd7,
-	0xa7, 0x27, 0xe4, 0x33, 0x1c, 0x69, 0x3c, 0x13, 0x4f, 0xe9, 0xd1, 0x38, 0x37, 0xa3, 0xc7, 0xff,
-	0xc9, 0x90, 0xef, 0xd0, 0xca, 0x95, 0x35, 0x82, 0x55, 0x65, 0xf3, 0xa4, 0xa8, 0xca, 0xbb, 0xf0,
-	0x6f, 0x91, 0x39, 0x1c, 0xd6, 0x39, 0x27, 0x8f, 0xb6, 0xc7, 0x8c, 0xa3, 0x31, 0xf2, 0x76, 0x27,
-	0x54, 0xb2, 0x1f, 0x61, 0x5f, 0x45, 0x99, 0x3c, 0xdc, 0x9e, 0x31, 0x4c, 0xc2, 0xc8, 0xdd, 0xb5,
-	0xad, 0x3a, 0xa0, 0x61, 0xaa, 0x3a, 0x60, 0x66, 0x5d, 0x75, 0x60, 0x17, 0xe3, 0x45, 0xab, 0x2a,
-	0x2c, 0x6a, 0xab, 0x06, 0x0a, 0xd5, 0x56, 0x4d, 0x8c, 0x95, 0x82, 0x2a, 0x26, 0xaa, 0xa0, 0x81,
-	0x32, 0x55, 0xd0, 0x44, 0x97, 0xdf, 0x7a, 0xf3, 0xea, 0xd7, 0xda, 0xb5, 0x7e, 0xaf, 0x5d, 0xeb,
-	0xef, 0xda, 0xb5, 0xbe, 0x4c, 0x2f, 0xa8, 0xb8, 0x5c, 0x9e, 0x8f, 0xa3, 0xf4, 0x7a, 0x92, 0x2d,
-	0xa2, 0xcb, 0x55, 0x8c, 0x4c, 0x5d, 0x71, 0x16, 0x4d, 0xb4, 0x3f, 0xcc, 0x79, 0xb7, 0xf8, 0xb3,
-	0xbc, 0xf8, 0x17, 0x00, 0x00, 0xff, 0xff, 0x35, 0x5c, 0xf5, 0xac, 0x7b, 0x06, 0x00, 0x00,
+	// 594 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xdd, 0x8e, 0xd2, 0x40,
+	0x14, 0xa6, 0x94, 0x25, 0x72, 0xdc, 0x3f, 0x07, 0x84, 0x82, 0xb1, 0x62, 0x75, 0x13, 0xae, 0x20,
+	0xe2, 0x03, 0xb8, 0x2b, 0x46, 0xb3, 0xd1, 0xc4, 0x0d, 0x09, 0xc6, 0x78, 0xb3, 0x61, 0xdb, 0xe3,
+	0xee, 0x18, 0xb6, 0xad, 0x33, 0xc3, 0x05, 0x2f, 0xa1, 0x4f, 0xe1, 0xbb, 0x78, 0xe9, 0x23, 0x18,
+	0x9e, 0xc4, 0xb4, 0x1d, 0xca, 0x74, 0x18, 0x0c, 0x17, 0x7b, 0x37, 0x9c, 0x39, 0xf3, 0x9d, 0xef,
+	0x7c, 0x7c, 0x5f, 0x0a, 0xae, 0x3f, 0xa3, 0x18, 0x8a, 0x01, 0x0d, 0x30, 0x14, 0x54, 0x2c, 0xf2,
+	0x43, 0x3f, 0x66, 0x91, 0x88, 0xc8, 0xbd, 0xd5, 0x6f, 0xef, 0xa7, 0x05, 0x47, 0xa3, 0x28, 0x0c,
+	0xd1, 0x17, 0x11, 0x1b, 0x45, 0xe1, 0x57, 0x7a, 0x4d, 0x0e, 0xa1, 0x4c, 0x03, 0xc7, 0xea, 0x5a,
+	0xbd, 0xda, 0xb8, 0x4c, 0x03, 0x42, 0xa0, 0x12, 0x4e, 0x6f, 0xd1, 0x29, 0xa7, 0x95, 0xf4, 0x9c,
+	0xd4, 0xc4, 0x22, 0x46, 0xc7, 0xce, 0x6a, 0xc9, 0x99, 0x3c, 0x87, 0x03, 0x3f, 0x45, 0xf8, 0x84,
+	0x8c, 0xd3, 0x28, 0x74, 0x2a, 0x5d, 0xab, 0x67, 0x8f, 0x8b, 0x45, 0xe2, 0x02, 0x7c, 0xe3, 0x51,
+	0x98, 0xcd, 0x72, 0xf6, 0xd2, 0xf7, 0x4a, 0xc5, 0x7b, 0x0f, 0xcd, 0x11, 0xc3, 0xa9, 0xc0, 0x9c,
+	0xd6, 0x18, 0xbf, 0xcf, 0x91, 0x0b, 0xf2, 0x02, 0xaa, 0x19, 0x54, 0xca, 0xed, 0xfe, 0xb0, 0xdd,
+	0xcf, 0xd7, 0xd2, 0x56, 0x18, 0xcb, 0x46, 0xaf, 0x0d, 0xad, 0x0d, 0x30, 0x1e, 0x47, 0x21, 0xc7,
+	0x64, 0xce, 0x24, 0x0e, 0xee, 0x6e, 0xce, 0x06, 0x98, 0x9c, 0xd3, 0x82, 0x87, 0x1f, 0x28, 0x17,
+	0xf9, 0x05, 0x97, 0x63, 0x12, 0x02, 0xfa, 0x45, 0xf6, 0xa4, 0x40, 0xc0, 0xde, 0x8d, 0xc0, 0x09,
+	0xd4, 0xdf, 0xa1, 0xd8, 0x58, 0x45, 0xfb, 0x2b, 0xbd, 0x73, 0x68, 0x14, 0xdb, 0x0c, 0x13, 0x77,
+	0x5c, 0xb9, 0x07, 0xcd, 0x37, 0x38, 0x43, 0x83, 0x7e, 0xfa, 0xd0, 0x36, 0xb4, 0x36, 0x3a, 0xa5,
+	0x38, 0x3f, 0x2c, 0xa8, 0x8e, 0x52, 0xaf, 0x6e, 0xb8, 0xee, 0x19, 0x1c, 0x30, 0x0c, 0x28, 0x43,
+	0x5f, 0x5c, 0xce, 0x19, 0xe5, 0x4e, 0xb9, 0x6b, 0xf7, 0x6a, 0xe3, 0xfd, 0x55, 0x71, 0xc2, 0x28,
+	0x4f, 0x9a, 0x04, 0x9b, 0x73, 0x81, 0xc1, 0x65, 0x8c, 0xc8, 0xb8, 0x63, 0x67, 0x4d, 0xb2, 0x78,
+	0x91, 0xd4, 0x72, 0xff, 0x56, 0x14, 0xff, 0x36, 0xa1, 0xca, 0xd1, 0x67, 0x28, 0xa4, 0x03, 0xe5,
+	0x2f, 0xef, 0x15, 0xd4, 0xa5, 0x61, 0x52, 0x56, 0xab, 0x95, 0x7a, 0x50, 0xcd, 0x22, 0x25, 0xf5,
+	0x39, 0x56, 0xf4, 0xc9, 0x1a, 0xe5, 0xbd, 0x77, 0x0a, 0x8d, 0x22, 0x80, 0x54, 0x78, 0x77, 0x84,
+	0x13, 0xa8, 0x4b, 0xb9, 0x0a, 0x14, 0x74, 0x55, 0x9b, 0xd0, 0x28, 0xb6, 0x49, 0x49, 0x09, 0x1c,
+	0x67, 0xf5, 0xb3, 0xd9, 0x6c, 0x65, 0xb5, 0x3a, 0x3c, 0x50, 0x6a, 0x59, 0xe3, 0xf0, 0xd7, 0x1e,
+	0xd8, 0x67, 0x17, 0xe7, 0xe4, 0x33, 0x1c, 0x69, 0x19, 0x21, 0x5d, 0x85, 0x9c, 0x31, 0x8b, 0x9d,
+	0xa7, 0xff, 0xe9, 0x90, 0x44, 0x4a, 0x09, 0xb2, 0x96, 0x0a, 0x15, 0xd9, 0x9c, 0x3e, 0x15, 0x79,
+	0x5b, 0xa4, 0x4a, 0x64, 0x02, 0x87, 0xc5, 0xec, 0x90, 0x27, 0xeb, 0x67, 0xc6, 0xb8, 0x75, 0xba,
+	0xdb, 0x1b, 0x72, 0xd8, 0x8f, 0xb0, 0xaf, 0xc6, 0x83, 0x3c, 0x5e, 0xbf, 0x31, 0xa4, 0xab, 0xe3,
+	0x6e, 0xbb, 0x56, 0x15, 0xd0, 0xac, 0xaf, 0x2a, 0x60, 0xce, 0x8f, 0xaa, 0xc0, 0xb6, 0xdc, 0xa4,
+	0x54, 0x55, 0x9f, 0xa9, 0x54, 0x0d, 0x06, 0x56, 0xa9, 0x9a, 0xec, 0x99, 0x01, 0xaa, 0x7e, 0x52,
+	0x01, 0x0d, 0x76, 0x54, 0x01, 0x8d, 0x36, 0x2c, 0x91, 0xb7, 0x50, 0xcb, 0x4d, 0x47, 0x3a, 0x7a,
+	0xfb, 0xda, 0x9d, 0x9d, 0x47, 0xc6, 0xbb, 0x15, 0xce, 0xeb, 0xd3, 0xdf, 0x4b, 0xd7, 0xfa, 0xb3,
+	0x74, 0xad, 0xbf, 0x4b, 0xd7, 0xfa, 0x32, 0xbc, 0xa6, 0xe2, 0x66, 0x7e, 0xd5, 0xf7, 0xa3, 0xdb,
+	0x41, 0x3c, 0xf5, 0x6f, 0x16, 0x01, 0x32, 0xf5, 0xc4, 0x99, 0x3f, 0xd0, 0xbe, 0x7e, 0x57, 0xd5,
+	0xf4, 0xab, 0xf7, 0xf2, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x76, 0xa3, 0xc8, 0x0c, 0x17, 0x07,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -874,6 +965,7 @@ type APIClient interface {
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*DeleteConnectorResponse, error)
 	CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error)
 	DeleteClient(ctx context.Context, in *DeleteClientRequest, opts ...grpc.CallOption) (*DeleteClientResponse, error)
+	DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*DeleteAllResponse, error)
 }
 
 type aPIClient struct {
@@ -947,6 +1039,15 @@ func (c *aPIClient) DeleteClient(ctx context.Context, in *DeleteClientRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*DeleteAllResponse, error) {
+	out := new(DeleteAllResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/DeleteAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 type APIServer interface {
 	CreateConnector(context.Context, *CreateConnectorRequest) (*CreateConnectorResponse, error)
@@ -956,6 +1057,7 @@ type APIServer interface {
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*DeleteConnectorResponse, error)
 	CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error)
 	DeleteClient(context.Context, *DeleteClientRequest) (*DeleteClientResponse, error)
+	DeleteAll(context.Context, *DeleteAllRequest) (*DeleteAllResponse, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
@@ -982,6 +1084,9 @@ func (*UnimplementedAPIServer) CreateClient(ctx context.Context, req *CreateClie
 }
 func (*UnimplementedAPIServer) DeleteClient(ctx context.Context, req *DeleteClientRequest) (*DeleteClientResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteClient not implemented")
+}
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequest) (*DeleteAllResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1114,6 +1219,24 @@ func _API_DeleteClient_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).DeleteAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/DeleteAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteAll(ctx, req.(*DeleteAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "identity.API",
 	HandlerType: (*APIServer)(nil),
@@ -1145,6 +1268,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteClient",
 			Handler:    _API_DeleteClient_Handler,
+		},
+		{
+			MethodName: "DeleteAll",
+			Handler:    _API_DeleteAll_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1569,6 +1696,13 @@ func (m *Client) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if len(m.Secret) > 0 {
+		i -= len(m.Secret)
+		copy(dAtA[i:], m.Secret)
+		i = encodeVarintIdentity(dAtA, i, uint64(len(m.Secret)))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if len(m.Name) > 0 {
 		i -= len(m.Name)
 		copy(dAtA[i:], m.Name)
@@ -1667,10 +1801,15 @@ func (m *CreateClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Secret) > 0 {
-		i -= len(m.Secret)
-		copy(dAtA[i:], m.Secret)
-		i = encodeVarintIdentity(dAtA, i, uint64(len(m.Secret)))
+	if m.Client != nil {
+		{
+			size, err := m.Client.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintIdentity(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1727,6 +1866,60 @@ func (m *DeleteClientResponse) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *DeleteClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DeleteAllRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteAllRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteAllRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DeleteAllResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteAllResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteAllResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1952,6 +2145,10 @@ func (m *Client) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovIdentity(uint64(l))
 	}
+	l = len(m.Secret)
+	if l > 0 {
+		n += 1 + l + sovIdentity(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1980,8 +2177,8 @@ func (m *CreateClientResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
-	l = len(m.Secret)
-	if l > 0 {
+	if m.Client != nil {
+		l = m.Client.Size()
 		n += 1 + l + sovIdentity(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -2007,6 +2204,30 @@ func (m *DeleteClientRequest) Size() (n int) {
 }
 
 func (m *DeleteClientResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DeleteAllRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DeleteAllResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -3128,6 +3349,38 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 			}
 			m.Name = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Secret", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Secret = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipIdentity(dAtA[iNdEx:])
@@ -3274,9 +3527,9 @@ func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Secret", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Client", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowIdentity
@@ -3286,23 +3539,27 @@ func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthIdentity
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Secret = string(dAtA[iNdEx:postIndex])
+			if m.Client == nil {
+				m.Client = &Client{}
+			}
+			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3442,6 +3699,114 @@ func (m *DeleteClientResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: DeleteClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeleteAllRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteAllRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteAllRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeleteAllResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteAllResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteAllResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

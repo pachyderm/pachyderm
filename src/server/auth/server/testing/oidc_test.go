@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -26,12 +27,53 @@ var OIDCAuthConfig = &auth.AuthConfig{
 		Name:        "idp",
 		Description: "fake IdP for testing",
 		OIDC: &auth.IDProvider_OIDCOptions{
-			Issuer:       "http://dex:32000",
-			ClientID:     "pachyderm",
-			ClientSecret: "notsecret",
-			RedirectURI:  "http://pachd:657/authorization-code/callback",
+			Issuer:         "http://localhost:30658/",
+			IssuerOverride: "pachd:658",
+			ClientID:       "pachyderm",
+			ClientSecret:   "notsecret",
+			RedirectURI:    "http://pachd:657/authorization-code/callback",
 		},
 	}},
+}
+
+func setupIdentityServer(adminClient *client.APIClient) error {
+	if _, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{}); err != nil {
+		return err
+	}
+
+	if _, err := adminClient.CreateConnector(adminClient.Ctx(), &identity.CreateConnectorRequest{
+		Config: &identity.ConnectorConfig{
+			Name:       "test",
+			Id:         "test",
+			Type:       "mockPassword",
+			JsonConfig: `{"username": "admin", "password": "password"}`,
+		},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := adminClient.CreateClient(adminClient.Ctx(), &identity.CreateClientRequest{
+		Client: &identity.Client{
+			Id:           "testapp",
+			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
+			Secret:       "test",
+		},
+	}); err != nil {
+		return err
+	}
+
+	if _, err := adminClient.CreateClient(adminClient.Ctx(), &identity.CreateClientRequest{
+		Client: &identity.Client{
+			Id:           "pachyderm",
+			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
+			Secret:       "notsecret",
+			TrustedPeers: []string{"testapp"},
+		},
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
@@ -42,6 +84,8 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
+
+	require.NoError(t, setupIdentityServer(adminClient))
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -60,6 +104,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
+	fmt.Printf("GET: %q\n", rewriteURL(t, loginInfo.LoginURL, dexHost(testClient)))
 	resp, err := c.Get(rewriteURL(t, loginInfo.LoginURL, dexHost(testClient)))
 	require.NoError(t, err)
 
@@ -70,14 +115,17 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
+	fmt.Printf("POST: %q\n", rewriteRedirect(t, resp, dexHost(testClient)))
 	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(testClient)), vals)
 	require.NoError(t, err)
 
 	// The username/password flow redirects back to the dex /approval endpoint
+	fmt.Printf("GET: %q\n", rewriteRedirect(t, resp, dexHost(testClient)))
 	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
 	require.NoError(t, err)
 
 	// Follow the resulting redirect back to pachd to complete the flow
+	fmt.Printf("GET: %q\n", rewriteRedirect(t, resp, pachHost(testClient)))
 	_, err = c.Get(rewriteRedirect(t, resp, pachHost(testClient)))
 	require.NoError(t, err)
 
@@ -103,6 +151,8 @@ func TestOIDCTrustedApp(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
+
+	require.NoError(t, setupIdentityServer(adminClient))
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -155,7 +205,10 @@ func rewriteURL(t *testing.T, urlStr, host string) string {
 
 func dexHost(c *client.APIClient) string {
 	parts := strings.Split(c.GetAddress(), ":")
-	return parts[0] + ":32000"
+	if parts[1] == "650" {
+		return parts[0] + ":658"
+	}
+	return parts[0] + ":30658"
 }
 
 func pachHost(c *client.APIClient) string {

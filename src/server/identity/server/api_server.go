@@ -88,6 +88,16 @@ func dexConnectorToPach(c storage.Connector) *identity.ConnectorConfig {
 	}
 }
 
+func dexClientToPach(c *dex_api.Client) *identity.Client {
+	return &identity.Client{
+		Id:           c.Id,
+		Secret:       c.Secret,
+		RedirectUris: c.RedirectUris,
+		TrustedPeers: c.TrustedPeers,
+		Name:         c.Name,
+	}
+}
+
 func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateConnectorRequest) (resp *identity.CreateConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -180,7 +190,10 @@ func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClient
 		return nil, err
 	}
 
-	secret := uuid.New().String()
+	secret := req.Client.Secret
+	if secret == "" {
+		secret = uuid.New().String()
+	}
 
 	client := &dex_api.CreateClientReq{
 		Client: &dex_api.Client{
@@ -192,12 +205,13 @@ func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClient
 		},
 	}
 
-	if _, err := a.server.CreateClient(ctx, client); err != nil {
+	dexResp, err := a.server.CreateClient(ctx, client)
+	if err != nil {
 		return nil, err
 	}
 
 	return &identity.CreateClientResponse{
-		Secret: secret,
+		Client: dexClientToPach(dexResp.Client),
 	}, nil
 }
 
@@ -213,4 +227,37 @@ func (a *apiServer) DeleteClient(ctx context.Context, req *identity.DeleteClient
 		return nil, err
 	}
 	return &identity.DeleteClientResponse{}, nil
+}
+
+func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "DeleteAll"); err != nil {
+		return nil, err
+	}
+
+	clients, err := a.server.listClients()
+	if err != nil {
+		return nil, err
+	}
+
+	connectors, err := a.server.listConnectors()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, client := range clients {
+		if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: client.ID}); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, conn := range connectors {
+		if err := a.server.deleteConnector(conn.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	return &identity.DeleteAllResponse{}, nil
 }
