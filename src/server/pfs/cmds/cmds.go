@@ -221,6 +221,14 @@ or type (e.g. csv, binary, images, etc).`,
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
+			if splitTransaction {
+				fmt.Println("Warning: This command with the --split-txn flag must be run to completion / rerun upon failure or Pachyderm will be left in an inconsistent state.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
+			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
@@ -231,7 +239,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions (Note: this must be re-run if the operation fails or Pachyderm will be left in an inconsistent state)")
+	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 

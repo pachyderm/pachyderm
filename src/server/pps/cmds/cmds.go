@@ -921,6 +921,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
+			if splitTransaction {
+				fmt.Println("Warning: This command with the --split-txn flag must be run to completion / rerun upon failure or Pachyderm will be left in an inconsistent state.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
+			}
 			req := &ppsclient.DeletePipelineRequest{
 				All:              all,
 				Force:            force,
@@ -939,7 +947,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
-	deletePipeline.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions (Note: this must be re-run if the operation fails or Pachyderm will be left in an inconsistent state)")
+	deletePipeline.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{
