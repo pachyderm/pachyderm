@@ -2,6 +2,12 @@
 
 set -ex
 
+#####################################
+pip install --no-cache-dir -r build_requirements.txt
+
+
+
+
 # Start out in same directory as script, so that relative paths below are all
 # correct
 cd "$(dirname "${0}")"
