@@ -629,6 +629,7 @@ func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established.
 		grpc.WithBlock(),
+		grpc.WithDisableServiceConfig(),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                20 * time.Second,
 			Timeout:             20 * time.Second,
