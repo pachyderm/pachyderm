@@ -6982,8 +6982,12 @@ func TestLargeDeleteRepo(t *testing.T) {
 		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.YesError(t, err)
-		require.NoError(t, env.PachClient.DeleteRepo(repo, false, true))
-		require.NoError(t, env.PachClient.FsckFastExit())
+		for i := len(repos) - 1; i >= 0; i-- {
+			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
+			require.NoError(t, env.PachClient.FsckFastExit())
+		}
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		require.NoError(t, err)
 		return nil
 	}))
 }
