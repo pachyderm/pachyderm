@@ -1,12 +1,13 @@
 package server
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -104,7 +105,6 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
-	fmt.Printf("GET: %q\n", rewriteURL(t, loginInfo.LoginURL, dexHost(testClient)))
 	resp, err := c.Get(rewriteURL(t, loginInfo.LoginURL, dexHost(testClient)))
 	require.NoError(t, err)
 
@@ -115,17 +115,14 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	fmt.Printf("POST: %q\n", rewriteRedirect(t, resp, dexHost(testClient)))
 	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(testClient)), vals)
 	require.NoError(t, err)
 
 	// The username/password flow redirects back to the dex /approval endpoint
-	fmt.Printf("GET: %q\n", rewriteRedirect(t, resp, dexHost(testClient)))
 	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
 	require.NoError(t, err)
 
 	// Follow the resulting redirect back to pachd to complete the flow
-	fmt.Printf("GET: %q\n", rewriteRedirect(t, resp, pachHost(testClient)))
 	_, err = c.Get(rewriteRedirect(t, resp, pachHost(testClient)))
 	require.NoError(t, err)
 
@@ -158,25 +155,58 @@ func TestOIDCTrustedApp(t *testing.T) {
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
 	require.NoError(t, err)
 
-	vals := url.Values{
-		"client_id":     []string{"testapp"},
-		"client_secret": []string{"test"},
-		"grant_type":    []string{"password"},
-		"scope":         []string{"openid email profile audience:server:client_id:pachyderm"},
-		"username":      []string{"admin"},
-		"password":      []string{"password"},
+	// Create an HTTP client that doesn't follow redirects.
+	// We rewrite the host names for each redirect to avoid issues because
+	// pachd is configured to reach dex with kube dns, but the tests might be
+	// outside the cluster.
+	c := &http.Client{}
+	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
-	c := &http.Client{}
-	resp, err := c.PostForm(fmt.Sprintf("http://%v/token", dexHost(testClient)), vals)
+	oauthConfig := oauth2.Config{
+		ClientID:     "testapp",
+		ClientSecret: "test",
+		RedirectURL:  "http://test.example.com:657/authorization-code/callback",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  rewriteURL(t, "http://pachd:30658/auth", dexHost(testClient)),
+			TokenURL: rewriteURL(t, "http://pachd:30658/token", dexHost(testClient)),
+		},
+		Scopes: []string{
+			"openid",
+			"profile",
+			"email",
+			"audience:server:client_id:pachyderm",
+		},
+	}
+
+	// Hit the dex login page for the test client with a fixed nonce
+	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
 	require.NoError(t, err)
 
-	tokenResp := make(map[string]interface{})
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&tokenResp))
+	// Because we've only configured username/password login, there's a redirect
+	// to the login page. The params have the session state. POST our hard-coded
+	// credentials to the login page.
+	vals := make(url.Values)
+	vals.Add("login", "admin")
+	vals.Add("password", "password")
 
-	// Authenticate using an OIDC token with pachyderm in the audience claim
+	resp, err = c.PostForm(rewriteRedirect(t, resp, dexHost(testClient)), vals)
+	require.NoError(t, err)
+
+	// The username/password flow redirects back to the dex /approval endpoint
+	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
+	require.NoError(t, err)
+
+	codeUrl, err := url.Parse(resp.Header.Get("Location"))
+	require.NoError(t, err)
+
+	token, err := oauthConfig.Exchange(context.Background(), codeUrl.Query().Get("code"))
+	require.NoError(t, err)
+
+	// Use the id token from the previous OAuth flow with Pach
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{IdToken: tokenResp["id_token"].(string)})
+		&auth.AuthenticateRequest{IdToken: token.Extra("id_token").(string)})
 	require.NoError(t, err)
 	testClient.SetAuthToken(authResp.PachToken)
 
