@@ -1,0 +1,51 @@
+{
+    "pipeline": {
+      "name": "group_by_hospital"
+    },
+    "description": "A pipeline that groups lab test results files by hospital using the files naming pattern.",
+    "input": {
+      "group": [
+        {
+          "pfs": {
+            "repo": "labresults",
+            "branch": "master",
+            "glob": "/*CLIA(*).txt",
+            "group_by": "$1"
+          }
+        }
+     ]
+   },
+   "transform": {
+        "cmd": [ "bash" ],
+        "stdin": [
+            "wc -l /pfs/labresults/*"
+        ]
+        },
+    "enable_stats": true
+  }
+
+  {
+    "pipeline": {
+      "name": "group_by_patient"
+    },
+    "description": "A pipeline that groups lab test results files by patient using the files naming pattern.",
+    "input": {
+      "group": [
+        {
+          "pfs": {
+            "repo": "labresults",
+            "branch": "master",
+            "glob": "/*-PATID(*)-*.txt",
+            "group_by": "$1"
+          }
+        }
+     ]
+   },
+   "transform": {
+        "cmd": [ "bash" ],
+        "stdin": [
+            "wc -l /pfs/labresults/*"
+        ]
+        },
+    "enable_stats": true
+  }
