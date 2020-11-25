@@ -29,7 +29,7 @@ var OIDCAuthConfig = &auth.AuthConfig{
 		Description: "fake IdP for testing",
 		OIDC: &auth.IDProvider_OIDCOptions{
 			Issuer:         "http://localhost:30658/",
-			IssuerOverride: "pachd-peer:30658",
+			IssuerOverride: "localhost:658",
 			ClientID:       "pachyderm",
 			ClientSecret:   "notsecret",
 			RedirectURI:    "http://pachd:657/authorization-code/callback",
