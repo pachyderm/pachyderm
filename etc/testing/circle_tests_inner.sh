@@ -113,6 +113,7 @@ case "${BUCKET}" in
     ;;
  OBJECT)
     make test-object-clients
+    ;;
  *)
     echo "Unknown bucket"
     exit 1
