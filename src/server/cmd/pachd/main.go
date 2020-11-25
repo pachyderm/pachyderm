@@ -427,7 +427,7 @@ func doFullMode(config interface{}) (retErr error) {
 				}
 			}
 		}
-		if env.EnterpriseServerEnabled {
+		if env.IdentityServerEnabled {
 			if err := logGRPCServerSetup("Identity API", func() error {
 				idAPIServer, err := identity_server.NewIdentityServer(
 					env,

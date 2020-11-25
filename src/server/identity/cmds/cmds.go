@@ -66,7 +66,7 @@ func CreateConnectorCmd() *cobra.Command {
 }
 
 // ListConnectorsCmd returns a cobra.Command to list IDP integrations
-func ListConnectorCmd() *cobra.Command {
+func ListConnectorsCmd() *cobra.Command {
 	var id, name, t, file string
 	var version int
 	addConnector := &cobra.Command{
@@ -118,7 +118,7 @@ func ListConnectorCmd() *cobra.Command {
 
 // CreateClientCmd returns a cobra.Command to create a new OIDC client
 func CreateClientCmd() *cobra.Command {
-	var id, name, redirectUri string
+	var id, name, redirectURI string
 	addConnector := &cobra.Command{
 		Short: "Create a new OIDC client",
 		Long:  `Create a new OIDC client`,
@@ -133,7 +133,7 @@ func CreateClientCmd() *cobra.Command {
 				Client: &identity.Client{
 					Id:           id,
 					Name:         name,
-					RedirectUris: []string{redirectUri},
+					RedirectUris: []string{redirectURI},
 				},
 			}
 
@@ -148,7 +148,7 @@ func CreateClientCmd() *cobra.Command {
 	}
 	addConnector.PersistentFlags().StringVar(&id, "id", "", ``)
 	addConnector.PersistentFlags().StringVar(&name, "name", "", ``)
-	addConnector.PersistentFlags().StringVar(&redirectUri, "redirectUri", "", ``)
+	addConnector.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", ``)
 	return cmdutil.CreateAlias(addConnector, "idp client create")
 }
 

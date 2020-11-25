@@ -151,6 +151,8 @@ type TLSOpts struct {
 type FeatureFlags struct {
 	// StorageV2, if true, will make Pachyderm use the new storage layer.
 	StorageV2 bool
+	// IdentityServerEnabled turns on the embedded Dex IDP
+	IdentityServerEnabled bool
 }
 
 const (
@@ -891,6 +893,11 @@ func PachdPeerService(opts *AssetOpts) *v1.Service {
 					Port:       30653,
 					Name:       "api-grpc-peer-port",
 					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
+				},
+				{
+					Port:       30658,
+					Name:       "idp-peer-port",
+					TargetPort: intstr.FromInt(658), // also set in cmd/pachd/main.go
 				},
 			},
 		},
