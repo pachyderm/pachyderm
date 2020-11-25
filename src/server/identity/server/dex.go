@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/dexidp/dex/api/v2"
 	"github.com/dexidp/dex/server"
@@ -22,8 +23,14 @@ const (
 type dexServer struct {
 	api.DexServer
 
+	initServer    sync.Once
+	storageConfig *sql.Postgres
+	issuer        string
+	public        bool
+
 	logger     *logrus.Entry
 	dexStorage storage.Storage
+	dexServer  *server.Server
 }
 
 func newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*dexServer, error) {
@@ -39,40 +46,68 @@ func newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPor
 			Mode: pgSSL,
 		},
 	}
+
 	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
-	storage, err := storageConfig.Open(logger)
-	if err != nil {
-		return nil, err
+
+	s := &dexServer{
+		storageConfig: storageConfig,
+		issuer:        issuer,
+		public:        public,
+		logger:        logger,
 	}
 
 	if public {
-		serverConfig := server.Config{
-			Storage:            storage,
-			Issuer:             issuer,
-			SkipApprovalScreen: true,
-			Web: server.WebConfig{
-				Dir: "/web",
-			},
-			Logger: logger,
-		}
-
-		serv, err := server.NewServer(context.Background(), serverConfig)
-		if err != nil {
-			return nil, err
-		}
-
 		go func() {
-			if err = http.ListenAndServe(dexHttpPort, serv); err != nil {
+			if err := http.ListenAndServe(dexHttpPort, s); err != nil {
 				logger.WithError(err).Error("Dex server stopped")
 			}
 		}()
 	}
 
-	return &dexServer{
-		dexStorage: storage,
-		logger:     logger,
-		DexServer:  server.NewAPI(storage, nil),
-	}, nil
+	return s, nil
+}
+
+func (s *dexServer) lazyStart() {
+	s.initServer.Do(func() {
+		var err error
+		s.dexStorage, err = s.storageConfig.Open(s.logger)
+		if err != nil {
+			s.logger.WithError(err).Error("dex storage failed to start")
+			return
+		}
+		s.DexServer = server.NewAPI(s.dexStorage, nil)
+
+		if s.public {
+			serverConfig := server.Config{
+				Storage:            s.dexStorage,
+				Issuer:             s.issuer,
+				SkipApprovalScreen: true,
+				Web: server.WebConfig{
+					Dir: "/web",
+				},
+				Logger: s.logger,
+			}
+
+			dexServer, err := server.NewServer(context.Background(), serverConfig)
+			if err != nil {
+				s.logger.WithError(err).Error("dex server failed to start")
+				return
+			}
+
+			s.dexServer = dexServer
+
+		}
+	})
+}
+
+func (s *dexServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.lazyStart()
+	if s.dexServer == nil {
+		http.Error(w, "unable to start Dex server, check logs", http.StatusInternalServerError)
+		return
+	}
+
+	s.dexServer.ServeHTTP(w, r)
 }
 
 func (s *dexServer) validateConfig(id, connType string, jsonConfig []byte) error {
@@ -94,6 +129,11 @@ func (s *dexServer) validateConfig(id, connType string, jsonConfig []byte) error
 }
 
 func (s *dexServer) createConnector(id, name, connType string, resourceVersion int, jsonConfig []byte) error {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	if id == "" {
 		return errors.New("no id specified")
 	}
@@ -126,10 +166,20 @@ func (s *dexServer) createConnector(id, name, connType string, resourceVersion i
 }
 
 func (s *dexServer) getConnector(id string) (storage.Connector, error) {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return storage.Connector{}, fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	return s.dexStorage.GetConnector(id)
 }
 
 func (s *dexServer) updateConnector(id, name string, resourceVersion int, jsonConfig []byte) error {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	return s.dexStorage.UpdateConnector(id, func(c storage.Connector) (storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
 		if oldVersion != resourceVersion+1 {
@@ -159,13 +209,28 @@ func (s *dexServer) updateConnector(id, name string, resourceVersion int, jsonCo
 }
 
 func (s *dexServer) deleteConnector(id string) error {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	return s.dexStorage.DeleteConnector(id)
 }
 
 func (s *dexServer) listConnectors() (connectors []storage.Connector, err error) {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return nil, fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	return s.dexStorage.ListConnectors()
 }
 
 func (s *dexServer) listClients() (connectors []storage.Client, err error) {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return nil, fmt.Errorf("unable to start Dex server, check logs")
+	}
+
 	return s.dexStorage.ListClients()
 }
