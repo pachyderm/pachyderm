@@ -28,10 +28,11 @@ var OIDCAuthConfig = &auth.AuthConfig{
 		Name:        "idp",
 		Description: "fake IdP for testing",
 		OIDC: &auth.IDProvider_OIDCOptions{
-			Issuer:       "http://pachd-peer:658/",
-			ClientID:     "pachyderm",
-			ClientSecret: "notsecret",
-			RedirectURI:  "http://pachd:657/authorization-code/callback",
+			Issuer:         "http://localhost:30658/",
+			IssuerOverride: "pachd-peer:30658",
+			ClientID:       "pachyderm",
+			ClientSecret:   "notsecret",
+			RedirectURI:    "http://pachd:657/authorization-code/callback",
 		},
 	}},
 }
