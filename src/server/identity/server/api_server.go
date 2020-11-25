@@ -7,7 +7,6 @@ import (
 
 	dex_api "github.com/dexidp/dex/api/v2"
 	"github.com/dexidp/dex/storage"
-	"github.com/google/uuid"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -190,15 +189,10 @@ func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClient
 		return nil, err
 	}
 
-	secret := req.Client.Secret
-	if secret == "" {
-		secret = uuid.New().String()
-	}
-
 	client := &dex_api.CreateClientReq{
 		Client: &dex_api.Client{
 			Id:           req.Client.Id,
-			Secret:       secret,
+			Secret:       req.Client.Secret,
 			RedirectUris: req.Client.RedirectUris,
 			TrustedPeers: req.Client.TrustedPeers,
 			Name:         req.Client.Name,
