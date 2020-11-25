@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -20,6 +21,9 @@ const FakeAWSAccessKeyID = "MADEUPAWSACCESSKEYID"
 const FakeAWSSecret = "YIUo7lLijgheOTbSR57DCv8eGVklj8UHUQb9aTDf"
 
 func TestDashImageExists(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	c := exec.Command("docker", "pull", fmt.Sprintf("%s:%s", defaultDashImage, defaultDashVersion))
 	require.NoError(t, c.Run())
 }

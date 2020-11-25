@@ -26,7 +26,7 @@ nested capture groups is based on their opening parenthesis.
 Below you can find a few examples of applying a glob pattern with a capture
 group to a file path. For example, if you have the following file path:
 
-```bash
+```shell
 /foo/bar-123/ABC.txt
 ```
 
@@ -63,7 +63,7 @@ structures:
 
 * `readings` repo:
 
-   ```bash
+   ```shell
    ├── ID1234
        ├── file1.txt
        ├── file2.txt
@@ -74,7 +74,7 @@ structures:
 
 * `parameters` repo:
 
-   ```bash
+   ```shell
    ├── file1.txt
    ├── file2.txt
    ├── file3.txt

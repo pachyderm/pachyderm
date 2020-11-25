@@ -27,13 +27,13 @@ the repo. Alternatively, you can confirm your access by running the
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl auth get dwhitena test
     ```
 
     **System response:**
 
-    ```bash
+    ```shell
     OWNER
     ```
 
@@ -64,31 +64,31 @@ To manage user access, complete the following steps:
 
   1. Grant a user an access to a repo:
 
-     ```bash
+     ```shell
      pachctl auth set <username> (none|reader|writer|owner) <repo>
      ```
 
      **Example:**
 
-     ```bash
+     ```shell
      pachctl auth set user1 reader test
      ```
 
   1. Verify the ACL for the repo:
 
-     ```bash
+     ```shell
      pachctl auth get <repo>
      ```
 
      **Example:**
 
-     ```bash
+     ```shell
      pachctl auth get test
      ```
 
      **System Response:**
 
-     ```bash
+     ```shell
      github:svekars: OWNER
      github:user1: READER
      ```
@@ -112,7 +112,7 @@ the `id_providers` field of your authentication config:
 
 **Example:**
 
-   ```bash
+   ```shell
    pachctl auth set-config <<EOF
    {
      ...

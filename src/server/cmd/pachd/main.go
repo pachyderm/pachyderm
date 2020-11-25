@@ -100,17 +100,15 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	debug.SetGCPercent(env.GCPercent)
-	switch env.LogLevel {
+	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
-	case "info":
-		log.SetLevel(log.InfoLevel)
 	case "error":
 		log.SetLevel(log.ErrorLevel)
+	case "info", "":
+		log.SetLevel(log.InfoLevel)
 	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
 		log.SetLevel(log.InfoLevel)
 	}
 	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
@@ -121,6 +119,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	debug.SetGCPercent(env.GCPercent)
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}
@@ -282,6 +282,17 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
+	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "info", "":
+		log.SetLevel(log.InfoLevel)
+	default:
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
+		log.SetLevel(log.InfoLevel)
+	}
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
 		log.Printf("connecting to Jaeger at %q", endpoint)
@@ -290,23 +301,6 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.GCPercent)
-	switch env.LogLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "info":
-		log.SetLevel(log.InfoLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-	// must run InstallJaegerTracer before InitWithKube
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}

@@ -84,7 +84,7 @@ changes to the staging branch while your pipeline is subscribed to the
 master branch. To switch to these branches simultaneously, you can
 use transactions like this:
 
-```bash
+```shell
 $ pachctl start transaction
 Started new transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
 $ pachctl pachctl create branch data@master --head staging
@@ -103,7 +103,7 @@ those commits together.
 
 To start a transaction, run the following command:
 
-```bash
+```shell
 $ pachctl start transaction
 Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
@@ -138,7 +138,7 @@ are executed atomically.
 
 To finish a transaction, run:
 
-```bash
+```shell
 $ pachctl finsh transaction
 Completed transaction with 1 requests: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
@@ -160,7 +160,7 @@ While there is a transaction object in the Pachyderm configuration
 file, all supported API requests append the request to the
 transaction instead of running directly. These supported commands include:
 
-```bash
+```shell
 create repo
 delete repo
 start commit

@@ -21,7 +21,7 @@ To list filesystem objects, complete the following steps:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc ls local
      ```
 
@@ -37,7 +37,7 @@ To list filesystem objects, complete the following steps:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600 s3 ls
      ```
 
@@ -55,7 +55,7 @@ To list filesystem objects, complete the following steps:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc ls local/master.raw_data
      ```
 
@@ -67,7 +67,7 @@ To list filesystem objects, complete the following steps:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
      ```
 
@@ -91,7 +91,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc mb local/master.test
      ```
 
@@ -103,7 +103,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
      ```
 
@@ -117,7 +117,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc ls local
      ```
 
@@ -134,7 +134,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 ls
      ```
 
@@ -161,7 +161,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
    * You can also use the `pachctl list repo` command to view the
    list of repositories:
 
-     ```bash
+     ```shell
      pachctl list repo
      ```
 
@@ -187,7 +187,7 @@ To remove an S3 bucket, run one of the following commands:
 
 * If you are using MinIO, type:
 
-  ```bash
+  ```shell
   mc rb local/master.test
   ```
 
@@ -199,7 +199,7 @@ To remove an S3 bucket, run one of the following commands:
 
 * If you are using AWS, type:
 
-  ```bash
+  ```shell
   aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
   ```
 
@@ -225,7 +225,7 @@ To add a file to a repository, complete the following steps:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc cp test.csv local/master.raw_data/test.csv
      ```
 
@@ -237,7 +237,7 @@ To add a file to a repository, complete the following steps:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
      ```
 
@@ -254,7 +254,7 @@ To add a file to a repository, complete the following steps:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc ls local/master.raw_data
      ```
 
@@ -267,7 +267,7 @@ To add a file to a repository, complete the following steps:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
      ```
 
@@ -283,7 +283,7 @@ current directory by running the following commands:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc cp local/master.raw_data/github_issues_medium.csv .
      ```
 
@@ -314,7 +314,7 @@ MinIO command-line interface:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc ls local/master.raw_data/
      ```
 
@@ -327,7 +327,7 @@ MinIO command-line interface:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
      ```
 
@@ -342,7 +342,7 @@ MinIO command-line interface:
 
    * If you are using MinIO, type:
 
-     ```bash
+     ```shell
      mc rm local/master.raw_data/test.csv
      ```
 
@@ -354,7 +354,7 @@ MinIO command-line interface:
 
    * If you are using AWS, type:
 
-     ```bash
+     ```shell
      aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
      ```
 

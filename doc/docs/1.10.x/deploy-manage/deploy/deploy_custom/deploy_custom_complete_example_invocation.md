@@ -35,7 +35,7 @@ use one of the Pachyderm support resources listed below.
 
 To deploy your configuration, run the following command:
 
-```bash
+```shell
 kubectl apply -f ./custom_deploy.yaml
 ```
 

@@ -12,7 +12,7 @@ The `--build` flag performs the following steps:
 
 The usage of the flag is shown below:
 
-   ```bash
+   ```shell
    pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
    ```
 

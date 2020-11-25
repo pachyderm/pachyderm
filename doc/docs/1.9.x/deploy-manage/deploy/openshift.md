@@ -400,13 +400,13 @@ If you're using a PV you've created separately, remove the PV that was added to 
 
 ## 7. Deploy the Pachyderm manifest you modified.
 
-```sh
+```shell
 $ oc create -f pachyderm.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
-```sh
+```shell
     $ oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m

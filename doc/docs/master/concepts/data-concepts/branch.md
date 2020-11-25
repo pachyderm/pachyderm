@@ -26,13 +26,13 @@ does not have a `HEAD`.
 To view a list of branches in a repo, run the `pachctl list branch` command.
 
 !!! example
-    ```bash
+    ```shell
     pachctl list branch images
     ```
 
     **System Response:**
 
-    ```bash
+    ```shell
     BRANCH HEAD
     test   -
     master c32879ae0e6f4b629a43429b7ec10ccc
