@@ -26,8 +26,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// ConnectorConfig represents an IDP to delegate authentication to
-type ConnectorConfig struct {
+// IDPConnector represents an IDP to delegate authentication to
+type IDPConnector struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Type                 string   `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
@@ -38,18 +38,18 @@ type ConnectorConfig struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ConnectorConfig) Reset()         { *m = ConnectorConfig{} }
-func (m *ConnectorConfig) String() string { return proto.CompactTextString(m) }
-func (*ConnectorConfig) ProtoMessage()    {}
-func (*ConnectorConfig) Descriptor() ([]byte, []int) {
+func (m *IDPConnector) Reset()         { *m = IDPConnector{} }
+func (m *IDPConnector) String() string { return proto.CompactTextString(m) }
+func (*IDPConnector) ProtoMessage()    {}
+func (*IDPConnector) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{0}
 }
-func (m *ConnectorConfig) XXX_Unmarshal(b []byte) error {
+func (m *IDPConnector) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConnectorConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *IDPConnector) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConnectorConfig.Marshal(b, m, deterministic)
+		return xxx_messageInfo_IDPConnector.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -59,72 +59,72 @@ func (m *ConnectorConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return b[:n], nil
 	}
 }
-func (m *ConnectorConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConnectorConfig.Merge(m, src)
+func (m *IDPConnector) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IDPConnector.Merge(m, src)
 }
-func (m *ConnectorConfig) XXX_Size() int {
+func (m *IDPConnector) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConnectorConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConnectorConfig.DiscardUnknown(m)
+func (m *IDPConnector) XXX_DiscardUnknown() {
+	xxx_messageInfo_IDPConnector.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConnectorConfig proto.InternalMessageInfo
+var xxx_messageInfo_IDPConnector proto.InternalMessageInfo
 
-func (m *ConnectorConfig) GetId() string {
+func (m *IDPConnector) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-func (m *ConnectorConfig) GetName() string {
+func (m *IDPConnector) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *ConnectorConfig) GetType() string {
+func (m *IDPConnector) GetType() string {
 	if m != nil {
 		return m.Type
 	}
 	return ""
 }
 
-func (m *ConnectorConfig) GetConfigVersion() int64 {
+func (m *IDPConnector) GetConfigVersion() int64 {
 	if m != nil {
 		return m.ConfigVersion
 	}
 	return 0
 }
 
-func (m *ConnectorConfig) GetJsonConfig() string {
+func (m *IDPConnector) GetJsonConfig() string {
 	if m != nil {
 		return m.JsonConfig
 	}
 	return ""
 }
 
-type CreateConnectorRequest struct {
-	Config               *ConnectorConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+type CreateIDPConnectorRequest struct {
+	Config               *IDPConnector `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *CreateConnectorRequest) Reset()         { *m = CreateConnectorRequest{} }
-func (m *CreateConnectorRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateConnectorRequest) ProtoMessage()    {}
-func (*CreateConnectorRequest) Descriptor() ([]byte, []int) {
+func (m *CreateIDPConnectorRequest) Reset()         { *m = CreateIDPConnectorRequest{} }
+func (m *CreateIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateIDPConnectorRequest) ProtoMessage()    {}
+func (*CreateIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{1}
 }
-func (m *CreateConnectorRequest) XXX_Unmarshal(b []byte) error {
+func (m *CreateIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CreateConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateIDPConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CreateConnectorRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateIDPConnectorRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -134,43 +134,43 @@ func (m *CreateConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return b[:n], nil
 	}
 }
-func (m *CreateConnectorRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateConnectorRequest.Merge(m, src)
+func (m *CreateIDPConnectorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateIDPConnectorRequest.Merge(m, src)
 }
-func (m *CreateConnectorRequest) XXX_Size() int {
+func (m *CreateIDPConnectorRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *CreateConnectorRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateConnectorRequest.DiscardUnknown(m)
+func (m *CreateIDPConnectorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateIDPConnectorRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CreateConnectorRequest proto.InternalMessageInfo
+var xxx_messageInfo_CreateIDPConnectorRequest proto.InternalMessageInfo
 
-func (m *CreateConnectorRequest) GetConfig() *ConnectorConfig {
+func (m *CreateIDPConnectorRequest) GetConfig() *IDPConnector {
 	if m != nil {
 		return m.Config
 	}
 	return nil
 }
 
-type CreateConnectorResponse struct {
+type CreateIDPConnectorResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *CreateConnectorResponse) Reset()         { *m = CreateConnectorResponse{} }
-func (m *CreateConnectorResponse) String() string { return proto.CompactTextString(m) }
-func (*CreateConnectorResponse) ProtoMessage()    {}
-func (*CreateConnectorResponse) Descriptor() ([]byte, []int) {
+func (m *CreateIDPConnectorResponse) Reset()         { *m = CreateIDPConnectorResponse{} }
+func (m *CreateIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
+func (*CreateIDPConnectorResponse) ProtoMessage()    {}
+func (*CreateIDPConnectorResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{2}
 }
-func (m *CreateConnectorResponse) XXX_Unmarshal(b []byte) error {
+func (m *CreateIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CreateConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateIDPConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CreateConnectorResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateIDPConnectorResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -180,37 +180,37 @@ func (m *CreateConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
-func (m *CreateConnectorResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateConnectorResponse.Merge(m, src)
+func (m *CreateIDPConnectorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateIDPConnectorResponse.Merge(m, src)
 }
-func (m *CreateConnectorResponse) XXX_Size() int {
+func (m *CreateIDPConnectorResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *CreateConnectorResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateConnectorResponse.DiscardUnknown(m)
+func (m *CreateIDPConnectorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateIDPConnectorResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CreateConnectorResponse proto.InternalMessageInfo
+var xxx_messageInfo_CreateIDPConnectorResponse proto.InternalMessageInfo
 
-type UpdateConnectorRequest struct {
-	Config               *ConnectorConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+type UpdateIDPConnectorRequest struct {
+	Config               *IDPConnector `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *UpdateConnectorRequest) Reset()         { *m = UpdateConnectorRequest{} }
-func (m *UpdateConnectorRequest) String() string { return proto.CompactTextString(m) }
-func (*UpdateConnectorRequest) ProtoMessage()    {}
-func (*UpdateConnectorRequest) Descriptor() ([]byte, []int) {
+func (m *UpdateIDPConnectorRequest) Reset()         { *m = UpdateIDPConnectorRequest{} }
+func (m *UpdateIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateIDPConnectorRequest) ProtoMessage()    {}
+func (*UpdateIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{3}
 }
-func (m *UpdateConnectorRequest) XXX_Unmarshal(b []byte) error {
+func (m *UpdateIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *UpdateConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *UpdateIDPConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_UpdateConnectorRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_UpdateIDPConnectorRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -220,43 +220,43 @@ func (m *UpdateConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return b[:n], nil
 	}
 }
-func (m *UpdateConnectorRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpdateConnectorRequest.Merge(m, src)
+func (m *UpdateIDPConnectorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateIDPConnectorRequest.Merge(m, src)
 }
-func (m *UpdateConnectorRequest) XXX_Size() int {
+func (m *UpdateIDPConnectorRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *UpdateConnectorRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_UpdateConnectorRequest.DiscardUnknown(m)
+func (m *UpdateIDPConnectorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateIDPConnectorRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UpdateConnectorRequest proto.InternalMessageInfo
+var xxx_messageInfo_UpdateIDPConnectorRequest proto.InternalMessageInfo
 
-func (m *UpdateConnectorRequest) GetConfig() *ConnectorConfig {
+func (m *UpdateIDPConnectorRequest) GetConfig() *IDPConnector {
 	if m != nil {
 		return m.Config
 	}
 	return nil
 }
 
-type UpdateConnectorResponse struct {
+type UpdateIDPConnectorResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UpdateConnectorResponse) Reset()         { *m = UpdateConnectorResponse{} }
-func (m *UpdateConnectorResponse) String() string { return proto.CompactTextString(m) }
-func (*UpdateConnectorResponse) ProtoMessage()    {}
-func (*UpdateConnectorResponse) Descriptor() ([]byte, []int) {
+func (m *UpdateIDPConnectorResponse) Reset()         { *m = UpdateIDPConnectorResponse{} }
+func (m *UpdateIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateIDPConnectorResponse) ProtoMessage()    {}
+func (*UpdateIDPConnectorResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{4}
 }
-func (m *UpdateConnectorResponse) XXX_Unmarshal(b []byte) error {
+func (m *UpdateIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *UpdateConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *UpdateIDPConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_UpdateConnectorResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_UpdateIDPConnectorResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -266,36 +266,36 @@ func (m *UpdateConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
-func (m *UpdateConnectorResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpdateConnectorResponse.Merge(m, src)
+func (m *UpdateIDPConnectorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateIDPConnectorResponse.Merge(m, src)
 }
-func (m *UpdateConnectorResponse) XXX_Size() int {
+func (m *UpdateIDPConnectorResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *UpdateConnectorResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_UpdateConnectorResponse.DiscardUnknown(m)
+func (m *UpdateIDPConnectorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateIDPConnectorResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UpdateConnectorResponse proto.InternalMessageInfo
+var xxx_messageInfo_UpdateIDPConnectorResponse proto.InternalMessageInfo
 
-type ListConnectorsRequest struct {
+type ListIDPConnectorsRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListConnectorsRequest) Reset()         { *m = ListConnectorsRequest{} }
-func (m *ListConnectorsRequest) String() string { return proto.CompactTextString(m) }
-func (*ListConnectorsRequest) ProtoMessage()    {}
-func (*ListConnectorsRequest) Descriptor() ([]byte, []int) {
+func (m *ListIDPConnectorsRequest) Reset()         { *m = ListIDPConnectorsRequest{} }
+func (m *ListIDPConnectorsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListIDPConnectorsRequest) ProtoMessage()    {}
+func (*ListIDPConnectorsRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{5}
 }
-func (m *ListConnectorsRequest) XXX_Unmarshal(b []byte) error {
+func (m *ListIDPConnectorsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ListConnectorsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ListIDPConnectorsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ListConnectorsRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ListIDPConnectorsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -305,37 +305,37 @@ func (m *ListConnectorsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return b[:n], nil
 	}
 }
-func (m *ListConnectorsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListConnectorsRequest.Merge(m, src)
+func (m *ListIDPConnectorsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListIDPConnectorsRequest.Merge(m, src)
 }
-func (m *ListConnectorsRequest) XXX_Size() int {
+func (m *ListIDPConnectorsRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *ListConnectorsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListConnectorsRequest.DiscardUnknown(m)
+func (m *ListIDPConnectorsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListIDPConnectorsRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListConnectorsRequest proto.InternalMessageInfo
+var xxx_messageInfo_ListIDPConnectorsRequest proto.InternalMessageInfo
 
-type ListConnectorsResponse struct {
-	Connectors           []*ConnectorConfig `protobuf:"bytes,1,rep,name=connectors,proto3" json:"connectors,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+type ListIDPConnectorsResponse struct {
+	Connectors           []*IDPConnector `protobuf:"bytes,1,rep,name=connectors,proto3" json:"connectors,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *ListConnectorsResponse) Reset()         { *m = ListConnectorsResponse{} }
-func (m *ListConnectorsResponse) String() string { return proto.CompactTextString(m) }
-func (*ListConnectorsResponse) ProtoMessage()    {}
-func (*ListConnectorsResponse) Descriptor() ([]byte, []int) {
+func (m *ListIDPConnectorsResponse) Reset()         { *m = ListIDPConnectorsResponse{} }
+func (m *ListIDPConnectorsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListIDPConnectorsResponse) ProtoMessage()    {}
+func (*ListIDPConnectorsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{6}
 }
-func (m *ListConnectorsResponse) XXX_Unmarshal(b []byte) error {
+func (m *ListIDPConnectorsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ListConnectorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ListIDPConnectorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ListConnectorsResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ListIDPConnectorsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -345,44 +345,44 @@ func (m *ListConnectorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return b[:n], nil
 	}
 }
-func (m *ListConnectorsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListConnectorsResponse.Merge(m, src)
+func (m *ListIDPConnectorsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListIDPConnectorsResponse.Merge(m, src)
 }
-func (m *ListConnectorsResponse) XXX_Size() int {
+func (m *ListIDPConnectorsResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *ListConnectorsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListConnectorsResponse.DiscardUnknown(m)
+func (m *ListIDPConnectorsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListIDPConnectorsResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListConnectorsResponse proto.InternalMessageInfo
+var xxx_messageInfo_ListIDPConnectorsResponse proto.InternalMessageInfo
 
-func (m *ListConnectorsResponse) GetConnectors() []*ConnectorConfig {
+func (m *ListIDPConnectorsResponse) GetConnectors() []*IDPConnector {
 	if m != nil {
 		return m.Connectors
 	}
 	return nil
 }
 
-type GetConnectorRequest struct {
+type GetIDPConnectorRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetConnectorRequest) Reset()         { *m = GetConnectorRequest{} }
-func (m *GetConnectorRequest) String() string { return proto.CompactTextString(m) }
-func (*GetConnectorRequest) ProtoMessage()    {}
-func (*GetConnectorRequest) Descriptor() ([]byte, []int) {
+func (m *GetIDPConnectorRequest) Reset()         { *m = GetIDPConnectorRequest{} }
+func (m *GetIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
+func (*GetIDPConnectorRequest) ProtoMessage()    {}
+func (*GetIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{7}
 }
-func (m *GetConnectorRequest) XXX_Unmarshal(b []byte) error {
+func (m *GetIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *GetConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *GetIDPConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_GetConnectorRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_GetIDPConnectorRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -392,44 +392,44 @@ func (m *GetConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *GetConnectorRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetConnectorRequest.Merge(m, src)
+func (m *GetIDPConnectorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetIDPConnectorRequest.Merge(m, src)
 }
-func (m *GetConnectorRequest) XXX_Size() int {
+func (m *GetIDPConnectorRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *GetConnectorRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetConnectorRequest.DiscardUnknown(m)
+func (m *GetIDPConnectorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetIDPConnectorRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetConnectorRequest proto.InternalMessageInfo
+var xxx_messageInfo_GetIDPConnectorRequest proto.InternalMessageInfo
 
-func (m *GetConnectorRequest) GetId() string {
+func (m *GetIDPConnectorRequest) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-type GetConnectorResponse struct {
-	Config               *ConnectorConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+type GetIDPConnectorResponse struct {
+	Config               *IDPConnector `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *GetConnectorResponse) Reset()         { *m = GetConnectorResponse{} }
-func (m *GetConnectorResponse) String() string { return proto.CompactTextString(m) }
-func (*GetConnectorResponse) ProtoMessage()    {}
-func (*GetConnectorResponse) Descriptor() ([]byte, []int) {
+func (m *GetIDPConnectorResponse) Reset()         { *m = GetIDPConnectorResponse{} }
+func (m *GetIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
+func (*GetIDPConnectorResponse) ProtoMessage()    {}
+func (*GetIDPConnectorResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{8}
 }
-func (m *GetConnectorResponse) XXX_Unmarshal(b []byte) error {
+func (m *GetIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *GetConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *GetIDPConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_GetConnectorResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_GetIDPConnectorResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -439,44 +439,44 @@ func (m *GetConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *GetConnectorResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetConnectorResponse.Merge(m, src)
+func (m *GetIDPConnectorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetIDPConnectorResponse.Merge(m, src)
 }
-func (m *GetConnectorResponse) XXX_Size() int {
+func (m *GetIDPConnectorResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *GetConnectorResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetConnectorResponse.DiscardUnknown(m)
+func (m *GetIDPConnectorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetIDPConnectorResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetConnectorResponse proto.InternalMessageInfo
+var xxx_messageInfo_GetIDPConnectorResponse proto.InternalMessageInfo
 
-func (m *GetConnectorResponse) GetConfig() *ConnectorConfig {
+func (m *GetIDPConnectorResponse) GetConfig() *IDPConnector {
 	if m != nil {
 		return m.Config
 	}
 	return nil
 }
 
-type DeleteConnectorRequest struct {
+type DeleteIDPConnectorRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteConnectorRequest) Reset()         { *m = DeleteConnectorRequest{} }
-func (m *DeleteConnectorRequest) String() string { return proto.CompactTextString(m) }
-func (*DeleteConnectorRequest) ProtoMessage()    {}
-func (*DeleteConnectorRequest) Descriptor() ([]byte, []int) {
+func (m *DeleteIDPConnectorRequest) Reset()         { *m = DeleteIDPConnectorRequest{} }
+func (m *DeleteIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteIDPConnectorRequest) ProtoMessage()    {}
+func (*DeleteIDPConnectorRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{9}
 }
-func (m *DeleteConnectorRequest) XXX_Unmarshal(b []byte) error {
+func (m *DeleteIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *DeleteIDPConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteConnectorRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_DeleteIDPConnectorRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -486,43 +486,43 @@ func (m *DeleteConnectorRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return b[:n], nil
 	}
 }
-func (m *DeleteConnectorRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteConnectorRequest.Merge(m, src)
+func (m *DeleteIDPConnectorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteIDPConnectorRequest.Merge(m, src)
 }
-func (m *DeleteConnectorRequest) XXX_Size() int {
+func (m *DeleteIDPConnectorRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteConnectorRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteConnectorRequest.DiscardUnknown(m)
+func (m *DeleteIDPConnectorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteIDPConnectorRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteConnectorRequest proto.InternalMessageInfo
+var xxx_messageInfo_DeleteIDPConnectorRequest proto.InternalMessageInfo
 
-func (m *DeleteConnectorRequest) GetId() string {
+func (m *DeleteIDPConnectorRequest) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-type DeleteConnectorResponse struct {
+type DeleteIDPConnectorResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteConnectorResponse) Reset()         { *m = DeleteConnectorResponse{} }
-func (m *DeleteConnectorResponse) String() string { return proto.CompactTextString(m) }
-func (*DeleteConnectorResponse) ProtoMessage()    {}
-func (*DeleteConnectorResponse) Descriptor() ([]byte, []int) {
+func (m *DeleteIDPConnectorResponse) Reset()         { *m = DeleteIDPConnectorResponse{} }
+func (m *DeleteIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
+func (*DeleteIDPConnectorResponse) ProtoMessage()    {}
+func (*DeleteIDPConnectorResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{10}
 }
-func (m *DeleteConnectorResponse) XXX_Unmarshal(b []byte) error {
+func (m *DeleteIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *DeleteIDPConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteConnectorResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_DeleteIDPConnectorResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -532,19 +532,19 @@ func (m *DeleteConnectorResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
-func (m *DeleteConnectorResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteConnectorResponse.Merge(m, src)
+func (m *DeleteIDPConnectorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteIDPConnectorResponse.Merge(m, src)
 }
-func (m *DeleteConnectorResponse) XXX_Size() int {
+func (m *DeleteIDPConnectorResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteConnectorResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteConnectorResponse.DiscardUnknown(m)
+func (m *DeleteIDPConnectorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteIDPConnectorResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteConnectorResponse proto.InternalMessageInfo
+var xxx_messageInfo_DeleteIDPConnectorResponse proto.InternalMessageInfo
 
-type Client struct {
+type OIDCClient struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	RedirectUris         []string `protobuf:"bytes,2,rep,name=redirect_uris,json=redirectUris,proto3" json:"redirect_uris,omitempty"`
 	TrustedPeers         []string `protobuf:"bytes,3,rep,name=trusted_peers,json=trustedPeers,proto3" json:"trusted_peers,omitempty"`
@@ -555,18 +555,18 @@ type Client struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Client) Reset()         { *m = Client{} }
-func (m *Client) String() string { return proto.CompactTextString(m) }
-func (*Client) ProtoMessage()    {}
-func (*Client) Descriptor() ([]byte, []int) {
+func (m *OIDCClient) Reset()         { *m = OIDCClient{} }
+func (m *OIDCClient) String() string { return proto.CompactTextString(m) }
+func (*OIDCClient) ProtoMessage()    {}
+func (*OIDCClient) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{11}
 }
-func (m *Client) XXX_Unmarshal(b []byte) error {
+func (m *OIDCClient) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *Client) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *OIDCClient) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_Client.Marshal(b, m, deterministic)
+		return xxx_messageInfo_OIDCClient.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -576,72 +576,72 @@ func (m *Client) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *Client) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Client.Merge(m, src)
+func (m *OIDCClient) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OIDCClient.Merge(m, src)
 }
-func (m *Client) XXX_Size() int {
+func (m *OIDCClient) XXX_Size() int {
 	return m.Size()
 }
-func (m *Client) XXX_DiscardUnknown() {
-	xxx_messageInfo_Client.DiscardUnknown(m)
+func (m *OIDCClient) XXX_DiscardUnknown() {
+	xxx_messageInfo_OIDCClient.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Client proto.InternalMessageInfo
+var xxx_messageInfo_OIDCClient proto.InternalMessageInfo
 
-func (m *Client) GetId() string {
+func (m *OIDCClient) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-func (m *Client) GetRedirectUris() []string {
+func (m *OIDCClient) GetRedirectUris() []string {
 	if m != nil {
 		return m.RedirectUris
 	}
 	return nil
 }
 
-func (m *Client) GetTrustedPeers() []string {
+func (m *OIDCClient) GetTrustedPeers() []string {
 	if m != nil {
 		return m.TrustedPeers
 	}
 	return nil
 }
 
-func (m *Client) GetName() string {
+func (m *OIDCClient) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *Client) GetSecret() string {
+func (m *OIDCClient) GetSecret() string {
 	if m != nil {
 		return m.Secret
 	}
 	return ""
 }
 
-type CreateClientRequest struct {
-	Client               *Client  `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type CreateOIDCClientRequest struct {
+	Client               *OIDCClient `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *CreateClientRequest) Reset()         { *m = CreateClientRequest{} }
-func (m *CreateClientRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateClientRequest) ProtoMessage()    {}
-func (*CreateClientRequest) Descriptor() ([]byte, []int) {
+func (m *CreateOIDCClientRequest) Reset()         { *m = CreateOIDCClientRequest{} }
+func (m *CreateOIDCClientRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateOIDCClientRequest) ProtoMessage()    {}
+func (*CreateOIDCClientRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{12}
 }
-func (m *CreateClientRequest) XXX_Unmarshal(b []byte) error {
+func (m *CreateOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CreateClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateOIDCClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CreateClientRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateOIDCClientRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -651,44 +651,44 @@ func (m *CreateClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *CreateClientRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateClientRequest.Merge(m, src)
+func (m *CreateOIDCClientRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateOIDCClientRequest.Merge(m, src)
 }
-func (m *CreateClientRequest) XXX_Size() int {
+func (m *CreateOIDCClientRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *CreateClientRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateClientRequest.DiscardUnknown(m)
+func (m *CreateOIDCClientRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateOIDCClientRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CreateClientRequest proto.InternalMessageInfo
+var xxx_messageInfo_CreateOIDCClientRequest proto.InternalMessageInfo
 
-func (m *CreateClientRequest) GetClient() *Client {
+func (m *CreateOIDCClientRequest) GetClient() *OIDCClient {
 	if m != nil {
 		return m.Client
 	}
 	return nil
 }
 
-type CreateClientResponse struct {
-	Client               *Client  `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type CreateOIDCClientResponse struct {
+	Client               *OIDCClient `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *CreateClientResponse) Reset()         { *m = CreateClientResponse{} }
-func (m *CreateClientResponse) String() string { return proto.CompactTextString(m) }
-func (*CreateClientResponse) ProtoMessage()    {}
-func (*CreateClientResponse) Descriptor() ([]byte, []int) {
+func (m *CreateOIDCClientResponse) Reset()         { *m = CreateOIDCClientResponse{} }
+func (m *CreateOIDCClientResponse) String() string { return proto.CompactTextString(m) }
+func (*CreateOIDCClientResponse) ProtoMessage()    {}
+func (*CreateOIDCClientResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{13}
 }
-func (m *CreateClientResponse) XXX_Unmarshal(b []byte) error {
+func (m *CreateOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *CreateClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateOIDCClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_CreateClientResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateOIDCClientResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -698,44 +698,44 @@ func (m *CreateClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *CreateClientResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateClientResponse.Merge(m, src)
+func (m *CreateOIDCClientResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateOIDCClientResponse.Merge(m, src)
 }
-func (m *CreateClientResponse) XXX_Size() int {
+func (m *CreateOIDCClientResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *CreateClientResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateClientResponse.DiscardUnknown(m)
+func (m *CreateOIDCClientResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateOIDCClientResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CreateClientResponse proto.InternalMessageInfo
+var xxx_messageInfo_CreateOIDCClientResponse proto.InternalMessageInfo
 
-func (m *CreateClientResponse) GetClient() *Client {
+func (m *CreateOIDCClientResponse) GetClient() *OIDCClient {
 	if m != nil {
 		return m.Client
 	}
 	return nil
 }
 
-type DeleteClientRequest struct {
+type GetOIDCClientRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteClientRequest) Reset()         { *m = DeleteClientRequest{} }
-func (m *DeleteClientRequest) String() string { return proto.CompactTextString(m) }
-func (*DeleteClientRequest) ProtoMessage()    {}
-func (*DeleteClientRequest) Descriptor() ([]byte, []int) {
+func (m *GetOIDCClientRequest) Reset()         { *m = GetOIDCClientRequest{} }
+func (m *GetOIDCClientRequest) String() string { return proto.CompactTextString(m) }
+func (*GetOIDCClientRequest) ProtoMessage()    {}
+func (*GetOIDCClientRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{14}
 }
-func (m *DeleteClientRequest) XXX_Unmarshal(b []byte) error {
+func (m *GetOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *GetOIDCClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteClientRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_GetOIDCClientRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -745,43 +745,44 @@ func (m *DeleteClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *DeleteClientRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteClientRequest.Merge(m, src)
+func (m *GetOIDCClientRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetOIDCClientRequest.Merge(m, src)
 }
-func (m *DeleteClientRequest) XXX_Size() int {
+func (m *GetOIDCClientRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteClientRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteClientRequest.DiscardUnknown(m)
+func (m *GetOIDCClientRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetOIDCClientRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteClientRequest proto.InternalMessageInfo
+var xxx_messageInfo_GetOIDCClientRequest proto.InternalMessageInfo
 
-func (m *DeleteClientRequest) GetId() string {
+func (m *GetOIDCClientRequest) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-type DeleteClientResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type GetOIDCClientResponse struct {
+	Client               *OIDCClient `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *DeleteClientResponse) Reset()         { *m = DeleteClientResponse{} }
-func (m *DeleteClientResponse) String() string { return proto.CompactTextString(m) }
-func (*DeleteClientResponse) ProtoMessage()    {}
-func (*DeleteClientResponse) Descriptor() ([]byte, []int) {
+func (m *GetOIDCClientResponse) Reset()         { *m = GetOIDCClientResponse{} }
+func (m *GetOIDCClientResponse) String() string { return proto.CompactTextString(m) }
+func (*GetOIDCClientResponse) ProtoMessage()    {}
+func (*GetOIDCClientResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6690f7ae40bcb229, []int{15}
 }
-func (m *DeleteClientResponse) XXX_Unmarshal(b []byte) error {
+func (m *GetOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *GetOIDCClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteClientResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_GetOIDCClientResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -791,17 +792,282 @@ func (m *DeleteClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *DeleteClientResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteClientResponse.Merge(m, src)
+func (m *GetOIDCClientResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetOIDCClientResponse.Merge(m, src)
 }
-func (m *DeleteClientResponse) XXX_Size() int {
+func (m *GetOIDCClientResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteClientResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteClientResponse.DiscardUnknown(m)
+func (m *GetOIDCClientResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetOIDCClientResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteClientResponse proto.InternalMessageInfo
+var xxx_messageInfo_GetOIDCClientResponse proto.InternalMessageInfo
+
+func (m *GetOIDCClientResponse) GetClient() *OIDCClient {
+	if m != nil {
+		return m.Client
+	}
+	return nil
+}
+
+type ListOIDCClientsRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListOIDCClientsRequest) Reset()         { *m = ListOIDCClientsRequest{} }
+func (m *ListOIDCClientsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListOIDCClientsRequest) ProtoMessage()    {}
+func (*ListOIDCClientsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{16}
+}
+func (m *ListOIDCClientsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListOIDCClientsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListOIDCClientsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ListOIDCClientsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListOIDCClientsRequest.Merge(m, src)
+}
+func (m *ListOIDCClientsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListOIDCClientsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListOIDCClientsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListOIDCClientsRequest proto.InternalMessageInfo
+
+type ListOIDCClientsResponse struct {
+	Clients              []*OIDCClient `protobuf:"bytes,1,rep,name=clients,proto3" json:"clients,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *ListOIDCClientsResponse) Reset()         { *m = ListOIDCClientsResponse{} }
+func (m *ListOIDCClientsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListOIDCClientsResponse) ProtoMessage()    {}
+func (*ListOIDCClientsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{17}
+}
+func (m *ListOIDCClientsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListOIDCClientsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListOIDCClientsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ListOIDCClientsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListOIDCClientsResponse.Merge(m, src)
+}
+func (m *ListOIDCClientsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListOIDCClientsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListOIDCClientsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListOIDCClientsResponse proto.InternalMessageInfo
+
+func (m *ListOIDCClientsResponse) GetClients() []*OIDCClient {
+	if m != nil {
+		return m.Clients
+	}
+	return nil
+}
+
+type UpdateOIDCClientRequest struct {
+	Client               *OIDCClient `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *UpdateOIDCClientRequest) Reset()         { *m = UpdateOIDCClientRequest{} }
+func (m *UpdateOIDCClientRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateOIDCClientRequest) ProtoMessage()    {}
+func (*UpdateOIDCClientRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{18}
+}
+func (m *UpdateOIDCClientRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpdateOIDCClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpdateOIDCClientRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UpdateOIDCClientRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateOIDCClientRequest.Merge(m, src)
+}
+func (m *UpdateOIDCClientRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpdateOIDCClientRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateOIDCClientRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateOIDCClientRequest proto.InternalMessageInfo
+
+func (m *UpdateOIDCClientRequest) GetClient() *OIDCClient {
+	if m != nil {
+		return m.Client
+	}
+	return nil
+}
+
+type UpdateOIDCClientResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UpdateOIDCClientResponse) Reset()         { *m = UpdateOIDCClientResponse{} }
+func (m *UpdateOIDCClientResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateOIDCClientResponse) ProtoMessage()    {}
+func (*UpdateOIDCClientResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{19}
+}
+func (m *UpdateOIDCClientResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpdateOIDCClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpdateOIDCClientResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UpdateOIDCClientResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateOIDCClientResponse.Merge(m, src)
+}
+func (m *UpdateOIDCClientResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpdateOIDCClientResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateOIDCClientResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateOIDCClientResponse proto.InternalMessageInfo
+
+type DeleteOIDCClientRequest struct {
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteOIDCClientRequest) Reset()         { *m = DeleteOIDCClientRequest{} }
+func (m *DeleteOIDCClientRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteOIDCClientRequest) ProtoMessage()    {}
+func (*DeleteOIDCClientRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{20}
+}
+func (m *DeleteOIDCClientRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeleteOIDCClientRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeleteOIDCClientRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DeleteOIDCClientRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteOIDCClientRequest.Merge(m, src)
+}
+func (m *DeleteOIDCClientRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeleteOIDCClientRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteOIDCClientRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteOIDCClientRequest proto.InternalMessageInfo
+
+func (m *DeleteOIDCClientRequest) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+type DeleteOIDCClientResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteOIDCClientResponse) Reset()         { *m = DeleteOIDCClientResponse{} }
+func (m *DeleteOIDCClientResponse) String() string { return proto.CompactTextString(m) }
+func (*DeleteOIDCClientResponse) ProtoMessage()    {}
+func (*DeleteOIDCClientResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{21}
+}
+func (m *DeleteOIDCClientResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeleteOIDCClientResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeleteOIDCClientResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DeleteOIDCClientResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteOIDCClientResponse.Merge(m, src)
+}
+func (m *DeleteOIDCClientResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeleteOIDCClientResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteOIDCClientResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteOIDCClientResponse proto.InternalMessageInfo
 
 type DeleteAllRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -813,7 +1079,7 @@ func (m *DeleteAllRequest) Reset()         { *m = DeleteAllRequest{} }
 func (m *DeleteAllRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteAllRequest) ProtoMessage()    {}
 func (*DeleteAllRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{16}
+	return fileDescriptor_6690f7ae40bcb229, []int{22}
 }
 func (m *DeleteAllRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -852,7 +1118,7 @@ func (m *DeleteAllResponse) Reset()         { *m = DeleteAllResponse{} }
 func (m *DeleteAllResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteAllResponse) ProtoMessage()    {}
 func (*DeleteAllResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{17}
+	return fileDescriptor_6690f7ae40bcb229, []int{23}
 }
 func (m *DeleteAllResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -882,22 +1148,28 @@ func (m *DeleteAllResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteAllResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*ConnectorConfig)(nil), "identity.ConnectorConfig")
-	proto.RegisterType((*CreateConnectorRequest)(nil), "identity.CreateConnectorRequest")
-	proto.RegisterType((*CreateConnectorResponse)(nil), "identity.CreateConnectorResponse")
-	proto.RegisterType((*UpdateConnectorRequest)(nil), "identity.UpdateConnectorRequest")
-	proto.RegisterType((*UpdateConnectorResponse)(nil), "identity.UpdateConnectorResponse")
-	proto.RegisterType((*ListConnectorsRequest)(nil), "identity.ListConnectorsRequest")
-	proto.RegisterType((*ListConnectorsResponse)(nil), "identity.ListConnectorsResponse")
-	proto.RegisterType((*GetConnectorRequest)(nil), "identity.GetConnectorRequest")
-	proto.RegisterType((*GetConnectorResponse)(nil), "identity.GetConnectorResponse")
-	proto.RegisterType((*DeleteConnectorRequest)(nil), "identity.DeleteConnectorRequest")
-	proto.RegisterType((*DeleteConnectorResponse)(nil), "identity.DeleteConnectorResponse")
-	proto.RegisterType((*Client)(nil), "identity.Client")
-	proto.RegisterType((*CreateClientRequest)(nil), "identity.CreateClientRequest")
-	proto.RegisterType((*CreateClientResponse)(nil), "identity.CreateClientResponse")
-	proto.RegisterType((*DeleteClientRequest)(nil), "identity.DeleteClientRequest")
-	proto.RegisterType((*DeleteClientResponse)(nil), "identity.DeleteClientResponse")
+	proto.RegisterType((*IDPConnector)(nil), "identity.IDPConnector")
+	proto.RegisterType((*CreateIDPConnectorRequest)(nil), "identity.CreateIDPConnectorRequest")
+	proto.RegisterType((*CreateIDPConnectorResponse)(nil), "identity.CreateIDPConnectorResponse")
+	proto.RegisterType((*UpdateIDPConnectorRequest)(nil), "identity.UpdateIDPConnectorRequest")
+	proto.RegisterType((*UpdateIDPConnectorResponse)(nil), "identity.UpdateIDPConnectorResponse")
+	proto.RegisterType((*ListIDPConnectorsRequest)(nil), "identity.ListIDPConnectorsRequest")
+	proto.RegisterType((*ListIDPConnectorsResponse)(nil), "identity.ListIDPConnectorsResponse")
+	proto.RegisterType((*GetIDPConnectorRequest)(nil), "identity.GetIDPConnectorRequest")
+	proto.RegisterType((*GetIDPConnectorResponse)(nil), "identity.GetIDPConnectorResponse")
+	proto.RegisterType((*DeleteIDPConnectorRequest)(nil), "identity.DeleteIDPConnectorRequest")
+	proto.RegisterType((*DeleteIDPConnectorResponse)(nil), "identity.DeleteIDPConnectorResponse")
+	proto.RegisterType((*OIDCClient)(nil), "identity.OIDCClient")
+	proto.RegisterType((*CreateOIDCClientRequest)(nil), "identity.CreateOIDCClientRequest")
+	proto.RegisterType((*CreateOIDCClientResponse)(nil), "identity.CreateOIDCClientResponse")
+	proto.RegisterType((*GetOIDCClientRequest)(nil), "identity.GetOIDCClientRequest")
+	proto.RegisterType((*GetOIDCClientResponse)(nil), "identity.GetOIDCClientResponse")
+	proto.RegisterType((*ListOIDCClientsRequest)(nil), "identity.ListOIDCClientsRequest")
+	proto.RegisterType((*ListOIDCClientsResponse)(nil), "identity.ListOIDCClientsResponse")
+	proto.RegisterType((*UpdateOIDCClientRequest)(nil), "identity.UpdateOIDCClientRequest")
+	proto.RegisterType((*UpdateOIDCClientResponse)(nil), "identity.UpdateOIDCClientResponse")
+	proto.RegisterType((*DeleteOIDCClientRequest)(nil), "identity.DeleteOIDCClientRequest")
+	proto.RegisterType((*DeleteOIDCClientResponse)(nil), "identity.DeleteOIDCClientResponse")
 	proto.RegisterType((*DeleteAllRequest)(nil), "identity.DeleteAllRequest")
 	proto.RegisterType((*DeleteAllResponse)(nil), "identity.DeleteAllResponse")
 }
@@ -905,45 +1177,52 @@ func init() {
 func init() { proto.RegisterFile("client/identity/identity.proto", fileDescriptor_6690f7ae40bcb229) }
 
 var fileDescriptor_6690f7ae40bcb229 = []byte{
-	// 604 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xdd, 0x8e, 0xd2, 0x40,
-	0x14, 0xa6, 0x94, 0x25, 0x72, 0xdc, 0x3f, 0x07, 0x84, 0x82, 0xb1, 0xd6, 0xea, 0x26, 0x5c, 0x41,
-	0xc4, 0x2b, 0xaf, 0xdc, 0x15, 0xa3, 0xd9, 0x68, 0xe2, 0x06, 0x83, 0x31, 0xde, 0x6c, 0xd8, 0xf6,
-	0xb8, 0x3b, 0x86, 0x6d, 0xeb, 0xcc, 0x70, 0xc1, 0x4b, 0xe8, 0x53, 0xf8, 0x2e, 0x5e, 0xfa, 0x08,
-	0x86, 0x27, 0x31, 0x6d, 0x87, 0x32, 0x6d, 0x87, 0x8d, 0x31, 0xde, 0x0d, 0x67, 0xbe, 0xf9, 0xce,
-	0x39, 0x1f, 0xdf, 0x97, 0x82, 0xed, 0xcd, 0x29, 0x06, 0x62, 0x48, 0x7d, 0x0c, 0x04, 0x15, 0xcb,
-	0xec, 0x30, 0x88, 0x58, 0x28, 0x42, 0x72, 0x6b, 0xfd, 0xdb, 0xfd, 0x6e, 0xc0, 0xc1, 0x38, 0x0c,
-	0x02, 0xf4, 0x44, 0xc8, 0xc6, 0x61, 0xf0, 0x99, 0x5e, 0x92, 0x7d, 0xa8, 0x52, 0xdf, 0x32, 0x1c,
-	0xa3, 0xdf, 0x98, 0x54, 0xa9, 0x4f, 0x08, 0xd4, 0x82, 0xd9, 0x35, 0x5a, 0xd5, 0xa4, 0x92, 0x9c,
-	0xe3, 0x9a, 0x58, 0x46, 0x68, 0x99, 0x69, 0x2d, 0x3e, 0x93, 0xc7, 0xb0, 0xe7, 0x25, 0x0c, 0x1f,
-	0x90, 0x71, 0x1a, 0x06, 0x56, 0xcd, 0x31, 0xfa, 0xe6, 0x24, 0x5f, 0x24, 0x36, 0xc0, 0x17, 0x1e,
-	0x06, 0x69, 0x2f, 0x6b, 0x27, 0x79, 0xaf, 0x54, 0xdc, 0x37, 0xd0, 0x1e, 0x33, 0x9c, 0x09, 0xcc,
-	0xc6, 0x9a, 0xe0, 0xd7, 0x05, 0x72, 0x41, 0x9e, 0x40, 0x3d, 0xa5, 0x4a, 0x66, 0xbb, 0x3d, 0xea,
-	0x0e, 0xb2, 0xb5, 0x0a, 0x2b, 0x4c, 0x24, 0xd0, 0xed, 0x42, 0xa7, 0x44, 0xc6, 0xa3, 0x30, 0xe0,
-	0x18, 0xf7, 0x99, 0x46, 0xfe, 0xff, 0xeb, 0x53, 0x22, 0x93, 0x7d, 0x3a, 0x70, 0xf7, 0x2d, 0xe5,
-	0x22, 0xbb, 0xe0, 0xb2, 0x8d, 0xfb, 0x1e, 0xda, 0xc5, 0x8b, 0xf4, 0x09, 0x79, 0x06, 0xe0, 0x65,
-	0x55, 0xcb, 0x70, 0xcc, 0x9b, 0x87, 0x50, 0xc0, 0xee, 0x11, 0x34, 0x5f, 0xa3, 0x28, 0xad, 0x54,
-	0xf8, 0x4b, 0xdd, 0x53, 0x68, 0xe5, 0x61, 0xb2, 0xf3, 0x3f, 0xac, 0xde, 0x87, 0xf6, 0x4b, 0x9c,
-	0xa3, 0x46, 0xc7, 0x62, 0xd3, 0x2e, 0x74, 0x4a, 0x48, 0x29, 0xd2, 0x37, 0x03, 0xea, 0xe3, 0xc4,
-	0xb3, 0x25, 0xf7, 0x3d, 0x82, 0x3d, 0x86, 0x3e, 0x65, 0xe8, 0x89, 0xf3, 0x05, 0xa3, 0xdc, 0xaa,
-	0x3a, 0x66, 0xbf, 0x31, 0xd9, 0x5d, 0x17, 0xa7, 0x8c, 0xf2, 0x18, 0x24, 0xd8, 0x82, 0x0b, 0xf4,
-	0xcf, 0x23, 0x44, 0xc6, 0x2d, 0x33, 0x05, 0xc9, 0xe2, 0x59, 0x5c, 0xcb, 0x7c, 0x5c, 0x53, 0x7c,
-	0xdc, 0x86, 0x3a, 0x47, 0x8f, 0xa1, 0x90, 0x4e, 0x94, 0xbf, 0xdc, 0xe7, 0xd0, 0x94, 0xc6, 0x49,
-	0xa6, 0x5a, 0xaf, 0xd4, 0x87, 0x7a, 0x1a, 0x2d, 0xa9, 0xcf, 0xa1, 0xa2, 0x4f, 0x0a, 0x94, 0xf7,
-	0xee, 0x31, 0xb4, 0xf2, 0x04, 0x52, 0xe1, 0xbf, 0x67, 0x38, 0x82, 0xa6, 0x94, 0x2b, 0x37, 0x42,
-	0x51, 0xd5, 0x36, 0xb4, 0xf2, 0x30, 0x29, 0x29, 0x81, 0xc3, 0xb4, 0x7e, 0x32, 0x9f, 0xaf, 0x2d,
-	0xd7, 0x84, 0x3b, 0x4a, 0x2d, 0x05, 0x8e, 0x7e, 0xec, 0x80, 0x79, 0x72, 0x76, 0x4a, 0x3e, 0xc2,
-	0x41, 0x21, 0x2b, 0xc4, 0x51, 0x86, 0xd3, 0x66, 0xb2, 0xf7, 0xf0, 0x06, 0x84, 0x1c, 0xa4, 0x12,
-	0x33, 0x17, 0xd2, 0xa1, 0x32, 0xeb, 0x53, 0xa8, 0x32, 0x6f, 0x8b, 0x56, 0x85, 0x4c, 0x61, 0x3f,
-	0x9f, 0x21, 0xf2, 0x60, 0xf3, 0x4c, 0x1b, 0xbb, 0x9e, 0xb3, 0x1d, 0x90, 0xd1, 0xbe, 0x83, 0x5d,
-	0x35, 0x1e, 0xe4, 0xfe, 0xe6, 0x8d, 0x26, 0x5d, 0x3d, 0x7b, 0xdb, 0xb5, 0xaa, 0x40, 0xc1, 0xfa,
-	0xaa, 0x02, 0xfa, 0xfc, 0xa8, 0x0a, 0x6c, 0xcb, 0x4d, 0x32, 0xaa, 0xea, 0x33, 0x75, 0x54, 0x8d,
-	0x81, 0xd5, 0x51, 0x75, 0xf6, 0x4c, 0x09, 0x55, 0x3f, 0xa9, 0x84, 0x1a, 0x3b, 0xaa, 0x84, 0x5a,
-	0x1b, 0x56, 0xc8, 0x2b, 0x68, 0x64, 0xa6, 0x23, 0xbd, 0x22, 0x7c, 0xe3, 0xce, 0xde, 0x3d, 0xed,
-	0xdd, 0x9a, 0xe7, 0xc5, 0xf1, 0xcf, 0x95, 0x6d, 0xfc, 0x5a, 0xd9, 0xc6, 0xef, 0x95, 0x6d, 0x7c,
-	0x1a, 0x5d, 0x52, 0x71, 0xb5, 0xb8, 0x18, 0x78, 0xe1, 0xf5, 0x30, 0x9a, 0x79, 0x57, 0x4b, 0x1f,
-	0x99, 0x7a, 0xe2, 0xcc, 0x1b, 0x16, 0xbe, 0x82, 0x17, 0xf5, 0xe4, 0xeb, 0xf7, 0xf4, 0x4f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x19, 0xaf, 0x1e, 0x70, 0x1f, 0x07, 0x00, 0x00,
+	// 711 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xd1, 0x6e, 0xd3, 0x3c,
+	0x14, 0x6e, 0xda, 0xfd, 0xdd, 0xbf, 0xc3, 0x06, 0x9b, 0x19, 0xad, 0x17, 0xa6, 0xd2, 0x65, 0x13,
+	0x2a, 0x02, 0x75, 0xd2, 0x90, 0xb8, 0x66, 0x74, 0x30, 0x2a, 0x90, 0x98, 0x8a, 0x86, 0x10, 0x48,
+	0x4c, 0x5d, 0x62, 0xb6, 0xa0, 0x2e, 0x09, 0xb6, 0x7b, 0xb1, 0x77, 0xe0, 0x8a, 0xa7, 0xe2, 0x92,
+	0x47, 0x40, 0x7d, 0x07, 0xee, 0x51, 0x62, 0x27, 0x71, 0xed, 0x24, 0x68, 0xc0, 0x9d, 0x73, 0xce,
+	0xe7, 0x73, 0xec, 0xcf, 0xdf, 0xf9, 0x14, 0xe8, 0xb8, 0x13, 0x9f, 0x04, 0x7c, 0xd7, 0xf7, 0x48,
+	0xc0, 0x7d, 0x7e, 0x99, 0x2d, 0xfa, 0x11, 0x0d, 0x79, 0x88, 0xfe, 0x4f, 0xbf, 0x9d, 0x2f, 0x16,
+	0x2c, 0x0f, 0x0f, 0x8e, 0x06, 0x61, 0x10, 0x10, 0x97, 0x87, 0x14, 0x5d, 0x87, 0xba, 0xef, 0x61,
+	0xab, 0x6b, 0xf5, 0x96, 0x46, 0x75, 0xdf, 0x43, 0x08, 0x16, 0x82, 0xf1, 0x05, 0xc1, 0xf5, 0x24,
+	0x92, 0xac, 0xe3, 0x18, 0xbf, 0x8c, 0x08, 0x6e, 0x88, 0x58, 0xbc, 0x46, 0x3b, 0xb0, 0xe2, 0x86,
+	0xc1, 0x47, 0xff, 0xec, 0x0d, 0xa1, 0xcc, 0x0f, 0x03, 0xbc, 0xd0, 0xb5, 0x7a, 0x8d, 0xd1, 0x7c,
+	0x10, 0x75, 0x00, 0x3e, 0xb1, 0x30, 0x18, 0x24, 0x41, 0xfc, 0x5f, 0xb2, 0x5f, 0x89, 0x38, 0x2f,
+	0x60, 0x63, 0x40, 0xc9, 0x98, 0x13, 0xf5, 0x4c, 0x23, 0xf2, 0x79, 0x4a, 0x18, 0x47, 0x7d, 0x68,
+	0x8a, 0x6a, 0xc9, 0xf1, 0xae, 0xed, 0xb5, 0xfa, 0xd9, 0xb5, 0xe6, 0xe0, 0x12, 0xe5, 0x6c, 0x82,
+	0x5d, 0x54, 0x8c, 0x45, 0x61, 0xc0, 0x48, 0xdc, 0xea, 0x38, 0xf2, 0xfe, 0x5d, 0xab, 0xa2, 0x62,
+	0xb2, 0x95, 0x0d, 0xf8, 0xa5, 0xcf, 0xb8, 0x9a, 0x63, 0xb2, 0x93, 0xf3, 0x1a, 0x36, 0x0a, 0x72,
+	0x62, 0x23, 0x7a, 0x04, 0xe0, 0x66, 0x51, 0x6c, 0x75, 0x1b, 0x15, 0x47, 0x51, 0x90, 0x4e, 0x0f,
+	0x5a, 0x87, 0x84, 0x17, 0x5d, 0x4c, 0x7b, 0x5e, 0x67, 0x08, 0x6d, 0x03, 0x29, 0x9b, 0x5f, 0x95,
+	0x83, 0xfb, 0xb0, 0x71, 0x40, 0x26, 0xa4, 0x98, 0x50, 0xbd, 0xef, 0x26, 0xd8, 0x45, 0x60, 0x49,
+	0xd8, 0x57, 0x0b, 0xe0, 0xd5, 0xf0, 0x60, 0x30, 0x48, 0x64, 0x6c, 0x68, 0x72, 0x1b, 0x56, 0x28,
+	0xf1, 0x7c, 0x4a, 0x5c, 0x7e, 0x32, 0xa5, 0x3e, 0xc3, 0xf5, 0x6e, 0xa3, 0xb7, 0x34, 0x5a, 0x4e,
+	0x83, 0xc7, 0xd4, 0x67, 0x31, 0x88, 0xd3, 0x29, 0xe3, 0xc4, 0x3b, 0x89, 0x08, 0xa1, 0x0c, 0x37,
+	0x04, 0x48, 0x06, 0x8f, 0xe2, 0x58, 0xa6, 0xee, 0x05, 0x45, 0xdd, 0x2d, 0x68, 0x32, 0xe2, 0x52,
+	0xc2, 0xa5, 0x3e, 0xe5, 0x97, 0x73, 0x08, 0x6d, 0x21, 0xa7, 0xfc, 0x64, 0xe9, 0xed, 0x1e, 0x40,
+	0x53, 0x4c, 0x9c, 0xa4, 0x6a, 0x3d, 0xa7, 0x4a, 0x01, 0x4b, 0x8c, 0xf3, 0x1c, 0xb0, 0x59, 0x48,
+	0x92, 0x7e, 0xb5, 0x4a, 0x77, 0x61, 0xfd, 0x90, 0x70, 0xf3, 0x3c, 0x3a, 0xdb, 0x4f, 0xe1, 0x96,
+	0x86, 0xfb, 0xa3, 0x76, 0x18, 0x5a, 0xb1, 0x56, 0xf3, 0x4c, 0xa6, 0xe2, 0x21, 0xb4, 0x8d, 0x4c,
+	0x26, 0xa3, 0x45, 0xb1, 0x3d, 0x15, 0x70, 0x71, 0x8f, 0x14, 0x14, 0xd3, 0x2c, 0x46, 0xe9, 0x6f,
+	0x69, 0xb6, 0x01, 0x9b, 0x85, 0xa4, 0xc0, 0xee, 0x41, 0x5b, 0xc8, 0xef, 0xf7, 0xdc, 0xd9, 0x80,
+	0x4d, 0xa8, 0x2c, 0x83, 0x60, 0x55, 0xe4, 0xf6, 0x27, 0x93, 0x94, 0x8a, 0x9b, 0xb0, 0xa6, 0xc4,
+	0x04, 0x70, 0xef, 0xe7, 0x22, 0x34, 0xf6, 0x8f, 0x86, 0x68, 0x0c, 0xc8, 0xb4, 0x24, 0xb4, 0x9d,
+	0xdf, 0xa3, 0xd4, 0xfd, 0xec, 0x9d, 0x6a, 0x90, 0x3c, 0x51, 0x2d, 0x6e, 0x61, 0x5a, 0x91, 0xda,
+	0xa2, 0xd4, 0xf5, 0xd4, 0x16, 0x15, 0x6e, 0x56, 0x43, 0x1f, 0x60, 0xcd, 0xf0, 0x2c, 0xe4, 0xe4,
+	0x9b, 0xcb, 0xcc, 0xce, 0xde, 0xae, 0xc4, 0x64, 0xf5, 0xdf, 0xc2, 0x0d, 0xcd, 0x94, 0x50, 0x37,
+	0xdf, 0x59, 0xec, 0x6c, 0xf6, 0x56, 0x05, 0x42, 0x25, 0xc7, 0xb4, 0x1d, 0x95, 0x9c, 0x52, 0x07,
+	0x53, 0xc9, 0xa9, 0x70, 0xae, 0x1a, 0x7a, 0x0f, 0xab, 0xfa, 0x74, 0xa3, 0x2d, 0xfd, 0xed, 0x0c,
+	0xd9, 0xd9, 0x4e, 0x15, 0x44, 0x2d, 0xae, 0x6b, 0x5a, 0x2d, 0x5e, 0x32, 0x38, 0x6a, 0xf1, 0xd2,
+	0x91, 0xa8, 0xa1, 0x11, 0xac, 0xcc, 0xb9, 0x04, 0xea, 0xcc, 0x51, 0x6a, 0x96, 0xbd, 0x53, 0x9a,
+	0x57, 0x9f, 0x52, 0x33, 0x06, 0xf5, 0x29, 0x8b, 0xdd, 0x44, 0x7d, 0xca, 0x12, 0x57, 0x11, 0x54,
+	0xe8, 0x73, 0xa9, 0x52, 0x51, 0x32, 0xde, 0x2a, 0x15, 0xa5, 0x63, 0x5d, 0x43, 0xcf, 0x60, 0x29,
+	0x1b, 0x62, 0x64, 0xeb, 0x5b, 0xf2, 0x69, 0xb7, 0x6f, 0x17, 0xe6, 0xd2, 0x3a, 0x4f, 0x1e, 0x7f,
+	0x9b, 0x75, 0xac, 0xef, 0xb3, 0x8e, 0xf5, 0x63, 0xd6, 0xb1, 0xde, 0xed, 0x9d, 0xf9, 0xfc, 0x7c,
+	0x7a, 0xda, 0x77, 0xc3, 0x8b, 0xdd, 0x68, 0xec, 0x9e, 0x5f, 0x7a, 0x84, 0xaa, 0x2b, 0x46, 0xdd,
+	0x5d, 0xed, 0xcf, 0xed, 0xb4, 0x99, 0xfc, 0xb1, 0x3d, 0xfc, 0x15, 0x00, 0x00, 0xff, 0xff, 0x93,
+	0x95, 0xbb, 0x04, 0xd3, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -958,13 +1237,16 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
-	CreateConnector(ctx context.Context, in *CreateConnectorRequest, opts ...grpc.CallOption) (*CreateConnectorResponse, error)
-	UpdateConnector(ctx context.Context, in *UpdateConnectorRequest, opts ...grpc.CallOption) (*UpdateConnectorResponse, error)
-	ListConnectors(ctx context.Context, in *ListConnectorsRequest, opts ...grpc.CallOption) (*ListConnectorsResponse, error)
-	GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*GetConnectorResponse, error)
-	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*DeleteConnectorResponse, error)
-	CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error)
-	DeleteClient(ctx context.Context, in *DeleteClientRequest, opts ...grpc.CallOption) (*DeleteClientResponse, error)
+	CreateIDPConnector(ctx context.Context, in *CreateIDPConnectorRequest, opts ...grpc.CallOption) (*CreateIDPConnectorResponse, error)
+	UpdateIDPConnector(ctx context.Context, in *UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*UpdateIDPConnectorResponse, error)
+	ListIDPConnectors(ctx context.Context, in *ListIDPConnectorsRequest, opts ...grpc.CallOption) (*ListIDPConnectorsResponse, error)
+	GetIDPConnector(ctx context.Context, in *GetIDPConnectorRequest, opts ...grpc.CallOption) (*GetIDPConnectorResponse, error)
+	DeleteIDPConnector(ctx context.Context, in *DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*DeleteIDPConnectorResponse, error)
+	CreateOIDCClient(ctx context.Context, in *CreateOIDCClientRequest, opts ...grpc.CallOption) (*CreateOIDCClientResponse, error)
+	UpdateOIDCClient(ctx context.Context, in *UpdateOIDCClientRequest, opts ...grpc.CallOption) (*UpdateOIDCClientResponse, error)
+	GetOIDCClient(ctx context.Context, in *GetOIDCClientRequest, opts ...grpc.CallOption) (*GetOIDCClientResponse, error)
+	ListOIDCClients(ctx context.Context, in *ListOIDCClientsRequest, opts ...grpc.CallOption) (*ListOIDCClientsResponse, error)
+	DeleteOIDCClient(ctx context.Context, in *DeleteOIDCClientRequest, opts ...grpc.CallOption) (*DeleteOIDCClientResponse, error)
 	DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*DeleteAllResponse, error)
 }
 
@@ -976,63 +1258,90 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
 }
 
-func (c *aPIClient) CreateConnector(ctx context.Context, in *CreateConnectorRequest, opts ...grpc.CallOption) (*CreateConnectorResponse, error) {
-	out := new(CreateConnectorResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/CreateConnector", in, out, opts...)
+func (c *aPIClient) CreateIDPConnector(ctx context.Context, in *CreateIDPConnectorRequest, opts ...grpc.CallOption) (*CreateIDPConnectorResponse, error) {
+	out := new(CreateIDPConnectorResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/CreateIDPConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) UpdateConnector(ctx context.Context, in *UpdateConnectorRequest, opts ...grpc.CallOption) (*UpdateConnectorResponse, error) {
-	out := new(UpdateConnectorResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/UpdateConnector", in, out, opts...)
+func (c *aPIClient) UpdateIDPConnector(ctx context.Context, in *UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*UpdateIDPConnectorResponse, error) {
+	out := new(UpdateIDPConnectorResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/UpdateIDPConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) ListConnectors(ctx context.Context, in *ListConnectorsRequest, opts ...grpc.CallOption) (*ListConnectorsResponse, error) {
-	out := new(ListConnectorsResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/ListConnectors", in, out, opts...)
+func (c *aPIClient) ListIDPConnectors(ctx context.Context, in *ListIDPConnectorsRequest, opts ...grpc.CallOption) (*ListIDPConnectorsResponse, error) {
+	out := new(ListIDPConnectorsResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/ListIDPConnectors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*GetConnectorResponse, error) {
-	out := new(GetConnectorResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/GetConnector", in, out, opts...)
+func (c *aPIClient) GetIDPConnector(ctx context.Context, in *GetIDPConnectorRequest, opts ...grpc.CallOption) (*GetIDPConnectorResponse, error) {
+	out := new(GetIDPConnectorResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/GetIDPConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*DeleteConnectorResponse, error) {
-	out := new(DeleteConnectorResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/DeleteConnector", in, out, opts...)
+func (c *aPIClient) DeleteIDPConnector(ctx context.Context, in *DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*DeleteIDPConnectorResponse, error) {
+	out := new(DeleteIDPConnectorResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/DeleteIDPConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error) {
-	out := new(CreateClientResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/CreateClient", in, out, opts...)
+func (c *aPIClient) CreateOIDCClient(ctx context.Context, in *CreateOIDCClientRequest, opts ...grpc.CallOption) (*CreateOIDCClientResponse, error) {
+	out := new(CreateOIDCClientResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/CreateOIDCClient", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) DeleteClient(ctx context.Context, in *DeleteClientRequest, opts ...grpc.CallOption) (*DeleteClientResponse, error) {
-	out := new(DeleteClientResponse)
-	err := c.cc.Invoke(ctx, "/identity.API/DeleteClient", in, out, opts...)
+func (c *aPIClient) UpdateOIDCClient(ctx context.Context, in *UpdateOIDCClientRequest, opts ...grpc.CallOption) (*UpdateOIDCClientResponse, error) {
+	out := new(UpdateOIDCClientResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/UpdateOIDCClient", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetOIDCClient(ctx context.Context, in *GetOIDCClientRequest, opts ...grpc.CallOption) (*GetOIDCClientResponse, error) {
+	out := new(GetOIDCClientResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/GetOIDCClient", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) ListOIDCClients(ctx context.Context, in *ListOIDCClientsRequest, opts ...grpc.CallOption) (*ListOIDCClientsResponse, error) {
+	out := new(ListOIDCClientsResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/ListOIDCClients", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) DeleteOIDCClient(ctx context.Context, in *DeleteOIDCClientRequest, opts ...grpc.CallOption) (*DeleteOIDCClientResponse, error) {
+	out := new(DeleteOIDCClientResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/DeleteOIDCClient", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1050,13 +1359,16 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ..
 
 // APIServer is the server API for API service.
 type APIServer interface {
-	CreateConnector(context.Context, *CreateConnectorRequest) (*CreateConnectorResponse, error)
-	UpdateConnector(context.Context, *UpdateConnectorRequest) (*UpdateConnectorResponse, error)
-	ListConnectors(context.Context, *ListConnectorsRequest) (*ListConnectorsResponse, error)
-	GetConnector(context.Context, *GetConnectorRequest) (*GetConnectorResponse, error)
-	DeleteConnector(context.Context, *DeleteConnectorRequest) (*DeleteConnectorResponse, error)
-	CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error)
-	DeleteClient(context.Context, *DeleteClientRequest) (*DeleteClientResponse, error)
+	CreateIDPConnector(context.Context, *CreateIDPConnectorRequest) (*CreateIDPConnectorResponse, error)
+	UpdateIDPConnector(context.Context, *UpdateIDPConnectorRequest) (*UpdateIDPConnectorResponse, error)
+	ListIDPConnectors(context.Context, *ListIDPConnectorsRequest) (*ListIDPConnectorsResponse, error)
+	GetIDPConnector(context.Context, *GetIDPConnectorRequest) (*GetIDPConnectorResponse, error)
+	DeleteIDPConnector(context.Context, *DeleteIDPConnectorRequest) (*DeleteIDPConnectorResponse, error)
+	CreateOIDCClient(context.Context, *CreateOIDCClientRequest) (*CreateOIDCClientResponse, error)
+	UpdateOIDCClient(context.Context, *UpdateOIDCClientRequest) (*UpdateOIDCClientResponse, error)
+	GetOIDCClient(context.Context, *GetOIDCClientRequest) (*GetOIDCClientResponse, error)
+	ListOIDCClients(context.Context, *ListOIDCClientsRequest) (*ListOIDCClientsResponse, error)
+	DeleteOIDCClient(context.Context, *DeleteOIDCClientRequest) (*DeleteOIDCClientResponse, error)
 	DeleteAll(context.Context, *DeleteAllRequest) (*DeleteAllResponse, error)
 }
 
@@ -1064,26 +1376,35 @@ type APIServer interface {
 type UnimplementedAPIServer struct {
 }
 
-func (*UnimplementedAPIServer) CreateConnector(ctx context.Context, req *CreateConnectorRequest) (*CreateConnectorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateConnector not implemented")
+func (*UnimplementedAPIServer) CreateIDPConnector(ctx context.Context, req *CreateIDPConnectorRequest) (*CreateIDPConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateIDPConnector not implemented")
 }
-func (*UnimplementedAPIServer) UpdateConnector(ctx context.Context, req *UpdateConnectorRequest) (*UpdateConnectorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateConnector not implemented")
+func (*UnimplementedAPIServer) UpdateIDPConnector(ctx context.Context, req *UpdateIDPConnectorRequest) (*UpdateIDPConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateIDPConnector not implemented")
 }
-func (*UnimplementedAPIServer) ListConnectors(ctx context.Context, req *ListConnectorsRequest) (*ListConnectorsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListConnectors not implemented")
+func (*UnimplementedAPIServer) ListIDPConnectors(ctx context.Context, req *ListIDPConnectorsRequest) (*ListIDPConnectorsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListIDPConnectors not implemented")
 }
-func (*UnimplementedAPIServer) GetConnector(ctx context.Context, req *GetConnectorRequest) (*GetConnectorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetConnector not implemented")
+func (*UnimplementedAPIServer) GetIDPConnector(ctx context.Context, req *GetIDPConnectorRequest) (*GetIDPConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetIDPConnector not implemented")
 }
-func (*UnimplementedAPIServer) DeleteConnector(ctx context.Context, req *DeleteConnectorRequest) (*DeleteConnectorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnector not implemented")
+func (*UnimplementedAPIServer) DeleteIDPConnector(ctx context.Context, req *DeleteIDPConnectorRequest) (*DeleteIDPConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteIDPConnector not implemented")
 }
-func (*UnimplementedAPIServer) CreateClient(ctx context.Context, req *CreateClientRequest) (*CreateClientResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateClient not implemented")
+func (*UnimplementedAPIServer) CreateOIDCClient(ctx context.Context, req *CreateOIDCClientRequest) (*CreateOIDCClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateOIDCClient not implemented")
 }
-func (*UnimplementedAPIServer) DeleteClient(ctx context.Context, req *DeleteClientRequest) (*DeleteClientResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteClient not implemented")
+func (*UnimplementedAPIServer) UpdateOIDCClient(ctx context.Context, req *UpdateOIDCClientRequest) (*UpdateOIDCClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateOIDCClient not implemented")
+}
+func (*UnimplementedAPIServer) GetOIDCClient(ctx context.Context, req *GetOIDCClientRequest) (*GetOIDCClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOIDCClient not implemented")
+}
+func (*UnimplementedAPIServer) ListOIDCClients(ctx context.Context, req *ListOIDCClientsRequest) (*ListOIDCClientsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListOIDCClients not implemented")
+}
+func (*UnimplementedAPIServer) DeleteOIDCClient(ctx context.Context, req *DeleteOIDCClientRequest) (*DeleteOIDCClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteOIDCClient not implemented")
 }
 func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequest) (*DeleteAllResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
@@ -1093,128 +1414,182 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
 
-func _API_CreateConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateConnectorRequest)
+func _API_CreateIDPConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateIDPConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).CreateConnector(ctx, in)
+		return srv.(APIServer).CreateIDPConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/CreateConnector",
+		FullMethod: "/identity.API/CreateIDPConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).CreateConnector(ctx, req.(*CreateConnectorRequest))
+		return srv.(APIServer).CreateIDPConnector(ctx, req.(*CreateIDPConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_UpdateConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateConnectorRequest)
+func _API_UpdateIDPConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateIDPConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).UpdateConnector(ctx, in)
+		return srv.(APIServer).UpdateIDPConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/UpdateConnector",
+		FullMethod: "/identity.API/UpdateIDPConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).UpdateConnector(ctx, req.(*UpdateConnectorRequest))
+		return srv.(APIServer).UpdateIDPConnector(ctx, req.(*UpdateIDPConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListConnectors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListConnectorsRequest)
+func _API_ListIDPConnectors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListIDPConnectorsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).ListConnectors(ctx, in)
+		return srv.(APIServer).ListIDPConnectors(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/ListConnectors",
+		FullMethod: "/identity.API/ListIDPConnectors",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).ListConnectors(ctx, req.(*ListConnectorsRequest))
+		return srv.(APIServer).ListIDPConnectors(ctx, req.(*ListIDPConnectorsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_GetConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetConnectorRequest)
+func _API_GetIDPConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetIDPConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).GetConnector(ctx, in)
+		return srv.(APIServer).GetIDPConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/GetConnector",
+		FullMethod: "/identity.API/GetIDPConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).GetConnector(ctx, req.(*GetConnectorRequest))
+		return srv.(APIServer).GetIDPConnector(ctx, req.(*GetIDPConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteConnectorRequest)
+func _API_DeleteIDPConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteIDPConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).DeleteConnector(ctx, in)
+		return srv.(APIServer).DeleteIDPConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/DeleteConnector",
+		FullMethod: "/identity.API/DeleteIDPConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).DeleteConnector(ctx, req.(*DeleteConnectorRequest))
+		return srv.(APIServer).DeleteIDPConnector(ctx, req.(*DeleteIDPConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_CreateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateClientRequest)
+func _API_CreateOIDCClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateOIDCClientRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).CreateClient(ctx, in)
+		return srv.(APIServer).CreateOIDCClient(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/CreateClient",
+		FullMethod: "/identity.API/CreateOIDCClient",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).CreateClient(ctx, req.(*CreateClientRequest))
+		return srv.(APIServer).CreateOIDCClient(ctx, req.(*CreateOIDCClientRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteClientRequest)
+func _API_UpdateOIDCClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateOIDCClientRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).DeleteClient(ctx, in)
+		return srv.(APIServer).UpdateOIDCClient(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/identity.API/DeleteClient",
+		FullMethod: "/identity.API/UpdateOIDCClient",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).DeleteClient(ctx, req.(*DeleteClientRequest))
+		return srv.(APIServer).UpdateOIDCClient(ctx, req.(*UpdateOIDCClientRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_GetOIDCClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOIDCClientRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetOIDCClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/GetOIDCClient",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetOIDCClient(ctx, req.(*GetOIDCClientRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_ListOIDCClients_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOIDCClientsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).ListOIDCClients(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/ListOIDCClients",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListOIDCClients(ctx, req.(*ListOIDCClientsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_DeleteOIDCClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteOIDCClientRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).DeleteOIDCClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/DeleteOIDCClient",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteOIDCClient(ctx, req.(*DeleteOIDCClientRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1242,32 +1617,44 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateConnector",
-			Handler:    _API_CreateConnector_Handler,
+			MethodName: "CreateIDPConnector",
+			Handler:    _API_CreateIDPConnector_Handler,
 		},
 		{
-			MethodName: "UpdateConnector",
-			Handler:    _API_UpdateConnector_Handler,
+			MethodName: "UpdateIDPConnector",
+			Handler:    _API_UpdateIDPConnector_Handler,
 		},
 		{
-			MethodName: "ListConnectors",
-			Handler:    _API_ListConnectors_Handler,
+			MethodName: "ListIDPConnectors",
+			Handler:    _API_ListIDPConnectors_Handler,
 		},
 		{
-			MethodName: "GetConnector",
-			Handler:    _API_GetConnector_Handler,
+			MethodName: "GetIDPConnector",
+			Handler:    _API_GetIDPConnector_Handler,
 		},
 		{
-			MethodName: "DeleteConnector",
-			Handler:    _API_DeleteConnector_Handler,
+			MethodName: "DeleteIDPConnector",
+			Handler:    _API_DeleteIDPConnector_Handler,
 		},
 		{
-			MethodName: "CreateClient",
-			Handler:    _API_CreateClient_Handler,
+			MethodName: "CreateOIDCClient",
+			Handler:    _API_CreateOIDCClient_Handler,
 		},
 		{
-			MethodName: "DeleteClient",
-			Handler:    _API_DeleteClient_Handler,
+			MethodName: "UpdateOIDCClient",
+			Handler:    _API_UpdateOIDCClient_Handler,
+		},
+		{
+			MethodName: "GetOIDCClient",
+			Handler:    _API_GetOIDCClient_Handler,
+		},
+		{
+			MethodName: "ListOIDCClients",
+			Handler:    _API_ListOIDCClients_Handler,
+		},
+		{
+			MethodName: "DeleteOIDCClient",
+			Handler:    _API_DeleteOIDCClient_Handler,
 		},
 		{
 			MethodName: "DeleteAll",
@@ -1278,7 +1665,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	Metadata: "client/identity/identity.proto",
 }
 
-func (m *ConnectorConfig) Marshal() (dAtA []byte, err error) {
+func (m *IDPConnector) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1288,12 +1675,12 @@ func (m *ConnectorConfig) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ConnectorConfig) MarshalTo(dAtA []byte) (int, error) {
+func (m *IDPConnector) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConnectorConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *IDPConnector) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1338,7 +1725,7 @@ func (m *ConnectorConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *CreateConnectorRequest) Marshal() (dAtA []byte, err error) {
+func (m *CreateIDPConnectorRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1348,12 +1735,12 @@ func (m *CreateConnectorRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CreateConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateIDPConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CreateConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateIDPConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1377,7 +1764,7 @@ func (m *CreateConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *CreateConnectorResponse) Marshal() (dAtA []byte, err error) {
+func (m *CreateIDPConnectorResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1387,12 +1774,12 @@ func (m *CreateConnectorResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CreateConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateIDPConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CreateConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateIDPConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1404,7 +1791,7 @@ func (m *CreateConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *UpdateConnectorRequest) Marshal() (dAtA []byte, err error) {
+func (m *UpdateIDPConnectorRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1414,12 +1801,12 @@ func (m *UpdateConnectorRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *UpdateConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *UpdateIDPConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *UpdateConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *UpdateIDPConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1443,7 +1830,7 @@ func (m *UpdateConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *UpdateConnectorResponse) Marshal() (dAtA []byte, err error) {
+func (m *UpdateIDPConnectorResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1453,12 +1840,12 @@ func (m *UpdateConnectorResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *UpdateConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *UpdateIDPConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *UpdateConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *UpdateIDPConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1470,7 +1857,7 @@ func (m *UpdateConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *ListConnectorsRequest) Marshal() (dAtA []byte, err error) {
+func (m *ListIDPConnectorsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1480,12 +1867,12 @@ func (m *ListConnectorsRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ListConnectorsRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *ListIDPConnectorsRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ListConnectorsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ListIDPConnectorsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1497,7 +1884,7 @@ func (m *ListConnectorsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ListConnectorsResponse) Marshal() (dAtA []byte, err error) {
+func (m *ListIDPConnectorsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1507,12 +1894,12 @@ func (m *ListConnectorsResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ListConnectorsResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *ListIDPConnectorsResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ListConnectorsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ListIDPConnectorsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1538,7 +1925,7 @@ func (m *ListConnectorsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *GetConnectorRequest) Marshal() (dAtA []byte, err error) {
+func (m *GetIDPConnectorRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1548,12 +1935,12 @@ func (m *GetConnectorRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *GetConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetIDPConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *GetConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *GetIDPConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1572,7 +1959,7 @@ func (m *GetConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *GetConnectorResponse) Marshal() (dAtA []byte, err error) {
+func (m *GetIDPConnectorResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1582,12 +1969,12 @@ func (m *GetConnectorResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *GetConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetIDPConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *GetConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *GetIDPConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1611,7 +1998,7 @@ func (m *GetConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *DeleteConnectorRequest) Marshal() (dAtA []byte, err error) {
+func (m *DeleteIDPConnectorRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1621,12 +2008,12 @@ func (m *DeleteConnectorRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *DeleteConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *DeleteIDPConnectorRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *DeleteConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *DeleteIDPConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1645,7 +2032,7 @@ func (m *DeleteConnectorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *DeleteConnectorResponse) Marshal() (dAtA []byte, err error) {
+func (m *DeleteIDPConnectorResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1655,12 +2042,12 @@ func (m *DeleteConnectorResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *DeleteConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *DeleteIDPConnectorResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *DeleteConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *DeleteIDPConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1672,7 +2059,7 @@ func (m *DeleteConnectorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *Client) Marshal() (dAtA []byte, err error) {
+func (m *OIDCClient) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1682,12 +2069,12 @@ func (m *Client) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Client) MarshalTo(dAtA []byte) (int, error) {
+func (m *OIDCClient) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *Client) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *OIDCClient) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1738,7 +2125,7 @@ func (m *Client) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *CreateClientRequest) Marshal() (dAtA []byte, err error) {
+func (m *CreateOIDCClientRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1748,12 +2135,12 @@ func (m *CreateClientRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CreateClientRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateOIDCClientRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CreateClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateOIDCClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1777,7 +2164,7 @@ func (m *CreateClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *CreateClientResponse) Marshal() (dAtA []byte, err error) {
+func (m *CreateOIDCClientResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1787,12 +2174,12 @@ func (m *CreateClientResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *CreateClientResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateOIDCClientResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *CreateClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateOIDCClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1816,7 +2203,7 @@ func (m *CreateClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *DeleteClientRequest) Marshal() (dAtA []byte, err error) {
+func (m *GetOIDCClientRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1826,12 +2213,12 @@ func (m *DeleteClientRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *DeleteClientRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetOIDCClientRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *DeleteClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *GetOIDCClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1850,7 +2237,7 @@ func (m *DeleteClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *DeleteClientResponse) Marshal() (dAtA []byte, err error) {
+func (m *GetOIDCClientResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1860,12 +2247,219 @@ func (m *DeleteClientResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *DeleteClientResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetOIDCClientResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *DeleteClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *GetOIDCClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Client != nil {
+		{
+			size, err := m.Client.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintIdentity(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListOIDCClientsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListOIDCClientsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListOIDCClientsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListOIDCClientsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListOIDCClientsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListOIDCClientsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Clients) > 0 {
+		for iNdEx := len(m.Clients) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Clients[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintIdentity(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *UpdateOIDCClientRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpdateOIDCClientRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UpdateOIDCClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Client != nil {
+		{
+			size, err := m.Client.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintIdentity(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *UpdateOIDCClientResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpdateOIDCClientResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UpdateOIDCClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DeleteOIDCClientRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteOIDCClientRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteOIDCClientRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintIdentity(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DeleteOIDCClientResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteOIDCClientResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteOIDCClientResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1942,7 +2536,7 @@ func encodeVarintIdentity(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *ConnectorConfig) Size() (n int) {
+func (m *IDPConnector) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1973,7 +2567,7 @@ func (m *ConnectorConfig) Size() (n int) {
 	return n
 }
 
-func (m *CreateConnectorRequest) Size() (n int) {
+func (m *CreateIDPConnectorRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1989,7 +2583,7 @@ func (m *CreateConnectorRequest) Size() (n int) {
 	return n
 }
 
-func (m *CreateConnectorResponse) Size() (n int) {
+func (m *CreateIDPConnectorResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2001,7 +2595,7 @@ func (m *CreateConnectorResponse) Size() (n int) {
 	return n
 }
 
-func (m *UpdateConnectorRequest) Size() (n int) {
+func (m *UpdateIDPConnectorRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2017,7 +2611,7 @@ func (m *UpdateConnectorRequest) Size() (n int) {
 	return n
 }
 
-func (m *UpdateConnectorResponse) Size() (n int) {
+func (m *UpdateIDPConnectorResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2029,7 +2623,7 @@ func (m *UpdateConnectorResponse) Size() (n int) {
 	return n
 }
 
-func (m *ListConnectorsRequest) Size() (n int) {
+func (m *ListIDPConnectorsRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2041,7 +2635,7 @@ func (m *ListConnectorsRequest) Size() (n int) {
 	return n
 }
 
-func (m *ListConnectorsResponse) Size() (n int) {
+func (m *ListIDPConnectorsResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2059,7 +2653,7 @@ func (m *ListConnectorsResponse) Size() (n int) {
 	return n
 }
 
-func (m *GetConnectorRequest) Size() (n int) {
+func (m *GetIDPConnectorRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2075,7 +2669,7 @@ func (m *GetConnectorRequest) Size() (n int) {
 	return n
 }
 
-func (m *GetConnectorResponse) Size() (n int) {
+func (m *GetIDPConnectorResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2091,7 +2685,7 @@ func (m *GetConnectorResponse) Size() (n int) {
 	return n
 }
 
-func (m *DeleteConnectorRequest) Size() (n int) {
+func (m *DeleteIDPConnectorRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2107,7 +2701,7 @@ func (m *DeleteConnectorRequest) Size() (n int) {
 	return n
 }
 
-func (m *DeleteConnectorResponse) Size() (n int) {
+func (m *DeleteIDPConnectorResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2119,7 +2713,7 @@ func (m *DeleteConnectorResponse) Size() (n int) {
 	return n
 }
 
-func (m *Client) Size() (n int) {
+func (m *OIDCClient) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2155,7 +2749,7 @@ func (m *Client) Size() (n int) {
 	return n
 }
 
-func (m *CreateClientRequest) Size() (n int) {
+func (m *CreateOIDCClientRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2171,7 +2765,7 @@ func (m *CreateClientRequest) Size() (n int) {
 	return n
 }
 
-func (m *CreateClientResponse) Size() (n int) {
+func (m *CreateOIDCClientResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2187,7 +2781,7 @@ func (m *CreateClientResponse) Size() (n int) {
 	return n
 }
 
-func (m *DeleteClientRequest) Size() (n int) {
+func (m *GetOIDCClientRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2203,7 +2797,97 @@ func (m *DeleteClientRequest) Size() (n int) {
 	return n
 }
 
-func (m *DeleteClientResponse) Size() (n int) {
+func (m *GetOIDCClientResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Client != nil {
+		l = m.Client.Size()
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ListOIDCClientsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ListOIDCClientsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Clients) > 0 {
+		for _, e := range m.Clients {
+			l = e.Size()
+			n += 1 + l + sovIdentity(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UpdateOIDCClientRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Client != nil {
+		l = m.Client.Size()
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UpdateOIDCClientResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DeleteOIDCClientRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DeleteOIDCClientResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2245,7 +2929,7 @@ func sovIdentity(x uint64) (n int) {
 func sozIdentity(x uint64) (n int) {
 	return sovIdentity(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *ConnectorConfig) Unmarshal(dAtA []byte) error {
+func (m *IDPConnector) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2268,10 +2952,10 @@ func (m *ConnectorConfig) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ConnectorConfig: wiretype end group for non-group")
+			return fmt.Errorf("proto: IDPConnector: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ConnectorConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: IDPConnector: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2446,7 +3130,7 @@ func (m *ConnectorConfig) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *CreateConnectorRequest) Unmarshal(dAtA []byte) error {
+func (m *CreateIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2469,10 +3153,10 @@ func (m *CreateConnectorRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: CreateConnectorRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateIDPConnectorRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CreateConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateIDPConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2505,7 +3189,7 @@ func (m *CreateConnectorRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &ConnectorConfig{}
+				m.Config = &IDPConnector{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2536,7 +3220,7 @@ func (m *CreateConnectorRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *CreateConnectorResponse) Unmarshal(dAtA []byte) error {
+func (m *CreateIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2559,10 +3243,10 @@ func (m *CreateConnectorResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: CreateConnectorResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateIDPConnectorResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CreateConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateIDPConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -2590,7 +3274,7 @@ func (m *CreateConnectorResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *UpdateConnectorRequest) Unmarshal(dAtA []byte) error {
+func (m *UpdateIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2613,10 +3297,10 @@ func (m *UpdateConnectorRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: UpdateConnectorRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: UpdateIDPConnectorRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: UpdateConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: UpdateIDPConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2649,7 +3333,7 @@ func (m *UpdateConnectorRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &ConnectorConfig{}
+				m.Config = &IDPConnector{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2680,7 +3364,7 @@ func (m *UpdateConnectorRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *UpdateConnectorResponse) Unmarshal(dAtA []byte) error {
+func (m *UpdateIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2703,10 +3387,10 @@ func (m *UpdateConnectorResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: UpdateConnectorResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: UpdateIDPConnectorResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: UpdateConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: UpdateIDPConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -2734,7 +3418,7 @@ func (m *UpdateConnectorResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ListConnectorsRequest) Unmarshal(dAtA []byte) error {
+func (m *ListIDPConnectorsRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2757,10 +3441,10 @@ func (m *ListConnectorsRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ListConnectorsRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: ListIDPConnectorsRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ListConnectorsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ListIDPConnectorsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -2788,7 +3472,7 @@ func (m *ListConnectorsRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ListConnectorsResponse) Unmarshal(dAtA []byte) error {
+func (m *ListIDPConnectorsResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2811,10 +3495,10 @@ func (m *ListConnectorsResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ListConnectorsResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: ListIDPConnectorsResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ListConnectorsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ListIDPConnectorsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2846,7 +3530,7 @@ func (m *ListConnectorsResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Connectors = append(m.Connectors, &ConnectorConfig{})
+			m.Connectors = append(m.Connectors, &IDPConnector{})
 			if err := m.Connectors[len(m.Connectors)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2876,7 +3560,7 @@ func (m *ListConnectorsResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *GetConnectorRequest) Unmarshal(dAtA []byte) error {
+func (m *GetIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2899,10 +3583,10 @@ func (m *GetConnectorRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: GetConnectorRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetIDPConnectorRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: GetConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetIDPConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2962,7 +3646,7 @@ func (m *GetConnectorRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *GetConnectorResponse) Unmarshal(dAtA []byte) error {
+func (m *GetIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2985,10 +3669,10 @@ func (m *GetConnectorResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: GetConnectorResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetIDPConnectorResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: GetConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetIDPConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3021,7 +3705,7 @@ func (m *GetConnectorResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &ConnectorConfig{}
+				m.Config = &IDPConnector{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3052,7 +3736,7 @@ func (m *GetConnectorResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *DeleteConnectorRequest) Unmarshal(dAtA []byte) error {
+func (m *DeleteIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3075,10 +3759,10 @@ func (m *DeleteConnectorRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteConnectorRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: DeleteIDPConnectorRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: DeleteIDPConnectorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3138,7 +3822,7 @@ func (m *DeleteConnectorRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *DeleteConnectorResponse) Unmarshal(dAtA []byte) error {
+func (m *DeleteIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3161,10 +3845,10 @@ func (m *DeleteConnectorResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteConnectorResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: DeleteIDPConnectorResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: DeleteIDPConnectorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -3192,7 +3876,7 @@ func (m *DeleteConnectorResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Client) Unmarshal(dAtA []byte) error {
+func (m *OIDCClient) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3215,10 +3899,10 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Client: wiretype end group for non-group")
+			return fmt.Errorf("proto: OIDCClient: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Client: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: OIDCClient: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3406,7 +4090,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *CreateClientRequest) Unmarshal(dAtA []byte) error {
+func (m *CreateOIDCClientRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3429,10 +4113,10 @@ func (m *CreateClientRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: CreateClientRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateOIDCClientRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CreateClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateOIDCClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3465,7 +4149,7 @@ func (m *CreateClientRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Client == nil {
-				m.Client = &Client{}
+				m.Client = &OIDCClient{}
 			}
 			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3496,7 +4180,7 @@ func (m *CreateClientRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
+func (m *CreateOIDCClientResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3519,10 +4203,10 @@ func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: CreateClientResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateOIDCClientResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CreateClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateOIDCClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3555,7 +4239,7 @@ func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Client == nil {
-				m.Client = &Client{}
+				m.Client = &OIDCClient{}
 			}
 			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3586,7 +4270,7 @@ func (m *CreateClientResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *DeleteClientRequest) Unmarshal(dAtA []byte) error {
+func (m *GetOIDCClientRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3609,10 +4293,10 @@ func (m *DeleteClientRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteClientRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetOIDCClientRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetOIDCClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3672,7 +4356,7 @@ func (m *DeleteClientRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *DeleteClientResponse) Unmarshal(dAtA []byte) error {
+func (m *GetOIDCClientResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3695,10 +4379,472 @@ func (m *DeleteClientResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteClientResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetOIDCClientResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetOIDCClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Client", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Client == nil {
+				m.Client = &OIDCClient{}
+			}
+			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListOIDCClientsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListOIDCClientsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListOIDCClientsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListOIDCClientsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListOIDCClientsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListOIDCClientsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Clients", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Clients = append(m.Clients, &OIDCClient{})
+			if err := m.Clients[len(m.Clients)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpdateOIDCClientRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpdateOIDCClientRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpdateOIDCClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Client", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Client == nil {
+				m.Client = &OIDCClient{}
+			}
+			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpdateOIDCClientResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpdateOIDCClientResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpdateOIDCClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeleteOIDCClientRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteOIDCClientRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteOIDCClientRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeleteOIDCClientResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteOIDCClientResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteOIDCClientResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

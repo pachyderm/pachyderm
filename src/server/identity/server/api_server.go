@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -75,10 +76,10 @@ func (a *apiServer) isAdmin(ctx context.Context, op string) error {
 	}
 }
 
-func dexConnectorToPach(c storage.Connector) *identity.ConnectorConfig {
+func dexConnectorToPach(c storage.Connector) *identity.IDPConnector {
 	// If the version isn't an int, set it to zero
 	version, _ := strconv.Atoi(c.ResourceVersion)
-	return &identity.ConnectorConfig{
+	return &identity.IDPConnector{
 		Id:            c.ID,
 		Name:          c.Name,
 		Type:          c.Type,
@@ -87,8 +88,8 @@ func dexConnectorToPach(c storage.Connector) *identity.ConnectorConfig {
 	}
 }
 
-func dexClientToPach(c *dex_api.Client) *identity.Client {
-	return &identity.Client{
+func dexClientToPach(c *dex_api.Client) *identity.OIDCClient {
+	return &identity.OIDCClient{
 		Id:           c.Id,
 		Secret:       c.Secret,
 		RedirectUris: c.RedirectUris,
@@ -97,25 +98,25 @@ func dexClientToPach(c *dex_api.Client) *identity.Client {
 	}
 }
 
-func (a *apiServer) CreateConnector(ctx context.Context, req *identity.CreateConnectorRequest) (resp *identity.CreateConnectorResponse, retErr error) {
+func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "CreateConnector"); err != nil {
+	if err := a.isAdmin(ctx, "CreateIDPConnector"); err != nil {
 		return nil, err
 	}
 
 	if err := a.server.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
-	return &identity.CreateConnectorResponse{}, nil
+	return &identity.CreateIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) GetConnector(ctx context.Context, req *identity.GetConnectorRequest) (resp *identity.GetConnectorResponse, retErr error) {
+func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "GetConnector"); err != nil {
+	if err := a.isAdmin(ctx, "GetIDPConnector"); err != nil {
 		return nil, err
 	}
 
@@ -124,30 +125,31 @@ func (a *apiServer) GetConnector(ctx context.Context, req *identity.GetConnector
 		return nil, err
 	}
 
-	return &identity.GetConnectorResponse{
+	return &identity.GetIDPConnectorResponse{
 		Config: dexConnectorToPach(c),
 	}, nil
 }
 
-func (a *apiServer) UpdateConnector(ctx context.Context, req *identity.UpdateConnectorRequest) (resp *identity.UpdateConnectorResponse, retErr error) {
+func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (resp *identity.UpdateIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "UpdateConnector"); err != nil {
+	if err := a.isAdmin(ctx, "UpdateIDPConnector"); err != nil {
 		return nil, err
 	}
 
 	if err := a.server.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
-	return &identity.UpdateConnectorResponse{}, nil
+
+	return &identity.UpdateIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnectorsRequest) (resp *identity.ListConnectorsResponse, retErr error) {
+func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "ListConnectors"); err != nil {
+	if err := a.isAdmin(ctx, "ListIDPConnectors"); err != nil {
 		return nil, err
 	}
 
@@ -156,8 +158,8 @@ func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnec
 		return nil, err
 	}
 
-	resp = &identity.ListConnectorsResponse{
-		Connectors: make([]*identity.ConnectorConfig, len(connectors)),
+	resp = &identity.ListIDPConnectorsResponse{
+		Connectors: make([]*identity.IDPConnector, len(connectors)),
 	}
 
 	for i, c := range connectors {
@@ -167,25 +169,26 @@ func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnec
 	return resp, nil
 }
 
-func (a *apiServer) DeleteConnector(ctx context.Context, req *identity.DeleteConnectorRequest) (resp *identity.DeleteConnectorResponse, retErr error) {
+func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (resp *identity.DeleteIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "DeleteConnector"); err != nil {
+	if err := a.isAdmin(ctx, "DeleteIDPConnector"); err != nil {
 		return nil, err
 	}
 
 	if err := a.server.deleteConnector(req.Id); err != nil {
 		return nil, err
 	}
-	return &identity.DeleteConnectorResponse{}, nil
+
+	return &identity.DeleteIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClientRequest) (resp *identity.CreateClientResponse, retErr error) {
+func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "CreateClient"); err != nil {
+	if err := a.isAdmin(ctx, "CreateOIDCClient"); err != nil {
 		return nil, err
 	}
 
@@ -204,23 +207,97 @@ func (a *apiServer) CreateClient(ctx context.Context, req *identity.CreateClient
 		return nil, err
 	}
 
-	return &identity.CreateClientResponse{
+	if dexResp.AlreadyExists {
+		return nil, fmt.Errorf("OIDC client with id %q already exists", req.Client.Id)
+	}
+
+	return &identity.CreateOIDCClientResponse{
 		Client: dexClientToPach(dexResp.Client),
 	}, nil
 }
 
-func (a *apiServer) DeleteClient(ctx context.Context, req *identity.DeleteClientRequest) (resp *identity.DeleteClientResponse, retErr error) {
+func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (resp *identity.UpdateOIDCClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "DeleteClient"); err != nil {
+	if err := a.isAdmin(ctx, "UpdateOIDCClient"); err != nil {
 		return nil, err
 	}
 
-	if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id}); err != nil {
+	client := &dex_api.UpdateClientReq{
+		Id:           req.Client.Id,
+		Name:         req.Client.Name,
+		RedirectUris: req.Client.RedirectUris,
+		TrustedPeers: req.Client.TrustedPeers,
+	}
+
+	dexResp, err := a.server.UpdateClient(ctx, client)
+	if err != nil {
 		return nil, err
 	}
-	return &identity.DeleteClientResponse{}, nil
+
+	if dexResp.NotFound {
+		return nil, fmt.Errorf("unable to find OIDC client with id %q", req.Client.Id)
+	}
+
+	return &identity.UpdateOIDCClientResponse{}, nil
+}
+
+func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "GetOIDCClient"); err != nil {
+		return nil, err
+	}
+
+	client, err := a.server.getClient(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &identity.GetOIDCClientResponse{Client: dexClientToPach(client)}, nil
+}
+
+func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "ListOIDCClient"); err != nil {
+		return nil, err
+	}
+
+	clients, err := a.server.listClients()
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &identity.ListOIDCClientsResponse{Clients: make([]*identity.OIDCClient, len(clients))}
+	for i, client := range clients {
+		resp.Clients[i] = dexClientToPach(client)
+	}
+
+	return resp, nil
+}
+
+func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (resp *identity.DeleteOIDCClientResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "DeleteOIDCClient"); err != nil {
+		return nil, err
+	}
+
+	dexResp, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id})
+	if err != nil {
+		return nil, err
+	}
+
+	if dexResp.NotFound {
+		return nil, fmt.Errorf("unable to find OIDC client with id %q", req.Id)
+	}
+
+	return &identity.DeleteOIDCClientResponse{}, nil
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
@@ -242,7 +319,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 	}
 
 	for _, client := range clients {
-		if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: client.ID}); err != nil {
+		if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: client.Id}); err != nil {
 			return nil, err
 		}
 	}

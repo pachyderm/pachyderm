@@ -3,8 +3,8 @@ syntax = "proto3";
 package identity;
 option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
 
-/* ConnectorConfig represents an IDP to delegate authentication to */
-message ConnectorConfig {
+/* IDPConnector represents an IDP to delegate authentication to */
+message IDPConnector {
   string id = 1; 
   string name = 2;
   string type = 3;
@@ -12,39 +12,39 @@ message ConnectorConfig {
   string jsonConfig = 5;
 }
 
-message CreateConnectorRequest {
-  ConnectorConfig config = 1; 
+message CreateIDPConnectorRequest {
+  IDPConnector config = 1; 
 }
 
-message CreateConnectorResponse {}
+message CreateIDPConnectorResponse {}
 
-message UpdateConnectorRequest {
-  ConnectorConfig config = 1; 
+message UpdateIDPConnectorRequest {
+  IDPConnector config = 1; 
 }
 
-message UpdateConnectorResponse {}
+message UpdateIDPConnectorResponse {}
 
-message ListConnectorsRequest {}
+message ListIDPConnectorsRequest {}
 
-message ListConnectorsResponse {
-  repeated ConnectorConfig connectors = 1; 
+message ListIDPConnectorsResponse {
+  repeated IDPConnector connectors = 1; 
 }
 
-message GetConnectorRequest {
+message GetIDPConnectorRequest {
   string id = 1;
 }
 
-message GetConnectorResponse {
-  ConnectorConfig config = 1; 
+message GetIDPConnectorResponse {
+  IDPConnector config = 1; 
 }
 
-message DeleteConnectorRequest {
+message DeleteIDPConnectorRequest {
   string id = 1;
 }
 
-message DeleteConnectorResponse {}
+message DeleteIDPConnectorResponse {}
 
-message Client {
+message OIDCClient {
   string id = 1;
   repeated string redirect_uris = 2;
   repeated string trusted_peers = 3;
@@ -52,30 +52,53 @@ message Client {
   string secret = 5;
 }
 
-message CreateClientRequest {
-  Client client = 1;
+message CreateOIDCClientRequest {
+  OIDCClient client = 1;
 }
 
-message CreateClientResponse {
-  Client client = 1;
+message CreateOIDCClientResponse {
+  OIDCClient client = 1;
 }
 
-message DeleteClientRequest {
+message GetOIDCClientRequest {
+	string id = 1;
+}
+
+message GetOIDCClientResponse {
+	OIDCClient client = 1;
+}
+
+message ListOIDCClientsRequest {}
+
+message ListOIDCClientsResponse {
+	repeated OIDCClient clients = 1;
+}
+
+message UpdateOIDCClientRequest {
+	OIDCClient client = 1;
+}
+
+message UpdateOIDCClientResponse {}
+
+message DeleteOIDCClientRequest {
   string id = 1;
 }
 
-message DeleteClientResponse {}
+message DeleteOIDCClientResponse {}
 
 message DeleteAllRequest {}
 message DeleteAllResponse {}
 
 service API {
-  rpc CreateConnector(CreateConnectorRequest) returns (CreateConnectorResponse) {}
-  rpc UpdateConnector(UpdateConnectorRequest) returns (UpdateConnectorResponse) {}
-  rpc ListConnectors(ListConnectorsRequest) returns (ListConnectorsResponse) {}
-  rpc GetConnector(GetConnectorRequest) returns (GetConnectorResponse) {}
-  rpc DeleteConnector(DeleteConnectorRequest) returns (DeleteConnectorResponse) {}
-  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse) {}
-  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse) {}
+  rpc CreateIDPConnector(CreateIDPConnectorRequest) returns (CreateIDPConnectorResponse) {}
+  rpc UpdateIDPConnector(UpdateIDPConnectorRequest) returns (UpdateIDPConnectorResponse) {}
+  rpc ListIDPConnectors(ListIDPConnectorsRequest) returns (ListIDPConnectorsResponse) {}
+  rpc GetIDPConnector(GetIDPConnectorRequest) returns (GetIDPConnectorResponse) {}
+  rpc DeleteIDPConnector(DeleteIDPConnectorRequest) returns (DeleteIDPConnectorResponse) {}
+  rpc CreateOIDCClient(CreateOIDCClientRequest) returns (CreateOIDCClientResponse) {}
+  rpc UpdateOIDCClient(UpdateOIDCClientRequest) returns (UpdateOIDCClientResponse) {}
+  rpc GetOIDCClient(GetOIDCClientRequest) returns (GetOIDCClientResponse) {}
+  rpc ListOIDCClients(ListOIDCClientsRequest) returns (ListOIDCClientsResponse) {}
+  rpc DeleteOIDCClient(DeleteOIDCClientRequest) returns (DeleteOIDCClientResponse) {}
   rpc DeleteAll(DeleteAllRequest) returns (DeleteAllResponse) {}
 }

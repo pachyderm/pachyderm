@@ -217,7 +217,7 @@ func (s *dexServer) deleteConnector(id string) error {
 	return s.dexStorage.DeleteConnector(id)
 }
 
-func (s *dexServer) listConnectors() (connectors []storage.Connector, err error) {
+func (s *dexServer) listConnectors() ([]storage.Connector, error) {
 	s.lazyStart()
 	if s.dexStorage == nil {
 		return nil, fmt.Errorf("unable to start Dex server, check logs")
@@ -226,11 +226,43 @@ func (s *dexServer) listConnectors() (connectors []storage.Connector, err error)
 	return s.dexStorage.ListConnectors()
 }
 
-func (s *dexServer) listClients() (connectors []storage.Client, err error) {
+func (s *dexServer) listClients() ([]*api.Client, error) {
 	s.lazyStart()
 	if s.dexStorage == nil {
 		return nil, fmt.Errorf("unable to start Dex server, check logs")
 	}
 
-	return s.dexStorage.ListClients()
+	storageClients, err := s.dexStorage.ListClients()
+	if err != nil {
+		return nil, err
+	}
+
+	clients := make([]*api.Client, len(storageClients))
+	for i, c := range storageClients {
+		clients[i] = storageClientToAPIClient(c)
+	}
+	return clients, nil
+}
+
+func (s *dexServer) getClient(id string) (*api.Client, error) {
+	s.lazyStart()
+	if s.dexStorage == nil {
+		return nil, fmt.Errorf("unable to start Dex server, check logs")
+	}
+
+	client, err := s.dexStorage.GetClient(id)
+	if err != nil {
+		return nil, err
+	}
+	return storageClientToAPIClient(client), nil
+}
+
+func storageClientToAPIClient(c storage.Client) *api.Client {
+	return &api.Client{
+		Id:           c.ID,
+		Secret:       c.Secret,
+		RedirectUris: c.RedirectURIs,
+		TrustedPeers: c.TrustedPeers,
+		Name:         c.Name,
+	}
 }

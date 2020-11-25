@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/identity"
@@ -14,10 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateConnectorCmd returns a cobra.Command to create a new IDP integration
-func CreateConnectorCmd() *cobra.Command {
+// CreateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
+func CreateIDPConnectorCmd() *cobra.Command {
 	var id, name, t, file string
-	addConnector := &cobra.Command{
+	createConnector := &cobra.Command{
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -43,8 +44,8 @@ func CreateConnectorCmd() *cobra.Command {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			req := &identity.CreateConnectorRequest{
-				Config: &identity.ConnectorConfig{
+			req := &identity.CreateIDPConnectorRequest{
+				Config: &identity.IDPConnector{
 					Id:            id,
 					Name:          name,
 					Type:          t,
@@ -52,19 +53,19 @@ func CreateConnectorCmd() *cobra.Command {
 					JsonConfig:    string(rawConfigBytes),
 				}}
 
-			_, err = c.CreateConnector(c.Ctx(), req)
+			_, err = c.CreateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	addConnector.PersistentFlags().StringVar(&id, "id", "", `The id for the new connector.`)
-	addConnector.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the connector.`)
-	addConnector.PersistentFlags().StringVar(&t, "type", "", `The type of the connector, ex. github, ldap, saml.`)
-	addConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
-	return cmdutil.CreateAlias(addConnector, "idp create connector")
+	createConnector.PersistentFlags().StringVar(&id, "id", "", `The id for the new connector.`)
+	createConnector.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the connector.`)
+	createConnector.PersistentFlags().StringVar(&t, "type", "", `The type of the connector, ex. github, ldap, saml.`)
+	createConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
+	return cmdutil.CreateAlias(createConnector, "idp create connector")
 }
 
-// UpdateConnectorCmd returns a cobra.Command to create a new IDP integration
-func UpdateConnectorCmd() *cobra.Command {
+// UpdateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
+func UpdateIDPConnectorCmd() *cobra.Command {
 	var name, file string
 	var version int
 	updateConnector := &cobra.Command{
@@ -94,15 +95,15 @@ func UpdateConnectorCmd() *cobra.Command {
 				rawConfigBytes = nil
 			}
 
-			req := &identity.UpdateConnectorRequest{
-				Config: &identity.ConnectorConfig{
+			req := &identity.UpdateIDPConnectorRequest{
+				Config: &identity.IDPConnector{
 					Id:            args[0],
 					Name:          name,
 					ConfigVersion: int64(version),
 					JsonConfig:    string(rawConfigBytes),
 				}}
 
-			_, err = c.UpdateConnector(c.Ctx(), req)
+			_, err = c.UpdateIDPConnector(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -112,8 +113,8 @@ func UpdateConnectorCmd() *cobra.Command {
 	return cmdutil.CreateAlias(updateConnector, "idp update connector")
 }
 
-// GetConnectorCmd returns a cobra.Command to get an IDP connector configuration
-func GetConnectorCmd() *cobra.Command {
+// GetIDPConnectorCmd returns a cobra.Command to get an IDP connector configuration
+func GetIDPConnectorCmd() *cobra.Command {
 	getConnector := &cobra.Command{
 		Use:   "{{alias}} <connector id>",
 		Short: "Get the config for an identity provider connector.",
@@ -124,7 +125,7 @@ func GetConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 
-			resp, err := c.GetConnector(c.Ctx(), &identity.GetConnectorRequest{Id: args[1]})
+			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[1]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -135,8 +136,8 @@ func GetConnectorCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getConnector, "idp get connector")
 }
 
-// DeleteConnectorCmd returns a cobra.Command to delete an IDP connector
-func DeleteConnectorCmd() *cobra.Command {
+// DeleteIDPConnectorCmd returns a cobra.Command to delete an IDP connector
+func DeleteIDPConnectorCmd() *cobra.Command {
 	deleteConnector := &cobra.Command{
 		Short: "Delete an identity provider connector",
 		Long:  "Delete an identity provider connector",
@@ -146,15 +147,15 @@ func DeleteConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 
-			_, err = c.DeleteConnector(c.Ctx(), &identity.DeleteConnectorRequest{Id: args[1]})
+			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[1]})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	return cmdutil.CreateAlias(deleteConnector, "idp delete connector")
 }
 
-// ListConnectorsCmd returns a cobra.Command to list IDP integrations
-func ListConnectorsCmd() *cobra.Command {
+// ListIDPConnectorsCmd returns a cobra.Command to list IDP integrations
+func ListIDPConnectorsCmd() *cobra.Command {
 	listConnectors := &cobra.Command{
 		Short: "List identity provider connectors",
 		Long:  `List identity provider connectors`,
@@ -165,7 +166,7 @@ func ListConnectorsCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			resp, err := c.ListConnectors(c.Ctx(), &identity.ListConnectorsRequest{})
+			resp, err := c.ListIDPConnectors(c.Ctx(), &identity.ListIDPConnectorsRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -179,12 +180,12 @@ func ListConnectorsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(listConnectors, "idp list connector")
 }
 
-// CreateClientCmd returns a cobra.Command to create a new OIDC client
-func CreateClientCmd() *cobra.Command {
+// CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
+func CreateOIDCClientCmd() *cobra.Command {
 	var id, name, redirectURI string
-	addConnector := &cobra.Command{
-		Short: "Create a new OIDC client",
-		Long:  `Create a new OIDC client`,
+	createClient := &cobra.Command{
+		Short: "Create a new OIDC client.",
+		Long:  `Create a new OIDC client.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -192,15 +193,15 @@ func CreateClientCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			req := &identity.CreateClientRequest{
-				Client: &identity.Client{
+			req := &identity.CreateOIDCClientRequest{
+				Client: &identity.OIDCClient{
 					Id:           id,
 					Name:         name,
 					RedirectUris: []string{redirectURI},
 				},
 			}
 
-			resp, err := c.CreateClient(c.Ctx(), req)
+			resp, err := c.CreateOIDCClient(c.Ctx(), req)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -209,10 +210,111 @@ func CreateClientCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	addConnector.PersistentFlags().StringVar(&id, "id", "", ``)
-	addConnector.PersistentFlags().StringVar(&name, "name", "", ``)
-	addConnector.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", ``)
-	return cmdutil.CreateAlias(addConnector, "idp create client")
+	createClient.PersistentFlags().StringVar(&id, "id", "", `The client_id of the new client.`)
+	createClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
+	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", `The authorized redirect URL for callbacks.`)
+	return cmdutil.CreateAlias(createClient, "idp create client")
+}
+
+// DeleteOIDCClientCmd returns a cobra.Command to delete an OIDC client
+func DeleteOIDCClientCmd() *cobra.Command {
+	deleteClient := &cobra.Command{
+		Use:   "{{alias}} <client ID>",
+		Short: "Delete an OIDC client.",
+		Long:  `Delete an OIDC client.`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			_, err = c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[1]})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return cmdutil.CreateAlias(deleteClient, "idp delete client")
+}
+
+// GetOIDCClientCmd returns a cobra.Command to get an OIDC client
+func GetOIDCClientCmd() *cobra.Command {
+	getClient := &cobra.Command{
+		Use:   "{{alias}} <client ID>",
+		Short: "Get an OIDC client.",
+		Long:  `Get an OIDC client.`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[1]})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Printf("client_id: %v\nsecret: %v\nname: %v\nredirect URIs: %v\ntrusted peers: %v\n", resp.Client.Id, resp.Client.Secret, resp.Client.Name, strings.Join(resp.Client.RedirectUris, ", "), strings.Join(resp.Client.TrustedPeers, ", "))
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(getClient, "idp get client")
+}
+
+// UpdateOIDCClientCmd returns a cobra.Command to update an existing OIDC client
+func UpdateOIDCClientCmd() *cobra.Command {
+	var name, redirectURI string
+	updateClient := &cobra.Command{
+		Use:   "{{ alias }} <client ID>",
+		Short: "Update an OIDC client.",
+		Long:  `Update an OIDC client.`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &identity.UpdateOIDCClientRequest{
+				Client: &identity.OIDCClient{
+					Id:           args[0],
+					Name:         name,
+					RedirectUris: []string{redirectURI},
+				},
+			}
+
+			_, err = c.UpdateOIDCClient(c.Ctx(), req)
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	updateClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
+	updateClient.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", `The authorized redirect URL for callbacks.`)
+	return cmdutil.CreateAlias(updateClient, "idp update client")
+}
+
+// ListOIDCClientsCmd returns a cobra.Command to list IDP integrations
+func ListOIDCClientsCmd() *cobra.Command {
+	listConnectors := &cobra.Command{
+		Short: "List OIDC clients.",
+		Long:  `List OIDC clients.`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			resp, err := c.ListOIDCClients(c.Ctx(), &identity.ListOIDCClientsRequest{})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			for _, client := range resp.Clients {
+				fmt.Printf("%v", client.Id)
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(listConnectors, "idp list client")
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
@@ -226,12 +328,15 @@ func Cmds() []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(idp, "idp"))
-	commands = append(commands, CreateConnectorCmd())
-	commands = append(commands, GetConnectorCmd())
-	commands = append(commands, UpdateConnectorCmd())
-	commands = append(commands, DeleteConnectorCmd())
-	commands = append(commands, ListConnectorsCmd())
-	commands = append(commands, CreateClientCmd())
+	commands = append(commands, CreateIDPConnectorCmd())
+	commands = append(commands, GetIDPConnectorCmd())
+	commands = append(commands, UpdateIDPConnectorCmd())
+	commands = append(commands, DeleteIDPConnectorCmd())
+	commands = append(commands, ListIDPConnectorsCmd())
+	commands = append(commands, CreateOIDCClientCmd())
+	commands = append(commands, GetOIDCClientCmd())
+	commands = append(commands, UpdateOIDCClientCmd())
+	commands = append(commands, ListOIDCClientsCmd())
 
 	return commands
 }
