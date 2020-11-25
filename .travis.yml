@@ -4,14 +4,14 @@ cache:
   directories:
     # If any directories are added here, they must also be added to
     # etc/testing/travis_cache.sh
-    - "${HOME}/.cache"
-    - "${HOME}/cached-deps"
-    - "${HOME}/gopath/pkg/mod"
+    - ${HOME}/.cache
+    - ${HOME}/cached-deps
+    - ${HOME}/gopath/pkg/mod
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
 
 language: go
 go:
-  - 1.15.2
+  - "1.15.2"
 env:
   global:
     - PATH="${HOME}/cached-deps:$(python3 -c 'import site; print(site.USER_BASE)')/bin:${PATH}"
@@ -24,7 +24,7 @@ env:
     - RUN_BAD_TESTS=1
   matrix:
     - BUCKET=MISC
-    # If you want to update the number of PPS or auth buckets, you'll need to
+    # If you want to update the number of PPS or auth buckets, you'll neet to
     # update the value of PPS_BUCKETS or AUTH_BUCKETS above
     - BUCKET=ADMIN
     - BUCKET=AUTH1
@@ -37,7 +37,6 @@ env:
     - BUCKET=PPS5
     - BUCKET=PPS6
     - BUCKET=EXAMPLES
-    - BUCKET=OBJECT
 
 stages:
   - build
@@ -49,8 +48,6 @@ jobs:
       script: etc/testing/travis_build_check_and_stash.sh && etc/testing/travis_build.sh
 
 before_install:
-  # Unencrypt object store credentials used by tests (does not work for PRs from forks)
-  - openssl aes-256-cbc -K $encrypted_4c9217b7ee59_key -iv $encrypted_4c9217b7ee59_iv -in creds.env.enc -out creds.env -d
   # Get some insight into the system
   - top -b -n 1|head -n 20
   - uptime
@@ -72,16 +69,15 @@ before_cache:
 
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
-
 branches:
   only:
-    # Trigger only for PR's to master
-    - master
-    # Trigger CI tests for all release branches
-    # Eg. 1.9.x, 1.10.x
-    - "/^\\d+\\.\\d+\\.x/"
-    # Trigger CI tests for all branches that end with "-ci-trigger"
-    # ruby reg-ex except for things before/after "/"
-    - "/.*(?i:ci-trigger)$/"
-    # For all branches uncomment the line below or remove the "branches" section
-    #- /.*/
+  # Trigger only for PR's to master
+  - master
+  # Trigger CI tests for all release branches
+  # Eg. 1.9.x, 1.10.x
+  - /^\d+\.\d+\.x/
+  # Trigger CI tests for all branches that end with "-ci-trigger"
+  # ruby reg-ex except for things before/after "/"
+  - /.*(?i:ci-trigger)$/
+  # For all branches uncomment the line below or remove the "branches" section
+  #- /.*/
