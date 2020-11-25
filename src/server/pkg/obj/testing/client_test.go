@@ -22,10 +22,10 @@ type BackendType string
 
 const (
 	AmazonBackend    BackendType = "Amazon"
-	ECSBackend                   = "ECS"
-	GoogleBackend                = "Google"
-	MicrosoftBackend             = "Microsoft"
-	LocalBackend                 = "Local"
+	ECSBackend       BackendType = "ECS"
+	GoogleBackend    BackendType = "Google"
+	MicrosoftBackend BackendType = "Microsoft"
+	LocalBackend     BackendType = "Local"
 )
 
 // ClientType is used to tell the tests which client is being tested so some testing
@@ -34,10 +34,10 @@ type ClientType string
 
 const (
 	AmazonClient    ClientType = "Amazon"
-	MinioClient                = "ECS"
-	GoogleClient               = "Google"
-	MicrosoftClient            = "Microsoft"
-	LocalClient                = "Local"
+	MinioClient     ClientType = "ECS"
+	GoogleClient    ClientType = "Google"
+	MicrosoftClient ClientType = "Microsoft"
+	LocalClient     ClientType = "Local"
 )
 
 // NOTE: these tests require object storage credentials to be loaded in your
