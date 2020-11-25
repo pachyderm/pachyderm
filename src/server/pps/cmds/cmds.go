@@ -922,7 +922,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
 			if splitTransaction {
-				fmt.Println("Warning: This command with the --split-txn flag must be run to completion / rerun upon failure or Pachyderm will be left in an inconsistent state.")
+				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
