@@ -157,11 +157,11 @@ func (a *apiServer) ListConnectors(ctx context.Context, req *identity.ListConnec
 	}
 
 	resp = &identity.ListConnectorsResponse{
-		Config: make([]*identity.ConnectorConfig, len(connectors)),
+		Connectors: make([]*identity.ConnectorConfig, len(connectors)),
 	}
 
 	for i, c := range connectors {
-		resp.Config[i] = dexConnectorToPach(c)
+		resp.Connectors[i] = dexConnectorToPach(c)
 	}
 
 	return resp, nil

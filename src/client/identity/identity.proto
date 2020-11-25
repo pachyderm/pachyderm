@@ -27,7 +27,7 @@ message UpdateConnectorResponse {}
 message ListConnectorsRequest {}
 
 message ListConnectorsResponse {
-  repeated ConnectorConfig config = 1; 
+  repeated ConnectorConfig connectors = 1; 
 }
 
 message GetConnectorRequest {

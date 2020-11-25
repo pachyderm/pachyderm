@@ -182,7 +182,7 @@ func (s *dexServer) updateConnector(id, name string, resourceVersion int, jsonCo
 
 	return s.dexStorage.UpdateConnector(id, func(c storage.Connector) (storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
-		if oldVersion != resourceVersion+1 {
+		if oldVersion+1 != resourceVersion {
 			return storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", resourceVersion, oldVersion+1)
 		}
 
