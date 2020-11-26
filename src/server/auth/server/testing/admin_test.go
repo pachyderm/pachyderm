@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -1185,6 +1186,9 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 // TestGetAuthToken tests that an admin can manufacture auth credentials for
 // arbitrary other users
 func TestGetAuthToken(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
