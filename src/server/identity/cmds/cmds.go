@@ -182,7 +182,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 
 // CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
 func CreateOIDCClientCmd() *cobra.Command {
-	var id, name, redirectURI string
+	var id, name, redirectURI, trustedPeers string
 	createClient := &cobra.Command{
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
@@ -197,7 +197,8 @@ func CreateOIDCClientCmd() *cobra.Command {
 				Client: &identity.OIDCClient{
 					Id:           id,
 					Name:         name,
-					RedirectUris: []string{redirectURI},
+					RedirectUris: strings.Split(redirectURI, ","),
+					TrustedPeers: strings.Split(trustedPeers, ","),
 				},
 			}
 
@@ -212,7 +213,8 @@ func CreateOIDCClientCmd() *cobra.Command {
 	}
 	createClient.PersistentFlags().StringVar(&id, "id", "", `The client_id of the new client.`)
 	createClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
-	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", `The authorized redirect URL for callbacks.`)
+	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUris", "", `A comma-separated list of authorized redirect URLs for callbacks.`)
+	createClient.PersistentFlags().StringVar(&trustedPeers, "trustedPeers", "", `A comma-separated list of clients who can get tokens for this service.`)
 	return cmdutil.CreateAlias(createClient, "idp create client")
 }
 
@@ -262,7 +264,7 @@ func GetOIDCClientCmd() *cobra.Command {
 
 // UpdateOIDCClientCmd returns a cobra.Command to update an existing OIDC client
 func UpdateOIDCClientCmd() *cobra.Command {
-	var name, redirectURI string
+	var name, redirectURI, trustedPeers string
 	updateClient := &cobra.Command{
 		Use:   "{{ alias }} <client ID>",
 		Short: "Update an OIDC client.",
@@ -278,7 +280,8 @@ func UpdateOIDCClientCmd() *cobra.Command {
 				Client: &identity.OIDCClient{
 					Id:           args[0],
 					Name:         name,
-					RedirectUris: []string{redirectURI},
+					RedirectUris: strings.Split(redirectURI, ","),
+					TrustedPeers: strings.Split(trustedPeers, ","),
 				},
 			}
 
@@ -287,7 +290,8 @@ func UpdateOIDCClientCmd() *cobra.Command {
 		}),
 	}
 	updateClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
-	updateClient.PersistentFlags().StringVar(&redirectURI, "redirectUri", "", `The authorized redirect URL for callbacks.`)
+	updateClient.PersistentFlags().StringVar(&redirectURI, "redirectUris", "", `A comma-separated list of redirect URLs for callbacks.`)
+	updateClient.PersistentFlags().StringVar(&trustedPeers, "trustedPeers", "", `A comma-separated list of clients that can get tokens for this service`)
 	return cmdutil.CreateAlias(updateClient, "idp update client")
 }
 
