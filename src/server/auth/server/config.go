@@ -364,7 +364,11 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 	ctx := context.Background()
 	if idp.OIDC.IssuerOverride != "" {
-		ctx = oidc.ClientContext(ctx, RewriteClient(idp.OIDC.IssuerOverride))
+		client, err := RewriteClient(idp.OIDC.Issuer, idp.OIDC.IssuerOverride)
+		if err != nil {
+			errors.Wrapf(err, "unable to create OIDC issuer override client")
+		}
+		ctx = oidc.ClientContext(ctx, client)
 	}
 
 	// this does a request to <issuer>/.well-known/openid-configuration to see if it works

@@ -164,7 +164,11 @@ func (a *apiServer) NewOIDCSP(name, issuer, issuerOverride, clientID, clientSecr
 	var err error
 	ctx := context.Background()
 	if issuerOverride != "" {
-		ctx = oidc.ClientContext(ctx, RewriteClient(issuerOverride))
+		client, err := RewriteClient(issuer, issuerOverride)
+		if err != nil {
+			return nil, err
+		}
+		ctx = oidc.ClientContext(ctx, client)
 	}
 
 	o.Provider, err = oidc.NewProvider(
@@ -416,7 +420,11 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 	}
 
 	if sp.IssuerOverride != "" {
-		ctx = oidc.ClientContext(ctx, RewriteClient(sp.IssuerOverride))
+		client, err := RewriteClient(sp.Issuer, sp.IssuerOverride)
+		if err != nil {
+			return "", "", err
+		}
+		ctx = oidc.ClientContext(ctx, client)
 	}
 
 	// Use the authorization code that is pushed to the redirect
