@@ -50,6 +50,7 @@ type PachdSpecificConfiguration struct {
 	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix             string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	IdentityEtcdPrefix         string `env:"PACHYDERM_IDENTITY_ETCD_PREFIX,default=pachyderm_identity"`
 	EnterpriseEtcdPrefix       string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	Metrics                    bool   `env:"METRICS,default=true"`

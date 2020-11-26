@@ -3,6 +3,23 @@ syntax = "proto3";
 package identity;
 option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
 
+message IdentityConfig {
+	string issuer = 1;
+}
+
+message SetIdentityConfigRequest {
+	IdentityConfig config = 1;
+}
+
+message SetIdentityConfigResponse {}
+
+
+message GetIdentityConfigRequest {}
+
+message GetIdentityConfigResponse {
+	IdentityConfig config = 1;
+}
+
 /* IDPConnector represents an IDP to delegate authentication to */
 message IDPConnector {
   string id = 1; 
@@ -90,6 +107,8 @@ message DeleteAllRequest {}
 message DeleteAllResponse {}
 
 service API {
+  rpc SetIdentityConfig(SetIdentityConfigRequest) returns (SetIdentityConfigResponse) {}
+  rpc GetIdentityConfig(GetIdentityConfigRequest) returns (GetIdentityConfigResponse) {}
   rpc CreateIDPConnector(CreateIDPConnectorRequest) returns (CreateIDPConnectorResponse) {}
   rpc UpdateIDPConnector(UpdateIDPConnectorRequest) returns (UpdateIDPConnectorResponse) {}
   rpc ListIDPConnectors(ListIDPConnectorsRequest) returns (ListIDPConnectorsResponse) {}

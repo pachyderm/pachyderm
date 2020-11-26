@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	dex_api "github.com/dexidp/dex/api/v2"
@@ -12,14 +15,30 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+)
+
+const (
+	dexHttpPort = ":658"
+
+	configPrefix = "/config"
+	configKey    = "config"
 )
 
 type apiServer struct {
 	pachLogger log.Logger
 	env        *serviceenv.ServiceEnv
-	server     *dexServer
+
+	config         col.Collection
+	configCacheMtx sync.RWMutex
+	configCache    identity.IdentityConfig
+
+	api *dexApi
+	web *dexWeb
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -41,17 +60,66 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func NewIdentityServer(env *serviceenv.ServiceEnv, pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer string, pgPort int, public bool) (*apiServer, error) {
-	server, err := newDexServer(pgHost, pgDatabase, pgUser, pgPwd, pgSSL, issuer, pgPort, public)
-	if err != nil {
-		return nil, err
-	}
+func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (*apiServer, error) {
+	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
 
-	return &apiServer{
+	server := &apiServer{
 		env:        env,
 		pachLogger: log.NewLogger("identity.API"),
-		server:     server,
-	}, nil
+		api:        newDexApi(sp, logger),
+		config: col.NewCollection(
+			env.GetEtcdClient(),
+			path.Join(etcdPrefix, configPrefix),
+			nil,
+			&identity.IdentityConfig{},
+			nil,
+			nil,
+		),
+	}
+
+	if public {
+		server.web = newDexWeb(sp, logger)
+		go func() {
+			if err := http.ListenAndServe(dexHttpPort, server.web); err != nil {
+				logger.WithError(err).Error("Dex web server stopped")
+			}
+		}()
+
+		go server.watchConfig()
+	}
+
+	return server, nil
+}
+
+func (a *apiServer) watchConfig() {
+	b := backoff.NewExponentialBackOff()
+	backoff.RetryNotify(func() error {
+		configWatcher, err := a.config.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer configWatcher.Close()
+
+		var key string
+		var config identity.IdentityConfig
+		for {
+			ev, ok := <-configWatcher.Watch()
+			if !ok {
+				return errors.New("admin watch closed unexpectedly")
+			}
+			b.Reset()
+
+			ev.Unmarshal(&key, &config)
+
+			a.configCacheMtx.Lock()
+			a.web.updateConfig(config)
+			a.configCache = config
+			a.configCacheMtx.Unlock()
+		}
+	}, b, func(err error, d time.Duration) error {
+		logrus.Errorf("error watching identity config: %v; retrying in %v", err, d)
+		return nil
+	})
 }
 
 func (a *apiServer) isAdmin(ctx context.Context, op string) error {
@@ -98,6 +166,37 @@ func dexClientToPach(c *dex_api.Client) *identity.OIDCClient {
 	}
 }
 
+func (a *apiServer) SetIdentityConfig(ctx context.Context, req *identity.SetIdentityConfigRequest) (resp *identity.SetIdentityConfigResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "SetIdentityConfig"); err != nil {
+		return nil, err
+	}
+
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		return a.config.ReadWrite(stm).Put(configKey, req.Config)
+	}); err != nil {
+		return nil, err
+	}
+	return &identity.SetIdentityConfigResponse{}, nil
+}
+
+func (a *apiServer) GetIdentityConfig(ctx context.Context, req *identity.GetIdentityConfigRequest) (resp *identity.GetIdentityConfigResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.isAdmin(ctx, "GetIdentityConfig"); err != nil {
+		return nil, err
+	}
+
+	// Serve the cached version from the watcher - this ensures the version matches the one being used by the web server
+	a.configCacheMtx.RLock()
+	defer a.configCacheMtx.RUnlock()
+
+	return &identity.GetIdentityConfigResponse{Config: &a.configCache}, nil
+}
+
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -106,7 +205,7 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 		return nil, err
 	}
 
-	if err := a.server.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.api.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
 	return &identity.CreateIDPConnectorResponse{}, nil
@@ -120,7 +219,7 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 		return nil, err
 	}
 
-	c, err := a.server.getConnector(req.Id)
+	c, err := a.api.getConnector(req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +237,7 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 		return nil, err
 	}
 
-	if err := a.server.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.api.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +252,7 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 		return nil, err
 	}
 
-	connectors, err := a.server.listConnectors()
+	connectors, err := a.api.listConnectors()
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +276,7 @@ func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.Delete
 		return nil, err
 	}
 
-	if err := a.server.deleteConnector(req.Id); err != nil {
+	if err := a.api.deleteConnector(req.Id); err != nil {
 		return nil, err
 	}
 
@@ -202,7 +301,7 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 		},
 	}
 
-	dexResp, err := a.server.CreateClient(ctx, client)
+	dexResp, err := a.api.createClient(ctx, client)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +330,7 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 		TrustedPeers: req.Client.TrustedPeers,
 	}
 
-	dexResp, err := a.server.UpdateClient(ctx, client)
+	dexResp, err := a.api.updateClient(ctx, client)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +350,7 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 		return nil, err
 	}
 
-	client, err := a.server.getClient(req.Id)
+	client, err := a.api.getClient(req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +366,7 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 		return nil, err
 	}
 
-	clients, err := a.server.listClients()
+	clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +387,7 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 		return nil, err
 	}
 
-	dexResp, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id})
+	dexResp, err := a.api.deleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id})
 	if err != nil {
 		return nil, err
 	}
@@ -308,26 +407,32 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		return nil, err
 	}
 
-	clients, err := a.server.listClients()
+	clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err
 	}
 
-	connectors, err := a.server.listConnectors()
+	connectors, err := a.api.listConnectors()
 	if err != nil {
 		return nil, err
 	}
 
 	for _, client := range clients {
-		if _, err := a.server.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: client.Id}); err != nil {
+		if _, err := a.api.deleteClient(ctx, &dex_api.DeleteClientReq{Id: client.Id}); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, conn := range connectors {
-		if err := a.server.deleteConnector(conn.ID); err != nil {
+		if err := a.api.deleteConnector(conn.ID); err != nil {
 			return nil, err
 		}
+	}
+
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		return a.config.ReadWrite(stm).Delete(configKey)
+	}); err != nil {
+		return nil, err
 	}
 
 	return &identity.DeleteAllResponse{}, nil

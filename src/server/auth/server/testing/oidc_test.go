@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -37,42 +38,54 @@ var OIDCAuthConfig = &auth.AuthConfig{
 	}},
 }
 
-func setupIdentityServer(adminClient *client.APIClient) error {
-	if _, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{}); err != nil {
-		return err
-	}
+func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
+	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
+	require.NoError(t, err)
 
-	if _, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+	_, err = adminClient.SetIdentityConfig(adminClient.Ctx(), &identity.SetIdentityConfigRequest{
+		Config: &identity.IdentityConfig{
+			Issuer: "http://localhost:30658/",
+		},
+	})
+	require.NoError(t, err)
+
+	// Block until the web server has restarted with the right config
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.GetIdentityConfig(adminClient.Ctx(), &identity.GetIdentityConfigRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			"http://localhost:30658/", resp.Config.Issuer,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
 		Config: &identity.IDPConnector{
 			Name:       "test",
 			Id:         "test",
 			Type:       "mockPassword",
 			JsonConfig: `{"username": "admin", "password": "password"}`,
 		},
-	}); err != nil {
-		return err
-	}
+	})
+	require.NoError(t, err)
 
-	if _, err := adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+	_, err = adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
 		Client: &identity.OIDCClient{
 			Id:           "testapp",
 			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
 			Secret:       "test",
 		},
-	}); err != nil {
-		return err
-	}
+	})
+	require.NoError(t, err)
 
-	if _, err := adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+	_, err = adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
 		Client: &identity.OIDCClient{
 			Id:           "pachyderm",
 			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
 			Secret:       "notsecret",
 			TrustedPeers: []string{"testapp"},
 		},
-	}); err != nil {
-		return err
-	}
+	})
+	require.NoError(t, err)
 
 	return nil
 }
@@ -86,7 +99,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
 
-	require.NoError(t, setupIdentityServer(adminClient))
+	setupIdentityServer(t, adminClient)
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -149,7 +162,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	tu.DeleteAll(t)
 	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
 
-	require.NoError(t, setupIdentityServer(adminClient))
+	setupIdentityServer(t, adminClient)
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})

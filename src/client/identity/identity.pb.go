@@ -26,6 +26,225 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+type IdentityConfig struct {
+	Issuer               string   `protobuf:"bytes,1,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *IdentityConfig) Reset()         { *m = IdentityConfig{} }
+func (m *IdentityConfig) String() string { return proto.CompactTextString(m) }
+func (*IdentityConfig) ProtoMessage()    {}
+func (*IdentityConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{0}
+}
+func (m *IdentityConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IdentityConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IdentityConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IdentityConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IdentityConfig.Merge(m, src)
+}
+func (m *IdentityConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *IdentityConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_IdentityConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IdentityConfig proto.InternalMessageInfo
+
+func (m *IdentityConfig) GetIssuer() string {
+	if m != nil {
+		return m.Issuer
+	}
+	return ""
+}
+
+type SetIdentityConfigRequest struct {
+	Config               *IdentityConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *SetIdentityConfigRequest) Reset()         { *m = SetIdentityConfigRequest{} }
+func (m *SetIdentityConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*SetIdentityConfigRequest) ProtoMessage()    {}
+func (*SetIdentityConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{1}
+}
+func (m *SetIdentityConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SetIdentityConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SetIdentityConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SetIdentityConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetIdentityConfigRequest.Merge(m, src)
+}
+func (m *SetIdentityConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *SetIdentityConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetIdentityConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetIdentityConfigRequest proto.InternalMessageInfo
+
+func (m *SetIdentityConfigRequest) GetConfig() *IdentityConfig {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
+type SetIdentityConfigResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetIdentityConfigResponse) Reset()         { *m = SetIdentityConfigResponse{} }
+func (m *SetIdentityConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*SetIdentityConfigResponse) ProtoMessage()    {}
+func (*SetIdentityConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{2}
+}
+func (m *SetIdentityConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SetIdentityConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SetIdentityConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SetIdentityConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetIdentityConfigResponse.Merge(m, src)
+}
+func (m *SetIdentityConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *SetIdentityConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetIdentityConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetIdentityConfigResponse proto.InternalMessageInfo
+
+type GetIdentityConfigRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetIdentityConfigRequest) Reset()         { *m = GetIdentityConfigRequest{} }
+func (m *GetIdentityConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*GetIdentityConfigRequest) ProtoMessage()    {}
+func (*GetIdentityConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{3}
+}
+func (m *GetIdentityConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetIdentityConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetIdentityConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetIdentityConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetIdentityConfigRequest.Merge(m, src)
+}
+func (m *GetIdentityConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetIdentityConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetIdentityConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetIdentityConfigRequest proto.InternalMessageInfo
+
+type GetIdentityConfigResponse struct {
+	Config               *IdentityConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *GetIdentityConfigResponse) Reset()         { *m = GetIdentityConfigResponse{} }
+func (m *GetIdentityConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*GetIdentityConfigResponse) ProtoMessage()    {}
+func (*GetIdentityConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6690f7ae40bcb229, []int{4}
+}
+func (m *GetIdentityConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetIdentityConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetIdentityConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetIdentityConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetIdentityConfigResponse.Merge(m, src)
+}
+func (m *GetIdentityConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetIdentityConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetIdentityConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetIdentityConfigResponse proto.InternalMessageInfo
+
+func (m *GetIdentityConfigResponse) GetConfig() *IdentityConfig {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
 // IDPConnector represents an IDP to delegate authentication to
 type IDPConnector struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -42,7 +261,7 @@ func (m *IDPConnector) Reset()         { *m = IDPConnector{} }
 func (m *IDPConnector) String() string { return proto.CompactTextString(m) }
 func (*IDPConnector) ProtoMessage()    {}
 func (*IDPConnector) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{0}
+	return fileDescriptor_6690f7ae40bcb229, []int{5}
 }
 func (m *IDPConnector) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -117,7 +336,7 @@ func (m *CreateIDPConnectorRequest) Reset()         { *m = CreateIDPConnectorReq
 func (m *CreateIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateIDPConnectorRequest) ProtoMessage()    {}
 func (*CreateIDPConnectorRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{1}
+	return fileDescriptor_6690f7ae40bcb229, []int{6}
 }
 func (m *CreateIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -163,7 +382,7 @@ func (m *CreateIDPConnectorResponse) Reset()         { *m = CreateIDPConnectorRe
 func (m *CreateIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateIDPConnectorResponse) ProtoMessage()    {}
 func (*CreateIDPConnectorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{2}
+	return fileDescriptor_6690f7ae40bcb229, []int{7}
 }
 func (m *CreateIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -203,7 +422,7 @@ func (m *UpdateIDPConnectorRequest) Reset()         { *m = UpdateIDPConnectorReq
 func (m *UpdateIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateIDPConnectorRequest) ProtoMessage()    {}
 func (*UpdateIDPConnectorRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{3}
+	return fileDescriptor_6690f7ae40bcb229, []int{8}
 }
 func (m *UpdateIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -249,7 +468,7 @@ func (m *UpdateIDPConnectorResponse) Reset()         { *m = UpdateIDPConnectorRe
 func (m *UpdateIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateIDPConnectorResponse) ProtoMessage()    {}
 func (*UpdateIDPConnectorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{4}
+	return fileDescriptor_6690f7ae40bcb229, []int{9}
 }
 func (m *UpdateIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -288,7 +507,7 @@ func (m *ListIDPConnectorsRequest) Reset()         { *m = ListIDPConnectorsReque
 func (m *ListIDPConnectorsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListIDPConnectorsRequest) ProtoMessage()    {}
 func (*ListIDPConnectorsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{5}
+	return fileDescriptor_6690f7ae40bcb229, []int{10}
 }
 func (m *ListIDPConnectorsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -328,7 +547,7 @@ func (m *ListIDPConnectorsResponse) Reset()         { *m = ListIDPConnectorsResp
 func (m *ListIDPConnectorsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListIDPConnectorsResponse) ProtoMessage()    {}
 func (*ListIDPConnectorsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{6}
+	return fileDescriptor_6690f7ae40bcb229, []int{11}
 }
 func (m *ListIDPConnectorsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -375,7 +594,7 @@ func (m *GetIDPConnectorRequest) Reset()         { *m = GetIDPConnectorRequest{}
 func (m *GetIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
 func (*GetIDPConnectorRequest) ProtoMessage()    {}
 func (*GetIDPConnectorRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{7}
+	return fileDescriptor_6690f7ae40bcb229, []int{12}
 }
 func (m *GetIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -422,7 +641,7 @@ func (m *GetIDPConnectorResponse) Reset()         { *m = GetIDPConnectorResponse
 func (m *GetIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
 func (*GetIDPConnectorResponse) ProtoMessage()    {}
 func (*GetIDPConnectorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{8}
+	return fileDescriptor_6690f7ae40bcb229, []int{13}
 }
 func (m *GetIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -469,7 +688,7 @@ func (m *DeleteIDPConnectorRequest) Reset()         { *m = DeleteIDPConnectorReq
 func (m *DeleteIDPConnectorRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteIDPConnectorRequest) ProtoMessage()    {}
 func (*DeleteIDPConnectorRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{9}
+	return fileDescriptor_6690f7ae40bcb229, []int{14}
 }
 func (m *DeleteIDPConnectorRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -515,7 +734,7 @@ func (m *DeleteIDPConnectorResponse) Reset()         { *m = DeleteIDPConnectorRe
 func (m *DeleteIDPConnectorResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteIDPConnectorResponse) ProtoMessage()    {}
 func (*DeleteIDPConnectorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{10}
+	return fileDescriptor_6690f7ae40bcb229, []int{15}
 }
 func (m *DeleteIDPConnectorResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -559,7 +778,7 @@ func (m *OIDCClient) Reset()         { *m = OIDCClient{} }
 func (m *OIDCClient) String() string { return proto.CompactTextString(m) }
 func (*OIDCClient) ProtoMessage()    {}
 func (*OIDCClient) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{11}
+	return fileDescriptor_6690f7ae40bcb229, []int{16}
 }
 func (m *OIDCClient) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -634,7 +853,7 @@ func (m *CreateOIDCClientRequest) Reset()         { *m = CreateOIDCClientRequest
 func (m *CreateOIDCClientRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateOIDCClientRequest) ProtoMessage()    {}
 func (*CreateOIDCClientRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{12}
+	return fileDescriptor_6690f7ae40bcb229, []int{17}
 }
 func (m *CreateOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -681,7 +900,7 @@ func (m *CreateOIDCClientResponse) Reset()         { *m = CreateOIDCClientRespon
 func (m *CreateOIDCClientResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateOIDCClientResponse) ProtoMessage()    {}
 func (*CreateOIDCClientResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{13}
+	return fileDescriptor_6690f7ae40bcb229, []int{18}
 }
 func (m *CreateOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -728,7 +947,7 @@ func (m *GetOIDCClientRequest) Reset()         { *m = GetOIDCClientRequest{} }
 func (m *GetOIDCClientRequest) String() string { return proto.CompactTextString(m) }
 func (*GetOIDCClientRequest) ProtoMessage()    {}
 func (*GetOIDCClientRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{14}
+	return fileDescriptor_6690f7ae40bcb229, []int{19}
 }
 func (m *GetOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -775,7 +994,7 @@ func (m *GetOIDCClientResponse) Reset()         { *m = GetOIDCClientResponse{} }
 func (m *GetOIDCClientResponse) String() string { return proto.CompactTextString(m) }
 func (*GetOIDCClientResponse) ProtoMessage()    {}
 func (*GetOIDCClientResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{15}
+	return fileDescriptor_6690f7ae40bcb229, []int{20}
 }
 func (m *GetOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -821,7 +1040,7 @@ func (m *ListOIDCClientsRequest) Reset()         { *m = ListOIDCClientsRequest{}
 func (m *ListOIDCClientsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListOIDCClientsRequest) ProtoMessage()    {}
 func (*ListOIDCClientsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{16}
+	return fileDescriptor_6690f7ae40bcb229, []int{21}
 }
 func (m *ListOIDCClientsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -861,7 +1080,7 @@ func (m *ListOIDCClientsResponse) Reset()         { *m = ListOIDCClientsResponse
 func (m *ListOIDCClientsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListOIDCClientsResponse) ProtoMessage()    {}
 func (*ListOIDCClientsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{17}
+	return fileDescriptor_6690f7ae40bcb229, []int{22}
 }
 func (m *ListOIDCClientsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -908,7 +1127,7 @@ func (m *UpdateOIDCClientRequest) Reset()         { *m = UpdateOIDCClientRequest
 func (m *UpdateOIDCClientRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateOIDCClientRequest) ProtoMessage()    {}
 func (*UpdateOIDCClientRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{18}
+	return fileDescriptor_6690f7ae40bcb229, []int{23}
 }
 func (m *UpdateOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -954,7 +1173,7 @@ func (m *UpdateOIDCClientResponse) Reset()         { *m = UpdateOIDCClientRespon
 func (m *UpdateOIDCClientResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateOIDCClientResponse) ProtoMessage()    {}
 func (*UpdateOIDCClientResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{19}
+	return fileDescriptor_6690f7ae40bcb229, []int{24}
 }
 func (m *UpdateOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -994,7 +1213,7 @@ func (m *DeleteOIDCClientRequest) Reset()         { *m = DeleteOIDCClientRequest
 func (m *DeleteOIDCClientRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteOIDCClientRequest) ProtoMessage()    {}
 func (*DeleteOIDCClientRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{20}
+	return fileDescriptor_6690f7ae40bcb229, []int{25}
 }
 func (m *DeleteOIDCClientRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1040,7 +1259,7 @@ func (m *DeleteOIDCClientResponse) Reset()         { *m = DeleteOIDCClientRespon
 func (m *DeleteOIDCClientResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteOIDCClientResponse) ProtoMessage()    {}
 func (*DeleteOIDCClientResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{21}
+	return fileDescriptor_6690f7ae40bcb229, []int{26}
 }
 func (m *DeleteOIDCClientResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1079,7 +1298,7 @@ func (m *DeleteAllRequest) Reset()         { *m = DeleteAllRequest{} }
 func (m *DeleteAllRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteAllRequest) ProtoMessage()    {}
 func (*DeleteAllRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{22}
+	return fileDescriptor_6690f7ae40bcb229, []int{27}
 }
 func (m *DeleteAllRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1118,7 +1337,7 @@ func (m *DeleteAllResponse) Reset()         { *m = DeleteAllResponse{} }
 func (m *DeleteAllResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteAllResponse) ProtoMessage()    {}
 func (*DeleteAllResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6690f7ae40bcb229, []int{23}
+	return fileDescriptor_6690f7ae40bcb229, []int{28}
 }
 func (m *DeleteAllResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1148,6 +1367,11 @@ func (m *DeleteAllResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteAllResponse proto.InternalMessageInfo
 
 func init() {
+	proto.RegisterType((*IdentityConfig)(nil), "identity.IdentityConfig")
+	proto.RegisterType((*SetIdentityConfigRequest)(nil), "identity.SetIdentityConfigRequest")
+	proto.RegisterType((*SetIdentityConfigResponse)(nil), "identity.SetIdentityConfigResponse")
+	proto.RegisterType((*GetIdentityConfigRequest)(nil), "identity.GetIdentityConfigRequest")
+	proto.RegisterType((*GetIdentityConfigResponse)(nil), "identity.GetIdentityConfigResponse")
 	proto.RegisterType((*IDPConnector)(nil), "identity.IDPConnector")
 	proto.RegisterType((*CreateIDPConnectorRequest)(nil), "identity.CreateIDPConnectorRequest")
 	proto.RegisterType((*CreateIDPConnectorResponse)(nil), "identity.CreateIDPConnectorResponse")
@@ -1177,52 +1401,57 @@ func init() {
 func init() { proto.RegisterFile("client/identity/identity.proto", fileDescriptor_6690f7ae40bcb229) }
 
 var fileDescriptor_6690f7ae40bcb229 = []byte{
-	// 711 bytes of a gzipped FileDescriptorProto
+	// 790 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xd1, 0x6e, 0xd3, 0x3c,
-	0x14, 0x6e, 0xda, 0xfd, 0xdd, 0xbf, 0xc3, 0x06, 0x9b, 0x19, 0xad, 0x17, 0xa6, 0xd2, 0x65, 0x13,
-	0x2a, 0x02, 0x75, 0xd2, 0x90, 0xb8, 0x66, 0x74, 0x30, 0x2a, 0x90, 0x98, 0x8a, 0x86, 0x10, 0x48,
-	0x4c, 0x5d, 0x62, 0xb6, 0xa0, 0x2e, 0x09, 0xb6, 0x7b, 0xb1, 0x77, 0xe0, 0x8a, 0xa7, 0xe2, 0x92,
-	0x47, 0x40, 0x7d, 0x07, 0xee, 0x51, 0x62, 0x27, 0x71, 0xed, 0x24, 0x68, 0xc0, 0x9d, 0x73, 0xce,
-	0xe7, 0x73, 0xec, 0xcf, 0xdf, 0xf9, 0x14, 0xe8, 0xb8, 0x13, 0x9f, 0x04, 0x7c, 0xd7, 0xf7, 0x48,
-	0xc0, 0x7d, 0x7e, 0x99, 0x2d, 0xfa, 0x11, 0x0d, 0x79, 0x88, 0xfe, 0x4f, 0xbf, 0x9d, 0x2f, 0x16,
-	0x2c, 0x0f, 0x0f, 0x8e, 0x06, 0x61, 0x10, 0x10, 0x97, 0x87, 0x14, 0x5d, 0x87, 0xba, 0xef, 0x61,
-	0xab, 0x6b, 0xf5, 0x96, 0x46, 0x75, 0xdf, 0x43, 0x08, 0x16, 0x82, 0xf1, 0x05, 0xc1, 0xf5, 0x24,
-	0x92, 0xac, 0xe3, 0x18, 0xbf, 0x8c, 0x08, 0x6e, 0x88, 0x58, 0xbc, 0x46, 0x3b, 0xb0, 0xe2, 0x86,
-	0xc1, 0x47, 0xff, 0xec, 0x0d, 0xa1, 0xcc, 0x0f, 0x03, 0xbc, 0xd0, 0xb5, 0x7a, 0x8d, 0xd1, 0x7c,
-	0x10, 0x75, 0x00, 0x3e, 0xb1, 0x30, 0x18, 0x24, 0x41, 0xfc, 0x5f, 0xb2, 0x5f, 0x89, 0x38, 0x2f,
-	0x60, 0x63, 0x40, 0xc9, 0x98, 0x13, 0xf5, 0x4c, 0x23, 0xf2, 0x79, 0x4a, 0x18, 0x47, 0x7d, 0x68,
-	0x8a, 0x6a, 0xc9, 0xf1, 0xae, 0xed, 0xb5, 0xfa, 0xd9, 0xb5, 0xe6, 0xe0, 0x12, 0xe5, 0x6c, 0x82,
-	0x5d, 0x54, 0x8c, 0x45, 0x61, 0xc0, 0x48, 0xdc, 0xea, 0x38, 0xf2, 0xfe, 0x5d, 0xab, 0xa2, 0x62,
-	0xb2, 0x95, 0x0d, 0xf8, 0xa5, 0xcf, 0xb8, 0x9a, 0x63, 0xb2, 0x93, 0xf3, 0x1a, 0x36, 0x0a, 0x72,
-	0x62, 0x23, 0x7a, 0x04, 0xe0, 0x66, 0x51, 0x6c, 0x75, 0x1b, 0x15, 0x47, 0x51, 0x90, 0x4e, 0x0f,
-	0x5a, 0x87, 0x84, 0x17, 0x5d, 0x4c, 0x7b, 0x5e, 0x67, 0x08, 0x6d, 0x03, 0x29, 0x9b, 0x5f, 0x95,
-	0x83, 0xfb, 0xb0, 0x71, 0x40, 0x26, 0xa4, 0x98, 0x50, 0xbd, 0xef, 0x26, 0xd8, 0x45, 0x60, 0x49,
-	0xd8, 0x57, 0x0b, 0xe0, 0xd5, 0xf0, 0x60, 0x30, 0x48, 0x64, 0x6c, 0x68, 0x72, 0x1b, 0x56, 0x28,
-	0xf1, 0x7c, 0x4a, 0x5c, 0x7e, 0x32, 0xa5, 0x3e, 0xc3, 0xf5, 0x6e, 0xa3, 0xb7, 0x34, 0x5a, 0x4e,
-	0x83, 0xc7, 0xd4, 0x67, 0x31, 0x88, 0xd3, 0x29, 0xe3, 0xc4, 0x3b, 0x89, 0x08, 0xa1, 0x0c, 0x37,
-	0x04, 0x48, 0x06, 0x8f, 0xe2, 0x58, 0xa6, 0xee, 0x05, 0x45, 0xdd, 0x2d, 0x68, 0x32, 0xe2, 0x52,
-	0xc2, 0xa5, 0x3e, 0xe5, 0x97, 0x73, 0x08, 0x6d, 0x21, 0xa7, 0xfc, 0x64, 0xe9, 0xed, 0x1e, 0x40,
-	0x53, 0x4c, 0x9c, 0xa4, 0x6a, 0x3d, 0xa7, 0x4a, 0x01, 0x4b, 0x8c, 0xf3, 0x1c, 0xb0, 0x59, 0x48,
-	0x92, 0x7e, 0xb5, 0x4a, 0x77, 0x61, 0xfd, 0x90, 0x70, 0xf3, 0x3c, 0x3a, 0xdb, 0x4f, 0xe1, 0x96,
-	0x86, 0xfb, 0xa3, 0x76, 0x18, 0x5a, 0xb1, 0x56, 0xf3, 0x4c, 0xa6, 0xe2, 0x21, 0xb4, 0x8d, 0x4c,
-	0x26, 0xa3, 0x45, 0xb1, 0x3d, 0x15, 0x70, 0x71, 0x8f, 0x14, 0x14, 0xd3, 0x2c, 0x46, 0xe9, 0x6f,
-	0x69, 0xb6, 0x01, 0x9b, 0x85, 0xa4, 0xc0, 0xee, 0x41, 0x5b, 0xc8, 0xef, 0xf7, 0xdc, 0xd9, 0x80,
-	0x4d, 0xa8, 0x2c, 0x83, 0x60, 0x55, 0xe4, 0xf6, 0x27, 0x93, 0x94, 0x8a, 0x9b, 0xb0, 0xa6, 0xc4,
-	0x04, 0x70, 0xef, 0xe7, 0x22, 0x34, 0xf6, 0x8f, 0x86, 0x68, 0x0c, 0xc8, 0xb4, 0x24, 0xb4, 0x9d,
-	0xdf, 0xa3, 0xd4, 0xfd, 0xec, 0x9d, 0x6a, 0x90, 0x3c, 0x51, 0x2d, 0x6e, 0x61, 0x5a, 0x91, 0xda,
-	0xa2, 0xd4, 0xf5, 0xd4, 0x16, 0x15, 0x6e, 0x56, 0x43, 0x1f, 0x60, 0xcd, 0xf0, 0x2c, 0xe4, 0xe4,
-	0x9b, 0xcb, 0xcc, 0xce, 0xde, 0xae, 0xc4, 0x64, 0xf5, 0xdf, 0xc2, 0x0d, 0xcd, 0x94, 0x50, 0x37,
-	0xdf, 0x59, 0xec, 0x6c, 0xf6, 0x56, 0x05, 0x42, 0x25, 0xc7, 0xb4, 0x1d, 0x95, 0x9c, 0x52, 0x07,
-	0x53, 0xc9, 0xa9, 0x70, 0xae, 0x1a, 0x7a, 0x0f, 0xab, 0xfa, 0x74, 0xa3, 0x2d, 0xfd, 0xed, 0x0c,
-	0xd9, 0xd9, 0x4e, 0x15, 0x44, 0x2d, 0xae, 0x6b, 0x5a, 0x2d, 0x5e, 0x32, 0x38, 0x6a, 0xf1, 0xd2,
-	0x91, 0xa8, 0xa1, 0x11, 0xac, 0xcc, 0xb9, 0x04, 0xea, 0xcc, 0x51, 0x6a, 0x96, 0xbd, 0x53, 0x9a,
-	0x57, 0x9f, 0x52, 0x33, 0x06, 0xf5, 0x29, 0x8b, 0xdd, 0x44, 0x7d, 0xca, 0x12, 0x57, 0x11, 0x54,
-	0xe8, 0x73, 0xa9, 0x52, 0x51, 0x32, 0xde, 0x2a, 0x15, 0xa5, 0x63, 0x5d, 0x43, 0xcf, 0x60, 0x29,
-	0x1b, 0x62, 0x64, 0xeb, 0x5b, 0xf2, 0x69, 0xb7, 0x6f, 0x17, 0xe6, 0xd2, 0x3a, 0x4f, 0x1e, 0x7f,
-	0x9b, 0x75, 0xac, 0xef, 0xb3, 0x8e, 0xf5, 0x63, 0xd6, 0xb1, 0xde, 0xed, 0x9d, 0xf9, 0xfc, 0x7c,
-	0x7a, 0xda, 0x77, 0xc3, 0x8b, 0xdd, 0x68, 0xec, 0x9e, 0x5f, 0x7a, 0x84, 0xaa, 0x2b, 0x46, 0xdd,
-	0x5d, 0xed, 0xcf, 0xed, 0xb4, 0x99, 0xfc, 0xb1, 0x3d, 0xfc, 0x15, 0x00, 0x00, 0xff, 0xff, 0x93,
-	0x95, 0xbb, 0x04, 0xd3, 0x09, 0x00, 0x00,
+	0x14, 0x6e, 0xda, 0xfd, 0xfd, 0xe9, 0x61, 0x1b, 0x9b, 0x19, 0xad, 0x9b, 0x4d, 0xa5, 0xcb, 0x26,
+	0x54, 0x04, 0xea, 0xd0, 0x90, 0xb8, 0x66, 0x74, 0x50, 0xaa, 0x0d, 0x31, 0x75, 0x1a, 0x42, 0x20,
+	0x31, 0x75, 0xa9, 0xd9, 0x82, 0xba, 0xa4, 0xd8, 0xee, 0xc5, 0xde, 0x81, 0x2b, 0xde, 0x85, 0x77,
+	0xe0, 0x92, 0x47, 0x40, 0x7b, 0x12, 0x94, 0xc4, 0x49, 0x5d, 0x3b, 0x0e, 0x6c, 0x70, 0xe7, 0x1c,
+	0x7f, 0xfe, 0xce, 0xf1, 0x77, 0x8e, 0xbf, 0x16, 0x1a, 0xee, 0xc8, 0x23, 0x3e, 0xdf, 0xf2, 0x86,
+	0xc4, 0xe7, 0x1e, 0xbf, 0x48, 0x17, 0xed, 0x31, 0x0d, 0x78, 0x80, 0x6e, 0x24, 0xdf, 0x4e, 0x0b,
+	0x16, 0x7b, 0x62, 0xdd, 0x09, 0xfc, 0x8f, 0xde, 0x29, 0xaa, 0x42, 0xd9, 0x63, 0x6c, 0x42, 0x28,
+	0xb6, 0x9a, 0x56, 0xab, 0xd2, 0x17, 0x5f, 0xce, 0x3e, 0xe0, 0x43, 0xc2, 0x67, 0xc1, 0x7d, 0xf2,
+	0x79, 0x42, 0x18, 0x47, 0x8f, 0xa0, 0xec, 0x46, 0x81, 0xe8, 0xcc, 0xcd, 0x6d, 0xdc, 0x4e, 0x13,
+	0x2a, 0x07, 0x04, 0xce, 0x59, 0x85, 0x7a, 0x06, 0x1b, 0x1b, 0x07, 0x3e, 0x23, 0x8e, 0x0d, 0xb8,
+	0x6b, 0x48, 0xe5, 0xbc, 0x82, 0x7a, 0xd7, 0x74, 0xf0, 0x1a, 0x75, 0x7c, 0xb1, 0x60, 0xbe, 0xb7,
+	0x7b, 0xd0, 0x09, 0x7c, 0x9f, 0xb8, 0x3c, 0xa0, 0x68, 0x11, 0x8a, 0xde, 0x50, 0x5c, 0xbd, 0xe8,
+	0x0d, 0x11, 0x82, 0x39, 0x7f, 0x70, 0x4e, 0x70, 0x31, 0x8a, 0x44, 0xeb, 0x30, 0xc6, 0x2f, 0xc6,
+	0x04, 0x97, 0xe2, 0x58, 0xb8, 0x46, 0x9b, 0xb0, 0x10, 0x53, 0xbe, 0x21, 0x94, 0x79, 0x81, 0x8f,
+	0xe7, 0x9a, 0x56, 0xab, 0xd4, 0x9f, 0x0d, 0xa2, 0x06, 0xc0, 0x27, 0x16, 0xf8, 0x71, 0x11, 0xf8,
+	0xbf, 0xe8, 0xbc, 0x14, 0x71, 0xf6, 0xa0, 0xde, 0xa1, 0x64, 0xc0, 0x89, 0x5c, 0x53, 0xa2, 0x72,
+	0x5b, 0xb9, 0x5d, 0x55, 0xba, 0x9d, 0x0c, 0x4f, 0xee, 0xb6, 0x06, 0x76, 0x16, 0x99, 0x10, 0x79,
+	0x0f, 0xea, 0x47, 0xe3, 0xe1, 0xbf, 0x4b, 0x95, 0x45, 0x36, 0xed, 0xe7, 0xbe, 0xc7, 0xb8, 0xbc,
+	0xc7, 0x92, 0x7e, 0x1e, 0x42, 0x3d, 0x63, 0x4f, 0xf4, 0xf3, 0x09, 0x80, 0x9b, 0x46, 0xb1, 0xd5,
+	0x2c, 0xe5, 0x94, 0x22, 0x21, 0x9d, 0x16, 0x54, 0xc3, 0x21, 0xc9, 0xb8, 0x98, 0xd2, 0x5e, 0xa7,
+	0x07, 0x35, 0x0d, 0x29, 0x92, 0x5f, 0x55, 0x83, 0x07, 0x50, 0xdf, 0x25, 0x23, 0x92, 0x2d, 0xa8,
+	0x9a, 0x77, 0x0d, 0xec, 0x2c, 0xb0, 0x10, 0xec, 0xab, 0x05, 0xf0, 0xba, 0xb7, 0xdb, 0xe9, 0x44,
+	0xcf, 0x58, 0x9b, 0xc9, 0x0d, 0x58, 0xa0, 0x64, 0xe8, 0x51, 0xe2, 0xf2, 0xe3, 0x09, 0xf5, 0x18,
+	0x2e, 0x36, 0x4b, 0xad, 0x4a, 0x7f, 0x3e, 0x09, 0x1e, 0x51, 0x8f, 0x85, 0x20, 0x4e, 0x27, 0x8c,
+	0x93, 0xe1, 0xf1, 0x98, 0x10, 0xca, 0x70, 0x29, 0x06, 0x89, 0xe0, 0x41, 0x18, 0x4b, 0xa7, 0x7b,
+	0x4e, 0x9a, 0xee, 0x2a, 0x94, 0x19, 0x71, 0x29, 0xe1, 0x62, 0x3e, 0xc5, 0x97, 0xd3, 0x85, 0x5a,
+	0x3c, 0x4e, 0xd3, 0xca, 0x92, 0xdb, 0x3d, 0x84, 0x72, 0xec, 0x38, 0x42, 0xaa, 0x95, 0xa9, 0x54,
+	0x12, 0x58, 0x60, 0x9c, 0x97, 0x80, 0x75, 0x22, 0x21, 0xfa, 0xd5, 0x98, 0xee, 0xc1, 0x4a, 0x97,
+	0x70, 0xbd, 0x1e, 0x55, 0xed, 0xe7, 0x70, 0x47, 0xc1, 0x5d, 0x2b, 0x1d, 0x86, 0x6a, 0x38, 0xab,
+	0xd3, 0x9d, 0x74, 0x8a, 0x7b, 0x50, 0xd3, 0x76, 0xd2, 0x31, 0xfa, 0x3f, 0x3e, 0x9e, 0x0c, 0x70,
+	0x76, 0x8e, 0x04, 0x14, 0xca, 0x1c, 0x3f, 0xa5, 0xbf, 0x95, 0xd9, 0x06, 0xac, 0x13, 0x89, 0x01,
+	0xbb, 0x0f, 0xb5, 0x78, 0xfc, 0x7e, 0xaf, 0x9d, 0x0d, 0x58, 0x87, 0x0a, 0x1a, 0x04, 0x4b, 0xf1,
+	0xde, 0xce, 0x68, 0x94, 0x48, 0x71, 0x1b, 0x96, 0xa5, 0x58, 0x0c, 0xdc, 0xfe, 0x56, 0x81, 0xd2,
+	0xce, 0x41, 0x0f, 0x7d, 0x80, 0x65, 0xcd, 0xf6, 0x91, 0x33, 0xbd, 0x86, 0xe9, 0x17, 0xc6, 0xde,
+	0xc8, 0xc5, 0x88, 0x72, 0x0a, 0x21, 0x7f, 0x37, 0x8f, 0xbf, 0xfb, 0x07, 0xfc, 0xdd, 0x1c, 0xfe,
+	0x01, 0x20, 0xdd, 0x52, 0x91, 0x74, 0xd8, 0xe8, 0xde, 0xf6, 0x66, 0x3e, 0x48, 0x4e, 0xa1, 0x5b,
+	0xa9, 0x9c, 0xc2, 0xe8, 0xda, 0x72, 0x8a, 0x1c, 0x37, 0x8e, 0x54, 0xd2, 0x3c, 0x57, 0x56, 0xc9,
+	0x64, 0xd6, 0xb2, 0x4a, 0x46, 0xd3, 0x76, 0x0a, 0xe8, 0x2d, 0xdc, 0x52, 0x4c, 0x15, 0x35, 0x67,
+	0xf5, 0xcd, 0x28, 0x7e, 0x3d, 0x07, 0x21, 0x8b, 0xa3, 0xdb, 0xa6, 0x2c, 0x8e, 0xd1, 0x81, 0x65,
+	0x71, 0x72, 0x9c, 0xb7, 0x80, 0xde, 0xc3, 0x92, 0xea, 0x4e, 0x68, 0x5d, 0xed, 0x9d, 0xf6, 0x6c,
+	0x6c, 0x27, 0x0f, 0x22, 0x93, 0xab, 0x6f, 0x52, 0x26, 0x37, 0x3c, 0x7c, 0x99, 0xdc, 0xf8, 0xa4,
+	0x0b, 0xa8, 0x0f, 0x0b, 0x33, 0x2e, 0x87, 0x1a, 0x33, 0x92, 0xea, 0xb4, 0x77, 0x8d, 0xfb, 0x72,
+	0x2b, 0x15, 0x63, 0x93, 0x5b, 0x99, 0xed, 0x86, 0x72, 0x2b, 0x0d, 0xae, 0x18, 0x4b, 0xa1, 0xfa,
+	0x8a, 0x2c, 0x85, 0xc1, 0x9e, 0x64, 0x29, 0x8c, 0xb6, 0x54, 0x40, 0x2f, 0xa0, 0x92, 0x9a, 0x10,
+	0xb2, 0xd5, 0x23, 0x53, 0xb7, 0xb2, 0x57, 0x33, 0xf7, 0x12, 0x9e, 0x67, 0x4f, 0xbf, 0x5f, 0x36,
+	0xac, 0x1f, 0x97, 0x0d, 0xeb, 0xe7, 0x65, 0xc3, 0x7a, 0xb7, 0x7d, 0xea, 0xf1, 0xb3, 0xc9, 0x49,
+	0xdb, 0x0d, 0xce, 0xb7, 0xc6, 0x03, 0xf7, 0xec, 0x62, 0x48, 0xa8, 0xbc, 0x62, 0xd4, 0xdd, 0x52,
+	0xfe, 0x79, 0x9f, 0x94, 0xa3, 0x7f, 0xdc, 0x8f, 0x7f, 0x05, 0x00, 0x00, 0xff, 0xff, 0x9b, 0xdb,
+	0x7d, 0xe2, 0x93, 0x0b, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1237,6 +1466,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
+	SetIdentityConfig(ctx context.Context, in *SetIdentityConfigRequest, opts ...grpc.CallOption) (*SetIdentityConfigResponse, error)
+	GetIdentityConfig(ctx context.Context, in *GetIdentityConfigRequest, opts ...grpc.CallOption) (*GetIdentityConfigResponse, error)
 	CreateIDPConnector(ctx context.Context, in *CreateIDPConnectorRequest, opts ...grpc.CallOption) (*CreateIDPConnectorResponse, error)
 	UpdateIDPConnector(ctx context.Context, in *UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*UpdateIDPConnectorResponse, error)
 	ListIDPConnectors(ctx context.Context, in *ListIDPConnectorsRequest, opts ...grpc.CallOption) (*ListIDPConnectorsResponse, error)
@@ -1256,6 +1487,24 @@ type aPIClient struct {
 
 func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
+}
+
+func (c *aPIClient) SetIdentityConfig(ctx context.Context, in *SetIdentityConfigRequest, opts ...grpc.CallOption) (*SetIdentityConfigResponse, error) {
+	out := new(SetIdentityConfigResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/SetIdentityConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetIdentityConfig(ctx context.Context, in *GetIdentityConfigRequest, opts ...grpc.CallOption) (*GetIdentityConfigResponse, error) {
+	out := new(GetIdentityConfigResponse)
+	err := c.cc.Invoke(ctx, "/identity.API/GetIdentityConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *aPIClient) CreateIDPConnector(ctx context.Context, in *CreateIDPConnectorRequest, opts ...grpc.CallOption) (*CreateIDPConnectorResponse, error) {
@@ -1359,6 +1608,8 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ..
 
 // APIServer is the server API for API service.
 type APIServer interface {
+	SetIdentityConfig(context.Context, *SetIdentityConfigRequest) (*SetIdentityConfigResponse, error)
+	GetIdentityConfig(context.Context, *GetIdentityConfigRequest) (*GetIdentityConfigResponse, error)
 	CreateIDPConnector(context.Context, *CreateIDPConnectorRequest) (*CreateIDPConnectorResponse, error)
 	UpdateIDPConnector(context.Context, *UpdateIDPConnectorRequest) (*UpdateIDPConnectorResponse, error)
 	ListIDPConnectors(context.Context, *ListIDPConnectorsRequest) (*ListIDPConnectorsResponse, error)
@@ -1376,6 +1627,12 @@ type APIServer interface {
 type UnimplementedAPIServer struct {
 }
 
+func (*UnimplementedAPIServer) SetIdentityConfig(ctx context.Context, req *SetIdentityConfigRequest) (*SetIdentityConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetIdentityConfig not implemented")
+}
+func (*UnimplementedAPIServer) GetIdentityConfig(ctx context.Context, req *GetIdentityConfigRequest) (*GetIdentityConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetIdentityConfig not implemented")
+}
 func (*UnimplementedAPIServer) CreateIDPConnector(ctx context.Context, req *CreateIDPConnectorRequest) (*CreateIDPConnectorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateIDPConnector not implemented")
 }
@@ -1412,6 +1669,42 @@ func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequ
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
+}
+
+func _API_SetIdentityConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetIdentityConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SetIdentityConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/SetIdentityConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SetIdentityConfig(ctx, req.(*SetIdentityConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_GetIdentityConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetIdentityConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetIdentityConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/identity.API/GetIdentityConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetIdentityConfig(ctx, req.(*GetIdentityConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _API_CreateIDPConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1617,6 +1910,14 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "SetIdentityConfig",
+			Handler:    _API_SetIdentityConfig_Handler,
+		},
+		{
+			MethodName: "GetIdentityConfig",
+			Handler:    _API_GetIdentityConfig_Handler,
+		},
+		{
 			MethodName: "CreateIDPConnector",
 			Handler:    _API_CreateIDPConnector_Handler,
 		},
@@ -1663,6 +1964,172 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "client/identity/identity.proto",
+}
+
+func (m *IdentityConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IdentityConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IdentityConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Issuer) > 0 {
+		i -= len(m.Issuer)
+		copy(dAtA[i:], m.Issuer)
+		i = encodeVarintIdentity(dAtA, i, uint64(len(m.Issuer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SetIdentityConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SetIdentityConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetIdentityConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Config != nil {
+		{
+			size, err := m.Config.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintIdentity(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SetIdentityConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SetIdentityConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetIdentityConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetIdentityConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetIdentityConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetIdentityConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetIdentityConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetIdentityConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetIdentityConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Config != nil {
+		{
+			size, err := m.Config.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintIdentity(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IDPConnector) Marshal() (dAtA []byte, err error) {
@@ -2536,6 +3003,78 @@ func encodeVarintIdentity(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *IdentityConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Issuer)
+	if l > 0 {
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SetIdentityConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SetIdentityConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetIdentityConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetIdentityConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovIdentity(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *IDPConnector) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2928,6 +3467,380 @@ func sovIdentity(x uint64) (n int) {
 }
 func sozIdentity(x uint64) (n int) {
 	return sovIdentity(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *IdentityConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IdentityConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IdentityConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Issuer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Issuer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetIdentityConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetIdentityConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetIdentityConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Config == nil {
+				m.Config = &IdentityConfig{}
+			}
+			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetIdentityConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetIdentityConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetIdentityConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetIdentityConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetIdentityConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetIdentityConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetIdentityConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIdentity
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetIdentityConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetIdentityConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIdentity
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Config == nil {
+				m.Config = &IdentityConfig{}
+			}
+			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIdentity(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIdentity
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *IDPConnector) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)

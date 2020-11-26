@@ -428,17 +428,22 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 		}
 		if env.IdentityServerEnabled {
+			storageProvider := identity_server.NewLazyPostgresStorage(
+				env.PostgresServiceHost,
+				env.IdentityServerDatabase,
+				env.IdentityServerUser,
+				env.IdentityServerPassword,
+				env.PostgresServiceSSL,
+				env.PostgresServicePort,
+			)
+
 			if err := logGRPCServerSetup("Identity API", func() error {
 				idAPIServer, err := identity_server.NewIdentityServer(
 					env,
-					env.PostgresServiceHost,
-					env.IdentityServerDatabase,
-					env.IdentityServerUser,
-					env.IdentityServerPassword,
-					env.PostgresServiceSSL,
-					env.IdentityServerIssuer,
-					env.PostgresServicePort,
-					true)
+					storageProvider,
+					true,
+					path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
+				)
 				if err != nil {
 					return err
 				}
