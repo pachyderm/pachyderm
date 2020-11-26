@@ -170,7 +170,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 
-			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[1]})
+			resp, err := c.GetIDPConnector(c.Ctx(), &identity.GetIDPConnectorRequest{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -192,7 +192,7 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 
-			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[1]})
+			_, err = c.DeleteIDPConnector(c.Ctx(), &identity.DeleteIDPConnectorRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -227,7 +227,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 
 // CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
 func CreateOIDCClientCmd() *cobra.Command {
-	var id, name, redirectURI, trustedPeers string
+	var id, name, secret, redirectURI, trustedPeers string
 	createClient := &cobra.Command{
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
@@ -242,6 +242,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 				Client: &identity.OIDCClient{
 					Id:           id,
 					Name:         name,
+					Secret:       secret,
 					RedirectUris: strings.Split(redirectURI, ","),
 					TrustedPeers: strings.Split(trustedPeers, ","),
 				},
@@ -258,6 +259,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 	}
 	createClient.PersistentFlags().StringVar(&id, "id", "", `The client_id of the new client.`)
 	createClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
+	createClient.PersistentFlags().StringVar(&secret, "secret", "", `The client secret for the new client. A random secret will be generated if not specified.`)
 	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUris", "", `A comma-separated list of authorized redirect URLs for callbacks.`)
 	createClient.PersistentFlags().StringVar(&trustedPeers, "trustedPeers", "", `A comma-separated list of clients who can get tokens for this service.`)
 	return cmdutil.CreateAlias(createClient, "idp create client")
@@ -276,7 +278,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			_, err = c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[1]})
+			_, err = c.DeleteOIDCClient(c.Ctx(), &identity.DeleteOIDCClientRequest{Id: args[0]})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -296,7 +298,7 @@ func GetOIDCClientCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[1]})
+			resp, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -387,6 +389,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, CreateOIDCClientCmd())
 	commands = append(commands, GetOIDCClientCmd())
 	commands = append(commands, UpdateOIDCClientCmd())
+	commands = append(commands, DeleteOIDCClientCmd())
 	commands = append(commands, ListOIDCClientsCmd())
 
 	return commands
