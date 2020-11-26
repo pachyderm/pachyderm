@@ -13,14 +13,12 @@ type StorageProvider interface {
 	GetStorage(logger *logrus.Entry) (dex_storage.Storage, error)
 }
 
-// lazyPostgresStorage instantiates a postgres connection the first time
-// one is requested.
+// lazyPostgresStorage instantiates a postgres connection when one is requested.
 type LazyPostgresStorage struct {
-	sync.Once
+	sync.RWMutex
 
 	storageConfig *dex_sql.Postgres
 	storage       dex_storage.Storage
-	err           error
 }
 
 func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgPort int) *LazyPostgresStorage {
@@ -40,16 +38,28 @@ func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgP
 }
 
 func (s *LazyPostgresStorage) GetStorage(logger *logrus.Entry) (dex_storage.Storage, error) {
-	s.Do(func() {
-		s.storage, s.err = s.storageConfig.Open(logger)
-		if s.err != nil {
-			logger.WithError(s.err).Error("dex storage failed to start")
-		}
-	})
+	s.RLock()
 
-	if s.err != nil {
-		return nil, s.err
+	storage := s.storage
+	if storage == nil {
+		s.RUnlock()
+		s.Lock()
+		if s.storage != nil {
+			storage = s.storage
+			s.Unlock()
+			return storage, nil
+		}
+		storage, err := s.storageConfig.Open(logger)
+		if err != nil {
+			logger.WithError(err).Error("dex storage failed to start")
+			s.Unlock()
+			return nil, err
+		}
+		s.storage = storage
+		s.Unlock()
+		return storage, nil
 	}
 
-	return s.storage, nil
+	s.RUnlock()
+	return storage, nil
 }
