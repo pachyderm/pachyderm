@@ -42,8 +42,8 @@ func setupIdentityServer(adminClient *client.APIClient) error {
 		return err
 	}
 
-	if _, err := adminClient.CreateConnector(adminClient.Ctx(), &identity.CreateConnectorRequest{
-		Config: &identity.ConnectorConfig{
+	if _, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
+		Config: &identity.IDPConnector{
 			Name:       "test",
 			Id:         "test",
 			Type:       "mockPassword",
@@ -53,8 +53,8 @@ func setupIdentityServer(adminClient *client.APIClient) error {
 		return err
 	}
 
-	if _, err := adminClient.CreateClient(adminClient.Ctx(), &identity.CreateClientRequest{
-		Client: &identity.Client{
+	if _, err := adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+		Client: &identity.OIDCClient{
 			Id:           "testapp",
 			RedirectUris: []string{"http://test.example.com:657/authorization-code/callback"},
 			Secret:       "test",
@@ -63,8 +63,8 @@ func setupIdentityServer(adminClient *client.APIClient) error {
 		return err
 	}
 
-	if _, err := adminClient.CreateClient(adminClient.Ctx(), &identity.CreateClientRequest{
-		Client: &identity.Client{
+	if _, err := adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
+		Client: &identity.OIDCClient{
 			Id:           "pachyderm",
 			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
 			Secret:       "notsecret",
