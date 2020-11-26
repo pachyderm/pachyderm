@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	dexHttpPort = ":658"
+	dexHTTPPort = ":658"
 
 	configPrefix = "/config"
 	configKey    = "config"
@@ -60,7 +60,8 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (*apiServer, error) {
+// NewIdentityServer returns an implementation of identity.APIServer.
+func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bool, etcdPrefix string) (identity.APIServer, error) {
 	logger := logrus.NewEntry(logrus.New()).WithField("source", "dex")
 
 	server := &apiServer{
@@ -80,7 +81,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 	if public {
 		server.web = newDexWeb(sp, logger)
 		go func() {
-			if err := http.ListenAndServe(dexHttpPort, server.web); err != nil {
+			if err := http.ListenAndServe(dexHTTPPort, server.web); err != nil {
 				logger.WithError(err).Error("Dex web server stopped")
 			}
 		}()

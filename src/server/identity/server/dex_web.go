@@ -103,12 +103,12 @@ func (w *dexWeb) getServer() *dex_server.Server {
 
 // ServeHTTP proxies requests to the Dex server, if it's configured.
 //
-func (dw *dexWeb) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	server := dw.getServer()
+func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	server := w.getServer()
 	if server == nil {
-		http.Error(w, "unable to start Dex server, check logs", http.StatusInternalServerError)
+		http.Error(rw, "unable to start Dex server, check logs", http.StatusInternalServerError)
 		return
 	}
 
-	server.ServeHTTP(w, r)
+	server.ServeHTTP(rw, r)
 }
