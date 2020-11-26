@@ -430,7 +430,10 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.config.ReadWrite(stm).Delete(configKey)
+		if err := a.config.ReadWrite(stm).Delete(configKey); err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}

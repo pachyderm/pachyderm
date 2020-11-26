@@ -76,7 +76,6 @@ type PachdSpecificConfiguration struct {
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT,default=32228"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 
-	IdentityServerIssuer   string `env:"IDENTITY_SERVER_ISSUER,default=http://localhost:30658/"`
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=pgc"`
 	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
@@ -122,7 +121,7 @@ type FeatureFlags struct {
 	StorageV2                    bool `env:"STORAGE_V2,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
 	LokiLogging                  bool `env:"LOKI_LOGGING,default=false"`
-	IdentityServerEnabled        bool `env:"IDENTITY_SERVER_ENABLED,default=true"`
+	IdentityServerEnabled        bool `env:"IDENTITY_SERVER_ENABLED,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.

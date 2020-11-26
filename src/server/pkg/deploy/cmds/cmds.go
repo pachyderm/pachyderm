@@ -337,7 +337,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().BoolVar(&storageV2, "storage-v2", false, "Deploy Pachyderm using V2 storage (alpha)")
-		cmd.Flags().BoolVar(&idServerEnabled, "id-server", true, "Enable the embedded identity server (alpha)")
+		cmd.Flags().BoolVar(&idServerEnabled, "id-server", false, "Enable the embedded identity server (alpha)")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")

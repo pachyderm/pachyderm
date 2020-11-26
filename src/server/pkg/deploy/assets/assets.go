@@ -708,6 +708,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 				},
 			},
 		},
+		{Name: "IDENTITY_SERVER_ENABLED", Value: strconv.FormatBool(opts.FeatureFlags.IdentityServerEnabled)},
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
 		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},

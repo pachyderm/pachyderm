@@ -71,7 +71,7 @@ class BaseDriver:
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
         host_path = Path("/var") / f"pachyderm-{secrets.token_hex(5)}"
-        return ["local", "-d", "--no-guaranteed", f"--host-path={host_path}"]
+        return ["local", "-d", "--id-server", "--no-guaranteed", f"--host-path={host_path}"]
 
     async def deploy(self, dash, ide, builder_images):
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
