@@ -14,19 +14,24 @@ type RewriteRoundTripper struct {
 }
 
 func RewriteClient(expected, rewrite string) (*http.Client, error) {
-	expectedUrl, err := url.Parse(expected)
+	expectedURL, err := url.Parse(expected)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse URL %q: %w", expected, err)
 	}
 
-	rewriteUrl, err := url.Parse(rewrite)
+	rewriteURL, err := url.Parse(rewrite)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse URL %q: %w", rewrite, err)
 	}
+
+	if rewriteURL.Host == "" || rewriteURL.Scheme == "" {
+		return nil, fmt.Errorf("invalid URL %q is missing host or scheme", err)
+	}
+
 	return &http.Client{
 		Transport: RewriteRoundTripper{
-			Expected: expectedUrl,
-			Rewrite:  rewriteUrl,
+			Expected: expectedURL,
+			Rewrite:  rewriteURL,
 		},
 	}, nil
 }
@@ -34,9 +39,7 @@ func RewriteClient(expected, rewrite string) (*http.Client, error) {
 func (rt RewriteRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Host == rt.Expected.Host {
 		req.URL.Host = rt.Rewrite.Host
-		if rt.Rewrite.Scheme != "" {
-			req.URL.Scheme = rt.Rewrite.Scheme
-		}
+		req.URL.Scheme = rt.Rewrite.Scheme
 	}
 	return http.DefaultTransport.RoundTrip(req)
 }
