@@ -10,7 +10,6 @@ message Index {
   string path = 1;
   Range range = 2;
   File file = 3;
-  // Size of the content being indexed (does not include headers or padding).
   int64 size_bytes = 4;
 }
 

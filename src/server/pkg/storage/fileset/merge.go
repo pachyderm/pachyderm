@@ -1,14 +1,13 @@
 package fileset
 
 import (
-	"bytes"
 	"context"
 	"io"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 // MergeReader is an abstraction for reading merged filesets.
@@ -32,10 +31,10 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, deletiv
 	if len(deletive) > 0 && deletive[0] {
 		return mr.iterateDeletive(ctx, cb)
 	}
-	return mr.iterateAdditive(ctx, cb)
+	return mr.iterate(ctx, cb)
 }
 
-func (mr *MergeReader) iterateAdditive(ctx context.Context, cb func(File) error) error {
+func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 	var ss []stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
@@ -49,10 +48,20 @@ func (mr *MergeReader) iterateAdditive(ctx context.Context, cb func(File) error)
 		})
 	}
 	pq := newPriorityQueue(ss)
+	var skipPrefix string
 	return pq.iterate(func(ss []stream, _ ...string) error {
 		var fss []*fileStream
 		for _, s := range ss {
 			fss = append(fss, s.(*fileStream))
+		}
+		if skipPrefix != "" {
+			if strings.HasPrefix(fss[0].key(), skipPrefix) {
+				return nil
+			}
+		}
+		if IsDir(fss[0].key()) {
+			skipPrefix = fss[0].key()
+			return nil
 		}
 		if len(fss) == 1 {
 			if fss[0].deletive {
@@ -71,43 +80,34 @@ func (mr *MergeReader) iterateAdditive(ctx context.Context, cb func(File) error)
 
 func mergeFile(fss []*fileStream) *index.Index {
 	mergeIdx := &index.Index{
+		Path: fss[0].file.Index().Path,
 		File: &index.File{},
 	}
-	mergeIdx.Path = fss[0].file.Index().Path
-	var headerPart *index.Part
 	var ps []*partStream
 	for _, fs := range fss {
 		idx := fs.file.Index()
 		if fs.deletive && idx.File.Parts == nil {
 			break
 		}
-		// Collect the header part from the lowest priority index.
-		if !fs.deletive {
-			headerPart = getHeaderPart(idx.File.Parts)
-		}
 		ps = append(ps, &partStream{
-			parts:    getContentParts(idx.File.Parts),
+			parts:    idx.File.Parts,
 			deletive: fs.deletive,
 		})
 		mergeIdx.SizeBytes += idx.SizeBytes
 	}
 	// Merge the parts based on the lexicograhical ordering of the tags.
-	contentParts := mergeParts(ps)
-	if len(contentParts) == 0 {
-		return mergeIdx
-	}
-	mergeIdx.File.Parts = append([]*index.Part{headerPart}, contentParts...)
+	mergeIdx.File.Parts = mergeParts(ps)
 	return mergeIdx
 }
 
-func mergeParts(ps []*partStream) []*index.Part {
-	if len(ps) == 0 {
+func mergeParts(pss []*partStream) []*index.Part {
+	if len(pss) == 0 {
 		return nil
 	}
 	var ss []stream
-	for i := len(ps) - 1; i >= 0; i-- {
-		ps[i].priority = len(ss)
-		ss = append(ss, ps[i])
+	for i := len(pss) - 1; i >= 0; i-- {
+		pss[i].priority = len(ss)
+		ss = append(ss, pss[i])
 	}
 	pq := newPriorityQueue(ss)
 	var mergedParts []*index.Part
@@ -159,24 +159,21 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 
 func mergeDeletes(idxs []*index.Index) *index.Index {
 	mergeIdx := &index.Index{
+		Path: idxs[0].Path,
 		File: &index.File{},
 	}
-	mergeIdx.Path = idxs[0].Path
 	var ps []*partStream
 	for _, idx := range idxs {
+		// Handle full delete.
 		if idx.File.Parts == nil {
-			break
+			return mergeIdx
 		}
 		ps = append(ps, &partStream{
-			parts: getContentParts(idx.File.Parts),
+			parts: idx.File.Parts,
 		})
 	}
 	// Merge the parts based on the lexicograhical ordering of the tags.
-	contentParts := mergeParts(ps)
-	if len(contentParts) == 0 {
-		return mergeIdx
-	}
-	mergeIdx.File.Parts = append(mergeIdx.File.Parts, contentParts...)
+	mergeIdx.File.Parts = mergeParts(ps)
 	return mergeIdx
 }
 
@@ -185,7 +182,6 @@ type MergeFileReader struct {
 	ctx    context.Context
 	chunks *chunk.Storage
 	idx    *index.Index
-	hdr    *tar.Header
 }
 
 func newMergeFileReader(ctx context.Context, chunks *chunk.Storage, idx *index.Index) *MergeFileReader {
@@ -201,28 +197,9 @@ func (mfr *MergeFileReader) Index() *index.Index {
 	return proto.Clone(mfr.idx).(*index.Index)
 }
 
-// Header returns the tar header for the merged file.
-func (mfr *MergeFileReader) Header() (*tar.Header, error) {
-	if mfr.hdr == nil {
-		buf := &bytes.Buffer{}
-		r := mfr.chunks.NewReader(mfr.ctx, getHeaderPart(mfr.idx.File.Parts).DataRefs)
-		if err := r.Get(buf); err != nil {
-			return nil, err
-		}
-		tr := tar.NewReader(buf)
-		var err error
-		mfr.hdr, err = tr.Next()
-		if err != nil {
-			return nil, err
-		}
-		mfr.hdr.Size = mfr.idx.SizeBytes
-	}
-	return mfr.hdr, nil
-}
-
 // Content returns the content of the merged file.
 func (mfr *MergeFileReader) Content(w io.Writer) error {
-	dataRefs := getDataRefs(getContentParts(mfr.idx.File.Parts))
+	dataRefs := getDataRefs(mfr.idx.File.Parts)
 	r := mfr.chunks.NewReader(mfr.ctx, dataRefs)
 	return r.Get(w)
 }

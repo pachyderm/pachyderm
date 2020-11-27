@@ -7,15 +7,12 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 type dirInserter struct {
 	x FileSet
 }
 
-// NewDirInserter returns a FileSource which will include all directories on the path
-// from the root to a leaf (regular file).
 func NewDirInserter(x FileSet) FileSet {
 	return &dirInserter{x: x}
 }
@@ -25,7 +22,7 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {
-		parent := CleanTarPath(parentOf(p), true)
+		parent := Clean(parentOf(p), true)
 		if p == "/" || lastPath >= parent {
 			if err := cb(f); err != nil {
 				return err
@@ -35,9 +32,7 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 		}
 		// need to create entry for parent
 		df := dirFile{
-			hdr: &tar.Header{
-				Name: parent,
-			},
+			path: parent,
 		}
 		if err := emit(parent, df); err != nil {
 			return err
@@ -45,11 +40,7 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 		return emit(p, f)
 	}
 	return s.x.Iterate(ctx, func(f File) error {
-		hdr, err := f.Header()
-		if err != nil {
-			return err
-		}
-		return emit(hdr.Name, f)
+		return emit(f.Index().Path, f)
 	})
 }
 
@@ -66,15 +57,13 @@ func parentOf(x string) string {
 }
 
 type dirFile struct {
-	hdr *tar.Header
+	path string
 }
 
 func (d dirFile) Index() *index.Index {
-	return nil
-}
-
-func (d dirFile) Header() (*tar.Header, error) {
-	return d.hdr, nil
+	return &index.Index{
+		Path: d.path,
+	}
 }
 
 func (d dirFile) Content(w io.Writer) error {

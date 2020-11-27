@@ -6,7 +6,6 @@ import (
 	"io"
 	"path"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -14,8 +13,7 @@ import (
 )
 
 type memFile struct {
-	name  string
-	hdr   *tar.Header
+	path  string
 	parts map[string]*memPart
 }
 
@@ -48,37 +46,18 @@ func newMemFileSet() *memFileSet {
 	}
 }
 
-func (mfs *memFileSet) appendFile(hdr *tar.Header, tag string) io.Writer {
-	mfs.createParent(hdr.Name, tag)
-	return mfs.createMemPart(hdr, tag)
+func (mfs *memFileSet) appendFile(p string, tag string) io.Writer {
+	return mfs.createMemPart(p, tag)
 }
 
-func (mfs *memFileSet) createParent(name, tag string) {
-	if name == "" {
-		return
-	}
-	name, _ = path.Split(name)
-	if _, ok := mfs.additive[name]; ok {
-		return
-	}
-	hdr := &tar.Header{
-		Typeflag: tar.TypeDir,
-		Name:     CleanTarPath(name, true),
-	}
-	mfs.createMemPart(hdr, tag)
-	name = strings.TrimRight(name, "/")
-	mfs.createParent(name, tag)
-}
-
-func (mfs *memFileSet) createMemPart(hdr *tar.Header, tag string) *memPart {
-	if _, ok := mfs.additive[hdr.Name]; !ok {
-		mfs.additive[hdr.Name] = &memFile{
-			name:  hdr.Name,
-			hdr:   hdr,
+func (mfs *memFileSet) createMemPart(p string, tag string) *memPart {
+	if _, ok := mfs.additive[p]; !ok {
+		mfs.additive[p] = &memFile{
+			path:  p,
 			parts: make(map[string]*memPart),
 		}
 	}
-	mf := mfs.additive[hdr.Name]
+	mf := mfs.additive[p]
 	if _, ok := mf.parts[tag]; !ok {
 		mf.parts[tag] = &memPart{
 			tag: tag,
@@ -88,22 +67,22 @@ func (mfs *memFileSet) createMemPart(hdr *tar.Header, tag string) *memPart {
 	return mf.parts[tag]
 }
 
-func (mfs *memFileSet) deleteFile(name, tag string) {
+func (mfs *memFileSet) deleteFile(p, tag string) {
 	if tag == "" {
-		mfs.additive[name] = nil
-		mfs.deletive[name] = &memFile{name: name}
+		delete(mfs.additive, p)
+		mfs.deletive[p] = &memFile{path: p}
 		return
 	}
-	if mf, ok := mfs.additive[name]; ok {
-		mf.parts[tag] = nil
+	if mf, ok := mfs.additive[p]; ok {
+		delete(mf.parts, tag)
 	}
-	if _, ok := mfs.deletive[name]; !ok {
-		mfs.deletive[name] = &memFile{
-			name:  name,
+	if _, ok := mfs.deletive[p]; !ok {
+		mfs.deletive[p] = &memFile{
+			path:  p,
 			parts: make(map[string]*memPart),
 		}
 	}
-	mf := mfs.deletive[name]
+	mf := mfs.deletive[p]
 	mf.parts[tag] = &memPart{tag: tag}
 }
 
@@ -116,11 +95,7 @@ func (mfs *memFileSet) serialize(w *Writer) error {
 
 func (mfs *memFileSet) serializeAdditive(w *Writer) error {
 	for _, mf := range sortMemFiles(mfs.additive) {
-		if err := w.Append(mf.hdr.Name, func(fw *FileWriter) error {
-			mf.hdr.Size = mf.size()
-			if err := WriteTarHeader(fw, mf.hdr); err != nil {
-				return err
-			}
+		if err := w.Append(mf.path, func(fw *FileWriter) error {
 			return serializeParts(fw, mf)
 		}); err != nil {
 			return err
@@ -145,7 +120,7 @@ func (mfs *memFileSet) serializeDeletive(w *Writer) error {
 		for _, mp := range sortMemParts(mf.parts) {
 			tags = append(tags, mp.tag)
 		}
-		w.Delete(mf.name, tags...)
+		w.Delete(mf.path, tags...)
 	}
 	return nil
 }
@@ -156,7 +131,7 @@ func sortMemFiles(mfs map[string]*memFile) []*memFile {
 		result = append(result, mf)
 	}
 	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].hdr.Name < result[j].hdr.Name
+		return result[i].path < result[j].path
 	})
 	return result
 }
@@ -221,15 +196,15 @@ func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string)
 			}
 			return err
 		}
-		hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+		p := Clean(hdr.Name, hdr.FileInfo().IsDir())
 		if hdr.Typeflag == tar.TypeDir {
 			continue
 		}
 		// TODO: Tag overwrite?
 		if overwrite {
-			uw.memFileSet.deleteFile(hdr.Name, "")
+			uw.memFileSet.deleteFile(p, "")
 		}
-		w := uw.memFileSet.appendFile(hdr, tag)
+		w := uw.memFileSet.appendFile(p, tag)
 		for {
 			n, err := io.CopyN(w, tr, uw.memAvailable)
 			uw.memAvailable -= n
@@ -243,7 +218,7 @@ func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string)
 				if err := uw.serialize(); err != nil {
 					return err
 				}
-				w = uw.memFileSet.appendFile(hdr, tag)
+				w = uw.memFileSet.appendFile(p, tag)
 			}
 		}
 	}
@@ -253,7 +228,7 @@ func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string)
 // TODO: Directory deletion needs more invariant checks.
 // Right now you have to specify the trailing slash explicitly.
 func (uw *UnorderedWriter) Delete(name string, tags ...string) {
-	name = CleanTarPath(name, IsDir(name))
+	name = Clean(name, IsDir(name))
 	var tag string
 	if len(tag) > 0 {
 		tag = tags[0]

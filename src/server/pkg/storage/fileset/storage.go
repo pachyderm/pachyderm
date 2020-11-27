@@ -18,9 +18,6 @@ import (
 
 const (
 	semanticPrefix = "root"
-	// TODO Not sure if this is the tags we should use, but the header tag should show up before the lexicographical ordering of file content tags.
-	// headerTag is the tag used for the tar header bytes.
-	headerTag = ""
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * units.MB
@@ -110,7 +107,9 @@ func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Opt
 			return nil, err
 		}
 	}
-	// TODO: Error if no filesets found?
+	if len(fss) == 0 {
+		return nil, ErrNoFileSetFound
+	}
 	if len(fss) == 1 {
 		return fss[0], nil
 	}

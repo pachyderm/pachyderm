@@ -11,10 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+// TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
+// We can run into the same issue as deletions where a lot of size zero files can cause us to get backed up
+// since no chunks will get created. The solution we have in mind is to write a small number of bytes
+// for a size zero file, then either not store references to them or ignore them at read time.
+
 type FileWriter struct {
-	idx  *index.Index
-	cw   *chunk.Writer
-	part *index.Part
+	idx *index.Index
+	cw  *chunk.Writer
 }
 
 func (fw *FileWriter) Append(tag string) {
@@ -22,10 +26,9 @@ func (fw *FileWriter) Append(tag string) {
 }
 
 func (fw *FileWriter) Write(data []byte) (int, error) {
-	if fw.part.Tag != headerTag {
-		fw.idx.SizeBytes += int64(len(data))
-	}
-	fw.part.SizeBytes += int64(len(data))
+	parts := fw.idx.File.Parts
+	part := parts[len(parts)-1]
+	part.SizeBytes += int64(len(data))
 	return fw.cw.Write(data)
 }
 
@@ -99,12 +102,11 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 
 func (w *Writer) checkPath(p string) error {
 	if w.idx != nil {
-		if w.idx.Path > p {
-			return errors.Errorf("can't write path (%s) after (%s)", p, w.idx.Path)
+		if w.idx.Path == p {
+			return errors.Errorf("cannot write same path (%s) twice", p)
 		}
-		parent := parentOf(p)
-		if w.idx.Path < parent {
-			return errors.Errorf("cannot write path (%s) without first writing parent (%s)", p, parent)
+		if w.idx.Path > p {
+			return errors.Errorf("cannot write path (%s) after (%s)", p, w.idx.Path)
 		}
 	}
 	return nil

@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -287,6 +286,7 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 	if err != nil {
 		return err
 	}
+	fs = fileset.NewDirInserter(fs)
 	var dir string
 	filter := fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if dir != "" && strings.HasPrefix(idx.Path, dir) {
@@ -328,6 +328,7 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if idx.Path == "/" {
 			return false
@@ -587,6 +588,7 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	s := NewSource(commit, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if !mf(fi.File.Path) {
@@ -634,21 +636,13 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
-	fs = fileset.NewHeaderMapper(fs, func(th *tar.Header) *tar.Header {
-		th.Name = pathTransform(th.Name)
-		return th
+	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
+		idx.Path = pathTransform(idx.Path)
+		return idx
 	})
-	fs = fileset.NewDirInserter(fs)
 	return d.withWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
-			hdr, err := f.Header()
-			if err != nil {
-				return err
-			}
-			return dst.Append(hdr.Name, func(fw *fileset.FileWriter) error {
-				if err := fileset.WriteTarHeader(fw, hdr); err != nil {
-					return err
-				}
+			return dst.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
 				fw.Append(tag)
 				return f.Content(fw)
 			})
@@ -707,6 +701,7 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 			return err
 		}
 		fs = d.storage.NewIndexResolver(fs)
+		fs = fileset.NewDirInserter(fs)
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
 		})
@@ -717,6 +712,7 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
 	})
@@ -743,6 +739,7 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 	if err != nil {
 		return nil, err
 	}
+	fs = fileset.NewDirInserter(fs)
 	fs = d.storage.NewIndexResolver(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
@@ -780,6 +777,7 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	if err != nil {
 		return err
 	}
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})

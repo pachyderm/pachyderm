@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 
 // WithTestStorage constructs a local storage instance for testing during the lifetime of
@@ -59,12 +59,9 @@ func deleteIndex(w *Writer, idx *index.Index) error {
 
 // WriteTarEntry writes an tar entry for f to w
 func WriteTarEntry(w io.Writer, f File) error {
-	h, err := f.Header()
-	if err != nil {
-		return err
-	}
+	idx := f.Index()
 	tw := tar.NewWriter(w)
-	if err := tw.WriteHeader(h); err != nil {
+	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, idx.SizeBytes)); err != nil {
 		return err
 	}
 	if err := f.Content(tw); err != nil {
@@ -84,17 +81,7 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	return tar.NewWriter(w).Close()
 }
 
-func WriteTarHeader(fw *FileWriter, hdr *tar.Header) error {
-	tw := tar.NewWriter(fw)
-	fw.Append(headerTag)
-	hdr.Size = 0
-	return tw.WriteHeader(hdr)
-}
-
-// CleanTarPath ensures that the path is in the canonical format for tar header names.
-// This includes ensuring a prepending /'s and ensure directory paths
-// have a trailing slash.
-func CleanTarPath(x string, isDir bool) string {
+func Clean(x string, isDir bool) string {
 	y := "/" + strings.Trim(x, "/")
 	if isDir && !IsDir(y) {
 		y += "/"
@@ -102,23 +89,14 @@ func CleanTarPath(x string, isDir bool) string {
 	return y
 }
 
-// IsCleanTarPath determines if the path is a valid tar path.
-func IsCleanTarPath(x string, isDir bool) bool {
-	y := CleanTarPath(x, isDir)
+func IsClean(x string, isDir bool) bool {
+	y := Clean(x, isDir)
 	return y == x
 }
 
 // IsDir determines if a path is for a directory.
 func IsDir(p string) bool {
 	return strings.HasSuffix(p, "/")
-}
-
-// DirUpperBound returns the immediate next path after a directory in a lexicographical ordering.
-func DirUpperBound(p string) string {
-	if !IsDir(p) {
-		panic(fmt.Sprintf("%v is not a directory path", p))
-	}
-	return strings.TrimRight(p, "/") + "0"
 }
 
 // Iterator provides functionality for imperative iteration over a file set.
@@ -174,17 +152,6 @@ func (i *Iterator) Next() (File, error) {
 	case err := <-i.errChan:
 		return nil, err
 	}
-}
-
-func getHeaderPart(parts []*index.Part) *index.Part {
-	return parts[0]
-}
-
-func getContentParts(parts []*index.Part) []*index.Part {
-	if parts[0].Tag == headerTag {
-		parts = parts[1:]
-	}
-	return parts
 }
 
 func getDataRefs(parts []*index.Part) []*chunk.DataRef {
