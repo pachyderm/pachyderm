@@ -11,6 +11,10 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// webDir is the path to find the static assets for the web server.
+// This is always /web in the docker image, but it can be overriden for testing
+var webDir = "/web"
+
 // dexWeb wraps a Dex web server and hot reloads it when the
 // issuer is reconfigured.
 type dexWeb struct {
@@ -62,7 +66,7 @@ func (w *dexWeb) startWebServer() {
 		Issuer:             w.issuer,
 		SkipApprovalScreen: true,
 		Web: dex_server.WebConfig{
-			Dir: "/web",
+			Dir: webDir,
 		},
 		Logger: w.logger,
 	}

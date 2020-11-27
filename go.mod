@@ -22,7 +22,8 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/crewjam/saml v0.4.4-0.20201214083806-0dd2422c212e
-	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759 // indirect
+	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759
+	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
