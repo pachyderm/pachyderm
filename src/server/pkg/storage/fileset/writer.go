@@ -29,6 +29,7 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 	parts := fw.idx.File.Parts
 	part := parts[len(parts)-1]
 	part.SizeBytes += int64(len(data))
+	fw.idx.SizeBytes += int64(len(data))
 	return fw.cw.Write(data)
 }
 

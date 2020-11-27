@@ -49,18 +49,26 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 	}
 	pq := newPriorityQueue(ss)
 	var skipPrefix string
+	var skipPriority int
 	return pq.iterate(func(ss []stream, _ ...string) error {
 		var fss []*fileStream
 		for _, s := range ss {
 			fss = append(fss, s.(*fileStream))
 		}
-		if skipPrefix != "" {
-			if strings.HasPrefix(fss[0].key(), skipPrefix) {
-				return nil
+		if skipPrefix != "" && strings.HasPrefix(fss[0].key(), skipPrefix) {
+			for i, fs := range fss {
+				if fs.streamPriority() < skipPriority {
+					fss = fss[:i]
+					break
+				}
 			}
+		}
+		if len(fss) == 0 {
+			return nil
 		}
 		if IsDir(fss[0].key()) {
 			skipPrefix = fss[0].key()
+			skipPriority = fss[0].streamPriority()
 			return nil
 		}
 		if len(fss) == 1 {

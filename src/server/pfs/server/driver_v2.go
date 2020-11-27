@@ -741,8 +741,8 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 	if err != nil {
 		return nil, err
 	}
-	fs = fileset.NewDirInserter(fs)
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})

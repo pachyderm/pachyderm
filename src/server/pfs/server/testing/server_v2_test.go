@@ -1063,3 +1063,64 @@ func TestTmpFileSet(t *testing.T) {
 		return nil
 	}, newPachdConfig()))
 }
+
+func TestDeleteFileV2(t *testing.T) {
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		fileContent := "bar\n"
+		_, err = env.PachClient.PutFileOverwrite(repo, commit1.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit1.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+
+		commit2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(repo, commit2.ID, "/"))
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/barbar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+
+		commit3, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(repo, commit3.ID, "/dir1/dir2/"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/bar")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/barbar")
+		require.YesError(t, err)
+
+		commit4, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit4.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2/bar")
+		require.NoError(t, err)
+
+		return nil
+	}, newPachdConfig()))
+}

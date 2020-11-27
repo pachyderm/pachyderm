@@ -221,7 +221,10 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	if err != nil {
 		return nil, err
 	}
-	size := md.Additive.SizeBytes
+	var size int64
+	if md.Additive != nil {
+		size = md.Additive.SizeBytes
+	}
 	spec := &CompactSpec{
 		Input: []string{path.Join(fileSet, Diff)},
 	}
@@ -244,7 +247,9 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 			}
 		} else {
 			spec.Input = append(spec.Input, levelPath)
-			size += md.Additive.SizeBytes
+			if md.Additive != nil {
+				size += md.Additive.SizeBytes
+			}
 		}
 		if size <= s.levelSize(level) {
 			break
