@@ -57,6 +57,11 @@ func TestLazyStartWebServer(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
+
+	// make a second request to the running web server
+	recorder = httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
 }
 
 // TestConfigureIssuer tests that the web server is restarted when the issuer is changed.

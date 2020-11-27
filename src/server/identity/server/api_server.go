@@ -200,7 +200,7 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 	}
 
 	return &identity.GetIDPConnectorResponse{
-		Config: dexConnectorToPach(c),
+		Config: c,
 	}, nil
 }
 

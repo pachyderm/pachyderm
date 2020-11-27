@@ -67,6 +67,14 @@ func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClient
 		return nil, err
 	}
 
+	if in.Client.Name == "" {
+		return nil, errors.New("no client name specified")
+	}
+
+	if in.Client.Id == "" {
+		return nil, errors.New("no client id specified")
+	}
+
 	req := &dex_api.CreateClientReq{
 		Client: &dex_api.Client{
 			Id:           in.Client.Id,
@@ -143,7 +151,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 	}
 
 	if req.Config.Type == "" {
-		return errors.New("no connType specified")
+		return errors.New("no type specified")
 	}
 
 	if req.Config.Name == "" {
@@ -169,13 +177,18 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 	return nil
 }
 
-func (a *dexAPI) getConnector(id string) (dex_storage.Connector, error) {
+func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
-		return dex_storage.Connector{}, err
+		return nil, err
 	}
 
-	return storage.GetConnector(id)
+	conn, err := storage.GetConnector(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return dexConnectorToPach(conn), nil
 }
 
 func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
@@ -198,6 +211,10 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 
 		if in.Config.JsonConfig != "" {
 			c.Config = []byte(in.Config.JsonConfig)
+		}
+
+		if in.Config.Type != "" {
+			c.Type = in.Config.Type
 		}
 
 		if err := a.validateConfig(c.ID, c.Type, c.Config); err != nil {
