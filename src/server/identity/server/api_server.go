@@ -2,15 +2,11 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
-	dex_api "github.com/dexidp/dex/api/v2"
-	"github.com/dexidp/dex/storage"
 	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -145,28 +141,6 @@ func (a *apiServer) isAdmin(ctx context.Context, op string) error {
 	}
 }
 
-func dexConnectorToPach(c storage.Connector) *identity.IDPConnector {
-	// If the version isn't an int, set it to zero
-	version, _ := strconv.Atoi(c.ResourceVersion)
-	return &identity.IDPConnector{
-		Id:            c.ID,
-		Name:          c.Name,
-		Type:          c.Type,
-		ConfigVersion: int64(version),
-		JsonConfig:    string(c.Config),
-	}
-}
-
-func dexClientToPach(c *dex_api.Client) *identity.OIDCClient {
-	return &identity.OIDCClient{
-		Id:           c.Id,
-		Secret:       c.Secret,
-		RedirectUris: c.RedirectUris,
-		TrustedPeers: c.TrustedPeers,
-		Name:         c.Name,
-	}
-}
-
 func (a *apiServer) SetIdentityConfig(ctx context.Context, req *identity.SetIdentityConfigRequest) (resp *identity.SetIdentityConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -206,7 +180,7 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 		return nil, err
 	}
 
-	if err := a.api.createConnector(req.Config.Id, req.Config.Name, req.Config.Type, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.api.createConnector(req); err != nil {
 		return nil, err
 	}
 	return &identity.CreateIDPConnectorResponse{}, nil
@@ -238,7 +212,7 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 		return nil, err
 	}
 
-	if err := a.api.updateConnector(req.Config.Id, req.Config.Name, int(req.Config.ConfigVersion), []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
 	}
 
@@ -258,15 +232,7 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 		return nil, err
 	}
 
-	resp = &identity.ListIDPConnectorsResponse{
-		Connectors: make([]*identity.IDPConnector, len(connectors)),
-	}
-
-	for i, c := range connectors {
-		resp.Connectors[i] = dexConnectorToPach(c)
-	}
-
-	return resp, nil
+	return &identity.ListIDPConnectorsResponse{Connectors: connectors}, nil
 }
 
 func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (resp *identity.DeleteIDPConnectorResponse, retErr error) {
@@ -292,27 +258,13 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 		return nil, err
 	}
 
-	client := &dex_api.CreateClientReq{
-		Client: &dex_api.Client{
-			Id:           req.Client.Id,
-			Secret:       req.Client.Secret,
-			RedirectUris: req.Client.RedirectUris,
-			TrustedPeers: req.Client.TrustedPeers,
-			Name:         req.Client.Name,
-		},
-	}
-
-	dexResp, err := a.api.createClient(ctx, client)
+	client, err := a.api.createClient(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if dexResp.AlreadyExists {
-		return nil, fmt.Errorf("OIDC client with id %q already exists", req.Client.Id)
-	}
-
 	return &identity.CreateOIDCClientResponse{
-		Client: dexClientToPach(dexResp.Client),
+		Client: client,
 	}, nil
 }
 
@@ -324,20 +276,8 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 		return nil, err
 	}
 
-	client := &dex_api.UpdateClientReq{
-		Id:           req.Client.Id,
-		Name:         req.Client.Name,
-		RedirectUris: req.Client.RedirectUris,
-		TrustedPeers: req.Client.TrustedPeers,
-	}
-
-	dexResp, err := a.api.updateClient(ctx, client)
-	if err != nil {
+	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
-	}
-
-	if dexResp.NotFound {
-		return nil, fmt.Errorf("unable to find OIDC client with id %q", req.Client.Id)
 	}
 
 	return &identity.UpdateOIDCClientResponse{}, nil
@@ -356,7 +296,7 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 		return nil, err
 	}
 
-	return &identity.GetOIDCClientResponse{Client: dexClientToPach(client)}, nil
+	return &identity.GetOIDCClientResponse{Client: client}, nil
 }
 
 func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
@@ -373,9 +313,6 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 	}
 
 	resp = &identity.ListOIDCClientsResponse{Clients: make([]*identity.OIDCClient, len(clients))}
-	for i, client := range clients {
-		resp.Clients[i] = dexClientToPach(client)
-	}
 
 	return resp, nil
 }
@@ -388,13 +325,8 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 		return nil, err
 	}
 
-	dexResp, err := a.api.deleteClient(ctx, &dex_api.DeleteClientReq{Id: req.Id})
-	if err != nil {
+	if err := a.api.deleteClient(ctx, req.Id); err != nil {
 		return nil, err
-	}
-
-	if dexResp.NotFound {
-		return nil, fmt.Errorf("unable to find OIDC client with id %q", req.Id)
 	}
 
 	return &identity.DeleteOIDCClientResponse{}, nil
@@ -419,13 +351,13 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 	}
 
 	for _, client := range clients {
-		if _, err := a.api.deleteClient(ctx, &dex_api.DeleteClientReq{Id: client.Id}); err != nil {
+		if err := a.api.deleteClient(ctx, client.Id); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, conn := range connectors {
-		if err := a.api.deleteConnector(conn.ID); err != nil {
+		if err := a.api.deleteConnector(conn.Id); err != nil {
 			return nil, err
 		}
 	}

@@ -12,18 +12,19 @@ import (
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/pkg/errors"
 	logrus "github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/pachyderm/src/client/identity"
 )
 
 // dexApi wraps an api.DexServer and extends it with CRUD operations
 // that are currently missing from the dex api. It also handles lazily
 // instantiating the api and storage on the first request.
 type dexApi struct {
-	init sync.Once
+	sync.RWMutex
 
 	server          dex_api.DexServer
 	logger          *logrus.Entry
 	storageProvider StorageProvider
-	err             error
 }
 
 func newDexApi(sp StorageProvider, logger *logrus.Entry) *dexApi {
@@ -34,75 +35,133 @@ func newDexApi(sp StorageProvider, logger *logrus.Entry) *dexApi {
 }
 
 func (a *dexApi) api() (dex_api.DexServer, error) {
-	a.init.Do(func() {
-		storage, err := a.storageProvider.GetStorage(a.logger)
-		if err != nil {
-			a.err = err
-			return
+	a.RLock()
+	server := a.server
+
+	if a.server == nil {
+		a.RUnlock()
+		a.Lock()
+		if a.server != nil {
+			server = a.server
+			a.Unlock()
+			return server, nil
 		}
 
+		storage, err := a.storageProvider.GetStorage(a.logger)
+		if err != nil {
+			a.Unlock()
+			return nil, err
+		}
 		a.server = dex_server.NewAPI(storage, nil)
-	})
-
-	if a.err != nil {
-		return nil, a.err
+		server = a.server
+		a.Unlock()
+		return server, nil
 	}
+	server = a.server
+	a.RUnlock()
 
 	return a.server, nil
 }
 
-func (a *dexApi) createClient(ctx context.Context, in *dex_api.CreateClientReq) (*dex_api.CreateClientResp, error) {
+func (a *dexApi) createClient(ctx context.Context, in *identity.CreateOIDCClientRequest) (*identity.OIDCClient, error) {
 	api, err := a.api()
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateClient(ctx, in)
-}
 
-func (a *dexApi) updateClient(ctx context.Context, in *dex_api.UpdateClientReq) (*dex_api.UpdateClientResp, error) {
-	api, err := a.api()
+	req := &dex_api.CreateClientReq{
+		Client: &dex_api.Client{
+			Id:           in.Client.Id,
+			Secret:       in.Client.Secret,
+			Name:         in.Client.Name,
+			RedirectUris: in.Client.RedirectUris,
+			TrustedPeers: in.Client.TrustedPeers,
+		},
+	}
+
+	resp, err := api.CreateClient(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateClient(ctx, in)
+
+	if resp.AlreadyExists {
+		return nil, fmt.Errorf("OIDC client with id %q already exists", req.Client.Id)
+	}
+
+	return dexClientToPach(resp.Client), nil
 }
 
-func (a *dexApi) deleteClient(ctx context.Context, in *dex_api.DeleteClientReq) (*dex_api.DeleteClientResp, error) {
+func (a *dexApi) updateClient(ctx context.Context, in *identity.UpdateOIDCClientRequest) error {
 	api, err := a.api()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return api.DeleteClient(ctx, in)
+
+	req := &dex_api.UpdateClientReq{
+		Id:           in.Client.Id,
+		Name:         in.Client.Name,
+		RedirectUris: in.Client.RedirectUris,
+		TrustedPeers: in.Client.TrustedPeers,
+	}
+
+	resp, err := api.UpdateClient(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.NotFound {
+		return fmt.Errorf("unable to find OIDC client with id %q", req.Id)
+	}
+
+	return nil
 }
 
-func (a *dexApi) createConnector(id, name, connType string, resourceVersion int, jsonConfig []byte) error {
+func (a *dexApi) deleteClient(ctx context.Context, id string) error {
+	api, err := a.api()
+	if err != nil {
+		return err
+	}
+
+	resp, err := api.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
+	if err != nil {
+		return err
+	}
+
+	if resp.NotFound {
+		return fmt.Errorf("unable to find OIDC client with id %q", id)
+	}
+
+	return nil
+}
+
+func (a *dexApi) createConnector(req *identity.CreateIDPConnectorRequest) error {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return err
 	}
 
-	if id == "" {
+	if req.Config.Id == "" {
 		return errors.New("no id specified")
 	}
 
-	if connType == "" {
+	if req.Config.Type == "" {
 		return errors.New("no connType specified")
 	}
 
-	if name == "" {
+	if req.Config.Name == "" {
 		return errors.New("no name specified")
 	}
 
-	if err := a.validateConfig(id, connType, jsonConfig); err != nil {
+	if err := a.validateConfig(req.Config.Id, req.Config.Type, []byte(req.Config.JsonConfig)); err != nil {
 		return err
 	}
 
 	conn := dex_storage.Connector{
-		ID:              id,
-		Type:            connType,
-		Name:            name,
-		ResourceVersion: strconv.Itoa(resourceVersion),
-		Config:          jsonConfig,
+		ID:              req.Config.Id,
+		Type:            req.Config.Type,
+		Name:            req.Config.Name,
+		ResourceVersion: strconv.Itoa(int(req.Config.ConfigVersion)),
+		Config:          []byte(req.Config.JsonConfig),
 	}
 
 	if err := storage.CreateConnector(conn); err != nil {
@@ -121,37 +180,33 @@ func (a *dexApi) getConnector(id string) (dex_storage.Connector, error) {
 	return storage.GetConnector(id)
 }
 
-func (a *dexApi) updateConnector(id, name string, resourceVersion int, jsonConfig []byte) error {
+func (a *dexApi) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return err
 	}
 
-	return storage.UpdateConnector(id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
+	return storage.UpdateConnector(in.Config.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
-		if oldVersion+1 != resourceVersion {
-			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", resourceVersion, oldVersion+1)
+		if oldVersion+1 != int(in.Config.ConfigVersion) {
+			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", in.Config.ConfigVersion, oldVersion+1)
 		}
 
-		if name == "" {
-			name = c.Name
+		c.ResourceVersion = strconv.Itoa(int(in.Config.ConfigVersion))
+
+		if in.Config.Name != "" {
+			c.Name = in.Config.Name
 		}
 
-		if string(jsonConfig) == "" {
-			jsonConfig = c.Config
+		if in.Config.JsonConfig != "" {
+			c.Config = []byte(in.Config.JsonConfig)
 		}
 
-		if err := a.validateConfig(id, c.Type, jsonConfig); err != nil {
+		if err := a.validateConfig(c.ID, c.Type, c.Config); err != nil {
 			return dex_storage.Connector{}, err
 		}
 
-		return dex_storage.Connector{
-			ID:              id,
-			Type:            c.Type,
-			Name:            name,
-			ResourceVersion: strconv.Itoa(resourceVersion),
-			Config:          jsonConfig,
-		}, nil
+		return c, nil
 	})
 }
 
@@ -164,16 +219,25 @@ func (a *dexApi) deleteConnector(id string) error {
 	return storage.DeleteConnector(id)
 }
 
-func (a *dexApi) listConnectors() ([]dex_storage.Connector, error) {
+func (a *dexApi) listConnectors() ([]*identity.IDPConnector, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return storage.ListConnectors()
+	dexConnectors, err := storage.ListConnectors()
+	if err != nil {
+		return nil, err
+	}
+
+	connectors := make([]*identity.IDPConnector, len(dexConnectors))
+	for i, c := range dexConnectors {
+		connectors[i] = dexConnectorToPach(c)
+	}
+	return connectors, nil
 }
 
-func (a *dexApi) listClients() ([]*dex_api.Client, error) {
+func (a *dexApi) listClients() ([]*identity.OIDCClient, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
@@ -184,14 +248,14 @@ func (a *dexApi) listClients() ([]*dex_api.Client, error) {
 		return nil, err
 	}
 
-	clients := make([]*dex_api.Client, len(storageClients))
+	clients := make([]*identity.OIDCClient, len(storageClients))
 	for i, c := range storageClients {
-		clients[i] = storageClientToAPIClient(c)
+		clients[i] = storageClientToPach(c)
 	}
 	return clients, nil
 }
 
-func (a *dexApi) getClient(id string) (*dex_api.Client, error) {
+func (a *dexApi) getClient(id string) (*identity.OIDCClient, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
@@ -201,7 +265,7 @@ func (a *dexApi) getClient(id string) (*dex_api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return storageClientToAPIClient(client), nil
+	return storageClientToPach(client), nil
 }
 
 func (a *dexApi) validateConfig(id, connType string, jsonConfig []byte) error {
@@ -222,11 +286,33 @@ func (a *dexApi) validateConfig(id, connType string, jsonConfig []byte) error {
 	return nil
 }
 
-func storageClientToAPIClient(c dex_storage.Client) *dex_api.Client {
-	return &dex_api.Client{
+func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
+	return &identity.OIDCClient{
 		Id:           c.ID,
 		Secret:       c.Secret,
 		RedirectUris: c.RedirectURIs,
+		TrustedPeers: c.TrustedPeers,
+		Name:         c.Name,
+	}
+}
+
+func dexConnectorToPach(c dex_storage.Connector) *identity.IDPConnector {
+	// If the version isn't an int, set it to zero
+	version, _ := strconv.Atoi(c.ResourceVersion)
+	return &identity.IDPConnector{
+		Id:            c.ID,
+		Name:          c.Name,
+		Type:          c.Type,
+		ConfigVersion: int64(version),
+		JsonConfig:    string(c.Config),
+	}
+}
+
+func dexClientToPach(c *dex_api.Client) *identity.OIDCClient {
+	return &identity.OIDCClient{
+		Id:           c.Id,
+		Secret:       c.Secret,
+		RedirectUris: c.RedirectUris,
 		TrustedPeers: c.TrustedPeers,
 		Name:         c.Name,
 	}
