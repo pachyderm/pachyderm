@@ -211,10 +211,10 @@ func TestOIDCTrustedApp(t *testing.T) {
 	resp, err = c.Get(rewriteRedirect(t, resp, dexHost(testClient)))
 	require.NoError(t, err)
 
-	codeUrl, err := url.Parse(resp.Header.Get("Location"))
+	codeURL, err := url.Parse(resp.Header.Get("Location"))
 	require.NoError(t, err)
 
-	token, err := oauthConfig.Exchange(context.Background(), codeUrl.Query().Get("code"))
+	token, err := oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
 	require.NoError(t, err)
 
 	// Use the id token from the previous OAuth flow with Pach

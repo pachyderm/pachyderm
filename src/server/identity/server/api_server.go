@@ -33,7 +33,7 @@ type apiServer struct {
 	configCacheMtx sync.RWMutex
 	configCache    identity.IdentityConfig
 
-	api *dexApi
+	api *dexAPI
 	web *dexWeb
 }
 
@@ -63,7 +63,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 	server := &apiServer{
 		env:        env,
 		pachLogger: log.NewLogger("identity.API"),
-		api:        newDexApi(sp, logger),
+		api:        newDexAPI(sp, logger),
 		config: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, configPrefix),

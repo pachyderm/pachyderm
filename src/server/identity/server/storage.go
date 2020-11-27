@@ -9,11 +9,12 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// StorageProvider is an interface to let us lazy load dex Storage implementations
 type StorageProvider interface {
 	GetStorage(logger *logrus.Entry) (dex_storage.Storage, error)
 }
 
-// lazyPostgresStorage instantiates a postgres connection when one is requested.
+// LazyPostgresStorage creates a postgres connection when one is requested
 type LazyPostgresStorage struct {
 	sync.RWMutex
 
@@ -21,6 +22,7 @@ type LazyPostgresStorage struct {
 	storage       dex_storage.Storage
 }
 
+// NewLazyPostgresStorage returns a new StorageProvider that lazily connects to Postgres
 func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgPort int) *LazyPostgresStorage {
 	return &LazyPostgresStorage{
 		storageConfig: &dex_sql.Postgres{
@@ -37,6 +39,7 @@ func NewLazyPostgresStorage(pgHost, pgDatabase, pgUser, pgPwd, pgSSL string, pgP
 		}}
 }
 
+// GetStorage returns a dex Storage, creating it if one isn't already cached
 func (s *LazyPostgresStorage) GetStorage(logger *logrus.Entry) (dex_storage.Storage, error) {
 	s.RLock()
 

@@ -16,10 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/identity"
 )
 
-// dexApi wraps an api.DexServer and extends it with CRUD operations
+// dexAPI wraps an api.DexServer and extends it with CRUD operations
 // that are currently missing from the dex api. It also handles lazily
 // instantiating the api and storage on the first request.
-type dexApi struct {
+type dexAPI struct {
 	sync.RWMutex
 
 	server          dex_api.DexServer
@@ -27,22 +27,20 @@ type dexApi struct {
 	storageProvider StorageProvider
 }
 
-func newDexApi(sp StorageProvider, logger *logrus.Entry) *dexApi {
-	return &dexApi{
+func newDexAPI(sp StorageProvider, logger *logrus.Entry) *dexAPI {
+	return &dexAPI{
 		storageProvider: sp,
 		logger:          logger,
 	}
 }
 
-func (a *dexApi) api() (dex_api.DexServer, error) {
+func (a *dexAPI) api() (dex_api.DexServer, error) {
 	a.RLock()
-	server := a.server
-
 	if a.server == nil {
 		a.RUnlock()
 		a.Lock()
 		if a.server != nil {
-			server = a.server
+			server := a.server
 			a.Unlock()
 			return server, nil
 		}
@@ -53,17 +51,17 @@ func (a *dexApi) api() (dex_api.DexServer, error) {
 			return nil, err
 		}
 		a.server = dex_server.NewAPI(storage, nil)
-		server = a.server
+		server := a.server
 		a.Unlock()
 		return server, nil
 	}
-	server = a.server
+	server := a.server
 	a.RUnlock()
 
-	return a.server, nil
+	return server, nil
 }
 
-func (a *dexApi) createClient(ctx context.Context, in *identity.CreateOIDCClientRequest) (*identity.OIDCClient, error) {
+func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClientRequest) (*identity.OIDCClient, error) {
 	api, err := a.api()
 	if err != nil {
 		return nil, err
@@ -91,7 +89,7 @@ func (a *dexApi) createClient(ctx context.Context, in *identity.CreateOIDCClient
 	return dexClientToPach(resp.Client), nil
 }
 
-func (a *dexApi) updateClient(ctx context.Context, in *identity.UpdateOIDCClientRequest) error {
+func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClientRequest) error {
 	api, err := a.api()
 	if err != nil {
 		return err
@@ -116,7 +114,7 @@ func (a *dexApi) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 	return nil
 }
 
-func (a *dexApi) deleteClient(ctx context.Context, id string) error {
+func (a *dexAPI) deleteClient(ctx context.Context, id string) error {
 	api, err := a.api()
 	if err != nil {
 		return err
@@ -134,7 +132,7 @@ func (a *dexApi) deleteClient(ctx context.Context, id string) error {
 	return nil
 }
 
-func (a *dexApi) createConnector(req *identity.CreateIDPConnectorRequest) error {
+func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return err
@@ -171,7 +169,7 @@ func (a *dexApi) createConnector(req *identity.CreateIDPConnectorRequest) error 
 	return nil
 }
 
-func (a *dexApi) getConnector(id string) (dex_storage.Connector, error) {
+func (a *dexAPI) getConnector(id string) (dex_storage.Connector, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return dex_storage.Connector{}, err
@@ -180,7 +178,7 @@ func (a *dexApi) getConnector(id string) (dex_storage.Connector, error) {
 	return storage.GetConnector(id)
 }
 
-func (a *dexApi) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
+func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return err
@@ -210,7 +208,7 @@ func (a *dexApi) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 	})
 }
 
-func (a *dexApi) deleteConnector(id string) error {
+func (a *dexAPI) deleteConnector(id string) error {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return err
@@ -219,7 +217,7 @@ func (a *dexApi) deleteConnector(id string) error {
 	return storage.DeleteConnector(id)
 }
 
-func (a *dexApi) listConnectors() ([]*identity.IDPConnector, error) {
+func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
@@ -237,7 +235,7 @@ func (a *dexApi) listConnectors() ([]*identity.IDPConnector, error) {
 	return connectors, nil
 }
 
-func (a *dexApi) listClients() ([]*identity.OIDCClient, error) {
+func (a *dexAPI) listClients() ([]*identity.OIDCClient, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
@@ -255,7 +253,7 @@ func (a *dexApi) listClients() ([]*identity.OIDCClient, error) {
 	return clients, nil
 }
 
-func (a *dexApi) getClient(id string) (*identity.OIDCClient, error) {
+func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
 	storage, err := a.storageProvider.GetStorage(a.logger)
 	if err != nil {
 		return nil, err
@@ -268,7 +266,7 @@ func (a *dexApi) getClient(id string) (*identity.OIDCClient, error) {
 	return storageClientToPach(client), nil
 }
 
-func (a *dexApi) validateConfig(id, connType string, jsonConfig []byte) error {
+func (a *dexAPI) validateConfig(id, connType string, jsonConfig []byte) error {
 	typeConf, ok := dex_server.ConnectorsConfig[connType]
 	if !ok {
 		return fmt.Errorf("unknown connector type %q", connType)

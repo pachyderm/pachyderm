@@ -17,7 +17,7 @@ func TestLazyStartAPI(t *testing.T) {
 	sp := &InMemoryStorageProvider{err: errors.New("unable to connect to database")}
 
 	// api fails to connect to the database initially
-	api := newDexApi(sp, logger)
+	api := newDexAPI(sp, logger)
 	req := &identity.CreateIDPConnectorRequest{
 		Config: &identity.IDPConnector{
 			Id:            "id",

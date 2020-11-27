@@ -13,6 +13,7 @@ type RewriteRoundTripper struct {
 	Rewrite  *url.URL
 }
 
+// RewriteClient returns an http.Client which replaces the host and scheme from `expected` with those from `rewrite`
 func RewriteClient(expected, rewrite string) (*http.Client, error) {
 	expectedURL, err := url.Parse(expected)
 	if err != nil {
@@ -36,6 +37,7 @@ func RewriteClient(expected, rewrite string) (*http.Client, error) {
 	}, nil
 }
 
+// RoundTrip fulfills the http RoundTripper interface
 func (rt RewriteRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Host == rt.Expected.Host {
 		req.URL.Host = rt.Rewrite.Host
