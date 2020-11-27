@@ -4,14 +4,17 @@ import (
 	"context"
 	"testing"
 
-	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 var (
+	// ErrPathExists path already exists
+	ErrPathExists = errors.Errorf("path already exists")
+	// ErrPathNotExists path does not exist
 	ErrPathNotExists = errors.Errorf("path does not exist")
-	ErrNoTTLSet      = errors.Errorf("no ttl set on path")
+	// ErrNoTTLSet no ttl set on path
+	ErrNoTTLSet = errors.Errorf("no ttl set on path")
 )
 
 // Store stores filesets. A fileset is a path -> index relationship
@@ -23,26 +26,24 @@ type Store interface {
 	Walk(ctx context.Context, prefix string, cb func(string) error) error
 }
 
-func StoreTestSuite(t *testing.T, withStore func(func(Store))) {
+func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 	ctx := context.Background()
 	t.Run("SetGet", func(t *testing.T) {
-		withStore(func(x Store) {
-			md := &Metadata{}
-			require.NoError(t, x.Set(ctx, "test", md))
-			actual, err := x.Get(ctx, "test")
-			require.NoError(t, err)
-			require.Equal(t, md, actual)
-		})
+		x := newStore(t)
+		md := &Metadata{}
+		require.NoError(t, x.Set(ctx, "test", md))
+		actual, err := x.Get(ctx, "test")
+		require.NoError(t, err)
+		require.Equal(t, md, actual)
 	})
 	t.Run("Delete", func(t *testing.T) {
-		withStore(func(x Store) {
-			require.NoError(t, x.Delete(ctx, "keys that don't exist should not cause delete to error"))
-			md := &Metadata{}
-			require.NoError(t, x.Set(ctx, "test", md))
-			require.NoError(t, x.Delete(ctx, "test"))
-			_, err := x.Get(ctx, "test")
-			require.Equal(t, ErrPathNotExists, err)
-		})
+		x := newStore(t)
+		require.NoError(t, x.Delete(ctx, "keys that don't exist should not cause delete to error"))
+		md := &Metadata{}
+		require.NoError(t, x.Set(ctx, "test", md))
+		require.NoError(t, x.Delete(ctx, "test"))
+		_, err := x.Get(ctx, "test")
+		require.Equal(t, ErrPathNotExists, err)
 	})
 }
 

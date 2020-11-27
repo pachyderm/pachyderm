@@ -5,26 +5,27 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 const (
-	prefix          = "chunks"
+	// TrackerPrefix is the prefix used when creating tracker objects for chunks
+	TrackerPrefix   = "chunk/"
+	prefix          = "chunk"
 	defaultChunkTTL = 30 * time.Minute
 )
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objClient obj.Client
-	tracker   tracker.Tracker
+	tracker   track.Tracker
 	mdstore   MetadataStore
 
 	defaultChunkTTL time.Duration
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker tracker.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient:       objClient,
 		mdstore:         mdstore,
@@ -39,7 +40,7 @@ func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker tracker.Tra
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
-	// using the empty chunkset for the reader
+	// using the empty string for the tmp id to disable the renewer
 	client := NewClient(s.objClient, s.mdstore, s.tracker, "")
 	return newReader(ctx, client, dataRefs)
 }
@@ -57,13 +58,8 @@ func (s *Storage) List(ctx context.Context, cb func(string) error) error {
 	return s.objClient.Walk(ctx, prefix, cb)
 }
 
-// NewClient returns a Client for direct chunk manipulation
-func (s *Storage) NewClient() *Client {
-	return NewClient(s.objClient, s.mdstore, s.tracker, "client-"+uuid.NewWithoutDashes())
-}
-
 // NewDeleter creates a deleter for use with a tracker.GC
-func (s *Storage) NewDeleter() tracker.Deleter {
+func (s *Storage) NewDeleter() track.Deleter {
 	return &deleter{
 		mdstore: s.mdstore,
 		objc:    s.objClient,

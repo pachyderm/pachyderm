@@ -178,9 +178,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
       "repo": string,
       "branch": string,
       "glob": string,
-      "join_on": string
-      "lazy": bool
-      "empty_files": bool
+      "join_on": string,
+      "outer_join": bool,
+      "lazy": bool,
+      "empty_files": bool,
       "s3": bool
     }
   },
@@ -190,9 +191,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
        "repo": string,
        "branch": string,
        "glob": string,
-       "join_on": string
-       "lazy": bool
-       "empty_files": bool
+       "join_on": string,
+      "outer_join": bool,
+       "lazy": bool,
+       "empty_files": bool,
        "s3": bool
     }
   }
@@ -308,7 +310,7 @@ containers are created so they can be used to provide credentials for image
 pulling. For example, if you are using a private Docker registry for your
 images, you can specify it by running the following command:
 
-```sh
+```shell
 kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
 ```
 

@@ -6,13 +6,10 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-)
-
-const (
-	testPath = "test"
 )
 
 func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
@@ -57,64 +54,64 @@ func pathRange(fileNames []string) *PathRange {
 }
 
 func Check(t *testing.T, permString string) {
-	chunk.WithTestStorage(t, func(_ obj.Client, chunks *chunk.Storage) error {
-		fileNames := Generate(permString)
-		averageBits = 12
-		topIdx := write(t, chunks, fileNames)
-		t.Run("Full", func(t *testing.T) {
-			expected := fileNames
-			actual := actualFiles(t, topIdx, chunks)
-			require.Equal(t, expected, actual)
-		})
-		t.Run("FirstFile", func(t *testing.T) {
-			prefix := fileNames[0]
-			expected := []string{prefix}
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		t.Run("FirstRange", func(t *testing.T) {
-			prefix := string(fileNames[0][0])
-			expected := expectedFiles(fileNames, prefix)
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		t.Run("MiddleFile", func(t *testing.T) {
-			prefix := fileNames[len(fileNames)/2]
-			expected := []string{prefix}
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		t.Run("MiddleRange", func(t *testing.T) {
-			prefix := string(fileNames[len(fileNames)/2][0])
-			expected := expectedFiles(fileNames, prefix)
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		t.Run("LastFile", func(t *testing.T) {
-			prefix := fileNames[len(fileNames)-1]
-			expected := []string{prefix}
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		t.Run("LastRange", func(t *testing.T) {
-			prefix := string(fileNames[len(fileNames)-1][0])
-			expected := expectedFiles(fileNames, prefix)
-			actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
-			require.Equal(t, expected, actual)
-			actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
-			require.Equal(t, expected, actual)
-		})
-		return nil
+	db := dbutil.NewTestDB(t)
+	tr := track.NewTestTracker(t, db)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
+	fileNames := Generate(permString)
+	averageBits = 12
+	topIdx := write(t, chunks, fileNames)
+	t.Run("Full", func(t *testing.T) {
+		expected := fileNames
+		actual := actualFiles(t, topIdx, chunks)
+		require.Equal(t, expected, actual)
+	})
+	t.Run("FirstFile", func(t *testing.T) {
+		prefix := fileNames[0]
+		expected := []string{prefix}
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
+	})
+	t.Run("FirstRange", func(t *testing.T) {
+		prefix := string(fileNames[0][0])
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
+	})
+	t.Run("MiddleFile", func(t *testing.T) {
+		prefix := fileNames[len(fileNames)/2]
+		expected := []string{prefix}
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
+	})
+	t.Run("MiddleRange", func(t *testing.T) {
+		prefix := string(fileNames[len(fileNames)/2][0])
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
+	})
+	t.Run("LastFile", func(t *testing.T) {
+		prefix := fileNames[len(fileNames)-1]
+		expected := []string{prefix}
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
+	})
+	t.Run("LastRange", func(t *testing.T) {
+		prefix := string(fileNames[len(fileNames)-1][0])
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, topIdx, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, topIdx, chunks, WithRange(pathRange(expected)))
+		require.Equal(t, expected, actual)
 	})
 }
 

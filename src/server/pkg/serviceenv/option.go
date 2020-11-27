@@ -3,7 +3,6 @@ package serviceenv
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -17,13 +16,6 @@ func (env *ServiceEnv) ChunkStorageOptions() ([]chunk.StorageOption, error) {
 	var opts []chunk.StorageOption
 	if env.StorageUploadConcurrencyLimit > 0 {
 		opts = append(opts, chunk.WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
-	}
-	if env.StorageGCTimeout != "" {
-		timeout, err := time.ParseDuration(env.StorageGCTimeout)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, chunk.WithGCTimeout(timeout))
 	}
 	if env.StorageDiskCacheSize > 0 {
 		diskCache, err := obj.NewLocalClient(localDiskCachePath)

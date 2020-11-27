@@ -53,7 +53,7 @@ We are going to run this example with an example set of data about restaurants. 
 
 1. Import the dataset to the `restaurants` collection in MongoDB (in the `test` DB if you are using MongoDB Atlas) using the `mongoimport` command.  You will need to specify the Mongo hosts, username, password, etc. from your MongoDB cluster.  For example:
 
-    ```sh
+    ```shell
     $ mongoimport --host Cluster0-shard-0/cluster0-shard-00-00-cwehf.mongodb.net:27017,cluster0-shard-00-01-cwehf.mongodb.net:27017,cluster0-shard-00-02-cwehf.mongodb.net:27017 --ssl -u admin -p '<my password>' --authenticationDatabase admin --db test --collection restaurants --drop --file primer-dataset.json         
     2017-08-28T13:40:38.983-0400    connected to: Cluster0-shard-0/cluster0-shard-00-00-cwehf.mongodb.net:27017,cluster0-shard-00-01-cwehf.mongodb.net:27017,cluster0-shard-00-02-cwehf.mongodb.net:27017
     2017-08-28T13:40:39.048-0400    dropping: test.restaurants
@@ -108,7 +108,7 @@ loaded via `pachctl create secret`.
    First, we'll save some values to files. 
    The values should all be enclosed in single quotes to prevent the shell from interpreting them.
    
-   ```sh
+   ```shell
    $ echo -n '<uri>' > uri ; chmod 600 uri
    $ echo -n '<username>' > username ; chmod 600 username
    $ echo -n '<password>' > password ; chmod 600 password
@@ -118,7 +118,7 @@ loaded via `pachctl create secret`.
    
 1. Confirm the values in these files are what you expect.
 
-   ```sh
+   ```shell
    $ cat uri
    $ cat username
    $ cat password
@@ -136,7 +136,7 @@ loaded via `pachctl create secret`.
 
 1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
    
-   ```sh
+   ```shell
    $ kubectl create secret generic mongosecret --from-file=./uri \
        --from-file=./username \
        --from-file=./password \
@@ -147,7 +147,7 @@ loaded via `pachctl create secret`.
 1. (Kubernetes) Confirm that the secrets got set correctly.
    You use `kubectl get secret` to output the secrets, and then decode them using `jq` to confirm they're correct.
    
-   ```sh
+   ```shell
    $ kubectl get secret mongosecret -o json | jq '.data | map_values(@base64d)'
    {
        "uri": "<uri>",
@@ -164,7 +164,7 @@ loaded via `pachctl create secret`.
 
 1. (Pachyderm Hub) Create a secrets file from the provided template.
    
-   ```sh
+   ```shell
    $ jq -n --arg uri $(cat uri) --arg username $(cat username) \
        --arg password $(cat password) --arg db $(cat db) --arg collection $(cat collection) \
        -f mongodb-credentials-template.jq  > mongodb-credentials-secret.json 
@@ -173,7 +173,7 @@ loaded via `pachctl create secret`.
 
 1. (Pachyderm Hub) Confirm the secrets file is correct by decoding the values.
    
-   ```sh
+   ```shell
    $ jq '.data | map_values(@base64d)' mongodb-credentials-secret.json
    {
        "uri": "<uri>",
@@ -186,7 +186,7 @@ loaded via `pachctl create secret`.
 
 1. (Pachyderm Hub) Generate a secret using pachctl
 
-   ```sh
+   ```shell
    $ pachctl create secret -f mongodb-credentials-secret.json
    ```
 
@@ -234,13 +234,13 @@ This will allow us to view the head of the output over time to see a bunch of ra
 
 1. Create the pipeline.
 
-    ```sh
+    ```shell
     $ pachctl create pipeline -f query.json
     ``` 
     
 1. Run the command `pachctl list pipeline` to make sure it's running:
    
-   ```sh
+   ```shell
    $ pachctl list pipeline
    NAME      VERSION INPUT                     CREATED       STATE / LAST JOB   DESCRIPTION                                                                                               
    query     1       tick:@every 10s           6 seconds ago running / starting                                                                                    
@@ -248,7 +248,7 @@ This will allow us to view the head of the output over time to see a bunch of ra
    
 1. After the pipeline is running, you should see jobs start to be triggered every 10 seconds.
 
-    ```sh
+    ```shell
     $ pachctl list job
     ID                                   OUTPUT COMMIT STARTED      DURATION RESTART PROGRESS  DL UL STATE            
     842e4e6c-4920-42c0-9c81-e5299b67e4a0 query/-       1 second ago -        0       0 + 0 / 1 0B 0B running 
@@ -273,13 +273,13 @@ This will allow us to view the head of the output over time to see a bunch of ra
 
 1. You can then observe the output changing over time.  You can watch it change with each query by executing:
 
-    ```sh
+    ```shell
     $ watch pachctl get file query@master:output.json
     ```
     
     Or you can look at individual results over time via the commit IDs:
 
-    ```sh
+    ```shell
     $ pachctl get file query@master:output.json
     { "_id" : ObjectId("59a455af69a077c0dc028410"), "address" : { "building" : "119", "coord" : [ -73.9784962, 40.6788476 ], "street" : "5 Avenue", "zipcode" : "11217" }, "borough" : "Brooklyn", "cuisine" : "Mexican", "grades" : [ { "date" : ISODate("2014-07-29T00:00:00Z"), "grade" : "B", "score" : 27 }, { "date" : ISODate("2014-03-10T00:00:00Z"), "grade" : "B", "score" : 15 }, { "date" : ISODate("2014-02-12T00:00:00Z"), "grade" : "P", "score" : 3 }, { "date" : ISODate("2013-09-05T00:00:00Z"), "grade" : "C", "score" : 35 }, { "date" : ISODate("2013-03-06T00:00:00Z"), "grade" : "A", "score" : 12 }, { "date" : ISODate("2012-09-12T00:00:00Z"), "grade" : "A", "score" : 13 }, { "date" : ISODate("2012-04-17T00:00:00Z"), "grade" : "A", "score" : 12 } ], "name" : "El Pollito Mexicano", "restaurant_id" : "41051406" }
     $ pachctl get file query@64ac2bd721d04212a3a0b90833f751e5:output.json

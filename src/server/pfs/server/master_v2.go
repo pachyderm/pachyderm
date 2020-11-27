@@ -18,31 +18,16 @@ const (
 func (d *driverV2) master(env *serviceenv.ServiceEnv) {
 	ctx := context.Background()
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
-	// TODO: We shouldn't need to wrap this in a for loop, but it looks like gc.Run
-	// can return nil. Which then ends the RetryNotify loop.
-	for {
-		err := backoff.RetryNotify(func() error {
-			masterCtx, err := masterLock.Lock(ctx)
-			if err != nil {
-				return err
-			}
-			defer masterLock.Unlock(masterCtx)
-
-			return backoff.RetryNotify(func() error {
-				return d.storage.GC(masterCtx)
-			}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-				if err != nil {
-					log.Errorf("error during gc: %v", err)
-				}
-				return nil
-			})
-		}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-			log.Errorf("error in pfs master: %v", err)
-			return nil
-		})
-		// TODO: Always panic, remove this check, see above.
+	err := backoff.RetryNotify(func() error {
+		masterCtx, err := masterLock.Lock(ctx)
 		if err != nil {
-			panic(err)
+			return err
 		}
-	}
+		defer masterLock.Unlock(masterCtx)
+		return d.storage.GC(masterCtx)
+	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+		log.Errorf("error in pfs master: %v", err)
+		return nil
+	})
+	panic(err)
 }

@@ -1,0 +1,30 @@
+# To build the documentation image:
+# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build mkdocs-serve
+# or
+# DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build netlify-dev
+
+
+# To run your documentation image locally:
+# docker-compose up mkdocs-serve then check 0.0.0.0:8889
+# docker-compose up netlify-dev then check 0.0.0.0:8888
+
+version: '3.8'
+
+services:
+  mkdocs-serve:
+    build: 
+      context: .. 
+      dockerfile: Dockerfile.pachdoc
+    command: ["mkdocs","serve", "-f", "mkdocs-1.11.x.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
+    volumes: 
+      - .:/usr/src/app/doc
+    ports:
+      - "8889:8889"
+
+  netlify-dev:
+    build: 
+      context: .. 
+      dockerfile: Dockerfile.pachdoc
+    command: ["netlify","dev"]
+    ports:
+      - "8888:8888"

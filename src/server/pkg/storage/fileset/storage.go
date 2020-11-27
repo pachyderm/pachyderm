@@ -12,12 +12,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	"golang.org/x/sync/semaphore"
 )
 
 const (
-	semanticPrefix = "root"
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * units.MB
@@ -34,6 +34,8 @@ const (
 	Diff = "diff"
 	// Compacted is the suffix of a path that points to the compaction of the prefix.
 	Compacted = "compacted"
+	// TrackerPrefix is used for creating tracker objects for filesets
+	TrackerPrefix = "fileset/"
 )
 
 var (
@@ -43,7 +45,7 @@ var (
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
-	tracker                      tracker.Tracker
+	tracker                      track.Tracker
 	store                        Store
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
@@ -53,7 +55,7 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(store Store, tr tracker.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
+func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
 		store:          store,
 		tracker:        tr,
@@ -287,9 +289,9 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 }
 
 // WalkFileSet calls f with the path of every primitive fileSet under prefix.
-func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string) error) error {
+func (s *Storage) WalkFileSet(ctx context.Context, prefix string, cb func(string) error) error {
 	return s.store.Walk(ctx, prefix, func(p string) error {
-		return f(p)
+		return cb(p)
 	})
 }
 
@@ -301,31 +303,32 @@ func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time
 }
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
-func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *Renewer) error) error {
-	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
+	rf := func(ctx context.Context, p string, ttl time.Duration) error {
 		_, err := s.SetTTL(ctx, p, ttl)
 		return err
 	}
-	return WithRenewer(ctx, ttl, renew, cb)
+	return renew.WithStringSet(ctx, ttl, rf, cb)
 }
 
+// GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
 func (s *Storage) GC(ctx context.Context) error {
 	const period = 10 * time.Second
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
 		store: s.store,
 	}
-	mux := tracker.DeleterMux(func(id string) tracker.Deleter {
+	mux := track.DeleterMux(func(id string) track.Deleter {
 		switch {
-		case strings.HasPrefix(id, "chunk/"):
+		case strings.HasPrefix(id, chunk.TrackerPrefix):
 			return chunkDeleter
-		case strings.HasPrefix(id, "fileset/"):
+		case strings.HasPrefix(id, TrackerPrefix):
 			return filesetDeleter
 		default:
 			return nil
 		}
 	})
-	gc := tracker.NewGarbageCollector(s.tracker, period, mux)
+	gc := track.NewGarbageCollector(s.tracker, period, mux)
 	return gc.Run(ctx)
 }
 
@@ -355,7 +358,7 @@ func filesetObjectID(p string) string {
 	return "fileset/" + p
 }
 
-var _ tracker.Deleter = &deleter{}
+var _ track.Deleter = &deleter{}
 
 type deleter struct {
 	store Store

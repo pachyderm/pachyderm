@@ -193,7 +193,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	httpClient := &http.Client{Timeout: timeout}
 	// If NoVerifySSL is true, then configure the transport to skip ssl verification (enables self-signed certificates).
@@ -234,7 +234,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// Create new session using awsConfig
 	session, err := session.NewSession(awsConfig)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	awsClient := &amazonClient{
 		bucket: bucket,
@@ -264,7 +264,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		}
 		cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, err
 		}
 		awsClient.cloudfrontURLSigner = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
 		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))

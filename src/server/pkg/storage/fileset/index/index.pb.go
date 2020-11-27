@@ -25,10 +25,9 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Index stores an index to and metadata about a file.
 type Index struct {
-	Path  string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Range *Range `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
-	File  *File  `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
-	// Size of the content being indexed (does not include headers or padding).
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Range                *Range   `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	File                 *File    `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
 	SizeBytes            int64    `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

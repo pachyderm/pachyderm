@@ -35,7 +35,7 @@ kubectl get pods
 
 **System response:**
 
-```bash
+```shell
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-6c9dc97d9c-vb972    2/2       Running   0          6m
 etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
@@ -50,17 +50,17 @@ pachctl version
 
 **System response:**
 
-```bash
+```shell
 COMPONENT           VERSION
-pachctl             1.9.5
-pachd               1.9.5
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
 ```
 
 To activate the Pachyderm Enterprise Edition, complete the following steps::
 
 1. Activate the Enterprise Edition by running:
 
-   ```bash
+   ```shell
    pachctl enterprise activate <activation-code>
    ```
 
@@ -69,13 +69,13 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 
 1. Verify the status of the enterprise activation:
 
-   ```bash
+   ```shell
    pachctl enterprise get-state
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    ACTIVE
    ```
 
@@ -104,12 +104,12 @@ To active Enterprise Edition in the Dashboard, complete the following steps:
 
 1. Confirm that your cluster has an active Enterprise Edition license:
 
-   ```bash
+   ```shell
    pachctl enterprise get-state
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    ACTIVE
    ```

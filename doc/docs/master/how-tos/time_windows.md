@@ -116,7 +116,7 @@ For example, you have three-day moving time windows, and you
 want to analyze three-day moving windows of sales data. In the first repo,
 called `sales`, you commit data for the first day of sales:
 
-```bash
+```shell
 sales
 └── 01-01-17.json
 ```
@@ -124,7 +124,7 @@ sales
 In the first pipeline, you specify to bin this data into a directory that
 corresponds to the first rolling time window from 01-01-17 to 01-03-17:
 
-```bash
+```shell
 binned_sales
 └── 01-01-17_to_01-03-17
     └── 01-01-17.json
@@ -133,7 +133,7 @@ binned_sales
 When the next day's worth of sales is committed, that data lands
 in the `sales` repository:
 
-```bash
+```shell
 sales
 ├── 01-01-17.json
 └── 01-02-17.json
@@ -145,7 +145,7 @@ created bin named `01-01-17 to 01-03-17`. However, the data also
 goes to the bin that stores the data that is received starting
 on `01-02-17`:
 
-```bash
+```shell
 binned_sales
 ├── 01-01-17_to_01-03-17
 |   ├── 01-01-17.json
@@ -157,7 +157,7 @@ binned_sales
 As more and more daily data is added, your repository structure
 starting to looks as follows:
 
-```bash
+```shell
 binned_sales
 ├── 01-01-17_to_01-03-17
 |   ├── 01-01-17.json
@@ -215,7 +215,7 @@ For example, you have three-day moving time windows, and you
 want to analyze three-day moving windows of sales data. The input data
 is stored in the `sales` repository:
 
-```bash
+```shell
 sales
 ├── 01-01-17.json
 ├── 01-02-17.json
@@ -227,7 +227,7 @@ When the January 4th file, `01-04-17.json`, is committed, the first
 pipeline pulls out the last three days of data and arranges it in the
 following order:
 
-```bash
+```shell
 last_three_days
 ├── 01-02-17.json
 ├── 01-03-17.json
@@ -237,7 +237,7 @@ last_three_days
 When the January 5th file, `01-05-17.json`, is committed into the
 `sales` repository:
 
-```bash
+```shell
 sales
 ├── 01-01-17.json
 ├── 01-02-17.json
@@ -248,7 +248,7 @@ sales
 
 the first pipeline updates the moving window:
 
-```bash
+```shell
 last_three_days
 ├── 01-03-17.json
 ├── 01-04-17.json

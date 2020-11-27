@@ -1,4 +1,4 @@
-package tracker
+package track
 
 import (
 	"context"
@@ -9,17 +9,19 @@ import (
 	"github.com/lib/pq"
 )
 
-var _ Tracker = &PGTracker{}
+var _ Tracker = &postgresTracker{}
 
-type PGTracker struct {
+type postgresTracker struct {
 	db *sqlx.DB
 }
 
-func NewPGTracker(db *sqlx.DB) *PGTracker {
-	return &PGTracker{db: db}
+// NewPostgresTracker returns a
+func NewPostgresTracker(db *sqlx.DB) Tracker {
+	return &postgresTracker{db: db}
 }
 
-func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []string, ttl time.Duration) error {
+func (t *postgresTracker) CreateObject(ctx context.Context, id string, pointsTo []string, ttl time.Duration) error {
+	// TODO: contraints on ttl? ttl = 0 has to be interpretted as no ttl, but all other values will make it through
 	for _, dwn := range pointsTo {
 		if dwn == id {
 			return ErrSelfReference
@@ -35,14 +37,13 @@ func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []stri
 				ON CONFLICT (str_id) DO NOTHING
 				RETURNING int_id
 				`, id, ttl.Microseconds())
-			} else {
-				return tx.GetContext(ctx, &oid,
-					`INSERT INTO storage.tracker_objects (str_id)
+			}
+			return tx.GetContext(ctx, &oid,
+				`INSERT INTO storage.tracker_objects (str_id)
 				VALUES ($1)
 				ON CONFLICT (str_id) DO NOTHING
 				RETURNING int_id
 				`, id)
-			}
 		}(); err != nil {
 			if err == sql.ErrNoRows {
 				err = ErrObjectExists
@@ -64,7 +65,7 @@ func (t *PGTracker) CreateObject(ctx context.Context, id string, pointsTo []stri
 	})
 }
 
-func (t *PGTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
+func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
 	var expiresAt time.Time
 	err := t.db.GetContext(ctx, &expiresAt,
 		`UPDATE storage.tracker_objects
@@ -77,7 +78,7 @@ func (t *PGTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Du
 	return expiresAt, nil
 }
 
-func (t *PGTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
+func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
 	dwn := []string{}
 	if err := t.db.SelectContext(ctx, &dwn,
 		`WITH target AS (
@@ -93,7 +94,7 @@ func (t *PGTracker) GetDownstream(ctx context.Context, id string) ([]string, err
 	return dwn, nil
 }
 
-func (t *PGTracker) GetUpstream(ctx context.Context, id string) ([]string, error) {
+func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string, error) {
 	ups := []string{}
 	if err := t.db.SelectContext(ctx, &ups,
 		`WITH target AS (
@@ -109,7 +110,7 @@ func (t *PGTracker) GetUpstream(ctx context.Context, id string) ([]string, error
 	return ups, nil
 }
 
-func (t *PGTracker) MarkTombstone(ctx context.Context, id string) error {
+func (t *postgresTracker) MarkTombstone(ctx context.Context, id string) error {
 	var tombstones []bool
 	if err := t.db.SelectContext(ctx, &tombstones, `	
 		UPDATE storage.tracker_objects
@@ -141,7 +142,7 @@ func (t *PGTracker) MarkTombstone(ctx context.Context, id string) error {
 	return nil
 }
 
-func (t *PGTracker) FinishDelete(ctx context.Context, id string) error {
+func (t *postgresTracker) FinishDelete(ctx context.Context, id string) error {
 	err := t.withTx(ctx, func(tx *sqlx.Tx) error {
 		var tombstone bool
 		if err := tx.GetContext(ctx, &tombstone,
@@ -168,15 +169,19 @@ func (t *PGTracker) FinishDelete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (t *PGTracker) IterateExpired(ctx context.Context, cb func(id string) error) error {
+func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id string) error) (retErr error) {
 	rows, err := t.db.QueryxContext(ctx,
 		`SELECT str_id FROM storage.tracker_objects
-		WHERE (expires_at <= CURRENT_TIMESTAMP OR tombstone)
-		AND int_id NOT IN (SELECT DISTINCT to_id FROM storage.tracker_refs)`)
+		WHERE int_id NOT IN (SELECT to_id FROM storage.tracker_refs)
+		AND (expires_at <= CURRENT_TIMESTAMP OR tombstone)`)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
@@ -189,7 +194,7 @@ func (t *PGTracker) IterateExpired(ctx context.Context, cb func(id string) error
 	return rows.Err()
 }
 
-func (t *PGTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error) error {
+func (t *postgresTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error) error {
 	tx, err := t.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return err
@@ -201,7 +206,8 @@ func (t *PGTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error) erro
 	return tx.Commit()
 }
 
-func PGTrackerApplySchema(db *sqlx.DB) {
+// SetupPostgresTracker sets up the table for the postgres tracker
+func SetupPostgresTracker(db *sqlx.DB) {
 	db.MustExec(schema)
 }
 

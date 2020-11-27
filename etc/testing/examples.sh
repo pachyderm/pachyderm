@@ -2,6 +2,11 @@
 
 set -ex
 
+if [ -z "$RUN_BAD_TESTS" ]; then
+    echo "Skipping because RUN_BAD_TESTS is empty"
+    exit 0
+fi
+
 # Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 

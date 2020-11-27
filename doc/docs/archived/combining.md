@@ -54,7 +54,7 @@ The following diagram displays the first pipeline:
 
 The repository `A` has the following structure:
 
-```bash
+```shell
 $ pachctl list file A@master
 NAME                TYPE                SIZE
 1.json              file                39 B
@@ -64,7 +64,7 @@ NAME                TYPE                SIZE
 
 The repository `B` has the following structure:
 
-```bash
+```shell
 $ pachctl list file B@master
 NAME                TYPE                SIZE
 1.json              file                39 B
@@ -87,7 +87,7 @@ key and index for that record. In this example, it is just the
 number in the file name. Pachyderm also renames the files to
 unique names that correspond to the source:
 
-```bash
+```shell
 /1
   A.json
   B.json
@@ -123,7 +123,7 @@ The second pipeline performs merging, aggregation, or other
 processing on the respective grouping of records. It can also
 output each respective result to the root of the output directory:
 
-```bash
+```shell
 $ pachctl list file merge@master
 NAME                TYPE          SIZE
 result_1.json       file          39 B

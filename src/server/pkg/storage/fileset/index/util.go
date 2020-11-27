@@ -35,14 +35,14 @@ func Generate(s string) []string {
 	return fileNames
 }
 
-// IndexPointsTo returns a list of all the chunks this index references
+// PointsTo returns a list of all the chunks this index references
 func PointsTo(idx *Index) (ids []chunk.ID) {
 	m := make(map[string]struct{})
 	if idx == nil || len(idx.File.Parts) == 0 {
 		return nil
 	}
-	for _, dop := range idx.File.Parts {
-		for _, dr := range dop.DataRefs {
+	for _, part := range idx.File.Parts {
+		for _, dr := range part.DataRefs {
 			id := dr.Ref.Id
 			if _, exists := m[string(id)]; !exists {
 				ids = append(ids, chunk.ID(id))

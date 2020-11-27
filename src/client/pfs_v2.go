@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
@@ -304,11 +304,11 @@ func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
 const DefaultTTL = 10 * time.Minute
 
 // WithRenewer provides a scoped temporary fileset renewer.
-func (c APIClient) WithRenewer(cb func(context.Context, *fileset.Renewer) error) error {
-	renew := func(ctx context.Context, p string, ttl time.Duration) error {
+func (c APIClient) WithRenewer(cb func(context.Context, *renew.StringSet) error) error {
+	rf := func(ctx context.Context, p string, ttl time.Duration) error {
 		return c.WithCtx(ctx).RenewTmpFileSet(p, ttl)
 	}
-	return fileset.WithRenewer(c.Ctx(), DefaultTTL, renew, cb)
+	return renew.WithStringSet(c.Ctx(), DefaultTTL, rf, cb)
 }
 
 // WithCreateTmpFileSetClient provides a scoped temporary fileset client.

@@ -4,12 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 var _ Store = &postgresStore{}
@@ -18,6 +15,7 @@ type postgresStore struct {
 	db *sqlx.DB
 }
 
+// NewPostgresStore returns a Store backed by db
 func NewPostgresStore(db *sqlx.DB) Store {
 	return &postgresStore{db: db}
 }
@@ -30,12 +28,22 @@ func (s *postgresStore) Set(ctx context.Context, p string, md *Metadata) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx,
+	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO storage.filesets (path, metadata_pb)
 		VALUES ($1, $2)
-		ON CONFLICT (path) DO UPDATE SET metadata_pb = $2
+		ON CONFLICT (path) DO NOTHING
 		`, p, data)
-	return err
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrPathExists
+	}
+	return nil
 }
 
 func (s *postgresStore) Get(ctx context.Context, p string) (*Metadata, error) {
@@ -58,7 +66,11 @@ func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string)
 	if err != nil {
 		return err
 	}
-	defer func() { errutil.SetRetErrIfNil(&retErr, rows.Close()) }()
+	defer func() {
+		if err := rows.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	var p string
 	for rows.Next() {
 		if err := rows.Scan(&p); err != nil {
@@ -68,10 +80,7 @@ func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string)
 			return err
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	return nil
+	return rows.Err()
 }
 
 func (s *postgresStore) Delete(ctx context.Context, p string) error {
@@ -89,20 +98,13 @@ const schema = `
 	);
 `
 
-type pathRow struct {
-	Path       string    `db:"path"`
-	MetadataPB []byte    `db:"metadata_pb"`
-	CreatedAt  time.Time `db:"created_at"`
-}
-
+// SetupPostgresStore sets up the tables for a Store
 func SetupPostgresStore(db *sqlx.DB) {
 	db.MustExec(schema)
 }
 
-func WithTestStore(t testing.TB, cb func(Store)) {
-	dbutil.WithTestDB(t, func(db *sqlx.DB) {
-		SetupPostgresStore(db)
-		s := NewPostgresStore(db)
-		cb(s)
-	})
+// NewTestStore returns a Store scoped to the lifetime of the test.
+func NewTestStore(t testing.TB, db *sqlx.DB) Store {
+	SetupPostgresStore(db)
+	return NewPostgresStore(db)
 }

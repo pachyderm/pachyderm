@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/tracker"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -35,7 +35,7 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 // Writer provides functionality for writing a file set.
 type Writer struct {
 	ctx                context.Context
-	tracker            tracker.Tracker
+	tracker            track.Tracker
 	store              Store
 	path               string
 	additive, deletive *index.Writer
@@ -47,7 +47,7 @@ type Writer struct {
 	ttl                time.Duration
 }
 
-func newWriter(ctx context.Context, store Store, tracker tracker.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, store Store, tracker track.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
 	uuidStr := uuid.NewWithoutDashes()
 	w := &Writer{
 		ctx:     ctx,
@@ -217,10 +217,10 @@ func (w *Writer) Close() error {
 	}
 	var pointsTo []string
 	for _, cid := range index.PointsTo(additiveIdx) {
-		pointsTo = append(pointsTo, chunk.ChunkObjectID(cid))
+		pointsTo = append(pointsTo, chunk.ObjectID(cid))
 	}
 	for _, cid := range index.PointsTo(deletiveIdx) {
-		pointsTo = append(pointsTo, chunk.ChunkObjectID(cid))
+		pointsTo = append(pointsTo, chunk.ObjectID(cid))
 	}
 	if err := w.tracker.CreateObject(w.ctx, filesetObjectID(w.path), pointsTo, w.ttl); err != nil {
 		return err

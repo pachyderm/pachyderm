@@ -26,7 +26,7 @@ to monitor its status:
 
   **Example:**
 
-  ```bash
+  ```shell
   NAME    VERSION INPUT                 CREATED       STATE / LAST JOB    DESCRIPTION
   montage 1       (edges:/ ⨯ images:/)  2 seconds ago starting / starting A montage pipeline
   edges   1       images:/*             2 seconds ago running / starting  An edge detection pipeline.
@@ -44,7 +44,7 @@ to monitor its status:
 
   **Example:**
 
-  ```bash
+  ```shell
   svetlanakarslioglu@Svetlanas-MBP examples % pachctl list job
   ID                               PIPELINE STARTED       DURATION           RESTART PROGRESS    DL       UL       STATE
   7321952b9a214d3dbb64cc4369cc67da montage  6 minutes ago 1 second           0       1 + 0 / 1   371.9KiB 1.283MiB success

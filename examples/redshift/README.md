@@ -29,7 +29,7 @@ That said, some very basic notes on writing data to Redshift from Pachyderm:
 
   - If you actually want to do this, you'll need to build the docker container
     described by `Dockerfile`. That will look something like:
-    ```
+    ```shell
     $ DOCKER_IMAGE_NAME=msteffenpachyderm/to_sql
     $ cd json_to_sql && go build to_sql.go && cd .. && docker build ./ -t "${DOCKER_IMAGE_NAME}"
     $ docker push "${DOCKER_IMAGE_NAME}"

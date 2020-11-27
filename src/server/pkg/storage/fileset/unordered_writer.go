@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
@@ -158,7 +159,7 @@ type UnorderedWriter struct {
 	memFileSet                 *memFileSet
 	subFileSet                 int64
 	ttl                        time.Duration
-	renewer                    *Renewer
+	renewer                    *renew.StringSet
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {

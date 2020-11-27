@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -473,6 +474,9 @@ func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 }
 
 func TestLoad(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	msg := random.SeedRand()
 	require.NoError(t, testLoad(t, fuzzLoad()), msg)
 }
