@@ -45,6 +45,20 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 		_, err := x.Get(ctx, "test")
 		require.Equal(t, ErrPathNotExists, err)
 	})
+	t.Run("Walk", func(t *testing.T) {
+		x := newStore(t)
+		md := &Metadata{}
+		ps := []string{"test/1", "test/2", "test/3"}
+		for _, p := range ps {
+			require.NoError(t, x.Set(ctx, p, md))
+		}
+		require.NoError(t, x.Walk(ctx, "test", func(p string) error {
+			require.Equal(t, ps[0], p)
+			ps = ps[1:]
+			return nil
+		}))
+		require.Equal(t, 0, len(ps))
+	})
 }
 
 func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string) error {

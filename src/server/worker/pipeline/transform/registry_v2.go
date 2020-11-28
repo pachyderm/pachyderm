@@ -19,7 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -460,7 +460,7 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Setup goroutine for creating datum set subtasks.
 		// TODO: When the datum set spec is not set, evenly distribute the datums.
 		eg.Go(func() error {
@@ -524,7 +524,7 @@ func (reg *registryV2) processJobRunning(pj *pendingJobV2) error {
 	return reg.succeedJob(pj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, upload func(ptc datum.PutTarClient) error, renewer *fileset.Renewer) (*work.Task, error) {
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJobV2, upload func(ptc datum.PutTarClient) error, renewer *renew.StringSet) (*work.Task, error) {
 	resp, err := pachClient.WithCreateTmpFileSetClient(func(ctfsc *client.CreateTmpFileSetClient) error {
 		return upload(ctfsc)
 	})

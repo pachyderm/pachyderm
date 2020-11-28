@@ -110,7 +110,7 @@ func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Opt
 		}
 	}
 	if len(fss) == 0 {
-		return nil, ErrNoFileSetFound
+		return &emptyReader{}, nil
 	}
 	if len(fss) == 1 {
 		return fss[0], nil
@@ -301,7 +301,6 @@ func (s *Storage) WalkFileSet(ctx context.Context, prefix string, cb func(string
 }
 
 // SetTTL sets the time-to-live for the prefix p.
-// if no fileset is found SetTTL returns ErrNoFileSetFound
 func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
 	oid := filesetObjectID(p)
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)

@@ -83,7 +83,7 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func newDB() (db *sqlx.DB, retErr error) {
 	defer func() {
 		if db != nil {
-			db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
+			//db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
 			fileset.SetupPostgresStore(db)
 			chunk.SetupPostgresStore(db)
 			track.SetupPostgresTracker(db)
@@ -558,9 +558,6 @@ func (d *driverV2) compactionWorker() {
 				Upper: shard.Range.Upper,
 			}
 			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
-			if err != nil {
-				panic(err)
-			}
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
