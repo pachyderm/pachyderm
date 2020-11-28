@@ -27,7 +27,7 @@ make sure that each node's root volume is big enough to accommodate
 your total processing bandwidth. Specifically, you should calculate
 the bandwidth for your expected running jobs as follows:
 
-```bash
+```shell
 (storage needed per datum) x (number of datums being processed simultaneously) / (number of nodes)
 ```
 

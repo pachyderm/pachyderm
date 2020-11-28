@@ -4,7 +4,7 @@ This directory contains a small go script that consumes single-layer .json files
 
 The binary takes a single argument: the name of the table that the data should be written to. For example:
 
-```
+```shell
 $ go build to_sql.go && cat test.json | ./to_sql cars
 INSERT INTO cars (year, make, model) VALUES (2005, Toyota, Corolla);
 INSERT INTO cars (model, year, make) VALUES (Civic, 1998, Honda);

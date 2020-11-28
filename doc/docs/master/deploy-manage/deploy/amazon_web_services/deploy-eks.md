@@ -29,7 +29,7 @@ To deploy an EKS cluster, complete the following steps:
 
 1. Deploy an EKS cluster:
 
-   ```bash
+   ```shell
    eksctl create cluster --name <name> --version <version> \
    --nodegroup-name <name> --node-type <vm-flavor> \
    --nodes <number-of-nodes> --nodes-min <min-number-nodes> \
@@ -38,7 +38,7 @@ To deploy an EKS cluster, complete the following steps:
 
    **Example output:**
 
-   ```bash
+   ```shell
    [ℹ]  using region us-east-1
    [ℹ]  setting availability zones to [us-east-1a us-east-1f]
    [ℹ]  subnets for us-east-1a - public:192.168.0.0/19 private:192.168.64.0/19
@@ -58,13 +58,13 @@ To deploy an EKS cluster, complete the following steps:
 
 1. Verify the deployment:
 
-   ```bash
+   ```shell
    kubectl get all
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    service/kubernetes   ClusterIP   10.100.0.1   <none>        443/TCP   7m9s
    ```

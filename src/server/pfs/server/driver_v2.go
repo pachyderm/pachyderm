@@ -11,21 +11,23 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -62,37 +64,57 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 	if err != nil {
 		return nil, err
 	}
-	gcClient, err := gc.NewClient(db)
-	if err != nil {
-		return nil, err
-	}
+	tracker := track.NewPostgresTracker(db)
 	chunkStorageOpts, err := env.ChunkStorageOptions()
 	if err != nil {
 		return nil, err
 	}
-	chunkStorageOpts = append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunkStorageOpts...)
-	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), env.FileSetStorageOptions()...)
+	chunkStorage := chunk.NewStorage(objClient, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	d2.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
-	go d2.master(env, objClient, db)
+	go d2.master(env)
 	go d2.compactionWorker()
 	return d2, nil
 }
 
-func newDB() (*gorm.DB, error) {
+func newDB() (db *sqlx.DB, retErr error) {
+	defer func() {
+		if db != nil {
+			db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
+			fileset.SetupPostgresStore(db)
+			chunk.SetupPostgresStore(db)
+			track.SetupPostgresTracker(db)
+		}
+	}()
 	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
 	if !ok {
 		// TODO: Probably not the right long term approach here, but this is necessary to handle the mock pachd instance used in tests.
 		// It does not run in kubernetes, so we need to fallback on setting up a local database.
-		return gc.NewLocalDB()
+		return dbutil.NewDB(dbutil.DBParams{
+			Host:   dbutil.DefaultPostgresHost,
+			Port:   dbutil.DefaultPostgresPort,
+			User:   dbutil.TestPostgresUser,
+			DBName: "pgc",
+		})
 	}
-	postgresPort, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
 	if !ok {
 		return nil, errors.Errorf("postgres service port not found")
 	}
-	return gc.NewDB(postgresHost, postgresPort)
+	postgresPort, err := strconv.Atoi(postgresPortStr)
+	if err != nil {
+		return nil, err
+	}
+	return dbutil.NewDB(dbutil.DBParams{
+		Host:   postgresHost,
+		Port:   postgresPort,
+		User:   "pachyderm",
+		Pass:   "elephantastic",
+		DBName: "pgc",
+	})
 }
 
 func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
@@ -192,7 +214,7 @@ func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb 
 	n := d.getSubFileSet()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
 		if err != nil {
 			return err
@@ -202,7 +224,7 @@ func (d *driverV2) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb 
 	})
 }
 
-func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
+func (d *driverV2) withTmpUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
 	id := uuid.NewWithoutDashes()
 	inputPath := path.Join(tmpRepo, id)
 	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
@@ -266,6 +288,7 @@ func (d *driverV2) getTar(pachClient *client.APIClient, commit *pfs.Commit, glob
 	if err != nil {
 		return err
 	}
+	fs = fileset.NewDirInserter(fs)
 	var dir string
 	filter := fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if dir != "" && strings.HasPrefix(idx.Path, dir) {
@@ -307,6 +330,7 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if idx.Path == "/" {
 			return false
@@ -345,7 +369,7 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 		}
 	}
 	var outputSize int64
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		res, err := d.compactIter(ctx, compactSpec{
 			master:     master,
 			inputPaths: inputPaths,
@@ -390,7 +414,7 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (*compac
 	// TODO: change this such that the fan in is maxed at the lower levels first rather
 	// than the higher.
 	var res *compactResult
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var childOutputPaths []string
 		for i := 0; i < params.maxFanIn; i++ {
 			start := i * childSize
@@ -430,7 +454,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
 	var shardOutputs []string
-	fs, err := d.storage.OpenWithDeletes(ctx, inputPaths)
+	fs, err := d.storage.Open(ctx, inputPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +478,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 		return nil, err
 	}
 	var res *compactResult
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 			if taskInfo.State == work.State_FAILURE {
 				return errors.Errorf(taskInfo.Reason)
@@ -487,11 +511,11 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 		return nil
 	}), fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
-		fs, err := d.storage.OpenWithDeletes(ctx, []string{inputPath})
+		fs, err := d.storage.Open(ctx, []string{inputPath})
 		if err != nil {
 			return nil, err
 		}
-		if err := fileset.CopyFiles(ctx, fsw, fs); err != nil {
+		if err := fileset.CopyFiles(ctx, fsw, fs, true); err != nil {
 			return nil, err
 		}
 	}
@@ -534,6 +558,9 @@ func (d *driverV2) compactionWorker() {
 				Upper: shard.Range.Upper,
 			}
 			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
+			if err != nil {
+				panic(err)
+			}
 			return err
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
@@ -563,6 +590,7 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	s := NewSource(commit, fs, true)
 	return s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if !mf(fi.File.Path) {
@@ -610,26 +638,15 @@ func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pf
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
-	fs = fileset.NewHeaderMapper(fs, func(th *tar.Header) *tar.Header {
-		th.Name = pathTransform(th.Name)
-		return th
+	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
+		idx.Path = pathTransform(idx.Path)
+		return idx
 	})
-	fs = fileset.NewDirInserter(fs)
 	return d.withWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
-			hdr, err := f.Header()
-			if err != nil {
-				return err
-			}
-			return dst.Append(hdr.Name, func(fw *fileset.FileWriter) error {
-				hdr, err := f.Header()
-				if err != nil {
-					return err
-				}
-				return fileset.WithTarFileWriter(fw, hdr, func(tfw *fileset.TarFileWriter) error {
-					tfw.Append(tag)
-					return f.Content(tfw)
-				})
+			return dst.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
+				fw.Append(tag)
+				return f.Content(fw)
 			})
 		})
 	})
@@ -649,12 +666,12 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return err
 		}
 	}
@@ -686,6 +703,7 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 			return err
 		}
 		fs = d.storage.NewIndexResolver(fs)
+		fs = fileset.NewDirInserter(fs)
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return idx.Path == oldName || strings.HasPrefix(idx.Path, oldName+"/")
 		})
@@ -696,6 +714,7 @@ func (d *driverV2) diffFileV2(pachClient *client.APIClient, oldFile, newFile *pf
 		return err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == newName || strings.HasPrefix(idx.Path, newName+"/")
 	})
@@ -723,6 +742,7 @@ func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (*p
 		return nil, err
 	}
 	fs = d.storage.NewIndexResolver(fs)
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
@@ -759,6 +779,7 @@ func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb fun
 	if err != nil {
 		return err
 	}
+	fs = fileset.NewDirInserter(fs)
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
 	})
@@ -1091,7 +1112,7 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
 	var id string
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var err error
 		id, err = d.withTmpUnorderedWriter(ctx, renewer, true, func(uw *fileset.UnorderedWriter) error {
 			req := &pfs.PutTarRequestV2{

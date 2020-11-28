@@ -578,6 +578,44 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPutFileOverlappingPaths tests the fix for
+// https://github.com/pachyderm/pachyderm/issues/5345.
+// However, I can't get the test to fail without adding a sleep to
+// forEachPutFile in driver.go that induces the race (at:
+// `if req.Delete {...eg.Go(/*here*/...)}`). Setting GOMAXPROCS to 1 and 100
+// doesn't seem to help. In practice, that means we're still relying on
+// TestPipelineBuildLifecycle and pachyderm-in-Minikube to expose the race
+// (Minikube seems to induce more races), but maybe this test will be useful in
+// conjunction with e.g. some kind of race detector.
+// TODO(msteffen): Get this test to fail reliably in the presence of the race.
+func TestPutFileOverlappingPaths(t *testing.T) {
+	t.Parallel()
+	files := []string{"/a", "/b", "/c"}
+	contents := []string{"foo", "bar", "baz"}
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		c.CreateRepo("test")
+		for i := 0; i < 100; i++ {
+			pfc, err := c.NewPutFileClient()
+			require.NoError(t, err)
+			require.NoError(t, pfc.DeleteFile("test", "master", "/"))
+			for i, f := range files {
+				_, err := pfc.PutFile("test", "master", f, strings.NewReader(contents[i]))
+				require.NoError(t, err)
+			}
+			require.NoError(t, pfc.Close())
+			var actualFiles []string
+			c.ListFileF("test", "master", "/", 0, func(f *pfs.FileInfo) error {
+				actualFiles = append(actualFiles, f.File.Path)
+				return nil
+			})
+			require.ElementsEqual(t, files, actualFiles)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestCreateInvalidBranchName(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
@@ -1381,6 +1419,9 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
@@ -2591,6 +2632,9 @@ func TestGetFile(t *testing.T) {
 }
 
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
@@ -2868,6 +2912,9 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
@@ -3266,6 +3313,9 @@ func TestPutFileSplit(t *testing.T) {
 }
 
 func TestPutFileSplitBig(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
@@ -3665,6 +3715,9 @@ func TestDiff(t *testing.T) {
 }
 
 func TestGlobFile(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
@@ -6171,6 +6224,9 @@ const (
 )
 
 func TestFuzzProvenance(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		seed := time.Now().UnixNano()
@@ -6422,16 +6478,24 @@ func TestAtomicHistory(t *testing.T) {
 
 type SlowReader struct {
 	underlying io.Reader
+	delay      time.Duration
 }
 
 func (r *SlowReader) Read(p []byte) (n int, err error) {
 	n, err = r.underlying.Read(p)
-	time.Sleep(1 * time.Millisecond)
+	if r.delay == 0 {
+		time.Sleep(1 * time.Millisecond)
+	} else {
+		time.Sleep(r.delay)
+	}
 	return
 }
 
 // TestTrigger tests branch triggers
 func TestTrigger(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
@@ -6847,6 +6911,75 @@ func TestTriggerValidation(t *testing.T) {
 				Provenance: []*pfs.Branch{pclient.NewBranch("in", "master")},
 			})
 		require.YesError(t, err)
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestRegressionOrphanedFile(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		pfc, err := env.PachClient.NewPutFileClient()
+		require.NoError(t, err)
+		fileContent := "bar\n"
+		_, err = pfc.PutFileOverwrite(repo, commit1.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = pfc.PutFileOverwrite(repo, commit1.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+
+		commit2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		pfc, err = env.PachClient.NewPutFileClient()
+		require.NoError(t, err)
+		require.NoError(t, pfc.DeleteFile(repo, commit2.ID, "/"))
+		_, err = pfc.PutFileOverwrite(repo, commit2.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = pfc.PutFileOverwrite(repo, commit2.ID, "/dir1/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = pfc.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = pfc.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/barbar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+
+		commit3, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(repo, commit3.ID, "/dir1/dir2"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/bar")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/barbar")
+		require.YesError(t, err)
+
+		commit4, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit4.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2/bar")
+		require.NoError(t, err)
+
 		return nil
 	})
 	require.NoError(t, err)

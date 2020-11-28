@@ -28,7 +28,7 @@ the `pachctl delete commit` command.
 
 To fix a broken HEAD, run the following command:
 
-```bash
+```shell
 $ pachctl delete commit <repo>@<branch-or-commit-id>
 ```
 
@@ -77,19 +77,19 @@ To delete a file in an older commit, complete the following steps:
 
 1. Start a new commit:
 
-   ```bash
+   ```shell
    $ pachctl start commit <repo>@<branch>
    ```
 
 1. Delete all corrupted files from the newly opened commit:
 
-   ```bash
+   ```shell
    $ pachctl delete file <repo>@<branch or commitID>:/path/to/files
    ```
 
 1. Finish the commit:
 
-   ```bash
+   ```shell
    $ pachctl finish commit <repo>@<branch>
    ```
 
@@ -120,7 +120,7 @@ following steps:
 
 1. Run `garbage-collect`:
 
-   ```bash
+   ```shell
    $ pachctl garbage-collect
    ```
 

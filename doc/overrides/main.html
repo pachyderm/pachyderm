@@ -60,8 +60,8 @@
 
   <!-- Twitter meta tags -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:site" content="@pachyderm" />
-  <meta name="twitter:creator" content="@pachyderm" />
+  <meta name="twitter:site" content="@pachyderminc" />
+  <meta name="twitter:creator" content="@pachyderminc" />
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ config.site_description }}" />
   <meta name="twitter:image" content="{{ image }}" />
@@ -84,7 +84,7 @@
  <!-- Announcement bar -->
 {% block announce %}
    <style>.md-announce a,.md-announce a:focus,.md-announce a:hover{color:currentColor}.md-announce strong{white-space:nowrap}.md-announce .twitter{margin-left:.2em;color:#00acee}.md-announce .md-link1{font-family:'Montserrat', sans-serif;color:white;font-weight:400;text-decoration:none;font-size:.685rem;line-height:24px;background:transparent;}</style>
-   <a href="https://github.com/pachyderm/pachyderm/releases/tag/v1.11.0" class="md-announce md-link1">
-     Pachyderm 1.11.0 is out! Download <strong>here.</strong>
+   <a href="https://github.com/pachyderm/pachyderm/releases/tag/v{{ config.pach_latest_version }}" class="md-announce md-link1">
+     Pachyderm {{ config.pach_latest_version }} is out! Download <strong>here.</strong>
    </a>
 {% endblock %}

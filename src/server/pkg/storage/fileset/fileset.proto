@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package fileset;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset";
+
+import "server/pkg/storage/fileset/index/index.proto";
+
+message Metadata {
+  string path = 1;
+  index.Index additive = 2;
+  index.Index deletive = 3;
+}

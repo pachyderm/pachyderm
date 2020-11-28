@@ -4,11 +4,12 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"golang.org/x/sync/semaphore"
 )
 
 // StorageOption configures a storage.
-type StorageOption func(s *Storage)
+type StorageOption func(*Storage)
 
 // WithMemoryThreshold sets the memory threshold that must
 // be met before a file set part is serialized (excluding close).
@@ -51,11 +52,11 @@ func WithMaxOpenFileSets(max int) StorageOption {
 }
 
 // UnorderedWriterOption configures an UnorderedWriter.
-type UnorderedWriterOption func(f *UnorderedWriter)
+type UnorderedWriterOption func(*UnorderedWriter)
 
 // WithRenewal configures the UnorderedWriter to renew subfileset paths
 // with the provided renewer.
-func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
+func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r

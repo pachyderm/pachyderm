@@ -6,19 +6,10 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
 
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
-
-// WithGarbageCollection sets the garbage collection client
-// for the storage. The storage will use a mock client otherwise.
-func WithGarbageCollection(gcClient gc.Client) StorageOption {
-	return func(s *Storage) {
-		s.gcClient = gcClient
-	}
-}
 
 // WithMaxConcurrentObjects sets the maximum number of object writers (upload)
 // and readers (download) that can be open at a time.
@@ -66,12 +57,5 @@ func WithMinMax(min, max int) WriterOption {
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true
-	}
-}
-
-// WithChunkTTL sets the ttl for chunks written with this writer
-func WithChunkTTL(ttl time.Duration) WriterOption {
-	return func(w *Writer) {
-		w.chunkTTL = ttl
 	}
 }

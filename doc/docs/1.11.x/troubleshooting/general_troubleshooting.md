@@ -24,7 +24,7 @@ You may be using the pachd address config value or environment variable to speci
 ```
 pachctl version
 COMPONENT           VERSION                                          
-pachctl             1.9.5   
+pachctl             {{ config.pach_latest_version }}   
 context deadline exceeded
 ```
 

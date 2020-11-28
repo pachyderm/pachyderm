@@ -92,13 +92,13 @@ create a repository for your project.
 
    * If you use DockerHub, run:
 
-     ```bash
+     ```shell
      docker login --username=<dockerhub-username> --password=<dockerhub-password> <dockerhub-fqdn>
      ```
 
 1. Build a new image from the `Dockerfile` by specifying a tag:
 
-   ```bash
+   ```shell
    docker build -t <IMAGE>:<TAG> .
    ```
 
@@ -106,7 +106,7 @@ create a repository for your project.
 
    * If you use DockerHub, run:
 
-     ```bash
+     ```shell
      docker push <image>:tag
      ```
 
@@ -157,7 +157,7 @@ To create a Pipeline, complete the following steps:
 1. Create a pipeline specification. Here is an example of a pipeline
    spec:
 
-   ```bash
+   ```shell
    # my-pipeline.json
    {
      "pipeline": {
@@ -178,7 +178,7 @@ To create a Pipeline, complete the following steps:
 
 1. Create a Pachyderm pipeline from the spec:
 
-   ```bash
+   ```shell
    pachctl create pipeline -f my-pipeline.json
    ```
 

@@ -113,6 +113,11 @@ func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequ
 	return nil, auth.ErrNotActivated
 }
 
+// GetAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
+func (a *InactiveAPIServer) GetAuthTokenInTransaction(*txnenv.TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -125,6 +130,11 @@ func (a *InactiveAPIServer) ExtendAuthToken(context.Context, *auth.ExtendAuthTok
 
 // RevokeAuthToken implements the RevokeAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// RevokeAuthTokenInTransaction is the same as RevokeAuthToken but for use inside a running transaction
+func (a *InactiveAPIServer) RevokeAuthTokenInTransaction(*txnenv.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

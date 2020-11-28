@@ -15,7 +15,7 @@ Pachyderm. For example, if you have created a manifest called
 `test-manifest.yaml`, you can deploy a Pachyderm cluster by running the
 following command:
 
-```bash
+```shell
 kubectl apply -f test-manifest.yaml
 ```
 
@@ -36,7 +36,7 @@ To import a Kubernetes context, complete the following steps:
    created when you ran the `pachctl deploy` command with the `--dry-run`
    flag:
 
-   ```bash
+   ```shell
    $ kubectl apply -f <manifest.yaml>
    clusterrole.rbac.authorization.k8s.io/pachyderm configured
    clusterrolebinding.rbac.authorization.k8s.io/pachyderm configured
@@ -51,7 +51,7 @@ To import a Kubernetes context, complete the following steps:
 
 1. Verify that the cluster was successfully deployed:
 
-   ```bash
+   ```shell
    $ kubectl get pods
    NAME                     READY   STATUS    RESTARTS   AGE
    dash-64c868cc8b-j79d6    2/2     Running   0          20h
@@ -63,7 +63,7 @@ To import a Kubernetes context, complete the following steps:
 
 1. Create a new Pachyderm context with the embedded Kubernetes context:
 
-   ```bash
+   ```shell
    $ pachctl config set context <new-pachyderm-context> -k `kubectl config current-context`
    ```
 
@@ -71,7 +71,7 @@ To import a Kubernetes context, complete the following steps:
 
    **Example:**
 
-   ```bash
+   ```shell
    $ pachctl config get context test-context
    {
      "source": "IMPORTED",
@@ -83,12 +83,12 @@ To import a Kubernetes context, complete the following steps:
 
 1. Activate the new Pachyderm context:
 
-   ```bash
+   ```shell
    $ pachctl config set active-context <new-pachyderm-context>
    ```
 
 1. Verify that the new context has been activated:
 
-   ```bash
+   ```shell
    $ pachctl config get active-context
    ```

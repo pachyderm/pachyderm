@@ -132,7 +132,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 
 func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
 	h := pfs.NewHash()
-	for _, dataRef := range idx.FileOp.DataRefs {
+	for _, dataRef := range idx.File.DataRefs {
 		h.Write([]byte(dataRef.Hash))
 	}
 	return &pfs.FileInfo{

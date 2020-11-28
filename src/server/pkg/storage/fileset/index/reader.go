@@ -7,17 +7,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"modernc.org/mathutil"
 )
 
 // Reader is used for reading a multilevel index.
 type Reader struct {
-	objC   obj.Client
 	chunks *chunk.Storage
-	path   string
 	filter *pathFilter
+	topIdx *Index
 }
 
 type pathFilter struct {
@@ -26,11 +24,10 @@ type pathFilter struct {
 }
 
 // NewReader create a new Reader.
-func NewReader(objC obj.Client, chunks *chunk.Storage, path string, opts ...Option) *Reader {
+func NewReader(chunks *chunk.Storage, topIdx *Index, opts ...Option) *Reader {
 	r := &Reader{
-		objC:   objC,
 		chunks: chunks,
-		path:   path,
+		topIdx: topIdx,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -40,11 +37,11 @@ func NewReader(objC obj.Client, chunks *chunk.Storage, path string, opts ...Opti
 
 // Iterate iterates over the indexes.
 func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
-	// Setup top level reader.
-	pbr, err := topLevel(ctx, r.objC, r.path)
-	if err != nil {
-		return err
+	if r.topIdx == nil {
+		return nil
 	}
+	// Setup top level reader.
+	pbr := r.topLevel()
 	levels := []pbutil.Reader{pbr}
 	for {
 		pbr := levels[len(levels)-1]
@@ -54,12 +51,6 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 				return nil
 			}
 			return err
-		}
-		// TODO An empty fileset is represented by no referenced data
-		// stored in the semantic path for the fileset. We should probably spend some more time
-		// thinking through the implications of this representation.
-		if idx.Range == nil && idx.FileOp == nil {
-			return nil
 		}
 		// Return if done.
 		if r.atEnd(idx.Path) {
@@ -71,7 +62,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			if !r.atStart(idx.Path) {
 				continue
 			}
-			resolveDataOps(idx)
+			resolveParts(idx)
 			if err := cb(idx); err != nil {
 				return err
 			}
@@ -85,21 +76,11 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	}
 }
 
-func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Reader, retErr error) {
-	objR, err := objC.Reader(ctx, path, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := objR.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, objR); err != nil {
-		return nil, err
-	}
-	return pbutil.NewReader(buf), nil
+func (r *Reader) topLevel() pbutil.Reader {
+	buf := bytes.Buffer{}
+	pbw := pbutil.NewWriter(&buf)
+	pbw.Write(r.topIdx)
+	return pbutil.NewReader(&buf)
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
@@ -191,18 +172,4 @@ func (lr *levelReader) next() error {
 	r := lr.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
 	lr.buf.Reset()
 	return r.Get(lr.buf)
-}
-
-// GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
-// for the file set.
-func GetTopLevelIndex(ctx context.Context, objC obj.Client, path string) (*Index, error) {
-	pbr, err := topLevel(ctx, objC, path)
-	if err != nil {
-		return nil, err
-	}
-	idx := &Index{}
-	if err := pbr.Read(idx); err != nil {
-		return nil, err
-	}
-	return idx, nil
 }

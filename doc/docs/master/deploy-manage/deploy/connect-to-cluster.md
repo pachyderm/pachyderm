@@ -38,7 +38,7 @@ To connect to a Pachyderm dashboard, complete the following steps:
 
 * To use port-forwarding, run:
 
-  ```bash
+  ```shell
   pachctl port-forward
   ```
 
@@ -46,13 +46,13 @@ To connect to a Pachyderm dashboard, complete the following steps:
 
   1. Get the minikube IP address:
 
-     ```bash
+     ```shell
      minikube ip
      ```
 
   1. Point your browser to the following address:
 
-     ```bash
+     ```shell
      <minikube_ip>:30080
      ```
 
@@ -109,7 +109,7 @@ steps:
 
 1. Get the current context:
 
-   ```bash
+   ```shell
    pachctl config get active-context
    ```
 
@@ -119,7 +119,7 @@ steps:
    If no IP address is set up for this cluster, you get the following
    output:
 
-   ```bash
+   ```shell
    pachctl config get context <name>
    {
 
@@ -128,13 +128,13 @@ steps:
 
 1. Set up `pachd_address`:
 
-   ```bash
+   ```shell
    pachctl config update context <name> --pachd-address <host:port>
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    pachctl config update context local --pachd-address 192.168.1.15:30650
    ```
 
@@ -142,13 +142,13 @@ steps:
 
 1. Verify that the configuration has been updated:
 
-   ```bash
+   ```shell
    pachctl config get context local
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    {
       "pachd_address": "192.168.1.15:30650"
    }
@@ -192,7 +192,7 @@ To enable port-forwarding, complete the following steps:
 1. Open a new terminal window.
 1. Run:
 
-   ```bash
+   ```shell
    pachctl port-forward
    ```
 

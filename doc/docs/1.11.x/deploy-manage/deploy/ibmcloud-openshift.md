@@ -294,7 +294,7 @@ Those must be modified to match the port numbers you set above for each port.
 				"containers": [
 					{
 						"name": "pachd",
-						"image": "pachyderm/pachd:1.9.7",
+						"image": "pachyderm/pachd:{{ config.pach_latest_version }}",
 						"ports": [
 							{
 								"name": "api-grpc-port",
@@ -502,13 +502,13 @@ It uses storage class to create a PVC based on the volume claim template in the 
 
 ## 7. Deploy the Pachyderm manifest you modified.
 
-```bash
+```shell
 oc create -f manifest-statefulset.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream OpenShift:
 
-```bash
+```shell
     oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-78c4b487dc-sm56p    2/2       Running   0          1m

@@ -15,7 +15,7 @@ have the following components configured:
   activated by running `pachctl enterprise activate`.
   Check the status of your license by running:
 
-  ```bash
+  ```shell
   pachctl enterprise get-state
   ```
 
@@ -48,7 +48,7 @@ To configure Auth0, complete the following steps:
 1. In the **Allowed Callback URLs**, add the Pachyderm callback link in the
 following format:
 
-   ```bash
+   ```shell
    http://<ip>:30657/authorization-code/callback
    ```
 
@@ -70,7 +70,7 @@ To configure Pachyderm Auth, complete the following steps:
 
 1. Check the status of your license by running:
 
-   ```bash
+   ```shell
    pachctl enterprise get-state
    ```
 
@@ -80,13 +80,13 @@ To configure Pachyderm Auth, complete the following steps:
 
    1. Get the `pachd` pod ID:
 
-      ```bash
+      ```shell
       kubectl get pod
       ```
 
       **Example system response:**
 
-      ```bash
+      ```shell
       dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
       etcd-56d897697-xzsqr        1/1     Running   0          4h2m
       keycloak-857c59449b-htg99   1/1     Running   0          4h6m
@@ -97,13 +97,13 @@ To configure Pachyderm Auth, complete the following steps:
 
       **Example:**
 
-      ```bash
+      ```shell
       kubectl port-forward pachd-79f7f68c65-9qs8g 30657
       ```
 
 1. Enable Pachyderm authentication:
 
-   ```bash
+   ```shell
    pachctl auth activate --initial-admin=robot:admin
    ```
 
@@ -118,13 +118,13 @@ step:
    1. Log in as the admin user with the token you received in the previous
 step:
 
-   ```bash
+   ```shell
    pachctl auth use-auth-token
    ```
 
 1. Set up the authentication config:
 
-    ```bash
+    ```shell
     pachctl auth set-config <<EOF
     {
             "live_config_version": 1,
@@ -161,7 +161,7 @@ or sign in with Google:
 
    1. Run:
 
-      ```bash
+      ```shell
       pachctl auth login
       ```
 
@@ -176,13 +176,13 @@ or sign in with Google:
 
 1. In the terminal, check that you are logged in as the Auth0 user:
 
-   ```bash
+   ```shell
    pachctl auth whoami
    ```
 
    **Example of System Response:**
 
-   ```bash
+   ```shell
    You are "auth0:test@pachyderm.com"
    session expires: 07 Aug 20 14:04 PDT
    ```

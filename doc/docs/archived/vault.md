@@ -20,7 +20,7 @@ To deploy Vault, complete the following steps:
 1. Connect to your Vault server.
 1. Run the following commands:
 
-   ```bash
+   ```shell
    export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
    echo $SHASUM
    vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
@@ -32,7 +32,7 @@ To deploy Vault, complete the following steps:
 
    **Example:**
 
-   ```bash
+   ```shell
    sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
    ```
 

@@ -43,13 +43,13 @@ What the `--initial-admin` flag does is this:
    this robot user. At any point, you can authenticate as this robot user by
    running the following command:
 
-   ```bash
+   ```shell
    pachctl auth use-auth-token
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    Please paste your Pachyderm auth token:
    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
    # you are now robot:admin, cluster administrator
