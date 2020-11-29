@@ -44,11 +44,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )

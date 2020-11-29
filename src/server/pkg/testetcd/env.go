@@ -9,10 +9,10 @@ import (
 	"os"
 	"path"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/embed"
-	etcdwal "github.com/coreos/etcd/wal"
 	"github.com/coreos/pkg/capnslog"
+	etcd "go.etcd.io/etcd/v3/clientv3"
+	"go.etcd.io/etcd/v3/embed"
+	etcdwal "go.etcd.io/etcd/v3/wal"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"

@@ -20,9 +20,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"

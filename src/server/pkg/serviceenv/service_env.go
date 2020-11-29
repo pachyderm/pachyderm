@@ -11,9 +11,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"

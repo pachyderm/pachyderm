@@ -7,8 +7,8 @@ import (
 	"path"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
+	etcd "go.etcd.io/etcd/v3/clientv3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"

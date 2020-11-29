@@ -21,8 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/OneOfOne/xxhash"
-	bolt "github.com/coreos/bbolt"
 	globlib "github.com/pachyderm/ohmyglob"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
 )
 
