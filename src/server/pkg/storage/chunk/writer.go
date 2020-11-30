@@ -3,14 +3,9 @@ package chunk
 import (
 	"bytes"
 	"context"
-	"io"
-	"path"
-	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 )
 
@@ -55,10 +50,12 @@ type chunkSize struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	objC                    obj.Client
-	gcC                     gc.Client
-	chunkSize               *chunkSize
-	cb                      WriterCallback
+	client    *Client
+	cb        WriterCallback
+	chunkSize *chunkSize
+	splitMask uint64
+	noUpload  bool
+
 	ctx                     context.Context
 	cancel                  context.CancelFunc
 	err                     error
@@ -66,33 +63,27 @@ type Writer struct {
 	annotations             []*Annotation
 	numChunkBytesAnnotation int
 	hash                    *buzhash64.Buzhash64
-	splitMask               uint64
 	buf                     *bytes.Buffer
-	tmpID                   string
-	noUpload                bool
 	stats                   *stats
-	chunkTTL                time.Duration
 	buffering               bool
 	first, last             bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, client *Client, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	w := &Writer{
-		objC: objC,
-		gcC:  gcC,
+		cb:     cb,
+		client: client,
+		ctx:    cancelCtx,
+		cancel: cancel,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
 		},
-		cb:     cb,
-		ctx:    cancelCtx,
-		cancel: cancel,
-		chain:  NewTaskChain(cancelCtx),
-		buf:    &bytes.Buffer{},
-		tmpID:  tmpID,
-		stats:  &stats{},
-		first:  true,
+		buf:   &bytes.Buffer{},
+		stats: &stats{},
+		chain: NewTaskChain(cancelCtx),
+		first: true,
 	}
 	WithRollingHashConfig(defaultAverageBits, defaultSeed)(w)
 	for _, opt := range opts {
@@ -235,19 +226,20 @@ func copyAnnotation(a *Annotation) *Annotation {
 }
 
 func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation, serial func(func() error) error) error {
-	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
-	if err := w.maybeUpload(ctx, chunk, chunkBytes); err != nil {
+	pointsTo := w.getPointsTo(annotations)
+	ref, err := w.maybeUpload(ctx, chunkBytes, pointsTo)
+	if err != nil {
 		return err
 	}
-	chunkRef := &DataRef{
-		ChunkInfo: &ChunkInfo{
-			Chunk:     chunk,
-			SizeBytes: int64(len(chunkBytes)),
-			Edge:      edge,
-		},
+	ref.Edge = edge
+	contentHash := Hash(chunkBytes)
+	chunkDataRef := &DataRef{
+		Hash:      contentHash.HexString(),
+		Ref:       ref,
 		SizeBytes: int64(len(chunkBytes)),
 	}
-	if err := w.processAnnotations(ctx, chunkRef, chunkBytes, annotations); err != nil {
+	// Process the annotations for the current chunk.
+	if err := w.processAnnotations(ctx, chunkDataRef, chunkBytes, annotations); err != nil {
 		return err
 	}
 	return serial(func() error {
@@ -255,58 +247,55 @@ func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool,
 	})
 }
 
-func (w *Writer) maybeUpload(ctx context.Context, chunk *Chunk, chunkBytes []byte) error {
+func (w *Writer) maybeUpload(ctx context.Context, chunkBytes []byte, pointsTo []ID) (*Ref, error) {
+	md := Metadata{
+		PointsTo: pointsTo,
+		Size:     len(chunkBytes),
+	}
+	var chunkID ID
+	var err error
 	// Skip the upload if no upload is configured.
-	if w.noUpload {
-		return nil
+	if !w.noUpload {
+		chunkID, err = w.client.Create(ctx, md, bytes.NewReader(chunkBytes))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// TODO: this has to also deal with compression and encryption
+		chunkID = Hash(chunkBytes)
 	}
-	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(ctx, path, w.tmpID, w.getExpiresAt()); err != nil {
-		return err
-	}
-	// Skip the upload if the chunk already exists.
-	if w.objC.Exists(ctx, path) {
-		return nil
-	}
-	objW, err := w.objC.Writer(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer objW.Close()
-	_, err = io.Copy(objW, bytes.NewReader(chunkBytes))
-	return err
+	return &Ref{
+		Id:        chunkID,
+		SizeBytes: int64(len(chunkBytes)),
+	}, nil
 }
 
-func (w *Writer) processAnnotations(ctx context.Context, chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
+func (w *Writer) getPointsTo(annotations []*Annotation) (pointsTo []ID) {
+	ids := make(map[string]struct{})
+	for _, a := range annotations {
+		for _, dr := range a.RefDataRefs {
+			id := dr.Ref.Id
+			if _, exists := ids[string(id)]; !exists {
+				pointsTo = append(pointsTo, id)
+				ids[string(id)] = struct{}{}
+			}
+		}
+	}
+	return pointsTo
+}
+
+func (w *Writer) processAnnotations(ctx context.Context, chunkDataRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
 	var offset int64
-	var prevRefChunk string
 	for _, a := range annotations {
 		// TODO: Empty data reference for size zero annotation?
 		if a.size == 0 {
 			continue
 		}
-		a.NextDataRef = newDataRef(chunkRef, chunkBytes, offset, a.size)
+		a.NextDataRef = newDataRef(chunkDataRef, chunkBytes, offset, a.size)
 		offset += a.size
 		// Skip references if no upload is configured.
 		if w.noUpload {
 			continue
-		}
-		// Create the cross chunk references.
-		// We keep track of the previous referenced chunk to prevent duplicate create
-		// reference calls.
-		for _, dataRef := range a.RefDataRefs {
-			refChunk := dataRef.ChunkInfo.Chunk.Hash
-			if prevRefChunk == refChunk {
-				continue
-			}
-			if err := w.gcC.CreateReference(ctx, &gc.Reference{
-				Sourcetype: "chunk",
-				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
-				Chunk:      path.Join(prefix, refChunk),
-			}); err != nil {
-				return err
-			}
-			prevRefChunk = refChunk
 		}
 	}
 	return nil
@@ -314,11 +303,11 @@ func (w *Writer) processAnnotations(ctx context.Context, chunkRef *DataRef, chun
 
 func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataRef {
 	dataRef := &DataRef{}
-	dataRef.ChunkInfo = chunkRef.ChunkInfo
+	dataRef.Ref = chunkRef.Ref
 	if chunkRef.SizeBytes == size {
 		dataRef.Hash = chunkRef.Hash
 	} else {
-		dataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
+		dataRef.Hash = hash.EncodeHash(Hash(chunkBytes[offset : offset+size]))
 	}
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
@@ -347,13 +336,13 @@ func (w *Writer) maybeBufferDataRef(dataRef *DataRef) error {
 		// - We are at a chunk split point.
 		// - The data ref does not reference an edge chunk.
 		// - It is the first data reference for the chunk.
-		if w.buf.Len() != 0 || dataRef.ChunkInfo.Edge || dataRef.OffsetBytes != 0 {
+		if w.buf.Len() != 0 || dataRef.Ref.Edge || dataRef.OffsetBytes != 0 {
 			return w.flushDataRef(dataRef)
 		}
 	} else {
 		// We can only continue buffering data refs if each subsequent data ref is the next in the chunk.
 		prevDataRef := w.getPrevDataRef()
-		if prevDataRef.ChunkInfo.Chunk.Hash != dataRef.ChunkInfo.Chunk.Hash || prevDataRef.OffsetBytes+prevDataRef.SizeBytes != dataRef.OffsetBytes {
+		if !bytes.Equal(prevDataRef.Ref.Id, dataRef.Ref.Id) || prevDataRef.OffsetBytes+prevDataRef.SizeBytes != dataRef.OffsetBytes {
 			if err := w.flushBuffer(); err != nil {
 				return err
 			}
@@ -370,8 +359,8 @@ func mergeDataRef(dr1, dr2 *DataRef) *DataRef {
 		return dr2
 	}
 	dr1.SizeBytes += dr2.SizeBytes
-	if dr1.SizeBytes == dr1.ChunkInfo.SizeBytes {
-		dr1.Hash = dr1.ChunkInfo.Chunk.Hash
+	if dr1.SizeBytes == dr1.Ref.SizeBytes {
+		dr1.Hash = ID(dr1.Ref.Id).HexString()
 	}
 	return dr1
 }
@@ -408,7 +397,7 @@ func (w *Writer) flushBuffer() error {
 
 func (w *Writer) flushDataRef(dataRef *DataRef) error {
 	buf := &bytes.Buffer{}
-	r := newDataReader(w.ctx, w.objC, dataRef, nil)
+	r := newDataReader(w.ctx, w.client, dataRef, nil)
 	if err := r.Get(buf); err != nil {
 		return err
 	}
@@ -419,7 +408,7 @@ func (w *Writer) maybeCheapCopy() error {
 	if w.buffering {
 		// Cheap copy if a full chunk is buffered.
 		lastDataRef := w.annotations[len(w.annotations)-1].NextDataRef
-		if lastDataRef.OffsetBytes+lastDataRef.SizeBytes == lastDataRef.ChunkInfo.SizeBytes {
+		if lastDataRef.OffsetBytes+lastDataRef.SizeBytes == lastDataRef.Ref.SizeBytes {
 			annotations := w.splitAnnotations()
 			if err := w.chain.CreateTask(func(_ context.Context, serial func(func() error) error) error {
 				return serial(func() error {
@@ -448,8 +437,4 @@ func (w *Writer) Close() error {
 		}
 		return w.chain.Wait()
 	})
-}
-
-func (w *Writer) getExpiresAt() time.Time {
-	return time.Now().UTC().Add(w.chunkTTL)
 }
