@@ -43,19 +43,19 @@ tons of them.
 For this demo, we create a repo called `images` to hold the
 data we want to process:
 
-```bash
+```shell
 pachctl create repo images
 ```
 
 Verify that the repository was created:
 
-```bash
+```shell
 pachctl list repo
 ```
 
 **System response:**
 
-```bash
+```shell
 NAME   CREATED       SIZE (MASTER)
 images 7 seconds ago 0B
 ```
@@ -92,7 +92,7 @@ and the file name: `"liberty.png"`.
 Here is an example atomic commit of the file `liberty.png` to the
 `images` repo `master` branch:
 
-```bash
+```shell
 pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 ```
 
@@ -100,7 +100,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * Use the `pachctl list repo` command to check that data has been added:
 
-  ```bash
+  ```shell
   pachctl list repo
   ```
 
@@ -113,7 +113,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * View the commit that was just created:
 
-  ```bash
+  ```shell
   pachctl list commit images
   ```
 
@@ -126,7 +126,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * View the file in that commit:
 
-  ```bash
+  ```shell
   pachctl list file images@master
   ```
 
@@ -181,7 +181,7 @@ and does some simple edge detection.
 Below is the pipeline spec and python code that we are using. Let's walk
 through the details.
 
-```bash
+```shell
 # edges.json
 {
   "pipeline": {
@@ -249,7 +249,7 @@ pipeline output.
 
 Now, let's create the pipeline in Pachyderm:
 
-```bash
+```shell
 pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 ```
 
@@ -274,7 +274,7 @@ pachctl list job
 
 **System response:**
 
-```bash
+```shell
 ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 0f6a53829eeb4ca193bb7944fe693700 edges    16 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
@@ -291,7 +291,7 @@ pachctl list repo
 
 **System response:**
 
-```bash
+```shell
 NAME   CREATED       SIZE (MASTER)
 edges  2 minutes ago 22.22KiB
 images 5 minutes ago 57.27KiB
@@ -337,7 +337,7 @@ will simply do two more `put file` commands and by specifying `master`
 as the branch, it automatically parents our commits onto each other.
 Branch names are just references to a particular HEAD commit.
 
-```bash
+```shell
 pachctl put file images@master:AT-AT.png -f http://imgur.com/8MN9Kg0.png
 pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 ```
@@ -366,14 +366,14 @@ View the output data
 
 * On macOS, run:
 
-  ```bash
+  ```shell
   pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
   pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
   ```
 
 * On Linux, run:
 
-  ```bash
+  ```shell
   pachctl get file edges@master:AT-AT.png | display
   pachctl get file edges@master:kitten.png | display
   ```
@@ -390,7 +390,7 @@ montage of images:
 
 Below is the pipeline spec for this new pipeline:
 
-```bash
+```shell
 # montage.json
 {
   "pipeline": {
@@ -439,20 +439,20 @@ and
 
 We create the `montage` pipeline as before, with `pachctl`:
 
-```bash
+```shell
 pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 ```
 
 Pipeline creating triggers a job that generates a montage for all the
 current HEAD commits of the input repos:
 
-```bash
+```shell
 pachctl list job
 ```
 
 **System response:**
 
-```bash
+```shell
 ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
 81ae47a802f14038b95f8f248cddbed2    2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success

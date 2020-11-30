@@ -19,7 +19,7 @@ Additional prerequisites:
 
 First, we need to create a persistent disk for Pachyderm's metadata:
 
-```sh
+```shell
 # Name this whatever you want, we chose pach-disk as a default
 $ STORAGE_NAME=pach-disk
 
@@ -33,7 +33,7 @@ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 
 Then we can deploy Pachyderm:
 
-```sh
+```shell
 pachctl deploy custom --persistent-disk google --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME}
 ```
 
@@ -45,7 +45,7 @@ Additional prerequisites:
 
 First, we need to create a persistent disk for Pachyderm's metadata:
 
-```sh
+```shell
 # We recommend between 1 and 10 GB. This stores PFS metadata. For reference 1GB
 # should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
@@ -64,7 +64,7 @@ $ STORAGE_NAME=[volume id]
 
 The we can deploy Pachyderm:
 
-```sh
+```shell
 pachctl deploy custom --persistent-disk aws --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME}
 ```
 
@@ -78,7 +78,7 @@ Additional prerequisites:
 
 First, we need to create a persistent disk for Pachyderm's metadata. To do this, start by declaring some environmental variables:
 
-```sh
+```shell
 # Needs to be globally unique across the entire Azure location
 $ RESOURCE_GROUP=[The name of the resource group where the Azure resources will be organized]
 
@@ -97,7 +97,7 @@ $ STORAGE_SIZE=[the size of the data disk volume that you are going to create, i
 
 And then run:
 
-```sh
+```shell
 # Create a resource group
 $ az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
 
@@ -128,12 +128,12 @@ $ VOLUME_URI="$(docker run -it microsoft_vhd \
 
 To check that everything has been setup correctly, try:
 
-```sh
+```shell
 $ az storage account list | jq '.[].name'
 ```
 
 The we can deploy Pachyderm:
 
-```sh
+```shell
 pachctl deploy custom --persistent-disk azure --object-store s3 ${VOLUME_URI} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${VOLUME_URI}
 ```

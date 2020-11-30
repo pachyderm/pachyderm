@@ -64,7 +64,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 30021f96c6d4814f8b5f126cacf0fb59ec809953 && \
+        git checkout b6863deb481fb5aa3ccdd03b4a3a0583ab54d1c9 && \
         CIRCLE_BRANCH=1 make install && \
         git config user.email "donotreply@pachyderm.com" && \
         git config user.name "anonymous" && \

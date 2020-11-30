@@ -13,7 +13,7 @@ have the following components up and running:
   activated by running `pachctl enterprise activate`.
   Check the status of your license by running:
 
-  ```bash
+  ```shell
   pachctl enterprise get-state
   ```
 
@@ -50,7 +50,7 @@ previous step.
 1. In the **Authorized redirect URIs** section, add the Pachyderm callback link
 in the following format:
 
-   ```bash
+   ```shell
    https://<hostname>:30657/authorization-code/callback
    ```
 
@@ -72,13 +72,13 @@ To configure Pachyderm, complete the following steps:
 
    1. Get the `pachd` pod ID:
 
-      ```bash
+      ```shell
       kubectl get pod
       ```
 
       **Example system response:**
 
-      ```bash
+      ```shell
       dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
       etcd-56d897697-xzsqr        1/1     Running   0          4h2m
       keycloak-857c59449b-htg99   1/1     Running   0          4h6m
@@ -89,13 +89,13 @@ To configure Pachyderm, complete the following steps:
 
       **Example:**
 
-      ```bash
+      ```shell
       kubectl port-forward pachd-79f7f68c65-9qs8g 30657
       ```
 
 1. Enable Pachyderm authentication:
 
-   ```bash
+   ```shell
    pachctl auth activate --initial-admin=robot:admin
    ```
 
@@ -107,13 +107,13 @@ To configure Pachyderm, complete the following steps:
  1. Log in as the admin user with the token you received in the previous
  step:
 
-    ```bash
+    ```shell
     pachctl auth use-auth-token
     ```
 
 1. Set up the authentication config:
 
-   ```bash
+   ```shell
    pachctl auth set-config <<EOF
    {
              "live_config_version": 2,
@@ -149,7 +149,7 @@ or sing in with Google:
 
    1. Run:
 
-      ```bash
+      ```shell
       pachctl auth login
       ```
 
@@ -164,13 +164,13 @@ or sing in with Google:
 
 1. In the terminal, check that you are logged in as the Auth0 user:
 
-   ```bash
+   ```shell
    pachctl auth whoami
    ```
 
    **Example of System Response:**
 
-   ```bash
+   ```shell
    You are "google-oauth:test@pachyderm.com"
    session expires: 07 Aug 20 16:27 PDT
    ```

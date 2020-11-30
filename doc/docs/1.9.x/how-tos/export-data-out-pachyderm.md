@@ -49,13 +49,13 @@ To export your data with pachctl:
 
 1. Get the list of files in the repository:
 
-   ```bash
+   ```shell
    $ pachctl list file <repo>@<branch>
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    $ pachctl list commit data@master
    REPO   BRANCH COMMIT                           PARENT                           STARTED           DURATION           SIZE
    data master 230103d3c6bd45b483ab6d0b7ae858d5 f82b76f463ca4799817717a49ab74fac 2 seconds ago  Less than a second 750B
@@ -64,13 +64,13 @@ To export your data with pachctl:
 
 1. Get the contents of a specific file:
 
-   ```bash
+   ```shell
    pachctl get file <repo>@<branch>:<path/to/file>
    ```
 
    **Example:**
 
-   ```bash
+   ```shell
    $ pachctl get file data@master:user_data.csv
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
@@ -92,13 +92,13 @@ To export your data with pachctl:
 
      1. List files in the parent commit:
 
-        ```bash
+        ```shell
         $ pachctl list commit <repo>@<branch-or-commit>^:<path/to/file>
         ```
 
      1. Get the contents of a file:
 
-        ```bash
+        ```shell
         $ pachctl get file <repo>@<branch-or-commit>^:<path/to/file>
         ```
 
@@ -106,26 +106,26 @@ To export your data with pachctl:
 
      1. List files in the parent commit:
 
-        ```bash
+        ```shell
         $ pachctl list commit <repo>@<branch-or-commit>^<n>:<path/to/file>
         ```
 
         **Example:**
 
-        ```bash
+        ```shell
         NAME           TYPE SIZE
         /user_data.csv file 375B
         ```
 
      1. Get the contents of a file:
 
-        ```bash
+        ```shell
         $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
         ```
 
         **Example:**
 
-        ```bash
+        ```shell
         $ pachctl get file datas@master^4:user_data.csv
         ```
 
@@ -134,7 +134,7 @@ To export your data with pachctl:
      does not exist in that revision, Pachyderm displays the following
      message:
 
-     ```bash
+     ```shell
      $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
      file "<path/to/file>" not found
      ```

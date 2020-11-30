@@ -64,7 +64,7 @@ It's not recommended that you use it for production purposes.
 If you'd like to see the order in which the manifests will be loaded into Kubernetes,
 run the command
 
-```sh
+```shell
 make -n kafka
 ```
 
@@ -79,7 +79,7 @@ verify that you are using the correct Kubernetes context by running `kubectl con
 For example, when you are deploying on EKS, your active context should end with `eksctl.io`.
 
 
-```sh
+```shell
 $ kubectl get pods -n kafka
 NAME                READY   STATUS    RESTARTS   AGE
 kafka-0             1/1     Running   0          3d19h
@@ -97,7 +97,7 @@ You may modify the Makefile to use another topic name, of course.
 To use the example's Kafka environment,
 you may use the following command to create the topic:
 
-```sh
+```shell
 $ kubectl -n kafka exec kafka-test-client -- /usr/bin/kafka-topics --zookeeper \
       kafka-zookeeper.kafka:2181 --topic test_topic --create \
       --partitions 1 --replication-factor 1
@@ -110,7 +110,7 @@ The command is using Kubernetes DNS names to specify the Kafka zookeeper service
 
 You can confirm that your topic was created with the following command:
 
-```
+```shell
 $ kubectl -n kafka exec kafka-test-client -- /usr/bin/kafka-topics --zookeeper \
        kafka-zookeeper.kafka:2181 --list
 ```
@@ -126,7 +126,7 @@ and so on.
 Data entry is completed with an end-of-file character,
 `Control-d` in most shells.
 
-```sh
+```shell
 $ kubectl -n kafka exec -ti kafka-test-client --  /usr/bin/kafka-console-producer \
    --broker-list kafka.kafka:9092 --topic test_topic 
 >yo 
@@ -139,7 +139,7 @@ $ kubectl -n kafka exec -ti kafka-test-client --  /usr/bin/kafka-console-produce
 
 4. You can see if the data has been added to the topic with the `kafka-console-consumer` command.
 
-```sh
+```shell
 $ kubectl -n kafka exec -ti kafka-test-client -- /usr/bin/kafka-console-consumer \
    --bootstrap-server kafka:9092 --topic test_topic --from-beginning
 yo
@@ -162,7 +162,7 @@ command terminated with exit code 130
 you can simply create the spout with the pachctl command
 using the pipeline definition available in the `pipelines` directory
 
-```
+```shell
 $ pachctl create pipeline -f pipelines/kafka_spout.pipeline
 ```
 
@@ -186,7 +186,7 @@ or you may simply make the image with `docker-image`.
 if the `VERBOSE_LOGGING` variable is set to anything other than `false`,
 you will see verbose logging in the `kafka_spout` pipeline logs.
 
-```sh
+```shell
 $ pachctl logs -p kafka_spout -f
 creating new kafka reader for kafka.kafka:9092 with topic 'test_topic' and group 'test_group'
 reading kafka queue.
@@ -233,7 +233,7 @@ closing named pipe /pfs/out.
 
 And you will see the message files in the `kafka_spout` repo
 
-```sh
+```shell
 $ pachctl list file kafka_spout@master
 NAME          TYPE SIZE 
 /test_topic-0 file 2B   
@@ -257,7 +257,7 @@ Flags override environment variable settings.
 If your Go development environment is set up correctly,
 you can see the settings by running the command:
 
-```
+```shell
 $ go run source/main.go --help
 Usage of /var/folders/xl/xtvj4xtx0tv1llxcnbvlmwc40000gq/T/go-build997659573/b001/exe/main:
   -kafka_group_id string
@@ -279,7 +279,7 @@ exit status 2
 The environment variables are as shown 
 in this excerpt from the `pipelines/kafka_spout.pipeline` file:
 
-```sh
+```shell
             "KAFKA_HOST": "kafka.kafka",
             "KAFKA_PORT": "9092",
             "KAFKA_TOPIC": "test_topic",

@@ -57,7 +57,7 @@ Before you can deploy this example you need to have the following components:
 2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/latest/getting_started/).
 
 Verify that your environment is accessible by running `pachctl version` which will show both the `pachctl` and `pachd` versions.
-```bash
+```shell
 $ pachctl version
 COMPONENT           VERSION
 pachctl             1.11.0
@@ -118,7 +118,7 @@ Now we'll deploy this python code with Pachyderm.
 
 ### TLDR; Just give me the code
 
-```bash
+```shell
 # Step 1: Create input data repository
 pachctl create repo housing_data
 
@@ -142,7 +142,7 @@ pachctl list commit regression@master
 
 Once the Pachyderm cluster is running, create a data repository called `housing_data` where we will put our dataset.
 
-```bash
+```shell
 $ pachctl create repo housing_data
 $ pachctl list repo
 NAME                CREATED             SIZE
@@ -184,7 +184,7 @@ The **image** defines what Docker image will be used for the pipeline, and the *
 
 Once this pipeline is created, it watches for any changes to its input, and if detected, it starts a new job to train given the new dataset.
 
-```bash
+```shell
 $ pachctl create pipeline -f regression.json
 ```
 
@@ -193,13 +193,13 @@ The pipeline writes the output to a PFS repo (`/pfs/out/` in the pipeline json) 
 ### Step 3: Add the housing dataset to the repo
 Now we can add the data, which will kick off the processing automatically. If we update the data with a new commit, then the pipeline will automatically re-run. 
 
-```bash
+```shell
 $ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-1.csv
 ```
 
 We can inspect that the data is in the repository by looking at the files in the repository.
 
-```bash
+```shell
 $ pachctl list file housing_data@master
 NAME                    TYPE SIZE
 /housing-simplified.csv file 12.14KiB
@@ -207,7 +207,7 @@ NAME                    TYPE SIZE
 
 We can see that the pipeline is running by looking at the status of the job(s). 
 
-```bash
+```shell
 $ pachctl list job
 ID                               PIPELINE   STARTED        DURATION   RESTART PROGRESS  DL       UL      STATE
 299b4f36535e47e399e7df7fc6ee2f7f regression 23 seconds ago 18 seconds 0       1 + 0 / 1 2.482KiB 1002KiB success
@@ -216,7 +216,7 @@ ID                               PIPELINE   STARTED        DURATION   RESTART PR
 ### Step 4: Download files once the pipeline has finished
 Once the pipeline is completed, we can download the files that were created.
 
-```bash
+```shell
 $ pachctl list file regression@master
 NAME               TYPE SIZE
 /housing-simplified_corr_matrix.png   file 18.66KiB
@@ -238,7 +238,7 @@ Now let's update our dataset with additional examples.
 ### Step 5: Update Dataset
 Here's where Pachyderm truly starts to shine. To update our dataset we can run the following command (note that we could also append new examples to the existing file, but in this example we're simply overwriting our previous file to one with more data):
 
-```bash
+```shell
 $ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
 ```
 
@@ -255,7 +255,7 @@ Note that because versions all of our input and output data automatically, we ca
 
 We can list out the commits to any repository by using the `list commit` commandand.
 
-```bash
+```shell
 $ pachctl list commit housing_data@master
 REPO         BRANCH COMMIT                           FINISHED       SIZE     PROGRESS DESCRIPTION
 housing_data master a186886de0bf430ebf6fce4d538d4db7 3 minutes ago  12.14KiB ▇▇▇▇▇▇▇▇
@@ -269,7 +269,7 @@ regression master bc0ecea5a2cd43349a9db3e89933fb42 22 minutes ago 1001KiB  -
 
 We can show exactly what version of the dataset and pipeline created the model by selecting the commmit ID and using the `inspect` command.
 
-```bash
+```shell
 $ pachctl inspect commit regression@f59a6663073b4e81a2d2ab3b4b7c68fc
 Commit: regression@f59a6663073b4e81a2d2ab3b4b7c68fc
 Original Branch: master
@@ -282,7 +282,7 @@ Provenance:  __spec__@5b17c425a8d54026a6daaeaf8721707a (regression)  housing_dat
 
 Additionally, can also show the downstream provenance of a commit by using the `flush` command, showing us everything that was run and produced from a commit.
 
-```bash
+```shell
 $ pachctl flush commit housing_data@bbe5ce248aa44522a012f1967295ccdd
 REPO       BRANCH COMMIT                           FINISHED       SIZE    PROGRESS DESCRIPTION
 regression master bc0ecea5a2cd43349a9db3e89933fb42 31 minutes ago 1001KiB -
