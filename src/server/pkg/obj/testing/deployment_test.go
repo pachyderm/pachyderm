@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -149,6 +150,36 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 	// Connect to pachd
 	tu.WaitForPachdReady(t, namespace)
 	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port))
+	if err != nil {
+		fmt.Printf("Failed to connect to pachd: %v\n", err)
+		fmt.Printf("Used host:port: %s:%d\n", address, port)
+		fmt.Printf("All nodes addresses:\n")
+		for i, node := range nodes.Items {
+			fmt.Printf(" [%d]: %v\n", i, node.Status.Addresses)
+		}
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(metav1.ListOptions{
+			LabelSelector: "app=pachd",
+		})
+		if err == nil {
+			if len(pods.Items) != 1 {
+				fmt.Printf("Got wrong number of pods, expected %d but found %d\n", 1, len(pods.Items))
+			} else {
+				stream, err := kubeClient.CoreV1().Pods(namespace).GetLogs(
+					pods.Items[0].ObjectMeta.Name,
+					&v1.PodLogOptions{},
+				).Stream()
+				if err == nil {
+					defer stream.Close()
+					fmt.Printf("Pod logs:\n")
+					io.Copy(os.Stdout, stream)
+				} else {
+					fmt.Printf("Failed to get pod logs: %v\n", err)
+				}
+			}
+		} else {
+			fmt.Printf("Failed to find pachd pod: %v\n", err)
+		}
+	}
 	require.NoError(t, err)
 	return client
 }
