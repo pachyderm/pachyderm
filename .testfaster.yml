@@ -47,7 +47,7 @@ base:
 
   os_dockerfile: |-
     FROM quay.io/testfaster/kube-ubuntu
-    ENV cache-bust 20
+    ENV cache-bust 21
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
     RUN cd /tmp && \
         wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
