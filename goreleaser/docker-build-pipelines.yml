@@ -9,6 +9,8 @@ builds:
     dir: etc/worker
     main: init.go
     binary: notusedbuild
+    env:
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
