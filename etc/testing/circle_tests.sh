@@ -47,5 +47,5 @@ done
 
 echo "Starting test $BUCKET."
 time ./etc/testing/testctl-ssh.sh "${TESTCTL_OPTIONS[@]}" \
-    -- ./project/etc/testing/circle_tests_inner.sh "$@"
+    -- ./project/pachyderm/etc/testing/circle_tests_inner.sh "$@"
 echo "Finished test $BUCKET."
