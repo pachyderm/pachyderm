@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -149,7 +150,7 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 
 	// Connect to pachd
 	tu.WaitForPachdReady(t, namespace)
-	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port))
+	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(60*time.Second))
 	if err != nil {
 		fmt.Printf("Failed to connect to pachd: %v\n", err)
 		fmt.Printf("Used host:port: %s:%d\n", address, port)
