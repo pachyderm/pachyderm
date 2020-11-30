@@ -1,7 +1,9 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	minio "github.com/minio/minio-go"
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -1028,6 +1031,9 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 }
 
 func TestPipelineMultipleInputs(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3313,4 +3319,112 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
+}
+
+// TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.
+// Need to restructure testing such that we have the implementation of this
+// test in one place while still being able to test auth enabled and disabled clusters.
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	dataRepo := tu.UniqueString("TestDebug_data")
+	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+
+	expectedFiles := make(map[string]*globlib.Glob)
+	// Record glob patterns for expected pachd files.
+	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
+		pattern := path.Join("pachd", "*", "pachd", file)
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+	for i := 0; i < 3; i++ {
+		pipeline := tu.UniqueString("TestDebug")
+		require.NoError(t, aliceClient.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+		// Record glob patterns for expected pipeline files.
+		for _, container := range []string{"user", "storage"} {
+			for _, file := range []string{"logs", "goroutine", "heap"} {
+				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
+				g, err := globlib.Compile(pattern, '/')
+				require.NoError(t, err)
+				expectedFiles[pattern] = g
+			}
+		}
+		pattern := path.Join("pipelines", pipeline, "spec")
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+
+	commit1, err := aliceClient.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = aliceClient.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.ID))
+
+	commitIter, err := aliceClient.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 3, len(commitInfos))
+
+	// Only admins can collect a debug dump.
+	buf := &bytes.Buffer{}
+	require.YesError(t, aliceClient.Dump(nil, buf))
+	adminClient := getPachClient(t, admin)
+	require.NoError(t, adminClient.Dump(nil, buf))
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, gr.Close())
+	}()
+	// Check that all of the expected files were returned.
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		for pattern, g := range expectedFiles {
+			if g.Match(hdr.Name) {
+				delete(expectedFiles, pattern)
+				break
+			}
+		}
+	}
+	require.Equal(t, 0, len(expectedFiles))
+}
+
+func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
+	var commitInfos []*pfs.CommitInfo
+	for {
+		commitInfo, err := commitInfoIter.Next()
+		if errors.Is(err, io.EOF) {
+			return commitInfos
+		}
+		require.NoError(t, err)
+		commitInfos = append(commitInfos, commitInfo)
+	}
 }

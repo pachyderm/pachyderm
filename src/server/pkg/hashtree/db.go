@@ -908,7 +908,7 @@ func (h *dbHashTree) PutDir(path string) error {
 func deleteDir(tx *bolt.Tx, path string) error {
 	c := fs(tx).Cursor()
 	prefix := append(b(path), nullByte[0])
-	for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+	for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Seek(prefix) {
 		if err := c.Delete(); err != nil {
 			return errors.EnsureStack(err)
 		}

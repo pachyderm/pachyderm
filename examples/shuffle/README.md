@@ -3,14 +3,14 @@
 This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created.
 
 ## Create fruits input repo
-```bash
+```shell
 pachctl create repo fruits
 pachctl put file fruits@master -f mango.jpeg
 pachctl put file fruits@master -f apple.jpeg
 ```
 
 ## Create pricing input repo
-```bash
+```shell
 pachctl create repo pricing
 pachctl put file pricing@master -f mango.json
 pachctl put file pricing@master -f apple.json
@@ -18,7 +18,7 @@ pachctl put file pricing@master -f apple.json
 
 
 ## Create shuffle pipeline
-```bash
+```shell
 pachctl create pipeline -f shuffle.json
 ```
 

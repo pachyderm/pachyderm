@@ -80,7 +80,7 @@ before you run this example.
 1. Run the script `setup.sh` included in this repo.
    The script executes the following commands:
    
-   ```sh
+   ```shell
    pachctl create repo images_dp_1
    pachctl create repo images_dp_2
    pachctl create pipeline -f ./edges_dp.json 
@@ -96,7 +96,7 @@ before you run this example.
    Note that there are two commits in `edges_dp`
    both in the `dev` branch that is the output for the pipeline:
    
-   ```sh
+   ```shell
    $  pachctl list commit edges_dp
    REPO     BRANCH COMMIT                           FINISHED       
    edges_dp dev    364f49663dd848098b60c1ac97a332af 36 seconds ago 
@@ -110,7 +110,7 @@ before you run this example.
 
 3. List the branches in `edges_dp`.
    
-   ```sh
+   ```shell
    $ pachctl list branch edges_dp
    BRANCH HEAD                             
    master -                                
@@ -123,7 +123,7 @@ before you run this example.
 
 4. View the list of jobs:
    
-   ```sh
+   ```shell
    $ pachctl list job
    ID                               PIPELINE   STARTED            DURATION  RESTART PROGRESS  DL       UL       STATE   
    2288709b4d8044409c2232d673ec8f23 montage_dp 55 seconds ago     1 second  0       0 + 0 / 0 0B       0B       success 
@@ -144,13 +144,13 @@ before you run this example.
    
 5. Commit a file to `images_dp_1`. 
 
-   ```sh
+   ```shell
    $ pachctl put file images_dp_1@master:1VqcWw9.jpg -f http://imgur.com/1VqcWw9.jpg
    ```
 
 6. View the list of jobs, again. 
 
-   ```sh
+   ```shell
    $ pachctl list job
    ID                               PIPELINE   STARTED            DURATION  RESTART PROGRESS  DL       UL       STATE   
    c7e69e46e9954611ad8efc8aeac47f2a edges_dp   12 seconds ago     3 seconds 0       1 + 3 / 4 175.1KiB 92.18KiB success 
@@ -167,13 +167,13 @@ before you run this example.
 7. To trigger `montage_dp` on the set of data in our `dev` branch,
    you create a `master` branch with `dev` as its head.
    
-   ```sh
+   ```shell
    $ pachctl create branch edges_dp@master --head dev
    ```
    
 8. Listing jobs will show that a job got triggered on `montage_dp`:
 
-    ```sh
+    ```shell
     $ pachctl list job
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     e5a116fd9c2e4678a0f49fcb2f8c8331 montage_dp 10 seconds ago 4 seconds 0       1 + 0 / 1 919.6KiB 1.055MiB success 
@@ -186,7 +186,7 @@ before you run this example.
 9. Commit more data to `images_dp_1`.
    It will only trigger a job in `edges_dp`:
 
-    ```sh
+    ```shell
     $ pachctl put file images_dp_1@master:2GI70mb.jpg -f http://imgur.com/2GI70mb.jpg
     $ pachctl list job
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
@@ -201,7 +201,7 @@ before you run this example.
 10. Move the `master` branch in `edges_dp` to point dev, again.
     It will trigger a job against the data currently in dev.
 
-    ```sh
+    ```shell
     $ pachctl create branch edges_dp@master --head dev
     $ pachctl list job
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
@@ -235,7 +235,7 @@ you can explore how transactions work in combination with deferred processing.
     Now we perform the commit to `images_dp_2`.
     and see that another job got triggered.
     
-    ```sh
+    ```shell
     $ pachctl put file images_dp_2@master:3Kr6Mr6.jpg  -f http://imgur.com/3Kr6Mr6.jpg
     $ pachctl list job
     $ pachctl list job
@@ -255,7 +255,7 @@ you can explore how transactions work in combination with deferred processing.
     you can use Pachyderm transactions.
     First step is to start a transaction.
     
-    ```sh
+    ```shell
     $ pachctl start transaction
     Started new transaction: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     ```
@@ -264,7 +264,7 @@ you can explore how transactions work in combination with deferred processing.
     you start all commits and branch creations 
     within the scope of the transaction. 
     
-    ```sh
+    ```shell
     $ pachctl start commit  images_dp_2@master
     Added to transaction: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     de55d4856e814c41a65836321fe672fa
@@ -278,7 +278,7 @@ you can explore how transactions work in combination with deferred processing.
     When you run `pachctl finish transaction`, Pachyderm groups all the commits and branches together,
     triggering when the last commit in the transaction is finished.
     
-    ```sh
+    ```shell
     $ pachctl finish transaction
     Completed transaction with 2 requests: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     ```
@@ -286,7 +286,7 @@ you can explore how transactions work in combination with deferred processing.
 5.  Commit a file, 
     and job list will show no new jobs.
     
-    ```sh
+    ```shell
     $ pachctl put file images_dp_2@master:9iIlokw.jpg -f http://imgur.com/9iIlokw.jpg
     $ pachctl list job
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   

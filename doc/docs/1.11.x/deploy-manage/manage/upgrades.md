@@ -1,7 +1,7 @@
 # Upgrade Pachyderm
 
 If you need to upgrade Pachyderm from one major version
-to another, such as from `1.8.x` to `1.9.x`, follow the
+to another, such as from `1.10.x` to `1.11.x`, follow the
 instructions in the [Migrate between major versions](./migrations.md).
 
 Upgrades from one minor version to another, such as from version `1.11.0` to
@@ -27,13 +27,13 @@ section.
 
    **Example:**
 
-   ```bash
+   ```shell
    brew upgrade pachyderm/tap/pachctl@1.11
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    ==> Upgrading 1 outdated package:
    pachyderm/tap/pachctl@1.11
    ==> Upgrading pachyderm/tap/pachctl@1.11
@@ -47,13 +47,13 @@ section.
 1. Confirm that the new version has been successfully installed by running
 the following command:
 
-   ```sh
+   ```shell
    pachctl version --client-only
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    COMPONENT           VERSION
    pachctl             {{ config.pach_latest_version }}
    ```
@@ -63,13 +63,13 @@ with the same arguments, fields, and storage resources
 that you specified when you deployed the previous version
 of Pachyderm:
 
-   ```sh
+   ```shell
    pachctl deploy <args>
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    serviceaccount "pachyderm" created
    storageclass "etcd-storage-class" created
    service "etcd-headless" created
@@ -90,13 +90,13 @@ of Pachyderm:
    shows all pods as `READY`:
 
 
-   ```sh
+   ```shell
    kubectl get pods
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-482120938-np8cc     2/2       Running   0          4m
    etcd-0                   1/1       Running   0          4m
@@ -105,13 +105,13 @@ of Pachyderm:
 
 1. Verify that the new version has been deployed:
 
-   ```sh
+   ```shell
    pachctl version
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    COMPONENT           VERSION
    pachctl             {{ config.pach_latest_version }}
    pachd               {{ config.pach_latest_version }}

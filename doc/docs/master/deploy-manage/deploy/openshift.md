@@ -298,7 +298,7 @@ Those must be modified to match the port numbers you set above for each port.
 				"containers": [
 					{
 						"name": "pachd",
-						"image": "pachyderm/pachd:1.9.0rc1",
+						"image": "pachyderm/pachd:{{ config.pach_latest_version }}",
 						"ports": [
 							{
 								"name": "api-grpc-port",
@@ -417,13 +417,13 @@ If you're using a PV you've created separately, remove the PV that was added to 
 
 ## 7. Deploy the Pachyderm manifest you modified.
 
-```bash
+```shell
 oc create -f pachyderm.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
-```bash
+```shell
     oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m

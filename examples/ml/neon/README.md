@@ -17,14 +17,14 @@ Install Pachyderm as described in [Local Installation](https://docs.pachyderm.co
 
 1. Create the necessary data "repositories":
 
-    ```sh
+    ```shell
     $ pachctl create repo training
     $ pachctl create repo reviews
     ```
 
 2. Create the pipeline:
 
-    ```sh
+    ```shell
     $ pachctl create pipeline -f train.json
     $ pachctl create pipeline -f infer.json
     ```
@@ -33,7 +33,7 @@ Install Pachyderm as described in [Local Installation](https://docs.pachyderm.co
 
 Because we have already deployed the pipeline, the training portion of the pipeline will run as soon as data is committed to the training data repo.  The training data in TSV format can be obtained [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeledTrainData.tsv).
 
-```sh
+```shell
 $ pachctl put file training@master:labeledTrainData.tsv -c -f labeledTrainData.tsv
 ```
 
@@ -49,7 +49,7 @@ Naturally in a film who's main themes are of mortality, nostalgia, and loss of i
 
 Once this is committed to the `reviews` repo as `1.txt`:
 
-```sh
+```shell
 $ pachctl put file reviews@master:1.txt -c -f 1.txt
 ```
 

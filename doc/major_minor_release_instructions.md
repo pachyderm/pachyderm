@@ -10,7 +10,7 @@ steps after the normal release instructions.
 Create a new branch off master called `<major>.<minor>.x` and push it to
 origin:
 
-```bash
+```shell
 git checkout master
 git branch <major>.<minor>.x
 git push origin -u <major>.<minor>.x
@@ -28,7 +28,7 @@ should look like with these changes, see
 On master, update `src/client/version/client.go` again with the _next_ major
 or minor release:
 
-```bash
+```shell
 make VERSION_ADDITIONAL= install
 git add src/client/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
@@ -36,7 +36,7 @@ git commit -m"Increment version for $(pachctl version --client-only) release"
 
 ### Regenerate the golden manifests
 
-```bash
+```shell
 make regenerate-test-deploy-manifests
 ```
 
@@ -50,7 +50,7 @@ master to be 1.12, you'd do the following:
 
 Make a copy of the protos:
 
-```bash
+```shell
 mkdir -p src/client/admin/v1_11/pfs
 cp src/client/pfs/pfs.proto src/client/admin/v1_11/pfs/pfs.proto
 mkdir -p src/client/admin/v1_11/pps
@@ -96,7 +96,7 @@ Finally, run `make proto` to rebuild the protos.
 
 Copy over the converters:
 
-```bash
+```shell
 cp src/server/admin/server/convert1_10.go src/server/admin/server/convert1_11.go
 ```
 

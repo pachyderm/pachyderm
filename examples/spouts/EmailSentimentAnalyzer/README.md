@@ -44,14 +44,14 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    First, we'll save some values to files. 
    The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
    
-   ```sh
+   ```shell
    $ echo -n '<account-name>' > IMAP_LOGIN ; chmod 600 IMAP_LOGIN
    $ echo -n '<your-password>' > IMAP_PASSWORD ; chmod 600 IMAP_PASSWORD
    ```
    
 1. Confirm the values in these files are what you expect.
 
-   ```sh
+   ```shell
    $ cat IMAP_LOGIN
    $ cat IMAP_PASSWORD
    ```
@@ -70,14 +70,14 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
    
-   ```sh
+   ```shell
    $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
    ```
    
 1. (Kubernetes) Confirm that the secrets got set correctly.
    You use `kubectl get secret` to output the secrets, and then decode them using `jq` to confirm they're correct.
    
-   ```sh
+   ```shell
    $ kubectl get secret imap-credentials -o json | jq '.data | map_values(@base64d)'
    {
        "IMAP_LOGIN": "<account-name>",
@@ -91,7 +91,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. (Pachyderm Hub) Create a secrets file from the provided template.
    
-   ```sh
+   ```shell
    $ jq -n --arg IMAP_LOGIN $(cat IMAP_LOGIN) --arg IMAP_PASSWORD $(cat IMAP_PASSWORD) \
          -f imap-credentials-template.jq  > imap-credentials-secret.json 
    $ chmod 600 imap-credentials-secret.json
@@ -99,7 +99,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. (Pachyderm Hub) Confirm the secrets file is correct by decoding the values.
    
-   ```sh
+   ```shell
    $ jq '.data | map_values(@base64d)' imap-credentials-secret.json
    {
        "IMAP_LOGIN": "<account-name>",
@@ -109,7 +109,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. (Pachyderm Hub) Generate a secret using pachctl
 
-   ```sh
+   ```shell
    $ pachctl create secret -f imap-credentials-secret.json
    ```
 
@@ -117,7 +117,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
    
-   ```sh
+   ```shell
    $ docker login
    $ docker build -t <docker-account-name>/imap_spout:1.11 -f ./Dockerfile.imap_spout .
    $ docker push <docker-account-name>/imap_spout:1.11
@@ -127,7 +127,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
    
-   ```sh
+   ```shell
    $ docker build -t <docker-account-name>/sentimentalist:1.11 -f ./Dockerfile.sentimentalist .
    $ docker push <docker-account-name>/sentimentalist:1.11
    ```
@@ -135,7 +135,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 1. Edit the pipeline definition files to refer to your own docker repo, 
    if you don't use the prebuild images.
    
-   ```sh
+   ```shell
    $ sed s/pachyderm/<docker-account-name>/g < sentimentalist.json > my_sentimentalist.json
    $ sed s/pachyderm/<docker-account-name>/g < imap_spout.json > my_imap_spout.json
    ```
@@ -144,7 +144,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 1. Create the pipelines
 
-   ```sh
+   ```shell
    pachctl create pipeline -f my_imap_spout.json
    pachctl create pipeline -f my_sentimentalist.json
    ```

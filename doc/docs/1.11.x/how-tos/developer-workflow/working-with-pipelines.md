@@ -80,7 +80,7 @@ create a repository for your project.
 1. Create a `Dockerfile` for your project. See the [OpenCV example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/Dockerfile).
 1. Build a new image from the `Dockerfile` by specifying a tag:
 
-   ```bash
+   ```shell
    docker build -t <IMAGE>:<TAG> .
    ```
 
@@ -102,7 +102,7 @@ with the `--build` flag. For more information, see
 
    * If you use DockerHub, run:
 
-     ```bash
+     ```shell
      docker login --username=<dockerhub-username> --password=<dockerhub-password> <dockerhub-fqdn>
      ```
 
@@ -110,7 +110,7 @@ with the `--build` flag. For more information, see
 
    * If you use DockerHub, run:
 
-     ```bash
+     ```shell
      docker push <image>:tag
      ```
 
@@ -143,7 +143,7 @@ To create a Pipeline, complete the following steps:
 1. Create a pipeline specification. Here is an example of a pipeline
    spec:
 
-   ```bash
+   ```shell
    # my-pipeline.json
    {
      "pipeline": {
@@ -174,7 +174,7 @@ parameter, as well as many others, in the pipeline specification.
 
 1. Create a Pachyderm pipeline from the spec:
 
-   ```bash
+   ```shell
    pachctl create pipeline -f my-pipeline.json
    ```
 
@@ -184,7 +184,7 @@ parameter, as well as many others, in the pipeline specification.
 1. If your pipeline specification changes, you can update the pipeline 
    by running
 
-   ```bash
+   ```shell
    pachctl create pipeline -f my-pipeline.json
    ```
 

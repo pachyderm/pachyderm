@@ -52,32 +52,32 @@ To create a pipeline, complete the following steps:
 
 1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 
-   ```bash
+   ```shell
    pachctl create pipeline -f <pipeline_spec>
    ```
 
 1. Verify that the Kubernetes pod has been created for the pipeline:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME  VERSION INPUT     CREATED       STATE / LAST JOB   DESCRIPTION
    edges 1       images:/* 5 seconds ago running / starting A pipeline that performs image edge detection by using the OpenCV library.
    ```
 
    You can also run `kubectl` commands to view the pod that has been created:
 
-   ```bash
+   ```shell
    kubectl get pod
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                      READY   STATUS    RESTARTS   AGE
    dash-676d6cdf6f-lmfc5     2/2     Running   2          17d
    etcd-79ffc76f58-ppf28     1/1     Running   1          17d
@@ -114,13 +114,13 @@ To access the old files, complete the following steps:
 
 1. View the list of all commits:
 
-   ```bash
+   ```shell
    pachctl list commit <repo>@<master>
    ```
 
 1. Then, use the commit ID to access the old files:
 
-   ```bash
+   ```shell
    pachctl list file <repo>@<commit_ID>
    ```
 

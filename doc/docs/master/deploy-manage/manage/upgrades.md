@@ -1,11 +1,11 @@
 # Upgrade Pachyderm
 
 If you need to upgrade Pachyderm from one major version
-to another, such as from `1.8.x` to `1.9.x`, follow the
+to another, such as from `1.11.x` to `1.12.x`, follow the
 instructions in the [Migrate between major versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.9.0` to
-version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
+Upgrades from one minor version to another, such as from version `1.12.0` to
+version `1.12.2` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
 !!! warning
@@ -27,35 +27,35 @@ section.
 
    **Example:**
 
-   ```bash
-   brew upgrade pachyderm/tap/pachctl@1.11
+   ```shell
+   brew upgrade pachyderm/tap/pachctl@1.12
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.11
-   ==> Upgrading pachyderm/tap/pachctl@1.11
+   pachyderm/tap/pachctl@1.12
+   ==> Upgrading pachyderm/tap/pachctl@1.12
    ...
    ```
 
    **Note:** You need to specify the version of `pachctl` to which
-   you want to upgrade. For example, if you want to upgrade `1.9.0` to
-   `1.9.2`, add `@1.9` at the end of the upgrade path.
+   you want to upgrade. For example, if you want to upgrade `1.12.0` to
+   `1.12.2`, add `@1.12` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
 
-   ```sh
+   ```shell
    pachctl version --client-only
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    COMPONENT           VERSION
-   pachctl             1.9.2
+   pachctl             {{ config.pach_latest_version }}
    ```
 
 1. Redeploy Pachyderm by running the `pachctl deploy` command
@@ -63,13 +63,13 @@ with the same arguments, fields, and storage resources
 that you specified when you deployed the previous version
 of Pachyderm:
 
-   ```sh
+   ```shell
    pachctl deploy <args>
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    serviceaccount "pachyderm" created
    storageclass "etcd-storage-class" created
    service "etcd-headless" created
@@ -90,13 +90,13 @@ of Pachyderm:
    shows all pods as `READY`:
 
 
-   ```sh
+   ```shell
    kubectl get pods
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-482120938-np8cc     2/2       Running   0          4m
    etcd-0                   1/1       Running   0          4m
@@ -105,16 +105,16 @@ of Pachyderm:
 
 1. Verify that the new version has been deployed:
 
-   ```sh
+   ```shell
    pachctl version
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    COMPONENT           VERSION
-   pachctl             1.9.2
-   pachd               1.9.2
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    The `pachd` and `pachctl` versions must both match the new version.

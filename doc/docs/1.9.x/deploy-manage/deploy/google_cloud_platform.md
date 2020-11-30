@@ -22,7 +22,7 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
     You can install `kubectl` by using the Google Cloud SDK and
     running the following command:
 
-    ```bash
+    ```shell
     $ gcloud components install kubectl
     ```
 
@@ -65,7 +65,7 @@ A `kubeconfig` entry is automatically generated and set as the current
 context. As a sanity check, make sure your cluster is up and running
 by running the following `kubectl` command:
 
-```bash
+```shell
 # List all pods in the kube-system namespace.
 $ kubectl get pods -n kube-system
 NAME                                                     READY     STATUS    RESTARTS   AGE
@@ -88,7 +88,7 @@ If you *don't* see something similar to the above output,
 you can point `kubectl` to the new cluster manually by running
 the following command:
 
-```bash
+```shell
 # Update your kubeconfig to point at your newly created cluster.
 $ gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
@@ -109,7 +109,7 @@ to function correctly. You can specify the size of the persistent
 disk, the bucket name, and create the bucket by running the following
 commands:
 
-```sh
+```shell
 # For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
 # should work fine for 1000 commits on 1000 files.
@@ -124,7 +124,7 @@ $ gsutil mb gs://${BUCKET_NAME}
 
 To check that everything has been set up correctly, run:
 
-```bash
+```shell
 $ gsutil ls
 # You should see the bucket you created.
 ```
@@ -133,7 +133,7 @@ $ gsutil ls
 
 `pachctl` is a command-line utility for interacting with a Pachyderm cluster. You can install it locally as follows:
 
-```bash
+```shell
 # For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
 
@@ -143,7 +143,7 @@ $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/do
 
 You can then run `pachctl version --client-only` to check that the installation was successful.
 
-```bash
+```shell
 $ pachctl version --client-only
 1.9.7
 ```
@@ -152,7 +152,7 @@ $ pachctl version --client-only
 
 Now you can deploy a Pachyderm cluster by running this command:
 
-```bash
+```shell
 $ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1
 serviceaccount "pachyderm" created
 storageclass "etcd-storage-class" created
@@ -180,7 +180,7 @@ It may take a few minutes for the pachd nodes to be running because Pachyderm
 pulls containers from DockerHub. You can see the cluster status with
 `kubectl`, which should output the following when Pachyderm is up and running:
 
-```bash
+```shell
 $ kubectl get pods
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-482120938-np8cc     2/2       Running   0          4m
@@ -195,7 +195,7 @@ before other components were ready, so it restarted them.
 Finally, assuming your `pachd` is running as shown above, set up
 forward a port so that `pachctl` can talk to the cluster.
 
-```bash
+```shell
 # Forward the ports. We background this process because it blocks.
 $ pachctl port-forward &
 ```
@@ -203,7 +203,7 @@ $ pachctl port-forward &
 And you're done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
-```sh
+```shell
 
 $ pachctl version
 COMPONENT           VERSION
@@ -223,7 +223,7 @@ and `--pachd-memory-request` set to match the resources limits of the
 machine type. And finally, you need to modify the `pachd` deployment
 so that it has an appropriate toleration:
 
-```bash
+```shell
 tolerations:
 - key: "dedicated"
   operator: "Equal"
