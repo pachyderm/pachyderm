@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -30,6 +31,12 @@ const (
 	podPrefix       = "pods"
 )
 
+type debugServer struct {
+	env           *serviceenv.ServiceEnv
+	name          string
+	sidecarClient *client.APIClient
+}
+
 // NewDebugServer creates a new server that serves the debug api over GRPC
 func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
 	return &debugServer{
@@ -39,10 +46,28 @@ func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *clie
 	}
 }
 
-type debugServer struct {
-	env           *serviceenv.ServiceEnv
-	name          string
-	sidecarClient *client.APIClient
+func (s *debugServer) pachClient(ctx context.Context) (*client.APIClient, error) {
+	pachClient := s.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx()
+	// check if the caller is authorized -- they must be an admin
+	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
+		var isAdmin bool
+		for _, s := range me.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER {
+				isAdmin = true
+				break
+			}
+		}
+		if !isAdmin {
+			return nil, &auth.ErrNotAuthorized{
+				Subject: me.Username,
+				AdminOp: "Debug",
+			}
+		}
+	} else if !auth.IsErrNotActivated(err) {
+		return nil, errors.Wrapf(err, "error during authorization check")
+	}
+	return pachClient, nil
 }
 
 type collectPipelineFunc func(*tar.Writer, *pps.PipelineInfo, ...string) error
@@ -50,8 +75,8 @@ type collectWorkerFunc func(*tar.Writer, *v1.Pod, ...string) error
 type redirectFunc func(debug.DebugClient, *debug.Filter) (io.Reader, error)
 type collectFunc func(*tar.Writer, ...string) error
 
-// TODO: Need to put some thought into the correct handling of a request context.
 func (s *debugServer) handleRedirect(
+	pachClient *client.APIClient,
 	w io.Writer,
 	filter *debug.Filter,
 	collectPachd collectFunc,
@@ -68,7 +93,7 @@ func (s *debugServer) handleRedirect(
 			case *debug.Filter_Pachd:
 				return collectPachd(tw, pachdContainerPrefix)
 			case *debug.Filter_Pipeline:
-				pipelineInfo, err := s.env.GetPachClient(context.Background()).InspectPipeline(f.Pipeline.Name)
+				pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name)
 				if err != nil {
 					return err
 				}
@@ -102,7 +127,7 @@ func (s *debugServer) handleRedirect(
 		if err := collectPachd(tw, pachdContainerPrefix); err != nil {
 			return err
 		}
-		pipelineInfos, err := s.env.GetPachClient(context.Background()).ListPipeline()
+		pipelineInfos, err := pachClient.ListPipeline()
 		if err != nil {
 			return err
 		}
@@ -213,13 +238,18 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
+	pachClient, err := s.pachClient(server.Context())
+	if err != nil {
+		return err
+	}
 	return s.handleRedirect(
+		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
 		request.Filter,
 		collectProfileFunc(request.Profile),
 		nil,
 		nil,
-		redirectProfileFunc(server.Context(), request.Profile),
+		redirectProfileFunc(pachClient.Ctx(), request.Profile),
 		collectProfileFunc(request.Profile),
 	)
 }
@@ -274,13 +304,18 @@ func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFu
 }
 
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) error {
+	pachClient, err := s.pachClient(server.Context())
+	if err != nil {
+		return err
+	}
 	return s.handleRedirect(
+		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
 		request.Filter,
 		collectBinary,
 		nil,
 		nil,
-		redirectBinaryFunc(server.Context()),
+		redirectBinaryFunc(pachClient.Ctx()),
 		collectBinary,
 	)
 }
@@ -312,33 +347,40 @@ func redirectBinaryFunc(ctx context.Context) redirectFunc {
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
+	pachClient, err := s.pachClient(server.Context())
+	if err != nil {
+		return err
+	}
 	return s.handleRedirect(
+		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
 		request.Filter,
-		s.collectPachdDump,
-		s.collectPipelineSpec,
+		s.collectPachdDumpFunc(pachClient),
+		s.collectPipelineSpecFunc(pachClient),
 		s.collectWorkerDump,
-		redirectDumpFunc(server.Context()),
+		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
 	)
 }
 
-func (s *debugServer) collectPachdDump(tw *tar.Writer, prefix ...string) error {
-	// Collect the pachd version.
-	if err := s.collectPachdVersion(tw, prefix...); err != nil {
-		return err
+func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient) collectFunc {
+	return func(tw *tar.Writer, prefix ...string) error {
+		// Collect the pachd version.
+		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container logs.
+		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container dump.
+		return collectDump(tw, prefix...)
 	}
-	// Collect the pachd container logs.
-	if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
-		return err
-	}
-	// Collect the pachd container dump.
-	return collectDump(tw, prefix...)
 }
 
-func (s *debugServer) collectPachdVersion(tw *tar.Writer, prefix ...string) error {
+func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
 	return collectDebugFile(tw, "version", func(w io.Writer) error {
-		version, err := s.env.GetPachClient(context.Background()).Version()
+		version, err := pachClient.Version()
 		if err != nil {
 			return err
 		}
@@ -370,14 +412,16 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 	return collectProfile(tw, &debug.Profile{Name: "heap"}, prefix...)
 }
 
-func (s *debugServer) collectPipelineSpec(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
-	return collectDebugFile(tw, "spec", func(w io.Writer) error {
-		fullPipelineInfo, err := s.env.GetPachClient(context.Background()).InspectPipeline(pipelineInfo.Pipeline.Name)
-		if err != nil {
-			return err
-		}
-		return pretty.PrintDetailedPipelineInfo(w, pretty.NewPrintablePipelineInfo(fullPipelineInfo))
-	}, prefix...)
+func (s *debugServer) collectPipelineSpecFunc(pachClient *client.APIClient) collectPipelineFunc {
+	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+		return collectDebugFile(tw, "spec", func(w io.Writer) error {
+			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name)
+			if err != nil {
+				return err
+			}
+			return pretty.PrintDetailedPipelineInfo(w, pretty.NewPrintablePipelineInfo(fullPipelineInfo))
+		}, prefix...)
+	}
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
