@@ -17,9 +17,7 @@
    },
    "transform": {
         "cmd": [ "bash" ],
-        "stdin": [
-            "wc -l /pfs/labresults/*"
-        ]
+        "stdin": [ "PATTERN=.*CLIA\\(.*\\).txt", "FILES=/pfs/labresults/*", "for f in $FILES", "do", "[[ $(basename $f) =~ $PATTERN ]]", "echo /pfs/out/${BASH_REMATCH[1]}/", "mkdir -p /pfs/out/${BASH_REMATCH[1]}/", "cp $f /pfs/out/${BASH_REMATCH[1]}/", "done" ]
         },
     "enable_stats": true
   }
@@ -43,9 +41,7 @@
    },
    "transform": {
         "cmd": [ "bash" ],
-        "stdin": [
-            "wc -l /pfs/labresults/*"
-        ]
+        "stdin": [ "PATTERN=.*-PATID\\(.*\\)-.*.txt", "FILES=/pfs/labresults/*", "for f in $FILES", "do", "[[ $(basename $f) =~ $PATTERN ]]", "mkdir -p /pfs/out/${BASH_REMATCH[1]}/", "cp $f /pfs/out/${BASH_REMATCH[1]}/", "done" ]
         },
     "enable_stats": true
   }
