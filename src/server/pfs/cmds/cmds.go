@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	gosync "sync"
 
@@ -269,7 +270,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -310,7 +311,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -803,7 +804,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := client.NewOnUserMachine("user", opts...)
+			c, err := newClient("user", opts...)
 			if err != nil {
 				return err
 			}
@@ -970,7 +971,7 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -1547,4 +1548,17 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 			return err
 		}
 	}
+}
+
+func newClient(name string, options ...client.Option) (*client.APIClient, error) {
+	if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
+		inWorker, err := strconv.ParseBool(inWorkerStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
+		}
+		if inWorker {
+			return client.NewInWorker(options...)
+		}
+	}
+	return client.NewOnUserMachine(name, options...)
 }
