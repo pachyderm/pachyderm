@@ -54,8 +54,8 @@ base:
         tar -zxf go1.15.4.linux-amd64.tar.gz && \
         mv go /usr/local && \
         rm go1.15.4.linux-amd64.tar.gz
-    ENV GOPATH=/usr/local/go
-    ENV PATH=/usr/local/go/bin:$PATH
+    ENV GOPATH=/root/go
+    ENV PATH=/root/go/bin:${PATH}
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
     WORKDIR /root/project
@@ -64,7 +64,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout b6863deb481fb5aa3ccdd03b4a3a0583ab54d1c9 && \
+        git checkout f73fca41d4cd5282242c978871176ed455e6fc73 && \
         CIRCLE_BRANCH=1 make install && \
         git config user.email "donotreply@pachyderm.com" && \
         git config user.name "anonymous" && \
@@ -83,8 +83,8 @@ base:
     # we set CIRCLE_BRANCH so that Makefile uses cacheable
     # build params (version)
     export CIRCLE_BRANCH=1
-    export GOPATH=/usr/local/go
-    export PATH=/usr/local/go/bin:$PATH
+    export GOPATH=/root/go
+    export PATH=/root/go/bin:${PATH}
     # warm up docker buildkit go mod cache and go build cache
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
@@ -111,8 +111,8 @@ base:
     # make the actual build faster (it's already been cached on disk from the
     # previous stages)
     export CIRCLE_BRANCH=1
-    export GOPATH=/usr/local/go
-    export PATH=/usr/local/go/bin:$PATH
+    export GOPATH=/root/go
+    export PATH=/root/go/bin:${PATH}
     make install
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
