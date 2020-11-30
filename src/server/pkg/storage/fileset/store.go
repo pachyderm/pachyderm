@@ -26,6 +26,7 @@ type Store interface {
 	Walk(ctx context.Context, prefix string, cb func(string) error) error
 }
 
+// StoreTestSuite runs tests to ensure Stores returned from newStore correctly implement Store.
 func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 	ctx := context.Background()
 	t.Run("SetGet", func(t *testing.T) {

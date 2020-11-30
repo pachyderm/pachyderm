@@ -46,7 +46,7 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 	}
 }
 
-// WriteIndex writes an index entry.
+// WriteIndex writes a set of index entries.
 func (w *Writer) WriteIndex(idx *Index) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
