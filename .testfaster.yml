@@ -6,7 +6,6 @@ base:
   # to refresh this list
   # (to get extra fancy, highlight the following lines in vim and type :! and then
   # the above command to replace it inline)
-  # preload_docker_images: []
   preload_docker_images:
    - bash:4
    - dockermuenster/caddy:0.9.3
@@ -47,15 +46,15 @@ base:
 
   os_dockerfile: |-
     FROM quay.io/testfaster/kube-ubuntu
-    ENV cache-bust 22
+    ENV cache-bust 19
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
-    RUN cd /tmp && \
-        wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
-        tar -zxf go1.15.4.linux-amd64.tar.gz && \
-        mv go /usr/local && \
-        rm go1.15.4.linux-amd64.tar.gz
-    ENV GOPATH=/root/go
-    ENV PATH=/root/go/bin:${PATH}
+    #RUN cd /tmp && \
+    #    wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
+    #    tar -zxf go1.15.4.linux-amd64.tar.gz && \
+    #    mv go /usr/local && \
+    #    rm go1.15.4.linux-amd64.tar.gz
+    #ENV GOPATH=/root/go
+    #ENV PATH=/root/go/bin:${PATH}
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
     WORKDIR /root/project
@@ -66,8 +65,6 @@ base:
         cd pachyderm && \
         git checkout f73fca41d4cd5282242c978871176ed455e6fc73 && \
         CIRCLE_BRANCH=1 make install && \
-        git config user.email "donotreply@pachyderm.com" && \
-        git config user.name "anonymous" && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
@@ -88,7 +85,7 @@ base:
     # warm up docker buildkit go mod cache and go build cache
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
+    git tag -f -am "Circl CI test bake script" v0.0.1-circle-test-base-image
     make docker-build
     # build docker images that are used in tests
     (cd etc/testing/images/ubuntu_with_s3_clients; make image)
@@ -116,7 +113,7 @@ base:
     make install
     git config user.email "donotreply@pachyderm.com"
     git config user.name "anonymous"
-    git tag -f -am "Circl CI test" v0.0.1-circle-test-base-image
+    git tag -f -am "Circl CI test prewarm script" v0.0.1-circle-test-base-image
     make docker-build
 
     # start services used by tests
