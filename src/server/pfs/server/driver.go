@@ -1089,7 +1089,7 @@ func (d *driver) deleteRepoSplitTransaction(ctx context.Context, repo *pfs.Repo,
 	// Delete all branches / commits and repo.
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		// Despite the fact that we already deleted each branch with
-		// deleteBranch, we also do branches.DeleteAll(), this insulates us
+		// tombstoneRepo, we also do branches.DeleteAll(), this insulates us
 		// against certain corruption situations where the RepoInfo doesn't
 		// exist in etcd but branches do.
 		branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm)

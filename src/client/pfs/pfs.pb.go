@@ -458,11 +458,17 @@ type RepoInfo struct {
 	// Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
 	// not stored in etcd. To set a user's auth scope for a repo, use the
 	// Pachyderm Auth API (in src/client/auth/auth.proto)
-	AuthInfo             *RepoAuthInfo `protobuf:"bytes,6,opt,name=auth_info,json=authInfo,proto3" json:"auth_info,omitempty"`
-	Tombstone            bool          `protobuf:"varint,8,opt,name=tombstone,proto3" json:"tombstone,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	AuthInfo *RepoAuthInfo `protobuf:"bytes,6,opt,name=auth_info,json=authInfo,proto3" json:"auth_info,omitempty"`
+	// tombstone indicates that this repo has been deleted. It's set by DeleteRepo()
+	// when called with `--split-txn` (which breaks up a DeleteRepo() call into multiple
+	// etcd transactions to avoid a 'transaction too large' error), and it indicates
+	// that DeleteRepo has started deleting branches and commits in the repo, but
+	// not all of its commits have been deleted and not all upstream commits'
+	// subvenance have been updated.
+	Tombstone            bool     `protobuf:"varint,8,opt,name=tombstone,proto3" json:"tombstone,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *RepoInfo) Reset()         { *m = RepoInfo{} }
