@@ -82,7 +82,6 @@ jobs:
             echo "============= IMAGES AFTER =============="
             ./etc/testing/testctl-ssh.sh -- docker images --format "{{.Repository}}:{{.Tag}}" |sort |sed 's/^/   - /g'
             echo "========================================="
-            cd /tmp
             testctl drop
 
 workflows:
