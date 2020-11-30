@@ -326,6 +326,10 @@ test-admin:
 test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
 
+test-identity:
+	./etc/testing/start_postgres.sh
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
+
 test-tls:
 	./etc/testing/test_tls.sh
 
