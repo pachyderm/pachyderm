@@ -22,7 +22,8 @@ var (
 
 // Chunk splits a piece of data up, this is useful for splitting up data that's
 // bigger than MaxMsgPayloadSize.
-func Chunk(data []byte, chunkSize int) [][]byte {
+func Chunk(data []byte) [][]byte {
+	chunkSize := MaxMsgPayloadSize
 	var result [][]byte
 	for i := 0; i < len(data); i += chunkSize {
 		end := i + chunkSize
@@ -160,7 +161,7 @@ type streamingBytesWriter struct {
 
 func (s *streamingBytesWriter) Write(data []byte) (int, error) {
 	var bytesWritten int
-	for _, val := range Chunk(data, MaxMsgPayloadSize) {
+	for _, val := range Chunk(data) {
 		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: val}); err != nil {
 			return bytesWritten, err
 		}

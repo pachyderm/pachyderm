@@ -1581,11 +1581,13 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.client.Send(w.request); err != nil {
-		return 0, grpcutil.ScrubGRPC(err)
+	for _, dataSlice := range grpcutil.Chunk(p) {
+		w.request.Value = dataSlice
+		if err := w.client.Send(w.request); err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+		w.request.Tags = nil
 	}
-	w.request.Tags = nil
 	return len(p), nil
 }
 
@@ -1712,9 +1714,11 @@ func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, e
 }
 
 func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.client.Send(w.request); err != nil {
-		return 0, grpcutil.ScrubGRPC(err)
+	for _, dataSlice := range grpcutil.Chunk(p) {
+		w.request.Value = dataSlice
+		if err := w.client.Send(w.request); err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
 	}
 	return len(p), nil
 }
@@ -1783,11 +1787,13 @@ func (c APIClient) newPutBlockWriteCloser(hash string) (*putBlockWriteCloser, er
 }
 
 func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.client.Send(w.request); err != nil {
-		return 0, grpcutil.ScrubGRPC(err)
+	for _, dataSlice := range grpcutil.Chunk(p) {
+		w.request.Value = dataSlice
+		if err := w.client.Send(w.request); err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+		w.request.Block = nil
 	}
-	w.request.Block = nil
 	return len(p), nil
 }
 
@@ -1820,11 +1826,13 @@ func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) 
 }
 
 func (w *putObjWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.client.Send(w.request); err != nil {
-		return 0, grpcutil.ScrubGRPC(err)
+	for _, dataSlice := range grpcutil.Chunk(p) {
+		w.request.Value = dataSlice
+		if err := w.client.Send(w.request); err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+		w.request.Obj = ""
 	}
-	w.request.Obj = ""
 	return len(p), nil
 }
 
