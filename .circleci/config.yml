@@ -60,7 +60,7 @@ jobs:
           command: |
             # NB: kubeconfig is used by testctl-ssh.sh, not kubectl. It has
             # address and private key for ssh embedded in it.
-            export KUBECONFIG=/tmp/kubeconfig
+            export KUBECONFIG=$(pwd)/kubeconfig
             etc/testing/testctl-ssh.sh -- ./project/pachyderm/etc/testing/kube_debug.sh
 
       ## retry on failure
@@ -78,7 +78,7 @@ jobs:
       - run:
           name: Release VM after successful run
           command: |
-            export KUBECONFIG=/tmp/kubeconfig
+            export KUBECONFIG=$(pwd)/kubeconfig
             echo "============= IMAGES AFTER =============="
             ./etc/testing/testctl-ssh.sh -- docker images --format "{{.Repository}}:{{.Tag}}" |sort |sed 's/^/   - /g'
             echo "========================================="

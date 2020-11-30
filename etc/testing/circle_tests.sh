@@ -11,11 +11,10 @@ time testctl get --config .testfaster.yml --slot "${BRANCH},${BUCKET}" --pool-sl
 echo "Finished getting VM."
 
 echo "==== KUBECONFIG ===="
-mv kubeconfig /tmp/
-cat /tmp/kubeconfig
+cat kubeconfig
 echo "===================="
 
-KUBECONFIG="/tmp/kubeconfig"
+KUBECONFIG="$(pwd)/kubeconfig"
 export KUBECONFIG
 
 echo "Fetching new code in VM"
