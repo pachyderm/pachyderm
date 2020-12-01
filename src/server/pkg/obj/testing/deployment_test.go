@@ -151,6 +151,11 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 	// Connect to pachd
 	tu.WaitForPachdReady(t, namespace)
 	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(60*time.Second))
+
+	// Some debugging info in case connecting fails - this will dump the pachd
+	// logs in case something went wrong there. In my experience, this has been
+	// due to either problems with credentials to object storage (will also fail
+	// in client_test.go), or insufficient timeout due to slow CI machines.
 	if err != nil {
 		fmt.Printf("Failed to connect to pachd: %v\n", err)
 		fmt.Printf("Used host:port: %s:%d\n", address, port)
