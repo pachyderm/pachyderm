@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -55,7 +56,7 @@ type UnorderedWriterOption func(f *UnorderedWriter)
 
 // WithRenewal configures the UnorderedWriter to renew subfileset paths
 // with the provided renewer.
-func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
+func WithRenewal(ttl time.Duration, r *renew.StringSet) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
 		uw.ttl = ttl
 		uw.renewer = r

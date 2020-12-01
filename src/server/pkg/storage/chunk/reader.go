@@ -4,25 +4,23 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"path"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
-	objC     obj.Client
+	client   *Client
 	dataRefs []*DataRef
 }
 
-func newReader(ctx context.Context, objC obj.Client, dataRefs []*DataRef) *Reader {
+func newReader(ctx context.Context, client *Client, dataRefs []*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
-		objC:     objC,
+		client:   client,
 		dataRefs: dataRefs,
 	}
 }
@@ -31,7 +29,7 @@ func newReader(ctx context.Context, objC obj.Client, dataRefs []*DataRef) *Reade
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
 	var seed *DataReader
 	for _, dataRef := range r.dataRefs {
-		dr := newDataReader(r.ctx, r.objC, dataRef, seed)
+		dr := newDataReader(r.ctx, r.client, dataRef, seed)
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -56,17 +54,17 @@ func (r *Reader) Get(w io.Writer) error {
 // TODO: Probably don't need seed with caching.
 type DataReader struct {
 	ctx        context.Context
-	objC       obj.Client
+	client     *Client
 	dataRef    *DataRef
 	seed       *DataReader
 	getChunkMu sync.Mutex
 	chunk      []byte
 }
 
-func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client *Client, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
 		ctx:     ctx,
-		objC:    objC,
+		client:  client,
 		dataRef: dataRef,
 		seed:    seed,
 	}
@@ -94,7 +92,7 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Use seed chunk if possible.
-	if dr.seed != nil && dr.dataRef.ChunkInfo.Chunk.Hash == dr.seed.dataRef.ChunkInfo.Chunk.Hash {
+	if dr.seed != nil && bytes.Equal(dr.dataRef.Ref.Id, dr.seed.dataRef.Ref.Id) {
 		if err := dr.seed.getChunk(); err != nil {
 			return err
 		}
@@ -102,13 +100,9 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Get chunk from object storage.
-	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.ChunkInfo.Chunk.Hash), 0, 0)
-	if err != nil {
-		return err
-	}
-	defer objR.Close()
 	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, objR); err != nil {
+	chunkID := dr.dataRef.Ref.Id
+	if err := dr.client.Get(dr.ctx, chunkID, buf); err != nil {
 		return err
 	}
 	dr.chunk = buf.Bytes()

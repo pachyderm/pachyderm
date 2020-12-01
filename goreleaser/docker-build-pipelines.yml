@@ -1,0 +1,45 @@
+dist: /tmp/pachyderm/release/docker-build-pipeline
+
+# Goreleaser needs a build step, so building a dummy binary.
+# Hence the name `notusedbuild`, because its not used in any
+# step.
+builds:
+  -
+    id: notusedbuild
+    dir: etc/worker
+    main: init.go
+    binary: notusedbuild
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+archives:
+  - format: binary
+
+checksum:
+  disable: true
+
+changelog:
+  skip: true
+
+release:
+  disable: true
+
+dockers:
+  -
+    image_templates:
+      - pachyderm/go-build:{{.Env.VERSION}}
+    skip_push: false
+    dockerfile: etc/pipeline-build/go/Dockerfile
+    extra_files:
+      - etc/pipeline-build/go
+  -
+    image_templates:
+      - pachyderm/python-build:{{.Env.VERSION}}
+    skip_push: false
+    dockerfile: etc/pipeline-build/python/Dockerfile
+    extra_files:
+      - etc/pipeline-build/python

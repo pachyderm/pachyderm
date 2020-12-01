@@ -571,6 +571,15 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
+// NewInWorker constructs a new APIClient intended to be used from a worker
+// to talk to the sidecar pachd container
+func NewInWorker(options ...Option) (*APIClient, error) {
+	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
+		return NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+	}
+	return nil, errors.New("PEER_PORT not set")
+}
+
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {

@@ -5,7 +5,11 @@ SCRIPT_DIR="$(dirname "${0}")"
 set -ex
 
 # Build pachyderm and push the relevant images
-make install && make docker-build && make docker-push || exit 1
+make install || exit 1
+VERSION=$(pachctl version --client-only)
+git tag -f -am "Travis test v${VERSION}" v"${VERSION}" || exit 1
+make docker-build || exit 1
+make docker-push || exit 1
 
 # Start kops cluster
 "${SCRIPT_DIR}/../deploy/aws.sh" --create --no-pachyderm
