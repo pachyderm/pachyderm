@@ -520,7 +520,7 @@ single repo.
     "lazy" bool,
     "empty_files": bool,
     "s3": bool,
-    "trigger" : {
+    "trigger": {
         "branch": string,
         "all": bool,
         "cron_spec": string,
