@@ -2639,10 +2639,17 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	now := time.Now()
+	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
-				input.Pfs.Branch = "master"
+				if input.Pfs.Trigger != nil {
+					// We start counting trigger branches at 1
+					nCreatedBranches[input.Pfs.Repo]++
+					input.Pfs.Branch = fmt.Sprintf("%s-trigger-%d", pipelineName, nCreatedBranches[input.Pfs.Repo])
+				} else {
+					input.Pfs.Branch = "master"
+				}
 			}
 			if input.Pfs.Name == "" {
 				input.Pfs.Name = input.Pfs.Repo

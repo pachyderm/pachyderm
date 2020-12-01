@@ -12851,7 +12851,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
 			Size_:  "2K",
 		}),
@@ -12911,13 +12911,19 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
 			Size_:  "3K",
 		}),
 		"",
 		true,
 	))
+
+	// Make sure that updating the pipeline reuses the previous branch name
+	// rather than creating a new one.
+	bis, err := c.ListBranch(pipeline1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis))
 
 	cis, err = c.ListCommit(pipeline2, "master", "", 0)
 	require.NoError(t, err)
