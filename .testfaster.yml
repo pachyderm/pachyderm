@@ -48,13 +48,13 @@ base:
     FROM quay.io/testfaster/kube-ubuntu
     ENV cache-bust 19
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
-    #RUN cd /tmp && \
-    #    wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
-    #    tar -zxf go1.15.4.linux-amd64.tar.gz && \
-    #    mv go /usr/local && \
-    #    rm go1.15.4.linux-amd64.tar.gz
-    #ENV GOPATH=/root/go
-    #ENV PATH=/root/go/bin:${PATH}
+    RUN cd /tmp && \
+        wget https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz && \
+        tar -zxf go1.15.4.linux-amd64.tar.gz && \
+        mv go /usr/local && \
+        rm go1.15.4.linux-amd64.tar.gz
+    ENV GOPATH=/root/go
+    ENV PATH=/root/go/bin:${PATH}
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
     WORKDIR /root/project
