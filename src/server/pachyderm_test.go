@@ -12852,8 +12852,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Branch: "master",
-			Size_:  "2K",
+			Size_: "2K",
 		}),
 		"",
 		false,
@@ -12912,8 +12911,7 @@ func TestTrigger(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Branch: "master",
-			Size_:  "3K",
+			Size_: "3K",
 		}),
 		"",
 		true,

@@ -2647,6 +2647,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 					// We start counting trigger branches at 1
 					nCreatedBranches[input.Pfs.Repo]++
 					input.Pfs.Branch = fmt.Sprintf("%s-trigger-%d", pipelineName, nCreatedBranches[input.Pfs.Repo])
+					if input.Pfs.Trigger.Branch == "" {
+						input.Pfs.Trigger.Branch = "master"
+					}
 				} else {
 					input.Pfs.Branch = "master"
 				}
