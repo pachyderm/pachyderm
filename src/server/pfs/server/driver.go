@@ -957,46 +957,9 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			provCI := &pfs.CommitInfo{}
 			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
-			nextSubvRange:
 				for subvFrom, subv := range provCI.Subvenance {
-					// Compute path (of commit IDs) connecting subv.Upper to subv.Lower
-					cur := subv.Upper.ID
-					path := []string{cur}
-					for cur != subv.Lower.ID {
-						// Get CommitInfo for 'cur' from etcd
-						// and traverse parent
-						curInfo := &pfs.CommitInfo{}
-						if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
-							return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
-						}
-						if curInfo.ParentCommit == nil {
-							break
-						}
-						cur = curInfo.ParentCommit.ID
-						path = append(path, cur)
-					}
-
-					// move 'subv.Upper' through parents until it points to a non-deleted commit
-					for j := range path {
-						if subv.Upper.Repo.Name != repo.Name {
-							break
-						}
-						if j+1 >= len(path) {
-							// All commits in subvRange are deleted. Remove entire Range
-							// from provCI.Subvenance
-							continue nextSubvRange
-						}
-						subv.Upper.ID = path[j+1]
-					}
-
-					// move 'subv.Lower' through children until it points to a non-deleted commit
-					for j := len(path) - 1; j >= 0; j-- {
-						if subv.Lower.Repo.Name != repo.Name {
-							break
-						}
-						// We'll eventually get to a non-deleted commit because the
-						// 'upper' block didn't exit
-						subv.Lower.ID = path[j-1]
+					if subv.Upper.Repo.Name == repo.Name {
+						continue
 					}
 					provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
 					subvTo++
@@ -1164,46 +1127,9 @@ func (d *driver) updateCommitSubvenance(txnCtx *txnenv.TransactionContext, repo 
 	provCI := &pfs.CommitInfo{}
 	if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
 		subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
-	nextSubvRange:
 		for subvFrom, subv := range provCI.Subvenance {
-			// Compute path (of commit IDs) connecting subv.Upper to subv.Lower
-			cur := subv.Upper.ID
-			path := []string{cur}
-			for cur != subv.Lower.ID {
-				// Get CommitInfo for 'cur' from etcd
-				// and traverse parent
-				curInfo := &pfs.CommitInfo{}
-				if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
-					return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
-				}
-				if curInfo.ParentCommit == nil {
-					break
-				}
-				cur = curInfo.ParentCommit.ID
-				path = append(path, cur)
-			}
-
-			// move 'subv.Upper' through parents until it points to a non-deleted commit
-			for j := range path {
-				if subv.Upper.Repo.Name != repo.Name {
-					break
-				}
-				if j+1 >= len(path) {
-					// All commits in subvRange are deleted. Remove entire Range
-					// from provCI.Subvenance
-					continue nextSubvRange
-				}
-				subv.Upper.ID = path[j+1]
-			}
-
-			// move 'subv.Lower' through children until it points to a non-deleted commit
-			for j := len(path) - 1; j >= 0; j-- {
-				if subv.Lower.Repo.Name != repo.Name {
-					break
-				}
-				// We'll eventually get to a non-deleted commit because the
-				// 'upper' block didn't exit
-				subv.Lower.ID = path[j-1]
+			if subv.Upper.Repo.Name == repo.Name {
+				continue
 			}
 			provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
 			subvTo++
