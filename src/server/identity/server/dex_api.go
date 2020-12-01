@@ -146,28 +146,28 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		return err
 	}
 
-	if req.Config.Id == "" {
+	if req.Connector.Id == "" {
 		return errors.New("no id specified")
 	}
 
-	if req.Config.Type == "" {
+	if req.Connector.Type == "" {
 		return errors.New("no type specified")
 	}
 
-	if req.Config.Name == "" {
+	if req.Connector.Name == "" {
 		return errors.New("no name specified")
 	}
 
-	if err := a.validateConfig(req.Config.Id, req.Config.Type, []byte(req.Config.JsonConfig)); err != nil {
+	if err := a.validateConnector(req.Connector.Id, req.Connector.Type, []byte(req.Connector.JsonConfig)); err != nil {
 		return err
 	}
 
 	conn := dex_storage.Connector{
-		ID:              req.Config.Id,
-		Type:            req.Config.Type,
-		Name:            req.Config.Name,
-		ResourceVersion: strconv.Itoa(int(req.Config.ConfigVersion)),
-		Config:          []byte(req.Config.JsonConfig),
+		ID:              req.Connector.Id,
+		Type:            req.Connector.Type,
+		Name:            req.Connector.Name,
+		ResourceVersion: strconv.Itoa(int(req.Connector.ConfigVersion)),
+		Config:          []byte(req.Connector.JsonConfig),
 	}
 
 	if err := storage.CreateConnector(conn); err != nil {
@@ -197,27 +197,27 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 		return err
 	}
 
-	return storage.UpdateConnector(in.Config.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
+	return storage.UpdateConnector(in.Connector.Id, func(c dex_storage.Connector) (dex_storage.Connector, error) {
 		oldVersion, _ := strconv.Atoi(c.ResourceVersion)
-		if oldVersion+1 != int(in.Config.ConfigVersion) {
-			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", in.Config.ConfigVersion, oldVersion+1)
+		if oldVersion+1 != int(in.Connector.ConfigVersion) {
+			return dex_storage.Connector{}, fmt.Errorf("new config version is %v, expected %v", in.Connector.ConfigVersion, oldVersion+1)
 		}
 
-		c.ResourceVersion = strconv.Itoa(int(in.Config.ConfigVersion))
+		c.ResourceVersion = strconv.Itoa(int(in.Connector.ConfigVersion))
 
-		if in.Config.Name != "" {
-			c.Name = in.Config.Name
+		if in.Connector.Name != "" {
+			c.Name = in.Connector.Name
 		}
 
-		if in.Config.JsonConfig != "" {
-			c.Config = []byte(in.Config.JsonConfig)
+		if in.Connector.JsonConfig != "" {
+			c.Config = []byte(in.Connector.JsonConfig)
 		}
 
-		if in.Config.Type != "" {
-			c.Type = in.Config.Type
+		if in.Connector.Type != "" {
+			c.Type = in.Connector.Type
 		}
 
-		if err := a.validateConfig(c.ID, c.Type, c.Config); err != nil {
+		if err := a.validateConnector(c.ID, c.Type, c.Config); err != nil {
 			return dex_storage.Connector{}, err
 		}
 
@@ -283,7 +283,7 @@ func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
 	return storageClientToPach(client), nil
 }
 
-func (a *dexAPI) validateConfig(id, connType string, jsonConfig []byte) error {
+func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error {
 	typeConf, ok := dex_server.ConnectorsConfig[connType]
 	if !ok {
 		return fmt.Errorf("unknown connector type %q", connType)

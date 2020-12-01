@@ -90,7 +90,7 @@ func CreateIDPConnectorCmd() *cobra.Command {
 			}
 
 			req := &identity.CreateIDPConnectorRequest{
-				Config: &identity.IDPConnector{
+				Connector: &identity.IDPConnector{
 					Id:            id,
 					Name:          name,
 					Type:          t,
@@ -141,7 +141,7 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 			}
 
 			req := &identity.UpdateIDPConnectorRequest{
-				Config: &identity.IDPConnector{
+				Connector: &identity.IDPConnector{
 					Id:            args[0],
 					Name:          name,
 					ConfigVersion: int64(version),
@@ -174,7 +174,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Printf("name: %v\ntype: %v\nversion: %v\nconfig:\n%v\n", resp.Config.Name, resp.Config.Type, resp.Config.ConfigVersion, resp.Config.JsonConfig)
+			fmt.Printf("name: %v\ntype: %v\nversion: %v\nconfig:\n%v\n", resp.Connector.Name, resp.Connector.Type, resp.Connector.ConfigVersion, resp.Connector.JsonConfig)
 			return nil
 		}),
 	}

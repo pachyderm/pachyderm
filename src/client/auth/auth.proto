@@ -107,7 +107,6 @@ message IDProvider {
      repeated string additional_scopes = 5;
      bool ignore_email_verified = 6;
      string issuer_override = 7;
-     
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 

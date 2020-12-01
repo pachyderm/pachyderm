@@ -152,7 +152,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	// Configure an IDP connector, so the web server will start
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
-		Config: &identity.IDPConnector{
+		Connector: &identity.IDPConnector{
 			Id:         "id",
 			Name:       "name",
 			Type:       "mockPassword",
@@ -249,14 +249,14 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	}
 
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
-		Config: conn,
+		Connector: conn,
 	})
 	require.NoError(t, err)
 
 	conn.ConfigVersion = 1
 	conn.Name = "name2"
 	_, err = adminClient.UpdateIDPConnector(adminClient.Ctx(), &identity.UpdateIDPConnectorRequest{
-		Config: conn,
+		Connector: conn,
 	})
 	require.NoError(t, err)
 
@@ -266,7 +266,7 @@ func TestIDPConnectorCRUD(t *testing.T) {
 
 	getResp, err := adminClient.GetIDPConnector(adminClient.Ctx(), &identity.GetIDPConnectorRequest{Id: "id"})
 	require.NoError(t, err)
-	require.Equal(t, conn, getResp.Config)
+	require.Equal(t, conn, getResp.Connector)
 
 	_, err = adminClient.DeleteIDPConnector(adminClient.Ctx(), &identity.DeleteIDPConnectorRequest{Id: "id"})
 	require.NoError(t, err)

@@ -59,7 +59,7 @@ func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
 	}, backoff.NewTestingBackOff()))
 
 	_, err = adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
-		Config: &identity.IDPConnector{
+		Connector: &identity.IDPConnector{
 			Name:       "test",
 			Id:         "test",
 			Type:       "mockPassword",

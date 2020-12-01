@@ -30,13 +30,13 @@ message IDPConnector {
 }
 
 message CreateIDPConnectorRequest {
-  IDPConnector config = 1; 
+  IDPConnector connector = 1; 
 }
 
 message CreateIDPConnectorResponse {}
 
 message UpdateIDPConnectorRequest {
-  IDPConnector config = 1; 
+  IDPConnector connector = 1; 
 }
 
 message UpdateIDPConnectorResponse {}
@@ -52,7 +52,7 @@ message GetIDPConnectorRequest {
 }
 
 message GetIDPConnectorResponse {
-  IDPConnector config = 1; 
+  IDPConnector connector = 1; 
 }
 
 message DeleteIDPConnectorRequest {

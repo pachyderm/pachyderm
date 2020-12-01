@@ -20,7 +20,7 @@ func TestLazyStartAPI(t *testing.T) {
 	// api fails to connect to the database initially
 	api := newDexAPI(sp, logger)
 	req := &identity.CreateIDPConnectorRequest{
-		Config: &identity.IDPConnector{
+		Connector: &identity.IDPConnector{
 			Id:            "id",
 			Name:          "name",
 			Type:          "github",
@@ -76,7 +76,7 @@ func TestLazyStartAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	// use the cached API and database connection
-	req.Config.Id = "id2"
+	req.Connector.Id = "id2"
 	err = api.createConnector(req)
 	require.NoError(t, err)
 }
@@ -104,15 +104,15 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 	api := newDexAPI(sp, logger)
 
 	// Create a new connector
-	err := api.createConnector(&identity.CreateIDPConnectorRequest{Config: conn1})
+	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn1})
 	require.NoError(t, err)
 
 	// Attempt to reuse the connector ID
-	err = api.createConnector(&identity.CreateIDPConnectorRequest{Config: conn1})
+	err = api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn1})
 	require.YesError(t, err)
 
 	// Create a second connector with a unique ID
-	err = api.createConnector(&identity.CreateIDPConnectorRequest{Config: conn2})
+	err = api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn2})
 	require.NoError(t, err)
 
 	// List connectors
@@ -195,7 +195,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 	api := newDexAPI(sp, logger)
 
 	for _, c := range cases {
-		err := api.createConnector(&identity.CreateIDPConnectorRequest{Config: c.conn})
+		err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c.conn})
 		require.YesError(t, err)
 		require.Equal(t, c.err, err.Error())
 	}
@@ -297,11 +297,11 @@ func TestUpdateConnector(t *testing.T) {
 	api := newDexAPI(sp, logger)
 
 	// Create the initial  connector
-	err := api.createConnector(&identity.CreateIDPConnectorRequest{Config: conn})
+	err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: conn})
 	require.NoError(t, err)
 
 	for _, c := range cases {
-		err := api.updateConnector(&identity.UpdateIDPConnectorRequest{Config: c.req})
+		err := api.updateConnector(&identity.UpdateIDPConnectorRequest{Connector: c.req})
 		if c.err != "" {
 			require.YesError(t, err)
 			require.Equal(t, c.err, err.Error())
