@@ -400,7 +400,6 @@ func TestMinioDeployment(t *testing.T) {
 }
 
 func TestGoogleDeployment(t *testing.T) {
-	fmt.Printf("Test json creds:\n%s\n", os.Getenv("TEST_JSON_CREDS"))
 	t.Parallel()
 	bucket, creds := LoadGoogleParameters(t)
 	secrets := assets.GoogleSecret(bucket, creds)
