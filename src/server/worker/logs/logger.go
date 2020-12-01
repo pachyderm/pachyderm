@@ -110,7 +110,7 @@ func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (Ta
 		result.putObjClient = putObjClient
 		result.eg.Go(func() error {
 			for msg := range result.msgCh {
-				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
+				for _, chunk := range grpcutil.Chunk([]byte(msg)) {
 					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
 						Value: chunk,
 					}); err != nil && !errors.Is(err, io.EOF) {
