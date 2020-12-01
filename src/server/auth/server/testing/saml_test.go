@@ -53,8 +53,8 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
@@ -80,7 +80,7 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrMissingSAMLConfig tests that SetConfig rejects configs
@@ -89,8 +89,8 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
@@ -112,15 +112,15 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 func TestSAMLBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 	_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 
@@ -185,7 +185,7 @@ func TestSAMLBasic(t *testing.T) {
 
 	otp := redirectLocation.Query()["auth_code"][0]
 	require.NotEqual(t, "", otp)
-	newClient := getPachClientConfigAgnostic(t, "")
+	newClient := tu.GetPachClient(t)
 	authResp, err := newClient.Authenticate(newClient.Ctx(), &auth.AuthenticateRequest{
 		OneTimePassword: otp,
 	})
@@ -194,15 +194,15 @@ func TestSAMLBasic(t *testing.T) {
 	whoAmIResp, err := newClient.WhoAmI(newClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "idp_1:jane.doe@example.com", whoAmIResp.Username)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 func TestGroupsBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	var (
 		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
@@ -237,7 +237,7 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
-	aliceClient := getPachClientConfigAgnostic(t, "") // empty string b/c want anon client
+	aliceClient := tu.GetPachClient(t) // get an unauthenticated client
 	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
 
 	// alice should be able to see her groups
@@ -261,5 +261,5 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/data", 0, 0, &buf))
 	require.NoError(t, err)
 	require.Equal(t, "file contents", buf.String())
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
