@@ -518,8 +518,15 @@ single repo.
     "branch": string,
     "glob": string,
     "lazy" bool,
-    "empty_files": bool
-    "s3": bool
+    "empty_files": bool,
+    "s3": bool,
+    "trigger" : {
+        "branch": string,
+        "all": bool,
+        "cron_spec": string,
+        "size": int,
+        "commits": int
+    }
 }
 ```
 
@@ -583,6 +590,11 @@ supported.
 
 If you want to expose an output repository through an S3
 gateway, see [S3 Output Repository](#s3-output-repository).
+
+`input.pfs.trigger
+Specifies a trigger that must be met for the pipeline to trigger on this input.
+To learn more about triggers read the
+[deferred process docs](../concepts/advanced-concepts/deferred_processing.md).
 
 #### Union Input
 

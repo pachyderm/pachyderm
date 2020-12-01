@@ -284,6 +284,40 @@ When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
 
+## Embed Triggers in Pipelines
+
+Triggers can also be specified in the pipeline spec and automatically created
+when the pipeline is created. For example, this is the edges pipeline from our
+our OpenCV demo modified to only trigger when there is a MB of new images:
+
+```
+{
+  "pipeline": {
+    "name": "edges"
+  },
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images",
+      "trigger": {
+          "size": "1MB"
+      }
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  }
+}
+```
+
+When you create this pipeline Pachyderm will also create a branch in the input
+repo that specifies the trigger and the pipeline will use that branch as its
+input. The name of the branch is auto generated of the form
+`<pipeline-name>-trigger-n` you can manually update the heads of these branches
+to trigger processing just like in the previous example.
+
 ## More advanced automation
 
 More advanced use cases might not be covered by the trigger methods above. For
