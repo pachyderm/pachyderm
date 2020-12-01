@@ -150,7 +150,7 @@ func getPachClient(t *testing.T, kubeClient *kube.Clientset, namespace string) *
 
 	// Connect to pachd
 	tu.WaitForPachdReady(t, namespace)
-	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(60*time.Second))
+	client, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, port), client.WithDialTimeout(100*time.Second))
 
 	// Some debugging info in case connecting fails - this will dump the pachd
 	// logs in case something went wrong there. In my experience, this has been
