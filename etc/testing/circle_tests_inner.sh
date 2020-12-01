@@ -80,7 +80,6 @@ case "${BUCKET}" in
     make test-deploy-manifests
     make test-s3gateway-unit
     make test-enterprise
-    make test-identity
     make test-worker
     if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
         # these tests require secure env vars to run, which aren't available
@@ -119,6 +118,8 @@ case "${BUCKET}" in
     ;;
  OBJECT)
     make test-object-clients
+  IDENTITY)
+    make test-identity
     ;;
  *)
     echo "Unknown bucket"

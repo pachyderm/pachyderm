@@ -97,6 +97,7 @@ workflows:
               - ADMIN
               - AUTH1
               - AUTH2
+              - IDENTITY
               - PFS
               - PPS1
               - PPS2

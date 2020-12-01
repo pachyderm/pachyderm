@@ -126,6 +126,9 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-pfs-storage
     ;;
+ IDENTITY)
+    make test-identity
+    ;;
  PPS?)
     pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
