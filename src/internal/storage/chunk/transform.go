@@ -5,9 +5,11 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/cipher"
+	"encoding/hex"
 	io "io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"golang.org/x/crypto/chacha20"
 )
 
@@ -39,7 +41,11 @@ func Create(ctx context.Context, opts CreateOptions, data []byte, createFunc fun
 	}, nil
 }
 
-func Get(ctx context.Context, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, w io.Writer) error) error {
+func Get(ctx context.Context, memCache obj.Client, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, w io.Writer) error) error {
+	// check cache
+	if err := getFromCache(ctx, memCache, ref, w); err == nil {
+		return nil
+	}
 	buf := &bytes.Buffer{}
 	if err := getFunc(ctx, ref.Id, buf); err != nil {
 		return err
@@ -58,6 +64,10 @@ func Get(ctx context.Context, ref *Ref, w io.Writer, getFunc func(ctx context.Co
 	// decompression
 	if r, err = decompress(ref.CompressionAlgo, r); err != nil {
 		return err
+	}
+	// write to cache
+	if cw, err := cacheWriter(ctx, memCache, ref); err == nil {
+		w = io.MultiWriter(w, cw)
 	}
 	_, err = io.Copy(w, r)
 	return err
@@ -166,4 +176,26 @@ func cryptoXOR(key, dst, src []byte) {
 		panic(err) // this only happens if you pass in an invalid key/nonce size, which we shouldn't do
 	}
 	ciph.XORKeyStream(dst, src)
+}
+
+func (r *Ref) Key() string {
+	data, err := r.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(Hash(data)[:16])
+}
+
+func getFromCache(ctx context.Context, objs obj.Client, ref *Ref, w io.Writer) error {
+	rc, err := objs.Reader(ctx, ref.Key(), 0, 0)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	_, err = io.Copy(w, rc)
+	return err
+}
+
+func cacheWriter(ctx context.Context, objs obj.Client, ref *Ref) (io.WriteCloser, error) {
+	return objs.Writer(ctx, ref.Key())
 }

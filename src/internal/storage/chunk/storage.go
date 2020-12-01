@@ -17,6 +17,7 @@ const (
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
+	memObj    obj.Client
 	objClient obj.Client
 	tracker   track.Tracker
 	mdstore   MetadataStore
@@ -25,9 +26,10 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objClient, memObj obj.Client, mdstore MetadataStore, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient: objClient,
+		memObj:    memObj,
 		mdstore:   mdstore,
 		tracker:   tracker,
 		createOpts: CreateOptions{
@@ -44,7 +46,7 @@ func NewStorage(objClient obj.Client, mdstore MetadataStore, tracker track.Track
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
 	// using the empty string for the tmp id to disable the renewer
 	client := NewClient(s.objClient, s.mdstore, s.tracker, "")
-	return newReader(ctx, client, dataRefs)
+	return newReader(ctx, client, s.memObj, dataRefs)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
@@ -52,7 +54,7 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
 // object storage.
 func (s *Storage) NewWriter(ctx context.Context, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
 	client := NewClient(s.objClient, s.mdstore, s.tracker, tmpID)
-	return newWriter(ctx, client, s.createOpts, cb, opts...)
+	return newWriter(ctx, client, s.memObj, s.createOpts, cb, opts...)
 }
 
 // List lists all of the chunks in object storage.

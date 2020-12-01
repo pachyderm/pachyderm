@@ -8,19 +8,22 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
 	client   *Client
+	memObjs  obj.Client
 	dataRefs []*DataRef
 }
 
-func newReader(ctx context.Context, client *Client, dataRefs []*DataRef) *Reader {
+func newReader(ctx context.Context, client *Client, memObjs obj.Client, dataRefs []*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		client:   client,
+		memObjs:  memObjs,
 		dataRefs: dataRefs,
 	}
 }
@@ -29,7 +32,7 @@ func newReader(ctx context.Context, client *Client, dataRefs []*DataRef) *Reader
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
 	var seed *DataReader
 	for _, dataRef := range r.dataRefs {
-		dr := newDataReader(r.ctx, r.client, dataRef, seed)
+		dr := newDataReader(r.ctx, r.client, r.memObjs, dataRef, seed)
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -54,6 +57,7 @@ func (r *Reader) Get(w io.Writer) error {
 // TODO: Probably don't need seed with caching.
 type DataReader struct {
 	ctx        context.Context
+	memObjs    obj.Client
 	client     *Client
 	dataRef    *DataRef
 	seed       *DataReader
@@ -61,10 +65,11 @@ type DataReader struct {
 	chunk      []byte
 }
 
-func newDataReader(ctx context.Context, client *Client, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client *Client, memObjs obj.Client, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
 		ctx:     ctx,
 		client:  client,
+		memObjs: memObjs,
 		dataRef: dataRef,
 		seed:    seed,
 	}
@@ -101,7 +106,7 @@ func (dr *DataReader) getChunk() error {
 	}
 	// Get chunk from object storage.
 	buf := &bytes.Buffer{}
-	if err := Get(dr.ctx, dr.dataRef.Ref, buf, func(ctx context.Context, id ID, w io.Writer) error {
+	if err := Get(dr.ctx, dr.memObjs, dr.dataRef.Ref, buf, func(ctx context.Context, id ID, w io.Writer) error {
 		return dr.client.Get(ctx, id, w)
 	}); err != nil {
 		return err
