@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"path"
 	"time"
 
@@ -38,6 +39,9 @@ func main() {
 	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
 		log.Warnf("failed to inject TLS certs: %v", err)
 	}
+
+	// append pachyderm bins to path to allow use of pachctl
+	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
 
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }

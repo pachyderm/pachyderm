@@ -35,6 +35,24 @@ func Generate(s string) []string {
 	return fileNames
 }
 
+// PointsTo returns a list of all the chunks this index references
+func PointsTo(idx *Index) (ids []chunk.ID) {
+	m := make(map[string]struct{})
+	if idx == nil || len(idx.FileOp.DataOps) == 0 {
+		return nil
+	}
+	for _, dop := range idx.FileOp.DataOps {
+		for _, dr := range dop.DataRefs {
+			id := dr.Ref.Id
+			if _, exists := m[string(id)]; !exists {
+				ids = append(ids, chunk.ID(id))
+				m[string(id)] = struct{}{}
+			}
+		}
+	}
+	return ids
+}
+
 func resolveDataOps(idx *Index) {
 	if idx.FileOp.DataRefs == nil {
 		return
@@ -45,7 +63,7 @@ func resolveDataOps(idx *Index) {
 	for _, dataOp := range idx.FileOp.DataOps {
 		bytesLeft := dataOp.SizeBytes
 		for size <= bytesLeft {
-			dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].ChunkInfo, offset, size))
+			dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].Ref, offset, size))
 			bytesLeft -= size
 			dataRefs = dataRefs[1:]
 			if len(dataRefs) == 0 {
@@ -54,15 +72,15 @@ func resolveDataOps(idx *Index) {
 			offset = dataRefs[0].OffsetBytes
 			size = dataRefs[0].SizeBytes
 		}
-		dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].ChunkInfo, offset, bytesLeft))
+		dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].Ref, offset, bytesLeft))
 		offset += bytesLeft
 		size -= bytesLeft
 	}
 }
 
-func newDataRef(chunkInfo *chunk.ChunkInfo, offset, size int64) *chunk.DataRef {
+func newDataRef(chunkRef *chunk.Ref, offset, size int64) *chunk.DataRef {
 	return &chunk.DataRef{
-		ChunkInfo:   chunkInfo,
+		Ref:         chunkRef,
 		OffsetBytes: offset,
 		SizeBytes:   size,
 	}

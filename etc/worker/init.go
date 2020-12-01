@@ -35,4 +35,7 @@ func main() {
 	if err := cp("/app/worker", "/pach-bin/worker"); err != nil {
 		panic(err)
 	}
+	if err := cp("/app/pachctl", "/pach-bin/pachctl"); err != nil {
+		panic(err)
+	}
 }
