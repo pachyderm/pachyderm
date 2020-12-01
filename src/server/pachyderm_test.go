@@ -12900,6 +12900,42 @@ func TestTrigger(t *testing.T) {
 	cis, err = c.ListCommit(pipeline2, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cis))
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+			Branch: "master",
+			Size_:  "3K",
+		}),
+		"",
+		true,
+	))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
+	for i := 2 * numFiles; i < 5*numFiles; i++ {
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
+		require.NoError(t, err)
+	}
+
+	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
 }
 
 func TestListDatum(t *testing.T) {
