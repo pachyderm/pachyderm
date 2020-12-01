@@ -77,7 +77,7 @@ type PachdSpecificConfiguration struct {
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 
 	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=pgc"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=pachyderm"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 

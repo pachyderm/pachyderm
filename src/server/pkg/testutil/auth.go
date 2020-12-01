@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -359,6 +360,8 @@ func DeleteAll(tb testing.TB) {
 	}() // release tokenMapMut before getPachClient
 	if useAdminClient {
 		adminClient := getPachClientConfigAgnostic(tb, AdminUser)
+		_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
+		require.NoError(tb, err, "initial DeleteAll()")
 		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 	} else {
 		require.NoError(tb, anonClient.DeleteAll())

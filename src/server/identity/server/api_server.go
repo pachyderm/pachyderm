@@ -303,7 +303,7 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "ListOIDCClient"); err != nil {
+	if err := a.isAdmin(ctx, "ListOIDCClients"); err != nil {
 		return nil, err
 	}
 
@@ -312,9 +312,7 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 		return nil, err
 	}
 
-	resp = &identity.ListOIDCClientsResponse{Clients: make([]*identity.OIDCClient, len(clients))}
-
-	return resp, nil
+	return &identity.ListOIDCClientsResponse{Clients: clients}, nil
 }
 
 func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (resp *identity.DeleteOIDCClientResponse, retErr error) {
