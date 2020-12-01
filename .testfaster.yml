@@ -48,11 +48,7 @@ base:
     FROM quay.io/testfaster/kube-ubuntu
     ENV cache-bust 19
     RUN apt-get update && apt-get install -y build-essential gettext-base socat shellcheck rsync jq pv silversearcher-ag
-    WORKDIR /tmp
-    RUN wget -nv https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz
-    RUN tar -zxf go1.15.4.linux-amd64.tar.gz
-    RUN mv go /usr/local
-    RUN rm -f go1.15.4.linux-amd64.tar.gz
+    RUN cd /root && wget -nv -O - https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz | tar -zxf -
     ENV GOPATH=/root/go
     ENV PATH=/root/go/bin:${PATH}
     RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD" >> /etc/ssh/sshd_config
@@ -66,12 +62,12 @@ base:
         git checkout 007cdd5fdec4c9b7c7f278334702c60eb82119f3 && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
-    RUN wget https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
+    RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
         tar xf kubeval-linux-amd64.tar.gz && \
         cp kubeval /usr/local/bin && \
         rm kubeval-linux-amd64.tar.gz
     RUN cd /usr/local/ && \
-        wget -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+        wget -nv -O - https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
 
   docker_bake_script: |-
     #!/bin/bash
