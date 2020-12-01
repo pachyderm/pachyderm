@@ -2839,7 +2839,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		} else {
 			// delete the pipeline's output repo
-			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force, request.SplitTransaction); err != nil {
 				return nil, err
 			}
 		}
@@ -2913,7 +2913,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 			if input.Cron != nil {
 				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+					return pachClient.DeleteRepo(input.Cron.Repo, request.Force, request.SplitTransaction)
 				})
 			}
 		})

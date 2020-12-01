@@ -23,6 +23,11 @@ type ErrRepoExists struct {
 	Repo *pfs.Repo
 }
 
+// ErrRepoDeleted represents a repo-deleted error.
+type ErrRepoDeleted struct {
+	Repo *pfs.Repo
+}
+
 // ErrCommitNotFound represents a commit-not-found error.
 type ErrCommitNotFound struct {
 	Commit *pfs.Commit
@@ -72,6 +77,10 @@ func (e ErrRepoNotFound) Error() string {
 
 func (e ErrRepoExists) Error() string {
 	return fmt.Sprintf("repo %v already exists", e.Repo.Name)
+}
+
+func (e ErrRepoDeleted) Error() string {
+	return fmt.Sprintf("repo %v was deleted", e.Repo.Name)
 }
 
 func (e ErrCommitNotFound) Error() string {
