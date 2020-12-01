@@ -94,7 +94,7 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool, trigger *pfs.Trigger) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
 			Name:      name,
@@ -105,6 +105,7 @@ func NewPFSInputOpts(name string, repo string, branch string, glob string, joinO
 			OuterJoin: outerJoin,
 			GroupBy:   groupBy,
 			Lazy:      lazy,
+			Trigger:   trigger,
 		},
 	}
 }
