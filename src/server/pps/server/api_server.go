@@ -2571,6 +2571,21 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}); err != nil {
 		return nil, errors.Wrapf(err, "could not create/update output branch")
 	}
+	visitErr = nil
+	pps.VisitInput(request.Input, func(input *pps.Input) {
+		if visitErr != nil {
+			return
+		}
+		if input.Pfs != nil && input.Pfs.Trigger != nil {
+			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Trigger: input.Pfs.Trigger,
+			})
+		}
+	})
+	if visitErr != nil {
+		return nil, errors.Wrapf(visitErr, "could not create/update trigger branch")
+	}
 	if pipelineInfo.EnableStats {
 		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
