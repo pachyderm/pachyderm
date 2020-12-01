@@ -119,3 +119,5 @@ replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+inc
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
+
+replace golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6

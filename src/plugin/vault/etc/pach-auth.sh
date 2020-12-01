@@ -39,7 +39,7 @@ function delete_all {
         echo "Could not find a github user to log in as. Cannot get admin token"
         exit 1
     fi
-    echo "yes" | pachctl delete-all
+    echo "yes" | pachctl delete all
 }
 
 eval "set -- $( getopt -l "activate,delete-all" "--" "${0}" "${@}" )"

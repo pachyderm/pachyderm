@@ -8,6 +8,12 @@ sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubun
 sudo apt-get update -y
 sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
+# install goreleaser
+pushd /usr/local/
+curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sudo sh
+popd
+goreleaser -v
+
 # reconfigure & restart docker
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
 echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
