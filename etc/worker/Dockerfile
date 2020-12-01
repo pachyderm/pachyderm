@@ -9,3 +9,4 @@ FROM scratch
 WORKDIR /app
 COPY --from=pachyderm_build /app/worker .
 COPY --from=worker_build /app/init .
+COPY --from=pachyderm/pachctl /usr/local/bin/pachctl .

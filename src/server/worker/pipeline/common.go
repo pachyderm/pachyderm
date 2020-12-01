@@ -105,14 +105,12 @@ func ReceiveSpout(
 								return errors.New("outdated spout, now shutting down")
 							}
 							_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
-							if err != nil {
-								return err
-							}
-						} else if pipelineInfo.Spout.Overwrite {
+							// return here to avoid putting the file in the output branch
+							return err
+						}
+						if pipelineInfo.Spout.Overwrite {
 							_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
-							if err != nil {
-								return err
-							}
+							return err
 						}
 						_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
 						return err
@@ -241,9 +239,8 @@ func withSpoutCommit(ctx context.Context, pachClient *client.APIClient, pipeline
 	repo := pipelineInfo.Pipeline.Name
 	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-			Parent:     client.NewCommit(repo, ""),
-			Branch:     pipelineInfo.OutputBranch,
-			Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
+			Parent: client.NewCommit(repo, ""),
+			Branch: pipelineInfo.OutputBranch,
 		})
 		if err != nil {
 			return err
