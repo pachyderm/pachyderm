@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -e
 
 # go compiler requires a relative directory or something?
