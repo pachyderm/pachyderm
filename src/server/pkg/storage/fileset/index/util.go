@@ -36,21 +36,41 @@ func Generate(s string) []string {
 }
 
 // PointsTo returns a list of all the chunks this index references
-func PointsTo(idx *Index) (ids []chunk.ID) {
-	m := make(map[string]struct{})
-	if idx == nil || len(idx.File.Parts) == 0 {
+func PointsTo(idx *Index) []chunk.ID {
+	if idx == nil {
 		return nil
 	}
-	for _, part := range idx.File.Parts {
-		for _, dr := range part.DataRefs {
-			id := dr.Ref.Id
-			if _, exists := m[string(id)]; !exists {
-				ids = append(ids, chunk.ID(id))
-				m[string(id)] = struct{}{}
-			}
+	if idx.Range != nil {
+		return []chunk.ID{chunk.ID(idx.Range.ChunkRef.Ref.Id)}
+	}
+	var ids []chunk.ID
+	if idx.File != nil {
+		for _, dr := range idx.File.DataRefs {
+			ids = append(ids, chunk.ID(dr.Ref.Id))
 		}
 	}
 	return ids
+}
+
+func SizeBytes(idx *Index) int64 {
+	var size int64
+	if idx == nil {
+		return size
+	}
+	if idx.File != nil {
+		if idx.File.DataRefs != nil {
+			for _, dataRef := range idx.File.DataRefs {
+				size += dataRef.SizeBytes
+			}
+			return size
+		}
+		for _, part := range idx.File.Parts {
+			for _, dataRef := range part.DataRefs {
+				size += dataRef.SizeBytes
+			}
+		}
+	}
+	return size
 }
 
 func resolveParts(idx *Index) {

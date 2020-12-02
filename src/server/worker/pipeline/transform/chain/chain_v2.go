@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
@@ -57,6 +58,7 @@ type JobDatumIteratorV2 struct {
 	jobID          string
 	stats          *datum.Stats
 	dit, outputDit datum.IteratorV2
+	finishOnce     sync.Once
 	done           chan struct{}
 	deleter        func(*datum.Meta) error
 }
@@ -147,5 +149,7 @@ func (jdi *JobDatumIteratorV2) Stats() *datum.Stats {
 
 // Finish finishes the job in the job chain.
 func (jdi *JobDatumIteratorV2) Finish() {
-	close(jdi.done)
+	jdi.finishOnce.Do(func() {
+		close(jdi.done)
+	})
 }

@@ -66,6 +66,11 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	for {
 		commitInfo, err := commitInfoIter.Next()
 		if errors.Is(err, io.EOF) {
+			if len(commitInfos) > 0 {
+				sort.Slice(commitInfos, func(i, j int) bool {
+					return len(commitInfos[i].Provenance) < len(commitInfos[j].Provenance)
+				})
+			}
 			return commitInfos
 		}
 		require.NoError(t, err)

@@ -3,9 +3,12 @@ package fileset
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 var (
@@ -61,9 +64,12 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 	})
 }
 
-func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string) error {
+func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string, tracker track.Tracker, ttl time.Duration) error {
 	md, err := src.Get(ctx, srcPath)
 	if err != nil {
+		return err
+	}
+	if err := createTrackerObject(ctx, dstPath, []*index.Index{md.Additive, md.Deletive}, tracker, ttl); err != nil {
 		return err
 	}
 	return dst.Set(ctx, dstPath, md)

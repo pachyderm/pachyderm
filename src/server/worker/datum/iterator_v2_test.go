@@ -58,8 +58,7 @@ func TestIteratorsV2(t *testing.T) {
 		t.Run("Union", func(t *testing.T) {
 			union1, err := NewIteratorV2(c, in3)
 			require.NoError(t, err)
-			validateDIV2(t, union1, "/foo11", "/foo21", "/foo31", "/foo41",
-				"/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
+			validateDIV2(t, union1, "/foo11", "/foo12", "/foo2", "/foo21", "/foo22", "/foo31", "/foo32", "/foo41", "/foo42")
 		})
 		// Cross input.
 		in4 := client.NewCrossInput(in1, in2)

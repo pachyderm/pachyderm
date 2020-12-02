@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -349,6 +350,9 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 		outputDir := "/" + path.Join(PFSPrefix, ID, OutputPrefix)
 		files, err := metaFileWalker(outputDir)
 		if err != nil {
+			if pfs.IsFileNotFoundErr(err) {
+				return nil
+			}
 			return err
 		}
 		// Remove the output directory prefix.

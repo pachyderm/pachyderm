@@ -79,7 +79,6 @@ func (pj *pendingJobV2) withDeleter(pachClient *client.APIClient, cb func() erro
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
-				// TODO: Need to think through the cleanup of directories that are emptied through datum deletion.
 				if err := pachClient.Walk(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
 					if fi.FileType == pfs.FileType_FILE {
 						files = append(files, fi.File.Path)
@@ -217,6 +216,14 @@ func (reg *registryV2) ensureJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Com
 }
 
 func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
+	var asyncEg *errgroup.Group
+	reg.limiter.Acquire()
+	defer func() {
+		if asyncEg == nil {
+			// The async errgroup never got started, so give up the limiter lock
+			reg.limiter.Release()
+		}
+	}()
 	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
 	if err != nil {
 		return err
@@ -236,14 +243,6 @@ func (reg *registryV2) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Comm
 	if err := reg.initializeJobChain(metaCommit); err != nil {
 		return err
 	}
-	var asyncEg *errgroup.Group
-	reg.limiter.Acquire()
-	defer func() {
-		if asyncEg == nil {
-			// The async errgroup never got started, so give up the limiter lock
-			reg.limiter.Release()
-		}
-	}()
 	var metaCommitInfo *pfs.CommitInfo
 	if metaCommit != nil {
 		metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)

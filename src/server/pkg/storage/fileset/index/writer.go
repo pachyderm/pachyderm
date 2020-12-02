@@ -73,9 +73,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
 	}
 	if idx.File != nil {
-		for _, part := range idx.File.Parts {
-			refDataRefs = append(refDataRefs, part.DataRefs...)
-		}
+		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
 	}
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{

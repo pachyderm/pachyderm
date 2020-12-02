@@ -2593,29 +2593,34 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-		Branch:     outputBranch,
-		Provenance: provenance,
-		Head:       outputBranchHead,
+	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+		if _, err := builder.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch:     outputBranch,
+			Provenance: provenance,
+			Head:       outputBranchHead,
+		}); err != nil {
+			return errors.Wrapf(err, "could not create/update output branch")
+		}
+		if pipelineInfo.EnableStats {
+			if _, err := builder.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch:     client.NewBranch(pipelineName, "stats"),
+				Provenance: []*pfs.Branch{outputBranch},
+				Head:       statsBranchHead,
+			}); err != nil {
+				return errors.Wrapf(err, "could not create/update stats branch")
+			}
+		}
+		if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
+			if _, err := builder.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch: markerBranch,
+				Head:   markerBranchHead,
+			}); err != nil {
+				return errors.Wrapf(err, "could not create/update marker branch")
+			}
+		}
+		return nil
 	}); err != nil {
-		return nil, errors.Wrapf(err, "could not create/update output branch")
-	}
-	if pipelineInfo.EnableStats {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineName, "stats"),
-			Provenance: []*pfs.Branch{outputBranch},
-			Head:       statsBranchHead,
-		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update stats branch")
-		}
-	}
-	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-			Branch: markerBranch,
-			Head:   markerBranchHead,
-		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update marker branch")
-		}
+		return nil, err
 	}
 
 	return &types.Empty{}, nil

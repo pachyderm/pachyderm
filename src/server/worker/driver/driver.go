@@ -214,24 +214,6 @@ func NewDriver(
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	chunkCachePath := filepath.Join(hashtreePath, "chunk")
-	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
-
-	// Delete the hashtree path (if it exists) in case it is left over from a previous run
-	if err := os.RemoveAll(chunkCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
 	if err != nil {
 		logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
@@ -239,21 +221,41 @@ func NewDriver(
 	}
 
 	result := &driver{
-		pipelineInfo:     pipelineInfo,
-		pachClient:       pachClient,
-		etcdClient:       etcdClient,
-		etcdPrefix:       etcdPrefix,
-		activeDataMutex:  &sync.Mutex{},
-		jobs:             ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:        ppsdb.Pipelines(etcdClient, etcdPrefix),
-		numShards:        numShards,
-		rootDir:          rootPath,
-		inputDir:         pfsPath,
-		hashtreeDir:      hashtreePath,
-		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
-		chunkStatsCaches: cache.NewWorkerCache(chunkStatsCachePath),
-		namespace:        namespace,
-		storageV2:        storageV2,
+		pipelineInfo:    pipelineInfo,
+		pachClient:      pachClient,
+		etcdClient:      etcdClient,
+		etcdPrefix:      etcdPrefix,
+		activeDataMutex: &sync.Mutex{},
+		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
+		numShards:       numShards,
+		rootDir:         rootPath,
+		inputDir:        pfsPath,
+		hashtreeDir:     hashtreePath,
+		namespace:       namespace,
+		storageV2:       storageV2,
+	}
+
+	if !storageV2 {
+		chunkCachePath := filepath.Join(hashtreePath, "chunk")
+		chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+
+		// Delete the hashtree path (if it exists) in case it is left over from a previous run
+		if err := os.RemoveAll(chunkCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.RemoveAll(chunkStatsCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+
+		if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		result.chunkCaches = cache.NewWorkerCache(chunkCachePath)
+		result.chunkStatsCaches = cache.NewWorkerCache(chunkStatsCachePath)
 	}
 
 	if pipelineInfo.Transform.User != "" {

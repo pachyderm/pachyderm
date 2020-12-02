@@ -101,7 +101,6 @@ func mergeFile(fss []*fileStream) *index.Index {
 			parts:    idx.File.Parts,
 			deletive: fs.deletive,
 		})
-		mergeIdx.SizeBytes += idx.SizeBytes
 	}
 	// Merge the parts based on the lexicograhical ordering of the tags.
 	mergeIdx.File.Parts = mergeParts(ps)
@@ -141,6 +140,7 @@ func mergePart(parts []*index.Part, part *index.Part) []*index.Part {
 		if part.DataRefs != nil {
 			lastPart.DataRefs = append(lastPart.DataRefs, part.DataRefs...)
 		}
+		lastPart.SizeBytes += part.SizeBytes
 		return parts
 	}
 	return append(parts, part)

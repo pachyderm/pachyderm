@@ -135,7 +135,7 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 
 		// move to next pipeline
 		return backoff.ErrContinue
-	}, backoff.NewConstantBackOff(2*time.Second),
+	}, backoff.NewConstantBackOff(time.Minute),
 		backoff.NotifyContinue("pollPipelines"),
 	); err != nil {
 		if ctx.Err() == nil {

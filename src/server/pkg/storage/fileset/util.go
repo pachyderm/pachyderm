@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -53,7 +54,7 @@ func deleteIndex(w *Writer, idx *index.Index) error {
 func WriteTarEntry(w io.Writer, f File) error {
 	idx := f.Index()
 	tw := tar.NewWriter(w)
-	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, idx.SizeBytes)); err != nil {
+	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return err
 	}
 	if err := f.Content(tw); err != nil {
@@ -152,4 +153,14 @@ func getDataRefs(parts []*index.Part) []*chunk.DataRef {
 		dataRefs = append(dataRefs, part.DataRefs...)
 	}
 	return dataRefs
+}
+
+func createTrackerObject(ctx context.Context, p string, idxs []*index.Index, tracker track.Tracker, ttl time.Duration) error {
+	var pointsTo []string
+	for _, idx := range idxs {
+		for _, cid := range index.PointsTo(idx) {
+			pointsTo = append(pointsTo, chunk.ObjectID(cid))
+		}
+	}
+	return tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl)
 }

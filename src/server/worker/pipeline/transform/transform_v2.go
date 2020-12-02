@@ -18,6 +18,15 @@ func RunV2(driver driver.Driver, logger logs.TaggedLogger) error {
 	})
 }
 
+func getStatsCommitV2(commitInfo *pfs.CommitInfo) *pfs.Commit {
+	for _, commitRange := range commitInfo.Subvenance {
+		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
+			return commitRange.Lower
+		}
+	}
+	return nil
+}
+
 func forEachCommitV2(driver driver.Driver, cb func(*pfs.CommitInfo, *pfs.Commit) error) error {
 	pachClient := driver.PachClient()
 	pi := driver.PipelineInfo()
@@ -30,7 +39,7 @@ func forEachCommitV2(driver driver.Driver, cb func(*pfs.CommitInfo, *pfs.Commit)
 		"",
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
-			return cb(ci, getStatsCommit(pi, ci))
+			return cb(ci, getStatsCommitV2(ci))
 		},
 	)
 }

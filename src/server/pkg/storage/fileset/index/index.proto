@@ -10,7 +10,6 @@ message Index {
   string path = 1;
   Range range = 2;
   File file = 3;
-  int64 size_bytes = 4;
 }
 
 message Range {
