@@ -743,6 +743,7 @@ message DeletePipelineRequest {
   bool all = 4;
   bool force = 5;
   bool keep_repo = 6;
+  bool split_transaction = 7;
 }
 
 message StartPipelineRequest {
