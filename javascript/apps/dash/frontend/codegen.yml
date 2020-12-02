@@ -1,0 +1,6 @@
+schema: ./src/mock/schema.graphqls
+generates:
+  ./src/lib/graphqlTypes.ts:
+    plugins:
+      - typescript
+      - typescript-operations

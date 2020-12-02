@@ -1,0 +1,7 @@
+input SetPachInput {
+  id: ID!
+}
+
+type Mutation {
+  setPach(input: SetPachInput!): Boolean!
+}
