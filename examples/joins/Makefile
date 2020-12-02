@@ -1,15 +1,17 @@
 setup:
 	mkdir -p ./stores ./purchases ./returns
-	printf '{"storeid":"1", "name":"washington st.","address":{"postal":"02108","country":"US"}}' \
+	echo "Creating stores..."
+	printf '{"storeid":"1", "name":"washington st.","address":{"zipcode":"02108","country":"US"}}' \
 	>./stores/STOREID1.txt
-	printf '{"storeid":"2", "name":"hollywood bvd.","address":{"postal":"90210","country":"US"}}' \
+	printf '{"storeid":"2", "name":"hollywood bvd.","address":{"zipcode":"02108","country":"US"}}' \
 	>./stores/STOREID2.txt
-	printf '{"storeid":"3", "name":"beverly hills","address":{"postal":"90210","country":"US"}}' \
+	printf '{"storeid":"3", "name":"beverly hills","address":{"zipcode":"90210","country":"US"}}' \
 	>./stores/STOREID3.txt
-	printf '{"storeid":"4", "name":"mariposa st.","address":{"postal":"94107","country":"US"}}' \
+	printf '{"storeid":"4", "name":"mariposa st.","address":{"zipcode":"94107","country":"US"}}' \
 	>./stores/STOREID4.txt
-	printf '{"storeid":"5", "name":"tremont st.","address":{"postal":"02108","country":"US"}}' \
+	printf '{"storeid":"5", "name":"tremont st.","address":{"zipcode":"90210","country":"US"}}' \
 	>./stores/STOREID5.txt
+	echo "Creating purchases..."
 	printf "ORDER_HEADER|W080520|2020-10-10\nSKU|1001|QTY|2|UNIT_PRICE|100.00\n" \
 	 >./purchases/ORDERW080520_STOREID1.txt
 	printf "ORDER_HEADER|W080521|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
@@ -22,12 +24,15 @@ setup:
 	 >./purchases/ORDERW080231_STOREID5.txt
 	printf "ORDER_HEADER|W080528|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
 	 >./purchases/ORDERW080528_STOREID5.txt
+	echo "Creating returns..."
 	printf "ORDER_HEADER|W080520|2020-10-12\nSKU|1001|QTY|1|UNIT_PRICE|100.00\n" \
 	 >./returns/ORDERW080520_STOREID1.txt
 	printf "ORDER_HEADER|W080231|2020-10-10\nSKU|1001|QTY|1|UNIT_PRICE|100.00\n" \
 	 >./returns/ORDERW080231_STOREID5.txt
 	printf "ORDER_HEADER|W080528|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
 	 >./returns/ORDERW080528_STOREID5.txt
+	printf "ORDER_HEADER|W261452|2020-10-10\nSKU|0246|QTY|1|UNIT_PRICE|50.00\n" \
+	 >./returns/ORDERW261452_STOREID0.txt
 
 inner_join:
 	pachctl create repo stores
