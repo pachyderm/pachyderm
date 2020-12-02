@@ -524,7 +524,7 @@ single repo.
         "branch": string,
         "all": bool,
         "cron_spec": string,
-        "size": int,
+        "size": string,
         "commits": int
     }
 }
