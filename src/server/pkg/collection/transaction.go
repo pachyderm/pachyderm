@@ -372,6 +372,8 @@ type stmSerializable struct {
 }
 
 func (s *stmSerializable) Get(key string) (string, error) {
+	s.Lock()
+	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
@@ -516,9 +518,13 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 }
 
 func (s *stm) TTL(key string) (int64, error) {
+	s.Lock()
+	defer s.Unlock()
 	return s.fetchTTL(s, key)
 }
 
 func (s *stmSerializable) TTL(key string) (int64, error) {
+	s.Lock()
+	defer s.Unlock()
 	return s.fetchTTL(s, key)
 }
