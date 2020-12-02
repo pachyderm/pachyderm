@@ -1314,7 +1314,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		return lokiutil.QueryRange(loki, `{app="pachd"}`, time.Time{}, time.Now(), func(t time.Time, line string) error {
+		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
 			return apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
@@ -1360,7 +1360,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
