@@ -67,6 +67,13 @@ message RepoInfo {
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
+  // tombstone indicates that this repo has been deleted. It's set by DeleteRepo()
+  // when called with `--split-txn` (which breaks up a DeleteRepo() call into multiple
+  // etcd transactions to avoid a 'transaction too large' error), and it indicates
+  // that DeleteRepo has started deleting branches and commits in the repo, but
+  // not all of its commits have been deleted and not all upstream commits'
+  // subvenance have been updated.
+  bool tombstone = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -223,6 +230,7 @@ message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
   bool all = 3;
+  bool split_transaction = 4;
 }
 
 // CommitState describes the states a commit can be in.

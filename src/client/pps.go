@@ -667,13 +667,17 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.P
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool) error {
+func (c APIClient) DeletePipeline(name string, force bool, splitTransaction ...bool) error {
+	req := &pps.DeletePipelineRequest{
+		Pipeline: NewPipeline(name),
+		Force:    force,
+	}
+	if len(splitTransaction) > 0 {
+		req.SplitTransaction = splitTransaction[0]
+	}
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
-		&pps.DeletePipelineRequest{
-			Pipeline: NewPipeline(name),
-			Force:    force,
-		},
+		req,
 	)
 	return grpcutil.ScrubGRPC(err)
 }

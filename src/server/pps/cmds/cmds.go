@@ -860,9 +860,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var (
-		all      bool
-		force    bool
-		keepRepo bool
+		all              bool
+		force            bool
+		keepRepo         bool
+		splitTransaction bool
 	)
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
@@ -880,10 +881,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
+			if splitTransaction {
+				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
+			}
 			req := &ppsclient.DeletePipelineRequest{
-				All:      all,
-				Force:    force,
-				KeepRepo: keepRepo,
+				All:              all,
+				Force:            force,
+				KeepRepo:         keepRepo,
+				SplitTransaction: splitTransaction,
 			}
 			if len(args) > 0 {
 				req.Pipeline = pachdclient.NewPipeline(args[0])
@@ -897,6 +907,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
+	deletePipeline.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{

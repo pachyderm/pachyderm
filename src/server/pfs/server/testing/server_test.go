@@ -361,6 +361,14 @@ func TestListRepo(t *testing.T) {
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
+	testCreateDeletedRepo(t, false)
+}
+
+func TestCreateDeletedRepoSplitTransaction(t *testing.T) {
+	testCreateDeletedRepo(t, true)
+}
+
+func testCreateDeletedRepo(t *testing.T, splitTransaction bool) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
@@ -376,7 +384,7 @@ func TestCreateDeletedRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
-		require.NoError(t, env.PachClient.DeleteRepo(repo, false))
+		require.NoError(t, env.PachClient.DeleteRepo(repo, false, splitTransaction))
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		commitInfos, err = env.PachClient.ListCommit(repo, "", "", 0)
@@ -425,6 +433,14 @@ func TestListCommitLimit(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
+	testUpdateProvenance(t, false)
+}
+
+func TestUpdateProvenanceSplitTransaction(t *testing.T) {
+	testUpdateProvenance(t, true)
+}
+
+func testUpdateProvenance(t *testing.T, splitTransaction bool) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		prov1 := "prov1"
@@ -459,11 +475,11 @@ func TestUpdateProvenance(t *testing.T) {
 
 		// We should be able to delete prov1 since it's no longer the provenance
 		// of other repos.
-		require.NoError(t, env.PachClient.DeleteRepo(prov1, false))
+		require.NoError(t, env.PachClient.DeleteRepo(prov1, false, splitTransaction))
 
 		// We shouldn't be able to delete prov3 since it's now a provenance
 		// of other repos.
-		require.YesError(t, env.PachClient.DeleteRepo(prov3, false))
+		require.YesError(t, env.PachClient.DeleteRepo(prov3, false, splitTransaction))
 
 		return nil
 	})
@@ -631,6 +647,14 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
+	testDeleteRepo(t, false)
+}
+
+func TestDeleteRepoSplitTransaction(t *testing.T) {
+	testDeleteRepo(t, true)
+}
+
+func testDeleteRepo(t *testing.T, splitTransaction bool) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numRepos := 10
@@ -645,7 +669,7 @@ func TestDeleteRepo(t *testing.T) {
 		for i := 0; i < reposToRemove; i++ {
 			// Pick one random element from repoNames
 			for repoName := range repoNames {
-				require.NoError(t, env.PachClient.DeleteRepo(repoName, false))
+				require.NoError(t, env.PachClient.DeleteRepo(repoName, false, splitTransaction))
 				delete(repoNames, repoName)
 				break
 			}
@@ -666,6 +690,14 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteRepoProvenance(t *testing.T) {
+	testDeleteRepoProvenance(t, false)
+}
+
+func TestDeleteRepoProvenanceSplitTransaction(t *testing.T) {
+	testDeleteRepoProvenance(t, true)
+}
+
+func testDeleteRepoProvenance(t *testing.T, splitTransaction bool) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// Create two repos, one as another's provenance
@@ -678,15 +710,15 @@ func TestDeleteRepoProvenance(t *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("A", commit.ID))
 
 		// Delete the provenance repo; that should fail.
-		require.YesError(t, env.PachClient.DeleteRepo("A", false))
+		require.YesError(t, env.PachClient.DeleteRepo("A", false, splitTransaction))
 
 		// Delete the leaf repo, then the provenance repo; that should succeed
-		require.NoError(t, env.PachClient.DeleteRepo("B", false))
+		require.NoError(t, env.PachClient.DeleteRepo("B", false, splitTransaction))
 
 		// Should be in a consistent state after B is deleted
 		require.NoError(t, env.PachClient.FsckFastExit())
 
-		require.NoError(t, env.PachClient.DeleteRepo("A", false))
+		require.NoError(t, env.PachClient.DeleteRepo("A", false, splitTransaction))
 
 		repoInfos, err := env.PachClient.ListRepo()
 		require.NoError(t, err)
@@ -698,7 +730,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
 		// Force delete should succeed
-		require.NoError(t, env.PachClient.DeleteRepo("A", true))
+		require.NoError(t, env.PachClient.DeleteRepo("A", true, splitTransaction))
 
 		repoInfos, err = env.PachClient.ListRepo()
 		require.NoError(t, err)
@@ -6111,6 +6143,14 @@ func TestMonkeyObjectStorage(t *testing.T) {
 }
 
 func TestFsckFix(t *testing.T) {
+	testFsckFix(t, false)
+}
+
+func TestFsckFixSplitTransaction(t *testing.T) {
+	testFsckFix(t, true)
+}
+
+func testFsckFix(t *testing.T, splitTransaction bool) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		input := "input"
@@ -6126,17 +6166,17 @@ func TestFsckFix(t *testing.T) {
 			_, err := env.PachClient.PutFile(input, "master", "file", strings.NewReader("1"))
 			require.NoError(t, err)
 		}
-		require.NoError(t, env.PachClient.DeleteRepo(input, true))
+		require.NoError(t, env.PachClient.DeleteRepo(input, true, splitTransaction))
 		require.NoError(t, env.PachClient.CreateRepo(input))
 		require.NoError(t, env.PachClient.CreateBranch(input, "master", "", nil))
 		require.YesError(t, env.PachClient.FsckFastExit())
 		// Deleting both repos should error, because they were broken by deleting the upstream repo.
-		require.YesError(t, env.PachClient.DeleteRepo(output2, false))
-		require.YesError(t, env.PachClient.DeleteRepo(output1, false))
+		require.YesError(t, env.PachClient.DeleteRepo(output2, false, splitTransaction))
+		require.YesError(t, env.PachClient.DeleteRepo(output1, false, splitTransaction))
 		require.NoError(t, env.PachClient.Fsck(true, func(resp *pfs.FsckResponse) error { return nil }))
 		// Deleting should now work due to fixing, must delete 2 before 1 though.
-		require.NoError(t, env.PachClient.DeleteRepo(output2, false))
-		require.NoError(t, env.PachClient.DeleteRepo(output1, false))
+		require.NoError(t, env.PachClient.DeleteRepo(output2, false, splitTransaction))
+		require.NoError(t, env.PachClient.DeleteRepo(output1, false, splitTransaction))
 
 		return nil
 	})
@@ -6471,6 +6511,42 @@ func (r *SlowReader) Read(p []byte) (n int, err error) {
 		time.Sleep(r.delay)
 	}
 	return
+}
+
+func TestLargeDeleteRepo(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		numRepos := 10
+		numCommits := 1000
+		var repos []string
+		for i := 0; i < numRepos; i++ {
+			repo := fmt.Sprintf("repo-%d", i)
+			require.NoError(t, env.PachClient.CreateRepo(repo))
+			if i > 0 {
+				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
+			}
+			repos = append(repos, repo)
+		}
+		for i := 0; i < numCommits; i++ {
+			_, err := env.PachClient.StartCommit(repos[0], "master")
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
+		}
+		repo := repos[len(repos)-1]
+		ctx, cf := context.WithTimeout(context.Background(), time.Second)
+		defer cf()
+		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
+		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.YesError(t, err)
+		for i := len(repos) - 1; i >= 0; i-- {
+			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
+			require.NoError(t, env.PachClient.FsckFastExit())
+		}
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		require.NoError(t, err)
+		return nil
+	}))
 }
 
 func TestRegressionOrphanedFile(t *testing.T) {
