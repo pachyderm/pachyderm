@@ -93,6 +93,7 @@ message PFSInput {
   string commit = 4;
   string glob = 5;
   string join_on = 8;
+  bool outer_join = 12;
   string group_by = 11;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
@@ -742,6 +743,7 @@ message DeletePipelineRequest {
   bool all = 4;
   bool force = 5;
   bool keep_repo = 6;
+  bool split_transaction = 7;
 }
 
 message StartPipelineRequest {

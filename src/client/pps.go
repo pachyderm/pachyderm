@@ -94,16 +94,17 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:    name,
-			Repo:    repo,
-			Branch:  branch,
-			Glob:    glob,
-			JoinOn:  joinOn,
-			GroupBy: groupBy,
-			Lazy:    lazy,
+			Name:      name,
+			Repo:      repo,
+			Branch:    branch,
+			Glob:      glob,
+			JoinOn:    joinOn,
+			OuterJoin: outerJoin,
+			GroupBy:   groupBy,
+			Lazy:      lazy,
 		},
 	}
 }
@@ -708,13 +709,17 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.P
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool) error {
+func (c APIClient) DeletePipeline(name string, force bool, splitTransaction ...bool) error {
+	req := &pps.DeletePipelineRequest{
+		Pipeline: NewPipeline(name),
+		Force:    force,
+	}
+	if len(splitTransaction) > 0 {
+		req.SplitTransaction = splitTransaction[0]
+	}
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
-		&pps.DeletePipelineRequest{
-			Pipeline: NewPipeline(name),
-			Force:    force,
-		},
+		req,
 	)
 	return grpcutil.ScrubGRPC(err)
 }

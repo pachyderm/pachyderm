@@ -7,7 +7,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
@@ -15,20 +14,30 @@ import (
 
 // Reader is an abstraction for reading a fileset.
 type Reader struct {
-	chunks *chunk.Storage
-	ir     *index.Reader
+	chunks       *chunk.Storage
+	indexFactory func(ctx context.Context) (*index.Reader, error)
 }
 
-func newReader(objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
+func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Option) *Reader {
 	return &Reader{
 		chunks: chunks,
-		ir:     index.NewReader(objC, chunks, path, opts...),
+		indexFactory: func(ctx context.Context) (*index.Reader, error) {
+			topIdx, err := store.GetIndex(ctx, p)
+			if err != nil {
+				return nil, err
+			}
+			return index.NewReader(chunks, topIdx, opts...), nil
+		},
 	}
 }
 
 // Iterate iterates over the files in the fileset.
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error) error {
-	return r.ir.Iterate(ctx, func(idx *index.Index) error {
+	ir, err := r.indexFactory(ctx)
+	if err != nil {
+		return err
+	}
+	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(ctx, r.chunks, idx))
 	})
 }

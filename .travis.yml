@@ -18,6 +18,10 @@ env:
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
     - GOPROXY=https://proxy.golang.org
+    # "Bad" tests are ones that are currently failing, flaky or hangy in
+    # CircleCI + Testfaster - they seem to run more reliably in Travis for some
+    # reason, so we do run them here:
+    - RUN_BAD_TESTS=1
   matrix:
     - BUCKET=MISC
     # If you want to update the number of PPS or auth buckets, you'll neet to

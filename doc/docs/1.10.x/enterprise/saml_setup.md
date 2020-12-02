@@ -53,18 +53,18 @@ GitHub-based user in the system. The reason:
 
    **System response:**
 
-   ```bash
+   ```shell
    Please paste your Pachyderm auth token:
    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
    ```
 
-   ```bash
+   ```shell
    pachctl auth whoami
     ```
 
    **System response:**
 
-   ```bash
+   ```shell
    You are "robot:admin"
    You are an administrator of this Pachyderm cluster
    ```
@@ -84,7 +84,7 @@ URL, for example, can be retrieved here:
 ## Write Pachyderm config
 This enables the Pachyderm ACS. See inline comments:
 
-```bash
+```shell
 # Lookup current config version--pachyderm config has a barrier to prevent
 # read-modify-write conflicts between admins
 live_config_version="$(pachctl auth get-config | jq .live_config_version)"
@@ -93,7 +93,7 @@ live_config_version="${live_config_version:-0}"
 
 Set the Pachyderm config:
 
-```bash
+```shell
 pachctl auth set-config <<EOF
 {
   "live_config_version": ${live_config_version},
@@ -152,7 +152,7 @@ Pachyderm has very preliminary, experimental support for groups. While they won'
 appear in ACLs in the dash (and may have other issues), you can experiment using
 the CLI by setting `"group_attribute"` in the IDProvider field of the auth config:
 
-```bash
+```shell
 pachctl auth set-config <<EOF
 {
   ...
@@ -170,7 +170,7 @@ EOF
 
 Then, try:
 
-```bash
+```shell
 pachctl create repo group-test
 pachctl put file group-test@master -f some-data.txt
 pachctl auth set group/saml:"Test Group" reader group-test
@@ -178,7 +178,7 @@ pachctl auth set group/saml:"Test Group" reader group-test
 
 Elsewhere:
 
-```bash
+```shell
 pachctl auth login --code=<auth code>
 pachctl get file group-test@master:some-data.txt # should work for members of "Test Group"
 ```

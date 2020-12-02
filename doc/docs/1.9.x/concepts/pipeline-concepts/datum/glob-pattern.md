@@ -54,7 +54,7 @@ For more information, see [Cross and Union](cross-union.md).
 For example, you have the following directory:
 
 !!! example
-    ```bash
+    ```shell
     /California
        /San-Francisco.json
        /Los-Angeles.json
@@ -110,7 +110,7 @@ top-level filesystem objects in the `train` repository as one
 datum:
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl glob file train@master:/
     NAME TYPE SIZE
     /    dir  15.11KiB
@@ -121,7 +121,7 @@ top-level filesystem object in the `train` repository as a separate
 datum:
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl glob file train@master:/*
     NAME                   TYPE SIZE
     /IssueSummarization.py file 1.224KiB

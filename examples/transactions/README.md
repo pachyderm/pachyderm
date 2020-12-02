@@ -41,19 +41,19 @@ To set up the pipeline, complete the following steps:
 
 1. Create the `data` repository:
 
-   ```bash
+   ```shell
    $ pachctl create repo data
    ```
 
 1. Create the `parameters` repository:
 
-   ```bash
+   ```shell
    $ pachctl create repo parameters
    ```
 
 1. Verify that the repositories were successfully created:
 
-   ```bash
+   ```shell
    $ pachctl list repo
    NAME       CREATED        SIZE (MASTER)
    parameters 44 minutes ago 123B
@@ -62,25 +62,25 @@ To set up the pipeline, complete the following steps:
 
 1. Clone the Pachyderm repository:
 
-   ```bash
+   ```shell
    $ git clone git@github.com:pachyderm/pachyderm.git
    ```
 
 1. Change the directory to `examples/transactions`:
 
-   ```bash
+   ```shell
    $ cd examples/transactions/
    ```
 
 1. Create the `model` pipeline:
 
-   ```bash
+   ```shell
    $ pachctl create pipeline -f model.json
    ```
 
 1. Verify that the pipeline has been created:
 
-   ```bash
+   ```shell
    $ pachctl list pipeline
    NAME       VERSION INPUT                                                                                      CREATED        STATE / LAST JOB
    model      1       (parameters:/c_parameters.txt/* ⨯ parameters:/gamma_parameters.txt/* ⨯ raw_data:/iris.csv) 12 seconds ago running / starting
@@ -99,14 +99,14 @@ To run the transaction, complete the following steps:
 
 1. Start a transaction:
 
-   ```bash
+   ```shell
    $ pachctl start transaction
    Started new transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    ```
 
 1. Open a commit into the `master` branch of the `raw_data` repository:
 
-   ```bash
+   ```shell
    $ pachctl start commit raw_data@master
    Added to transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    42b893e48e7d40f1bb5ed770526a9a07
@@ -114,7 +114,7 @@ To run the transaction, complete the following steps:
 
 1. Open a commit into the `master` branch of the `parameters` repository:
 
-   ```bash
+   ```shell
    $ pachctl start commit parameters@master
    Added to transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    c4dc446b25e54a938a67a5e913b3f9a4
@@ -122,7 +122,7 @@ To run the transaction, complete the following steps:
 
 1. Close the transaction:
 
-   ```bash
+   ```shell
    $ pachctl finish transaction
    Completed transaction with 2 requests: 854e8503-6e5d-4542-805c-a73a39200bf8
    ```
@@ -130,12 +130,12 @@ To run the transaction, complete the following steps:
 1. Add the data to the parameters repository by splitting each line
    into a separate file:
 
-   ```bash
+   ```shell
    $ pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1
    $ pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
    ```
 
-   ```bah
+   ```shell
    $ pachctl list file parameters@master
    NAME                  TYPE SIZE
    /c_parameters.txt     dir  81B
@@ -146,21 +146,21 @@ To run the transaction, complete the following steps:
    triggered for the `model` pipeline. You can verify that by running
    the following command:
 
-   ```bash
+   ```shell
    $ pachctl list job --pipeline=model --no-pager
    ID                               PIPELINE STARTED      DURATION RESTART PROGRESS  DL UL STATE
    ```
 
 1. Add the data to the `raw_data` repository:
 
-   ```bash
+   ```shell
    $ pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
    ```
 
    If you check whether the pipeline has run or not, you
    can see that it has not yet run:
 
-   ```bash
+   ```shell
    $ pachctl list job --pipeline=model --no-pager
    ID PIPELINE STARTED DURATION RESTART PROGRESS DL UL STATE
    ```
@@ -168,7 +168,7 @@ To run the transaction, complete the following steps:
 1. Close the commit to the `raw_data` repository that you have
    started within the transaction:
 
-   ```bash
+   ```shell
    $ pachctl finish commit raw_data@master
    ```
 
@@ -182,7 +182,7 @@ To run the transaction, complete the following steps:
 1. Close the commit to the `parameters` repository that you have
    started within the transaction:
 
-   ```bash
+   ```shell
    $ pachctl finish commit parameters@master
    ```
 
@@ -190,7 +190,7 @@ To run the transaction, complete the following steps:
    job that takes the commits that you have specified within the
    transaction and runs your code against these two commits:
 
-   ```bash
+   ```shell
    $ pachctl list job --pipeline=model --no-pager
    ID                               PIPELINE STARTED          DURATION    RESTART  PROGRESS  DL       UL      STATE
    6cdc80ae105f47b4a09f0ab8ce005003 model    37 seconds ago - 0           21 + 0 / 77        115.5KiB 62.2KiB running
@@ -198,7 +198,7 @@ To run the transaction, complete the following steps:
 
 1. View the contents of the model output repo:
 
-   ```bash
+   ```shell
    $ pachctl list file model@master
    NAME                      TYPE SIZE
    /model_C0.031_G0.001.pkl  file 5.713KiB

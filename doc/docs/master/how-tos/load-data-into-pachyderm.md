@@ -100,7 +100,7 @@ To load your data into a repository, complete the following steps:
 
 1. Create a Pachyderm repository:
 
-   ```sh
+   ```shell
    pachctl create repo <repo name>
    ```
 
@@ -108,7 +108,7 @@ To load your data into a repository, complete the following steps:
 
    * To start and finish an atomic commit, run:
 
-     ```bash
+     ```shell
      pachctl put file <repo>@<branch>:</path/to/file1> -f <file1>
      ```
 
@@ -116,24 +116,24 @@ To load your data into a repository, complete the following steps:
 
      1. Start a commit:
 
-        ```sh
+        ```shell
         pachctl start commit <repo>@<branch>
         ```
      1. Put your data:
 
-        ```bash
+        ```shell
         pachctl put file <repo>@<branch>:</path/to/file1> -f <file1>
         ```
 
      1. Work on your changes, and when ready, put more data:
 
-        ```bash
+        ```shell
         pachctl put file <repo>@<branch>:</path/to/file2> -f <file2>
         ```
 
      1. Close the commit:
 
-        ```bash
+        ```shell
         pachctl finish commit <repo>@<branch>
         ```
 
@@ -169,13 +169,13 @@ in your filepath:
 In the case of `-i`, the target file must be a list of files, paths, or URLs
 that you want to input all at once:
 
-  ```sh
+  ```shell
   pachctl put file <repo>@<branch> -i <file containing list of files, paths, or URLs>
   ```
 
 * Input data from stdin into a data repository by using a pipe:
 
-  ```sh
+  ```shell
   echo "data" | pachctl put file <repo>@<branch> -f </path/to/file>
   ```
 
@@ -183,7 +183,7 @@ that you want to input all at once:
 HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`, by using the
 recursive flag, `-r`:
 
-  ```sh
+  ```shell
   pachctl put file <repo>@<branch> -r -f <dir>
   ```
 

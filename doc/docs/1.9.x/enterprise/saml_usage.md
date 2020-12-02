@@ -129,7 +129,7 @@ to add `msteffen@pachyderm.io` (the user principal) directly to that ACL:
 
 this change is reflected in the CLI as well:
 
-```bash
+```shell
 (admin)$ pachctl auth get edges
 pipeline:edges: WRITER
 pipeline:montage: READER

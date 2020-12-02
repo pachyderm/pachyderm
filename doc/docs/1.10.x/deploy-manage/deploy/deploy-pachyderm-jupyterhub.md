@@ -95,19 +95,19 @@ To deploy JupyterHub, complete the following steps:
 <!--1. Clone the [jupyterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
 repository:
 
-   ```bash
+   ```shell
    git clone git@github.com:pachyderm/jupyterhub-pachyderm.git
    ```
 
 1. Change the current directory to `jupyterhub-pachyderm/`:
 
-   ```bash
+   ```shell
    cd jupyterhub-pachyderm
    ```
 -->
 1. Run the `./init.py` script:
 
-   ```bash
+   ```shell
    ./init.py
    ```
 

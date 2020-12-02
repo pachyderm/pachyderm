@@ -11,6 +11,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2020'
+pach_latest_version: '1.11.7'
+
 
 # Configuration
 theme:
@@ -42,6 +44,7 @@ plugins:
   - minify:
       minify_html: true
   - git-revision-date-localized
+  - macros
 
 # Customization
 extra:

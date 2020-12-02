@@ -12,7 +12,7 @@ In pachctl, a transaction can be initiated through the start transaction command
 While there is a transaction object in the config file, all transactionally-supported API requests will append the request to the transaction instead of running directly. These commands include:
 
 !!! example
-    ```bash
+    ```shell
     create repo
     delete repo
     start commit

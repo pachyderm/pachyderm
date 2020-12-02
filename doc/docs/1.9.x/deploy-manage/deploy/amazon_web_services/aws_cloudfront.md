@@ -45,7 +45,7 @@ The key-pair ID is `APKAXXXXXXXXXXXXXXXX`. The other file is
 the private key, which looks similar to the following text:
 
 !!! example
-    ```bash
+    ```shell
     $ cat pk-APKAXXXXXXXXXXXX.pem
     -----BEGIN RSA PRIVATE KEY-----
     ...
@@ -57,13 +57,13 @@ the following steps:
 1. Download the `secure-cloudfront.sh` script from the Pachyderm
 repository:
 
-   ```bash
+   ```shell
    $ curl -o secure-cloudfront.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/cloudfront/secure-cloudfront.sh
    ```
 
 1. Make the script executable:
 
-   ```bash
+   ```shell
    $ chmod +x secure-cloudfront.sh
    ```
 
@@ -72,21 +72,21 @@ deployment and the CloudFront distribution ID.
 
 1. Apply the key pair to your CloudFront distribution:
 
-   ```bash
+   ```shell
    $ ./secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem
    ```
 
 1. Restart the `pachd` pod for the
 changes to take effect:
 
-   ```bash
+   ```shell
    $ kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
    ```
 
 1. Verify the setup by checking the `pachd` logs and confirming that
 Kubernetes uses the CloudFront credentials:
 
-   ```bash
+   ```shell
    $ kubectl get pod
    NAME                        READY     STATUS             RESTARTS   AGE
    etcd-0                   1/1       Running            0          19h

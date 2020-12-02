@@ -9,7 +9,7 @@ root of the Pachyderm repository.
 
 **Example:**
 
-```
+```shell
 go run examples/opencv/goclient-example/opencv-example.go
 ```
 

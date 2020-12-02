@@ -70,20 +70,20 @@ pattern of `"/*"` so that our pipeline can run in parallel over
 several queries if we wanted. Before you can create this pipeline, you'll need to create
 its input repo:
 
-```sh 
+```shell 
 $ pachctl create repo queries
 ```
 
 Now create the pipeline:
 
-```sh
+```shell
 $ pachctl create pipeline -f tweets.json
 ```
 
 The pipeline has now been created, let's test to see if it's working by giving
 it a query:
 
-```sh
+```shell
 $ echo "from:<username>" | pachctl put file queries@master:<username>
 ```
 
@@ -97,13 +97,13 @@ After you run that `put file` you will have a new commit in your `"queries"`
 repo and a new output commit in `"tweets"`, along with a job that's scraping
 the tweets. To see the job running do:
 
-```sh
+```shell
 $ pachctl list job
 ```
 
 Once it's finished you can view the scraped tweets with:
 
-```sh
+```shell
 $ pachctl get file tweets@master:/<username>
 ```
 
@@ -192,7 +192,7 @@ train on. We also enable `standby`, which prevents the pipeline from holding
 onto those resources when it's not processing data. You can create this
 pipeline with:
 
-```sh
+```shell
 $ pachctl create pipeline -f train.json
 ```
 
@@ -279,11 +279,11 @@ This example comes with a simple Makefile to build and deploy it.
 
 To build the docker images (after modifying the code):
 
-```sh
+```shell
 $ make docker-build
 ```
 
-```sh
+```shell
 $ make deploy
 ```
 

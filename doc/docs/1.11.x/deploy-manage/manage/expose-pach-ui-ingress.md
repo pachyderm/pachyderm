@@ -41,7 +41,7 @@ For production deployments, deploy with the `--tls` flag.
    For the latest version of Traefik controller, see the
    Traefik documentation.
 
-   ```bash
+   ```shell
    kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/roles.yaml
    kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/traefik-daemonset.yaml
    ```
@@ -60,7 +60,7 @@ metadata file. You need to adjust it to your deployment:
 
    When done editing, save the file and run:
 
-   ```bash
+   ```shell
    kubectl apply -f traefik-ingress-minikube.yaml
    ```
 

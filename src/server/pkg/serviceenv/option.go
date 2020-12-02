@@ -3,26 +3,11 @@ package serviceenv
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
-
-// GarbageCollectionOptions returns the garbage collection options for the service environment.
-func (env *ServiceEnv) GarbageCollectionOptions() ([]gc.Option, error) {
-	var opts []gc.Option
-	if env.StorageGCPolling != "" {
-		polling, err := time.ParseDuration(env.StorageGCPolling)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, gc.WithPolling(polling))
-	}
-	return opts, nil
-}
 
 var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")
 
@@ -31,13 +16,6 @@ func (env *ServiceEnv) ChunkStorageOptions() ([]chunk.StorageOption, error) {
 	var opts []chunk.StorageOption
 	if env.StorageUploadConcurrencyLimit > 0 {
 		opts = append(opts, chunk.WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
-	}
-	if env.StorageGCTimeout != "" {
-		timeout, err := time.ParseDuration(env.StorageGCTimeout)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, chunk.WithGCTimeout(timeout))
 	}
 	if env.StorageDiskCacheSize > 0 {
 		diskCache, err := obj.NewLocalClient(localDiskCachePath)

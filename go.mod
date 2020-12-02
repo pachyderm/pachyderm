@@ -50,7 +50,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/itchyny/gojq v0.11.2
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
-	github.com/jinzhu/gorm v1.9.12
+	github.com/jmoiron/sqlx v1.2.0
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
@@ -90,7 +90,7 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
 	golang.org/x/tools v0.0.0-20201117152513-9036a0f9af11 // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
@@ -119,3 +119,5 @@ replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+inc
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
+
+replace golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6

@@ -71,7 +71,7 @@ To complete this example, perform the following steps:
 
    **Examples:**
 
-   ```bash
+   ```shell
    Zero
    One
    Two
@@ -82,20 +82,20 @@ To complete this example, perform the following steps:
 
 1. Create a repository called `line-data`:
 
-   ```bash
+   ```shell
    pachctl create repo line-data
    pachctl put file line-data@master -f my-data.txt --split line
    ```
 
 1. List the filesystem objects in the repository:
 
-   ```bash
+   ```shell
    pachctl list file line-data@master
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME         TYPE  SIZE
    /my-data.txt dir   1.071KiB
    ```
@@ -112,13 +112,13 @@ To complete this example, perform the following steps:
 
 1. List the files in the `my-data.txt` directory:
 
-   ```bash
+   ```shell
    pachctl list file line-data@master my-data.txt
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                          TYPE  SIZE
    /my-data.txt/0000000000000000 file  21B
    /my-data.txt/0000000000000001 file  22B
@@ -147,7 +147,7 @@ To complete this example, follow these steps:
 
 1. Create a file `count.txt` with the following lines:
 
-   ```bash
+   ```shell
    Zero
    One
    Two
@@ -157,7 +157,7 @@ To complete this example, follow these steps:
 
 1. Put the `count.txt` file into a Pachyderm repository called `raw_data`:
 
-   ```bash
+   ```shell
    pachctl put file -f count.txt raw_data@master --split line
    ```
 
@@ -168,13 +168,13 @@ To complete this example, follow these steps:
 
 1. View the repository contents:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -183,13 +183,13 @@ To complete this example, follow these steps:
 
 1. View the contents of the `count.txt` directory:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master:count.txt
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -205,13 +205,13 @@ To complete this example, follow these steps:
    the contents of `count.txt/0000000000000000`, run the following
    command:
 
-   ```bash
+   ```shell
    pachctl get file raw_data@master:count.txt/0000000000000000
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    Zero
    ```
 
@@ -221,13 +221,13 @@ To complete this example, follow these steps:
 1. Create a one-line file called `more-count.txt` with the
    following content:
 
-   ```bash
+   ```shell
    Five
    ```
 
 1. Load this file into Pachyderm by appending it to the `count.txt` file:
 
-   ```bash
+   ```shell
    pachctl put file raw_data@master:count.txt -f more-count.txt --split line
    ```
 
@@ -235,19 +235,19 @@ To complete this example, follow these steps:
      a file that was previously split, Pachyderm displays the following
      error message:
 
-     ```bash
+     ```shell
      could not put file at "/count.txt"; a file of type directory is already there
      ```
 
 1. Verify that another file was added:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master:count.txt
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -270,7 +270,7 @@ To complete this example, follow these steps:
 
    **System Response:**
 
-   ```bash
+   ```shell
    Five
    ```
 
@@ -290,7 +290,7 @@ To complete this example, follow these steps:
 
 1. Create a file `count.txt` with the following lines:
 
-   ```bash
+   ```shell
    One
    Two
    Three
@@ -300,7 +300,7 @@ To complete this example, follow these steps:
 
 1. Put the file into a Pachyderm repository called `raw_data`:
 
-   ```bash
+   ```shell
    pachctl put file -f count.txt raw_data@master --split line
    ```
 
@@ -311,13 +311,13 @@ To complete this example, follow these steps:
 
 1. View the repository contents:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -326,13 +326,13 @@ To complete this example, follow these steps:
 
 1. View the contents of the `count.txt` directory:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master:count.txt
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -348,20 +348,20 @@ To complete this example, follow these steps:
    the contents of `count.txt/0000000000000000`, run the following
    command:
 
-   ```bash
+   ```shell
    pachctl get file raw_data@master:count.txt/0000000000000000
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    One
    ```
 
 1. In your local directory, modify the original `count.txt` file by
    inserting the word *Zero* on the first line:
 
-   ```bash
+   ```shell
    Zero
    One
    Two
@@ -373,7 +373,7 @@ To complete this example, follow these steps:
 1. Upload the updated `count.txt` file into the raw_data repository
    by using the `--split` and `--overwrite` flags:
 
-   ```bash
+   ```shell
    pachctl put file -f count.txt raw_data@master:count.txt --split line --overwrite
    ```
 
@@ -384,13 +384,13 @@ To complete this example, follow these steps:
 
 1. List the files in the directory:
 
-   ```bash
+   ```shell
    pachctl list file raw_data@master:count.txt
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 5B
    /count.txt/0000000000000001 file 4B
@@ -403,13 +403,13 @@ To complete this example, follow these steps:
    The `/count.txt/0000000000000000` file now has the newly added `Zero` line.
    To verify the contents of the file, run:
 
-   ```bash
+   ```shell
    pachctl get file raw_data@master:count.txt/0000000000000000
    ```
 
    **System Response:**
 
-   ```bash
+   ```shell
    Zero
    ```
 
