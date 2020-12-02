@@ -2273,6 +2273,14 @@ func TestRecreateStandbyPipeline(t *testing.T) {
 }
 
 func TestDeletePipeline(t *testing.T) {
+	testDeletePipeline(t, false)
+}
+
+func TestDeletePipelineSplitTransaction(t *testing.T) {
+	testDeletePipeline(t, true)
+}
+
+func testDeletePipeline(t *testing.T, splitTransaction bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2343,7 +2351,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	deletePipeline := func(pipeline string) {
-		require.NoError(t, c.DeletePipeline(pipeline, false))
+		require.NoError(t, c.DeletePipeline(pipeline, false, splitTransaction))
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
@@ -2356,7 +2364,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	}
 	// Can't delete a pipeline from the middle of the dag
-	require.YesError(t, c.DeletePipeline(pipelines[0], false))
+	require.YesError(t, c.DeletePipeline(pipelines[0], false, splitTransaction))
 
 	deletePipeline(pipelines[1])
 	deletePipeline(pipelines[0])
@@ -2373,7 +2381,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	// Can force delete pipelines from the middle of the dag.
-	require.NoError(t, c.DeletePipeline(pipelines[0], true))
+	require.NoError(t, c.DeletePipeline(pipelines[0], true, splitTransaction))
 }
 
 func TestPipelineState(t *testing.T) {

@@ -9,7 +9,7 @@ VM_IP="localhost"
 export VM_IP
 PACH_PORT="30650"
 export PACH_PORT
-GOPATH="${HOME}/go"
+GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
@@ -27,6 +27,10 @@ kubectl version
 docker login -u pachydermbuildbot -p "${DOCKER_PWD}"
 
 make install
+VERSION=$(pachctl version --client-only)
+git config user.email "donotreply@pachyderm.com"
+git config user.name "anonymous"
+git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
 make docker-build
 make launch-dev
 
