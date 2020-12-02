@@ -1,0 +1,81 @@
+:root {
+  /* fonts */
+  --font-family: 'Montserrat', sans-serif;
+  --font-family-mono: 'Menlo', monospace;
+
+  /* colors */
+  --white: #FFFFFF;
+
+  --pachyderm-black: #020408;
+  --background-black: #272728;
+  --modal-backdrop-black: rgba(2, 4, 8, .5);
+  --modal-backdrop-grey: rgba(134, 134, 134, 0.5);
+  --placeholder-grey: #868686;
+  --modal-dropshadow-grey: #888888;
+  --dropshadow-grey: #C6C6C6;
+  --table-head-dropshadow-grey:  #B8B8B8;
+  --border-grey: #DBDBDB;
+  --line-grey: #E9E9E9;
+  --hover-grey: #F6F6F6;
+  --background-grey: #FAFAFA;
+  --hover-coral: #EB7074;
+
+  --highlight-blue: #22A3D5;
+  --pachyderm-green: #5BA3B1;
+  --banner-green: #19CAAA;
+  --success-green: #00DBB4;
+  --background-green-light: #ECFBF7;
+  --background-blue: #ECF5F7;
+  --table-row-background-blue: rgba(236, 245, 247, 0.2);
+  --background-blue-light: #F7FBFB;
+
+  --chart-blue: #0187C2;
+  --chart-dark-green: #083D49;
+  --chart-light-green: #1FC7B7;
+  --chart-dark-blue: #0063A9;
+  --chart-light-blue: #49BDDD;
+  --chart-hover-dark-green: #085566;
+  --chart-hover-light-green: #27d8c7;
+  --chart-hover-dark-blue: #0d75be;
+  --chart-hover-light-blue: #59d1f2;
+
+  --error-red: #E02020;
+  --highlight-orange: #FA6400;
+  --highlight-yellow: #FFD256;
+  --pachyderm-coral: #DF686C;
+  --pachyderm-orange: #FF9674;
+  --background-pink: #F2E9E9;
+
+  --pachyderm-plum: #582F6B;
+  --hover-plum: #672373;
+  --highlight-plum: #B620E0;
+
+  --white: #FFFFFF;
+
+  --marketing-red: #ce6767;
+
+  /* sizes */
+  --border-radius-bottom-level: 5px;
+  --border-radius-top-level: 10px;
+  --border-radius-mid-level: 8px;
+  --font-size-body-medium: 0.75rem;
+  --font-size-body-large: 0.875rem;
+  --font-size-body-small: 0.6875rem;
+  --font-size-header: 1rem;
+  --font-size-page-heading: 1.375rem;
+  --height-marketing-header: 4.688rem;
+  --padding-gutter-x: 15px;
+  --padding-view-x: 1.5rem;
+  --padding-view-x-sm: 1rem;
+  --width-partial: 65rem;
+  --width-screen-laptop: 1440px;
+  --width-screen-laptop-sm: 1024px;
+  --width-sidenav: 10rem;
+  --width-sidenav-collapsed: 5.25rem;
+  --z-index-sticky-header: 50;
+  --z-index-sidenav: 100;
+  --z-index-sheet: 102;
+  --z-index-application-banner: 101;
+  --z-index-modal-overlay: 1040;
+  --z-index-notification-banner: 1041;
+}
