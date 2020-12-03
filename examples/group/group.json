@@ -1,18 +1,22 @@
 {
     "pipeline": {
-      "name": "no_group_input"
+      "name": "group_by_hospital"
     },
     "description": "A pipeline that groups lab test results files by hospital using the files naming pattern.",
     "input": {
+      "group": [
+      {
           "pfs": {
             "repo": "labresults",
             "branch": "master",
-            "glob": "/"
+            "glob": "/*-CLIA(*).txt"
           }
+      }
+    ]
    },
    "transform": {
         "cmd": [ "bash" ],
-        "stdin": [ "PATTERN=.*-PATID\\(.*\\)-.*.txt", "FILES=/pfs/labresults/*", "for f in $FILES", "do", "[[ $(basename $f) =~ $PATTERN ]]", "mkdir -p /pfs/out/${BASH_REMATCH[1]}/", "cp $f /pfs/out/${BASH_REMATCH[1]}/", "done" ]
+        "stdin": [ "PATTERN=.*-CLIA\\(.*\\).txt", "FILES=/pfs/labresults/*", "for f in $FILES", "do", "[[ $(basename $f) =~ $PATTERN ]]", "mkdir -p /pfs/out/${BASH_REMATCH[1]}/", "cp $f /pfs/out/${BASH_REMATCH[1]}/", "done" ]
         },
     "enable_stats": true
   }
