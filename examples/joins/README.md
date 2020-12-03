@@ -1,5 +1,5 @@
 # Inner and Outer Join Pipelines 
->![pach_logo](./img/pach_logo.png) The outer join functionality is available in version **1.12 and higher**.
+>![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines run your code **only** on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
 - Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. 
 
@@ -112,9 +112,13 @@ $ pachctl list file purchases@master
 ```
 You should see the following files:
 - Stores:
+
 ![stores_repository](./img/pachctl_list_file_stores_master.png)
+
 - Purchases:
+
 ![purchases_repository](./img/pachctl_list_file_purchases_master.png)
+
 
 Now a quick check at your pipeline status:
 ```shell
@@ -146,7 +150,10 @@ A more classic way, once 'production-ready,' would be to reference your [built D
 ```shell
 $ pachctl list file inner_join@master
 ```
-You should see our 2 expected text files. ![output_repository](./img/pachctl_list_file_inner_join_master.png)
+You should see our 2 expected text files. 
+
+![output_repository](./img/pachctl_list_file_inner_join_master.png)
+
 Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
