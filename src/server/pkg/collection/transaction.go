@@ -414,8 +414,6 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 }
 
 func (s *stmSerializable) commit() *v3.TxnResponse {
-	s.Lock()
-	defer s.Unlock()
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
 	defer tracing.FinishAnySpan(span)
 	if span != nil {
