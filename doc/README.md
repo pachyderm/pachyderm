@@ -68,7 +68,7 @@ Your source code is now visible from the container allowing a hot reload.
 Especially useful if you want to have a last look at your final product before committing your work. It will be as close as the production as can be.
 1. Build your Docker image (~10 min). In the `doc` directory, run:
     ```shell
-        DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build build netlify-dev
+        DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build netlify-dev
     ```
 2. In the doc directory, run: 
     ```shell
