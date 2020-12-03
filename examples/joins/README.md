@@ -1,193 +1,153 @@
-# Create a Join Pipeline
+# Inner and Outer Join Pipelines 
+>![pach_logo](./img/pach_logo.png) The outer join functionality is available in version **1.12 and higher**.
+- Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines run your code **only** on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. 
 
-In this example, we will create a join pipeline.
-A join pipeline executes your code on files that match
-a specific naming pattern. For example, you have two
-repositories — one that stores readings from temperature
-sensors and the other that stores parameters for these
-sensors. You want to match these two datasets and process
-them together. For simplicity, the files have some
-simple dummy data. For each file in the `readings` repository that,
-the pipeline code takes the sum of all lines and multiplies
-them by the sum of the lines in the matching file in the
-`parameters` repository. 
+>![pach_logo](./img/pach_logo.png) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
-The repositories have the following structures:
+## 1. Getting ready
+***Key concepts***
+- [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern.
+- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - your RegExp-like search pattern. Works in pair with Join.
 
-* `readings`:
+***Pre-requisite***
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
-    ```shell
-    └── ID1234
-        ├── file1.txt
-        ├── file2.txt
-        ├── file3.txt
-        ├── file4.txt
-        ├── file5.txt
-        └── file6.txt
-    ```
+***Getting started***
+- Clone this repo.
+- Make sure Pachyderm is running. You should be able to connect to your Pachyderm cluster via the `pachctl` CLI. 
+Run a quick:
+```shell
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.12.0
+pachd               1.12.0
+```
 
- * `parameters`:
+## 2. Data structure and naming convention
+We have derived our examples from simplified retail use cases: 
+- Purchases and Returns are made in given Stores. 
+- Those Stores have a given location (here, a zip code). 
+- There are 0 to many Stores in a given Zipcode.
 
-    ```shell
-    ├── file1.txt
-    ├── file2.txt
-    ├── file3.txt
-    ├── file4.txt
-    ├── file5.txt
-    └── file6.txt
-    ```
+Let's have a look at our data structure and naming convention. 
+* `stores` - In these examples, store data are JSON files named after the store's identifier.
+```shell
+    └── STOREID1.txt
+    └── STOREID2.txt
+    └── STOREID3.txt
+    └──  ...
+```
+We will ultimately want to list purchases by `zipcode.` Let's have a look at the content of one of those STOREIDx.txt files.
+```shell
+    {
+        "storeid":"4",
+        "name":"mariposa st.",
+        "address":{
+            "zipcode":"94107",
+            "country":"US"
+        }
+    }
+```
 
-## Prerequisites
+>![pach_logo](./img/pach_logo.png) If you did not need the location info(zip) in the content of the Store file, and, say, just wanted to list purchases by STOREID, a [group](#Add the link to group) would be best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
 
-You must have the following components deployed on your computer
-to complete this example:
+Think of it that way: 
+- Do you need to access the content of the matched files? -> you probably need to use the *Join* option
+- No access to  - A fine naming convention is enough? -> *Group* 
 
-* Minikube or Docker Desktop
-* Pachyderm 1.9.5 or later
+* `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
+```shell
+    └── ORDERW080520_STOREID1.txt
+    └── ORDERW080521_STOREID1.txt
+    └── ORDERW078929_STOREID2.txt
+    └── ...
+```
+* `returns` - Same naming convention as purchases.
+```shell
+    └── ORDERW080528_STOREID5.txt
+    └──  ODERW080520_STOREID1.txt
+    └── ...
+```
+## 3. Example 1 - An Inner-Join pipeline creation 
+***Goal***
+List all purchases by zip code.
+1. **Pipeline input repositories**: `stores` and `purchases` - Inner join by STOREID.
+2. **Pipeline**: Executes a python code reading the `zipcode` in the matching STOREIDx.txt file and appending the matched purchase file's content to a text file named after the zip code.
+3. **Pipeline output repository**: `inner_join`- list of text files named after the stores' zip codes in which purchases have been made and containing the list of said purchases. 
 
-## Step 1 - Prepare your Environment
+In the diagram below, we have mapped out the data of our example. We will expect the 2 following files in the output repository of our `inner_join` pipeline: 
+```shell
+    └── 02108.txt
+    └── 90210.txt
+```
+Each should contain 3 purchases.
+![inner_join](./img/inner_join.png)
 
-`Makefile` in this directory creates dummy files for you
-to test this examples. The `Makefile` targets create all the
-needed files, build and execute a Docker container
-that runs the code in [joins.py]().
+***Step 1*** - Prepare your data
+The setup target of the `Makefile` in `pachyderm/examples/joins` will create 3 directories (stores, purchases, and returns) and populate them with adequate data.
+In the `examples/joins` directory, run:
+```shell
+$ make setup
+```
 
-To set up your environment, complete the following steps:
+***Step 2*** - Create Pachyderm's repositories and pipeline, inject your data into your new repositories, and trigger the pipeline's job.
+In the `examples/joins` directory, run:
+```shell
+$ make inner_join
+```
+or run:
+```shell
+$ pachctl create repo stores
+$ pachctl create repo purchases
+$ pachctl create pipeline -f inner_join.json
+$ pachctl put file -r stores@master:/ -f stores
+$ pachctl put file -r purchases@master:/ -f purchases
+```
+Have a quick look at your repositories: 
+```shell
+$ pachctl list file stores@master
+$ pachctl list file purchases@master
+```
+You should see the following files:
+- Stores:
+![stores_repository](./img/pachctl_list_file_stores_master.png)
+- Purchases:
+![purchases_repository](./img/pachctl_list_file_purchases_master.png)
 
-1. Verify that you have all the components described in [Prerequisites](#prerequisites).
-1. If you have not done so already, clone the Pachyderm repository:
+Now a quick check at your pipeline status:
+```shell
+$ pachctl list pipeline
+```
+It should have run successfully by now.
+![output_repository](./img/pachctl_list_pipeline.png)
 
-   ```shell
-   git clone https://github.com/pachyderm/pachyderm.git
-   ```
+>![pach_logo](./img/pach_logo.png) You will notice two pipelines (inner_join and inner_join_build). We only created one.  This comes from the use of a [Python builder](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/#python-builder). The builder builds your own container (including your python file `./src/inner/main.py`) on top of a Docker *base image*. It is instrumental in development mode as it allows you to modify your code without having to build, tag, and push your image each time.
 
-   Or, if you prefer to use SSH, run:
+See the `transform.build.language` field in our pipeline's (inner_join.json) specifications :
+```shell
+    "transform": {
+        "build": { 
+        "language":"python",
+        "path": "./src/inner"
+        }
+    }
+```
+A more classic way, once 'production-ready,' would be to reference your [built Docker image](https://docs.pachyderm.com/latest/how-tos/developer-workflow/working-with-pipelines/#step-2-build-your-docker-image) as in the example below:
+```shell
+    "transform": {
+        "cmd": [ "python3", "/edges.py" ],
+        "image": "pachyderm/opencv"
+    }
+```
 
-   ```shell
-   git clone git@github.com:pachyderm/pachyderm.git
-   ```
-
-1. Go to the `pachyderm/examples/joins` directory.
-1. Create the dummy data by running:
-
-   ```shell
-   make setup
-   ```
-
-   This command reates the `readings/ID1234` and  `parameters` directories
-   with the structures described above.
-
-1. Go to [Step 2](#step-2-set-up-the-pachyderm-repositories).
-
-## Step 2 - Set up the Pachyderm Repositories
-
-You need to create the `readings` and `parameters` repositories
-in Pachyderm and upload the dummy data that you have generated
-in the previous step into those repositories.
-
-To set up the Pachyderm repositories, complete the following steps:
-
-1. Create the repositories:
-
-   ```shell
-   $ pachctl create repo readings
-   $ pachctl create repo parameters
-   ```
-
-1. Upload the test files to the `parameters` repository:
-
-    ```shell
-    $ pachctl put file -r parameters@master:/ -f parameters
-    ```
-
- 1. Verify that the files were uploaded:
-
-    ```shell
-    $ pachctl list file parameters@master
-    NAME       TYPE SIZE
-    /file1.txt file 9B
-    /file2.txt file 9B
-    /file3.txt file 9B
-    /file4.txt file 9B
-    /file5.txt file 9B
-    /file6.txt file 9B
-    ```
-
-1. From the `readings` directory, run the following command to upload
-   the test files to the `readings` repository:
-
-   ```shell
-   $ pachctl put file -r readings@master -f ID1234
-   ```
-
-1. Verify that the files were uploaded:
-
-   ```shell
-   $ pachctl list file readings@master:/ID1234
-   NAME              TYPE SIZE
-   /ID1234/file1.txt file 9B
-   /ID1234/file2.txt file 9B
-   /ID1234/file3.txt file 9B
-   /ID1234/file4.txt file 9B
-   /ID1234/file5.txt file 9B
-   /ID1234/file6.txt file 9B
-   ```
-
-## Step 3 - Run the Pipeline
-
-When your repositories are ready, create and run the pipeline
-from the [joins.json](joins.json) file by completing the following steps:
-
-1. From the `examples/joins/` directory, run:
-
-   ```shell
-   $ pachctl create pipeline -f joins.json
-   ```
-   The pipeline will be in state "running" when it's ready,
-   which you can check with the following command.
-
-   ```shell
-   $ pachctl list pipeline
-   NAME  VERSION INPUT                                       CREATED       STATE / LAST JOB   DESCRIPTION                                                                       
-   joins 1       (parameters:/(*).txt ⋈ readings:/*/(*).txt) 4 seconds ago running / starting A pipeline that combines files from two repositories that match a naming pattern. 
-   ```
-
-   In the example above, the joins pipeline runs in the `pipeline-joins-v1-xx264`
-   pod. When the `STATUS` of the pipeline changes to `Running`, it indicate that
-   the pipeline is working correctly.
-
-1. After Pachyderm pulls the correct container for your pipeline, it starts a job
-   for the newly created pipeline and processes the data. You can view the job
-   status by running the following command:
-
-   ```shell
-   $ pachctl list job
-   ID                               PIPELINE STARTED       DURATION           RESTART PROGRESS  DL   UL  STATE
-   7390b0c29ac247c893422a5c04565719 joins    2 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
-   ```
-
-   In the output above, you can see that Pachyderm processes six datums.
-   Pachyderm creates one datum for each matching file in each repository.
-
-1. Get the contents of the file to view the result:
-
-   ```shell
-   $ pachctl list file joins@master
-   NAME       TYPE SIZE
-   /file1.txt file 4B
-   /file2.txt file 4B
-   /file3.txt file 4B
-   /file4.txt file 4B
-   /file5.txt file 4B
-   /file6.txt file 4B
-   ```
-
-   The sample pipeline code we are running creates one output file for each
-   datum.
-
-1. Get the contents of the file to view the result:
-
-   ```
-   $ pachctl get file joins@master:/file1.txt
-   225
-   ```
+***Step 3*** - Let's have a look at our final product: Check the output repository of your pipeline.
+```shell
+$ pachctl list file inner_join@master
+```
+You should see our 2 expected text files. ![output_repository](./img/pachctl_list_file_inner_join_master.png)
+Now for a visual confirmation of their content:
+```shell
+$ pachctl get file inner_join@master:/02108.txt
+```
