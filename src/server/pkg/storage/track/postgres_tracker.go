@@ -143,7 +143,13 @@ func (t *postgresTracker) MarkTombstone(ctx context.Context, id string) error {
 }
 
 func (t *postgresTracker) FinishDelete(ctx context.Context, id string) error {
-	err := t.withTx(ctx, func(tx *sqlx.Tx) error {
+	if err := t.withTx(ctx, func(tx *sqlx.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM storage.tracker_refs WHERE from_id IN (
+			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
+		)
+		`, id); err != nil {
+			return err
+		}
 		var tombstone bool
 		if err := tx.GetContext(ctx, &tombstone,
 			`DELETE FROM storage.tracker_objects
@@ -155,16 +161,12 @@ func (t *postgresTracker) FinishDelete(ctx context.Context, id string) error {
 		if !tombstone {
 			return ErrNotTombstone
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM storage.tracker_refs WHERE from_id IN (
-			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
-		)
-		`, id); err != nil {
-			return err
+		return nil
+	}); err != nil {
+		if err == sql.ErrNoRows {
+			return nil
 		}
-		return nil
-	})
-	if err == sql.ErrNoRows {
-		return nil
+		return err
 	}
 	return nil
 }

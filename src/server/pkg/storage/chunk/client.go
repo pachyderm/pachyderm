@@ -131,7 +131,7 @@ func (d *deleter) Delete(ctx context.Context, id string) error {
 	if !strings.HasPrefix(id, prefix+"/") {
 		return errors.Errorf("cannot delete (%s)", id)
 	}
-	chunkID, err := IDFromHex(id[len(prefix):])
+	chunkID, err := IDFromHex(id[len(TrackerPrefix):])
 	if err != nil {
 		return err
 	}
