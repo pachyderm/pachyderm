@@ -8,7 +8,6 @@ echo "=== TEST FAILED OR TIMED OUT, DUMPING DEBUG INFO ==="
 # probably show why things are hanging.
 
 cmds=(
-  'kubectl get all --all-namespaces'
   'kubectl version'
   'kubectl get all --all-namespaces'
   'kubectl describe pod -l suite=pachyderm,app=pachd'
