@@ -14,8 +14,8 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export CLIENT_ADDITIONAL_VERSION="github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)"
-export LD_FLAGS="-X $(CLIENT_ADDITIONAL_VERSION)"
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME ?= pachyderm
@@ -43,7 +43,7 @@ endif
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	go install -ldflags "-X $(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -150,6 +150,10 @@ check-kubectl:
 		echo "error: kubectl not found"; \
 		exit 1; \
 	}
+	@if [[ $(shell kubectl config current-context) == *gke_pachub* ]]; then \
+		echo "ERROR: The active kubectl context is pointing to a pachub GKE cluster"; \
+		exit 1; \
+	fi
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
