@@ -13,9 +13,10 @@ pachctl delete repo <repo> [flags]
 ### Options
 
 ```
-      --all     remove all repos
-  -f, --force   remove the repo regardless of errors; use with care
-  -h, --help    help for repo
+      --all         remove all repos
+  -f, --force       remove the repo regardless of errors; use with care
+  -h, --help        help for repo
+      --split-txn   split large transactions into multiple smaller transactions
 ```
 
 ### Options inherited from parent commands

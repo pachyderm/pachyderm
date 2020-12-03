@@ -17,6 +17,7 @@ pachctl delete pipeline (<pipeline>|--all) [flags]
   -f, --force       delete the pipeline regardless of errors; use with care
   -h, --help        help for pipeline
       --keep-repo   delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)
+      --split-txn   split large transactions into multiple smaller transactions
 ```
 
 ### Options inherited from parent commands
