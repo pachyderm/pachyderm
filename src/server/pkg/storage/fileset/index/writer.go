@@ -46,7 +46,7 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 	}
 }
 
-// WriteIndex writes a set of index entries.
+// WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -73,9 +73,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
 	}
 	if idx.File != nil {
-		for _, part := range idx.File.Parts {
-			refDataRefs = append(refDataRefs, part.DataRefs...)
-		}
+		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
 	}
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{

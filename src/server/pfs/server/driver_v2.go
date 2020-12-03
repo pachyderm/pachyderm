@@ -83,7 +83,7 @@ func newDriverV2(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcd
 func newDB() (db *sqlx.DB, retErr error) {
 	defer func() {
 		if db != nil {
-			db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
+			//db.MustExec(`DROP SCHEMA IF EXISTS storage CASCADE`)
 			fileset.SetupPostgresStore(db)
 			chunk.SetupPostgresStore(db)
 			track.SetupPostgresTracker(db)
@@ -132,34 +132,59 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 	commitPath := commitKey(commit)
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
-		if err := backoff.Retry(func() error {
-			if err := d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Diff)); err != nil {
+		exists := func(p string) (bool, error) {
+			var exists bool
+			if err := d.storage.Store().Walk(m.Ctx(), p, func(_ string) error {
+				exists = true
+				return nil
+			}); err != nil {
+				return false, err
+			}
+			return exists, nil
+		}
+		diffExists, err := exists(path.Join(commitPath, fileset.Diff))
+		if err != nil {
+			return err
+		}
+		if !diffExists {
+			// Compact the commit changes into a diff file set.
+			if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 				return err
 			}
-			return d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Compacted))
-		}, backoff.NewExponentialBackOff()); err != nil {
-			return err
 		}
-		// Compact the commit changes into a diff file set.
-		if _, err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
-			return err
-		}
-		// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
-		var compactSpec *fileset.CompactSpec
-		if commitInfo.ParentCommit == nil {
-			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
-		} else {
-			parentCommitPath := commitKey(commitInfo.ParentCommit)
-			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
-		}
+		compactedExists, err := exists(path.Join(commitPath, fileset.Compacted))
 		if err != nil {
 			return err
 		}
-		compactRes, err := d.compact(m, compactSpec.Output, compactSpec.Input)
-		if err != nil {
+		if !compactedExists {
+			// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
+			var compactSpec *fileset.CompactSpec
+			if commitInfo.ParentCommit == nil {
+				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
+			} else {
+				parentCommitPath := commitKey(commitInfo.ParentCommit)
+				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
+			}
+			if err != nil {
+				return err
+			}
+			if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+				return err
+			}
+		}
+		// Collect the output size from the file set metadata.
+		var outputSize int64
+		if err := d.storage.Store().Walk(m.Ctx(), path.Join(commitPath, fileset.Compacted), func(p string) error {
+			md, err := d.storage.Store().Get(m.Ctx(), p)
+			if err != nil {
+				return err
+			}
+			outputSize += md.SizeBytes
+			return nil
+		}); err != nil {
 			return err
 		}
-		commitInfo.SizeBytes = uint64(compactRes.OutputSize)
+		commitInfo.SizeBytes = uint64(outputSize)
 		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
@@ -352,24 +377,22 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 	})
 }
 
-type compactStats struct {
-	OutputSize int64
-}
-
-func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) (*compactStats, error) {
+func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
 	inputPaths := []string{}
 	for _, inputPrefix := range inputPrefixes {
-		if err := d.storage.WalkFileSet(ctx, inputPrefix, func(inputPath string) error {
-			inputPaths = append(inputPaths, inputPath)
+		if err := d.storage.Store().Walk(ctx, inputPrefix, func(p string) error {
+			inputPaths = append(inputPaths, p)
 			return nil
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	var outputSize int64
-	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
+	if len(inputPaths) == 1 {
+		return d.storage.Copy(ctx, inputPaths[0], outputPath, 0)
+	}
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		res, err := d.compactIter(ctx, compactSpec{
 			master:     master,
 			inputPaths: inputPaths,
@@ -379,12 +402,8 @@ func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes
 			return err
 		}
 		renewer.Add(res.OutputPath)
-		outputSize = res.OutputSize
 		return d.storage.Copy(ctx, res.OutputPath, outputPath, 0)
-	}); err != nil {
-		return nil, err
-	}
-	return &compactStats{OutputSize: outputSize}, nil
+	})
 }
 
 type compactSpec struct {
@@ -395,7 +414,6 @@ type compactSpec struct {
 
 type compactResult struct {
 	OutputPath string
-	OutputSize int64
 }
 
 // compactIter is one level of compaction.  It will only perform compaction
@@ -404,24 +422,18 @@ func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (*compac
 	if len(params.inputPaths) <= params.maxFanIn {
 		return d.shardedCompact(ctx, params.master, params.inputPaths)
 	}
-	childSize := len(params.inputPaths) / params.maxFanIn
-	if len(params.inputPaths)%params.maxFanIn != 0 {
-		childSize++
+	childSize := params.maxFanIn
+	for len(params.inputPaths)/childSize > params.maxFanIn {
+		childSize *= params.maxFanIn
 	}
 	// TODO: use an errgroup to make the recursion concurrecnt.
 	// this requires changing the master to allow multiple calls to RunSubtasks
 	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
-	// TODO: change this such that the fan in is maxed at the lower levels first rather
-	// than the higher.
 	var res *compactResult
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var childOutputPaths []string
-		for i := 0; i < params.maxFanIn; i++ {
-			start := i * childSize
-			if start >= len(params.inputPaths) {
-				break
-			}
-			end := (i + 1) * childSize
+		for start := 0; start < len(params.inputPaths); start += childSize {
+			end := start + childSize
 			if end > len(params.inputPaths) {
 				end = len(params.inputPaths)
 			}
@@ -477,6 +489,14 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 	}); err != nil {
 		return nil, err
 	}
+	if len(subtasks) == 1 {
+		if err := d.compactShard(ctx, subtasks[0]); err != nil {
+			return nil, err
+		}
+		return &compactResult{
+			OutputPath: shardOutputs[0],
+		}, nil
+	}
 	var res *compactResult
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
@@ -505,11 +525,7 @@ func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, inpu
 // TODO: move this to the fileset package, and error if the entries are not sorted.
 func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*compactResult, error) {
 	outputPath := path.Join(tmpRepo, uuid.NewWithoutDashes())
-	var size int64
-	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithIndexCallback(func(idx *index.Index) error {
-		size += idx.SizeBytes
-		return nil
-	}), fileset.WithTTL(defaultTTL))
+	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
 		fs, err := d.storage.Open(ctx, []string{inputPath})
 		if err != nil {
@@ -522,7 +538,7 @@ func (d *driverV2) concatFileSets(ctx context.Context, inputPaths []string) (*co
 	if err := fsw.Close(); err != nil {
 		return nil, err
 	}
-	return &compactResult{OutputPath: outputPath, OutputSize: size}, nil
+	return &compactResult{OutputPath: outputPath}, nil
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -549,19 +565,7 @@ func (d *driverV2) compactionWorker() {
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
 	err := backoff.RetryNotify(func() error {
 		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
-			shard, err := deserializeShard(subtask.Data)
-			if err != nil {
-				return err
-			}
-			pathRange := &index.PathRange{
-				Lower: shard.Range.Lower,
-				Upper: shard.Range.Upper,
-			}
-			_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
-			if err != nil {
-				panic(err)
-			}
-			return err
+			return d.compactShard(ctx, subtask)
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
@@ -569,6 +573,19 @@ func (d *driverV2) compactionWorker() {
 	})
 	// Never ending backoff should prevent us from getting here.
 	panic(err)
+}
+
+func (d *driverV2) compactShard(ctx context.Context, subtask *work.Task) error {
+	shard, err := deserializeShard(subtask.Data)
+	if err != nil {
+		return err
+	}
+	pathRange := &index.PathRange{
+		Lower: shard.Range.Lower,
+		Upper: shard.Range.Upper,
+	}
+	_, err = d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, defaultTTL, index.WithRange(pathRange))
+	return err
 }
 
 func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) (retErr error) {
@@ -804,7 +821,7 @@ func (d *driverV2) clearCommitV2(pachClient *client.APIClient, commit *pfs.Commi
 
 func (d *driverV2) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
 	ctx := txnCtx.ClientContext
-	if err := d.storage.WalkFileSet(ctx, repo.Name, func(p string) error {
+	if err := d.storage.Store().Walk(ctx, repo.Name, func(p string) error {
 		return d.storage.Delete(ctx, p)
 	}); err != nil {
 		return err
@@ -1109,17 +1126,25 @@ func (d *driverV2) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *p
 	return nil
 }
 
+// TODO: We shouldn't be operating on a gRPC server in the driver.
 func (d *driverV2) createTmpFileSet(server pfs.API_CreateTmpFileSetServer) (string, error) {
 	ctx := server.Context()
 	var id string
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var err error
 		id, err = d.withTmpUnorderedWriter(ctx, renewer, true, func(uw *fileset.UnorderedWriter) error {
-			req := &pfs.PutTarRequestV2{
-				Tag: "",
+			for {
+				req, err := server.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return err
+				}
+				if _, err := putTar(uw, server, req.Operation.(*pfs.FileOperationRequestV2_PutTar).PutTar); err != nil {
+					return err
+				}
 			}
-			_, err := putTar(uw, server, req)
-			return err
 		})
 		return err
 	}); err != nil {

@@ -111,7 +111,7 @@ func SetupPostgresStore(db *sqlx.DB) {
 const schema = `
 	CREATE SCHEMA IF NOT EXISTS storage;
 
-	CREATE TABLE storage.chunks (
+	CREATE TABLE IF NOT EXISTS storage.chunks (
 		hash_id BYTEA NOT NULL UNIQUE,
 		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

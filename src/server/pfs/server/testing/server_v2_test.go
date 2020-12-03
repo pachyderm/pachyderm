@@ -767,8 +767,6 @@ func TestWalkFileV2(t *testing.T) {
 }
 
 func TestCompaction(t *testing.T) {
-	// TODO: remove
-	t.Skip()
 	config := newPachdConfig()
 	config.StorageCompactionMaxFanIn = 10
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
@@ -1031,11 +1029,20 @@ func TestPutFileOverwriteV2(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err := env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("foo"), 0)
 		require.NoError(t, err)
-		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
-		require.NoError(t, err)
 		var buf bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "foo", buf.String())
+		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
+		require.NoError(t, err)
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
 		require.Equal(t, "bar", buf.String())
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, "master", []string{"file"}))
+		_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz"))
+		require.NoError(t, err)
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "buzz", buf.String())
 		return nil
 	}, newPachdConfig()))
 }

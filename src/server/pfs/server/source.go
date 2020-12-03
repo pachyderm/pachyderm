@@ -137,7 +137,7 @@ func computeRegularFileInfo(idx *index.Index) *pfs.FileInfo {
 	}
 	return &pfs.FileInfo{
 		FileType:  pfs.FileType_FILE,
-		SizeBytes: uint64(idx.SizeBytes),
+		SizeBytes: uint64(index.SizeBytes(idx)),
 		Hash:      h.Sum(nil),
 	}
 }

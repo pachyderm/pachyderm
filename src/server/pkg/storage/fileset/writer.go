@@ -17,8 +17,9 @@ import (
 // for a size zero file, then either not store references to them or ignore them at read time.
 
 type FileWriter struct {
-	idx *index.Index
+	w   *Writer
 	cw  *chunk.Writer
+	idx *index.Index
 }
 
 func (fw *FileWriter) Append(tag string) {
@@ -29,7 +30,7 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 	parts := fw.idx.File.Parts
 	part := parts[len(parts)-1]
 	part.SizeBytes += int64(len(data))
-	fw.idx.SizeBytes += int64(len(data))
+	fw.w.sizeBytes += int64(len(data))
 	return fw.cw.Write(data)
 }
 
@@ -40,6 +41,7 @@ type Writer struct {
 	store              Store
 	path               string
 	additive, deletive *index.Writer
+	sizeBytes          int64
 	cw                 *chunk.Writer
 	idx                *index.Index
 	lastIdx            *index.Index
@@ -87,8 +89,9 @@ func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) 
 		return nil, err
 	}
 	return &FileWriter{
-		idx: idx,
+		w:   w,
 		cw:  cw,
+		idx: idx,
 	}, nil
 }
 
@@ -134,7 +137,6 @@ func (w *Writer) Copy(file File) error {
 		File: &index.File{
 			Parts: idx.File.Parts,
 		},
-		SizeBytes: idx.SizeBytes,
 	}
 	if err := w.nextIdx(copyIdx); err != nil {
 		return err
@@ -142,6 +144,7 @@ func (w *Writer) Copy(file File) error {
 	// Copy the file data refs if they are resolved.
 	if idx.File.DataRefs != nil {
 		for _, dataRef := range idx.File.DataRefs {
+			w.sizeBytes += dataRef.SizeBytes
 			if err := w.cw.Copy(dataRef); err != nil {
 				return err
 			}
@@ -151,6 +154,7 @@ func (w *Writer) Copy(file File) error {
 	// Copy the file part data refs otherwise.
 	for _, part := range idx.File.Parts {
 		for _, dataRef := range part.DataRefs {
+			w.sizeBytes += dataRef.SizeBytes
 			if err := w.cw.Copy(dataRef); err != nil {
 				return err
 			}
@@ -216,19 +220,14 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	var pointsTo []string
-	for _, cid := range index.PointsTo(additiveIdx) {
-		pointsTo = append(pointsTo, chunk.ObjectID(cid))
-	}
-	for _, cid := range index.PointsTo(deletiveIdx) {
-		pointsTo = append(pointsTo, chunk.ObjectID(cid))
-	}
-	if err := w.tracker.CreateObject(w.ctx, filesetObjectID(w.path), pointsTo, w.ttl); err != nil {
+	// TODO: This should be one transaction.
+	if err := createTrackerObject(w.ctx, w.path, []*index.Index{additiveIdx, deletiveIdx}, w.tracker, w.ttl); err != nil {
 		return err
 	}
 	return w.store.Set(w.ctx, w.path, &Metadata{
-		Path:     w.path,
-		Additive: additiveIdx,
-		Deletive: deletiveIdx,
+		Path:      w.path,
+		Additive:  additiveIdx,
+		Deletive:  deletiveIdx,
+		SizeBytes: w.sizeBytes,
 	})
 }

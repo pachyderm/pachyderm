@@ -3,9 +3,12 @@ package fileset
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 var (
@@ -26,7 +29,6 @@ type Store interface {
 	Walk(ctx context.Context, prefix string, cb func(string) error) error
 }
 
-// StoreTestSuite runs tests to ensure Stores returned from newStore correctly implement Store.
 func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 	ctx := context.Background()
 	t.Run("SetGet", func(t *testing.T) {
@@ -46,11 +48,28 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 		_, err := x.Get(ctx, "test")
 		require.Equal(t, ErrPathNotExists, err)
 	})
+	t.Run("Walk", func(t *testing.T) {
+		x := newStore(t)
+		md := &Metadata{}
+		ps := []string{"test/1", "test/2", "test/3"}
+		for _, p := range ps {
+			require.NoError(t, x.Set(ctx, p, md))
+		}
+		require.NoError(t, x.Walk(ctx, "test", func(p string) error {
+			require.Equal(t, ps[0], p)
+			ps = ps[1:]
+			return nil
+		}))
+		require.Equal(t, 0, len(ps))
+	})
 }
 
-func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string) error {
+func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string, tracker track.Tracker, ttl time.Duration) error {
 	md, err := src.Get(ctx, srcPath)
 	if err != nil {
+		return err
+	}
+	if err := createTrackerObject(ctx, dstPath, []*index.Index{md.Additive, md.Deletive}, tracker, ttl); err != nil {
 		return err
 	}
 	return dst.Set(ctx, dstPath, md)

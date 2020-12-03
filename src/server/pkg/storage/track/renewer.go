@@ -10,6 +10,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+const TmpTrackerPrefix = "tmp/"
+
+type tmpDeleter struct{}
+
+func NewTmpDeleter() Deleter {
+	return &tmpDeleter{}
+}
+
+func (_ *tmpDeleter) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
 // Renewer renews a add-only set of objects
 type Renewer struct {
 	id      string
@@ -24,7 +36,7 @@ type Renewer struct {
 // NewRenewer returns a renewer renewing objects in tracker with ttl
 func NewRenewer(tracker Tracker, name string, ttl time.Duration) *Renewer {
 	r := &Renewer{
-		id:      "tmp-" + name + "-" + uuid.NewWithoutDashes(),
+		id:      TmpTrackerPrefix + name + "-" + uuid.NewWithoutDashes(),
 		tracker: tracker,
 		ttl:     ttl,
 	}

@@ -9,4 +9,5 @@ message Metadata {
   string path = 1;
   index.Index additive = 2;
   index.Index deletive = 3;
+  int64 size_bytes = 4;
 }
