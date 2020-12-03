@@ -73,6 +73,7 @@ func SizeBytes(idx *Index) int64 {
 	return size
 }
 
+// TODO: Change this such that it returns a new index with the updated fields, rather than updating in place.
 func resolveParts(idx *Index) {
 	if idx.File.DataRefs == nil {
 		return
