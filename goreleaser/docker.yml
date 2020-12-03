@@ -47,6 +47,7 @@ dockers:
       - go.mod
       - go.sum
       - src
+      - web
   -
     image_templates:
       - pachyderm/pachd
