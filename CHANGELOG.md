@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.8
+- Fixes a bug that prevented deletion directory under certain conditions (#5466)
+- Fixes a bug that prevented debug dump command when Auth is enabled (#5473)
+- Fixes a bug that failed objects uploads when single grpc message is greater than 20M (#5477)
+- Fixes a bug that causes a connection failure when DNS is not configured properly (#5479)
+- Added an option `--split-txn` to pachctl delete pipeline` or `pachctl delete repo` commands for deployments with a very large number of commits and job history (#5482)
+
 ## 1.11.7
 - Changes to fix Jaeger tracing functionality (#5331)
 - Reverted a change that accidentally made storage credentials required in custom deployment when upgrading to 1.11.6 (#5421)
