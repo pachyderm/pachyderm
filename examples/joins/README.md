@@ -70,45 +70,36 @@ Think of it that way:
     └── ODERW080520_STOREID1.txt
     └── ...
 ```
-## 3. Example 1 - An Inner-Join pipeline creation 
-***Goal***
-List all purchases by zip code.
-1. **Pipeline input repositories**: `stores` and `purchases` - Inner join by STOREID.
-2. **Pipeline**: Executes a python code reading the `zipcode` in the matching STOREIDx.txt file and appending the matched purchase file's content to a text file named after the zip code.
-3. **Pipeline output repository**: `inner_join`- list of text files named after the stores' zip codes in which purchases have been made and containing the list of said purchases. 
-
-In the diagram below, we have mapped out the data of our example. We will expect the 2 following files in the output repository of our `inner_join` pipeline: 
-```shell
-    └── 02108.txt
-    └── 90210.txt
-```
-Each should contain 3 purchases.
-![inner_join](./img/inner_join.png)
+## 3. Data preparation
+Let's first create our mock dataset and create/populate our repositories.
+This preparatory step will allow you to use the inner and outer join examples in any order.
 
 ***Step 1*** - Prepare your data
-The setup target of the `Makefile` in `pachyderm/examples/joins` will create 3 directories (stores, purchases, and returns) and populate them with adequate data.
+The setup target of the `Makefile` in `pachyderm/examples/joins` will create 3 directories (stores, purchases, and returns) with our example data.
 In the `examples/joins` directory, run:
 ```shell
 $ make setup
 ```
-
-***Step 2*** - Create Pachyderm's repositories and pipeline, inject your data into your new repositories, and trigger the pipeline's job.
+***Step 2*** - Create and populate Pachyderm's repositories.
 In the `examples/joins` directory, run:
 ```shell
-$ make inner_join
+$ make create
 ```
 or run:
 ```shell
 $ pachctl create repo stores
 $ pachctl create repo purchases
-$ pachctl create pipeline -f inner_join.json
+$ pachctl create repo returns
 $ pachctl put file -r stores@master:/ -f stores
 $ pachctl put file -r purchases@master:/ -f purchases
+$ pachctl put file -r returns@master:/ -f returns
 ```
+
 Have a quick look at your repositories: 
 ```shell
 $ pachctl list file stores@master
 $ pachctl list file purchases@master
+$ pachctl list file returns@master
 ```
 You should see the following files:
 - Stores:
@@ -119,15 +110,48 @@ You should see the following files:
 
 ![purchases_repository](./img/pachctl_list_file_purchases_master.png)
 
+- Returns:
 
-Now a quick check at your pipeline status:
+![returns_repository](./img/pachctl_list_file_returns_master.png)
+
+## 4. Example 1 - An Inner-Join pipeline creation 
+***Goal***
+List all purchases by zip code. 
+>![pach_logo](./img/pach_logo.svg) Remember that we will only see the zip code of the stores where purchases actually happened. That is what inner joins do.
+
+1. **Pipeline input repositories**: `stores` and `purchases` - Inner join by STOREID.
+2. **Pipeline**: Executes a python code reading the `zipcode` in the matching STOREIDx.txt file and appending the matched purchase file's content to a text file named after the zip code.
+3. **Pipeline output repository**: `inner_join`- list of text files named after the stores' zip codes in which purchases have been made and containing the list of said purchases. 
+
+In the diagram below, we have mapped out the data of our example. We will expect the 2 following files in the output repository of our `inner_join` pipeline: 
+```shell
+    └── 02108.txt
+    └── 90210.txt
+```
+Each should contain 3 purchases.
+
+![inner_join](./img/inner_join.png)
+
+***Step 3*** Now let's create your pipeline. 
+Because unprocessed data are awaiting in your entry repositories, the pipeline creation will automatically trigger a job.
+In the `examples/joins` directory, run:
+```shell
+$ make inner-join
+```
+or simply run:
+```shell
+$ pachctl create pipeline -f inner_join.json
+```
+
+Now a quick check at your pipeline's status:
 ```shell
 $ pachctl list pipeline
 ```
-It should have run successfully by now.
+Once it has run successfully, you should see something like this:
+
 ![output_repository](./img/pachctl_list_pipeline.png)
 
->![pach_logo](./img/pach_logo.svg) You will notice two pipelines (inner_join and inner_join_build). We only created one.  This comes from the use of a [Python builder](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/#python-builder). The builder builds your own container (including your python file `./src/inner/main.py`) on top of a Docker *base image*. It is instrumental in development mode as it allows you to modify your code without having to build, tag, and push your image each time.
+>![pach_logo](./img/pach_logo.svg) You will notice two pipelines (inner_join and inner_join_build). We only created one.  This comes from the use of a [Python builder](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/#python-builder). The builder builds your own container (including your python file `./src/inner/main.py`) on top of a Docker *base image*. It is instrumental in development mode as it allows you to modify your code without having to build, tag, and push your image to your registry each time.
 
 See the `transform.build.language` field in our pipeline's (inner_join.json) specifications :
 ```shell
@@ -146,7 +170,7 @@ A more classic way, once 'production-ready,' would be to reference your [built D
     }
 ```
 
-***Step 3*** - Let's have a look at our final product: Check the output repository of your pipeline.
+***Step 4*** - Let's have a look at our final product: Check the output repository of your pipeline.
 ```shell
 $ pachctl list file inner_join@master
 ```
@@ -158,3 +182,47 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
+
+## 5. Example 2 - Outer-Join pipeline creation 
+***Goal***
+Well, it depends on what you want to achieve here... We will either get:
+- the zip of **all stores** (listed in our repo or not) **where at least one return was made**
+- all **zip of stores listed** in our repo, **with or without returns**
+- the zip of **all stores** listed or unlisted in our repo, **with or without returns**
+
+The end result will vary depending on where we will focus the outer join. Although the behaviour might slightly differ from the SQL because, again, we are working at the file path level, think about a left outer, right outer, and full outer.
+
+1. **Pipeline input repositories**: `stores` and `returns` - Outer join by STOREID: 3 scenarios
+2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. 
+3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. What list will be produced depends on where the outer join's focus was put on. We will get into the detail of each case to help you figure out the best scenario for you.
+
+In the diagram below, we have mapped out the data of our example and the expected match in each of the 3 cases. 
+>![pach_logo](./img/pach_logo.png) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknow zipcode. This should help highlight how outer join's matches are broader that inner joins. In real life, see this as one of your products being returned to a store that does not belong to your geographic unit... Again, this is an over simplified/over stretched example.
+
+![outer_join](./img/outer_join.png)
+
+***Step 5*** Let's create your new pipeline.
+In the `examples/joins` directory, run:
+```shell
+$ make outer-join
+```
+or simply run:
+```shell
+$ pachctl create pipeline -f outer_join.json
+```
+Then check your pipeline's status:
+```shell
+$ pachctl list pipeline
+```
+Once it has fully and successfully run, have a look at your output repository to confirm that it looks like what we expect.
+```shell
+$ pachctl list file outer_join@master
+```
+Now for a visual confirmation of the content of one specific file:
+```shell
+$ pachctl get file outer_join@master:/02108.txt
+```
+The following table lists the expected result in each scenario:
+
+![outer_join_digest](./img/outer_join_digest.png)
+
