@@ -1,14 +1,17 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
-- Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
-- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. 
+- Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the files, in your joined repositories, that match a specific naming pattern  (i.e., ***match your glob pattern/capture groups***). In Pachyderm's terms, inner joins will only create a datum (see Key concepts below) if there is a match in all join repos.
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short and Pachyderm's terms, outer joins specify that the input repo with `"outer_join": true` set will still see a datum even if it does not have a match.
+
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
 ## 1. Getting ready
 ***Key concepts***
-- [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern.
+- [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your joined repo.
 - [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - your RegExp-like search pattern. Works in pair with Join.
+
+You might also want to brush up you [datum]((https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/)) knowledge. 
 
 ***Pre-requisite***
 - A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
@@ -39,7 +42,7 @@ Let's have a look at our data structure and naming convention.
     └── STOREID3.txt
     └──  ...
 ```
-We will ultimately want to list purchases by `zipcode.` Let's have a look at the content of one of those STOREIDx.txt files.
+We will ultimately want to list purchases by `zipcode.` This is what the content of one of those STOREIDx.txt files looks like.
 ```shell
     {
         "storeid":"4",
@@ -51,7 +54,7 @@ We will ultimately want to list purchases by `zipcode.` Let's have a look at the
     }
 ```
 
->![pach_logo](./img/pach_logo.svg) If you did not need the location info(zip) in the content of the Store file, and, say, just wanted to list purchases by STOREID, a [group](#Add the link to group) would be best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
+>![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) would have been best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
 
 * `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
@@ -179,6 +182,7 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). 
 
 ## 5. Example 2 - Outer-Join pipeline creation 
 ***Goal***
