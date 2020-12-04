@@ -132,7 +132,8 @@ Each should contain 3 purchases.
 
 ![inner_join](./img/inner_join.png)
 
-***Step 3*** Now let's create your pipeline. 
+***Step 3*** - Now let's create your pipeline. 
+
 Because unprocessed data are awaiting in your entry repositories, the pipeline creation will automatically trigger a job.
 In the `examples/joins` directory, run:
 ```shell
@@ -190,18 +191,19 @@ Well, it depends on what you want to achieve here... We will either get:
 - all **zip of stores listed** in our repo, **with or without returns**
 - the zip of **all stores** listed or unlisted in our repo, **with or without returns**
 
-The end result will vary depending on where we will focus the outer join. Although the behaviour might slightly differ from the SQL because, again, we are working at the file path level, think about a left outer, right outer, and full outer.
+The end result will vary depending on where we will focus the outer join. Although the behaviour might slightly differ from SQL because, again, we are working at the file path level, think about a left outer, right outer, and full outer.
 
 1. **Pipeline input repositories**: `stores` and `returns` - Outer join by STOREID: 3 scenarios
 2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. 
 3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. What list will be produced depends on where the outer join's focus was put on. We will get into the detail of each case to help you figure out the best scenario for you.
 
 In the diagram below, we have mapped out the data of our example and the expected match in each of the 3 cases. 
->![pach_logo](./img/pach_logo.png) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknow zipcode. This should help highlight how outer join's matches are broader that inner joins. In real life, see this as one of your products being returned to a store that does not belong to your geographic unit... Again, this is an over simplified/over stretched example.
+>![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknow zipcode. This should help highlight how outer join's matches are broader that inner joins. In real life, see this as one of your products being returned to a store that does not belong to your geographic unit... Again, this is an over simplified/over stretched example.
 
 ![outer_join](./img/outer_join.png)
 
-***Step 5*** Let's create your new pipeline.
+***Step 5*** - Let's create your new pipeline.
+
 In the `examples/joins` directory, run:
 ```shell
 $ make outer-join
