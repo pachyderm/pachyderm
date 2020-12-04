@@ -9,7 +9,8 @@
           "pfs": {
             "repo": "labresults",
             "branch": "master",
-            "glob": "/*-CLIA(*).txt"
+            "glob": "/*-CLIA(*).txt",
+            "group_by": "$1"
           }
       }
     ]
