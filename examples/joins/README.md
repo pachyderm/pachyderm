@@ -3,7 +3,7 @@
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines run your code **only** on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
 - Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. 
 
->![pach_logo](./img/pach_logo.png) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
+>![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
 ## 1. Getting ready
 ***Key concepts***
@@ -51,7 +51,7 @@ We will ultimately want to list purchases by `zipcode.` Let's have a look at the
     }
 ```
 
->![pach_logo](./img/pach_logo.png) If you did not need the location info(zip) in the content of the Store file, and, say, just wanted to list purchases by STOREID, a [group](#Add the link to group) would be best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
+>![pach_logo](./img/pach_logo.svg) If you did not need the location info(zip) in the content of the Store file, and, say, just wanted to list purchases by STOREID, a [group](#Add the link to group) would be best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
 
 Think of it that way: 
 - Do you need to access the content of the matched files? -> you probably need to use the *Join* option
@@ -127,7 +127,7 @@ $ pachctl list pipeline
 It should have run successfully by now.
 ![output_repository](./img/pachctl_list_pipeline.png)
 
->![pach_logo](./img/pach_logo.png) You will notice two pipelines (inner_join and inner_join_build). We only created one.  This comes from the use of a [Python builder](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/#python-builder). The builder builds your own container (including your python file `./src/inner/main.py`) on top of a Docker *base image*. It is instrumental in development mode as it allows you to modify your code without having to build, tag, and push your image each time.
+>![pach_logo](./img/pach_logo.svg) You will notice two pipelines (inner_join and inner_join_build). We only created one.  This comes from the use of a [Python builder](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/#python-builder). The builder builds your own container (including your python file `./src/inner/main.py`) on top of a Docker *base image*. It is instrumental in development mode as it allows you to modify your code without having to build, tag, and push your image each time.
 
 See the `transform.build.language` field in our pipeline's (inner_join.json) specifications :
 ```shell
