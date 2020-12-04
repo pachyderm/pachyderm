@@ -34,23 +34,19 @@ setup:
 	printf "ORDER_HEADER|W261452|2020-10-10\nSKU|0246|QTY|1|UNIT_PRICE|50.00\n" \
 	 >./returns/ORDERW261452_STOREID0.txt
 
-inner_join:
+create:
 	pachctl create repo stores
 	pachctl create repo purchases
-	pachctl put file -r stores@master:/ -f stores
-	pachctl list file stores@master
-	pachctl put file -r purchases@master:/ -f purchases
-	pachctl list file purchases@master	
-	pachctl create pipeline -f inner_join.json
-
-clean:
-	pachctl delete all
-
-outer_join:
-	pachctl create repo stores
 	pachctl create repo returns
 	pachctl put file -r stores@master:/ -f stores
 	pachctl list file stores@master
+	pachctl put file -r purchases@master:/ -f purchases
+	pachctl list file purchases@master
 	pachctl put file -r returns@master:/ -f returns
-	pachctl list file returns@master
+	pachctl list file returns@master	
+
+inner-join:
+	pachctl create pipeline -f inner_join.json
+
+outer-join:
 	pachctl create pipeline -f outer_join.json
