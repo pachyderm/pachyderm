@@ -224,7 +224,7 @@ Now for a visual confirmation of the content of one specific file:
 ```shell
 $ pachctl get file outer_join@master:/02108.txt
 ```
-The following table lists the expected result in each scenario:
+The following table lists the expected result for each scenario:
 
 ![outer_join_digest](./img/outer_join_digest.png)
 
