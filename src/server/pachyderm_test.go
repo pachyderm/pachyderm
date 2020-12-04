@@ -5961,9 +5961,7 @@ func TestGroupInput(t *testing.T) {
 		require.Equal(t, expected, actual)
 	})
 	t.Run("Symlink", func(t *testing.T) {
-		// Note (Adele): while this test passes, I haven't been able to get it to reproduce the symlink bug that
-		// occurs when doing this https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
-
+		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
 		repo := tu.UniqueString("TestGroupInputSymlink")
 		require.NoError(t, c.CreateRepo(repo))
 
@@ -6008,6 +6006,8 @@ func TestGroupInput(t *testing.T) {
 		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
+
+		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
 
 		expected := [][]string{
 			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
