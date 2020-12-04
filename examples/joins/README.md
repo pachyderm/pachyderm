@@ -1,6 +1,6 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
-- Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines run your code **only** on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
+- Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the pairs of files that match a specific naming pattern (i.e., ***match your glob pattern/capture groups***). 
 - Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
@@ -67,7 +67,7 @@ Think of it that way:
 * `returns` - Same naming convention as purchases.
 ```shell
     └── ORDERW080528_STOREID5.txt
-    └──  ODERW080520_STOREID1.txt
+    └── ODERW080520_STOREID1.txt
     └── ...
 ```
 ## 3. Example 1 - An Inner-Join pipeline creation 

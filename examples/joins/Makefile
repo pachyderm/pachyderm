@@ -43,8 +43,14 @@ inner_join:
 	pachctl list file purchases@master	
 	pachctl create pipeline -f inner_join.json
 
+clean:
+	pachctl delete all
+
 outer_join:
+	pachctl create repo stores
 	pachctl create repo returns
+	pachctl put file -r stores@master:/ -f stores
+	pachctl list file stores@master
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master
 	pachctl create pipeline -f outer_join.json
