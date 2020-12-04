@@ -1,7 +1,7 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the files, in your joined repositories, that match a specific naming pattern  (i.e., ***match your glob pattern/capture groups***). In Pachyderm's terms, inner joins will only create a datum (see Key concepts below) if there is a match in all join repos.
-- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short and Pachyderm's terms, outer joins specify that the input repo with `"outer_join": true` set will still see a datum even if it does not have a match.
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that the input repo with `"outer_join": true` set will still see a datum even if it does not have a match.
 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
@@ -11,7 +11,7 @@
 - [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your joined repo.
 - [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - your RegExp-like search pattern. Works in pair with Join.
 
-You might also want to brush up you [datum]((https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/)) knowledge. 
+You might also want to brush up on your[datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/)) knowledge. 
 
 ***Pre-requisite***
 - A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
@@ -182,7 +182,8 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to agregate by location. 
+
 
 ## 5. Example 2 - Outer-Join pipeline creation 
 ***Goal***
