@@ -270,6 +270,11 @@ test-transaction:
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)
 
+test-object-clients:
+	# The parallelism is lowered here because these tests run several pachd
+	# deployments in kubernetes which may contest resources.
+	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
+
 test-libs:
 	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off

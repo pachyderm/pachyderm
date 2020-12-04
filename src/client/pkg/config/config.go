@@ -78,7 +78,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
-		} else if os.IsNotExist(err) {
+		} else if errors.Is(err, os.ErrNotExist) {
 			// File doesn't exist, so create a new config
 			log.Debugf("No config detected at %q. Generating new config...", p)
 			value = &Config{}
