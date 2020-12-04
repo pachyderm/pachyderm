@@ -53,10 +53,6 @@ We will ultimately want to list purchases by `zipcode.` Let's have a look at the
 
 >![pach_logo](./img/pach_logo.svg) If you did not need the location info(zip) in the content of the Store file, and, say, just wanted to list purchases by STOREID, a [group](#Add the link to group) would be best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
 
-Think of it that way: 
-- Do you need to access the content of the matched files? -> you probably need to use the *Join* option
-- No access to  - A fine naming convention is enough? -> *Group* 
-
 * `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
     └── ORDERW080520_STOREID1.txt
