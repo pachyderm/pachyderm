@@ -16,7 +16,7 @@
     {
       "label": "launch-dev",
       "type": "shell",
-      "command": "eval $(minikube docker-env --shell bash); make launch-dev",
+      "command": "eval $(minikube docker-env --shell bash); LAUNCH_DEV_ARGS='--cluster-deployment-id=dev' make launch-dev",
       "problemMatcher": []
     },
     {
