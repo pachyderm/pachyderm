@@ -150,7 +150,7 @@ check-kubectl:
 		echo "error: kubectl not found"; \
 		exit 1; \
 	}
-	@if [[ $(shell kubectl config current-context) == *gke_pachub* ]]; then \
+	@if expr match $(shell kubectl config current-context) gke_pachub > /dev/null; then \
 		echo "ERROR: The active kubectl context is pointing to a pachub GKE cluster"; \
 		exit 1; \
 	fi
