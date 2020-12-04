@@ -72,7 +72,7 @@ Think of it that way:
 ```
 ## 3. Data preparation
 Let's first create our mock dataset and create/populate our repositories.
-This preparatory step will allow you to use the inner and outer join examples in any order.
+This preparatory step will allow you to experiment with the inner and outer join examples in any order.
 
 ***Step 1*** - Prepare your data
 The setup target of the `Makefile` in `pachyderm/examples/joins` will create 3 directories (stores, purchases, and returns) with our example data.
