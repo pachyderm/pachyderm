@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -189,7 +190,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
-func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName string, input *pps.Input, job bool) error {
+func (a *apiServer) validateInputInTransaction(txnCtx *txnenv.TransactionContext, pipelineName string, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
@@ -211,7 +212,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("inputs based on repos named \"out\" must have " +
 						"'name' set, as pachyderm already creates /pfs/out to collect " +
 						"job output")
-				case input.Pfs.Branch == "" && !job:
+				case input.Pfs.Branch == "":
 					return errors.Errorf("input must specify a branch")
 				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return errors.Errorf("input must specify a glob")
@@ -228,18 +229,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"'empty_files', as 's3' requires input data to be accessed via " +
 						"Pachyderm's S3 gateway rather than the file system")
 				}
-				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
-				// the job pipeline's input branches has no commits yet
-				if job && input.Pfs.Commit != "" {
-					// for jobs we check that the input commit exists
-					if _, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Commit); err != nil {
-						return err
-					}
-				} else {
-					// for pipelines we only check that the repo exists
-					if _, err := pachClient.InspectRepo(input.Pfs.Repo); err != nil {
-						return err
-					}
+				if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+					Repo: client.NewRepo(input.Pfs.Repo)}); err != nil {
+					return err
 				}
 			}
 			if input.Cross != nil {
@@ -1822,7 +1814,7 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
 	}
@@ -1843,7 +1835,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return errors.Wrapf(err, "invalid transform")
 	}
-	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
+	if err := a.validateInputInTransaction(txnCtx, pipelineInfo.Pipeline.Name, pipelineInfo.Input); err != nil {
 		return err
 	}
 	if pipelineInfo.ParallelismSpec != nil {
@@ -2048,8 +2040,12 @@ func (a *apiServer) sudoTransaction(txnCtx *txnenv.TransactionContext, f func(*t
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline.
-func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, branchSuffix string) (result *pfs.Commit, retErr error) {
-	branchName := pipelineInfo.Pipeline.Name + branchSuffix
+func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (result *pfs.Commit, retErr error) {
+	return a.makePipelineInfoCommitOnBranch(pachClient, pipelineInfo, pipelineInfo.Pipeline.Name)
+}
+
+// makePipelineInfoCommitOnBranch
+func (a *apiServer) makePipelineInfoCommitOnBranch(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, branchName string) (result *pfs.Commit, retErr error) {
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		data, err := pipelineInfo.Marshal()
@@ -2243,21 +2239,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		_, err := txn.CreatePipeline(request, nil)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit *pfs.Commit) (specCommit *pfs.Commit, retErr error) {
-	// Validate request
-	if err := a.validatePipelineRequest(request); err != nil {
-		return nil, err
-	}
-
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
@@ -2266,10 +2247,26 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 	}()
 	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
-	// Propagate auth info & initialize context+clients
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
-	pfsClient := pachClient.PfsAPIClient
+	var specCommit *pfs.Commit
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreatePipeline(request, &specCommit)
+	}); err != nil {
+		// attempt to clean up any commit we created
+		if specCommit != nil {
+			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
+				return superClient.DeleteCommit(ppsconsts.SpecRepo, specCommit.ID)
+			})
+		}
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit **pfs.Commit) error {
+	// Validate request
+	if err := a.validatePipelineRequest(request); err != nil {
+		return err
+	}
 
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
@@ -2308,11 +2305,11 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		Metadata:              request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
-		return nil, err
+		return err
 	}
 	// Validate final PipelineInfo (now that defaults have been populated)
-	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
-		return nil, err
+	if err := a.validatePipelineInTransaction(txnCtx, pipelineInfo); err != nil {
+		return err
 	}
 
 	var visitErr error
@@ -2337,7 +2334,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		}
 	})
 	if visitErr != nil {
-		return nil, visitErr
+		return visitErr
 	}
 
 	// Authorize pipeline creation
@@ -2345,15 +2342,15 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 	if request.Update {
 		operation = pipelineOpUpdate
 	}
-	if err := a.authorizePipelineOp(pachClient, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
-		return nil, err
+	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+		return err
 	}
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
 	update := false
 	if request.Update {
 		// inspect the pipeline to see if this is a real update
-		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err == nil {
+		if _, err := a.inspectPipelineInTransaction(txnCtx, request.Pipeline.Name); err == nil {
 			update = true
 		}
 	}
@@ -2372,25 +2369,94 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 	// Get the expected number of workers for this pipeline
 	parallelism, err := getExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	createOrValidateSpecCommit := func() (*pfs.Commit, error) {
+		pipelineName := pipelineInfo.Pipeline.Name
+		var specCommit *pfs.Commit
+		if prevSpecCommit != nil {
+			specCommit = *prevSpecCommit
+		}
+		if specCommit != nil {
+			if !update {
+				// for new pipelines, we'll check for newness when the pipeline collection entry is created
+				return specCommit, nil
+			}
+			// make sure the pipeline branch hasn't changed outside of the transaction
+			// since the spec commit was created
+			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
+				commitInfo, err := superClient.InspectCommit(ppsconsts.SpecRepo, pipelineName)
+				if err != nil {
+					return err
+				}
+				for _, child := range commitInfo.ChildCommits {
+					if child.ID == specCommit.ID {
+						return nil
+					}
+				}
+
+				// something has changed, try to delete this commit and make a new one
+				superClient.DeleteCommit(ppsconsts.SpecRepo, specCommit.ID)
+				specCommit = nil
+				if prevSpecCommit != nil {
+					*prevSpecCommit = nil
+				}
+				return nil
+			}); err != nil {
+				return specCommit, err
+			}
+		}
+
+		if specCommit == nil {
+			// make a commit branching off of master on a new, throwaway branch
+			tempBranch := testutil.UniqueString(pipelineName + "_")
+			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
+				// strip transaction so that commits happen for real
+				superClient = superClient.WithoutTransaction()
+				var err error
+				if update {
+					_, err = superClient.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineName)
+				} else {
+					_, err = superClient.StartCommit(ppsconsts.SpecRepo, tempBranch)
+				}
+				if err != nil {
+					return err
+				}
+				specCommit, err = a.makePipelineInfoCommitOnBranch(superClient, pipelineInfo, tempBranch)
+				if err != nil {
+					return err
+				}
+				err = superClient.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
+				if err != nil {
+					specCommit = nil // don't use the open commit
+					return err
+				}
+				// don't bother failing on error here, we won't be able to clean it up later, either
+				_ = superClient.DeleteBranch(ppsconsts.SpecRepo, tempBranch, false)
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+		}
+
+		if prevSpecCommit != nil {
+			// overwrite with current commit pointer
+			*prevSpecCommit = specCommit
+		}
+		return specCommit, nil
 	}
 
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
-		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
-			return nil, err
+		if ci, err := txnCtx.Client.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
+			return err
 		} else if ci.Finished == nil {
-			return nil, errors.Errorf("the HEAD commit of this pipeline's spec branch " +
+			return errors.Errorf("the HEAD commit of this pipeline's spec branch " +
 				"is open. Either another CreatePipeline call is running or a previous " +
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
-		}
-
-		// Remove provenance from existing output branch, so that creating a new
-		// spec commit doesn't create an output commit in the old output branch.
-		if err := a.hardStopPipeline(pachClient, pipelineInfo); err != nil {
-			return nil, err
 		}
 
 		// Look up existing pipelineInfo and update it, writing updated
@@ -2409,7 +2475,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			// modifying the spec repo depends on being able to access the previous
 			// commit. We therefore use `GetPipelineInfo` which will error if the
 			// spec commit isn't working.
-			oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+			oldPipelineInfo, err = ppsutil.GetPipelineInfo(txnCtx.Client, pipelineName, &pipelinePtr)
 			if err != nil {
 				return err
 			}
@@ -2429,23 +2495,13 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			if !request.Reprocess {
 				pipelineInfo.Salt = oldPipelineInfo.Salt
 			}
-			// Must create spec commit before restoring output branch provenance, so
-			// that no commits are created with a mismatched spec commit
-			if prevSpecCommit == nil {
-				// put the pipeline info file into the spec repo if we haven't already
-				tempBranch := pipelineInfo.Pipeline.Name + uuid.NewWithoutDashes()
-				// make an explicit commit (not in the transaction) so we can control the parent
-				txnCtx.Client.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineInfo.Pipeline.Name)
-				specCommit, err = a.makePipelineInfoCommit(txnCtx.Client, pipelineInfo, tempBranch)
-				txnCtx.Client.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
-				// delete branch here? or should we worry about garbage collection
-				txnCtx.Pfs().DeleteBranchInTransaction(txnCtx, &pfs.DeleteBranchRequest{Branch: client.NewBranch(ppsconsts.SpecRepo, tempBranch)}) // need to save temp branch, too
-			} else {
-				specCommit = prevSpecCommit
+			specCommit, err := createOrValidateSpecCommit()
+			if err != nil {
+				return err
 			}
 
 			// move the spec branch for this pipeline to the new commit
-			err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 				Head:   specCommit,
 				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
 			})
@@ -2459,11 +2515,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			// Update pipeline parallelism
 			pipelinePtr.Parallelism = uint64(parallelism)
 
-			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
-			// repos
-			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
 				oldAuthToken := pipelinePtr.AuthToken
-				tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
+				tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
 					Subject: auth.PipelinePrefix + request.Pipeline.Name,
 					TTL:     -1,
 				})
@@ -2477,7 +2532,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 				// If getting a new auth token worked, we should revoke the old one
 				if oldAuthToken != "" {
-					_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+					_, err := superCtx.Auth().RevokeAuthTokenInTransaction(superCtx,
 						&auth.RevokeAuthTokenRequest{
 							Token: oldAuthToken,
 						})
@@ -2494,48 +2549,48 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}
 			return nil
 		}); err != nil {
-			return nil, err
+			return err
 		}
 
 		if !request.Reprocess {
 			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
-			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
+			_, err := txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: outputBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
 			}
 
-			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: statsBranch})
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
 			}
 
-			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: markerBranch})
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: markerBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, oldPipelineInfo); err != nil {
-				return nil, err
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, oldPipelineInfo); err != nil {
+				return err
 			}
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+		if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
 			}); err != nil && !isAlreadyExistsErr(err) {
-			return nil, err
+			return err
 		}
 
 		// Must create spec commit before restoring output branch provenance, so
@@ -2544,9 +2599,9 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		if request.SpecCommit != nil {
 			// if we're restoring from an extracted pipeline, don't change any other logic
 			// Make sure that the spec commit actually exists
-			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{Commit: request.SpecCommit})
+			commitInfo, err := txnCtx.Client.PfsAPIClient.InspectCommit(txnCtx.ClientContext, &pfs.InspectCommitRequest{Commit: request.SpecCommit})
 			if err != nil {
-				return nil, errors.Wrap(err, "error inspecting spec commit")
+				return errors.Wrap(err, "error inspecting spec commit")
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
@@ -2554,23 +2609,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
 			statsBranchHead = client.NewCommit(pipelineName, "stats")
 		} else {
-			if prevSpecCommit == nil {
-				// put the pipeline info file into the spec repo if we haven't already
-				tempBranch := pipelineInfo.Pipeline.Name + uuid.NewWithoutDashes()
-				// make an explicit commit (not in the transaction) so we can control the parent
-				txnCtx.Client.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineInfo.Pipeline.Name)
-				specCommit, err = a.makePipelineInfoCommit(txnCtx.Client, pipelineInfo, tempBranch)
-				txnCtx.Client.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
-				// delete branch here? or should we worry about garbage collection
-				txnCtx.Pfs().DeleteBranchInTransaction(txnCtx, &pfs.DeleteBranchRequest{Branch: client.NewBranch(ppsconsts.SpecRepo, tempBranch)}) // need to save temp branch, too
-			} else {
-				specCommit = prevSpecCommit
+			if commit, err = createOrValidateSpecCommit(); err != nil {
+				return err
 			}
-
-			commit = specCommit
 			// move the spec branch for this pipeline to the new commit
-			err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Head:   specCommit,
+			txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Head:   commit,
 				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
 			})
 		}
@@ -2585,8 +2629,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-			tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
+		if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+			tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
 				Subject: auth.PipelinePrefix + request.Pipeline.Name,
 				TTL:     -1,
 			})
@@ -2599,27 +2643,29 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			pipelinePtr.AuthToken = tokenResp.Token
 			return nil
 		}); err != nil {
-			return nil, err
+			return err
+		}
+		// Put a pointer to the new PipelineInfo commit into etcd
+		err := a.pipelines.ReadWrite(txnCtx.Stm).Create(pipelineName, pipelinePtr)
+		if isAlreadyExistsErr(err) {
+			// make sure we don't retain this commit, whether or not the delete succeeds
+			if prevSpecCommit != nil {
+				*prevSpecCommit = nil
+			}
+			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
+				return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
+			}); err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
+			}
+
+			return newErrPipelineExists(pipelineName)
+		} else if err != nil {
+			return err
 		}
 
-		// Put a pointer to the new PipelineInfo commit into etcd
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			err := a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
-			if isAlreadyExistsErr(err) {
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
-				}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
-				}
-				return newErrPipelineExists(pipelineName)
-			}
-			return err
-		}); err != nil {
-			return nil, err
-		}
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, nil); err != nil {
-				return nil, err
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, nil); err != nil {
+				return err
 			}
 		}
 	}
@@ -2631,32 +2677,32 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 		Branch:     outputBranch,
 		Provenance: provenance,
 		Head:       outputBranchHead,
 	}); err != nil {
-		return nil, errors.Wrapf(err, "could not create/update output branch")
+		return errors.Wrapf(err, "could not create/update output branch")
 	}
 	if pipelineInfo.EnableStats {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
 		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update stats branch")
+			return errors.Wrapf(err, "could not create/update stats branch")
 		}
 	}
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch: markerBranch,
 			Head:   markerBranchHead,
 		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update marker branch")
+			return errors.Wrapf(err, "could not create/update marker branch")
 		}
 	}
 
-	return &types.Empty{}, nil
+	return nil
 }
 
 // setPipelineDefaults sets the default values for a pipeline info

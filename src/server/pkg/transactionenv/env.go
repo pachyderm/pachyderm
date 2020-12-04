@@ -36,7 +36,7 @@ type PfsWrites interface {
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest, *pfs.Commit) (*pfs.Commit, error)
+	CreatePipeline(*pps.CreatePipelineRequest, **pfs.Commit) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -140,6 +140,7 @@ type PfsTransactionServer interface {
 	DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
+	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
 }
 
@@ -147,7 +148,7 @@ type PfsTransactionServer interface {
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
-	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, *pfs.Commit) (*pfs.Commit, error)
+	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -255,7 +256,7 @@ func (t *directTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLRe
 	return t.txnCtx.txnEnv.authServer.SetACLInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit *pfs.Commit) (*pfs.Commit, error) {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
 }
@@ -317,7 +318,7 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return err
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **pfs.Commit) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return err
 }

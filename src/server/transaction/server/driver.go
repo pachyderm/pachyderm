@@ -228,7 +228,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 				}
 			}
 			if err == nil {
-				commit, err = directTxn.CreatePipeline(request.CreatePipeline, commit)
+				err = directTxn.CreatePipeline(request.CreatePipeline, &commit)
 				response = client.NewCommitResponse(commit)
 			}
 		} else {

@@ -35,6 +35,30 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	return c.WithCtx(ctx)
 }
 
+// WithoutTransaction returns a new APIClient which will run all future operations
+// outside of any active transaction
+// Removing from both incoming and ougoing metadata is necessary because Ctx() merges them
+func (c APIClient) WithoutTransaction() *APIClient {
+	ctx := c.Ctx()
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	newIn := make(metadata.MD)
+	newOut := make(metadata.MD)
+	for k, v := range incomingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newIn[k] = v
+	}
+	for k, v := range outgoingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newOut[k] = v
+	}
+	return c.WithCtx(metadata.NewIncomingContext(metadata.NewOutgoingContext(ctx, newOut), newIn))
+}
+
 // GetTransaction (should be run from the server-side) loads the active
 // transaction from the grpc metadata and returns the associated transaction
 // object - or `nil` if no transaction is set.
