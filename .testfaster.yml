@@ -127,4 +127,4 @@ runtime:
 
 prewarm_pool_size: 12
 max_pool_size: 24
-default_lease_timeout: never
+default_lease_timeout: ""
