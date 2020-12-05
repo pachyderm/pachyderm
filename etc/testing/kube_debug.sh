@@ -6,6 +6,19 @@ echo "=== TEST FAILED OR TIMED OUT, DUMPING DEBUG INFO ==="
 # probably show why things are hanging.
 
 cmds=(
+  'pachctl version'
+  'pachctl list repo'
+  'pachctl list repo --raw \
+    | jq -r ".repo.name" \
+    | while read r; do
+        echo "---";
+        pachctl inspect repo "${r}";
+        echo "Commits:";
+        pachctl list commit "${r}";
+        echo;
+      done'
+  'pachctl list pipeline'
+  'pachctl list job'
   'kubectl version'
   'kubectl get all --all-namespaces'
   'kubectl describe pod -l suite=pachyderm,app=pachd'
