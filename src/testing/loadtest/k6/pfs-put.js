@@ -1,5 +1,5 @@
-import { startCommit, finishCommit, deleteRepo } from "./lib/pfs.js";
 import { client, connect, grpcOK } from "./lib/grpc.js";
+import { startCommit, finishCommit, deleteRepo } from "./lib/pfs.js";
 
 export function setup() {
     return startCommit();

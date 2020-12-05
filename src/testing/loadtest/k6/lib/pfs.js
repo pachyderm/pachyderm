@@ -1,5 +1,3 @@
-import grpc from "k6/net/grpc";
-import { Counter } from "k6/metrics";
 import { client, connect, grpcOK } from "./grpc.js";
 
 export function startCommit() {
