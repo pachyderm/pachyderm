@@ -3,14 +3,15 @@ import { check } from "k6";
 
 const GOPATH = __ENV.GOPATH ? __ENV.GOPATH : __ENV.HOME + "/go";
 
-const client = new grpc.Client();
+export const client = new grpc.Client();
 client.load(["../../..", GOPATH + "/src/github.com/gogo/protobuf"], "client/pfs/pfs.proto");
 
-export function getClient() {
-    client.connect("localhost:30650", {
-        plaintext: true,
-    });
-    return client;
+export function connect() {
+    if (__ITER == 0) {
+        client.connect("localhost:30650", {
+            plaintext: true,
+        });
+    }
 }
 
 export function grpcOK(op, response) {

@@ -1,9 +1,9 @@
 import grpc from "k6/net/grpc";
 import { Counter } from "k6/metrics";
-import { getClient, grpcOK } from "./grpc.js";
+import { client, connect, grpcOK } from "./grpc.js";
 
 export function startCommit() {
-    const client = getClient();
+    connect();
     const repo = {
         name: "load-test-repo-" + Math.ceil(100000 * Math.random()),
     };
@@ -28,7 +28,7 @@ export function startCommit() {
 }
 
 export function finishCommit(data) {
-    const client = getClient();
+    connect();
     const finish = client.invoke("pfs.API/FinishCommit", {
         commit: data.commit,
     });
@@ -37,7 +37,7 @@ export function finishCommit(data) {
 }
 
 export function deleteRepo(data) {
-    const client = getClient();
+    connect();
     const del = client.invoke("pfs.API/DeleteRepo", {
         repo: data.repo,
     });

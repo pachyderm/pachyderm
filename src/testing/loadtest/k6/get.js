@@ -1,9 +1,9 @@
 import { startCommit, finishCommit, deleteRepo } from "./lib/pfs.js";
-import { getClient, grpcOK } from "./lib/grpc.js";
+import { client, connect, grpcOK } from "./lib/grpc.js";
 
 export function setup() {
     const data = startCommit();
-    const client = getClient();
+    connect();
     const put = client.invoke("pfs.API/PutFile", {
         file: {
             commit: data.commit,
@@ -22,7 +22,7 @@ export function teardown(data) {
 }
 
 export default (data) => {
-    const client = getClient();
+    connect();
     const read = client.invoke("pfs.API/GetFile", {
         file: {
             commit: data.commit,
