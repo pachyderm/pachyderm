@@ -1,4 +1,4 @@
-FROM golang:1.12.1
+FROM golang:1.15.4
 RUN mkdir /app 
 ADD . /app/ 
 WORKDIR /app
