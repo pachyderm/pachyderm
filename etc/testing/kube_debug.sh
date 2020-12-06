@@ -5,18 +5,18 @@ echo "=== TEST FAILED OR TIMED OUT, DUMPING DEBUG INFO ==="
 # TODO: Extend this to show kubectl describe output for failed pods, this will
 # probably show why things are hanging.
 
+# SC2016 blocks variables in single-quoted strings, but these are 'eval'ed below
+# shellcheck disable=SC2016
 cmds=(
   'pachctl version'
   'pachctl list repo'
-  'pachctl list repo --raw \
-    | jq -r ".repo.name" \
-    | while read r; do
-        echo "---";
-        pachctl inspect repo "${r}";
-        echo "Commits:";
-        pachctl list commit "${r}";
-        echo;
-      done'
+  'pachctl list repo --raw | jq -r ".repo.name" | while read r; do
+     echo "---";
+     pachctl inspect repo "${r}";
+     echo "Commits:";
+     pachctl list commit "${r}";
+     echo;
+   done'
   'pachctl list pipeline'
   'pachctl list job'
   'kubectl version'
