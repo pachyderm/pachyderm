@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -29,14 +30,20 @@ type State struct {
 	n      int
 	prev   *State
 	change Func
+	name   string
 }
 
-func (s State) Apply(fn Func) State {
+func (s State) Apply(name string, fn Func) State {
 	return State{
 		prev:   &s,
 		change: fn,
 		n:      s.n + 1,
+		name:   strings.ToLower(name),
 	}
+}
+
+func (s State) Name() string {
+	return s.name
 }
 
 func (s State) Number() int {
@@ -45,13 +52,15 @@ func (s State) Number() int {
 
 func InitialState() State {
 	return State{
+		name: "init",
 		change: func(ctx context.Context, env Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS migrations (
 				id BIGINT PRIMARY KEY,
+				NAME VARCHAR(250) NOT NULL,
 				start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				end_time TIMESTAMP
 			);
-			INSERT INTO migrations (id, start_time, end_time) VALUES (0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
+			INSERT INTO migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
 			`)
 			return err
 		},
@@ -80,17 +89,17 @@ func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State)
 		if err != nil {
 			return err
 		}
-		if finished, err := isFinished(ctx, tx, state.n); err != nil {
+		if finished, err := isFinished(ctx, tx, state); err != nil {
 			return err
 		} else if finished {
 			// skip migration
 			logrus.Infof("migration %d already applied", state.n)
 			return nil
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, start_time) VALUES ($1, CURRENT_TIMESTAMP)`, state.n); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
 			return err
 		}
-		logrus.Infof("applying migration %d", state.n)
+		logrus.Infof("applying migration %d %s", state.n, state.name)
 		if err := state.change(ctx, env); err != nil {
 			return err
 		}
@@ -144,14 +153,20 @@ func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 	}
 }
 
-func isFinished(ctx context.Context, tx *sqlx.Tx, n int) (bool, error) {
-	var count int
-	if err := tx.GetContext(ctx, &count, `
-	SELECT count(id)
+func isFinished(ctx context.Context, tx *sqlx.Tx, state State) (bool, error) {
+	var name string
+	if err := tx.GetContext(ctx, &name, `
+	SELECT name
 	FROM migrations
-	WHERE id = $1 AND end_time IS NOT NULL
-	`, n); err != nil {
+	WHERE id = $1
+	`, state.n); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
 		return false, err
 	}
-	return count > 0, nil
+	if name != state.name {
+		return false, errors.Errorf("migration mismatch %d HAVE: %s WANT: %s", state.n, name, state.name)
+	}
+	return true, nil
 }

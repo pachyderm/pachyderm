@@ -9,19 +9,16 @@ import (
 )
 
 var desiredClusterState migrations.State = migrations.InitialState().
-	Apply(func(ctx context.Context, env migrations.Env) error {
+	Apply("create storage schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA storage`)
 		return err
 	}).
-	Apply(func(ctx context.Context, env migrations.Env) error {
-		if err := track.SetupPostgresTrackerV0(ctx, env.Tx); err != nil {
-			return err
-		}
-		if err := chunk.SetupPostgresStoreV0(ctx, "storage.chunks", env.Tx); err != nil {
-			return err
-		}
-		if err := fileset.SetupPostgresStoreV0(ctx, env.Tx); err != nil {
-			return err
-		}
-		return nil
+	Apply("storage tracker v0", func(ctx context.Context, env migrations.Env) error {
+		return track.SetupPostgresTrackerV0(ctx, env.Tx)
+	}).
+	Apply("storage chunk store v0", func(ctx context.Context, env migrations.Env) error {
+		return chunk.SetupPostgresStoreV0(ctx, "storage.chunks", env.Tx)
+	}).
+	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
+		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
 	})

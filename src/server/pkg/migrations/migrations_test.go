@@ -15,15 +15,15 @@ import (
 func TestMigration(t *testing.T) {
 	db := dbutil.NewTestDB(t)
 	state := InitialState().
-		Apply(func(ctx context.Context, env Env) error {
+		Apply("test 1", func(ctx context.Context, env Env) error {
 			// NoOp
 			return nil
 		}).
-		Apply(func(ctx context.Context, env Env) error {
+		Apply("test 2", func(ctx context.Context, env Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table1 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
 			return err
 		}).
-		Apply(func(ctx context.Context, env Env) error {
+		Apply("test 3", func(ctx context.Context, env Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table2 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
 			return err
 		})
