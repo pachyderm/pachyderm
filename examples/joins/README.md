@@ -219,6 +219,7 @@ The following table lists the expected result for this scenario:
 >![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Try experimenting with having your outer join set only on one repo at a time. We have drawn diagrams to help you visualize what is happening in each of those two scenarios. 
 
 - Case 1: Outer set on Stores only
+
 In this case, you will consider all **zip of stores listed** in our repo, **with or without returns**
 
 ![outer_join_on_stores](./img/outer_join_on_stores.png)
@@ -228,6 +229,7 @@ Your end result should look like this.
 ![outer_join_on_stores_digest](./img/outer_join_on_stores_digest.png)
 
 - Case 2: Outer set on Returns only
+
 In this case, you will consider the zip of **all stores** (listed in our repo or not) **where at least one return was made**.
 
 ![outer_join_on_stores](./img/outer_join_on_returns.png)
