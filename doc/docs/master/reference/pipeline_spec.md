@@ -743,7 +743,7 @@ you want to join with other data.
 
 #### Group Input
 
-A group input lets you group files that are stored in separate
+A group input lets you group files that are stored in one or multiple
 Pachyderm repositories by a configured glob
 pattern. A group input must have the `glob` and `group_by` parameters configured
 to work properly. A group can combine multiple inputs, as long as all the base inputs are PFS inputs.
