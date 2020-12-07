@@ -5,6 +5,8 @@ import (
 	"crypto/sha512"
 	"database/sql"
 	"encoding/hex"
+	fmt "fmt"
+	"regexp"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -104,17 +106,20 @@ func (s *postgresStore) Delete(ctx context.Context, chunkID ID) error {
 }
 
 // SetupPostgresStoreV0 sets up tables in db
-func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
-	_, err := tx.ExecContext(ctx, schema)
-	return err
-}
-
-const schema = `
-	CREATE SCHEMA IF NOT EXISTS storage;
-
-	CREATE TABLE IF NOT EXISTS storage.chunks (
+func SetupPostgresStoreV0(ctx context.Context, tableName string, tx *sqlx.Tx) error {
+	ok, err := regexp.MatchString("[A-z_]+", tableName)
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("invalid table name: " + tableName)
+	}
+	query := fmt.Sprintf(`
+	CREATE TABLE %s (
 		hash_id BYTEA NOT NULL UNIQUE,
 		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);	
-`
+	);`, tableName)
+	_, err = tx.ExecContext(ctx, query)
+	return err
+}

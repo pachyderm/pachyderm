@@ -23,7 +23,8 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...Storage
 func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
 	ctx := context.Background()
 	tx := db.MustBegin()
-	SetupPostgresStoreV0(ctx, tx)
+	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS STORAGE`)
+	SetupPostgresStoreV0(ctx, "storage.chunks", tx)
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }

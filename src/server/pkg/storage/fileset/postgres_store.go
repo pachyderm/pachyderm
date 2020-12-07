@@ -90,8 +90,6 @@ func (s *postgresStore) Delete(ctx context.Context, p string) error {
 }
 
 const schema = `
-	CREATE SCHEMA IF NOT EXISTS storage;
-
 	CREATE TABLE IF NOT EXISTS storage.filesets (
 		path VARCHAR(250) PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
@@ -109,6 +107,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 func NewTestStore(t testing.TB, db *sqlx.DB) Store {
 	ctx := context.Background()
 	tx := db.MustBegin()
+	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	SetupPostgresStoreV0(ctx, tx)
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
