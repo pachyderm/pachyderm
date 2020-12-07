@@ -45,8 +45,3 @@ create:
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master	
 
-inner-join:
-	pachctl create pipeline -f inner_join.json
-
-outer-join:
-	pachctl create pipeline -f outer_join.json
