@@ -19,67 +19,82 @@ const config = {
   module: {
     rules: [
       {
-        test: /\.(js|mjs|jsx|ts|tsx)$/,
-        include: [path.resolve(__dirname, 'src')],
-        loader: require.resolve('babel-loader'),
-        options: {
-          plugins: [
-            [
-              require.resolve('babel-plugin-named-asset-import'),
-              {
-                loaderMap: {
-                  svg: {
-                    ReactComponent:
-                      '@svgr/webpack?-svgo,+titleProp,+ref![path]',
-                  },
-                },
-              },
-            ],
-          ],
-          cacheDirectory: true,
-          cacheCompression: false,
-          compact: true,
-        },
-      },
-      {
-        test: /\.module\.css$/,
-        use: [
-          process.env.NODE_ENV === 'production'
-            ? {
-                loader: MiniCssExtractPlugin.loader,
-              }
-            : {
-                loader: require.resolve('style-loader'),
-              },
+        oneOf: [
           {
-            loader: require.resolve('css-loader'),
+            test: /\.(js|mjs|jsx|ts|tsx)$/,
+            include: [path.resolve(__dirname, 'src')],
+            loader: require.resolve('babel-loader'),
             options: {
-              importLoaders: 1,
-              modules: {
-                getLocalIdent: getCSSModuleLocalIdent,
-              },
-              sourceMap: true,
+              plugins: [
+                [
+                  require.resolve('babel-plugin-named-asset-import'),
+                  {
+                    loaderMap: {
+                      svg: {
+                        ReactComponent:
+                          '@svgr/webpack?-svgo,+titleProp,+ref![path]',
+                      },
+                    },
+                  },
+                ],
+              ],
+              cacheDirectory: true,
+              cacheCompression: false,
+              compact: true,
             },
           },
           {
-            loader: require.resolve('postcss-loader'),
-            options: {
-              ident: 'postcss',
-              plugins: () => [
-                require('postcss-flexbugs-fixes'),
-                require('postcss-preset-env')({
-                  autoprefixer: {
-                    flexbox: 'no-2009',
+            test: /\.module\.css$/,
+            use: [
+              process.env.NODE_ENV === 'production'
+                ? {
+                    loader: MiniCssExtractPlugin.loader,
+                  }
+                : {
+                    loader: require.resolve('style-loader'),
                   },
-                  stage: 3,
-                }),
-                postcssNormalize(),
-              ],
-              sourceMap: true,
+              {
+                loader: require.resolve('css-loader'),
+                options: {
+                  importLoaders: 1,
+                  modules: {
+                    getLocalIdent: getCSSModuleLocalIdent,
+                  },
+                  sourceMap: true,
+                },
+              },
+              {
+                loader: require.resolve('postcss-loader'),
+                options: {
+                  ident: 'postcss',
+                  plugins: () => [
+                    require('postcss-flexbugs-fixes'),
+                    require('postcss-preset-env')({
+                      autoprefixer: {
+                        flexbox: 'no-2009',
+                      },
+                      stage: 3,
+                    }),
+                    postcssNormalize(),
+                  ],
+                  sourceMap: true,
+                },
+              },
+            ],
+          },
+          {
+            loader: require.resolve('file-loader'),
+            include: [/\.svg$/],
+            options: {
+              outputPath(url, resourcePath) {
+                const temp = resourcePath.split('/');
+                return `${temp[temp.length - 2]}/${temp[temp.length - 1]}`;
+              },
             },
           },
         ],
       },
+      // Add all new loaders before the file-loader
     ],
   },
   resolve: {
