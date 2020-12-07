@@ -90,14 +90,14 @@ func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State)
 		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, start_time) VALUES ($1, CURRENT_TIMESTAMP)`, state.n); err != nil {
 			return err
 		}
-		logrus.Info("applying migration", state.n)
+		logrus.Infof("applying migration %d", state.n)
 		if err := state.change(ctx, env); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
 			return err
 		}
-		logrus.Info("successfully applied migration", state.n)
+		logrus.Infof("successfully applied migration %d", state.n)
 		return nil
 	}(); err != nil {
 		if err := tx.Rollback(); err != nil {
