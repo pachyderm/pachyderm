@@ -312,7 +312,7 @@ our OpenCV demo modified to only trigger when there is a MB of new images:
 }
 ```
 
-When you create this pipeline Pachyderm will also create a branch in the input
+When you create this pipeline, Pachyderm will also create a branch in the input
 repo that specifies the trigger and the pipeline will use that branch as its
 input. The name of the branch is auto-generated with the form
 `<pipeline-name>-trigger-n`. You can manually update the heads of these branches
