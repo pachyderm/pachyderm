@@ -10,15 +10,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+// TmpTrackerPrefix is the tracker prefix for temporary objects.
 const TmpTrackerPrefix = "tmp/"
 
 type tmpDeleter struct{}
 
+// NewTmpDeleter creates a new temporary deleter.
 func NewTmpDeleter() Deleter {
 	return &tmpDeleter{}
 }
 
-func (_ *tmpDeleter) Delete(_ context.Context, _ string) error {
+func (*tmpDeleter) Delete(_ context.Context, _ string) error {
 	return nil
 }
 

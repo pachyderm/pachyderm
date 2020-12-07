@@ -52,6 +52,7 @@ func PointsTo(idx *Index) []chunk.ID {
 	return ids
 }
 
+// SizeBytes computes the size of the indexed data in bytes.
 func SizeBytes(idx *Index) int64 {
 	var size int64
 	if idx == nil {

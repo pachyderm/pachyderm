@@ -22,6 +22,7 @@ var _ File = &FileReader{}
 type FileSet interface {
 	// Iterate iterates over the files in the file set.
 	Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error
+	// TODO: Implement IterateDeletes or pull deletion information out of the fileset API.
 }
 
 var _ FileSet = &MergeReader{}

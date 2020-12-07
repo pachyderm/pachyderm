@@ -74,6 +74,7 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	return tar.NewWriter(w).Close()
 }
 
+// Clean cleans a file path.
 func Clean(x string, isDir bool) string {
 	y := "/" + strings.Trim(x, "/")
 	if isDir && !IsDir(y) {
@@ -82,6 +83,7 @@ func Clean(x string, isDir bool) string {
 	return y
 }
 
+// IsClean checks if a file path is clean.
 func IsClean(x string, isDir bool) bool {
 	y := Clean(x, isDir)
 	return y == x

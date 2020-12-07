@@ -13,6 +13,7 @@ type dirInserter struct {
 	x FileSet
 }
 
+// NewDirInserter creates a file set that inserts directory entries.
 func NewDirInserter(x FileSet) FileSet {
 	return &dirInserter{x: x}
 }

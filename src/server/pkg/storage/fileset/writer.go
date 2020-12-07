@@ -16,12 +16,14 @@ import (
 // since no chunks will get created. The solution we have in mind is to write a small number of bytes
 // for a size zero file, then either not store references to them or ignore them at read time.
 
+// FileWriter provides functionality for writing a file.
 type FileWriter struct {
 	w   *Writer
 	cw  *chunk.Writer
 	idx *index.Index
 }
 
+// Append sets an append tag for the next set of bytes.
 func (fw *FileWriter) Append(tag string) {
 	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
 }
@@ -44,6 +46,7 @@ type Writer struct {
 	sizeBytes          int64
 	cw                 *chunk.Writer
 	idx                *index.Index
+	deletePath         string
 	lastIdx            *index.Index
 	noUpload           bool
 	indexFunc          func(*index.Index) error
@@ -96,29 +99,26 @@ func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) 
 }
 
 func (w *Writer) nextIdx(idx *index.Index) error {
-	if err := w.checkPath(idx.Path); err != nil {
-		return err
+	if w.idx != nil {
+		if err := w.checkPath(w.idx.Path, idx.Path); err != nil {
+			return err
+		}
 	}
+	w.idx = idx
 	return w.cw.Annotate(&chunk.Annotation{
 		Data: idx,
 	})
 }
 
-func (w *Writer) checkPath(p string) error {
-	if w.idx != nil {
-		if w.idx.Path == p {
-			return errors.Errorf("cannot write same path (%s) twice", p)
-		}
-		if w.idx.Path > p {
-			return errors.Errorf("cannot write path (%s) after (%s)", p, w.idx.Path)
-		}
-	}
-	return nil
-}
-
 // Delete creates a delete operation for a file.
 // TODO: Check path order.
 func (w *Writer) Delete(p string, tags ...string) error {
+	if w.deletePath != "" {
+		if err := w.checkPath(w.deletePath, p); err != nil {
+			return err
+		}
+	}
+	w.deletePath = p
 	idx := &index.Index{
 		Path: p,
 		File: &index.File{},
@@ -127,6 +127,16 @@ func (w *Writer) Delete(p string, tags ...string) error {
 		idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
 	}
 	return w.deletive.WriteIndex(idx)
+}
+
+func (w *Writer) checkPath(prev, p string) error {
+	if prev == p {
+		return errors.Errorf("cannot write same path (%s) twice", p)
+	}
+	if prev > p {
+		return errors.Errorf("cannot write path (%s) after (%s)", p, prev)
+	}
+	return nil
 }
 
 // Copy copies a file to the file set writer.

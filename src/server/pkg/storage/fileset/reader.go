@@ -74,6 +74,6 @@ func (fr *FileReader) Content(w io.Writer) error {
 
 type emptyReader struct{}
 
-func (_ *emptyReader) Iterate(_ context.Context, _ func(File) error, _ ...bool) error {
+func (*emptyReader) Iterate(_ context.Context, _ func(File) error, _ ...bool) error {
 	return nil
 }
