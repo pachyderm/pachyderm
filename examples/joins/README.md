@@ -27,7 +27,7 @@ COMPONENT           VERSION
 pachctl             1.12.0
 pachd               1.12.0
 ```
-
+Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 ## 2. Data structure and naming convention
 We have derived our examples from simplified retail use cases: 
 - Purchases and Returns are made in given Stores. 
@@ -52,17 +52,18 @@ The goal of this example is to build a list of all purchases by `zipcode.` This 
             "country":"US"
         }
     }
+```
 
 >![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) could have been used instead.  
 
-* `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
+* Repo: `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
     └── ORDERW080520_STOREID1.txt
     └── ORDERW080521_STOREID1.txt
     └── ORDERW078929_STOREID2.txt
     └── ...
 ```
-* `returns` - Same naming convention as purchases.
+* Repo: `returns` - Same naming convention as purchases.
 ```shell
     └── ORDERW080528_STOREID5.txt
     └── ODERW080520_STOREID1.txt
@@ -135,10 +136,6 @@ Each should contain 3 purchases.
 Because unprocessed data are awaiting in your entry repositories, the pipeline creation will automatically trigger a job.
 In the `examples/joins` directory, run:
 ```shell
-$ make inner-join
-```
-or simply run:
-```shell
 $ pachctl create pipeline -f inner_join.json
 ```
 
@@ -181,7 +178,7 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to agregate by location. 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 
 ## 5. Example 2 - Outer-Join pipeline creation 
@@ -205,10 +202,6 @@ In the diagram below, we have mapped out the data of our example and the expecte
 ***Step 5*** - Let's create your new pipeline.
 
 In the `examples/joins` directory, run:
-```shell
-$ make outer-join
-```
-or simply run:
 ```shell
 $ pachctl create pipeline -f outer_join.json
 ```
