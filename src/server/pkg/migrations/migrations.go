@@ -17,6 +17,12 @@ type Env struct {
 	Tx           *sqlx.Tx
 }
 
+func MakeEnv(objC obj.Client) Env {
+	return Env{
+		ObjectClient: objC,
+	}
+}
+
 type Func func(ctx context.Context, env Env) error
 
 type State struct {
