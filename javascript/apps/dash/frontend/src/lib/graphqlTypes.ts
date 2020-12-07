@@ -27,9 +27,41 @@ export type Hello = {
   message: Scalars['String'];
 };
 
+export type Input = {
+  __typename?: 'Input';
+  id: Scalars['ID'];
+  type: InputType;
+  joinedWith: Array<Scalars['String']>;
+  groupedWith: Array<Scalars['String']>;
+  crossedWith: Array<Scalars['String']>;
+  unionedWith: Array<Scalars['String']>;
+  pfsInput?: Maybe<PfsInput>;
+  cronInput?: Maybe<CronInput>;
+  gitInput?: Maybe<GitInput>;
+};
+
 export type InputPipeline = {
   __typename?: 'InputPipeline';
   id: Scalars['ID'];
+};
+
+export enum InputType {
+  Pfs = 'PFS',
+  Cron = 'CRON',
+  Git = 'GIT'
+}
+
+export type Job = {
+  __typename?: 'Job';
+  id: Scalars['ID'];
+  pipeline: Pipeline;
+  parentJobId?: Maybe<Scalars['String']>;
+  startedAt: Scalars['Int'];
+  finishedAt?: Maybe<Scalars['Int']>;
+  state: JobState;
+  reason?: Maybe<Scalars['String']>;
+  outputRepo: Repo;
+  input: Input;
 };
 
 export enum JobState {
@@ -70,28 +102,9 @@ export type Pipeline = {
   numOfJobsMerging: Scalars['Int'];
   numOfJobsEgressing: Scalars['Int'];
   lastJobState?: Maybe<JobState>;
-  inputs: Array<PipelineInput>;
+  inputs: Array<Input>;
   description?: Maybe<Scalars['String']>;
 };
-
-export type PipelineInput = {
-  __typename?: 'PipelineInput';
-  id: Scalars['ID'];
-  type: PipelineInputType;
-  joinedWith: Array<Scalars['String']>;
-  groupedWith: Array<Scalars['String']>;
-  crossedWith: Array<Scalars['String']>;
-  unionedWith: Array<Scalars['String']>;
-  pfsInput?: Maybe<PfsInput>;
-  cronInput?: Maybe<CronInput>;
-  gitInput?: Maybe<GitInput>;
-};
-
-export enum PipelineInputType {
-  Pfs = 'PFS',
-  Cron = 'CRON',
-  Git = 'GIT'
-}
 
 export enum PipelineState {
   Starting = 'STARTING',
@@ -108,6 +121,7 @@ export type Query = {
   hello: Hello;
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
+  jobs: Array<Job>;
 };
 
 export type Repo = {

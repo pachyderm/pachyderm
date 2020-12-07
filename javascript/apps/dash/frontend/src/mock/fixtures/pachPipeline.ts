@@ -1,11 +1,6 @@
-import {
-  JobState,
-  Pipeline,
-  PipelineInputType,
-  PipelineState,
-} from 'lib/graphqlTypes';
+import {JobState, Pipeline, PipelineState} from 'lib/graphqlTypes';
 
-import {pachRepos} from './pachRepo';
+import {pachInputs} from './pachInput';
 
 export type PachPipelineFixtures = {
   [pachId: string]: Pipeline[];
@@ -29,32 +24,7 @@ export const pachPipelines: PachPipelineFixtures = {
       numOfJobsMerging: 0,
       numOfJobsEgressing: 0,
       lastJobState: JobState.Success,
-      inputs: [
-        {
-          id: 'edges',
-          type: PipelineInputType.Pfs,
-          joinedWith: [],
-          groupedWith: [],
-          crossedWith: [],
-          unionedWith: [],
-          pfsInput: {
-            name: 'edges',
-            repo: pachRepos['tutorial'][1],
-          },
-        },
-        {
-          id: 'images',
-          type: PipelineInputType.Pfs,
-          joinedWith: [],
-          groupedWith: [],
-          crossedWith: [],
-          unionedWith: [],
-          pfsInput: {
-            name: 'images',
-            repo: pachRepos['tutorial'][2],
-          },
-        },
-      ],
+      inputs: [pachInputs.tutorial[0], pachInputs.tutorial[1]],
       description: 'Creates a montage of images.',
     },
     {
@@ -73,20 +43,7 @@ export const pachPipelines: PachPipelineFixtures = {
       numOfJobsMerging: 0,
       numOfJobsEgressing: 0,
       lastJobState: JobState.Success,
-      inputs: [
-        {
-          id: 'images',
-          type: PipelineInputType.Pfs,
-          joinedWith: [],
-          groupedWith: [],
-          crossedWith: [],
-          unionedWith: [],
-          pfsInput: {
-            name: 'images',
-            repo: pachRepos['tutorial'][2],
-          },
-        },
-      ],
+      inputs: [pachInputs.tutorial[1]],
       description: 'Detects the edges of objects in the image.',
     },
   ],

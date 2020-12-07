@@ -13,6 +13,7 @@ import destroyable from 'server-destroy';
 import {Pach} from 'lib/graphqlTypes';
 
 import {PachFixtures, pachs} from './fixtures/pach';
+import {PachJobFixtures, pachJobs} from './fixtures/pachJob';
 import {PachPipelineFixtures, pachPipelines} from './fixtures/pachPipeline';
 import {PachRepoFixtures, pachRepos} from './fixtures/pachRepo';
 
@@ -21,6 +22,7 @@ interface MockData {
   pachs: PachFixtures;
   pachPipelines: PachPipelineFixtures;
   pachRepos: PachRepoFixtures;
+  pachJobs: PachJobFixtures;
 }
 interface MockServerApp extends Express {
   locals: {
@@ -39,6 +41,7 @@ const initialData: MockData = {
   pachs,
   pachPipelines,
   pachRepos,
+  pachJobs,
 };
 
 const createMockServer = (mockPort = process.env.MOCK_PORT) => {
@@ -195,6 +198,7 @@ const createMockServer = (mockPort = process.env.MOCK_PORT) => {
       pipelines: () =>
         app.locals.data.pachPipelines[app.locals.data.currentPachId],
       repos: () => app.locals.data.pachRepos[app.locals.data.currentPachId],
+      jobs: () => app.locals.data.pachJobs[app.locals.data.currentPachId],
     },
     Mutation: {
       setPach: (_: unknown, {input: {id}}: {input: {id: string}}) => {

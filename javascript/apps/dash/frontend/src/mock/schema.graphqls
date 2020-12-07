@@ -19,15 +19,15 @@ type GitInput {
   url: String!
 }
 
-enum PipelineInputType {
+enum InputType {
   PFS
   CRON
   GIT
 }
 
-type PipelineInput {
+type Input {
   id: ID! # This will need to be assigned on the API side
-  type: PipelineInputType!
+  type: InputType!
   joinedWith: [String!]! # A flat representation of the input tree (list of PipelineInput ids)
   groupedWith: [String!]!
   crossedWith: [String!]!
@@ -73,7 +73,7 @@ type Pipeline {
   numOfJobsMerging: Int!
   numOfJobsEgressing: Int!
   lastJobState: JobState
-  inputs: [PipelineInput!]!
+  inputs: [Input!]!
   description: String
 }
 
@@ -95,8 +95,21 @@ type Pach {
   id: ID!
 }
 
+type Job {
+  id: ID!
+  pipeline: Pipeline!
+  parentJobId: String
+  startedAt: Int!
+  finishedAt: Int
+  state: JobState!
+  reason: String
+  outputRepo: Repo!
+  input: Input!
+}
+
 type Query {
   hello: Hello!
   pipelines: [Pipeline!]!
   repos: [Repo!]!
+  jobs: [Job!]!
 }
