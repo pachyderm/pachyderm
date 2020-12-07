@@ -52,6 +52,7 @@ func PointsTo(idx *Index) []chunk.ID {
 	return ids
 }
 
+// SizeBytes computes the size of the indexed data in bytes.
 func SizeBytes(idx *Index) int64 {
 	var size int64
 	if idx == nil {
@@ -73,6 +74,7 @@ func SizeBytes(idx *Index) int64 {
 	return size
 }
 
+// TODO: Change this such that it returns a new index with the updated fields, rather than updating in place.
 func resolveParts(idx *Index) {
 	if idx.File.DataRefs == nil {
 		return

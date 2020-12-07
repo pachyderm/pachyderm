@@ -18,14 +18,6 @@ type memFile struct {
 	parts map[string]*memPart
 }
 
-func (mf *memFile) size() int64 {
-	var size int64
-	for _, part := range mf.parts {
-		size += int64(part.buf.Len())
-	}
-	return size
-}
-
 type memPart struct {
 	tag string
 	buf *bytes.Buffer

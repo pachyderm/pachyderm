@@ -11,11 +11,10 @@ import (
 
 // Reader is an abstraction for reading a fileset.
 type Reader struct {
-	store              Store
-	chunks             *chunk.Storage
-	path               string
-	indexOpts          []index.Option
-	additive, deletive *index.Reader
+	store     Store
+	chunks    *chunk.Storage
+	path      string
+	indexOpts []index.Option
 }
 
 func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Option) *Reader {
@@ -28,29 +27,20 @@ func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Optio
 	return r
 }
 
-func (r *Reader) setup(ctx context.Context) error {
-	if r.additive == nil {
-		md, err := r.store.Get(ctx, r.path)
-		if err != nil {
-			return err
-		}
-		r.additive = index.NewReader(r.chunks, md.Additive, r.indexOpts...)
-		r.deletive = index.NewReader(r.chunks, md.Deletive, r.indexOpts...)
-	}
-	return nil
-}
-
 // Iterate iterates over the files in the file set.
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
-	if err := r.setup(ctx); err != nil {
+	md, err := r.store.Get(ctx, r.path)
+	if err != nil {
 		return err
 	}
 	if len(deletive) > 0 && deletive[0] {
-		return r.deletive.Iterate(ctx, func(idx *index.Index) error {
+		ir := index.NewReader(r.chunks, md.Deletive, r.indexOpts...)
+		return ir.Iterate(ctx, func(idx *index.Index) error {
 			return cb(newFileReader(ctx, r.chunks, idx))
 		})
 	}
-	return r.additive.Iterate(ctx, func(idx *index.Index) error {
+	ir := index.NewReader(r.chunks, md.Additive, r.indexOpts...)
+	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(ctx, r.chunks, idx))
 	})
 }
@@ -84,6 +74,6 @@ func (fr *FileReader) Content(w io.Writer) error {
 
 type emptyReader struct{}
 
-func (_ *emptyReader) Iterate(_ context.Context, _ func(File) error, _ ...bool) error {
+func (*emptyReader) Iterate(_ context.Context, _ func(File) error, _ ...bool) error {
 	return nil
 }
