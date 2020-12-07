@@ -198,7 +198,7 @@ The end result will vary depending on where we will focus the outer join. Althou
 3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. What list will be produced depends on where the outer join's focus was put on. We will get into the detail of each case to help you figure out the best scenario for you.
 
 In the diagram below, we have mapped out the data of our example and the expected match in each of the 3 cases. 
->![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknow zipcode. This should help highlight how outer join's matches are broader that inner joins. In real life, see this as one of your products being returned to a store that does not belong to your geographic unit... Again, this is an over simplified/over stretched example.
+>![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknown zipcode. This should help highlight how outer join's matches are broader that inner joins. 
 
 ![outer_join](./img/outer_join.png)
 
