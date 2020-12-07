@@ -42,7 +42,7 @@ Let's have a look at our data structure and naming convention.
     └── STOREID3.txt
     └──  ...
 ```
-We will ultimately want to list purchases by `zipcode.` This is what the content of one of those STOREIDx.txt files looks like.
+The goal of this example is to build a list of all purchases by `zipcode.` This is what the content of one of those STOREIDx.txt files looks like.
 ```shell
     {
         "storeid":"4",
@@ -52,9 +52,8 @@ We will ultimately want to list purchases by `zipcode.` This is what the content
             "country":"US"
         }
     }
-```
 
->![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) would have been best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
+>![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) could have been used instead.  
 
 * `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
