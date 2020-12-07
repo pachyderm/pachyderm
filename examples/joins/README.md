@@ -9,7 +9,7 @@
 ## 1. Getting ready
 ***Key concepts***
 - [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your join repo.
-- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - your RegExp-like search pattern. Works in pair with Join.
+- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
 
 You might also want to brush up your [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
 
@@ -228,4 +228,3 @@ $ pachctl get file outer_join@master:/02108.txt
 The following table lists the expected result for each scenario:
 
 ![outer_join_digest](./img/outer_join_digest.png)
-
