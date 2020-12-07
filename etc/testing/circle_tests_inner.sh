@@ -115,6 +115,9 @@ case "${BUCKET}" in
     bucket_num="${BUCKET#AUTH}"
     test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     ;;
+ OBJECT)
+    make test-object-clients
+    ;;
  *)
     echo "Unknown bucket"
     exit 1
