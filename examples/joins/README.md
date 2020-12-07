@@ -35,7 +35,7 @@ We have derived our examples from simplified retail use cases:
 - There are 0 to many Stores in a given Zipcode.
 
 Let's have a look at our data structure and naming convention. 
-* `stores` - In these examples, store data are JSON files named after the store's identifier.
+* Repo: `stores` - In these examples, store data are JSON files named after the store's identifier.
 ```shell
     └── STOREID1.txt
     └── STOREID2.txt
