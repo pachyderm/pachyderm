@@ -9,7 +9,7 @@
 ## 1. Getting ready
 ***Key concepts***
 - [Join](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/) pipelines - execute your code on files that match a specific naming pattern in your join repo.
-- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - your RegExp-like search pattern. Works in pair with Join.
+- [glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
 
 You might also want to brush up your [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
 
@@ -27,7 +27,7 @@ COMPONENT           VERSION
 pachctl             1.12.0
 pachd               1.12.0
 ```
-
+Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of your pachctl and pachd. 
 ## 2. Data structure and naming convention
 We have derived our examples from simplified retail use cases: 
 - Purchases and Returns are made in given Stores. 
@@ -35,14 +35,14 @@ We have derived our examples from simplified retail use cases:
 - There are 0 to many Stores in a given Zipcode.
 
 Let's have a look at our data structure and naming convention. 
-* `stores` - In these examples, store data are JSON files named after the store's identifier.
+* Repo: `stores` - In these examples, store data are JSON files named after the store's identifier.
 ```shell
     └── STOREID1.txt
     └── STOREID2.txt
     └── STOREID3.txt
     └──  ...
 ```
-We will ultimately want to list purchases by `zipcode.` This is what the content of one of those STOREIDx.txt files looks like.
+The goal of this example is to build a list of all purchases by `zipcode.` This is what the content of one of those STOREIDx.txt files looks like.
 ```shell
     {
         "storeid":"4",
@@ -54,16 +54,16 @@ We will ultimately want to list purchases by `zipcode.` This is what the content
     }
 ```
 
->![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) would have been best suited. One can argue that, in this example, the Zipcode could be part of the naming convention of the file, making the group the best option. True. This is an oversimplified example, ok?
+>![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) could have been used instead.  
 
-* `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
+* Repo: `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
     └── ORDERW080520_STOREID1.txt
     └── ORDERW080521_STOREID1.txt
     └── ORDERW078929_STOREID2.txt
     └── ...
 ```
-* `returns` - Same naming convention as purchases.
+* Repo: `returns` - Same naming convention as purchases.
 ```shell
     └── ORDERW080528_STOREID5.txt
     └── ODERW080520_STOREID1.txt
@@ -136,10 +136,6 @@ Each should contain 3 purchases.
 Because unprocessed data are awaiting in your entry repositories, the pipeline creation will automatically trigger a job.
 In the `examples/joins` directory, run:
 ```shell
-$ make inner-join
-```
-or simply run:
-```shell
 $ pachctl create pipeline -f inner_join.json
 ```
 
@@ -182,7 +178,7 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to agregate by location. 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 
 ## 5. Example 2 - Outer-Join pipeline creation 
@@ -199,17 +195,13 @@ The end result will vary depending on where we will focus the outer join. Althou
 3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. What list will be produced depends on where the outer join's focus was put on. We will get into the detail of each case to help you figure out the best scenario for you.
 
 In the diagram below, we have mapped out the data of our example and the expected match in each of the 3 cases. 
->![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknow zipcode. This should help highlight how outer join's matches are broader that inner joins. In real life, see this as one of your products being returned to a store that does not belong to your geographic unit... Again, this is an over simplified/over stretched example.
+>![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknown zipcode. This should help highlight how outer join's matches are broader that inner joins. 
 
 ![outer_join](./img/outer_join.png)
 
 ***Step 5*** - Let's create your new pipeline.
 
 In the `examples/joins` directory, run:
-```shell
-$ make outer-join
-```
-or simply run:
 ```shell
 $ pachctl create pipeline -f outer_join.json
 ```
@@ -228,4 +220,3 @@ $ pachctl get file outer_join@master:/02108.txt
 The following table lists the expected result for each scenario:
 
 ![outer_join_digest](./img/outer_join_digest.png)
-
