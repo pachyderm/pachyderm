@@ -180,27 +180,22 @@ $ pachctl get file inner_join@master:/02108.txt
 ```
 >![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
-
 ## 5. Example 2 - Outer-Join pipeline creation 
+>![pach_logo](./img/pach_logo.svg) You specify an outer join by adding an "outer_join" boolean field to an input repo in your pipeline spec (see outer_join.json [here](https://github.com/pachyderm/pachyderm/blob/example-join/examples/joins/outer_join.json)). This boolean can be set independently on one or many input repo. Setting `"outer_join": true` means that files in that repo, even if they don't match, will still be processed as a datum. 
+
 ***Goal***
-Well, it depends on what you want to achieve here... We will either get:
-- the zip of **all stores** (listed in our repo or not) **where at least one return was made**
-- all **zip of stores listed** in our repo, **with or without returns**
-- the zip of **all stores** listed or unlisted in our repo, **with or without returns**
+For each location, list **all stores** (with or without return) belonging to a given zipcode and display their returns, if any. When going through your location files, you should notice that **all returns** in your `Returns` repo have been listed.
 
-The end result will vary depending on where we will focus the outer join. Although the behaviour might slightly differ from SQL because, again, we are working at the file path level, think about a left outer, right outer, and full outer.
-
-1. **Pipeline input repositories**: `stores` and `returns` - Outer join by STOREID: 3 scenarios
+1. **Pipeline input repositories**: `stores` and `returns` - Outer join by STOREID on both repositories.
 2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. 
-3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. What list will be produced depends on where the outer join's focus was put on. We will get into the detail of each case to help you figure out the best scenario for you.
+3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. 
 
-In the diagram below, we have mapped out the data of our example and the expected match in each of the 3 cases. 
->![pach_logo](./img/pach_logo.svg) We have created an edge case here, with a return made in a store (Store 0) that is not in our list and therefore has an unknown zipcode. This should help highlight how outer join's matches are broader that inner joins. 
+>![pach_logo](./img/pach_logo.svg) In our example, `"outer_join": true` is set on both repositories: Returns and Stores. Although the behaviour of an outer-join in Pachyderm differs from SQL, think about this example as a *full outer* between Returns and Stores. Unlike the inner-join above, each location file (zipcode.txt) will list **all** stores (with or without returns) in that location. Additionnaly, we have created an edge case here, with one return made in a store (Store 0) that does not belong to our Stores' list and therefore has an unknown zipcode. You will notice that this return will show in an additionnal UNKNOWN.txt file. This is the direct result of the `"outer_join": true` set on the returns repo. We are seeing **all** returns, with or without Store.
 
-![outer_join](./img/outer_join.png)
+In the diagram below, we have mapped out the data of our example and the expected match. 
+![full_outer_join](./img/full_outer_join.png)
 
 ***Step 5*** - Let's create your new pipeline.
-
 In the `examples/joins` directory, run:
 ```shell
 $ pachctl create pipeline -f outer_join.json
@@ -217,6 +212,32 @@ Now for a visual confirmation of the content of one specific file:
 ```shell
 $ pachctl get file outer_join@master:/02108.txt
 ```
-The following table lists the expected result for each scenario:
+The following table lists the expected result for this scenario:
 
-![outer_join_digest](./img/outer_join_digest.png)
+![full_outer_join_digest](./img/full_outer_join_digest.png)
+
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Try experimenting with having your outer join set only on one repo at a time. We have drawn diagrams to help you visualize what is happening in each of those two scenarios. 
+
+- Case 1: Outer set on Stores only
+
+In this case, you will consider all **zip of stores listed** in our repo, **with or without returns**
+
+![outer_join_on_stores](./img/outer_join_on_stores.png)
+
+Your end result should look like this.
+
+![outer_join_on_stores_digest](./img/outer_join_on_stores_digest.png)
+
+- Case 2: Outer set on Returns only
+
+In this case, you will consider the zip of **all stores** (listed in our repo or not) **where at least one return was made**.
+
+![outer_join_on_stores](./img/outer_join_on_returns.png)
+
+Your end result should look like this.
+
+![outer_join_on_stores_digest](./img/outer_join_on_returns_digest.png)
+
+
+
+
