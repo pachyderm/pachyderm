@@ -5,7 +5,7 @@ const baseConfig = require('../webpack.config.js');
 module.exports = {
   stories: ['../src/**/*.stories.tsx'],
   webpackFinal: (config) => {
-    const cssModuleRule = baseConfig.module.rules.find(
+    const cssModuleRule = baseConfig.module.rules[0].oneOf.find(
       (rule) => rule.test.toString() === '/\\.module\\.css$/'
     );
     const cssRule = config.module.rules.find(
