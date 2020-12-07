@@ -138,20 +138,20 @@ func mountCmds() []*cobra.Command {
 					fmt.Println("No mounts found.")
 					return nil
 				}
-				fmt.Printf("Unmount the following filesystems? yN\n")
+				fmt.Printf("This will unmount the following filesystems:\n")
 				for _, mount := range mounts {
 					fmt.Printf("%s\n", mount)
 				}
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
-				if err != nil {
+
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
+				} else if !ok {
+					return errors.New("deploy aborted")
 				}
-				if bytes[0] == 'y' || bytes[0] == 'Y' {
-					for _, mount := range mounts {
-						if err := syscall.Unmount(mount, 0); err != nil {
-							return err
-						}
+
+				for _, mount := range mounts {
+					if err := syscall.Unmount(mount, 0); err != nil {
+						return err
 					}
 				}
 			} else {

@@ -1092,7 +1092,7 @@ func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {
 	return eg.Wait()
 }
 
-func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto.Unmarshaler) (retErr error) {
+func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto.Message) (retErr error) {
 	r, err := s.objClient.Reader(ctx, path, 0, 0)
 	if err != nil {
 		return err
@@ -1109,7 +1109,7 @@ func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto
 	if len(data) == 0 {
 		logrus.Infof("readProto(%s) yielded len(0) data", path)
 	}
-	return pb.Unmarshal(data)
+	return proto.Unmarshal(data, pb)
 }
 
 func (s *objBlockAPIServer) writeProto(ctx context.Context, path string, pb proto.Marshaler) (retErr error) {

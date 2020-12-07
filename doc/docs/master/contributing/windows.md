@@ -2,13 +2,20 @@
 
 ## Install
 
-* [go v1.13.x+](https://golang.org/dl/)
+* [go v1.15.x+](https://golang.org/dl/)
 * [VSCode](https://code.visualstudio.com/download)
 * [git](https://git-scm.com/download/win)
 * [docker toolbox](https://github.com/docker/toolbox/releases)
-* [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
 * [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/#install-minikube-using-an-installer-executable)
-* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) - this is a raw exe, copy somewhere in PATH, like the minikube dir
+* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+* [goreleaser](https://github.com/goreleaser/goreleaser/releases)
+* [jq](https://stedolan.github.io/jq/download/)
+* [make](http://gnuwin32.sourceforge.net/packages/make.htm)
+* [shellcheck](https://github.com/koalaman/shellcheck#user-content-installing)
+
+You will need one of the following, which is used by minikube as its virtualization backend:
+* [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+* [HyperV](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v)
 
 ## Configure
 
@@ -27,8 +34,12 @@ Configure your terminal (opened via `` ctrl+` ``) to use `git bash` instead of `
   * This should show up in your start menu if you search 'docker'
   * You may need to do this any time your computer restarts
 * Start minikube 
-  * `minikube start --memory=8192mb`
-  * The memory value can be tweaked, but I found the default (1 GB) to be too low for pachyderm compilation
+ * If using the hyperv driver:
+  * `minikube start --memory=10000mb --cpus=4 --disk-size=40000mb --driver=hyperv`
+ * If using virtualbox:
+  * `minikube start --memory=10000mb --cpus=4 --disk-size=40000mb`
+ * The memory value can be tweaked, but I found the default (1 GB) to be too low for pachyderm compilation
+ * The disk value can also be tweaked, occasionally you will have to prune the docker cache, which is responsible for most of the disk usage
 * Pull relevant docker variables into your shell
   * `eval $(minikube docker-env --shell bash)`
   * This is only necessary if you want to run docker commands in a shell
@@ -63,5 +74,5 @@ If your setup is completely fucked, it may be worthwhile to blow away your minik
 
 ```
 minikube delete
-minikube start --memory=8192mb
+minikube start --memory=10000mb --cpus=4 --disk-size=40000mb
 ```

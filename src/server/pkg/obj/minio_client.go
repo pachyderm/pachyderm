@@ -6,7 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
-	minio "github.com/minio/minio-go"
+	minio "github.com/minio/minio-go/v6"
 )
 
 // Represents minio client instance for any s3 compatible server.
@@ -57,6 +57,7 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 	go func() {
 		opts := minio.PutObjectOptions{
 			ContentType: "application/octet-stream",
+			PartSize:    uint64(8 * 1024 * 1024),
 		}
 		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
 		if err != nil {
