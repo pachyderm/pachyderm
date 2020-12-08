@@ -5958,6 +5958,77 @@ func TestGroupInput(t *testing.T) {
 		}
 		require.Equal(t, expected, actual)
 	})
+	t.Run("Symlink", func(t *testing.T) {
+		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
+		repo := tu.UniqueString("TestGroupInputSymlink")
+		require.NoError(t, c.CreateRepo(repo))
+
+		_, err := c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+
+		pipeline := "group-pipeline-symlink"
+		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
+						fmt.Sprintf("FILES=/pfs/%v/*", repo),
+						"for f in $FILES",
+						"do",
+						"[[ $(basename $f) =~ $PATTERN ]]",
+						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
+						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
+						"done"},
+				},
+				Input: client.NewGroupInput(
+					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false),
+				),
+				EnableStats: true,
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+			})
+		require.NoError(t, err)
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
+
+		expected := [][]string{
+			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
+			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
+			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
+			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
+		actual := make([][]string, 0, 3)
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
+		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
 }
 
 func TestUnionRegression4688(t *testing.T) {
