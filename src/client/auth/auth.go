@@ -33,6 +33,9 @@ const (
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
 	PipelinePrefix = "pipeline:"
+
+	// RootUser is the robot user created when auth is initialized.
+	RootUser = "robot:root"
 )
 
 // ParseScope parses the string 's' to a scope (for example, parsing a command-

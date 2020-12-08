@@ -500,7 +500,7 @@ func (a *apiServer) githubEnabled() bool {
 	return githubEnabled
 }
 
-// Activate implements the protobuf auth.Activate RPC
+// Activate implements the protobuf auth.ActivateAuth RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information
@@ -524,44 +524,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// again should work (in this state, the only admin will be 'ppsUser')
 	if a.activationState() == full {
 		return nil, errors.Errorf("already activated")
-	}
-
-	// The Pachyderm token that Activate() returns will have the TTL
-	// - 'defaultSessionTTLSecs' if the initial admin is a GitHub user (who can
-	//   get a new token by re-authenticating via GitHub after this token expires)
-	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
-	//   (who has no way to acquire a new token once this token expires)
-	ttlSecs := int64(defaultSessionTTLSecs)
-	// Authenticate the caller (or generate a new auth token if req.Subject is a
-	// robot user)
-	if req.Subject != "" {
-		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	switch {
-	case req.Subject == "":
-		fallthrough
-	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-		if !a.githubEnabled() {
-			return nil, errors.New("GitHub auth is not enabled on this cluster")
-		}
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-		if err != nil {
-			return nil, err
-		}
-		if req.Subject != "" && req.Subject != username {
-			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
-		}
-		req.Subject = username
-	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
-		// req.Subject will be used verbatim, and the resulting code will
-		// authenticate the holder as the robot account therein
-		ttlSecs = 0 // no expiration for robot tokens -- see above
-	default:
-		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
 
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
@@ -594,25 +556,32 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, err
 	}
 
-	// Generate a new Pachyderm token (as the caller is authenticating) and
-	// initialize admins (watchAdmins() above will see the write)
-	pachToken := uuid.NewWithoutDashes()
+	// If the user supplies a token hash, set that to be the root token.
+	// Otherwise generate a new token and return it to the user.
+	var pachToken string
+	tokenHash := req.RootTokenHash
+
+	if tokenHash == "" {
+		pachToken = uuid.NewWithoutDashes()
+		tokenHash = hashToken(pachToken)
+	}
+
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
 		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
-		if err := admins.Put(req.Subject, epsilon); err != nil {
+		if err := admins.Put(auth.RootUser, epsilon); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
-			hashToken(pachToken),
+			tokenHash,
 			&auth.TokenInfo{
-				Subject: req.Subject,
+				Subject: auth.RootUser,
 				Source:  auth.TokenInfo_AUTHENTICATE,
 			},
-			ttlSecs,
+			-1,
 		)
 	}); err != nil {
 		return nil, err
