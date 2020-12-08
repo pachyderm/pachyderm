@@ -55,6 +55,7 @@ Let's have a look at the data structure and naming convention of our first examp
     └──  ...
 ```
 For information, here is what the content of those txt files looks like. 
+
 ![labresultsample.png](./img/labresultsample.png)
 
 The second dataset (example 2) is shared with the "Join pipelines"' examples. Find the structure of the data and naming conventions [here](Link to join pipeline example // README chapter 2).
@@ -101,7 +102,7 @@ $ pachctl list pipeline
 ```
 Once it has run successfully, you should see something like this:
 
-![pipelines](./img/list_pipeline.png)
+![pipelines](./img/lab_list_pipeline.png)
 
 ***Step 3*** - Let's have a look at our final product: Check the output repository of your pipeline.
 ```shell
@@ -175,5 +176,6 @@ Now for a visual confirmation of the content of each specific file:
 ```shell
 $ pachctl get file group_store_revenue@master:/5.txt
 ```
-
+It should look like this:
+![get_file_group_store_revenue_master](./img/get_file_group_store_revenue_master.png)
 
