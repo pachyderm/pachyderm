@@ -106,14 +106,18 @@ func TestActivate(t *testing.T) {
 
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
-	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{
+		RootTokenHash: tu.AdminTokenHash(),
+	})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(resp.PachToken)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
 
-	// Check that the token 'c' received from pachd authenticates them as "admin"
+	defer adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+
+	// Check that the token 'c' received from pachd authenticates them as the root user,
+	// the token has no TTL and they root user is an admin
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.Equal(t, int64(-1), who.TTL)
 	require.NoError(t, err)
 	require.Equal(t, auth.ClusterRole_SUPER, who.ClusterRoles.Roles[0])
 	require.Equal(t, tu.AdminUser, who.Username)
@@ -595,74 +599,6 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-// TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
-// https://github.com/pachyderm/pachyderm/issues/3010
-// Basically, ModifyClusterRoleBinding should not return an error if the only cluster admin
-// is a robot user
-func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
-
-	// Check that the initial set of admins is just "admin"
-	resp, err := adminClient.GetClusterRoleBindings(adminClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-	require.NoError(t, err)
-	require.Equal(t, admins(tu.AdminUser)(), resp.Bindings)
-
-	// 'admin' gets credentials for a robot user, and swaps themself and the robot
-	// so that the only cluster administrator is the robot user
-	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(),
-		&auth.GetAuthTokenRequest{
-			Subject: robot("rob"),
-			TTL:     3600,
-		})
-	require.NoError(t, err)
-	// copy client & use resp token
-	robotClient := adminClient.WithCtx(context.Background())
-	robotClient.SetAuthToken(tokenResp.Token)
-
-	// Make the robot an admin
-	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{
-			Principal: robot("rob"),
-			Roles:     superClusterRole(),
-		})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetClusterRoleBindings(adminClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(admins(robot("rob"), tu.AdminUser)(), resp.Bindings)
-	}, backoff.NewTestingBackOff()))
-
-	// Remove admin
-	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{
-			Principal: tu.AdminUser,
-		})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetClusterRoleBindings(adminClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(admins(robot("rob"))(), resp.Bindings)
-	}, backoff.NewTestingBackOff()))
-
-	// The robot user adds admin back as a cluster admin
-	_, err = robotClient.ModifyClusterRoleBinding(robotClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{
-			Principal: tu.AdminUser,
-			Roles:     superClusterRole(),
-		})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetClusterRoleBindings(adminClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(admins(robot("rob"), tu.AdminUser)(), resp.Bindings)
-	}, backoff.NewTestingBackOff()))
-}
-
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -720,10 +656,9 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// activate auth
 	resp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		Subject: tu.AdminUser,
+		RootTokenHash: tu.AdminTokenHash(),
 	})
 	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
 	adminClient.SetAuthToken(resp.PachToken)
 
 	// re-authenticate, as old tokens were deleted
@@ -731,7 +666,6 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		GitHubToken: alice,
 	})
 	require.NoError(t, err)
-	tu.UpdateAuthToken(alice, aliceResp.PachToken)
 	aliceClient.SetAuthToken(aliceResp.PachToken)
 
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
@@ -1485,10 +1419,10 @@ func TestRobotUserAdmin(t *testing.T) {
 	robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
 
-	deactivateResp, err := robotClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
+	deactivateResp, err := robotClient.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{
+		RootTokenHash: tu.AdminTokenHash(),
+	})
 	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, deactivateResp.PachToken)
 	robotClient.SetAuthToken(deactivateResp.PachToken)
 }
 
@@ -1724,60 +1658,6 @@ func TestGetAuthTokenPermanent(t *testing.T) {
 	// require.Nil(t, resp)
 	// require.YesError(t, err)
 	// require.Matches(t, "must be an admin", err.Error())
-}
-
-// TestActivateAsRobotUser tests that Pachyderm can be activated such that the
-// initial admin is a robot user (i.e. without any human intervention)
-func TestActivateAsRobotUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
-	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, tu.ActivateEnterprise(t, client))
-
-	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject: robot("deckard"),
-	})
-	require.NoError(t, err)
-	client.SetAuthToken(resp.PachToken)
-	who, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, robot("deckard"), who.Username)
-
-	// Make sure the robot token has no TTL
-	require.Equal(t, int64(-1), who.TTL)
-
-	client.Deactivate(client.Ctx(), &auth.DeactivateRequest{})
-	require.NoError(t, err)
-
-	resp, err = client.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
-	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
-}
-
-func TestActivateMismatchedUsernames(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
-	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, tu.ActivateEnterprise(t, client))
-
-	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject:     "alice",
-		GitHubToken: "bob",
-	})
-	require.YesError(t, err)
-	require.Matches(t, "github:alice", err.Error())
-	require.Matches(t, "github:bob", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
