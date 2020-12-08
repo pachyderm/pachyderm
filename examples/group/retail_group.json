@@ -2,7 +2,7 @@
     "pipeline": {
       "name": "group_store_revenue"
     },
-    "description": "A pipeline that groups lab test results files by hospital using the files naming pattern.",
+    "description": "A pipeline that groups purchases and returns by storeId to calculate the gross_revenue minus returns of each store.",
     "input": {
       "group": [
           {

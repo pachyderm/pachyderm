@@ -17,7 +17,8 @@ deploy-lab:
 	pachctl create repo labresults
 	pachctl put file -r labresults@master:/ -f labresults
 	pachctl list file labresults@master
-	pachctl create pipeline -f group_lab.json
+	pachctl create pipeline -f lab_group_by_hospital.json 
+	pachctl create pipeline -f lab_group_by_patient.json
 
 setup-retail:
 	mkdir -p ./stores ./purchases ./returns
@@ -65,7 +66,7 @@ deploy-retail:
 	pachctl list file purchases@master	
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master	
-	pachctl create pipeline -f group_retail.json
+	pachctl create pipeline -f retail_group.json
 
 
 
