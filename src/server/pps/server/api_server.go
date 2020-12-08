@@ -1170,11 +1170,6 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 		return 0, 0, errors.New("getPageBounds: unreachable code")
 	}
 
-	dit, err := datum.NewIterator(pachClient, input)
-	if err != nil {
-		return nil, err
-	}
-
 	var statsCommitInfo *pfs.CommitInfo
 	if statsCommit != nil {
 		statsCommitInfo, err = pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
@@ -1185,6 +1180,11 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 
 	// If the stats commit is not closed, compute datums using jobInfo
 	if statsCommitInfo == nil || statsCommitInfo.Finished == nil {
+		dit, err := datum.NewIterator(pachClient, input)
+		if err != nil {
+			return nil, err
+		}
+
 		start := 0
 		end := dit.Len()
 		if pageSize > 0 {
