@@ -25,7 +25,7 @@ CLUSTER_SIZE ?= 4
 MINIKUBE_MEM = 8192 # MB of memory allocated to minikube
 MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
-CHLOGFILE = /tmp/pachyderm/release/changelog.diff
+CHLOGFILE = ${PWD}/../changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
@@ -71,6 +71,7 @@ release-candidate:
 
 custom-release:
 	echo "" > $(CHLOGFILE)
+	exit 1
 	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh
 	# Need to check for homebrew updates from release-pachctl-custom
 
