@@ -36,6 +36,5 @@
       "language":"python",
       "path": "./src"
     }
-  },
-  "enable_stats": true
   }
+}
