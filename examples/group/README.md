@@ -1,7 +1,7 @@
 # Group Pipelines 
 >![pach_logo](./img/pach_logo.svg) The group functionality is available in version **1.12 and higher**.
 
->![pach_logo](./img/pach_logo.svg) As a reminder: You specify a group in the pipeline spec by adding a `group` input around the one or many pfs repo you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your `glob` pattern that you want to consider to group your files by. 
+>![pach_logo](./img/pach_logo.svg) As a reminder: You specify a group in the pipeline spec by adding a `group` input around the one or many pfs repo you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your `glob` pattern that you want to consider to group your files. 
 
 - Our first examples will walk you through a simple use of group applied to the files of a single repository. 
 - Our second example will showcase a more complex group setting where information is grouped accross 3 repositories. 
@@ -33,7 +33,7 @@ Ideally, have your pachctl and pachd versions match. At a minimum, you should al
 
 ## 2. Data structure and naming convention
 Our first example comes from a simple healthcare use case:
-- We have a list of Labresults from various tests done on patients by given Labs. Each file contains one type of test results from a given Lab for a given Patient.
+- We have a list of Labresults from various tests done on Patients by given Labs. Each file contains one type of test results from a given Lab for a given Patient.
 
 The second example is derived from a simplified retail use case: 
 - Purchases and Returns are made in given Stores. 
