@@ -91,7 +91,6 @@ require (
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
-	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.1.2
 	honnef.co/go/tools v0.1.0 // indirect
 	k8s.io/api v0.17.4

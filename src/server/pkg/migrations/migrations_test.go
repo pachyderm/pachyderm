@@ -8,8 +8,8 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
-	"gotest.tools/assert"
 )
 
 func TestMigration(t *testing.T) {
