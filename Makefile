@@ -71,7 +71,6 @@ release-candidate:
 
 custom-release:
 	echo "" > $(CHLOGFILE)
-	exit 1
 	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh
 	# Need to check for homebrew updates from release-pachctl-custom
 
