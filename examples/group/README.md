@@ -167,7 +167,7 @@ and your pipeline:
 $ pachctl list pipeline
 ```
 
-*** Step 6 *** - Have a look at your final product.
+***Step 6*** - Have a look at your final product.
 Once it has fully and successfully run, have a look at your output repository to confirm that it looks like what we expect.
 ```shell
 $ pachctl list file group_store_revenue@master
@@ -177,5 +177,6 @@ Now for a visual confirmation of the content of each specific file:
 $ pachctl get file group_store_revenue@master:/5.txt
 ```
 It should look like this:
+
 ![get_file_group_store_revenue_master](./img/get_file_group_store_revenue_master.png)
 
