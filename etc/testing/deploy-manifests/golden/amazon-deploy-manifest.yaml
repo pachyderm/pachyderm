@@ -689,7 +689,7 @@ spec:
       namespace: default
     spec:
       containers:
-      - image: pachyderm/dash:0.5.48
+      - image: pachyderm/dash:0.5.57
         imagePullPolicy: IfNotPresent
         name: dash
         ports:
