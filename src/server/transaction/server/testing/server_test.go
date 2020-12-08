@@ -595,7 +595,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	_, err = txnClient.FinishTransaction(txn)
 	require.NoError(t, err)
 
-	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("bar"))
+	c.PutFile(repo, "master", "foo", strings.NewReader("bar"))
 	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))

@@ -1924,41 +1924,22 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-// hardStopPipeline does essentially the same thing as StopPipeline (deletes the
-// pipeline's branch provenance, deletes any open commits, deletes any k8s
-// workers), but does it immediately. This is to avoid races between operations
+// closePipelineCommitsInTransaction performs some steps from StopPipeline
+// (deletes any open commits, causing any k8s workers to be deleted) inside of
+// a provided transaction. This is to avoid races between operations
 // that will do subsequent work (e.g. UpdatePipeline and DeletePipeline) and the
 // PPS master
-func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	// Remove the output branch's provenance so that no new jobs can be created
-	if err := pachClient.CreateBranch(
-		pipelineInfo.Pipeline.Name,
-		pipelineInfo.OutputBranch,
-		pipelineInfo.OutputBranch,
-		nil,
-	); err != nil && !isNotFoundErr(err) {
-		return errors.Wrapf(err, "could not recreate original output branch")
-	}
-	if pipelineInfo.EnableStats {
-		if err := pachClient.CreateBranch(
-			pipelineInfo.Pipeline.Name,
-			"stats",
-			"stats",
-			nil,
-		); err != nil && !isNotFoundErr(err) {
-			return errors.Wrapf(err, "could not recreate original stats branch")
-		}
-	}
-
+func (a *apiServer) closePipelineCommitsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
 	// Now that new commits won't be created on the master branch, enumerate
 	// existing commits and close any open ones.
-	iter, err := pachClient.ListCommitStream(pachClient.Ctx(), &pfs.ListCommitRequest{
+	iter, err := txnCtx.Client.ListCommitStream(txnCtx.ClientContext, &pfs.ListCommitRequest{
 		Repo: client.NewRepo(pipelineInfo.Pipeline.Name),
 		To:   client.NewCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
 	})
 	if err != nil {
 		return errors.Wrapf(err, "couldn't get open commits on '%s'", pipelineInfo.OutputBranch)
 	}
+
 	// Finish all open commits, most recent first (so that we finish the
 	// current job's output commit--the oldest--last, and unblock the master
 	// only after all other commits are also finished, preventing any new jobs)
@@ -1971,13 +1952,22 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 		if ci.Finished == nil {
 			// Finish the commit and don't pass a tree
-			pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 				Commit: ci.Commit,
 				Empty:  true,
 			})
 		}
 	}
-	return nil
+
+	// We're not stopping the old pipeline right away, so inspect the output branch directly to ensure
+	// we don't miss any new commits that might be created
+	_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+		Branch: client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
+	})
+	if isNotFoundErr(err) {
+		return nil
+	}
+	return err
 }
 
 var (
@@ -2373,7 +2363,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 	}
 
 	createOrValidateSpecCommit := func() (*pfs.Commit, error) {
-		pipelineName := pipelineInfo.Pipeline.Name
 		var specCommit *pfs.Commit
 		if prevSpecCommit != nil {
 			specCommit = *prevSpecCommit
@@ -2457,6 +2446,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
+		}
+
+		if err := a.closePipelineCommitsInTransaction(txnCtx, pipelineInfo); err != nil {
+			return err
 		}
 
 		// Look up existing pipelineInfo and update it, writing updated
