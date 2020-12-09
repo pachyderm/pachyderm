@@ -124,6 +124,45 @@ export type Query = {
   jobs: Array<Job>;
 };
 
+export enum OriginKind {
+  User = 'USER',
+  Auto = 'AUTO',
+  Fsck = 'FSCK'
+}
+
+export enum FileType {
+  Reserved = 'RESERVED',
+  File = 'FILE',
+  Dir = 'DIR'
+}
+
+export type File = {
+  __typename?: 'File';
+  path: Scalars['String'];
+  fileType: FileType,
+  sizeInBytes: Scalars['Int'],
+  committedAt: Scalars['Int'];
+}
+
+export type Commit = {
+  __typename?: 'Commit';
+  id: Scalars['String'];
+  origin: OriginKind;
+  description?: Scalars['String'];
+  parentCommitId?: Scalars['String'],
+  childCommitIds: Array<Scalars['String']>;
+  started: Scalars['Int'],
+  finished: Scalars['Int'],
+  sizeInBytes: Scalars['Int'],
+  files: Array<File>
+};
+
+export type Branch = {
+  __typename?: 'Branch';
+  name: Scalars['String'];
+  commits: Array<Commit>;
+};
+
 export type Repo = {
   __typename?: 'Repo';
   name: Scalars['ID'];
@@ -131,5 +170,6 @@ export type Repo = {
   sizeInBytes: Scalars['Int'];
   description: Scalars['String'];
   isPipelineOutput: Scalars['Boolean'];
+  branches: Array<Branch>;
 };
 

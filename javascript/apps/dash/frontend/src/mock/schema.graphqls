@@ -81,12 +81,52 @@ type InputPipeline {
   id: ID!
 }
 
+enum FileType {
+  RESERVED,
+  FILE,
+  DIR
+}
+
+enum OriginKind {
+  USER,
+  AUTO,
+  FSCK
+}
+
+type File {
+  path: String!,
+  fileType: FileType!,
+  sizeInBytes: Int!,
+  committedAt: Int!,
+}
+
+type Commit {
+  id: String!,
+  origin: OriginKind!,
+  description: String,
+  parentCommitId: String,
+  childCommitIds: [String!]!,
+  started: Int!,
+  finished: Int!,
+  sizeInBytes: Int!,
+  files: [File!]!
+}
+
+type Branch {
+  name: String!,
+  commits: [Commit!]!,
+  # Will worry about the following at a later date
+  # provenance: [Branch!]!,
+  # subvenance: [Branch!]!,
+  # direct_provenance: [Branch!]!,
+}
+
 type Repo {
   name: ID!
   createdAt: Int!
   sizeInBytes: Int!
   description: String!
-
+  branches: [Branch!]!,
   # The Dash API will have to derive this field, unless core pach can expose it for us...
   isPipelineOutput: Boolean!
 }
