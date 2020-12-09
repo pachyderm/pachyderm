@@ -1171,6 +1171,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input 
 	}
 
 	var statsCommitInfo *pfs.CommitInfo
+	var err error
 	if statsCommit != nil {
 		statsCommitInfo, err = pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
 		if err != nil {
