@@ -2600,6 +2600,21 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}); err != nil {
 		return nil, errors.Wrapf(err, "could not create/update output branch")
 	}
+	visitErr = nil
+	pps.VisitInput(request.Input, func(input *pps.Input) {
+		if visitErr != nil {
+			return
+		}
+		if input.Pfs != nil && input.Pfs.Trigger != nil {
+			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Trigger: input.Pfs.Trigger,
+			})
+		}
+	})
+	if visitErr != nil {
+		return nil, errors.Wrapf(visitErr, "could not create/update trigger branch")
+	}
 	if pipelineInfo.EnableStats {
 		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
@@ -2653,10 +2668,20 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	now := time.Now()
+	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
-				input.Pfs.Branch = "master"
+				if input.Pfs.Trigger != nil {
+					// We start counting trigger branches at 1
+					nCreatedBranches[input.Pfs.Repo]++
+					input.Pfs.Branch = fmt.Sprintf("%s-trigger-%d", pipelineName, nCreatedBranches[input.Pfs.Repo])
+					if input.Pfs.Trigger.Branch == "" {
+						input.Pfs.Trigger.Branch = "master"
+					}
+				} else {
+					input.Pfs.Branch = "master"
+				}
 			}
 			if input.Pfs.Name == "" {
 				input.Pfs.Name = input.Pfs.Repo
