@@ -6,7 +6,7 @@ parameters:
     type: string
     default: ""
   retain_slots:
-    type: int
+    type: integer
     default: 0
 
 jobs:
