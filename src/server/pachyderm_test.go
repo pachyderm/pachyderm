@@ -510,8 +510,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false),
-			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false),
+			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -588,8 +588,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -641,8 +641,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -791,8 +791,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -841,8 +841,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -932,8 +932,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -966,7 +966,7 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewUnionInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 				client.NewPFSInput(pipeline, "/*"),
 			),
 			"",
@@ -1034,8 +1034,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -1171,7 +1171,7 @@ func TestRunPipeline(t *testing.T) {
 			[]string{"bash"},
 			[]string{"false"},
 			nil,
-			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false),
+			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
 			"",
 			false,
 		))
@@ -1230,7 +1230,7 @@ func TestRunPipeline(t *testing.T) {
 					},
 				},
 				EnableStats: true,
-				Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
+				Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 			})
 		require.NoError(t, err)
 
@@ -1516,7 +1516,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true),
+		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -1529,7 +1529,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true),
+		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -5631,8 +5631,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false),
-			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false),
+			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
+			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5699,8 +5699,8 @@ func TestOuterJoin(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/(*)", "$1", "", true, false),
-			client.NewPFSInputOpts("", repos[1], "", "/(*)", "$1", "", false, false),
+			client.NewPFSInputOpts("", repos[0], "", "/(*)", "$1", "", true, false, nil),
+			client.NewPFSInputOpts("", repos[1], "", "/(*)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5745,7 +5745,7 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false),
+				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
 			),
 			"",
 			false,
@@ -5820,8 +5820,8 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false),
-				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false),
+				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
 			),
 			"",
 			false,
@@ -5915,8 +5915,8 @@ func TestGroupInput(t *testing.T) {
 			},
 			client.NewGroupInput(
 				client.NewJoinInput(
-					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false),
-					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false),
+					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
+					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
 				),
 			),
 			"",
@@ -5942,6 +5942,77 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1001",
 				"/file-1.1011"}}
 		actual := make([][]string, 0, 2)
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
+		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
+	t.Run("Symlink", func(t *testing.T) {
+		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
+		repo := tu.UniqueString("TestGroupInputSymlink")
+		require.NoError(t, c.CreateRepo(repo))
+
+		_, err := c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+
+		pipeline := "group-pipeline-symlink"
+		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
+						fmt.Sprintf("FILES=/pfs/%v/*", repo),
+						"for f in $FILES",
+						"do",
+						"[[ $(basename $f) =~ $PATTERN ]]",
+						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
+						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
+						"done"},
+				},
+				Input: client.NewGroupInput(
+					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+				),
+				EnableStats: true,
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+			})
+		require.NoError(t, err)
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
+
+		expected := [][]string{
+			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
+			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
+			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
+			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
+		actual := make([][]string, 0, 3)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
@@ -6000,8 +6071,8 @@ func TestUnionRegression4688(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewUnionInput(
-			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false),
-			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false),
+			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -6237,10 +6308,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false),
+				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -6273,12 +6344,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6296,12 +6367,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6337,12 +6408,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6360,12 +6431,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -11567,8 +11638,8 @@ func TestDeferredCross(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false),
-					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false),
+					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false, nil),
+					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false, nil),
 				),
 				client.NewPFSInput(dataSet, "/"),
 			),
@@ -12923,10 +12994,6 @@ func TestTrigger(t *testing.T) {
 
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	require.NoError(t, c.CreateBranchTrigger(dataRepo, "trigger", "", &pfs.Trigger{
-		Branch: "master",
-		Size_:  "1K",
-	}))
 	pipeline1 := tu.UniqueString("TestTrigger1")
 	pipeline2 := tu.UniqueString("TestTrigger2")
 	require.NoError(t, c.CreatePipeline(
@@ -12939,7 +13006,10 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false),
+		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+			Branch: "master",
+			Size_:  "1K",
+		}),
 		"",
 		false,
 	))
@@ -12953,14 +13023,12 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false, false),
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+			Size_: "2K",
+		}),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreateBranchTrigger(pipeline1, "trigger", "", &pfs.Trigger{
-		Branch: "master",
-		Size_:  "2K",
-	}))
 	// 10 100 byte files = 1K, so the last file should trigger pipeline1, but
 	// not pipeline2.
 	numFiles := 10
@@ -13003,6 +13071,47 @@ func TestTrigger(t *testing.T) {
 	cis, err = c.ListCommit(pipeline2, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cis))
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+			Size_: "3K",
+		}),
+		"",
+		true,
+	))
+
+	// Make sure that updating the pipeline reuses the previous branch name
+	// rather than creating a new one.
+	bis, err := c.ListBranch(pipeline1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
+	for i := 2 * numFiles; i < 5*numFiles; i++ {
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
+		require.NoError(t, err)
+	}
+
+	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
 }
 
 func TestListDatum(t *testing.T) {
