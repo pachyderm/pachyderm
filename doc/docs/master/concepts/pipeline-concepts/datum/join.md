@@ -7,13 +7,17 @@ with a glob pattern that reflects a specific naming convention.
 
 By analogy, a Pachyderm join is similar to a database *equi-join*,
 or *inner join* operation, but it matches on file paths
-only, not the contents of the files.
+only, not the contents of the files. 
 
 Unlike the [cross input](../datum/cross-union.md), which creates datums
-from every combination of files in each input repository, joins only create
-datums where there is a *match*. You can use joins to combine data from
-different Pachyderm repositories and ensure that only specific files from
+from every combination of files in each input repository, joins
+**only create datums where there is a *match* as a default setting**. 
+You can use joins to combine data from different Pachyderm repositories and ensure that only specific files from
 each repo are processed together.
+
+Pachyderm also supports a join close to a database `outer-join`,
+allowing you to **create datums for all files in a repo, even if there is no match**. 
+You can configure this `outer-join` behavior on any repo in your join.
 
 When you configure a join input, you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
@@ -49,11 +53,11 @@ For example, `$1` indicates that you want Pachyderm to match based on
 capture group `1`. Similarly, `$2` matches the capture group `2`.
 `$1$2` means that it must match both capture groups `1` and `2`.
 
-If Pachyderm does not find any matching files, you get a zero-datum job.
+In its default setting (`inner-join`), if Pachyderm does not find any matching files, you get a zero-datum job.
 
 You can test your glob pattern and capture groups by using the
-`pachctl glob file` command as described in
-[Glob Pattern](../../datum/glob-pattern/#test-a-glob-pattern).
+`pachctl list datum -f <your_pipeline_spec.json>` command as described in
+[List Datum](../../datum/glob-pattern/#test-a-glob-pattern).
 
 ## Example
 

@@ -128,6 +128,7 @@ nav:
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
                 - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
                 - Join: concepts/pipeline-concepts/datum/join.md
+                - Group: concepts/pipeline-concepts/datum/group.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
