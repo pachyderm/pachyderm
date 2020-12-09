@@ -6,8 +6,8 @@ parameters:
     type: string
     default: ""
   retain_slots:
-    type: integer
-    default: 0
+    type: string
+    default: "0"
 
 jobs:
   build:
