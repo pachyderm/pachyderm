@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -xeuo pipefail
 
 # Get a kubernetes cluster
 # Specify the slots so that future builds on this branch+suite id automatically

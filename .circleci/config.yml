@@ -36,6 +36,7 @@ jobs:
           name: Are we running flaky tests?
           command: |
             echo "RUN_BAD_TESTS=${RUN_BAD_TESTS}"
+            echo "RETAIN_SLOTS=${RETAIN_SLOTS}"
 
       - run:
           name: Install deps
