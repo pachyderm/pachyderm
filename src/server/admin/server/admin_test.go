@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -192,9 +193,9 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
 
-// testExtractRestore effectively implements both TestExtractRestoreObjects
-// TestExtractRestoreNoObjects, as their logic is mostly the same
-func testExtractRestore(t *testing.T, testObjects bool) {
+// testExtractRestore effectively implements TestExtractRestoreObjects,
+// TestExtractRestoreNoObjects, TestExtractRestoreAuth, as their logic is mostly the same
+func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
@@ -202,23 +203,74 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	numPipelines := 3
 	c := tu.GetPachClient(t)
+	pipelineClients := make([]*client.APIClient, numPipelines)
 	require.NoError(t, c.DeleteAll())
+
+	// If we're testing auth, get an authenticated client.
+	// This has the side-effect of enabling enterprise and auth
+	if testAuth {
+		c = tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+		// If testing auth, have each pipeline owned by a different user
+		for i := 0; i < numPipelines; i++ {
+			pipelineClients[i] = tu.GetAuthenticatedPachClient(t, fmt.Sprintf("pipeline-user-%d", i))
+		}
+		defer tu.DeleteAll(t)
+	}
 
 	dataRepo := tu.UniqueString("TestExtractRestoreObjects-in-")
 	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// If we're testing auth, give all the pipeline users access to the first repo
+	// Also make some admin and FS admin users
+	if testAuth {
+		_, err := c.SetACL(c.Ctx(), &auth.SetACLRequest{
+			Repo: dataRepo,
+			Entries: []*auth.ACLEntry{
+				&auth.ACLEntry{Username: "github:pipeline-user-0", Scope: auth.Scope_READER},
+				&auth.ACLEntry{Username: "github:pipeline-user-1", Scope: auth.Scope_WRITER},
+				&auth.ACLEntry{Username: "github:pipeline-user-2", Scope: auth.Scope_OWNER},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = c.ModifyClusterRoleBinding(c.Ctx(), &auth.ModifyClusterRoleBindingRequest{
+			Principal: "robot:admin2",
+			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}},
+		})
+		require.NoError(t, err)
+
+		_, err = c.ModifyClusterRoleBinding(c.Ctx(), &auth.ModifyClusterRoleBindingRequest{
+			Principal: "robot:fsadmin",
+			Roles:     &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_FS}},
+		})
+		require.NoError(t, err)
+
+		// block until the admins cache is updated
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := c.GetClusterRoleBindings(c.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+			require.NoError(t, err)
+			return require.EqualOrErr(3, len(resp.Bindings))
+		}, backoff.NewTestingBackOff()))
+	}
 
 	// Create input data
 	nCommits := 2
 	fileHashes := addData(t, c, dataRepo, nCommits, 40*MB)
 
 	// Create test pipelines
-	numPipelines := 3
 	var input, pipeline string
 	input = dataRepo
 	for i := 0; i < numPipelines; i++ {
 		pipeline = tu.UniqueString(fmt.Sprintf("TestExtractRestoreObjects-P%d-", i))
-		require.NoError(t, c.CreatePipeline(
+		uc := c
+		if testAuth {
+			uc = pipelineClients[i]
+		}
+
+		require.NoError(t, uc.CreatePipeline(
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -230,6 +282,19 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			"",
 			false,
 		))
+
+		if testAuth {
+			_, err := c.SetACL(c.Ctx(), &auth.SetACLRequest{
+				Repo: pipeline,
+				Entries: []*auth.ACLEntry{
+					&auth.ACLEntry{Username: fmt.Sprintf("github:pipeline-user-%d", i+1), Scope: auth.Scope_READER},
+					&auth.ACLEntry{Username: fmt.Sprintf("github:pipeline-user-%d", i), Scope: auth.Scope_OWNER},
+					&auth.ACLEntry{Username: fmt.Sprintf("pipeline:%v", pipeline), Scope: auth.Scope_WRITER},
+				},
+			})
+			require.NoError(t, err)
+		}
+
 		input = pipeline
 	}
 
@@ -265,10 +330,11 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
 	commitInfosBefore := listAllCommits(t, c)
-	// Extract existing cluster state
-	ops, err := c.ExtractAll(testObjects)
-	require.NoError(t, err)
 
+	// Extract existing cluster state
+	extractToken := "known-extract-auth-token"
+	ops, err := c.ExtractAll(testObjects, testAuth, testAuth, extractToken)
+	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 
 	if testObjects {
@@ -276,10 +342,53 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		require.NoError(t, c.GarbageCollect(10000))
 	}
 
+	// If we're restoring a cluster with auth, we need to provide the auth token
+	// in the context where we call Restore.
+	if testAuth {
+		tu.UpdateAuthToken(tu.AdminUser, extractToken)
+		c.SetAuthToken(extractToken)
+	}
+
 	// Restore metadata and possibly objects
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
 	require.NoError(t, c.FsckFastExit())
+
+	// Verify the cached admin token, cluster role binding and ACLs were restored
+	if testAuth {
+		whoAmI, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+		require.Equal(t, tu.AdminUser, whoAmI.Username)
+
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := c.GetClusterRoleBindings(c.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+			require.NoError(t, err)
+			return require.EqualOrErr(3, len(resp.Bindings))
+		}, backoff.NewTestingBackOff()))
+
+		roleBindings, err := c.GetClusterRoleBindings(c.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		require.Equal(t, &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}}, roleBindings.Bindings["robot:admin2"])
+		require.Equal(t, &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_FS}}, roleBindings.Bindings["robot:fsadmin"])
+
+		acl, err := c.GetACL(c.Ctx(), &auth.GetACLRequest{Repo: dataRepo})
+		require.NoError(t, err)
+
+		for _, expected := range []*auth.ACLEntry{
+			&auth.ACLEntry{Username: "github:pipeline-user-0", Scope: auth.Scope_READER},
+			&auth.ACLEntry{Username: "github:pipeline-user-1", Scope: auth.Scope_WRITER},
+			&auth.ACLEntry{Username: "github:pipeline-user-2", Scope: auth.Scope_OWNER},
+		} {
+			require.NoError(t, func() error {
+				for _, actual := range acl.Entries {
+					if actual.Username == expected.Username && actual.Scope == expected.Scope {
+						return nil
+					}
+				}
+				return fmt.Errorf("no ACL entry like %v", expected)
+			}())
+		}
+	}
 
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
@@ -381,14 +490,20 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 // where existing objects are re-used (common for cloud deployments, as objects
 // are stored outside of kubernetes, in object store)
 func TestExtractRestoreNoObjects(t *testing.T) {
-	testExtractRestore(t, false)
+	testExtractRestore(t, false, false)
 }
 
 // TestExtractRestoreObjects tests extraction and restoration of objects. Note
 // that since 1.8, only data in input repos is referenced by objects, so this
 // tests extracting/restoring an input repo.
 func TestExtractRestoreObjects(t *testing.T) {
-	testExtractRestore(t, true)
+	testExtractRestore(t, true, false)
+}
+
+// TestExtractRestoreAuth tests extraction and restoration of objects when auth
+// is enabled.
+func TestExtractRestoreAuth(t *testing.T) {
+	testExtractRestore(t, true, true)
 }
 
 func TestExtractRestoreFailedJobs(t *testing.T) {
@@ -474,7 +589,7 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	commitInfosBefore := listAllCommits(t, c)
 
 	// Extract existing cluster state
-	ops, err := c.ExtractAll(true)
+	ops, err := c.ExtractAll(true, false, false, "")
 	require.NoError(t, err)
 
 	// Delete metadata & data
@@ -579,7 +694,7 @@ func TestExtractRestoreHeadlessBranches(t *testing.T) {
 	// create a headless branch
 	require.NoError(t, c.CreateBranch(dataRepo, "headless", "", nil))
 
-	ops, err := c.ExtractAll(false)
+	ops, err := c.ExtractAll(false, false, false, "")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -621,7 +736,7 @@ func TestExtractVersion(t *testing.T) {
 		false,
 	))
 
-	ops, err := c.ExtractAll(false)
+	ops, err := c.ExtractAll(false, false, false, "")
 	require.NoError(t, err)
 	require.True(t, len(ops) > 0)
 
@@ -758,7 +873,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	commitInfosBefore := listAllCommits(t, c)
-	ops, err := c.ExtractAll(false)
+	ops, err := c.ExtractAll(false, false, false, "")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -822,7 +937,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 
 	commitInfosBefore := listAllCommits(t, c)
 
-	ops, err := c.ExtractAll(false)
+	ops, err := c.ExtractAll(false, false, false, "")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -881,7 +996,7 @@ func TestExtractRestoreStats(t *testing.T) {
 
 	commitInfosBefore := listAllCommits(t, c)
 
-	ops, err := c.ExtractAll(false)
+	ops, err := c.ExtractAll(false, false, false, "")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -893,4 +1008,39 @@ func TestExtractRestoreStats(t *testing.T) {
 	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cis))
+}
+
+// TestExtractRestoreNoExtractToken tests that we throw an error if the user
+// tries to extract a cluster with auth enabled and doesn't specify a token
+func TestExtractRestoreNoExtractToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+	_, err := c.ExtractAll(true, true, true, "")
+	require.YesError(t, err)
+	require.Equal(t, "cluster has auth enabled but no auth token was provided, aborting", err.Error())
+}
+
+// TestExtractRestoreBadRestoreToken tests that we throw an error if the user
+// tries to restore a cluster with auth enabled and doesn't specify the right token
+func TestExtractRestoreBadRestoreToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	ops, err := c.ExtractAll(true, true, true, "someextracttoken")
+	require.NoError(t, err)
+
+	err = c.Restore(ops)
+	require.YesError(t, err)
+	require.Equal(t, "auth token didn't match the one in the extract, aborting", err.Error())
 }

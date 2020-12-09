@@ -21,8 +21,13 @@ func (c APIClient) InspectCluster() (*admin.ClusterInfo, error) {
 }
 
 // Extract all cluster state, call f with each operation.
-func (c APIClient) Extract(objects bool, f func(op *admin.Op) error) error {
-	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{NoObjects: !objects})
+func (c APIClient) Extract(objects, enterprise, auth bool, authToken string, f func(op *admin.Op) error) error {
+	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{
+		NoObjects:    !objects,
+		NoEnterprise: !enterprise,
+		NoAuth:       !auth,
+		AuthToken:    authToken,
+	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -42,9 +47,9 @@ func (c APIClient) Extract(objects bool, f func(op *admin.Op) error) error {
 }
 
 // ExtractAll cluster state as a slice of operations.
-func (c APIClient) ExtractAll(objects bool) ([]*admin.Op, error) {
+func (c APIClient) ExtractAll(objects, enterprise, auth bool, authToken string) ([]*admin.Op, error) {
 	var result []*admin.Op
-	if err := c.Extract(objects, func(op *admin.Op) error {
+	if err := c.Extract(objects, enterprise, auth, authToken, func(op *admin.Op) error {
 		result = append(result, op)
 		return nil
 	}); err != nil {
@@ -54,17 +59,22 @@ func (c APIClient) ExtractAll(objects bool) ([]*admin.Op, error) {
 }
 
 // ExtractWriter extracts all cluster state and marshals it to w.
-func (c APIClient) ExtractWriter(objects bool, w io.Writer) error {
+func (c APIClient) ExtractWriter(objects, enterprise, auth bool, authToken string, w io.Writer) error {
 	writer := pbutil.NewWriter(w)
-	return c.Extract(objects, func(op *admin.Op) error {
+	return c.Extract(objects, enterprise, auth, authToken, func(op *admin.Op) error {
 		_, err := writer.Write(op)
 		return err
 	})
 }
 
 // ExtractURL extracts all cluster state and marshalls it to object storage.
-func (c APIClient) ExtractURL(url string) error {
-	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{URL: url})
+func (c APIClient) ExtractURL(url, authToken string, enterprise, auth bool) error {
+	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{
+		URL:          url,
+		NoEnterprise: !enterprise,
+		NoAuth:       !auth,
+		AuthToken:    authToken,
+	})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -138,7 +148,7 @@ func (c APIClient) RestoreReader(r io.Reader) (retErr error) {
 }
 
 // RestoreFrom restores state from another cluster which can be access through otherC.
-func (c APIClient) RestoreFrom(objects bool, otherC *APIClient) (retErr error) {
+func (c APIClient) RestoreFrom(objects, enterprise, auth bool, authToken string, otherC *APIClient) (retErr error) {
 	restoreClient, err := c.AdminAPIClient.Restore(c.Ctx())
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -148,7 +158,7 @@ func (c APIClient) RestoreFrom(objects bool, otherC *APIClient) (retErr error) {
 			retErr = grpcutil.ScrubGRPC(err)
 		}
 	}()
-	return otherC.Extract(objects, func(op *admin.Op) error {
+	return otherC.Extract(objects, enterprise, auth, authToken, func(op *admin.Op) error {
 		return restoreClient.Send(&admin.RestoreRequest{Op: op})
 	})
 }

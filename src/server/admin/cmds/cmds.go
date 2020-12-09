@@ -6,7 +6,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/golang/snappy"
 	"github.com/spf13/cobra"
@@ -16,7 +18,7 @@ import (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	var noObjects bool
+	var noObjects, noEnterprise, noAuth bool
 	var url string
 	extract := &cobra.Command{
 		Short: "Extract Pachyderm state to stdout or an object store bucket.",
@@ -32,9 +34,31 @@ $ {{alias}} -u s3://bucket/backup`,
 			if err != nil {
 				return err
 			}
+
+			// If the cluster has auth enabled, mint a robot token as a backup
+			// in case auth is misconfigured on restore.
+			authActive, err := c.IsAuthActive()
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+			}
+
+			var authToken string
+			if authActive && !noAuth {
+				authToken = uuid.NewWithoutDashes()
+				fmt.Fprintf(os.Stderr, `
+Generated a new root auth token. This token will have permanent admin access to the restored cluster.
+It cannot be recreated - keep it safe for the lifetime of the restored cluster.
+
+Before you restore this extract you'll need to activate this token with 'pachctl auth use-auth-token':
+
+Token: %v
+
+`[1:], authToken)
+			}
+
 			defer c.Close()
 			if url != "" {
-				return c.ExtractURL(url)
+				return c.ExtractURL(url, authToken, !noEnterprise, !noAuth)
 			}
 			w := snappy.NewBufferedWriter(os.Stdout)
 			defer func() {
@@ -42,10 +66,12 @@ $ {{alias}} -u s3://bucket/backup`,
 					retErr = err
 				}
 			}()
-			return c.ExtractWriter(!noObjects, w)
+			return c.ExtractWriter(!noObjects, !noEnterprise, !noAuth, authToken, w)
 		}),
 	}
 	extract.Flags().BoolVar(&noObjects, "no-objects", false, "don't extract from object storage, only extract data from etcd")
+	extract.Flags().BoolVar(&noEnterprise, "no-enterprise", false, "don't extract the enterprise license information")
+	extract.Flags().BoolVar(&noAuth, "no-auth", false, "don't extract the authentication information")
 	extract.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to extract to.")
 	commands = append(commands, cmdutil.CreateAlias(extract, "extract"))
 

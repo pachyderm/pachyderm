@@ -123,6 +123,8 @@ type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.
 type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
 type getOneTimePasswordFunc func(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error)
+type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
+type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -148,6 +150,8 @@ type mockModifyMembers struct{ handler modifyMembersFunc }
 type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
+type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
+type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 
 func (mock *mockActivateAuth) Use(cb activateAuthFunc)                         { mock.handler = cb }
 func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                     { mock.handler = cb }
@@ -173,6 +177,8 @@ func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                       {
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                               { mock.handler = cb }
 func (mock *mockGetUsers) Use(cb getUsersFunc)                                 { mock.handler = cb }
 func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc)             { mock.handler = cb }
+func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)               { mock.handler = cb }
+func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                 { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
@@ -204,6 +210,8 @@ type mockAuthServer struct {
 	GetGroups                mockGetGroups
 	GetUsers                 mockGetUsers
 	GetOneTimePassword       mockGetOneTimePassword
+	ExtractAuthTokens        mockExtractAuthTokens
+	RestoreAuthToken         mockRestoreAuthToken
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -349,6 +357,20 @@ func (api *authServerAPI) GetOneTimePassword(ctx context.Context, req *auth.GetO
 		return api.mock.GetOneTimePassword.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetOneTimePassword")
+}
+
+func (api *authServerAPI) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error) {
+	if api.mock.ExtractAuthTokens.handler != nil {
+		return api.mock.ExtractAuthTokens.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.ExtractAuthTokens")
+}
+
+func (api *authServerAPI) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error) {
+	if api.mock.RestoreAuthToken.handler != nil {
+		return api.mock.RestoreAuthToken.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.RestoreAuthToken")
 }
 
 /* Enterprise Server Mocks */

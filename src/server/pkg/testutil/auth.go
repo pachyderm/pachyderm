@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -18,7 +19,7 @@ import (
 
 const (
 	// AdminUser is the sole cluster admin after GetAuthenticatedPachClient is called
-	AdminUser = auth.RobotPrefix + "admin"
+	AdminUser = auth.RootUser
 
 	adminTokenFile = "/tmp/pach-auth-test_admin-token"
 )
@@ -155,6 +156,7 @@ func activateAuth(tb testing.TB) {
 	}
 	tokenMap[AdminUser] = resp.PachToken
 	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
+	config.WritePachTokenToConfig(resp.PachToken)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {

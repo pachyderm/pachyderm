@@ -194,12 +194,13 @@ To copy files from one branch to another, complete the following steps:
    $ pachctl finish commit data@master
    ```
 
-While the commit is open, you can run `pachctl delete file` if you want to remove something from
-the parent commit or `pachctl put file`if you want to upload something that is not in a repo yet.
+Also, you can run `pachctl delete file` and `pachctl put file`
+while the commit is open if you want to remove something from
+the parent commit or add something that is not stored anywhere else.
 
 ## Deferred Processing in Output Repositories
 
-You can perform the same deferred processing operations with data in output
+You can perform same deferred processing opertions with data in output
 repositories. To do so, rather than committing to a
 `staging` branch, configure the `output_branch` field
 in your pipeline specification.
@@ -240,7 +241,6 @@ there's 1 Megabyte of new data on `staging`, run:
 ```shell
 $ pachctl create branch data@master --trigger staging --trigger-size 1MB
 $ pachctl list branch data
-
 BRANCH  HEAD                             TRIGGER
 staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
 master  -                                staging on Size(1MB)
@@ -257,7 +257,6 @@ update if you add a MB of new data to `staging`:
 ```shell
 $ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
 $ pachctl list branch data
-
 BRANCH  HEAD                             TRIGGER
 staging 64b70e6aeda84845858c42d755023673 -
 master  64b70e6aeda84845858c42d755023673 staging on Size(1MB)
@@ -271,7 +270,7 @@ trigger condition hasn't been met you can run:
 $ pachctl create branch data@master --head staging
 ```
 
-Notice that you don't need to re-specify the trigger when you call `create
+Notice that you don't need to respecify the trigger when you call `create
 branch` to change the head. If you do want to clear the trigger delete the
 branch and recreate it.
 
