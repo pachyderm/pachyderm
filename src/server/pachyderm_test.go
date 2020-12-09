@@ -5992,7 +5992,7 @@ func TestGroupInput(t *testing.T) {
 						"done"},
 				},
 				Input: client.NewGroupInput(
-					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false),
+					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
 				),
 				EnableStats: true,
 				ParallelismSpec: &pps.ParallelismSpec{
