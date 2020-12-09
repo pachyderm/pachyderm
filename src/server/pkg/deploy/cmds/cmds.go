@@ -48,7 +48,7 @@ var (
 
 const (
 	defaultDashImage   = "pachyderm/dash"
-	defaultDashVersion = "0.5.48"
+	defaultDashVersion = "0.5.57"
 
 	defaultIDEHubImage  = "pachyderm/ide-hub"
 	defaultIDEUserImage = "pachyderm/ide-user"
