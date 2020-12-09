@@ -57,7 +57,8 @@ You can test your glob pattern and capture groups by using the
 ## Example
 
 For example, a repository `labresults` contains the lab results of patients. 
-The files at the root of your repository have the following naming convention. You want to group your lab results by patientID.
+The files at the root of your repository have the following naming convention. 
+You want to group your lab results by patientID.
 
 * `labresults` repo:
 
@@ -73,7 +74,7 @@ The files at the root of your repository have the following naming convention. Y
 Pachyderm runs your code on the set of files that match
 the glob pattern and capture groups.
 
-The following example shows how you can use group to aggregate all the lab results of each patient.
+The following pipeline specification illustrates how you can use `group` to aggregate all the lab results of each patient.
 
 ```json
  {
@@ -108,7 +109,7 @@ The pipeline will process 3 datums for this job.
 - a second datum will be made of (2, 6) for `patientID2`
 - and a third with (4) for `patientID3`
 
-A run of the following command `pachctl list datum -f <your_pipeline_spec.json>` will illustrate how the files have been aggregated. 
+A run of the following command `pachctl list datum -f <your_pipeline_spec.json>` gives you a practical way to check the content of your datums. 
 
 ```code
 ID FILES                                                                                                                                                                                                                        STATUS TIME
