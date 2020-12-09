@@ -29,7 +29,7 @@ group to a file path. For example, if you have the following file path:
 /foo/bar-123/ABC.txt
 ```
 
-The following glob patterns in a joint input create the
+The following glob patterns in a group input create the
 following capture groups:
 
 | Regular expression  | Capture groups           |
