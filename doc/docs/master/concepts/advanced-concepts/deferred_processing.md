@@ -100,7 +100,7 @@ To configure a staging branch, complete the following steps:
    commit:
 
    ```shell
-   $ pachctl list branch
+   $ pachctl list branch data
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -284,6 +284,8 @@ There are three conditions on which you can trigger the repointing of a branch.
 When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
+
+To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred_processing/triggers).
 
 ## Embed Triggers in Pipelines
 
