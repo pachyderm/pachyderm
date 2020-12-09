@@ -52,6 +52,7 @@ export {ReactComponent as PipelinesSVG} from './pipelines.svg';
 export {ReactComponent as PlusSVG} from './plus.svg';
 export {ReactComponent as ProgressCheckSVG} from './ProgressCheck.svg';
 export {ReactComponent as RectangleSVG} from './Rectangle.svg';
+export {ReactComponent as SearchSVG} from './Search.svg';
 export {ReactComponent as SectionRectangleSVG} from './SectionRectangle.svg';
 export {ReactComponent as SettingsSVG} from './settings.svg';
 export {ReactComponent as SlackLogoSVG} from './slackLogo.svg';
