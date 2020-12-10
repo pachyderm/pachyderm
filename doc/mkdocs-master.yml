@@ -199,6 +199,7 @@ nav:
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
+            - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
             - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
