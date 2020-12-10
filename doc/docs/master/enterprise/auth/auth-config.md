@@ -75,5 +75,6 @@ authentication file:
  | `client_id`      | The Pachyderm ID configured in the IdP. For example, <br> `pachyderm`.
  | `client_secret`  | A shared secret with the ID provider. If your OIDC provider <br> does not use a secret, which is not recommended, the <br> parameter can be omitted for testing. |
  | `redirect_uri`   | The URI on which the OIDC IdP can access Pachyderm. <br> Depends on your network configuration and must have the following <br> format: `http://<ip>:30657/authorization-code/callback`. |
+ | `additional_scopes`| A list of additional OIDC scopes to request from the provider. If `groups` is requested, the groups in the ID token will be synced with pachyderm |
 
 [View a sample config](../oidc/configure-keycloak/#configure-keycloak)
