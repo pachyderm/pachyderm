@@ -122,7 +122,7 @@ base:
 
 runtime:
   cpus: 4
-  memory: 10GB
+  memory: 16GB
   disk: 50GB
 
 prewarm_pool_size: 12
