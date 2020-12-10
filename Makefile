@@ -7,8 +7,6 @@
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
-	# VERSION is used by docker-build-pipeline-build (Env.VERSION in goreleaser/docker-build-pipelines.yml)
-	export VERSION = CIbuild
 	export VERSION_ADDITIONAL = -CIbuild
 	export GC_FLAGS = ""
 else
