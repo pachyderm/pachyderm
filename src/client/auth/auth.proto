@@ -48,10 +48,10 @@ message ActivateRequest {
   // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 
-  // If set, activate auth for the root user (`robot:root`), and add this
-  // token hash as the initial login token. The root user will have super
+  // If set, activate auth for the root user (`pach:root`), and add this
+  // token as the initial login token. The root user will have super
   // admin permissions on the cluster.
-  string root_token_hash = 3;
+  string root_token = 3;
 }
 
 message ActivateResponse {

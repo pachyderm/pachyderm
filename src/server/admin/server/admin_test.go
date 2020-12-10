@@ -332,8 +332,7 @@ func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 	commitInfosBefore := listAllCommits(t, c)
 
 	// Extract existing cluster state
-	extractToken := "known-extract-auth-token"
-	ops, err := c.ExtractAll(testObjects, testAuth, testAuth, extractToken)
+	ops, err := c.ExtractAll(testObjects, testAuth, testAuth)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 
@@ -342,11 +341,12 @@ func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 		require.NoError(t, c.GarbageCollect(10000))
 	}
 
-	// If we're restoring a cluster with auth, we need to provide the auth token
+	// If we're restoring a cluster with auth, we need to provide an auth token
 	// in the context where we call Restore.
 	if testAuth {
-		tu.UpdateAuthToken(tu.AdminUser, extractToken)
-		c.SetAuthToken(extractToken)
+		authToken := "restore-new-auth-token"
+		tu.UpdateAuthToken(tu.AdminUser, authToken)
+		c.SetAuthToken(authToken)
 	}
 
 	// Restore metadata and possibly objects
@@ -589,7 +589,7 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	commitInfosBefore := listAllCommits(t, c)
 
 	// Extract existing cluster state
-	ops, err := c.ExtractAll(true, false, false, "")
+	ops, err := c.ExtractAll(true, false, false)
 	require.NoError(t, err)
 
 	// Delete metadata & data
@@ -694,7 +694,7 @@ func TestExtractRestoreHeadlessBranches(t *testing.T) {
 	// create a headless branch
 	require.NoError(t, c.CreateBranch(dataRepo, "headless", "", nil))
 
-	ops, err := c.ExtractAll(false, false, false, "")
+	ops, err := c.ExtractAll(false, false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -736,7 +736,7 @@ func TestExtractVersion(t *testing.T) {
 		false,
 	))
 
-	ops, err := c.ExtractAll(false, false, false, "")
+	ops, err := c.ExtractAll(false, false, false)
 	require.NoError(t, err)
 	require.True(t, len(ops) > 0)
 
@@ -873,7 +873,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	commitInfosBefore := listAllCommits(t, c)
-	ops, err := c.ExtractAll(false, false, false, "")
+	ops, err := c.ExtractAll(false, false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -937,7 +937,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 
 	commitInfosBefore := listAllCommits(t, c)
 
-	ops, err := c.ExtractAll(false, false, false, "")
+	ops, err := c.ExtractAll(false, false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -996,7 +996,7 @@ func TestExtractRestoreStats(t *testing.T) {
 
 	commitInfosBefore := listAllCommits(t, c)
 
-	ops, err := c.ExtractAll(false, false, false, "")
+	ops, err := c.ExtractAll(false, false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
@@ -1010,25 +1010,9 @@ func TestExtractRestoreStats(t *testing.T) {
 	require.Equal(t, 2, len(cis))
 }
 
-// TestExtractRestoreNoExtractToken tests that we throw an error if the user
-// tries to extract a cluster with auth enabled and doesn't specify a token
-func TestExtractRestoreNoExtractToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
-
-	_, err := c.ExtractAll(true, true, true, "")
-	require.YesError(t, err)
-	require.Equal(t, "cluster has auth enabled but no auth token was provided, aborting", err.Error())
-}
-
-// TestExtractRestoreBadRestoreToken tests that we throw an error if the user
-// tries to restore a cluster with auth enabled and doesn't specify the right token
-func TestExtractRestoreBadRestoreToken(t *testing.T) {
+// TestExtractRestoreNoToken tests that we throw an error if the user
+// tries to restore a cluster with auth enabled and doesn't specify a token
+func TestExtractRestoreNoToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1037,10 +1021,11 @@ func TestExtractRestoreBadRestoreToken(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
-	ops, err := c.ExtractAll(true, true, true, "someextracttoken")
+	ops, err := c.ExtractAll(true, true, true)
 	require.NoError(t, err)
 
+	c.SetAuthToken("")
 	err = c.Restore(ops)
 	require.YesError(t, err)
-	require.Equal(t, "auth token didn't match the one in the extract, aborting", err.Error())
+	require.Equal(t, "failed to get auth token from incoming context: no authentication token (try logging in)", err.Error())
 }

@@ -540,7 +540,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	}
 
 	// If the request sets the root token, always auth as the root user
-	if req.RootTokenHash != "" {
+	if req.RootToken != "" {
 		req.Subject = auth.RootUser
 	}
 
@@ -601,11 +601,9 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 	// If the token hash was in the request, use it and return an empty response.
 	// Otherwise generate a new random token.
-	var pachToken string
-	tokenHash := req.RootTokenHash
-	if tokenHash == "" {
+	pachToken := req.RootToken
+	if pachToken == "" {
 		pachToken = uuid.NewWithoutDashes()
-		tokenHash = auth.HashToken(pachToken)
 	}
 
 	// Store a new Pachyderm token (as the caller is authenticating) and
@@ -620,7 +618,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return err
 		}
 		return tokens.PutTTL(
-			tokenHash,
+			auth.HashToken(pachToken),
 			&auth.TokenInfo{
 				Subject: req.Subject,
 				Source:  auth.TokenInfo_AUTHENTICATE,

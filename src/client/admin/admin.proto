@@ -21,11 +21,9 @@ import "client/auth/auth.proto";
 import "client/enterprise/enterprise.proto";
 
 // CheckAuthToken is the first message in an extract on a cluster
-// where auth is enabled. It verifies that the user provided the correct
-// auth token for the restore before we start restoring. 
-message CheckAuthToken {
-  string tokenHash = 1;
-}
+// where auth is enabled. It ensures the calling context contains 
+// an auth token.
+message CheckAuthToken {}
 
 message Op1_7 {
   pfs_1_7.PutObjectRequest object = 2;
@@ -127,9 +125,6 @@ message ExtractRequest {
   bool no_enterprise = 5;
   // NoAuth, if true, causes extract to omit ACLs and robot tokens
   bool no_auth = 6;
-
-  // AuthToken is the root token that will be installed on the restored cluster 
-  string auth_token = 7;
 }
 
 message ExtractPipelineRequest {

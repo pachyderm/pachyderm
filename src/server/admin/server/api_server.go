@@ -135,17 +135,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 
-	// If auth is enabled on the cluster and the user has requested to extract auth info, write
-	// a pre-amble to the extracted data that verifies the auth token during restore.
-	// This ensures we don't fail to restore half-way through if a user forgets their auth token.
-	var authTokenHash string
+	// If auth is enabled on the cluster and the user has requested to extract auth info, the first op
+	// should verify the client doing the restore has provided a valid auth token to use in Activate.
+	// This ensures we don't fail to restore half-way through.
 	if !request.NoAuth {
 		if _, err := pachClient.GetConfiguration(pachClient.Ctx(), &auth.GetConfigurationRequest{}); err == nil {
-			if request.AuthToken == "" {
-				return errors.New("cluster has auth enabled but no auth token was provided, aborting")
-			}
-			authTokenHash = auth.HashToken(request.AuthToken)
-			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{CheckAuthToken: &admin.CheckAuthToken{TokenHash: authTokenHash}}}); err != nil {
+			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{CheckAuthToken: &admin.CheckAuthToken{}}}); err != nil {
 				return err
 			}
 		} else if auth.IsErrNotActivated(err) || auth.IsErrPartiallyActivated(err) {
@@ -308,9 +303,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 
-		// Activate auth using the token provided by the user. This will make `robot:root` the sole admin
+		// Activate auth using the token provided by the user. This will make `pach:root` the sole admin
 		// and allow the user to authenticate with the token (which they know from the extract process).
-		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{ActivateAuth: &auth.ActivateRequest{RootTokenHash: authTokenHash}}}); err != nil {
+		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{ActivateAuth: &auth.ActivateRequest{RootToken: ""}}}); err != nil {
 			return err
 		}
 
@@ -810,8 +805,14 @@ func (r *restoreCtx) applyOp(op *admin.Op1_12) error {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error setting authorization config")
 		}
 	case op.ActivateAuth != nil:
-		_, err := c.AuthAPIClient.Activate(ctx, op.ActivateAuth)
+		// ActivateAuth by setting the root token to the current context's auth token. This guarantees the
+		// user will have access to the cluster afterwards.
+		authToken, err := auth.GetAuthToken(ctx)
 		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get auth token from incoming context")
+		}
+
+		if _, err := c.AuthAPIClient.Activate(ctx, &auth.ActivateRequest{RootToken: authToken}); err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating authentication")
 		}
 	case op.RestoreAuthToken != nil:
@@ -823,12 +824,11 @@ func (r *restoreCtx) applyOp(op *admin.Op1_12) error {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating enterprise license")
 		}
 	case op.CheckAuthToken != nil:
-		authToken, err := auth.GetAuthToken(ctx)
-		if err != nil {
+		// CheckAuthToken is inserted at the beginning of an extract that contains an ActivateAuth call
+		// The goal is just to check that the calling context includes a non-empty token we can use
+		// to activate the cluster.
+		if _, err := auth.GetAuthToken(ctx); err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get auth token from incoming context")
-		}
-		if op.CheckAuthToken.TokenHash != auth.HashToken(authToken) {
-			return errors.New("auth token didn't match the one in the extract, aborting")
 		}
 	}
 	return nil
