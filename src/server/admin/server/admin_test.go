@@ -1052,3 +1052,28 @@ func TestExtractRestoreNoToken(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, "failed to get auth token from incoming context: no authentication token (try logging in)", err.Error())
 }
+
+// TestExtractRestoreUnauthenticated tests that we throw an error if a non-admin user
+// tries to extract from or restore to a cluster with auth enabled.
+func TestExtractRestoreUnauthenticated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	ops, err := c.ExtractAll(true, true, true)
+	require.NoError(t, err)
+
+	aliceClient := tu.GetAuthenticatedPachClient(t, "alice")
+
+	_, err = aliceClient.ExtractAll(true, true, true)
+	require.YesError(t, err)
+	require.Equal(t, "github:alice is not authorized to perform this operation; must be an admin to call Extract", err.Error())
+
+	err = aliceClient.Restore(ops)
+	require.YesError(t, err)
+	require.Equal(t, "github:alice is not authorized to perform this operation; must be an admin to call Restore", err.Error())
+}

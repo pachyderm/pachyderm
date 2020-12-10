@@ -99,6 +99,25 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
+
+	// Check whether the user is an admin at beginning of the call.
+	// Many of these APIs also require admin status, but the block API does not.
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsErrNotActivated(err) {
+			request.NoAuth = true
+		} else {
+			return err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "Extract",
+			}
+		}
+	}
+
 	writeOp := extractServer.Send
 
 	if request.URL != "" {
@@ -139,14 +158,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	// should verify the client doing the restore has provided a valid auth token to use in Activate.
 	// This ensures we don't fail to restore half-way through.
 	if !request.NoAuth {
-		if _, err := pachClient.GetConfiguration(pachClient.Ctx(), &auth.GetConfigurationRequest{}); err == nil {
-			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{CheckAuthToken: &admin.CheckAuthToken{}}}); err != nil {
-				return err
-			}
-		} else if auth.IsErrNotActivated(err) || auth.IsErrPartiallyActivated(err) {
-			logrus.Warnf("auth is not fully activated, not extracting")
-			request.NoAuth = true
-		} else {
+		if _, err := pachClient.GetConfiguration(pachClient.Ctx(), &auth.GetConfigurationRequest{}); err != nil {
+			return err
+		}
+
+		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{CheckAuthToken: &admin.CheckAuthToken{}}}); err != nil {
 			return err
 		}
 	}
@@ -182,7 +198,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 
 	var ris []*pfs.RepoInfo
-	var err error
 	if !request.NoRepos {
 		ris, err = pachClient.ListRepo()
 		if err != nil {
@@ -413,13 +428,30 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			retErr = err
 		}
 	}()
+	pachClient := a.getPachClient().WithCtx(restoreServer.Context())
+
+	// Check whether the user is an admin at beginning of the call. If the cluster
+	// already has auth enabled we shouldn't allow non-admin users to restore at all.
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "Restore",
+			}
+		}
+	}
 
 	// Determine if we're restoring from a URL or not
 	r := &restoreCtx{
 		a:             a,
 		restoreServer: restoreServer,
 		// TODO(msteffen): refactor admin apiServer to use serviceenv
-		pachClient: a.getPachClient().WithCtx(restoreServer.Context()),
+		pachClient: pachClient,
 	}
 	req, err := restoreServer.Recv()
 	if err != nil {
