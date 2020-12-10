@@ -76,11 +76,6 @@ authentication file:
  | `client_secret`  | A shared secret with the ID provider. If your OIDC provider <br> does not use a secret, which is not recommended, the <br> parameter can be omitted for testing. |
  | `redirect_uri`   | The URI on which the OIDC IdP can access Pachyderm. <br> Depends on your network configuration and must have the following <br> format: `http://<ip>:30657/authorization-code/callback`. |
  | `additional_scopes`| A list of additional OIDC scopes to request from the provider. If `groups` is requested, the groups in the ID token will be synced with Pachyderm |
- 
- ## Groups Support
 
-SAML group membership is synced by setting the `group_attribute` setting in the SAML config.
-
-If an OIDC provider supports the `groups` claim, and that scope is included in `additional_scopes`, their group membership will be synced to Pachyderm on each OIDC login.
 
 [View a sample config](../oidc/configure-keycloak/#configure-keycloak)
