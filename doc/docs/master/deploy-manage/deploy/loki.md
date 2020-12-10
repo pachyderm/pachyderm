@@ -1,5 +1,5 @@
 !!! note To deploy and configure a Pachyderm cluster
-to forward logs to Loki, 
+to ship logs to Loki, 
 a ***Pachyderm Enterprise License*** is required. 
 
 # Enabling Loki
@@ -30,7 +30,7 @@ For example, a `deployment.json` generated with
 ```shell
     pachctl deploy local --dry-run > deployment.json`     
 ```
-can be modified to include log forwarding as follows:
+can be modified to make logs available for Loki as follows:
 
 ```json
 {
