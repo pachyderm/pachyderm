@@ -107,7 +107,7 @@ those commits together.
 ### Updating Multiple Pipelines Simultaneously
 
 If you want to change logic or intermediate data formats in your DAG, you 
-many need to change multiple pipelines. Performing these changes together
+may need to change multiple pipelines. Performing these changes together
 in a transaction can avoid creating jobs with mismatched pipeline versions
 and potentially wasting work.
 
@@ -156,7 +156,7 @@ are executed atomically.
 To finish a transaction, run:
 
 ```shell
-pachctl finsh transaction
+pachctl finish transaction
 ```
 
 **System Response:**
