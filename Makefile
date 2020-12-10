@@ -5,25 +5,31 @@
 ####
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-
 # Don't set the version to the git hash in CI, as it breaks the go build cache.
 ifdef CIRCLE_BRANCH
-	export VERSION_ADDITIONAL = "ci_build"
-	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+	export VERSION_ADDITIONAL = -CIbuild
 	export GC_FLAGS = ""
 else
 	export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-	LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
+
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
-CLUSTER_NAME?=pachyderm
-CLUSTER_MACHINE_TYPE?=n1-standard-4
-CLUSTER_SIZE?=4
+CLUSTER_NAME ?= pachyderm
+CLUSTER_MACHINE_TYPE ?= n1-standard-4
+CLUSTER_SIZE ?= 4
 
-MINIKUBE_MEM=8192 # MB of memory allocated to minikube
-MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
+MINIKUBE_MEM = 8192 # MB of memory allocated to minikube
+MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
+
+CHLOGFILE = ${PWD}/../changelog.diff
+export GOVERSION = $(shell cat etc/compile/GO_VERSION)
+GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
+SKIP = #\# # To skip push to docker and github remove # in front of #
+GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -47,72 +53,50 @@ install-clean:
 install-doc:
 	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
+doc-custom: install-doc install-clean
+	./etc/build/doc.sh
+
+doc:
+	@make VERSION_ADDITIONAL= doc-custom
+
 point-release:
-	@make VERSION_ADDITIONAL= release-helper
-	@make VERSION_ADDITIONAL= release-pachctl
+	@./etc/build/make_changelog.sh $(CHLOGFILE)
+	@VERSION_ADDITIONAL= ./etc/build/make_release.sh
 	@make doc
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
 release-candidate:
-	@if [ $${VERSION_ADDITIONAL:0:1} != - ]; then \
-	  echo "VERSION_ADDITIONAL must start with a '-'"; \
-	  exit 1; \
-	fi
+	@make custom-release
+
+custom-release:
+	echo "" > $(CHLOGFILE)
+	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh "Custom"
+	# Need to check for homebrew updates from release-pachctl-custom
+
+# This is getting called from etc/build/make_release.sh
+# Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
+release:
+	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
+	$(SKIP) @git push origin v$(VERSION)
 	@make release-helper
-	@make release-pachctl-custom
-	@echo "Release completed"
+	@make release-pachctl
+	@echo "Release $(VERSION) completed"
 
-custom-release: release-helper release-pachctl-custom
-	@echo 'For brew install, do:'
-	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl@$(shell $(GOPATH)/bin/pachctl version --client-only | cut -f -2 -d\.).rb"
-	@echo 'For linux install, do:'
-	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl_$(shell $(GOPATH)/bin/pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
-	# Workaround for https://github.com/laher/goxc/issues/112
-	@git push origin :v$(shell $(GOPATH)/bin/pachctl version --client-only)
-	@git tag v$(shell $(GOPATH)/bin/pachctl version --client-only)
-	@git push origin v$(shell $(GOPATH)/bin/pachctl version --client-only)
-	@echo "Release completed"
+release-helper: release-docker-images docker-push docker-push-pipeline-build
 
-release-pachctl-custom:
-	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh $(shell $(GOPATH)/bin/pachctl version --client-only)
+release-docker-images:
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 release-pachctl:
-	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
-
-release-helper: release-version docker-build docker-push docker-push-pachctl docker-push-pipeline-build
-
-release-version: install-clean
-	@./etc/build/repo_ready_for_release.sh
+	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
-	DOCKER_BUILDKIT=1 docker build \
-		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
-		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		$(DOCKER_BUILD_FLAGS) \
-		--progress plain -f Dockerfile.pachd -t pachyderm_build .
-
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
-	docker tag pachyderm/pachd pachyderm/pachd:local
-
-	DOCKER_BUILDKIT=1 docker build \
-		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
-		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		--build-arg GC_FLAGS="$(GC_FLAGS)" \
-		$(DOCKER_BUILD_FLAGS) \
-		--progress plain -f Dockerfile.pachctl -t pachyderm/pachctl .
-
-	docker build \
-		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
-		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		$(DOCKER_BUILD_FLAGS) \
-		-t pachyderm/worker etc/worker
-	docker tag pachyderm/worker pachyderm/worker:local
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-pipeline-build:
-	cd etc/pipeline-build && make docker-build
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -131,11 +115,11 @@ docker-build-spout-test:
 	docker build -t spout-test etc/testing/spout
 
 docker-push-gpu:
-	docker push pachyderm/nvidia_driver_install
+	$(SKIP) docker push pachyderm/nvidia_driver_install
 
 docker-push-gpu-dev:
 	docker tag pachyderm/nvidia_driver_install pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
-	docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	$(SKIP) docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 	echo pushed pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 
 docker-gpu: docker-build-gpu docker-push-gpu
@@ -145,33 +129,34 @@ docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 docker-build-test-entrypoint:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
 
+docker-tag:
+	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
+	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
+	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
+
+docker-push: docker-tag
+	$(SKIP) docker push pachyderm/etcd:v3.3.5
+	$(SKIP) docker push pachyderm/pachd:$(VERSION)
+	$(SKIP) docker push pachyderm/worker:$(VERSION)
+	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
+
+docker-push-pipeline-build:
+	$(SKIP) docker push pachyderm/go-build:$(VERSION)
+	$(SKIP) docker push pachyderm/python-build:$(VERSION)
+
 check-kubectl:
 	@# check that kubectl is installed
 	@which kubectl >/dev/null || { \
 		echo "error: kubectl not found"; \
 		exit 1; \
 	}
+	@if expr match $(shell kubectl config current-context) gke_pachub > /dev/null; then \
+		echo "ERROR: The active kubectl context is pointing to a pachub GKE cluster"; \
+		exit 1; \
+	fi
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
-
-docker-tag: install
-	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-docker-tag-pachctl: install
-	docker tag pachyderm/pachctl pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
-
-docker-push: docker-tag
-	docker push pachyderm/etcd:v3.3.5
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-docker-push-pachctl: docker-tag-pachctl
-	docker push pachyderm/pachctl:`$(GOPATH)/bin/pachctl version --client-only`
-
-docker-push-pipeline-build:
-	cd etc/pipeline-build && make docker-push
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -285,6 +270,11 @@ test-transaction:
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)
 
+test-object-clients:
+	# The parallelism is lowered here because these tests run several pachd
+	# deployments in kubernetes which may contest resources.
+	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
+
 test-libs:
 	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
@@ -344,12 +334,6 @@ test-worker-helper:
 	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
-
-doc-custom: install-doc release-version
-	./etc/build/doc.sh
-
-doc:
-	@make VERSION_ADDITIONAL= doc-custom
 
 compatibility:
 	./etc/build/compatibility.sh
@@ -472,54 +456,36 @@ lint:
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
-goxc-generate-local:
-	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
-	  echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
-	  exit 1; \
-	fi
-	goxc -wlc default publish-github -apikey=$(GITHUB_OAUTH_TOKEN)
-
-goxc-release:
-	@if [ -z $$VERSION ]; then \
-	  @echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
-	  @exit 1; \
-	fi
-	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -pv="$(VERSION)" -build-gcflags="$(GC_FLAGS)" -wd=./src/server/cmd/pachctl
-
-goxc-build:
-	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -build-gcflags="$(GC_FLAGS)" -tasks=xc -wd=./src/server/cmd/pachctl
-
 .PHONY: \
 	install \
 	install-clean \
 	install-doc \
+	doc-custom \
+	doc \
 	point-release \
 	release-candidate \
 	custom-release \
-	release-pachctl-custom \
-	release-pachctl \
+	release \
 	release-helper \
-	release-version \
+	release-docker-images \
+	release-pachctl \
 	docker-build \
 	docker-build-pipeline-build \
 	docker-build-proto \
 	docker-build-netcat \
 	docker-build-gpu \
+	docker-build-kafka \
 	docker-build-spout-test \
 	docker-push-gpu \
 	docker-push-gpu-dev \
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
+	docker-tag \
+	docker-push \
+	docker-push-pipeline-build \
 	check-kubectl \
 	check-kubectl-connection \
-	docker-tag \
-	docker-tag-pachctl \
-	docker-push \
-	docker-push-pachctl \
-	docker-push-pipeline-build \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
@@ -555,8 +521,6 @@ goxc-build:
 	test-worker \
 	test-worker-helper \
 	clean \
-	doc-custom \
-	doc \
 	compatibility \
 	clean-launch-kafka \
 	launch-kafka \
@@ -566,6 +530,10 @@ goxc-build:
 	launch-monitoring \
 	clean-launch-logging \
 	launch-logging \
+	launch-loki \
+	clean-launch-loki \
+	launch-dex \
+	clean-launch-dex \
 	logs \
 	follow-logs \
 	google-cluster-manifest \
@@ -580,7 +548,4 @@ goxc-build:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck \
-	goxc-generate-local \
-	goxc-release \
-	goxc-build
+	spellcheck

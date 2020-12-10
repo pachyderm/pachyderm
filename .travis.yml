@@ -37,6 +37,7 @@ env:
     - BUCKET=PPS5
     - BUCKET=PPS6
     - BUCKET=EXAMPLES
+    - BUCKET=OBJECT
 
 stages:
   - build

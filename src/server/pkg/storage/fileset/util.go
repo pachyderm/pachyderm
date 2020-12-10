@@ -2,16 +2,17 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
@@ -24,20 +25,36 @@ func NewTestStorage(t testing.TB) *Storage {
 }
 
 // CopyFiles copies files from a file set to a file set writer.
-func CopyFiles(ctx context.Context, w *Writer, fs FileSet) error {
+func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {
+	if len(deletive) > 0 && deletive[0] {
+		if err := fs.Iterate(ctx, func(f File) error {
+			return deleteIndex(w, f.Index())
+		}, deletive...); err != nil {
+			return err
+		}
+	}
 	return fs.Iterate(ctx, func(f File) error {
 		return w.Copy(f)
 	})
 }
 
+func deleteIndex(w *Writer, idx *index.Index) error {
+	p := idx.Path
+	if len(idx.File.Parts) == 0 {
+		return w.Delete(p)
+	}
+	var tags []string
+	for _, part := range idx.File.Parts {
+		tags = append(tags, part.Tag)
+	}
+	return w.Delete(p, tags...)
+}
+
 // WriteTarEntry writes an tar entry for f to w
 func WriteTarEntry(w io.Writer, f File) error {
-	h, err := f.Header()
-	if err != nil {
-		return err
-	}
+	idx := f.Index()
 	tw := tar.NewWriter(w)
-	if err := tw.WriteHeader(h); err != nil {
+	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return err
 	}
 	if err := f.Content(tw); err != nil {
@@ -57,49 +74,8 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	return tar.NewWriter(w).Close()
 }
 
-// WithTarFileWriter wraps a file writer with a tar file writer.
-func WithTarFileWriter(fw *FileWriter, hdr *tar.Header, cb func(*TarFileWriter) error) error {
-	tw := tar.NewWriter(fw)
-	fw.Append(headerTag)
-	if err := tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-	if err := cb(&TarFileWriter{
-		FileWriter: fw,
-		tw:         tw,
-	}); err != nil {
-		return err
-	}
-	fw.Append(paddingTag)
-	return tw.Flush()
-}
-
-// TarFileWriter is used for writing a tar file to a file writer.
-type TarFileWriter struct {
-	*FileWriter
-	tw *tar.Writer
-}
-
-// Copy copies a set of data ops to the tar file writer.
-func (tfw *TarFileWriter) Copy(dataOps []*index.DataOp) error {
-	for _, dataOp := range dataOps {
-		for _, dataRef := range dataOp.DataRefs {
-			if err := tfw.tw.Skip(dataRef.SizeBytes); err != nil {
-				return err
-			}
-		}
-	}
-	return tfw.FileWriter.Copy(dataOps)
-}
-
-func (tfw *TarFileWriter) Write(data []byte) (int, error) {
-	return tfw.tw.Write(data)
-}
-
-// CleanTarPath ensures that the path is in the canonical format for tar header names.
-// This includes ensuring a prepending /'s and ensure directory paths
-// have a trailing slash.
-func CleanTarPath(x string, isDir bool) string {
+// Clean cleans a file path.
+func Clean(x string, isDir bool) string {
 	y := "/" + strings.Trim(x, "/")
 	if isDir && !IsDir(y) {
 		y += "/"
@@ -107,23 +83,15 @@ func CleanTarPath(x string, isDir bool) string {
 	return y
 }
 
-// IsCleanTarPath determines if the path is a valid tar path.
-func IsCleanTarPath(x string, isDir bool) bool {
-	y := CleanTarPath(x, isDir)
+// IsClean checks if a file path is clean.
+func IsClean(x string, isDir bool) bool {
+	y := Clean(x, isDir)
 	return y == x
 }
 
 // IsDir determines if a path is for a directory.
 func IsDir(p string) bool {
 	return strings.HasSuffix(p, "/")
-}
-
-// DirUpperBound returns the immediate next path after a directory in a lexicographical ordering.
-func DirUpperBound(p string) string {
-	if !IsDir(p) {
-		panic(fmt.Sprintf("%v is not a directory path", p))
-	}
-	return strings.TrimRight(p, "/") + "0"
 }
 
 // Iterator provides functionality for imperative iteration over a file set.
@@ -134,14 +102,14 @@ type Iterator struct {
 }
 
 // NewIterator creates a new iterator.
-func NewIterator(ctx context.Context, fs FileSet) *Iterator {
+func NewIterator(ctx context.Context, fs FileSet, deletive ...bool) *Iterator {
 	fileChan := make(chan File)
 	errChan := make(chan error, 1)
 	go func() {
 		if err := fs.Iterate(ctx, func(f File) error {
 			fileChan <- f
 			return nil
-		}); err != nil {
+		}, deletive...); err != nil {
 			errChan <- err
 			return
 		}
@@ -181,28 +149,20 @@ func (i *Iterator) Next() (File, error) {
 	}
 }
 
-// TODO: Might want to tighten up the invariants surrounding the extracting of header, content, and padding data ops.
-// Right now, the general behavior is that at read time the indexes will always have header, content, and padding data ops
-// except in the case of a merge reader which will at least have the header and content tags (the padding will need to be
-// generated by a tar writer when the merge is performed).
-func getHeaderDataOp(dataOps []*index.DataOp) *index.DataOp {
-	return dataOps[0]
-}
-
-func getContentDataOps(dataOps []*index.DataOp) []*index.DataOp {
-	if dataOps[0].Tag == headerTag {
-		dataOps = dataOps[1:]
-	}
-	if dataOps[len(dataOps)-1].Tag == paddingTag {
-		dataOps = dataOps[:len(dataOps)-1]
-	}
-	return dataOps
-}
-
-func getDataRefs(dataOps []*index.DataOp) []*chunk.DataRef {
+func getDataRefs(parts []*index.Part) []*chunk.DataRef {
 	var dataRefs []*chunk.DataRef
-	for _, dataOp := range dataOps {
-		dataRefs = append(dataRefs, dataOp.DataRefs...)
+	for _, part := range parts {
+		dataRefs = append(dataRefs, part.DataRefs...)
 	}
 	return dataRefs
+}
+
+func createTrackerObject(ctx context.Context, p string, idxs []*index.Index, tracker track.Tracker, ttl time.Duration) error {
+	var pointsTo []string
+	for _, idx := range idxs {
+		for _, cid := range index.PointsTo(idx) {
+			pointsTo = append(pointsTo, chunk.ObjectID(cid))
+		}
+	}
+	return tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl)
 }

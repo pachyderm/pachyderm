@@ -197,6 +197,7 @@ or type (e.g. csv, binary, images, etc).`,
 
 	var force bool
 	var all bool
+	var splitTransaction bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -209,8 +210,9 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			request := &pfsclient.DeleteRepoRequest{
-				Force: force,
-				All:   all,
+				Force:            force,
+				All:              all,
+				SplitTransaction: splitTransaction,
 			}
 			if len(args) > 0 {
 				if all {
@@ -219,6 +221,14 @@ or type (e.g. csv, binary, images, etc).`,
 				request.Repo = client.NewRepo(args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
+			}
+			if splitTransaction {
+				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
@@ -230,6 +240,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 
@@ -1150,14 +1161,14 @@ $ {{alias}} "foo@master:data/*"`,
 	var diffCmdArg string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
-		Short: "Return a diff of two file trees.",
-		Long:  "Return a diff of two file trees.",
+		Short: "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
+		Long:  "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
 		Example: `
-# Return the diff of the file "path" of the repo "foo" between the head of the
+# Return the diff of the file "path" of the input repo "foo" between the head of the
 # "master" branch and its parent.
 $ {{alias}} foo@master:path
 
-# Return the diff between the master branches of repos foo and bar at paths
+# Return the diff between the master branches of input repos foo and bar at paths
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {

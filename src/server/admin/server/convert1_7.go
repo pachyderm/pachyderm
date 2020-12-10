@@ -5,6 +5,7 @@ import (
 	pathlib "path"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	hashtree1_7 "github.com/pachyderm/pachyderm/src/client/admin/v1_7/hashtree"
@@ -362,7 +363,9 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 			return nil, err
 		}
 		var oldTree hashtree1_7.HashTreeProto
-		oldTree.Unmarshal(buf.Bytes())
+		if err := proto.Unmarshal(buf.Bytes(), &oldTree); err != nil {
+			return nil, errors.Wrapf(err, "could not unmarshal 1.7 hashtree")
+		}
 		newTree, err := convert1_7HashTree(storageRoot, &oldTree)
 		if err != nil {
 			return nil, err

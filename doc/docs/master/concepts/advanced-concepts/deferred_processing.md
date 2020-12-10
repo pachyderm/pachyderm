@@ -100,7 +100,7 @@ To configure a staging branch, complete the following steps:
    commit:
 
    ```shell
-   $ pachctl list branch
+   $ pachctl list branch data
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -194,13 +194,12 @@ To copy files from one branch to another, complete the following steps:
    $ pachctl finish commit data@master
    ```
 
-Also, you can run `pachctl delete file` and `pachctl put file`
-while the commit is open if you want to remove something from
-the parent commit or add something that is not stored anywhere else.
+While the commit is open, you can run `pachctl delete file` if you want to remove something from
+the parent commit or `pachctl put file`if you want to upload something that is not in a repo yet.
 
 ## Deferred Processing in Output Repositories
 
-You can perform same deferred processing opertions with data in output
+You can perform the same deferred processing operations with data in output
 repositories. To do so, rather than committing to a
 `staging` branch, configure the `output_branch` field
 in your pipeline specification.
@@ -241,6 +240,7 @@ there's 1 Megabyte of new data on `staging`, run:
 ```shell
 $ pachctl create branch data@master --trigger staging --trigger-size 1MB
 $ pachctl list branch data
+
 BRANCH  HEAD                             TRIGGER
 staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
 master  -                                staging on Size(1MB)
@@ -257,6 +257,7 @@ update if you add a MB of new data to `staging`:
 ```shell
 $ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
 $ pachctl list branch data
+
 BRANCH  HEAD                             TRIGGER
 staging 64b70e6aeda84845858c42d755023673 -
 master  64b70e6aeda84845858c42d755023673 staging on Size(1MB)
@@ -270,7 +271,7 @@ trigger condition hasn't been met you can run:
 $ pachctl create branch data@master --head staging
 ```
 
-Notice that you don't need to respecify the trigger when you call `create
+Notice that you don't need to re-specify the trigger when you call `create
 branch` to change the head. If you do want to clear the trigger delete the
 branch and recreate it.
 
@@ -283,6 +284,42 @@ There are three conditions on which you can trigger the repointing of a branch.
 When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
+
+To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred_processing/triggers).
+
+## Embed Triggers in Pipelines
+
+Triggers can also be specified in the pipeline spec and automatically created
+when the pipeline is created. For example, this is the edges pipeline from our
+our OpenCV demo modified to only trigger when there is a 1 Megabyte of new images:
+
+```
+{
+  "pipeline": {
+    "name": "edges"
+  },
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images",
+      "trigger": {
+          "size": "1MB"
+      }
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  }
+}
+```
+
+When you create this pipeline, Pachyderm will also create a branch in the input
+repo that specifies the trigger and the pipeline will use that branch as its
+input. The name of the branch is auto-generated with the form
+`<pipeline-name>-trigger-n`. You can manually update the heads of these branches
+to trigger processing just like in the previous example.
 
 ## More advanced automation
 

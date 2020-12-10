@@ -45,11 +45,11 @@ var (
 
 // MetadataStore stores metadata about chunks
 type MetadataStore interface {
-	// SetChunkInfo adds chunk metadata to the tracker
+	// Set adds chunk metadata to the tracker
 	Set(ctx context.Context, chunkID ID, md Metadata) error
-	// GetChunkInfo returns info about the chunk if it exists
+	// Get returns info about the chunk if it exists
 	Get(ctx context.Context, chunkID ID) (*Metadata, error)
-	// DeleteChunkInfo removes chunk metadata from the tracker
+	// Delete removes chunk metadata from the tracker
 	Delete(ctx context.Context, chunkID ID) error
 }
 
@@ -111,7 +111,7 @@ func SetupPostgresStore(db *sqlx.DB) {
 const schema = `
 	CREATE SCHEMA IF NOT EXISTS storage;
 
-	CREATE TABLE storage.chunks (
+	CREATE TABLE IF NOT EXISTS storage.chunks (
 		hash_id BYTEA NOT NULL UNIQUE,
 		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

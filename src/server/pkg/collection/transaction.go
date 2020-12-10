@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"sort"
 	"strings"
+	"sync"
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
@@ -143,6 +144,8 @@ type stm struct {
 	// same lease) so that kvs in a collection and its indexes all share a lease.
 	// It's similar to wset for TTLs.
 	newLeases map[int64]v3.LeaseID
+	// mutex for concurrent access
+	sync.Mutex
 }
 
 type stmPut struct {
@@ -157,6 +160,8 @@ func (s *stm) Context() context.Context {
 }
 
 func (s *stm) Get(key string) (string, error) {
+	s.Lock()
+	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
@@ -167,6 +172,8 @@ func (s *stm) Get(key string) (string, error) {
 }
 
 func (s *stm) SetSafePutCheck(key string, ptr uintptr) {
+	s.Lock()
+	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
 		wv.safePutPtr = ptr
 		s.wset[key] = wv
@@ -174,6 +181,8 @@ func (s *stm) SetSafePutCheck(key string, ptr uintptr) {
 }
 
 func (s *stm) IsSafePut(key string, ptr uintptr) bool {
+	s.Lock()
+	defer s.Unlock()
 	if _, ok := s.wset[key]; ok && s.wset[key].safePutPtr != 0 && ptr != s.wset[key].safePutPtr {
 		return false
 	}
@@ -190,6 +199,8 @@ func (s *stm) isKeyRangeDeleted(key string) bool {
 }
 
 func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
+	s.Lock()
+	defer s.Unlock()
 	var options []v3.OpOption
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
@@ -211,10 +222,14 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 }
 
 func (s *stm) Del(key string) {
+	s.Lock()
+	defer s.Unlock()
 	s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0}
 }
 
 func (s *stm) DelAll(prefix string) {
+	s.Lock()
+	defer s.Unlock()
 	// Remove any eclipsed deletes then add the new delete
 	isEclipsed := false
 	i := 0
@@ -243,6 +258,8 @@ func (s *stm) DelAll(prefix string) {
 }
 
 func (s *stm) Rev(key string) int64 {
+	s.Lock()
+	defer s.Unlock()
 	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
 		return resp.Kvs[0].ModRevision
 	}
@@ -353,6 +370,8 @@ type stmSerializable struct {
 }
 
 func (s *stmSerializable) Get(key string) (string, error) {
+	s.Lock()
+	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
@@ -495,9 +514,13 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 }
 
 func (s *stm) TTL(key string) (int64, error) {
+	s.Lock()
+	defer s.Unlock()
 	return s.fetchTTL(s, key)
 }
 
 func (s *stmSerializable) TTL(key string) (int64, error) {
+	s.Lock()
+	defer s.Unlock()
 	return s.fetchTTL(s, key)
 }

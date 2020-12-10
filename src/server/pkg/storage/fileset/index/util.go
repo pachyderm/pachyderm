@@ -36,34 +36,56 @@ func Generate(s string) []string {
 }
 
 // PointsTo returns a list of all the chunks this index references
-func PointsTo(idx *Index) (ids []chunk.ID) {
-	m := make(map[string]struct{})
-	if idx == nil || len(idx.FileOp.DataOps) == 0 {
+func PointsTo(idx *Index) []chunk.ID {
+	if idx == nil {
 		return nil
 	}
-	for _, dop := range idx.FileOp.DataOps {
-		for _, dr := range dop.DataRefs {
-			id := dr.Ref.Id
-			if _, exists := m[string(id)]; !exists {
-				ids = append(ids, chunk.ID(id))
-				m[string(id)] = struct{}{}
-			}
+	if idx.Range != nil {
+		return []chunk.ID{chunk.ID(idx.Range.ChunkRef.Ref.Id)}
+	}
+	var ids []chunk.ID
+	if idx.File != nil {
+		for _, dr := range idx.File.DataRefs {
+			ids = append(ids, chunk.ID(dr.Ref.Id))
 		}
 	}
 	return ids
 }
 
-func resolveDataOps(idx *Index) {
-	if idx.FileOp.DataRefs == nil {
+// SizeBytes computes the size of the indexed data in bytes.
+func SizeBytes(idx *Index) int64 {
+	var size int64
+	if idx == nil {
+		return size
+	}
+	if idx.File != nil {
+		if idx.File.DataRefs != nil {
+			for _, dataRef := range idx.File.DataRefs {
+				size += dataRef.SizeBytes
+			}
+			return size
+		}
+		for _, part := range idx.File.Parts {
+			for _, dataRef := range part.DataRefs {
+				size += dataRef.SizeBytes
+			}
+		}
+	}
+	return size
+}
+
+// TODO: Change this such that it returns a new index with the updated fields, rather than updating in place.
+func resolveParts(idx *Index) {
+	if idx.File.DataRefs == nil {
 		return
 	}
-	dataRefs := idx.FileOp.DataRefs
+	dataRefs := idx.File.DataRefs
 	offset := dataRefs[0].OffsetBytes
 	size := dataRefs[0].SizeBytes
-	for _, dataOp := range idx.FileOp.DataOps {
-		bytesLeft := dataOp.SizeBytes
+	for _, part := range idx.File.Parts {
+		bytesLeft := part.SizeBytes
 		for size <= bytesLeft {
-			dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].Ref, offset, size))
+			part.DataRefs = append(part.DataRefs, newDataRef(dataRefs[0].Ref, offset, size))
 			bytesLeft -= size
 			dataRefs = dataRefs[1:]
 			if len(dataRefs) == 0 {
@@ -72,7 +94,7 @@ func resolveDataOps(idx *Index) {
 			offset = dataRefs[0].OffsetBytes
 			size = dataRefs[0].SizeBytes
 		}
-		dataOp.DataRefs = append(dataOp.DataRefs, newDataRef(dataRefs[0].Ref, offset, bytesLeft))
+		part.DataRefs = append(part.DataRefs, newDataRef(dataRefs[0].Ref, offset, bytesLeft))
 		offset += bytesLeft
 		size -= bytesLeft
 	}
@@ -86,8 +108,8 @@ func newDataRef(chunkRef *chunk.Ref, offset, size int64) *chunk.DataRef {
 	}
 }
 
-func unresolveDataOps(idx *Index) {
-	for _, dataOp := range idx.FileOp.DataOps {
-		dataOp.DataRefs = nil
+func unresolveParts(idx *Index) {
+	for _, part := range idx.File.Parts {
+		part.DataRefs = nil
 	}
 }

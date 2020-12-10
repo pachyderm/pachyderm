@@ -104,6 +104,13 @@ When you finish the transaction, both repositories switch to
 to the master branch at the same time which triggers one job to process
 those commits together.
 
+### Updating Multiple Pipelines Simultaneously
+
+If you want to change logic or intermediate data formats in your DAG, you 
+may need to change multiple pipelines. Performing these changes together
+in a transaction can avoid creating jobs with mismatched pipeline versions
+and potentially wasting work.
+
 ## Start and Finish Transactions
 
 To start a transaction, run the following command:
@@ -149,7 +156,7 @@ are executed atomically.
 To finish a transaction, run:
 
 ```shell
-pachctl finsh transaction
+pachctl finish transaction
 ```
 
 **System Response:**
@@ -183,6 +190,8 @@ finish commit
 delete commit
 create branch
 delete branch
+create pipeline
+update pipeline
 ```
 
 Each time you add a command to a transaction, Pachyderm validates the
