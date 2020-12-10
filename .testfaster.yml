@@ -88,6 +88,7 @@ base:
     make docker-build-kafka
     make docker-build-spout-test
     make docker-build-test-entrypoint
+    make docker-build-pipeline-build
     make docker-build-proto
     set +x
     echo "============= POST BAKE IMAGES =================="
