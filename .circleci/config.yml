@@ -91,18 +91,18 @@ workflows:
           matrix:
             parameters:
               bucket:
-              - MISC
+              ##- MISC
               # If you want to update the number of PPS or auth buckets, you'll neet to
               # update the value of PPS_BUCKETS or AUTH_BUCKETS above
-              - ADMIN
-              - AUTH1
+              ##- ADMIN
+              ##- AUTH1
               - AUTH2
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - OBJECT
+              ##- PFS
+              ##- PPS1
+              ##- PPS2
+              ##- PPS3
+              ##- PPS4
+              ##- PPS5
+              ##- PPS6
+              ##- EXAMPLES
+              ##- OBJECT
