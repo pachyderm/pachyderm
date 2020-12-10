@@ -1047,6 +1047,8 @@ func TestExtractRestoreNoToken(t *testing.T) {
 	ops, err := c.ExtractAll(true, true, true)
 	require.NoError(t, err)
 
+	tu.DeleteAll(t)
+
 	c.SetAuthToken("")
 	err = c.Restore(ops)
 	require.YesError(t, err)
