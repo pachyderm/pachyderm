@@ -55,7 +55,7 @@ authentication file:
 | `group_attribute` | A group configured on the IdP. The parameters enable <br> you to grant permissions on at a group level rather <br> than on an individual level. |
 | `saml_svc_options` | A list of options for SAML services |
 | `acs_url`          | The URL of the `pachd`'s Assertion Consumer Service <br> and Metadata Service (ACS). If Pachyderm runs in a <br> private cluster, the cluster admin must set up <br> the domain name and proxy to resolve to <br> `pachd:654/acs`. For example, <br> `http://localhost:30654/saml/acs`. |
-| `meatadata_url`    | The public URL of Pachd's SAML metadata service. <br> This parameter under the `saml_svc_options` is <br> different from the one under the `saml` option. <br> If Pachyderm runs in a private cluster, you must <br> create this URL, which resolves to <br> `pachd:654/saml/metadata`. For example, <br>`http://localhost:30654/saml/metadata`. |
+| `metadata_url`    | The public URL of Pachd's SAML metadata service. <br> This parameter under the `saml_svc_options` is <br> different from the one under the `saml` option. <br> If Pachyderm runs in a private cluster, you must <br> create this URL, which resolves to <br> `pachd:654/saml/metadata`. For example, <br>`http://localhost:30654/saml/metadata`. |
 | `dash_url`         | The public URL of the Pachyderm dashboard. <br> For example, `https://localhost:30080`. |
 | `session_duration` | The length of a user session in hours (h) or <br> minutes (m). For example, `8h`. If left blank 24 hours session is <br> configured by default. |
 
@@ -76,5 +76,11 @@ authentication file:
  | `client_secret`  | A shared secret with the ID provider. If your OIDC provider <br> does not use a secret, which is not recommended, the <br> parameter can be omitted for testing. |
  | `redirect_uri`   | The URI on which the OIDC IdP can access Pachyderm. <br> Depends on your network configuration and must have the following <br> format: `http://<ip>:30657/authorization-code/callback`. |
  | `additional_scopes`| A list of additional OIDC scopes to request from the provider. If `groups` is requested, the groups in the ID token will be synced with Pachyderm |
+ 
+ ## Groups Support
+
+SAML group membership is synced by setting the `group_attribute` setting in the SAML config.
+
+If an OIDC provider supports the `groups` claim, and that scope is included in `additional_scopes`, their group membership will be synced to Pachyderm on each OIDC login.
 
 [View a sample config](../oidc/configure-keycloak/#configure-keycloak)
