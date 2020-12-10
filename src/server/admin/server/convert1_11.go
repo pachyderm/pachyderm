@@ -2,8 +2,11 @@ package server
 
 import (
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	auth1_11 "github.com/pachyderm/pachyderm/src/client/admin/v1_11/auth"
 	pfs1_11 "github.com/pachyderm/pachyderm/src/client/admin/v1_11/pfs"
 	pps1_11 "github.com/pachyderm/pachyderm/src/client/admin/v1_11/pps"
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -394,6 +397,50 @@ func convert1_11SchedulingSpec(s *pps1_11.SchedulingSpec) *pps.SchedulingSpec {
 	}
 }
 
+func convert1_11Acl(acl *auth1_11.SetACLRequest) *auth.SetACLRequest {
+	req := &auth.SetACLRequest{
+		Repo:    acl.Repo,
+		Entries: make([]*auth.ACLEntry, len(acl.Entries)),
+	}
+
+	for i, entry := range acl.Entries {
+		req.Entries[i] = &auth.ACLEntry{
+			Username: entry.Username,
+			Scope:    auth.Scope(entry.Scope),
+		}
+	}
+	return req
+}
+
+func convert1_11ClusterRoleBinding(bindings *auth1_11.ModifyClusterRoleBindingRequest) *auth.ModifyClusterRoleBindingRequest {
+	req := &auth.ModifyClusterRoleBindingRequest{
+		Principal: bindings.Principal,
+		Roles: &auth.ClusterRoles{
+			Roles: make([]auth.ClusterRole, len(bindings.Roles.Roles)),
+		},
+	}
+
+	for i, role := range bindings.Roles.Roles {
+		req.Roles.Roles[i] = auth.ClusterRole(role)
+	}
+	return req
+}
+
+func convert1_11AuthConfig(config *auth1_11.SetConfigurationRequest) *auth.SetConfigurationRequest {
+	return &auth.SetConfigurationRequest{
+		Configuration: &auth.AuthConfig{
+			LiveConfigVersion: config.Configuration.LiveConfigVersion,
+			SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+				ACSURL:          config.Configuration.SAMLServiceOptions.ACSURL,
+				MetadataURL:     config.Configuration.SAMLServiceOptions.MetadataURL,
+				DashURL:         config.Configuration.SAMLServiceOptions.DashURL,
+				SessionDuration: config.Configuration.SAMLServiceOptions.SessionDuration,
+				DebugLogging:    config.Configuration.SAMLServiceOptions.DebugLogging,
+			},
+		},
+	}
+}
+
 func convert1_11Op(op *admin.Op1_11) (*admin.Op1_12, error) {
 	switch {
 	case op.CreateObject != nil:
@@ -481,6 +528,45 @@ func convert1_11Op(op *admin.Op1_11) (*admin.Op1_12, error) {
 				SpecCommit:       convert1_11Commit(op.Pipeline.SpecCommit),
 				Metadata:         convert1_11Metadata(op.Pipeline.Metadata),
 			},
+		}, nil
+	case op.SetAcl != nil:
+		return &admin.Op1_12{
+			SetAcl: convert1_11Acl(op.SetAcl),
+		}, nil
+	case op.SetClusterRoleBinding != nil:
+		return &admin.Op1_12{
+			SetClusterRoleBinding: convert1_11ClusterRoleBinding(op.SetClusterRoleBinding),
+		}, nil
+	case op.SetAuthConfig != nil:
+		return &admin.Op1_12{
+			SetAuthConfig: convert1_11AuthConfig(op.SetAuthConfig),
+		}, nil
+	case op.ActivateAuth != nil:
+		return &admin.Op1_12{
+			ActivateAuth: &auth.ActivateRequest{},
+		}, nil
+	case op.RestoreAuthToken != nil:
+		return &admin.Op1_12{
+			RestoreAuthToken: &auth.RestoreAuthTokenRequest{
+				Token: &auth.HashedAuthToken{
+					HashedToken: op.RestoreAuthToken.Token.HashedToken,
+					Expiration:  op.RestoreAuthToken.Token.Expiration,
+					TokenInfo: &auth.TokenInfo{
+						Subject: op.RestoreAuthToken.Token.TokenInfo.Subject,
+						Source:  auth.TokenInfo_TokenSource(op.RestoreAuthToken.Token.TokenInfo.Source),
+					},
+				},
+			},
+		}, nil
+	case op.ActivateEnterprise != nil:
+		return &admin.Op1_12{
+			ActivateEnterprise: &enterprise.ActivateRequest{
+				ActivationCode: op.ActivateEnterprise.ActivationCode,
+			},
+		}, nil
+	case op.CheckAuthToken != nil:
+		return &admin.Op1_12{
+			CheckAuthToken: &admin.CheckAuthToken{},
 		}, nil
 	default:
 		return nil, errors.Errorf("unrecognized 1.9 op type:\n%+v", op)
