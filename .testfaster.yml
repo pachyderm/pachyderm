@@ -59,7 +59,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout d7882cab75485d4bca986c11c0d910d0b3878e7c && \
+        git checkout ee9d1678727ca0c63aeaa2967aae4737f535bcad && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
@@ -88,6 +88,7 @@ base:
     make docker-build-kafka
     make docker-build-spout-test
     make docker-build-test-entrypoint
+    make docker-build-pipeline-build
     make docker-build-proto
     set +x
     echo "============= POST BAKE IMAGES =================="
@@ -122,11 +123,9 @@ base:
 
 runtime:
   cpus: 4
-  memory: 8GB
+  memory: 16GB
   disk: 50GB
 
 prewarm_pool_size: 12
 max_pool_size: 24
-# timeout vms after 1hr. hopefully tests will clean them up sooner, but if the
-# tests themselves timeout and cleanup doesn't get run...
-default_lease_timeout: 1h
+default_lease_timeout: ""
