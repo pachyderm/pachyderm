@@ -95,8 +95,5 @@ func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
 	if err := gc.deleter.Delete(ctx, id); err != nil {
 		return err
 	}
-	if err := gc.tracker.FinishDelete(ctx, id); err != nil {
-		return err
-	}
-	return nil
+	return gc.tracker.FinishDelete(ctx, id)
 }

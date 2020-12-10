@@ -426,6 +426,7 @@ func (w *Writer) maybeCheapCopy() error {
 // Close closes the writer.
 func (w *Writer) Close() error {
 	defer w.cancel()
+	defer w.client.Close()
 	return w.maybeDone(func() error {
 		if err := w.flushBuffer(); err != nil {
 			return err
