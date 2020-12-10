@@ -218,6 +218,22 @@ func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 			pipelineClients[i] = tu.GetAuthenticatedPachClient(t, fmt.Sprintf("pipeline-user-%d", i))
 		}
 		defer tu.DeleteAll(t)
+
+		// Configure auth with a version > 1
+		for i := 0; i < 5; i++ {
+			_, err := c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{
+				Configuration: &auth.AuthConfig{
+					LiveConfigVersion: int64(i + 1),
+					IDProviders: []*auth.IDProvider{
+						&auth.IDProvider{
+							Name:   fmt.Sprintf("Github %v", i),
+							GitHub: &auth.IDProvider_GitHubOptions{},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+		}
 	}
 
 	dataRepo := tu.UniqueString("TestExtractRestoreObjects-in-")
@@ -388,6 +404,13 @@ func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 				return fmt.Errorf("no ACL entry like %v", expected)
 			}())
 		}
+
+		// Test that the config was restored - the default config has version 1, so the new
+		// restored config always has version 2.
+		config, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
+		require.NoError(t, err)
+		require.Equal(t, config.Configuration.IDProviders[0].Name, "Github 4")
+		require.Equal(t, config.Configuration.LiveConfigVersion, int64(2))
 	}
 
 	risAfter, err := c.ListRepo()

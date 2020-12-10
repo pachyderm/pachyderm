@@ -339,6 +339,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 
 		// Restore the auth configuration.
+		config.Configuration.LiveConfigVersion = 0
 		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{SetAuthConfig: &auth.SetConfigurationRequest{Configuration: config.Configuration}}}); err != nil {
 			return err
 		}
