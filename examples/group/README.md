@@ -15,7 +15,7 @@
 
 You might also want to brush up your [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
 
-***Pre-requisite***
+***Prerequisite***
 - A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
@@ -25,6 +25,7 @@ You might also want to brush up your [datum](https://docs.pachyderm.com/latest/c
 Run a quick:
 ```shell
 $ pachctl version
+
 COMPONENT           VERSION
 pachctl             1.12.0
 pachd               1.12.0
@@ -33,15 +34,15 @@ Ideally, have your pachctl and pachd versions match. At a minimum, you should al
 
 ## 2. Data structure and naming convention
 Our first example comes from a simple healthcare use case:
-- We have a list of Labresults from various tests done on patients by given Labs. Each file contains one type of test results from a given Lab for a given Patient.
+- A patient gets test results, each of which can come from a different lab. Each of our files contains the test results from a particular lab for a given patient.
 
 The second example is derived from a simplified retail use case: 
-- Purchases and Returns are made in given Stores. 
-- Those Stores have a given location (here, a zip code). 
-- There are 0 to many Stores in a given Zipcode.
+- Purchases and returns are made in given stores. 
+- Those stores have a given location (here, a zip code). 
+- There are 0 to many stores in a given zip code.
 
 Let's have a look at the data structure and naming convention of our first example.  
-* Repo: `labresults` - Our file names follows the following "-" separated pattern: 
+* Repo: `labresults` - Our file names follow the following "-" separated pattern: 
 
 1. **T** + {Time stamp}
 2. Type of test (Here **LIPID** for all our files)
@@ -154,7 +155,7 @@ $ pachctl create repo returns
 $ pachctl put file -r stores@master:/ -f stores
 $ pachctl put file -r purchases@master:/ -f purchases
 $ pachctl put file -r returns@master:/ -f returns
-$ pachctl create pipeline -f group_retail.json
+$ pachctl create pipeline -f retail_group.json
 ```
 check your repositories:
 ```shell
