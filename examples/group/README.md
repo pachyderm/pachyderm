@@ -1,7 +1,7 @@
 # Group Pipelines 
 >![pach_logo](./img/pach_logo.svg) The group functionality is available in version **1.12 and higher**.
 
->![pach_logo](./img/pach_logo.svg) As a reminder: You specify a group in the pipeline spec by adding a `group` input around the one or many pfs repo you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your `glob` pattern that you want to consider to group your files by. 
+>![pach_logo](./img/pach_logo.svg) As a reminder: You specify a group in the pipeline spec by adding a `group` input around the one or many pfs repo you want to aggregate together. At each input repo level included in your group, you then need to specify a `group_by` that will define the capture group from your `glob` pattern that you want to consider to group your files. 
 
 - Our first examples will walk you through a simple use of group applied to the files of a single repository. 
 - Our second example will showcase a more complex group setting where information is grouped accross 3 repositories. 
