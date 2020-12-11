@@ -1,7 +1,7 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the files, in your joined repositories, that match a specific naming pattern  (i.e., ***match your glob pattern/capture groups***). In Pachyderm's terms, inner joins will only create a datum (see Key concepts below) if there is a match in all join repos.
-- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that the input repo with `"outer_join": true` set will still see a datum even if it does not have a match.
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that the input repo with `"outer_join": true` set in the pipeline specifications will still see a datum even if it does not have a match.
 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
@@ -190,7 +190,7 @@ For each location, list **all stores** (with or without return) belonging to a g
 2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. 
 3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. 
 
->![pach_logo](./img/pach_logo.svg) In our example, `"outer_join": true` is set on both repositories: Returns and Stores. Although the behaviour of an outer-join in Pachyderm differs from SQL, think about this example as a *full outer* between Returns and Stores. Unlike the inner-join above, each location file (zipcode.txt) will list **all** stores (with or without returns) in that location. Additionnaly, we have created an edge case here, with one return made in a store (Store 0) that does not belong to our Stores' list and therefore has an unknown zipcode. You will notice that this return will show in an additionnal UNKNOWN.txt file. This is the direct result of the `"outer_join": true` set on the returns repo. We are seeing **all** returns, with or without Store.
+>![pach_logo](./img/pach_logo.svg) In our example, `"outer_join": true` is set on both repositories: Returns and Stores. Although the behaviour of an outer-join in Pachyderm differs from SQL, think about this example as a *full outer* between Returns and Stores. Unlike the inner-join above, each location file (zipcode.txt) will list **all** stores (with or without returns) in that location. Additionnaly, we have created an edge case here, with one return made in a store (Store 0) that does not belong to our Stores' list and therefore has an unknown zipcode. You will notice that this return will show in an additionnal UNKNOWN.txt file. This is the direct result of the `"outer_join": true` set on the returns repo. We are seeing **all** returns, with or without listed Store.
 
 In the diagram below, we have mapped out the data of our example and the expected match. 
 ![full_outer_join](./img/full_outer_join.png)
