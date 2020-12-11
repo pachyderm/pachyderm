@@ -326,7 +326,7 @@ test-auth:
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
 
 test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)

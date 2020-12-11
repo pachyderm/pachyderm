@@ -117,6 +117,38 @@ func TestActivate(t *testing.T) {
 	require.Equal(t, admin, who.Username)
 }
 
+// TestActivateKnownToken tests activating auth with a known token.
+// This should always authenticate the user as `pach:root` and give them
+// super admin status.
+func TestActivateKnownToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	// Get anonymous client (this will activate auth, which is about to be
+	// deactivated, but it also activates Pacyderm enterprise, which is needed for
+	// this test to pass)
+	adminClient := getPachClient(t, admin)
+
+	token := "iamroot"
+	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{RootToken: token})
+	require.NoError(t, err)
+	require.Equal(t, resp.PachToken, "iamroot")
+
+	adminClient.SetAuthToken(token)
+	defer adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+
+	// Check that the token 'c' received from pachd authenticates them as "admin"
+	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.ClusterRole_SUPER, who.ClusterRoles.Roles[0])
+	require.Equal(t, auth.RootUser, who.Username)
+}
+
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
@@ -1296,6 +1328,38 @@ func TestGetAuthToken(t *testing.T) {
 	})
 }
 
+// TestGetTokenForRootUser tests that nobody can get a new token for the
+// root user, except for the one issued at cluster creation.
+func TestGetTokenForRootUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	// Deactivate auth and reactivate as the root user
+	adminClient := getPachClient(t, admin)
+	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: auth.RootUser})
+	require.NoError(t, err)
+	adminClient.SetAuthToken(resp.PachToken)
+	defer adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+
+	// Try and get credentials as the root user, specifying the name
+	_, err = adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{Subject: auth.RootUser})
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
+
+	// Try and get credentials as the root user implicitly by not specifying a subject
+	_, err = adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{})
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
+}
+
 // TestGetIndefiniteAuthToken tests that an admin can generate an auth token that never
 // times out if explicitly requested (e.g. for a daemon)
 func TestGetIndefiniteAuthToken(t *testing.T) {
@@ -2178,6 +2242,7 @@ func TestInitialRobotUserGetOTP(t *testing.T) {
 	// adminClient will use 'admin's initial Pachyderm token, which does not
 	// expire
 	adminClient := getPachClient(t, admin)
+
 	// make sure the admin client is a robot user initial admin
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
