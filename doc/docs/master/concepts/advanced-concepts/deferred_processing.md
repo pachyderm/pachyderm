@@ -53,6 +53,7 @@ To configure a staging branch, complete the following steps:
 
    ```shell
    $ pachctl list branch data
+
    BRANCH HEAD
    master -
    ```
@@ -78,7 +79,9 @@ To configure a staging branch, complete the following steps:
 
    ```shell
    $ pachctl list branch data
+
    BRANCH  HEAD
+   
    staging f3506f0fab6e483e8338754081109e69
    master  -
    ```
@@ -101,6 +104,7 @@ To configure a staging branch, complete the following steps:
 
    ```shell
    $ pachctl list branch data
+
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -112,6 +116,7 @@ To configure a staging branch, complete the following steps:
 
    ```shell
    $ pachctl list job
+
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
    ```
@@ -211,7 +216,7 @@ following steps:
    the name of the branch in which you want to accumulate your data
    before processing:
 
-   ```shell
+   ```
    "output_branch": "staging"
    ```
 
@@ -321,7 +326,7 @@ input. The name of the branch is auto-generated with the form
 `<pipeline-name>-trigger-n`. You can manually update the heads of these branches
 to trigger processing just like in the previous example.
 
-!!! note Deleting or updating a pipeline **will not clean up** the trigger branch that it has created. In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime. There is no guarantee that other pipelines are not using that trigger branch, and a pipeline can take an input branch that does not yet exist. A trigger branch can, however, be deleted manually.
+!!! note Deleting or updating a pipeline **will not clean up** the trigger branch that it has created. In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime. There is no guarantee that other pipelines are not using that trigger branch. A trigger branch can, however, be deleted manually.
 
 ## More advanced automation
 
