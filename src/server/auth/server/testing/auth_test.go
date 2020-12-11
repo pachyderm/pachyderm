@@ -3070,6 +3070,11 @@ func TestRestoreAuthToken(t *testing.T) {
 	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
 	require.NoError(t, err)
 
+	req.Token.TokenInfo.Subject = "robot:overwritten"
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
+
 	// now we can authenticate with the restored token
 	aliceClient.SetAuthToken("an-auth-token")
 	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})

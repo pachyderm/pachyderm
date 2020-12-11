@@ -2902,8 +2902,17 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 		}
 	}
 
+	// Check whether the token hash already exists - we don't want to replace an existing token
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
+		var existing auth.TokenInfo
+		err := tokens.Get(req.Token.HashedToken, &existing)
+		if err == nil {
+			return errors.New("cannot overwrite existing token with same hash")
+		} else if err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+
 		return tokens.PutTTL(req.Token.HashedToken,
 			req.Token.TokenInfo,
 			ttl)
