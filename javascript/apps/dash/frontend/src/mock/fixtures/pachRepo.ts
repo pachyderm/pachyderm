@@ -15,7 +15,26 @@ export const pachRepos: PachRepoFixtures = {
       branches: [
         {
           name: 'master',
-          commits: [],
+          commits: [
+            {
+              id: '424c43c8f16c3b6ae425d69df0145eebbc1c88df',
+              origin: OriginKind.Auto,
+              parentCommitId: '296d1570c1204864a9f5a0d66dafec45',
+              description: '',
+              childCommitIds: [],
+              started: 1606936556,
+              finished: 1606936558,
+              sizeInBytes: 2654026,
+              files: [
+                {
+                  path: '/liberty-montage.jpg',
+                  fileType: FileType.File,
+                  sizeInBytes: 58644,
+                  committedAt: 1607092339,
+                },
+              ],
+            },
+          ],
         },
       ],
     },
@@ -25,7 +44,31 @@ export const pachRepos: PachRepoFixtures = {
       sizeInBytes: 1000,
       description: 'Some edges',
       isPipelineOutput: true,
-      branches: [],
+      branches: [
+        {
+          name: 'master',
+          commits: [
+            {
+              id: '5eee38381388b6f30efdd5c5c6f067dbf32c0bb3',
+              origin: OriginKind.Auto,
+              parentCommitId: '296d1570c1204864a9f5a0d66dafec45',
+              description: '',
+              childCommitIds: [],
+              started: 1606936556,
+              finished: 1606936558,
+              sizeInBytes: 2654026,
+              files: [
+                {
+                  path: '/liberty-edges.jpg',
+                  fileType: FileType.File,
+                  sizeInBytes: 58644,
+                  committedAt: 1607092339,
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
     {
       name: 'images',
@@ -42,7 +85,10 @@ export const pachRepos: PachRepoFixtures = {
               origin: OriginKind.User,
               parentCommitId: '9fdb1436f7dc477eb23fe5d56b4094d8',
               description: 'Second commit.',
-              childCommitIds: [],
+              childCommitIds: [
+                '5eee38381388b6f30efdd5c5c6f067dbf32c0bb3',
+                '424c43c8f16c3b6ae425d69df0145eebbc1c88df',
+              ],
               started: 1606936556,
               finished: 1606936558,
               sizeInBytes: 2654026,
@@ -51,13 +97,13 @@ export const pachRepos: PachRepoFixtures = {
                   path: '/liberty.jpg',
                   fileType: FileType.File,
                   sizeInBytes: 58644,
-                  committedAt: 1607092339
+                  committedAt: 1607092339,
                 },
                 {
                   path: '/test',
                   fileType: FileType.Dir,
                   sizeInBytes: 58644,
-                  committedAt: 1607100702
+                  committedAt: 1607100702,
                 },
               ],
             },

@@ -26,6 +26,7 @@ export const pachPipelines: PachPipelineFixtures = {
       lastJobState: JobState.Success,
       inputs: [pachInputs.tutorial[0], pachInputs.tutorial[1]],
       description: 'Creates a montage of images.',
+      outputBranchName: 'master',
     },
     {
       id: 'edges',
@@ -45,6 +46,7 @@ export const pachPipelines: PachPipelineFixtures = {
       lastJobState: JobState.Success,
       inputs: [pachInputs.tutorial[1]],
       description: 'Detects the edges of objects in the image.',
+      outputBranchName: 'master',
     },
   ],
 };

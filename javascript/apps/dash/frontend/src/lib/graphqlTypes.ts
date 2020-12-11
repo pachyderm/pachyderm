@@ -9,11 +9,44 @@ export type Scalars = {
   Float: number;
 };
 
+export type Branch = {
+  __typename?: 'Branch';
+  name: Scalars['String'];
+  commits: Array<Commit>;
+};
+
+export type Commit = {
+  __typename?: 'Commit';
+  id: Scalars['String'];
+  origin: OriginKind;
+  description?: Maybe<Scalars['String']>;
+  parentCommitId?: Maybe<Scalars['String']>;
+  childCommitIds: Array<Scalars['String']>;
+  started: Scalars['Int'];
+  finished: Scalars['Int'];
+  sizeInBytes: Scalars['Int'];
+  files: Array<File>;
+};
+
 export type CronInput = {
   __typename?: 'CronInput';
   name: Scalars['String'];
   repo: Repo;
 };
+
+export type File = {
+  __typename?: 'File';
+  path: Scalars['String'];
+  fileType: FileType;
+  sizeInBytes: Scalars['Int'];
+  committedAt: Scalars['Int'];
+};
+
+export enum FileType {
+  Reserved = 'RESERVED',
+  File = 'FILE',
+  Dir = 'DIR'
+}
 
 export type GitInput = {
   __typename?: 'GitInput';
@@ -61,7 +94,17 @@ export type Job = {
   state: JobState;
   reason?: Maybe<Scalars['String']>;
   outputRepo: Repo;
-  input: Input;
+  input: JobInput;
+  outputCommit?: Maybe<Commit>;
+  outputBranchName: Scalars['String'];
+};
+
+export type JobInput = {
+  __typename?: 'JobInput';
+  name: Scalars['String'];
+  repo: Repo;
+  branchName?: Maybe<Scalars['String']>;
+  commit?: Maybe<Commit>;
 };
 
 export enum JobState {
@@ -72,6 +115,12 @@ export enum JobState {
   Killed = 'KILLED',
   Merging = 'MERGING',
   Egressing = 'EGRESSING'
+}
+
+export enum OriginKind {
+  User = 'USER',
+  Auto = 'AUTO',
+  Fsck = 'FSCK'
 }
 
 export type Pach = {
@@ -104,6 +153,7 @@ export type Pipeline = {
   lastJobState?: Maybe<JobState>;
   inputs: Array<Input>;
   description?: Maybe<Scalars['String']>;
+  outputBranchName: Scalars['String'];
 };
 
 export enum PipelineState {
@@ -124,52 +174,13 @@ export type Query = {
   jobs: Array<Job>;
 };
 
-export enum OriginKind {
-  User = 'USER',
-  Auto = 'AUTO',
-  Fsck = 'FSCK'
-}
-
-export enum FileType {
-  Reserved = 'RESERVED',
-  File = 'FILE',
-  Dir = 'DIR'
-}
-
-export type File = {
-  __typename?: 'File';
-  path: Scalars['String'];
-  fileType: FileType,
-  sizeInBytes: Scalars['Int'],
-  committedAt: Scalars['Int'];
-}
-
-export type Commit = {
-  __typename?: 'Commit';
-  id: Scalars['String'];
-  origin: OriginKind;
-  description?: Scalars['String'];
-  parentCommitId?: Scalars['String'],
-  childCommitIds: Array<Scalars['String']>;
-  started: Scalars['Int'],
-  finished: Scalars['Int'],
-  sizeInBytes: Scalars['Int'],
-  files: Array<File>
-};
-
-export type Branch = {
-  __typename?: 'Branch';
-  name: Scalars['String'];
-  commits: Array<Commit>;
-};
-
 export type Repo = {
   __typename?: 'Repo';
   name: Scalars['ID'];
   createdAt: Scalars['Int'];
   sizeInBytes: Scalars['Int'];
   description: Scalars['String'];
-  isPipelineOutput: Scalars['Boolean'];
   branches: Array<Branch>;
+  isPipelineOutput: Scalars['Boolean'];
 };
 

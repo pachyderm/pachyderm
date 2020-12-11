@@ -37,6 +37,13 @@ type Input {
   gitInput: GitInput
 }
 
+type JobInput {
+  name: String!
+  repo: Repo!
+  branchName: String
+  commit: Commit
+}
+
 enum PipelineState {
   STARTING
   RUNNING
@@ -75,6 +82,7 @@ type Pipeline {
   lastJobState: JobState
   inputs: [Input!]!
   description: String
+  outputBranchName: String!
 }
 
 type InputPipeline {
@@ -144,7 +152,9 @@ type Job {
   state: JobState!
   reason: String
   outputRepo: Repo!
-  input: Input!
+  input: JobInput!
+  outputCommit: Commit
+  outputBranchName: String!
 }
 
 type Query {

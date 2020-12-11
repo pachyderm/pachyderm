@@ -9,18 +9,6 @@ export type PachInputFixtures = {
 export const pachInputs: PachInputFixtures = {
   tutorial: [
     {
-      id: 'edges',
-      type: InputType.Pfs,
-      joinedWith: [],
-      groupedWith: [],
-      crossedWith: [],
-      unionedWith: [],
-      pfsInput: {
-        name: 'edges',
-        repo: pachRepos['tutorial'][1],
-      },
-    },
-    {
       id: 'images',
       type: InputType.Pfs,
       joinedWith: [],
@@ -30,6 +18,18 @@ export const pachInputs: PachInputFixtures = {
       pfsInput: {
         name: 'images',
         repo: pachRepos['tutorial'][2],
+      },
+    },
+    {
+      id: 'edges',
+      type: InputType.Pfs,
+      joinedWith: [],
+      groupedWith: [],
+      crossedWith: ['images-0'],
+      unionedWith: [],
+      pfsInput: {
+        name: 'edges',
+        repo: pachRepos['tutorial'][1],
       },
     },
   ],
