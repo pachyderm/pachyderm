@@ -121,8 +121,8 @@ $ pachctl get file group_by_patient@master:/1/T1606707613-LIPID-PATID1-CLIA24D98
 ***Goal***
 For each store, we are going to calculate the net amount of all transactions (net_amount = order_total - return_total) and save it to a text file named after the store identifier.
 
-1. **Pipeline input repositories**: `stores` ,`returns`, `purchases` - Group by STOREID on all 3 repositories. Each match (i.e., all transactions (purchases and returns) having occured at a given store along with the store information itself) will generate a datum.
-2. **Pipeline**: Executes a python code reading the `purchases` and `returns` for each matching STOREID and writing the corresponding net_amount to a text file named after the STOREID. 
+1. **Pipeline input repositories**: `stores` ,`returns`, `purchases` - Group by STOREID on all 3 repositories. Each match (i.e., all transactions - purchases and returns - having occured at a given store along with the store information itself) will generate a datum.
+2. **Pipeline**: Executes a python code reading the `purchases` and `returns` for each matching STOREID and writing the corresponding net_amount to a text file named after the STOREID. (See our pipeline:[`retail_group.json`](./retail_group.json))
 3. **Pipeline output repository**: `group_store_revenue`- list of text files named after the STOREID. 
 
 In the diagram below, we have mapped out our data. 
