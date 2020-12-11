@@ -117,15 +117,15 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 	return a.APIServer.InspectFile(ctx, request)
 }
 
-// ListFileStream implements the protobuf pfs.ListFileStream RPC
-func (a *validatedAPIServer) ListFileStream(request *pfs.ListFileRequest, server pfs.API_ListFileStreamServer) (retErr error) {
+// ListFile implements the protobuf pfs.ListFile RPC
+func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
 	if err := a.checkIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	return a.APIServer.ListFileStream(request, server)
+	return a.APIServer.ListFile(request, server)
 }
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
@@ -147,8 +147,8 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	return a.APIServer.WalkFile(request, server)
 }
 
-// GlobFileStream implements the protobuf pfs.GlobFileStream RPC
-func (a *validatedAPIServer) GlobFileStream(request *pfs.GlobFileRequest, server pfs.API_GlobFileStreamServer) (retErr error) {
+// GlobFile implements the protobuf pfs.GlobFile RPC
+func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.API_GlobFileServer) (retErr error) {
 	commit := request.Commit
 	// Validate arguments
 	if commit == nil {
@@ -160,17 +160,17 @@ func (a *validatedAPIServer) GlobFileStream(request *pfs.GlobFileRequest, server
 	if err := a.checkIsAuthorized(server.Context(), commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	return a.APIServer.GlobFileStream(request, server)
+	return a.APIServer.GlobFile(request, server)
 }
 
-func (a *validatedAPIServer) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2) (*types.Empty, error) {
+func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
 	if req.Commit == nil {
 		return nil, errors.Errorf("commit cannot be nil")
 	}
 	if err := a.checkIsAuthorized(ctx, req.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
-	return a.APIServer.ClearCommitV2(ctx, req)
+	return a.APIServer.ClearCommit(ctx, req)
 }
 
 func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
@@ -214,6 +214,19 @@ func (a *validatedAPIServer) checkIsAuthorizedInTransaction(txnCtx *txnenv.Trans
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
+	}
+	return nil
+}
+
+func validateFile(file *pfs.File) error {
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
 	}
 	return nil
 }

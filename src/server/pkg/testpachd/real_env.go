@@ -3,13 +3,13 @@ package testpachd
 import (
 	"net"
 	"net/url"
-	"os"
 	"path"
 
+	units "github.com/docker/go-units"
+	"github.com/jmoiron/sqlx"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
@@ -23,7 +23,6 @@ type RealEnv struct {
 	MockEnv
 
 	LocalStorageDirectory    string
-	treeCache                *hashtree.Cache
 	AuthServer               authserver.APIServer
 	PFSBlockServer           pfsserver.BlockAPIServer
 	PFSServer                pfsserver.APIServer
@@ -32,7 +31,6 @@ type RealEnv struct {
 }
 
 const (
-	testingTreeCacheSize       = 8
 	localBlockServerCacheBytes = 256 * 1024 * 1024
 )
 
@@ -40,29 +38,10 @@ const (
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
-	// TODO: This means StorageV2 tests can not run in parallel with V1 test.
-	if len(customConfig) > 0 && customConfig[0].StorageV2 {
-		if err := os.Setenv("STORAGE_V2", "true"); err != nil {
-			panic(err)
-		}
-		defer func() {
-			if err := os.Unsetenv("STORAGE_V2"); err != nil {
-				panic(err)
-			}
-		}()
-	}
-
+func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	return WithMockEnv(func(mockEnv *MockEnv) (err error) {
 		realEnv := &RealEnv{MockEnv: *mockEnv}
-
-		defer func() {
-			if realEnv.treeCache != nil {
-				realEnv.treeCache.Close()
-			}
-		}()
-
-		config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
+		config := serviceenv.NewConfiguration(NewDefaultConfig())
 		if len(customConfig) > 0 {
 			config = serviceenv.NewConfiguration(customConfig[0])
 		}
@@ -90,10 +69,6 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 		}
 
 		etcdPrefix := ""
-		realEnv.treeCache, err = hashtree.NewCache(testingTreeCacheSize)
-		if err != nil {
-			return err
-		}
 
 		txnEnv := &txnenv.TransactionEnv{}
 
@@ -101,9 +76,7 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 			servEnv,
 			txnEnv,
 			etcdPrefix,
-			realEnv.treeCache,
-			realEnv.LocalStorageDirectory,
-			64*1024*1024,
+			db,
 		)
 		if err != nil {
 			return err
@@ -127,4 +100,14 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 
 		return cb(realEnv)
 	})
+}
+
+func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
+	config := &serviceenv.PachdFullConfiguration{}
+	config.StorageMemoryThreshold = units.GB
+	config.StorageShardThreshold = units.GB
+	config.StorageLevelZeroSize = units.MB
+	config.StorageGCPolling = "30s"
+	config.StorageCompactionMaxFanIn = 50
+	return config
 }

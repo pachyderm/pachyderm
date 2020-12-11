@@ -1,8 +1,8 @@
 package server
 
 import (
+	"github.com/jmoiron/sqlx"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -29,22 +29,12 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(
-	env *serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	treeCache *hashtree.Cache,
-	storageRoot string,
-	memoryRequest int64,
-) (APIServer, error) {
-	if env.StorageV2 {
-		a, err := newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
-		if err != nil {
-			return nil, err
-		}
-		return newValidatedAPIServer(a, env), nil
+func NewAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (APIServer, error) {
+	a, err := newAPIServer(env, txnEnv, etcdPrefix, db)
+	if err != nil {
+		return nil, err
 	}
-	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	return newValidatedAPIServer(a, env), nil
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
