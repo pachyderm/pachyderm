@@ -13,7 +13,7 @@
 
 You might also want to brush up your [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) knowledge. 
 
-***Pre-requisite***
+***Prerequisite***
 - A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
@@ -23,6 +23,7 @@ You might also want to brush up your [datum](https://docs.pachyderm.com/latest/c
 Run a quick:
 ```shell
 $ pachctl version
+
 COMPONENT           VERSION
 pachctl             1.12.0
 pachd               1.12.0
@@ -119,7 +120,7 @@ List all purchases by zip code.
 >![pach_logo](./img/pach_logo.svg) Remember that we will only see the zip code of the stores where purchases actually happened. That is what inner joins do.
 
 1. **Pipeline input repositories**: `stores` and `purchases` - Inner join by STOREID.
-2. **Pipeline**: Executes a python code reading the `zipcode` in the matching STOREIDx.txt file and appending the matched purchase file's content to a text file named after the zip code.
+2. **Pipeline**: Executes a python code reading the `zipcode` in the matching STOREIDx.txt file and appending the matched purchase file's content to a text file named after the zip code. (see pipeline [inner_join.json](./inner_join.json))
 3. **Pipeline output repository**: `inner_join`- list of text files named after the stores' zip codes in which purchases have been made and containing the list of said purchases. 
 
 In the diagram below, we have mapped out the data of our example. We will expect the 2 following files in the output repository of our `inner_join` pipeline: 
@@ -187,7 +188,7 @@ $ pachctl get file inner_join@master:/02108.txt
 For each location, list **all stores** (with or without return) belonging to a given zipcode and display their returns, if any. When going through your location files, you should notice that **all returns** in your `Returns` repo have been listed.
 
 1. **Pipeline input repositories**: `stores` and `returns` - Outer join by STOREID on both repositories.
-2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. 
+2. **Pipeline**: Executes a python code reading the `zipcode` (if any...) in the matching STOREIDx.txt file and appending the matched return file's content (if any...) to a text file named after the zip code. (see pipeline [outer_join.json](./outer_join.json))
 3. **Pipeline output repository**: `outer_join`- list of text files named after the stores' zip codes. 
 
 >![pach_logo](./img/pach_logo.svg) In our example, `"outer_join": true` is set on both repositories: Returns and Stores. Although the behaviour of an outer-join in Pachyderm differs from SQL, think about this example as a *full outer* between Returns and Stores. Unlike the inner-join above, each location file (zipcode.txt) will list **all** stores (with or without returns) in that location. Additionnaly, we have created an edge case here, with one return made in a store (Store 0) that does not belong to our Stores' list and therefore has an unknown zipcode. You will notice that this return will show in an additionnal UNKNOWN.txt file. This is the direct result of the `"outer_join": true` set on the returns repo. We are seeing **all** returns, with or without listed Store.
