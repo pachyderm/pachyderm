@@ -6,7 +6,7 @@ particular naming pattern. The group operator must be used in combination
 with a glob pattern that reflects a specific naming convention.
 
 By analogy, a Pachyderm group is similar to a database *group-by*,
-but it matches on file paths only, not the contents of the files.
+but it matches on file paths only, not the content of the files.
 
 Unlike the [join](../datum/join.md) datum that will always contain a single match (even partial) from each input repo,
 **a group creates one datum for each set of matching files accross its input repos**.
@@ -108,7 +108,7 @@ The pipeline will process 3 datums for this job.
 - a second datum will be made of (2, 6) for `patientID2`
 - and a third with (4) for `patientID3`
 
-A run of the following command `pachctl list datum -f <your_pipeline_spec.json>` will illustrate how the files have been aggregated. 
+The `pachctl list datum -f <your_pipeline_spec.json>` command is a useful tool to check your datums: 
 
 ```code
 ID FILES                                                                                                                                                                                                                        STATUS TIME

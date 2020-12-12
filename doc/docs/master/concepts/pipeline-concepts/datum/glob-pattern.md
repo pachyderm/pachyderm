@@ -141,23 +141,30 @@ datum:
 
 ## Test your Datums
 
-Pachyderm allows you to check the list and content of datums defined by a pipeline for a past job or test your datums for a pipeline currently being developed. 
+The granularity of your datums defines how your data will be distributed across the available workers allocated to a job.
+Pachyderm allows you to check those datums:
+
+  - for a pipeline currently being developed  
+  - for a past job 
 
 ### Testing your glob pattern before creating a pipeline
 You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to preview the datums defined by a pipeline given its specification file. 
 
-!!! note The pipeline does not need to have been created for the command to return the list of datums. This dry run helps you adjust your glob pattern when creating your pipeline.
+!!! note "Note"  
+    The pipeline does not need to have been created for the command to return the list of datums. This "dry run" helps you adjust your glob pattern when creating your pipeline.
+ 
 
 !!! example
     ```shell
-    pachctl list datum -f lab_group_by_hospital.json
+    pachctl list datum -f edges.json
     ```
     **System Response:**
 
     ```shell
-        ID FILES                                                                                                                                                                                                                                                                                                                                                                  STATUS TIME
-    -  labresults@b2095152ffc440c682aeb55045e30d7e:/T1606331395-LIPID-PATID2-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707557-LIPID-PATID1-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707597-LIPID-PATID4-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707579-LIPID-PATID3-CLIA24D9871327.txt -      -
-    -  labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707613-LIPID-PATID1-CLIA24D9871328.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707635-LIPID-PATID3-CLIA24D9871328.txt
+        ID FILES                                                STATUS TIME
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
     ```
 
 ### Running list datum on a past job 
@@ -165,13 +172,16 @@ You can use the `pachctl list datum <job_number>` command to check the datums pr
 
 !!! example
     ```shell
-    pachctl list datum 6186ee85db014cfcaf14ef2cb8395d6d
+    pachctl list datum d10979d9f9894610bb287fa5e0d734b5
     ```
     **System Response:**
 
     ```shell
-    ID                                                                   FILES                                                                                                                                                                                                                                                                                                                                                                  STATUS TIME
-    42716c4ac21ab9dc093958f1decdb01890a373efcff2e33964b1d05502b0bcc87bd3 labresults@b2095152ffc440c682aeb55045e30d7e:/T1606331395-LIPID-PATID2-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707557-LIPID-PATID1-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707597-LIPID-PATID4-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707579-LIPID-PATID3-CLIA24D9871327.txt -      -
-    42718eb32c45e1136076a19b271a1cf2bbc09602c779496f1db4e2b8625dc2d8200a labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707613-LIPID-PATID1-CLIA24D9871328.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707635-LIPID-PATID3-CLIA24D9871328.txt                                                                                                                                                                                     -      -
+        ID                                                                   FILES                                                STATUS TIME
+    ebd35bb33c5f772f02d7dfc4735ad1dde8cc923474a1ee28a19b16b2990d29592e30 images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
+    ebd3ce3cdbab9b78cc58f40aa2019a5a6bce82d1f70441bd5d41a625b7769cce9bc4 images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
+    ebd32cf84c73cfcc4237ac4afdfe6f27beee3cb039d38613421149122e1f9faff349 images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
     ```
 
+!!! note "Note"  
+    Now that the 3 datums have been processed, their ID field is showing.

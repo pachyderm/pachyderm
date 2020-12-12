@@ -190,3 +190,5 @@ Your code will still see the joined pairs that it saw before. In addition to
 those five datums your code will also see three new ones, one for each of the
 parameter files which didn't have a match. Note that this means your code needs
 to not crash when only some of the inputs are represented under `/pfs`.
+
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).

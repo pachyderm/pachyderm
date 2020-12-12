@@ -21,14 +21,11 @@ combine multiple repositories:
      Therefore, each datum from one repository is combined with each
      datum from the other repository.
 
-**Join**
+**Joins**
 :    A join input enables you to join files that are stored
      in different Pachyderm repositories and match a particular
-     file path pattern. Joins are similar to `cross`, except
-     instead of matching every pair of datums from each input,
-     it only matches specific ones based on file paths.
-     Conceptually, joins are similar to the
-     database’s inner join operations, although they only match
+     file path pattern. Pachyderm supports joins similar to the
+     database’s *inner join* and *outer join* operations, although they only match
      on file paths, not the actual file content.
 
 **Union**
@@ -36,6 +33,11 @@ combine multiple repositories:
      all the data in each input independently. The pipeline
      processes the datums in no defined order and the output
      repository includes results from all input sources.
+
+**Group**
+:    A group input can take one or multiple repositories and processes
+     all the data that match a particular
+     file path pattern at once. Pachyderm's group is similar to the database *group-by*, but it matches on file paths only, not the content of the files.
 
 The number of datums for a job is defined by the
 [glob pattern](glob-pattern.md) which you specify for each input. Think of
