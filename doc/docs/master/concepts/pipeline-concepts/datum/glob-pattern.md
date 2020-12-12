@@ -45,9 +45,9 @@ The following are examples of glob patterns that you can define:
 If you have more than one input repo in your pipeline,
 you can define a different glob pattern for each input
 repo. You can combine the datums from each input repo
-by using either the `cross` or `union` operator to
+by using the `cross`, `union`, `join`, or `group` operator to
 create the final datums that your code processes.
-For more information, see [Cross and Union](cross-union.md).
+For more information, see [Cross and Union](./cross-union.md), [Join](./join.md),[Group](./group.md).
 
 ## Example of Defining Datums
 
@@ -138,3 +138,40 @@ datum:
     /requirements.txt      file 74B
     /seq2seq_utils.py      file 13.81KiB
     ```
+
+## Test your Datums
+
+Pachyderm allows you to check the list and content of datums defined by a pipeline for a past job or test your datums for a pipeline currently being developed. 
+
+### Testing your glob pattern before creating a pipeline
+You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to preview the datums defined by a pipeline given its specification file. 
+
+!!! note The pipeline does not need to have been created for the command to return the list of datums. This dry run helps you adjust your glob pattern when creating your pipeline.
+
+!!! example
+    ```shell
+    pachctl list datum -f lab_group_by_hospital.json
+    ```
+    **System Response:**
+
+    ```shell
+        ID FILES                                                                                                                                                                                                                                                                                                                                                                  STATUS TIME
+    -  labresults@b2095152ffc440c682aeb55045e30d7e:/T1606331395-LIPID-PATID2-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707557-LIPID-PATID1-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707597-LIPID-PATID4-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707579-LIPID-PATID3-CLIA24D9871327.txt -      -
+    -  labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707613-LIPID-PATID1-CLIA24D9871328.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707635-LIPID-PATID3-CLIA24D9871328.txt
+    ```
+
+### Running list datum on a past job 
+You can use the `pachctl list datum <job_number>` command to check the datums processed by a given job.
+
+!!! example
+    ```shell
+    pachctl list datum 6186ee85db014cfcaf14ef2cb8395d6d
+    ```
+    **System Response:**
+
+    ```shell
+    ID                                                                   FILES                                                                                                                                                                                                                                                                                                                                                                  STATUS TIME
+    42716c4ac21ab9dc093958f1decdb01890a373efcff2e33964b1d05502b0bcc87bd3 labresults@b2095152ffc440c682aeb55045e30d7e:/T1606331395-LIPID-PATID2-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707557-LIPID-PATID1-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707597-LIPID-PATID4-CLIA24D9871327.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707579-LIPID-PATID3-CLIA24D9871327.txt -      -
+    42718eb32c45e1136076a19b271a1cf2bbc09602c779496f1db4e2b8625dc2d8200a labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707613-LIPID-PATID1-CLIA24D9871328.txt, labresults@b2095152ffc440c682aeb55045e30d7e:/T1606707635-LIPID-PATID3-CLIA24D9871328.txt                                                                                                                                                                                     -      -
+    ```
+
