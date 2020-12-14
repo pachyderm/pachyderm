@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -35,9 +36,24 @@ var (
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
 
+type ppsMaster struct {
+	// The PPS APIServer that owns this struct
+	a *apiServer
+
+	// masterClient is a pachyderm client containing a context that is cancelled if
+	// the current pps master loses its master status
+	// Note: 'masterClient' is unauthenticated.  This uses the PPS token (via
+	// a.sudo()) to authenticate requests as needed.
+	masterClient *client.APIClient
+}
+
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
+	m := &ppsMaster{
+		a: a,
+	}
+
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -48,15 +64,12 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
-		// a.sudo()) to authenticate requests.
-		pachClient := a.env.GetPachClient(ctx)
+		log.Infof("PPS master: launching master process")
+		m.masterClient = a.env.GetPachClient(ctx)
 		kubeClient := a.env.GetKubeClient()
 
-		log.Infof("PPS master: launching master process")
-
 		// start pollPipelines in the background to regularly refresh pipelines
-		a.startPipelinePoller(pachClient)
+		a.startPipelinePoller(m.masterClient)
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -97,14 +110,14 @@ func (a *apiServer) master() {
 				case watch.EventPut:
 					pipeline := string(event.Key)
 					// Create/Modify/Delete pipeline resources as needed per new state
-					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
+					if err := a.step(m.masterClient, pipeline, event.Ver, event.Rev); err != nil {
 						log.Errorf("PPS master: %v", err)
 					}
 				case watch.EventDelete:
 					// TODO(msteffen) trace this call
 					// This is also called by pollPipelines below, if it discovers
 					// dangling monitorPipeline goroutines
-					if err := a.deletePipelineResources(pachClient.Ctx(), string(event.Key)); err != nil {
+					if err := a.deletePipelineResources(m.masterClient.Ctx(), string(event.Key)); err != nil {
 						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
 					}
 				}
@@ -143,7 +156,7 @@ func (a *apiServer) master() {
 				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
+						if err := a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
 							return err
 						}
 					}
@@ -151,7 +164,7 @@ func (a *apiServer) master() {
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodScheduled &&
 						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, condition.Message); err != nil {
+						if err := a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, condition.Message); err != nil {
 							return err
 						}
 					}
