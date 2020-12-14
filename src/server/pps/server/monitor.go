@@ -43,29 +43,16 @@ import (
 
 const crashingBackoff = time.Second * 15
 
-// startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
-// and startPipelinePoller (in poller.go). It doesn't manipulate any of
-// APIServer's fields, just wrapps the passed function in a goroutine, and
-// returns a cancel() fn to cancel it and block until it returns.
-func startMonitorThread(parentPachClient *client.APIClient, name string, f func(pachClient *client.APIClient)) func() {
-	childCtx, cancel := context.WithCancel(parentPachClient.Ctx())
-	done := make(chan struct{})
-	go func() {
-		f(parentPachClient.WithCtx(childCtx))
-		close(done)
-	}()
-	return func() {
-		cancel()
-		select {
-		case <-done:
-			return
-		case <-time.After(time.Minute):
-			// restart pod rather than permanently locking up the PPS master (which
-			// would break the PPS API)
-			panic(name + " blocked for over a minute after cancellation; restarting pod")
-		}
-	}
-}
+//////////////////////////////////////////////////////////////////////////////
+//                     Locking Functions                                    //
+// - These functions lock monitorCancelsMu in order to start or stop a      //
+// monitor function (and store any cancel() functions in 'm'). They can     //
+// call any of the monitor functions at the bottom of this file, but after  //
+// locking, they should not call each other or any function outside of this //
+// file (or else they will trigger a reentrancy deadlock):                  //
+//         master.go -> monitor.go -> master.go -> monitor.go               //
+//                   (lock succeeds)          (lock fails, deadlock)        //
+//////////////////////////////////////////////////////////////////////////////
 
 // startMonitor starts a new goroutine running monitorPipeline for
 // 'pipelineInfo.Pipeline'.
@@ -171,9 +158,33 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) 
 // other but also should not call any of the functions above or any         //
 // functions outside this file (or else they will trigger a reentrancy      //
 // deadlock):                                                               //
-// master.go -> monitor.go(lock succeeds) -> master -> monitor(lock fails,  //
-//                                                              deadlock)   //
+//         master.go -> monitor.go -> master.go -> monitor.go               //
+//                   (lock succeeds)          (lock fails, deadlock)        //
 //////////////////////////////////////////////////////////////////////////////
+
+// startMonitorThread is a helper used by startMonitor, startCrashingMonitor,
+// and startPipelinePoller (in poller.go). It doesn't manipulate any of
+// APIServer's fields, just wrapps the passed function in a goroutine, and
+// returns a cancel() fn to cancel it and block until it returns.
+func startMonitorThread(parentPachClient *client.APIClient, name string, f func(pachClient *client.APIClient)) func() {
+	childCtx, cancel := context.WithCancel(parentPachClient.Ctx())
+	done := make(chan struct{})
+	go func() {
+		f(parentPachClient.WithCtx(childCtx))
+		close(done)
+	}()
+	return func() {
+		cancel()
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Minute):
+			// restart pod rather than permanently locking up the PPS master (which
+			// would break the PPS API)
+			panic(name + " blocked for over a minute after cancellation; restarting pod")
+		}
+	}
+}
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
@@ -381,29 +392,6 @@ func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parall
 	}
 }
 
-func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
-	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
-		return latestTime, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return latestTime, err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return latestTime, err
-		}
-	}
-	return latestTime, nil
-}
-
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
@@ -467,4 +455,31 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// set latestTime to the next time
 		latestTime = next
 	}
+}
+
+// getLatestCronTime is a helper used by m.makeCronCommits. It figures out what
+// 'in's most recently executed cron tick was and returns it (or, if no cron
+// ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
+// (typically set by 'pachctl extract')
+func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
+	var latestTime time.Time
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	if err != nil && !pfsserver.IsNoHeadErr(err) {
+		return latestTime, err
+	} else if err != nil || len(files) == 0 {
+		// File not found, this happens the first time the pipeline is run
+		latestTime, err = types.TimestampFromProto(in.Cron.Start)
+		if err != nil {
+			return latestTime, err
+		}
+	} else {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
+			return latestTime, err
+		}
+	}
+	return latestTime, nil
 }
