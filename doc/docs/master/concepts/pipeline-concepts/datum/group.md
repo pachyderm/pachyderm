@@ -1,4 +1,4 @@
-# Group
+# Group Input
 
 A group is a special type of pipeline input that enables you to aggregate
 files that reside in one or separate Pachyderm repositories and match a

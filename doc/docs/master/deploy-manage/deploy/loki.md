@@ -1,10 +1,14 @@
-!!! note To deploy and configure a Pachyderm cluster
-to ship logs to Loki, 
-a ***Pachyderm Enterprise License*** is required. 
+!!! note 
+    To deploy and configure a Pachyderm cluster
+    to ship logs to Loki, 
+    a ***Pachyderm Enterprise License*** is required. 
 
 # Enabling Loki
 
-Enabling Loki logging is done by setting the `LOKI_LOGGING` [environment variable](https://docs.pachyderm.com/latest/deploy-manage/deploy/environment-variables/) to `true` on the pachd container.
+Enabling Loki logging will require to set the following [environment variables](https://docs.pachyderm.com/latest/deploy-manage/deploy/environment-variables/) on the pachd container:
+
+- `LOKI_LOGGING` to `true`  to ship the logs to Loki
+- `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` to fetch the logs from Loki
 
 ## Shipping logs to Loki
 
@@ -59,7 +63,11 @@ can be modified to make logs available for Loki as follows:
 
 Pachyderm reads logs from the Loki API Server with a particular set of tags. The URI at which Pachyderm reads from the Loki API Server is set by the `LOKI_SERVICE_HOST` and `LOKI_SERVICE_PORT` values.
 
-!!! note If you are not running Promtail on the node where your Pachyderm pods are located, you will be unable to get logs for pipelines running on that node via `pachctl logs -p pipelineName`.
+!!! note 
+    If you are not running Promtail on the node 
+    where your Pachyderm pods are located, you
+    will be unable to get logs for pipelines running
+    on that node via `pachctl logs -p pipelineName`.
 
 ## References
 

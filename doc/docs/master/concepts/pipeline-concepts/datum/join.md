@@ -1,25 +1,27 @@
-# Join
+# Join Input
 
 A join is a special type of pipeline input that enables you to combine
 files that reside in separate Pachyderm repositories and match a
 particular naming pattern. The join operator must be used in combination
-with a glob pattern that reflects a specific naming convention.
+with a [glob pattern](../datum/glob-pattern.md) that reflects a specific naming convention.
+Note that in Pachyderm, matches are made on file paths
+only, not the files' content. 
 
-By analogy, a Pachyderm join is similar to a database *equi-join*,
-or *inner join* operation, but it matches on file paths
-only, not the contents of the files. 
+Pachyderm supports two types of joins: 
 
-Unlike the [cross input](../datum/cross-union.md), which creates datums
-from every combination of files in each input repository, joins
-**only create datums where there is a *match* as a default setting**. 
-You can use joins to combine data from different Pachyderm repositories and ensure that only specific files from
-each repo are processed together.
-
-Pachyderm also supports a join close to a database `outer-join`,
+- A default join setting, similar to a database *equi-join*
+or *inner-join* operation. Unlike the [cross input](../datum/cross-union.md),
+which creates datums from every combination of files in each input repository, 
+inner joins **only create datums where there is a *match***. 
+You can use inner joins to combine data from different Pachyderm repositories
+and ensure that only specific files from
+each repo are processed together. 
+If Pachyderm does not find any matching files, you get a zero-[datum](../datum/index.md) job.
+- Pachyderm also supports a join close to a database `outer-join`,
 allowing you to **create datums for all files in a repo, even if there is no match**. 
-You can configure this `outer-join` behavior on any repo in your join.
+The `outer-join` behavior can be set on any repository in your join.
 
-When you configure a join input, you must specify a glob pattern that
+When you configure a join input (inner or outer), you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
 the file path that is used to match files in other joined repos.
 Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
@@ -53,13 +55,16 @@ For example, `$1` indicates that you want Pachyderm to match based on
 capture group `1`. Similarly, `$2` matches the capture group `2`.
 `$1$2` means that it must match both capture groups `1` and `2`.
 
-In its default setting (`inner-join`), if Pachyderm does not find any matching files, you get a zero-datum job.
+See the full `join` input configuration in the [pipeline specification](../../../reference/pipeline_spec.md).
 
 You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
-[List Datum](../../datum/glob-pattern/#test-a-glob-pattern).
+[List Datum](../../datum/glob-pattern/#test-your-datums).
 
-## Example
+## Inner Join
+Per default, a join input has an `inner-join` behavior.
+
+### Inner Join Example
 
 For example, you have two repositories. One with sensor readings
 and the other with parameters. The repositories have the following
@@ -137,7 +142,7 @@ datums for this job.
 
 To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
 
-## Outer Joins
+## Outer Join
 
 Pachyderm also supports outer joins. Outer joins include everything a normal
 (inner) join does, and files that didn't match anything. Inputs can be set to
@@ -145,7 +150,7 @@ outer semantics independently. So while there isn't an explicit notion of
 "left" or "right" outer joins, you can still get those semantics, and even
 extend them to multiway joins.
 
-## Outer Joins Example
+### Outer Join Example
 
 Building off the example above, notice that there are 3 files in the
 `parameters` repo, `file6.txt`, `file7.txt` and `file8.txt`, which don't match
