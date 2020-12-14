@@ -6,11 +6,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"hash/fnv"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -172,7 +170,6 @@ func NewTestIDP(t testing.TB, pachdACSURL, pachdMetadataURL string) *TestIDP {
 		ServiceProviderProvider: ConstServiceProviderProvider(&spMetadata),
 	}
 	result.sp = &saml.ServiceProvider{
-		Logger:      log.New(os.Stdout, "[samlsp validation]", log.LstdFlags|log.Lshortfile),
 		AcsURL:      *MustParseURL(t, pachdACSURL),
 		MetadataURL: *MustParseURL(t, pachdMetadataURL),
 		IDPMetadata: result.idp.Metadata(),
