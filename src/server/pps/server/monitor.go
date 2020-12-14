@@ -410,7 +410,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 	}
 
-	latestTime, err := a.getLatestCronTime(pachClient, in)
+	latestTime, err := getLatestCronTime(pachClient, in)
 	if err != nil {
 		return err
 	}
@@ -461,7 +461,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 // 'in's most recently executed cron tick was and returns it (or, if no cron
 // ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
 // (typically set by 'pachctl extract')
-func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
+func getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
