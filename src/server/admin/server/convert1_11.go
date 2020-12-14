@@ -427,18 +427,21 @@ func convert1_11ClusterRoleBinding(bindings *auth1_11.ModifyClusterRoleBindingRe
 }
 
 func convert1_11AuthConfig(config *auth1_11.SetConfigurationRequest) *auth.SetConfigurationRequest {
-	return &auth.SetConfigurationRequest{
+	req := &auth.SetConfigurationRequest{
 		Configuration: &auth.AuthConfig{
 			LiveConfigVersion: config.Configuration.LiveConfigVersion,
-			SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
-				ACSURL:          config.Configuration.SAMLServiceOptions.ACSURL,
-				MetadataURL:     config.Configuration.SAMLServiceOptions.MetadataURL,
-				DashURL:         config.Configuration.SAMLServiceOptions.DashURL,
-				SessionDuration: config.Configuration.SAMLServiceOptions.SessionDuration,
-				DebugLogging:    config.Configuration.SAMLServiceOptions.DebugLogging,
-			},
 		},
 	}
+	if config.Configuration.SAMLServiceOptions != nil {
+		req.Configuration.SAMLServiceOptions = &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL:          config.Configuration.SAMLServiceOptions.ACSURL,
+			MetadataURL:     config.Configuration.SAMLServiceOptions.MetadataURL,
+			DashURL:         config.Configuration.SAMLServiceOptions.DashURL,
+			SessionDuration: config.Configuration.SAMLServiceOptions.SessionDuration,
+			DebugLogging:    config.Configuration.SAMLServiceOptions.DebugLogging,
+		}
+	}
+	return req
 }
 
 func convert1_11Op(op *admin.Op1_11) (*admin.Op1_12, error) {

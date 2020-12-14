@@ -845,6 +845,93 @@ func TestMigrateFrom1_7(t *testing.T) {
 	require.Equal(t, 6, len(commits))
 }
 
+func TestMigrateAuthFrom1_11(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// Clear pachyderm cluster (so that next cluster starts up in a clean environment)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetPachClient(t)
+	c.SetAuthToken("known-auth-token")
+	tu.UpdateAuthToken(tu.AdminUser, "known-auth-token")
+
+	// Restore dumped metadata (now that objects are present)
+	md, err := os.Open(path.Join(os.Getenv("GOPATH"),
+		"src/github.com/pachyderm/pachyderm/etc/testing/migration/v1_11/auth.metadata"))
+	require.NoError(t, err)
+	require.NoError(t, c.RestoreReader(snappy.NewReader(md)))
+	require.NoError(t, md.Close())
+
+	// Wait for final imported commit to be processed
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit("left", "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	// filter-left and filter-right both compute a join of left and
+	// right--depending on when the final commit to 'left' was added, it may have
+	// been processed multiple times (should be n * 3, as there are 3 pipelines)
+	require.True(t, len(commitInfos) >= 3)
+
+	// Inspect input
+	commits, err := c.ListCommit("left", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commits))
+	commits, err = c.ListCommit("right", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commits))
+
+	// Inspect output
+	repos, err := c.ListRepo()
+	require.NoError(t, err)
+	require.ElementsEqualUnderFn(t,
+		[]string{"left", "right", "copy", "sort"},
+		repos, RepoInfoToName)
+
+	// make sure all numbers 0-99 are in /nums
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile("sort", "master", "/nums", 0, 0, &buf))
+	s := bufio.NewScanner(&buf)
+	numbers := make(map[string]struct{})
+	for s.Scan() {
+		numbers[s.Text()] = struct{}{}
+	}
+	require.Equal(t, 100, len(numbers)) // job processed all inputs
+
+	// Confirm stats commits are present
+	commits, err = c.ListCommit("sort", "stats", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(commits))
+
+	// Confirm ACLs are restored
+	acl, err := c.GetACL(c.Ctx(), &auth.GetACLRequest{Repo: "sort"})
+	require.NoError(t, err)
+
+	for _, expected := range []*auth.ACLEntry{
+		&auth.ACLEntry{Username: "pipeline:sort", Scope: auth.Scope_WRITER},
+		&auth.ACLEntry{Username: "robot:test", Scope: auth.Scope_OWNER},
+	} {
+		require.NoError(t, func() error {
+			for _, actual := range acl.Entries {
+				if actual.Username == expected.Username && actual.Scope == expected.Scope {
+					return nil
+				}
+			}
+			return fmt.Errorf("no ACL entry like %v", expected)
+		}())
+	}
+
+	// Confirm admins are restored
+	roleBindings, err := c.GetClusterRoleBindings(c.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}}, roleBindings.Bindings["robot:test"])
+	require.Equal(t, &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}}, roleBindings.Bindings["pach:root"])
+}
+
 func TestExtractRestorePipelineUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

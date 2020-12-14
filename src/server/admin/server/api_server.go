@@ -1060,6 +1060,16 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 				return 0, errors.Errorf("expected a block, but got: %v", op)
 			}
 			value = op.Op1_9.Block.Value
+		} else if r.version == v1_10 {
+			if op.Op1_10.Block == nil {
+				return 0, errors.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_10.Block.Value
+		} else if r.version == v1_11 {
+			if op.Op1_11.Block == nil {
+				return 0, errors.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_11.Block.Value
 		} else {
 			if op.Op1_12.Block == nil {
 				return 0, errors.Errorf("expected a block, but got: %v", op)
