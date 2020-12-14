@@ -53,7 +53,7 @@ const (
 	StorageSecretName = "pachyderm-storage-secret"
 	// PachctlSecretName is the name of the Kubernetes secret in which
 	// pachctl credentials are stored.
-	PachctlSecretName = "pachyderm-sachctl-secret"
+	PachctlSecretName = "pachyderm-pachctl-secret"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.

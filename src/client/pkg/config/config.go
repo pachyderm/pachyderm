@@ -30,7 +30,10 @@ func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
 		return env
 	}
+	log.Info("Config path")
+
 	if _, err := os.Stat(pachctlConfigPath); err == nil {
+		log.Info("Stat pachctl config path")
 		return pachctlConfigPath
 	}
 	return defaultConfigPath
@@ -104,7 +107,7 @@ func Read(ignoreCache bool) (*Config, error) {
 		if value.V2 == nil {
 			updated = true
 			log.Debugln("No config V2 present in config - generating a new one.")
-			if err := value.initV2(); err != nil {
+			if err := value.InitV2(); err != nil {
 				return nil, err
 			}
 		}
@@ -143,7 +146,7 @@ func Read(ignoreCache bool) (*Config, error) {
 	return cloned, nil
 }
 
-func (c *Config) initV2() error {
+func (c *Config) InitV2() error {
 	c.V2 = &ConfigV2{
 		ActiveContext: "default",
 		Contexts:      map[string]*Context{},
