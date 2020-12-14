@@ -51,6 +51,9 @@ const (
 	// obj -> client dependency, so any changes to this variable need to be applied there.
 	// The obj package should eventually get refactored so that it does not have this dependency.
 	StorageSecretName = "pachyderm-storage-secret"
+	// PachctlSecretName is the name of the Kubernetes secret in which
+	// pachctl credentials are stored.
+	PachctlSecretName = "pachyderm-sachctl-secret"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.

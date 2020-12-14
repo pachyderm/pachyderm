@@ -14,11 +14,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const configEnvVar = "PACH_CONFIG"
-const contextEnvVar = "PACH_CONTEXT"
+const (
+	configEnvVar  = "PACH_CONFIG"
+	contextEnvVar = "PACH_CONTEXT"
+)
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
+var pachctlConfigPath = filepath.Join("/pachctl", "config.json")
 
 var configMu sync.Mutex
 var value *Config
@@ -26,6 +29,9 @@ var value *Config
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
 		return env
+	}
+	if _, err := os.Stat(pachctlConfigPath); err == nil {
+		return pachctlConfigPath
 	}
 	return defaultConfigPath
 }

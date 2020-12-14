@@ -529,6 +529,22 @@ func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) 
 		}
 }
 
+// GetPachctlSecretVolumeAndMount returns a Volume and
+// VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+func GetPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: client.PachctlSecretName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secret,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      client.PachctlSecretName,
+			MountPath: "/pachctl",
+		}
+}
+
 // GetSecretEnvVars returns the environment variable specs for the storage secret.
 func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 	var envVars []v1.EnvVar

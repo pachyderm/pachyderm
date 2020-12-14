@@ -10776,9 +10776,9 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 }
 
 func TestSpoutPipe(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	// if os.Getenv("RUN_BAD_TESTS") == "" {
+	// 	t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	// }
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10969,9 +10969,9 @@ time.Sleep(5)
 	})
 }
 func TestSpoutPachctl(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	// if os.Getenv("RUN_BAD_TESTS") == "" {
+	// 	t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	// }
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10979,8 +10979,9 @@ func TestSpoutPachctl(t *testing.T) {
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {
