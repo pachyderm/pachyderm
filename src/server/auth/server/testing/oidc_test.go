@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
@@ -38,9 +37,6 @@ var OIDCAuthConfig = &auth.AuthConfig{
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -102,9 +98,6 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
