@@ -109,6 +109,7 @@ type apiServer struct {
 	storageRoot            string
 	storageBackend         string
 	storageHostPath        string
+	cacheRoot              string
 	iamRole                string
 	imagePullSecret        string
 	noExposeDockerSocket   bool
