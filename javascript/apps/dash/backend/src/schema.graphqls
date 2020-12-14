@@ -1,0 +1,109 @@
+## TODO: What is the "ID" field for inputs?
+type PFSInput {
+  name: String!
+  repo: Repo!
+}
+
+type CronInput {
+  name: String!
+  repo: Repo!
+}
+
+type GitInput {
+  name: String!
+  url: String!
+}
+
+enum InputType {
+  PFS
+  CRON
+  GIT
+}
+
+type Input {
+  id: ID! # This will need to be assigned on the API side
+  type: InputType!
+  joinedWith: [String!]! # A flat representation of the input tree (list of PipelineInput ids)
+  groupedWith: [String!]!
+  crossedWith: [String!]!
+  unionedWith: [String!]!
+  pfsInput: PFSInput
+  cronInput: CronInput
+  gitInput: GitInput
+}
+
+enum PipelineState {
+  STARTING
+  RUNNING
+  RESTARTING
+  FAILURE
+  PAUSED
+  STANDBY
+  CRASHING
+}
+
+enum JobState {
+  STARTING
+  RUNNING
+  FAILURE
+  SUCCESS
+  KILLED
+  MERGING
+  EGRESSING
+}
+
+type Pipeline {
+  id: ID!
+  name: String!
+  version: Int!
+  createdAt: Int!
+  state: PipelineState!
+  stopped: Boolean!
+  recentError: String
+  numOfJobsStarting: Int!
+  numOfJobsRunning: Int!
+  numOfJobsFailing: Int!
+  numOfJobsSucceeding: Int!
+  numOfJobsKilled: Int!
+  numOfJobsMerging: Int!
+  numOfJobsEgressing: Int!
+  lastJobState: JobState
+  inputs: [Input!]!
+  description: String
+}
+
+type InputPipeline {
+  id: ID!
+}
+
+type Repo {
+  name: ID!
+  createdAt: Int!
+  sizeInBytes: Int!
+  description: String!
+
+  # The Dash API will have to derive this field, unless core pach can expose it for us...
+  isPipelineOutput: Boolean!
+}
+
+type Pach {
+  id: ID!
+}
+
+type Job {
+  id: ID!
+  pipeline: Pipeline!
+  parentJobId: String
+  startedAt: Int!
+  finishedAt: Int
+  state: JobState!
+  reason: String
+  outputRepo: Repo!
+  input: Input!
+}
+
+type Query {
+  pipelines: [Pipeline!]!
+  repos: [Repo!]!
+  jobs: [Job!]!
+}

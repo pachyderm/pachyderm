@@ -1,0 +1,10 @@
+schema: ./src/schema.graphqls
+generates:
+  ./src/generated/types.ts:
+    hooks:
+      afterOneFileWrite:
+        - eslint --fix
+    plugins:
+      - typescript
+      - add:
+          content: "/* eslint-disable @typescript-eslint/naming-convention */"
