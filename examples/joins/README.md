@@ -1,7 +1,7 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the files, in your joined repositories, that match a specific naming pattern  (i.e., ***match your glob pattern/capture groups***). In Pachyderm's terms, inner joins will only create a datum (see Key concepts below) if there is a match in all join repos.
-- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that the input repo with `"outer_join": true` set in the pipeline specifications will still see a datum even if it does not have a match.
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that for an input repo with `"outer_join": true` set in the pipeline specifications, datums will still be created even if it does not have a match.
 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
@@ -238,7 +238,6 @@ In this case, you will consider the zip of **all stores** (listed in our repo or
 Your end result should look like this.
 
 ![outer_join_on_stores_digest](./img/outer_join_on_returns_digest.png)
-
 
 
 
