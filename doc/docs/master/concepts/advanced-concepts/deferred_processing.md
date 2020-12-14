@@ -326,7 +326,11 @@ input. The name of the branch is auto-generated with the form
 `<pipeline-name>-trigger-n`. You can manually update the heads of these branches
 to trigger processing just like in the previous example.
 
-!!! note Deleting or updating a pipeline **will not clean up** the trigger branch that it has created. In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime. There is no guarantee that other pipelines are not using that trigger branch. A trigger branch can, however, be deleted manually.
+!!! note
+   Deleting or updating a pipeline **will not clean up** the trigger branch that it has created.
+   In fact, the trigger branch has a lifetime that is not tied to the pipeline's lifetime.
+   There is no guarantee that other pipelines are not using that trigger branch.
+   A trigger branch can, however, be deleted manually.
 
 ## More advanced automation
 
