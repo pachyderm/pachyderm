@@ -398,12 +398,10 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	datumsSize := int64(0)
 	datums := []*DatumInputs{}
 
-	// finishTask will finish the currently-writing object and append it to the
-	// subtasks, then reset all the relevant variables
-	finishTask := func() (retErr error) {
-		subtaskID := uuid.NewWithoutDashes()
-		datumsObject := jobArtifactChunkDatumList(pj.ji.Job.ID, subtaskID)
-		writer, err := driver.PachClient().DirectObjWriter(datumsObject)
+	// writeDatumsObject is a helper function to synchronously write out the
+	// current list of datums to a temporary job artifact object.
+	writeDatumsObject := func(objectName string) (retErr error) {
+		writer, err := driver.PachClient().DirectObjWriter(objectName)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -414,11 +412,21 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 		}()
 
 		protoWriter := pbutil.NewWriter(writer)
-		if _, err := protoWriter.Write(&DatumInputsList{Datums: datums}); err != nil {
+		_, err = protoWriter.Write(&DatumInputsList{Datums: datums})
+		return err
+	}
+
+	// finishTask will finish the currently-writing object and append it to the
+	// subtasks, then reset all the relevant variables
+	finishTask := func() error {
+		subtaskID := uuid.NewWithoutDashes()
+		objectName := jobArtifactChunkDatumList(pj.ji.Job.ID, subtaskID)
+
+		if err := writeDatumsObject(objectName); err != nil {
 			return err
 		}
 
-		taskData, err := serializeDatumData(&DatumData{DatumsObject: datumsObject, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
+		taskData, err := serializeDatumData(&DatumData{DatumsObject: objectName, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
 		if err != nil {
 			return err
 		}

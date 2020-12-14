@@ -7,19 +7,19 @@ can access it by using the following commands:
 
 * To view the auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth get-config
   ```
 
 * To edit the auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth set-config -f <config.json>
   ```
 
   or:
 
-  ```bash
+  ```shell
   pachctl auth set-config <<EOF
   {
     "live_config_version": ${live_config_version},
@@ -36,7 +36,7 @@ can access it by using the following commands:
 
 * To delete Pachyderm auth configuration, run:
 
-  ```bash
+  ```shell
   pachctl auth deactivate
   ```
 
@@ -55,7 +55,7 @@ authentication file:
 | `group_attribute` | A group configured on the IdP. The parameters enable <br> you to grant permissions on at a group level rather <br> than on an individual level. |
 | `saml_svc_options` | A list of options for SAML services |
 | `acs_url`          | The URL of the `pachd`'s Assertion Consumer Service <br> and Metadata Service (ACS). If Pachyderm runs in a <br> private cluster, the cluster admin must set up <br> the domain name and proxy to resolve to <br> `pachd:654/acs`. For example, <br> `http://localhost:30654/saml/acs`. |
-| `meatadata_url`    | The public URL of Pachd's SAML metadata service. <br> This parameter under the `saml_svc_options` is <br> different from the one under the `saml` option. <br> If Pachyderm runs in a private cluster, you must <br> create this URL, which resolves to <br> `pachd:654/saml/metadata`. For example, <br>`http://localhost:30654/saml/metadata`. |
+| `metadata_url`    | The public URL of Pachd's SAML metadata service. <br> This parameter under the `saml_svc_options` is <br> different from the one under the `saml` option. <br> If Pachyderm runs in a private cluster, you must <br> create this URL, which resolves to <br> `pachd:654/saml/metadata`. For example, <br>`http://localhost:30654/saml/metadata`. |
 | `dash_url`         | The public URL of the Pachyderm dashboard. <br> For example, `https://localhost:30080`. |
 | `session_duration` | The length of a user session in hours (h) or <br> minutes (m). For example, `8h`. If left blank 24 hours session is <br> configured by default. |
 
@@ -75,5 +75,7 @@ authentication file:
  | `client_id`      | The Pachyderm ID configured in the IdP. For example, <br> `pachyderm`.
  | `client_secret`  | A shared secret with the ID provider. If your OIDC provider <br> does not use a secret, which is not recommended, the <br> parameter can be omitted for testing. |
  | `redirect_uri`   | The URI on which the OIDC IdP can access Pachyderm. <br> Depends on your network configuration and must have the following <br> format: `http://<ip>:30657/authorization-code/callback`. |
+ | `additional_scopes`| A list of additional OIDC scopes to request from the provider. If `groups` is requested, the groups in the ID token will be synced with Pachyderm |
+
 
 [View a sample config](../oidc/configure-keycloak/#configure-keycloak)

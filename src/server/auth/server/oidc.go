@@ -241,8 +241,9 @@ func (o *InternalOIDCProvider) OIDCStateToEmail(ctx context.Context, state strin
 			}
 
 			// see if there's an ID token attached to the OIDC state now
+			var key string
 			var si auth.SessionInfo
-			if err := si.Unmarshal(e.Value); err != nil {
+			if err := e.Unmarshal(&key, &si); err != nil {
 				// retry watch (maybe a valid SessionInfo will appear later?)
 				return errors.Wrapf(err, "error unmarshalling OIDC SessionInfo")
 			}

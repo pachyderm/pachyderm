@@ -22,7 +22,7 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
-	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	path, err := BlockPathFromEnv(info.BlockRef.Block)
 	if err != nil {
 		return nil, err
 	}

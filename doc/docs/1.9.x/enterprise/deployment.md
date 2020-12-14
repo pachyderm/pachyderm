@@ -50,7 +50,7 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 
 1. Activate the Enterprise Edition by running:
 
-   ```bash
+   ```shell
    $ pachctl enterprise activate <activation-code>
    ```
 
@@ -59,7 +59,7 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 
 1. Verify the status of the enterprise activation:
 
-   ```bash
+   ```shell
    $ pachctl enterprise get-state
    ACTIVE
    ```
@@ -89,7 +89,7 @@ To active Enterprise Edition in the Dashboard, complete the following steps:
 
 1. Confirm that your cluster has an active Enterprise Edition license:
 
-   ```bash
+   ```shell
    $ pachctl enterprise get-state
    ACTIVE
    ```

@@ -5,26 +5,25 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
-// File represents a file in a fileset
+// File represents a file.
 type File interface {
-	// Index returns the index for the file
+	// Index returns the index for the file.
 	Index() *index.Index
-	// Header returns a *tar.Header with metadata about the file, or an error
-	Header() (*tar.Header, error)
-	// Content writes the content of the file to w
+	// Content writes the content of the file.
 	Content(w io.Writer) error
 }
 
-var _ File = &FileMergeReader{}
+var _ File = &MergeFileReader{}
 var _ File = &FileReader{}
 
-// FileSet is a source of Files.
+// FileSet represents a set of files.
 type FileSet interface {
-	// Iterate calls cb for each File in the FileSource in lexigraphical order.
-	Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error
+	// Iterate iterates over the files in the file set.
+	Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error
+	// TODO: Implement IterateDeletes or pull deletion information out of the fileset API.
 }
 
-var _ FileSet = &mergeSource{}
+var _ FileSet = &MergeReader{}
+var _ FileSet = &Reader{}

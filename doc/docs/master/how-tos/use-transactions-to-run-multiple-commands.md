@@ -84,13 +84,13 @@ changes to the staging branch while your pipeline is subscribed to the
 master branch. To switch to these branches simultaneously, you can
 use transactions like this:
 
-```bash
+```shell
 pachctl start transaction
 ```
 
 **System Response:**
 
-```bash
+```shell
 Started new transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
 pachctl pachctl create branch data@master --head staging
 Added to transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
@@ -104,17 +104,24 @@ When you finish the transaction, both repositories switch to
 to the master branch at the same time which triggers one job to process
 those commits together.
 
+### Updating Multiple Pipelines Simultaneously
+
+If you want to change logic or intermediate data formats in your DAG, you 
+may need to change multiple pipelines. Performing these changes together
+in a transaction can avoid creating jobs with mismatched pipeline versions
+and potentially wasting work.
+
 ## Start and Finish Transactions
 
 To start a transaction, run the following command:
 
-```bash
+```shell
 pachctl start transaction
 ```
 
 **System Response:**
 
-```bash
+```shell
 Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 
@@ -148,13 +155,13 @@ are executed atomically.
 
 To finish a transaction, run:
 
-```bash
-pachctl finsh transaction
+```shell
+pachctl finish transaction
 ```
 
 **System Response:**
 
-```bash
+```shell
 Completed transaction with 1 requests: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 
@@ -175,7 +182,7 @@ While there is a transaction object in the Pachyderm configuration
 file, all supported API requests append the request to the
 transaction instead of running directly. These supported commands include:
 
-```bash
+```shell
 create repo
 delete repo
 start commit
@@ -183,6 +190,8 @@ finish commit
 delete commit
 create branch
 delete branch
+create pipeline
+update pipeline
 ```
 
 Each time you add a command to a transaction, Pachyderm validates the

@@ -38,7 +38,7 @@ tons of them.
 For this demo, we create a repo called `images` to hold the
 data we want to process:
 
-```bash
+```shell
 $ pachctl create repo images
 $ pachctl list repo
 NAME   CREATED       SIZE (MASTER)
@@ -77,7 +77,7 @@ and the file name: `"liberty.png"`.
 Here is an example atomic commit of the file `liberty.png` to the
 `images` repo `master` branch:
 
-```bash
+```shell
 $ pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 ```
 
@@ -85,7 +85,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * Use the `pachctl list repo` command to check that data has been added:
 
-  ```bash
+  ```shell
   $ pachctl list repo
   NAME   CREATED            SIZE (MASTER)
   images About a minute ago 57.27KiB
@@ -93,7 +93,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * View the commit that was just created:
 
-  ```bash
+  ```shell
   $ pachctl list commit images
   REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
   images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
@@ -101,7 +101,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
 * View the file in that commit:
 
-  ```bash
+  ```shell
   $ pachctl list file images@master
   COMMIT                           NAME         TYPE COMMITTED          SIZE     
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
@@ -113,13 +113,13 @@ commands will let you view it easily:
 
 * If you are on macOS, run:
 
-  ```bash
+  ```shell
   $ pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
   ```
 
 * If you are on Linux, run:
 
-  ```bash
+  ```shell
   $ pachctl get file images@master:liberty.png | display
   ```
 
@@ -145,7 +145,7 @@ and does some simple edge detection.
 Below is the pipeline spec and python code that we are using. Let's walk
 through the details.
 
-```bash
+```shell
 # edges.json
 {
   "pipeline": {
@@ -213,7 +213,7 @@ pipeline output.
 
 Now, let's create the pipeline in Pachyderm:
 
-```bash
+```shell
 $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 ```
 
@@ -375,14 +375,14 @@ and
 
 We create the `montage` pipeline as before, with `pachctl`:
 
-```bash
+```shell
 $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 ```
 
 Pipeline creating triggers a job that generates a montage for all the
 current HEAD commits of the input repos:
 
-```bash
+```shell
 $ pachctl list job
 ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success

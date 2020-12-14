@@ -21,7 +21,7 @@ have the following components up and running:
   activated by running `pachctl enterprise activate`.
   Check the status of your license by running:
 
-  ```bash
+  ```shell
   pachctl enterprise get-state
   ```
 
@@ -47,14 +47,14 @@ To configure Pachyderm with Keycloak, complete the following steps:
 Keycloak on Minikube as described above, get the address of the console
 by running the following script:
 
-   ```bash
+   ```shell
    KEYCLOAK_URL=https://keycloak.$(minikube ip).nip.io/auth &&
    echo "Keycloak Admin Console: $KEYCLOAK_URL/admin"
    ```
 
    **Example of System Response:**
 
-   ```bash
+   ```shell
    Keycloak Admin Console: https://keycloak.192.168.64.36.nip.io/auth/admin
    ```
 
@@ -93,7 +93,7 @@ filling out the required fields. Otherwise, proceed to the next step.
    1. Set the **Root URL** to `http://<ip>:30657/authorization-code/callback`.
       For example:
 
-      ```bash
+      ```shell
       http://192.168.64.36:30657/authorization-code/callback
       ```
 
@@ -116,13 +116,13 @@ To configure Pachyderm, complete the following steps:
 
    1. Get the `pachd` pod ID:
 
-      ```bash
+      ```shell
       kubectl get pod
       ```
 
       **Example system response:**
 
-      ```bash
+      ```shell
       dash-5768cb7d98-j6cgt       2/2     Running   0          4h2m
       etcd-56d897697-xzsqr        1/1     Running   0          4h2m
       keycloak-857c59449b-htg99   1/1     Running   0          4h6m
@@ -133,13 +133,13 @@ To configure Pachyderm, complete the following steps:
 
       **Example:**
 
-      ```bash
+      ```shell
       kubectl port-forward pachd-79f7f68c65-9qs8g 30657
       ```
 
 1. Enable Pachyderm authentication:
 
-   ```bash
+   ```shell
    pachctl auth activate --initial-admin=robot:admin
    ```
 
@@ -151,13 +151,13 @@ To configure Pachyderm, complete the following steps:
 1. Log in as the admin user with the token you received in the previous
 step:
 
-   ```bash
+   ```shell
    pachctl auth use-auth-token
    ```
 
 1. Set up the authentication config:
 
-    ```bash
+    ```shell
     pachctl auth set-config <<EOF
     {
             "live_config_version": 1,
@@ -193,13 +193,13 @@ step:
 
    1. Run:
 
-      ```bash
+      ```shell
       pachctl auth login
       ```
 
       **Example of System Response:**
 
-      ```bash
+      ```shell
       You will momentarily be directed to your IdP and asked to authorize
       Pachyderm\'s login app on your IdP.
 
@@ -225,13 +225,13 @@ user.
 
 1. In the terminal, check that you are logged in as the Keycloak user:
 
-   ```bash
+   ```shell
    pachctl auth whoami
    ```
 
    **Example of System Response:**
 
-   ```bash
+   ```shell
    You are "keycloak:test@pachyderm.com"
    session expires: 06 Aug 20 09:23 PDT
    ```

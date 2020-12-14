@@ -250,12 +250,12 @@ func NewDriver(
 
 	if pipelineInfo.Transform.User != "" {
 		user, err := lookupDockerUser(pipelineInfo.Transform.User)
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, errors.EnsureStack(err)
 		}
 		// If `user` is `nil`, `uid` and `gid` will get set, and we won't
 		// customize the user that executes the worker process.
-		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+		if user != nil { // user is nil when err is an os.ErrNotExist is true in which case we use root
 			uid, err := strconv.ParseUint(user.Uid, 10, 32)
 			if err != nil {
 				return nil, errors.EnsureStack(err)
@@ -1256,7 +1256,6 @@ func (d *driver) UserCodeEnv(
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Input) || d.PipelineInfo().S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it

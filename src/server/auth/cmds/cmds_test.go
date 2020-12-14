@@ -169,10 +169,14 @@ func TestAdmins(t *testing.T) {
 	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth modify-admins --add admin --remove admin2
-		pachctl auth list-admins \
+	`).Run())
+	require.NoError(t, backoff.Retry(func() error {
+		return tu.BashCmd(`pachctl auth list-admins \
 			| match -v "admin2" \
 			| match "admin"
-		`).Run())
+		`).Run()
+	}, backoff.NewTestingBackOff()))
+
 }
 
 func TestGetAndUseAuthToken(t *testing.T) {
@@ -238,6 +242,9 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

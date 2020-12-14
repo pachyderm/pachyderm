@@ -118,15 +118,13 @@ func (ti *testIterator) DatumN(n int) []*common.Input {
 
 // Convert a test-friendly string to a real fake inputs array
 func datumToInputs(name string) []*common.Input {
-	return []*common.Input{
-		&common.Input{
-			Name: "inputRepo",
-			FileInfo: &pfs.FileInfo{
-				File: &pfs.File{Path: name},
-				Hash: []byte(name),
-			},
+	return []*common.Input{{
+		Name: "inputRepo",
+		FileInfo: &pfs.FileInfo{
+			File: &pfs.File{Path: name},
+			Hash: []byte(name),
 		},
-	}
+	}}
 }
 
 func inputsToDatum(inputs []*common.Input) (string, error) {

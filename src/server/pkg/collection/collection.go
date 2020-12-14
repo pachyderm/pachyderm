@@ -183,7 +183,8 @@ type etcdReadWriteCollection struct {
 }
 
 func (c *etcdReadWriteCollection) Get(key string, val proto.Message) (retErr error) {
-	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RW/Get", "col", c.prefix, "key", key)
+	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RW/Get",
+		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -417,7 +418,8 @@ type etcdReadOnlyCollection struct {
 // get is an internal wrapper around etcdClient.Get that wraps the call in a
 // trace
 func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *etcd.GetResponse, retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/Get", "col", c.prefix, "key", key)
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/Get",
+		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -464,7 +466,8 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, 
 }
 
 func (c *etcdReadOnlyCollection) GetBlock(key string, val proto.Message) error {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetBlock", "col", c.prefix, "key", key)
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetBlock",
+		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err

@@ -32,7 +32,11 @@ const JaegerServiceName = "pachd"
 // traces hard to find in Jaeger, so you may not want this variable set for
 // every call.
 const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
-const shortTraceEnvVar = "PACH_TRACE"
+
+// ShortTraceEnvVar is what the client reads to decide whether to send a trace.
+// Below, this is implemented by the span inclusion func
+// addTraceIfTracingEnabled() (which is itself used by the GRPC interceptor)
+const ShortTraceEnvVar = "PACH_TRACE"
 
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
@@ -163,9 +167,9 @@ func addTraceIfTracingEnabled(
 	method string,
 	req, resp interface{}) bool {
 	// Always trace if PACH_TRACE is on
-	if _, shortTracingOn := os.LookupEnv(shortTraceEnvVar); shortTracingOn {
+	if _, shortTracingOn := os.LookupEnv(ShortTraceEnvVar); shortTracingOn {
 		if !IsActive() {
-			fmt.Fprintf(os.Stderr, "PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
+			log.Error("PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
 		}
 		return true
 	}

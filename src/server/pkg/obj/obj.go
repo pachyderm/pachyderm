@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -29,8 +27,25 @@ import (
 // Environment variables for determining storage backend and pathing
 const (
 	StorageBackendEnvVar = "STORAGE_BACKEND"
-	PachRootEnvVar       = "PACH_ROOT"
 )
+
+// StorageRootFromEnv gets the storage root based on environment variables.
+func StorageRootFromEnv(storageRoot string) (string, error) {
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
+	}
+	// These storage backends do not like leading slashes
+	switch storageBackend {
+	case Amazon:
+		fallthrough
+	case Minio:
+		if len(storageRoot) > 0 && storageRoot[0] == '/' {
+			storageRoot = storageRoot[1:]
+		}
+	}
+	return storageRoot, nil
+}
 
 // Valid object storage backends
 const (
@@ -88,6 +103,7 @@ const (
 	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
 	DisableSSLEnvVar     = "DISABLE_SSL"
 	NoVerifySSLEnvVar    = "NO_VERIFY_SSL"
+	LogOptionsEnvVar     = "OBJ_LOG_OPTS"
 )
 
 const (
@@ -107,6 +123,8 @@ const (
 	DefaultDisableSSL = false
 	// DefaultNoVerifySSL is the default for whether SSL certificate verification should be disabled.
 	DefaultNoVerifySSL = false
+	// DefaultAwsLogOptions is the default set of enabled S3 client log options
+	DefaultAwsLogOptions = ""
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -117,11 +135,12 @@ type AmazonAdvancedConfiguration struct {
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
 	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
-	Reverse        bool   `env:"REVERSE, default=true"`
+	Reverse        bool   `env:"REVERSE, default=false"`
 	PartSize       int64  `env:"PART_SIZE, default=5242880"`
 	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
 	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
 	NoVerifySSL    bool   `env:"NO_VERIFY_SSL, default=false"`
+	LogOptions     string `env:"OBJ_LOG_OPTS, default="`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -162,37 +181,7 @@ var EnvVarToSecretKey = []struct {
 	{Key: MaxUploadPartsEnvVar, Value: "max-upload-parts"},
 	{Key: DisableSSLEnvVar, Value: "disable-ssl"},
 	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
-}
-
-// StorageRootFromEnv gets the storage root based on environment variables.
-func StorageRootFromEnv() (string, error) {
-	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
-	if !ok {
-		return "", errors.Errorf("%s not found", PachRootEnvVar)
-	}
-	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
-	if !ok {
-		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
-	}
-	// These storage backends do not like leading slashes
-	switch storageBackend {
-	case Amazon:
-		fallthrough
-	case Minio:
-		if len(storageRoot) > 0 && storageRoot[0] == '/' {
-			storageRoot = storageRoot[1:]
-		}
-	}
-	return storageRoot, nil
-}
-
-// BlockPathFromEnv gets the path to an object storage block based on environment variables.
-func BlockPathFromEnv(block *pfs.Block) (string, error) {
-	storageRoot, err := StorageRootFromEnv()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(storageRoot, "block", block.Hash), nil
+	{Key: LogOptionsEnvVar, Value: "log-options"},
 }
 
 // Client is an interface to object storage.
@@ -293,13 +282,13 @@ func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err e
 }
 
 func secretFile(name string) string {
-	return filepath.Join("/", client.StorageSecretName, name)
+	return filepath.Join("/", "pachyderm-storage-secret", name)
 }
 
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(secretFile(name))
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return strings.TrimSpace(string(bytes)), nil
 }
@@ -419,7 +408,7 @@ func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution str
 	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if len(reverse) > 0 {
 		advancedConfig.Reverse = reverse[0]
@@ -512,38 +501,38 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// use IAM roles (i.e. the EC2 metadata service)
 	var creds AmazonCreds
 	creds.ID, err = readSecretFile("/amazon-id")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.Secret, err = readSecretFile("/amazon-secret")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.Token, err = readSecretFile("/amazon-token")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultAddress, err = readSecretFile("/amazon-vault-addr")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultRole, err = readSecretFile("/amazon-vault-role")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	creds.VaultToken, err = readSecretFile("/amazon-vault-token")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)

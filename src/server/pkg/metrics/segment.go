@@ -7,7 +7,7 @@ import (
 	"github.com/segmentio/analytics-go"
 )
 
-const reportingInterval time.Duration = 5 * time.Minute
+const reportingInterval time.Duration = 60 * time.Minute
 
 func newPersistentClient() *analytics.Client {
 	c := newSegmentClient()

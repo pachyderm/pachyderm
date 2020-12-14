@@ -629,6 +629,12 @@ func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequ
 func (c *authBuilderClient) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest, opts ...grpc.CallOption) (*auth.GetOneTimePasswordResponse, error) {
 	return nil, unsupportedError("GetOneTimePassword")
 }
+func (c *authBuilderClient) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest, opts ...grpc.CallOption) (*auth.ExtractAuthTokensResponse, error) {
+	return nil, unsupportedError("ExtractAuthTokens")
+}
+func (c *authBuilderClient) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest, opts ...grpc.CallOption) (*auth.RestoreAuthTokenResponse, error) {
+	return nil, unsupportedError("RestoreAuthToken")
+}
 
 func (c *enterpriseBuilderClient) Activate(ctx context.Context, req *enterprise.ActivateRequest, opts ...grpc.CallOption) (*enterprise.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")

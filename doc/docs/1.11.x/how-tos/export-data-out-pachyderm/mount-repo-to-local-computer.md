@@ -42,7 +42,7 @@ will be mounted.
 
 **Example:**
 
-```bash
+```shell
 pachctl mount images --repos images@staging
 ```
 
@@ -101,13 +101,13 @@ Yosemite or later.
 
   * On macOS, run:
 
-    ```bash
+    ```shell
     brew cask install osxfuse
     ```
 
   * On Ubuntu, run:
 
-    ```bash
+    ```shell
     sudo apt-get install -y fuse
     ```
 
@@ -129,7 +129,7 @@ For example, `pfs`.
 
 1. Run `pachctl mount` for a repository and branch that you want to mount:
 
-   ```bash
+   ```shell
    pachctl mount <path-on-your-computer> [flags]
    ```
 
@@ -138,14 +138,14 @@ For example, `pfs`.
    * If you want to mount all the repositories in your Pachyderm cluster 
    to a `pfs` directory on your computer and give `WRITE` access to them, run:
 
-   ```bash
+   ```shell
    pachctl mount pfs --write
    ```
 
    * If you want to mount the master branch of the `images` repo
    and enable file editing in this repository, run:
 
-   ```bash
+   ```shell
    pachctl mount pfs --repos images@master+w
    ```
 
@@ -169,7 +169,7 @@ For example, `pfs`.
 1. You can check that the repo was mounted by running the mount command
 in your terminal:
 
-   ```bash hl_lines="7"
+   ```shell hl_lines="7"
    mount
    /dev/disk1s1 on / (apfs, local, read-only, journaled)
    devfs on /dev (devfs, local, nobrowse)

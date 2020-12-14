@@ -45,7 +45,7 @@ In this example, we will use a simple spout pipeline that
 will add dots into a spout marker file. Here is how the
 marker file will look like:
 
-```bash
+```
 .
 ..
 ...
@@ -62,7 +62,7 @@ After running the pipeline for some time, we will modify the Python
 script so that it adds the star (`*`) symbol instead of a dot. The
 resulting file should look like this:
 
-```bash
+```
 
 .
 ..
@@ -89,7 +89,7 @@ To build a Docker image, complete the following steps:
 
 1. Clone this repository:
 
-   ```bash
+   ```shell
    git clone git@github.com:pachyderm/pachyderm.git
    ```
 
@@ -97,7 +97,7 @@ To build a Docker image, complete the following steps:
 
 1. Build and a tag a Docker image from the Dockerfile in this directory:
 
-   ```bash
+   ```shell
    docker build --tag spout-marker:v1 .
    ```
 
@@ -109,7 +109,7 @@ To build a Docker image, complete the following steps:
    * If you are using `minikube`, for testing you can just
    transfer your local image to a `minikube` VM:
 
-     ```bash
+     ```shell
      docker save spout-marker:v1 | (\
      eval $(minikube docker-env)
      docker load
@@ -171,13 +171,13 @@ To use it, complete the following steps:
 
 1. View the list of pipelines:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    NAME        VERSION INPUT CREATED        STATE / LAST JOB   DESCRIPTION
    spoutmarker 1       none  2 minutes ago  running / starting
    ```
@@ -186,7 +186,7 @@ To use it, complete the following steps:
 
 1. View the list of branches created for this pipeline:
 
-   ```bash
+   ```shell
    pachctl list branch spoutmarker
    ```
 
@@ -204,25 +204,25 @@ To use it, complete the following steps:
    transactions creates a commit in both `master` and `marker` branches
    in the `spoutmarker` output repository.
 
-   ```bash
+   ```shell
    pachctl list commit spoutmarker@master
    ```
 
    **System response:**
 
-   ```bash
+   ```
    REPO        BRANCH COMMIT                           FINISHED           SIZE PROGRESS DESCRIPTION
    spoutmarker master f91d27382b8a40408504865783b717e9 3 minutes ago 0B   -
    spoutmarker master 333ab0ed77a24210a5ec3d613ea0c8e4 2 minutes ago 0B   -
    ```
 
-   ```bash
+   ```shell
    pachctl list commit spoutmarker@marker
    ```
 
    **System response:**
 
-   ```bash
+   ```
    REPO        BRANCH COMMIT                           FINISHED           SIZE PROGRESS DESCRIPTION
    spoutmarker marker dda511ef0e5c4238bc368869574125ac 3 minutes ago      4B
    spoutmarker marker e4c5f71b40e74372bff7cf6fd9dcfb89 2 minutes ago      1B
@@ -234,13 +234,13 @@ To use it, complete the following steps:
 
 1. View the marker file:
 
-   ```bash
+   ```shell
    pachctl get file spoutmarker@marker:/mymark
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    .
    ..
    ...
@@ -253,13 +253,13 @@ To use it, complete the following steps:
 
 1. (Optional) View the output.
 
-  ```bash
+  ```shell
    pachctl get file spoutmarker@master:/output
    ```
 
    **System response:**
 
-   ```bash
+   ```
    ......
    ```
 
@@ -276,7 +276,7 @@ To modify the pipeline code, complete the following steps:
    changing the value of the `OUTPUT_CHARACTER` environment variable
    from `.` to `*`
 
-   ```bash
+   ```shell
    pachctl edit pipeline spoutmarker
    ```
 
@@ -324,13 +324,13 @@ To modify the pipeline code, complete the following steps:
    you'll see the pipeline restart.
    View the list of pipelines:
 
-   ```bash
+   ```shell
    pachctl list pipeline
    ```
 
    **System response:**
 
-   ```bash
+   ```shell
    NAME        VERSION INPUT CREATED        STATE / LAST JOB   DESCRIPTION
    spoutmarker 2       none  10 minutes ago running / starting
    ```
@@ -339,13 +339,13 @@ To modify the pipeline code, complete the following steps:
    running your updated code. You might need to wait for some time, but
    eventually, your `marker` file will look like this:
 
-   ```bash
+   ```shell
    pachctl get file spoutmarker@marker:/mymark
    ```
 
    **System response:**
 
-   ```bash
+   ```
    .
    ..
    ...
@@ -358,13 +358,13 @@ To modify the pipeline code, complete the following steps:
 
 1. (Optional) View the output.
 
-  ```bash
+  ```shell
    pachctl get file spoutmarker@master:/output
    ```
 
    **System response:**
 
-   ```bash
+   ```
    ......**
    ```
 ## Summary

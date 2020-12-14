@@ -40,13 +40,13 @@ The following table explains how Pachyderm uses those permissions:
 In older Kubernetes versions, `kube-dns` did not work properly with RBAC.
 To check if your cluster is affected by this issue, run:
 
-```bash
+```shell
 kubectl get all --namespace=kube-system
 ```
 
 **System response:**
 
-```bash
+```shell
 NAME              DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 deploy/kube-dns   1         1         1            0           3m
 
@@ -71,7 +71,7 @@ In the output above, `po/kubernetes-dashboard-bzjjh` has only
 two out of three pods ready and has restarted four times.
 To fix this issue, run:
 
-```bash
+```shell
 kubectl -n kube-system create sa kube-dns
 kubectl -n kube-system patch deploy/kube-dns -p '{"spec": {"template": {"spec": {"serviceAccountName": "kube-dns"}}}}'
 ```
@@ -84,14 +84,14 @@ does not use it until you run the above commands.
 
 When you deploy Pachyderm on GKE, you might see the following error:
 
-```bash
+```shell
 Error from server (Forbidden): error when creating "STDIN": clusterroles.rbac.authorization.k8s.io "pachyderm" is forbidden: attempt to grant extra privileges:
 ```
 
 To fix this issue, run the following command and redeploy
 Pachyderm:
 
-```bash
+```shell
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 

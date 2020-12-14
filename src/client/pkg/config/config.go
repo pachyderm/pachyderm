@@ -78,7 +78,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
-		} else if os.IsNotExist(err) {
+		} else if errors.Is(err, os.ErrNotExist) {
 			// File doesn't exist, so create a new config
 			log.Debugf("No config detected at %q. Generating new config...", p)
 			value = &Config{}
@@ -219,5 +219,23 @@ func (c *Config) Write() error {
 
 	// essentially short-cuts reading the new config back from disk
 	value = proto.Clone(c).(*Config)
+	return nil
+}
+
+// WritePachTokenToConfig sets the auth token for the current pachctl config.
+// Used during tests to ensure we don't lose access to a cluster if a test fails.
+func WritePachTokenToConfig(token string) error {
+	cfg, err := Read(false)
+	if err != nil {
+		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return errors.Wrapf(err, "error getting the active context")
+	}
+	context.SessionToken = token
+	if err := cfg.Write(); err != nil {
+		return errors.Wrapf(err, "error writing pachyderm config")
+	}
 	return nil
 }

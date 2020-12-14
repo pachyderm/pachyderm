@@ -9,8 +9,8 @@ which providers support user and group authentication:
 | --------------- | --------------- | --------------- |
 | GitHub          | &#10004;        | X               |
 | Okta (SAML)     | &#10004;        | &#10004;        |
-| Otka (OIDC)     | &#10004;        | X               |
-| Keycloak (OIDC) | &#10004;        | X               |
+| Otka (OIDC)     | &#10004;        | &#10004;        |
+| Keycloak (OIDC) | &#10004;        | &#10004;        |
 | Keycloak (SAML) | &#10004;        | &#10004;        |
 | Google (OIDC)   | &#10004;        | X               | 
 | Auth0 (OIDC)    | &#10004;        | X               |
@@ -27,13 +27,13 @@ the repo. Alternatively, you can confirm your access by running the
 
 !!! example
 
-    ```bash
+    ```shell
     pachctl auth get dwhitena test
     ```
 
     **System response:**
 
-    ```bash
+    ```shell
     OWNER
     ```
 
@@ -64,55 +64,52 @@ To manage user access, complete the following steps:
 
   1. Grant a user an access to a repo:
 
-     ```bash
+     ```shell
      pachctl auth set <username> (none|reader|writer|owner) <repo>
      ```
 
      **Example:**
 
-     ```bash
+     ```shell
      pachctl auth set user1 reader test
      ```
 
   1. Verify the ACL for the repo:
 
-     ```bash
+     ```shell
      pachctl auth get <repo>
      ```
 
      **Example:**
 
-     ```bash
+     ```shell
      pachctl auth get test
      ```
 
      **System Response:**
 
-     ```bash
+     ```shell
      github:svekars: OWNER
      github:user1: READER
      ```
 
-## Gonfigure Group Access
+## Configure Group Access
 
 If you have a group of users configured in an identity provider,
 you can grant access to a Pachyderm repository to all users
 in that group.
 
 !!! note
-    Only Okta with SAML currently supports group access.
-
-!!! note
     This functionality is experimental and supported only
     through the command line. The changes will not be
     visible in the UI.
 
-To configure group access, you need to set the `group_attibute` in
+To configure group access for SAML providers, you need to set the `group_attibute` in
 the `id_providers` field of your authentication config:
 
 **Example:**
 
-   ```bash
+   ```shell
    pachctl auth set-config <<EOF
    {
      ...
@@ -121,12 +118,34 @@ the `id_providers` field of your authentication config:
          ...
          "saml": {
            "group_attribute": "memberOf"
-       }
+         }
        }
      ],
    }
    EOF
    ```
+
+To configure groups in OIDC providers, you need to add the `groups` scope to
+`additional_scopes` in your authentication config:
+
+**Example:**
+
+   ```shell
+   pachctl auth set-config <<EOF
+   {
+     ...
+     "id_providers": [
+       {
+         ...
+         "oidc": {
+           "additional_scopes": ["groups"]
+         }
+       }
+     ],
+   }
+   EOF
+   ```
+
 
 !!! note "See also"
     [Configure a SAML User](https://docs.pachyderm.com/latest/enterprise/saml/)

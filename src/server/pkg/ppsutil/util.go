@@ -172,24 +172,31 @@ func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCol
 // PipelineTransitionError represents an error transitioning a pipeline from
 // one state to another.
 type PipelineTransitionError struct {
-	Pipeline                  string
-	Expected, Target, Current pps.PipelineState
+	Pipeline        string
+	Expected        []pps.PipelineState
+	Target, Current pps.PipelineState
 }
 
 func (p PipelineTransitionError) Error() string {
-	return fmt.Sprintf("could not transition %q from %s -> %s, as it is in %s",
-		p.Pipeline, p.Expected, p.Target, p.Current)
+	var froms bytes.Buffer
+	for i, state := range p.Expected {
+		if i > 0 {
+			froms.WriteString(", ")
+		}
+		froms.WriteString(state.String())
+	}
+	return fmt.Sprintf("could not transition %q from any of [%s] -> %s, as it is in %s",
+		p.Pipeline, froms.String(), p.Target, p.Current)
 }
 
-// SetPipelineState is a helper that moves the state of 'pipeline' from 'from'
-// (if not nil) to 'to'. It will annotate any trace in 'ctx' with information
-// about 'pipeline' that it reads.
-func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from *pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
-	if from == nil {
-		log.Infof("moving pipeline %s to %s", pipeline, to)
-	} else {
-		log.Infof("moving pipeline %s from %s to %s", pipeline, from, to)
-	}
+// SetPipelineState is a helper that moves the state of 'pipeline' from any of
+// the states in 'from' (if not nil) to 'to'. It will annotate any trace in
+// 'ctx' with information about 'pipeline' that it reads.
+//
+// This function logs a lot for a library function, but it's mostly (maybe
+// exclusively?) called by the PPS master
+func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+	log.Infof("SetPipelineState attempting to move %s to %s", pipeline, to)
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
@@ -217,14 +224,24 @@ func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCol
 		// allow transitionPipelineState to send a pipeline state to its target
 		// repeatedly (thus pipelinePtr.State == to yields no error). This will
 		// trigger additional etcd write events, but will not trigger an error.
-		if from != nil && pipelinePtr.State != *from && pipelinePtr.State != to {
-			return PipelineTransitionError{
-				Pipeline: pipeline,
-				Expected: *from,
-				Target:   to,
-				Current:  pipelinePtr.State,
+		if len(from) > 0 {
+			var isInFromState bool
+			for _, fromState := range from {
+				if pipelinePtr.State == fromState {
+					isInFromState = true
+					break
+				}
+			}
+			if !isInFromState && pipelinePtr.State != to {
+				return PipelineTransitionError{
+					Pipeline: pipeline,
+					Expected: from,
+					Target:   to,
+					Current:  pipelinePtr.State,
+				}
 			}
 		}
+		log.Infof("SetPipelineState moving pipeline %s from %s to %s", pipeline, pipelinePtr.State, to)
 		pipelinePtr.State = to
 		pipelinePtr.Reason = reason
 		return pipelines.Put(pipeline, pipelinePtr)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,6 +34,25 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
+
+// Environment variables for determining storage backend and pathing
+const (
+	PachRootEnvVar = "PACH_ROOT"
+)
+
+// BlockPathFromEnv gets the path to an object storage block based on environment variables.
+func BlockPathFromEnv(block *pfsclient.Block) (string, error) {
+	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
+	if !ok {
+		return "", errors.Errorf("%s not found", PachRootEnvVar)
+	}
+	var err error
+	storageRoot, err = obj.StorageRootFromEnv(storageRoot)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(storageRoot, "block", block.Hash), nil
+}
 
 const (
 	prefixLength          = 2
@@ -1072,7 +1092,7 @@ func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {
 	return eg.Wait()
 }
 
-func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto.Unmarshaler) (retErr error) {
+func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto.Message) (retErr error) {
 	r, err := s.objClient.Reader(ctx, path, 0, 0)
 	if err != nil {
 		return err
@@ -1089,7 +1109,7 @@ func (s *objBlockAPIServer) readProto(ctx context.Context, path string, pb proto
 	if len(data) == 0 {
 		logrus.Infof("readProto(%s) yielded len(0) data", path)
 	}
-	return pb.Unmarshal(data)
+	return proto.Unmarshal(data, pb)
 }
 
 func (s *objBlockAPIServer) writeProto(ctx context.Context, path string, pb proto.Marshaler) (retErr error) {

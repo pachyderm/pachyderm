@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
@@ -49,7 +48,7 @@ var (
 
 const (
 	defaultDashImage   = "pachyderm/dash"
-	defaultDashVersion = "0.5.48"
+	defaultDashVersion = "0.5.57"
 
 	defaultIDEHubImage  = "pachyderm/ide-hub"
 	defaultIDEUserImage = "pachyderm/ide-user"
@@ -122,7 +121,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 				return errors.Wrapf(err, "failed to discover default kube config: could not get user home directory")
 			}
 			kubeconfig = path.Join(home, ".kube", "config")
-			if _, err = os.Stat(kubeconfig); os.IsNotExist(err) {
+			if _, err = os.Stat(kubeconfig); errors.Is(err, os.ErrNotExist) {
 				return errors.Wrapf(err, "failed to discover default kube config: %q does not exist", kubeconfig)
 			}
 		}
@@ -378,6 +377,7 @@ func standardDeployCmds() []*cobra.Command {
 	var maxUploadParts int
 	var disableSSL bool
 	var noVerifySSL bool
+	var logOptions string
 	appendS3Flags := func(cmd *cobra.Command) {
 		cmd.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 		cmd.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
@@ -387,6 +387,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 		cmd.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
 		cmd.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+		cmd.Flags().StringVar(&logOptions, "obj-log-options", obj.DefaultAwsLogOptions, "(rarely set) Enable verbose logging in Pachyderm's internal S3 client for debugging. Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries', 'RequestErrors', 'EventStreamBody', or 'all' (case-insensitive). See 'AWS SDK for Go' docs for details.")
 	}
 
 	var contextName string
@@ -477,7 +478,7 @@ func standardDeployCmds() []*cobra.Command {
 
 	deployPreRun := cmdutil.Run(func(args []string) error {
 		if version.IsUnstable() {
-			fmt.Printf("WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
+			fmt.Fprintf(os.Stderr, "WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
 
 			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 				return err
@@ -629,6 +630,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			if isS3V2 {
 				fmt.Printf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version\n\n")
@@ -695,7 +697,6 @@ If <object store backend> is \"s3\", then the arguments are:
 
 			// populate 'amazonCreds' & validate
 			var amazonCreds *assets.AmazonCreds
-			s := bufio.NewScanner(os.Stdin)
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
@@ -707,19 +708,20 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not "+
-						"match %q). Do you want to continue deploying? [yN]\n",
-						awsAccessKeyIDRE)
-					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-						os.Exit(1)
+					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not match %q)\n", awsAccessKeyIDRE)
+					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+						return err
+					} else if !ok {
+						return errors.Errorf("aborted")
 					}
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not "+
-						"match %q). Do you want to continue deploying? [yN]\n", awsSecretRE)
-					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-						os.Exit(1)
+					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not match %q)\n", awsSecretRE)
+					if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+						return err
+					} else if !ok {
+						return errors.Errorf("aborted")
 					}
 				}
 			}
@@ -751,10 +753,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match "+
-					"%q). Do you want to continue deploying? [yN]\n", awsRegionRE)
-				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
-					os.Exit(1)
+				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match %q)\n", awsRegionRE)
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("aborted")
 				}
 			}
 			// Setup advanced configuration.
@@ -767,6 +770,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -909,6 +913,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 				DisableSSL:     disableSSL,
 				NoVerifySSL:    noVerifySSL,
+				LogOptions:     logOptions,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
@@ -1193,7 +1198,7 @@ func Cmds() []*cobra.Command {
 			}
 
 			if includingMetadata {
-				fmt.Printf(`
+				fmt.Fprintf(os.Stderr, `
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
 "--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making

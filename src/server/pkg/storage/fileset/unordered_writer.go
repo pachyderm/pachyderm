@@ -6,28 +6,138 @@ import (
 	"io"
 	"path"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
-// TODO Might want to rework this a bit later or add some additional validation.
-type dataOp struct {
-	deleteTags map[string]struct{}
-	memFiles   map[string]*memFile
-}
-
 type memFile struct {
-	hdr  *tar.Header
-	tag  string
-	data *bytes.Buffer
+	path  string
+	parts map[string]*memPart
 }
 
-func (mf *memFile) Write(data []byte) (int, error) {
-	mf.hdr.Size += int64(len(data))
-	return mf.data.Write(data)
+type memPart struct {
+	tag string
+	buf *bytes.Buffer
+}
+
+func (mp *memPart) Write(data []byte) (int, error) {
+	return mp.buf.Write(data)
+}
+
+type memFileSet struct {
+	additive map[string]*memFile
+	deletive map[string]*memFile
+}
+
+func newMemFileSet() *memFileSet {
+	return &memFileSet{
+		additive: make(map[string]*memFile),
+		deletive: make(map[string]*memFile),
+	}
+}
+
+func (mfs *memFileSet) appendFile(p string, tag string) io.Writer {
+	return mfs.createMemPart(p, tag)
+}
+
+func (mfs *memFileSet) createMemPart(p string, tag string) *memPart {
+	if _, ok := mfs.additive[p]; !ok {
+		mfs.additive[p] = &memFile{
+			path:  p,
+			parts: make(map[string]*memPart),
+		}
+	}
+	mf := mfs.additive[p]
+	if _, ok := mf.parts[tag]; !ok {
+		mf.parts[tag] = &memPart{
+			tag: tag,
+			buf: &bytes.Buffer{},
+		}
+	}
+	return mf.parts[tag]
+}
+
+func (mfs *memFileSet) deleteFile(p, tag string) {
+	if tag == "" {
+		delete(mfs.additive, p)
+		mfs.deletive[p] = &memFile{path: p}
+		return
+	}
+	if mf, ok := mfs.additive[p]; ok {
+		delete(mf.parts, tag)
+	}
+	if _, ok := mfs.deletive[p]; !ok {
+		mfs.deletive[p] = &memFile{
+			path:  p,
+			parts: make(map[string]*memPart),
+		}
+	}
+	mf := mfs.deletive[p]
+	mf.parts[tag] = &memPart{tag: tag}
+}
+
+func (mfs *memFileSet) serialize(w *Writer) error {
+	if err := mfs.serializeAdditive(w); err != nil {
+		return err
+	}
+	return mfs.serializeDeletive(w)
+}
+
+func (mfs *memFileSet) serializeAdditive(w *Writer) error {
+	for _, mf := range sortMemFiles(mfs.additive) {
+		if err := w.Append(mf.path, func(fw *FileWriter) error {
+			return serializeParts(fw, mf)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func serializeParts(fw *FileWriter, mf *memFile) error {
+	for _, mp := range sortMemParts(mf.parts) {
+		fw.Append(mp.tag)
+		if _, err := fw.Write(mp.buf.Bytes()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (mfs *memFileSet) serializeDeletive(w *Writer) error {
+	for _, mf := range sortMemFiles(mfs.deletive) {
+		var tags []string
+		for _, mp := range sortMemParts(mf.parts) {
+			tags = append(tags, mp.tag)
+		}
+		w.Delete(mf.path, tags...)
+	}
+	return nil
+}
+
+func sortMemFiles(mfs map[string]*memFile) []*memFile {
+	var result []*memFile
+	for _, mf := range mfs {
+		result = append(result, mf)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].path < result[j].path
+	})
+	return result
+}
+
+func sortMemParts(mps map[string]*memPart) []*memPart {
+	var result []*memPart
+	for _, mp := range mps {
+		result = append(result, mp)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].tag < result[j].tag
+	})
+	return result
 }
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -38,34 +148,35 @@ type UnorderedWriter struct {
 	memAvailable, memThreshold int64
 	name                       string
 	defaultTag                 string
-	fs                         map[string]*dataOp
+	memFileSet                 *memFileSet
 	subFileSet                 int64
 	ttl                        time.Duration
-	renewer                    *Renewer
+	renewer                    *renew.StringSet
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
-	f := &UnorderedWriter{
+	uw := &UnorderedWriter{
 		ctx:          ctx,
 		storage:      storage,
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
 		name:         name,
 		defaultTag:   defaultTag,
-		fs:           make(map[string]*dataOp),
+		memFileSet:   newMemFileSet(),
 	}
 	for _, opt := range opts {
-		opt(f)
+		opt(uw)
 	}
-	return f, nil
+	return uw, nil
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
-func (f *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string) error {
-	tag := f.defaultTag
+// TODO: Make overwrite work with tags.
+func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string) error {
+	tag := uw.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
 	}
@@ -78,191 +189,74 @@ func (f *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string) 
 			}
 			return err
 		}
-		hdr.Name = CleanTarPath(hdr.Name, hdr.FileInfo().IsDir())
+		p := Clean(hdr.Name, hdr.FileInfo().IsDir())
 		if hdr.Typeflag == tar.TypeDir {
-			f.createParent(hdr.Name, tag)
 			continue
 		}
-		mf := f.createFile(hdr, overwrite, tag)
+		// TODO: Tag overwrite?
+		if overwrite {
+			uw.memFileSet.deleteFile(p, "")
+		}
+		w := uw.memFileSet.appendFile(p, tag)
 		for {
-			n, err := io.CopyN(mf, tr, f.memAvailable)
-			f.memAvailable -= n
+			n, err := io.CopyN(w, tr, uw.memAvailable)
+			uw.memAvailable -= n
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}
 				return err
 			}
-			if f.memAvailable == 0 {
-				if err := f.serialize(); err != nil {
+			if uw.memAvailable == 0 {
+				if err := uw.serialize(); err != nil {
 					return err
 				}
-				mf = f.createFile(hdr, overwrite, tag)
+				w = uw.memFileSet.appendFile(p, tag)
 			}
 		}
 	}
-}
-
-func (f *UnorderedWriter) createFile(hdr *tar.Header, overwrite bool, tag string) *memFile {
-	f.createParent(hdr.Name, tag)
-	hdr.Size = 0
-	mf := &memFile{
-		hdr:  hdr,
-		tag:  tag,
-		data: &bytes.Buffer{},
-	}
-	dataOp := f.getDataOp(hdr.Name, overwrite)
-	dataOp.memFiles[tag] = mf
-	return mf
-}
-
-func (f *UnorderedWriter) getDataOp(name string, overwrite bool) *dataOp {
-	if _, ok := f.fs[name]; !ok {
-		f.fs[name] = &dataOp{
-			deleteTags: make(map[string]struct{}),
-			memFiles:   make(map[string]*memFile),
-		}
-	}
-	dataOp := f.fs[name]
-	if overwrite {
-		dataOp.deleteTags = make(map[string]struct{})
-		dataOp.deleteTags[headerTag] = struct{}{}
-		dataOp.memFiles = make(map[string]*memFile)
-	}
-	return dataOp
-}
-
-func (f *UnorderedWriter) createParent(name string, tag string) {
-	if name == "" {
-		return
-	}
-	name, _ = path.Split(name)
-	if _, ok := f.fs[name]; ok {
-		return
-	}
-	mf := &memFile{
-		hdr: &tar.Header{
-			Typeflag: tar.TypeDir,
-			Name:     CleanTarPath(name, true),
-		},
-		tag:  tag,
-		data: &bytes.Buffer{},
-	}
-	dataOp := f.getDataOp(name, false)
-	dataOp.memFiles[tag] = mf
-	name = strings.TrimRight(name, "/")
-	f.createParent(name, tag)
 }
 
 // Delete deletes a file from the file set.
 // TODO: Directory deletion needs more invariant checks.
 // Right now you have to specify the trailing slash explicitly.
-func (f *UnorderedWriter) Delete(name string, customTag ...string) {
-	name = CleanTarPath(name, IsDir(name))
+func (uw *UnorderedWriter) Delete(name string, tags ...string) {
+	name = Clean(name, IsDir(name))
 	var tag string
-	if len(customTag) > 0 {
-		tag = customTag[0]
+	if len(tag) > 0 {
+		tag = tags[0]
 	}
-	if tag == headerTag {
-		f.getDataOp(name, true)
-		return
-	}
-	dataOp := f.getDataOp(name, false)
-	if _, ok := dataOp.deleteTags[headerTag]; !ok {
-		dataOp.deleteTags[tag] = struct{}{}
-	}
-	delete(dataOp.memFiles, tag)
-}
-
-// PathsWritten returns the full paths (not prefixes) written by this UnorderedWriter
-func (f *UnorderedWriter) PathsWritten() (ret []string) {
-	name := removePrefix(f.name)
-	for i := int64(0); i < f.subFileSet; i++ {
-		p := path.Join(name, SubFileSetStr(i))
-		ret = append(ret, p)
-	}
-	return ret
+	uw.memFileSet.deleteFile(name, tag)
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
-func (f *UnorderedWriter) serialize() error {
-	// Sort names.
-	names := make([]string, len(f.fs))
-	i := 0
-	for name := range f.fs {
-		names[i] = name
-		i++
-	}
-	sort.Strings(names)
+func (uw *UnorderedWriter) serialize() error {
 	// Serialize file set.
 	var writerOpts []WriterOption
-	if f.ttl > 0 {
-		writerOpts = append(writerOpts, WithTTL(f.ttl))
+	if uw.ttl > 0 {
+		writerOpts = append(writerOpts, WithTTL(uw.ttl))
 	}
-	p := path.Join(f.name, SubFileSetStr(f.subFileSet))
-	w := f.storage.newWriter(f.ctx, p, writerOpts...)
-	for _, name := range names {
-		dataOp := f.fs[name]
-		deleteTags := getSortedKeys(dataOp.deleteTags)
-		mfs := getSortedMemFiles(dataOp.memFiles)
-		if len(mfs) == 0 {
-			if err := w.DeleteFile(name, deleteTags...); err != nil {
-				return err
-			}
-			continue
-		}
-		hdr := mergeTarHeaders(mfs)
-		if err := w.WriteHeader(hdr); err != nil {
-			return err
-		}
-		for _, tag := range deleteTags {
-			w.DeleteTag(tag)
-		}
-		for _, mf := range mfs {
-			w.Tag(mf.tag)
-			if _, err := w.Write(mf.data.Bytes()); err != nil {
-				return err
-			}
-		}
+	p := path.Join(uw.name, SubFileSetStr(uw.subFileSet))
+	w := uw.storage.newWriter(uw.ctx, p, writerOpts...)
+	if err := uw.memFileSet.serialize(w); err != nil {
+		return err
 	}
 	if err := w.Close(); err != nil {
 		return err
 	}
-	if f.renewer != nil {
-		f.renewer.Add(p)
+	if uw.renewer != nil {
+		uw.renewer.Add(p)
 	}
-
 	// Reset in-memory file set.
-	f.fs = make(map[string]*dataOp)
-	f.memAvailable = f.memThreshold
-	f.subFileSet++
+	uw.memFileSet = newMemFileSet()
+	uw.memAvailable = uw.memThreshold
+	uw.subFileSet++
 	return nil
 }
 
-// TODO Tar header validation?
-func mergeTarHeaders(memFiles []*memFile) *tar.Header {
-	// TODO: Deeper copy?
-	hdr := *memFiles[len(memFiles)-1].hdr
-	for i := 0; i < len(memFiles)-1; i++ {
-		hdr.Size += memFiles[i].hdr.Size
-	}
-	return &hdr
-}
-
-func getSortedMemFiles(memFiles map[string]*memFile) []*memFile {
-	var mfs []*memFile
-	for _, mf := range memFiles {
-		mfs = append(mfs, mf)
-	}
-	sort.SliceStable(mfs, func(i, j int) bool {
-		return mfs[i].tag < mfs[j].tag
-	})
-	return mfs
-}
-
 // Close closes the writer.
-func (f *UnorderedWriter) Close() error {
-	defer f.storage.filesetSem.Release(1)
-	return f.serialize()
+func (uw *UnorderedWriter) Close() error {
+	defer uw.storage.filesetSem.Release(1)
+	return uw.serialize()
 }

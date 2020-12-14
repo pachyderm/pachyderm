@@ -11,6 +11,7 @@ message Input {
   pfs.Commit parent_commit = 5;
   string name = 2;
   string join_on = 8;
+  string group_by = 10;
   bool lazy = 3;
   string branch = 4;
   string git_url = 6 [(gogoproto.customname) = "GitURL"];

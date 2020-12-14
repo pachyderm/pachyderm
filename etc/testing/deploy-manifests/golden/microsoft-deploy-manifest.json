@@ -927,6 +927,16 @@
                 }
               },
               {
+                "name": "OBJ_LOG_OPTS",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "log-options",
+                    "optional": true
+                  }
+                }
+              },
+              {
                 "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
                 "value": "100"
               },
@@ -1047,7 +1057,7 @@
         "containers": [
           {
             "name": "dash",
-            "image": "pachyderm/dash:0.5.48",
+            "image": "pachyderm/dash:0.5.57",
             "ports": [
               {
                 "name": "dash-http",

@@ -230,8 +230,8 @@ def main():
                 exit(-2)
                 
             tarStream.close()
-            mySpout.close()
             delete_sqs_message(sqs_client, args.sqs_queue_url, msg['ReceiptHandle'])
+    mySpout.close()
 
 if __name__ == '__main__':
     main()

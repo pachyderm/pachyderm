@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 
 	bolt "github.com/coreos/bbolt"
 )
@@ -409,36 +410,6 @@ func TestRewriteChangesHash(t *testing.T) {
 	require.Equal(t, rootPre.SubtreeSize, rootPost.SubtreeSize)
 }
 
-func TestIsGlob(t *testing.T) {
-	require.True(t, IsGlob(`*`))
-	require.True(t, IsGlob(`path/to*/file`))
-	require.True(t, IsGlob(`path/**/file`))
-	require.True(t, IsGlob(`path/to/f?le`))
-	require.True(t, IsGlob(`pa!h/to/file`))
-	require.True(t, IsGlob(`pa[th]/to/file`))
-	require.True(t, IsGlob(`pa{th}/to/file`))
-	require.True(t, IsGlob(`*/*`))
-	require.False(t, IsGlob(`path`))
-	require.False(t, IsGlob(`path/to/file1.txt`))
-	require.False(t, IsGlob(`path/to_test-a/file.txt`))
-}
-
-func TestGlobPrefix(t *testing.T) {
-	require.Equal(t, `/`, GlobLiteralPrefix(`*`))
-	require.Equal(t, `/`, GlobLiteralPrefix(`**`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/*`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/**`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/(*)`))
-	require.Equal(t, `/di`, GlobLiteralPrefix(`di?/(*)`))
-	require.Equal(t, `/di`, GlobLiteralPrefix(`di?[rg]`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/@(a)`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/+(a)`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/{foo,bar}`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/(a|b)`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/^[a-z]`))
-	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/[!abc]`))
-}
-
 func TestGlobFile(t *testing.T) {
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
@@ -705,7 +676,7 @@ func blocks(ss ...string) []*pfs.BlockRef {
 }
 
 func writeMergeNode(w *Writer, path, hash string, size int64, blockRefs ...*pfs.BlockRef) {
-	path = clean(path)
+	path = ppath.Clean(path)
 	n := mergeNode(path, hash, size)
 	if len(blockRefs) == 0 {
 		n.nodeProto.DirNode = &DirectoryNodeProto{}
@@ -723,7 +694,7 @@ func mergeNode(path, hash string, size int64) *MergeNode {
 	return &MergeNode{
 		k: b(path),
 		nodeProto: &NodeProto{
-			Name:        base(path),
+			Name:        ppath.Base(path),
 			Hash:        h,
 			SubtreeSize: size,
 		},

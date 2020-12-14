@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	gosync "sync"
 
@@ -196,6 +197,7 @@ or type (e.g. csv, binary, images, etc).`,
 
 	var force bool
 	var all bool
+	var splitTransaction bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -208,8 +210,9 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			request := &pfsclient.DeleteRepoRequest{
-				Force: force,
-				All:   all,
+				Force:            force,
+				All:              all,
+				SplitTransaction: splitTransaction,
 			}
 			if len(args) > 0 {
 				if all {
@@ -218,6 +221,14 @@ or type (e.g. csv, binary, images, etc).`,
 				request.Repo = client.NewRepo(args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
+			}
+			if splitTransaction {
+				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
@@ -229,6 +240,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 
@@ -269,7 +281,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -310,7 +322,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -611,7 +623,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return errors.Errorf("cannot use provenance and triggers on the same branch")
 			}
 			if (trigger.CronSpec != "" || trigger.Size_ != "" || trigger.Commits != 0) &&
-				trigger.Branch != "" {
+				trigger.Branch == "" {
 				return errors.Errorf("trigger condition specified without a branch to trigger on, specify a branch with --trigger")
 			}
 			c, err := client.NewOnUserMachine("user")
@@ -636,6 +648,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	createBranch.Flags().StringVar(&trigger.CronSpec, "trigger-cron", "", "The cron spec to use in triggering.")
 	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
+	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
 	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
 
 	inspectBranch := &cobra.Command{
@@ -802,7 +815,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := client.NewOnUserMachine("user", opts...)
+			c, err := newClient("user", opts...)
 			if err != nil {
 				return err
 			}
@@ -969,7 +982,7 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := newClient("user")
 			if err != nil {
 				return err
 			}
@@ -1148,14 +1161,14 @@ $ {{alias}} "foo@master:data/*"`,
 	var diffCmdArg string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
-		Short: "Return a diff of two file trees.",
-		Long:  "Return a diff of two file trees.",
+		Short: "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
+		Long:  "Return a diff of two file trees in input repo. Diff of file trees in output repo coming soon.",
 		Example: `
-# Return the diff of the file "path" of the repo "foo" between the head of the
+# Return the diff of the file "path" of the input repo "foo" between the head of the
 # "master" branch and its parent.
 $ {{alias}} foo@master:path
 
-# Return the diff between the master branches of repos foo and bar at paths
+# Return the diff between the master branches of input repos foo and bar at paths
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
@@ -1546,4 +1559,17 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 			return err
 		}
 	}
+}
+
+func newClient(name string, options ...client.Option) (*client.APIClient, error) {
+	if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
+		inWorker, err := strconv.ParseBool(inWorkerStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
+		}
+		if inWorker {
+			return client.NewInWorker(options...)
+		}
+	}
+	return client.NewOnUserMachine(name, options...)
 }

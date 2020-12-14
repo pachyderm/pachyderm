@@ -39,19 +39,19 @@ To configure a staging branch, complete the following steps:
 
 1. Create a repository. For example, `data`.
 
-   ```bash
+   ```shell
    $ pachctl create repo data
    ```
 
 1. Create a `master` branch.
 
-   ```bash
+   ```shell
    $ pachctl create branch data@master
    ```
 
 1. View the created branch:
 
-   ```bash
+   ```shell
    $ pachctl list branch data
    BRANCH HEAD
    master -
@@ -65,7 +65,7 @@ To configure a staging branch, complete the following steps:
 
 1. Commit a file to the staging branch:
 
-   ```bash
+   ```shell
    $ pachctl put file data@staging -f <file>
    ```
 
@@ -76,7 +76,7 @@ To configure a staging branch, complete the following steps:
 
 1. Verify that the branches were created:
 
-   ```bash
+   ```shell
    $ pachctl list branch data
    BRANCH  HEAD
    staging f3506f0fab6e483e8338754081109e69
@@ -92,15 +92,15 @@ To configure a staging branch, complete the following steps:
 1. When you are ready to process the data, update the `master` branch
    to point it to the head of the staging branch:
 
-   ```bash
+   ```shell
    $ pachctl create branch data@master --head staging
    ```
 
 1. List your branches to verify that the master branch has a `HEAD`
    commit:
 
-   ```bash
-   $ pachctl list branch
+   ```shell
+   $ pachctl list branch data
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -110,7 +110,7 @@ To configure a staging branch, complete the following steps:
 
 1. Verify that the pipeline has new jobs:
 
-   ```bash
+   ```shell
    $ pachctl list job
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
@@ -135,7 +135,7 @@ For example, if you submitted ten commits in the `staging` branch and you
 want to process the seventh, third, and most recent commits, you need
 to run the following commands respectively:
 
-```bash
+```shell
 $ pachctl create branch data@master --head staging^7
 $ pachctl create branch data@master --head staging^3
 $ pachctl create branch data@master --head staging
@@ -153,7 +153,7 @@ latest commits. For example, if you want to change the final output to be
 the result of processing `staging^1`, you can *roll back* your HEAD commit
 by running the following command:
 
-```bash
+```shell
 $ pachctl create branch data@master --head staging^1
 ```
 
@@ -176,13 +176,13 @@ To copy files from one branch to another, complete the following steps:
 
 1. Start a commit:
 
-   ```bash
+   ```shell
    $ pachctl start commit data@master
    ```
 
 1. Copy files:
 
-   ```bash
+   ```shell
    $ pachctl copy file data@staging:file1 data@master:file1
    $ pachctl copy file data@staging:file2 data@master:file2
    ...
@@ -190,17 +190,16 @@ To copy files from one branch to another, complete the following steps:
 
 1. Close the commit:
 
-   ```bash
+   ```shell
    $ pachctl finish commit data@master
    ```
 
-Also, you can run `pachctl delete file` and `pachctl put file`
-while the commit is open if you want to remove something from
-the parent commit or add something that is not stored anywhere else.
+While the commit is open, you can run `pachctl delete file` if you want to remove something from
+the parent commit or `pachctl put file`if you want to upload something that is not in a repo yet.
 
 ## Deferred Processing in Output Repositories
 
-You can perform same deferred processing opertions with data in output
+You can perform the same deferred processing operations with data in output
 repositories. To do so, rather than committing to a
 `staging` branch, configure the `output_branch` field
 in your pipeline specification.
@@ -212,24 +211,119 @@ following steps:
    the name of the branch in which you want to accumulate your data
    before processing:
 
-   ```bash
+   ```shell
    "output_branch": "staging"
    ```
 
 1. When you want to process data, run:
 
-   ```bash
-   $ pachctl create-branch pipeline master --head staging
+   ```shell
+   $ pachctl create branch pipeline@master --head staging
    ```
 
-## Automate Branch Switching
+## Automate Deferred Processing With Branch Triggers
 
-Typically, repointing from one branch to another
-happens when a certain condition is met. For example, you might
-want to repoint your branch when you have a specific number of commits,
-or when the amount of unprocessed data reaches a certain size, or
-at a specific time interval, such as daily, or other.
-To configure this functionality, you need to create a Kubernetes
-application that uses Pachyderm APIs and watches the repositories for the
-specified condition. When the condition is met, the application switches
-the Pachyderm branch from `staging` to `master`.
+Typically, repointing from one branch to another happens when a certain
+condition is met. For example, you might want to repoint your branch when you
+have a specific number of commits, or when the amount of unprocessed data
+reaches a certain size, or at a specific time interval, such as daily, or
+other. This can be automated using branch triggers. A trigger is a relationship
+between two branches, such as `master` and `staging` in the examples above,
+that says: when the head commit of `staging` meets a certain condition it
+should trigger `master` to update its head to that same commit. In other words it
+does `pachctl create branch data@master --head staging` automatically when the
+trigger condition is met.
+
+Building on the example above, to make `master` automatically trigger when
+there's 1 Megabyte of new data on `staging`, run:
+
+```shell
+$ pachctl create branch data@master --trigger staging --trigger-size 1MB
+$ pachctl list branch data
+
+BRANCH  HEAD                             TRIGGER
+staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
+master  -                                staging on Size(1MB)
+```
+
+When you run that command, it may or may not set the head of `master`.  It depends
+on the difference between the size of the head of `staging` and the existing
+head of `master`, or `0` if it doesn't exist. Notice that in the example above
+`staging` had an existing head with less than a MB of data in it so `master`
+still has no head. If you don't see `staging` when you `list branch` that's ok,
+triggers can point to branches that don't exist yet. The head of `master` will
+update if you add a MB of new data to `staging`:
+
+```shell
+$ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
+$ pachctl list branch data
+
+BRANCH  HEAD                             TRIGGER
+staging 64b70e6aeda84845858c42d755023673 -
+master  64b70e6aeda84845858c42d755023673 staging on Size(1MB)
+```
+
+Triggers automate deferred processing, but they don't prevent manually updating
+the head of a branch. If you ever want to trigger `master` even though the
+trigger condition hasn't been met you can run:
+
+```shell
+$ pachctl create branch data@master --head staging
+```
+
+Notice that you don't need to re-specify the trigger when you call `create
+branch` to change the head. If you do want to clear the trigger delete the
+branch and recreate it.
+
+There are three conditions on which you can trigger the repointing of a branch.
+
+- time, using a cron specification (--trigger-cron)
+- size (--trigger-size)
+- number of commits (--trigger-commits)
+
+When more than one is specified, a branch repoint will be triggered when any of
+the conditions is met. To guarantee that they all must be met, add
+--trigger-all.
+
+To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred_processing/triggers).
+
+## Embed Triggers in Pipelines
+
+Triggers can also be specified in the pipeline spec and automatically created
+when the pipeline is created. For example, this is the edges pipeline from our
+our OpenCV demo modified to only trigger when there is a 1 Megabyte of new images:
+
+```
+{
+  "pipeline": {
+    "name": "edges"
+  },
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images",
+      "trigger": {
+          "size": "1MB"
+      }
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  }
+}
+```
+
+When you create this pipeline, Pachyderm will also create a branch in the input
+repo that specifies the trigger and the pipeline will use that branch as its
+input. The name of the branch is auto-generated with the form
+`<pipeline-name>-trigger-n`. You can manually update the heads of these branches
+to trigger processing just like in the previous example.
+
+## More advanced automation
+
+More advanced use cases might not be covered by the trigger methods above. For
+those, you need to create a Kubernetes application that uses Pachyderm APIs and
+watches the repositories for the specified condition. When the condition is
+met, the application switches the Pachyderm branch from `staging` to `master`.

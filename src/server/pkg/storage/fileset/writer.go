@@ -2,39 +2,65 @@ package fileset
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-type data struct {
+// TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
+// We can run into the same issue as deletions where a lot of size zero files can cause us to get backed up
+// since no chunks will get created. The solution we have in mind is to write a small number of bytes
+// for a size zero file, then either not store references to them or ignore them at read time.
+
+// FileWriter provides functionality for writing a file.
+type FileWriter struct {
+	w   *Writer
+	cw  *chunk.Writer
 	idx *index.Index
 }
 
-// Writer writes the serialized format of a fileset.
-// The serialized format of a fileset consists of indexes and content.
-type Writer struct {
-	ctx       context.Context
-	tw        *tar.Writer
-	cw        *chunk.Writer
-	iw        *index.Writer
-	idx       *index.Index
-	noUpload  bool
-	indexFunc func(*index.Index) error
-	lastIdx   *index.Index
-	priorFile bool
-	ttl       time.Duration
+// Append sets an append tag for the next set of bytes.
+func (fw *FileWriter) Append(tag string) {
+	fw.idx.File.Parts = append(fw.idx.File.Parts, &index.Part{Tag: tag})
 }
 
-func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
-	tmpID := path + uuid.NewWithoutDashes()
-	w := &Writer{ctx: ctx}
+func (fw *FileWriter) Write(data []byte) (int, error) {
+	parts := fw.idx.File.Parts
+	part := parts[len(parts)-1]
+	part.SizeBytes += int64(len(data))
+	fw.w.sizeBytes += int64(len(data))
+	return fw.cw.Write(data)
+}
+
+// Writer provides functionality for writing a file set.
+type Writer struct {
+	ctx                context.Context
+	tracker            track.Tracker
+	store              Store
+	path               string
+	additive, deletive *index.Writer
+	sizeBytes          int64
+	cw                 *chunk.Writer
+	idx                *index.Index
+	deletePath         string
+	lastIdx            *index.Index
+	noUpload           bool
+	indexFunc          func(*index.Index) error
+	ttl                time.Duration
+}
+
+func newWriter(ctx context.Context, store Store, tracker track.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+	uuidStr := uuid.NewWithoutDashes()
+	w := &Writer{
+		ctx:     ctx,
+		store:   store,
+		tracker: tracker,
+		path:    path,
+	}
 	for _, opt := range opts {
 		opt(w)
 	}
@@ -42,170 +68,139 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	var indexWriterOpts []index.WriterOption
-	if w.ttl > 0 {
-		indexWriterOpts = append(indexWriterOpts, index.WithRootTTL(w.ttl))
-	}
-	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID, indexWriterOpts...)
-	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
-	w.cw = cw
-	w.tw = tar.NewWriter(cw)
+	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer-"+uuidStr)
+	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer-"+uuidStr)
+	w.cw = chunks.NewWriter(ctx, "chunk-writer-"+uuidStr, w.callback, chunkWriterOpts...)
 	return w
 }
 
-// WriteHeader writes a tar header and prepares to accept the file's contents.
-func (w *Writer) WriteHeader(hdr *tar.Header) error {
-	if err := w.checkPath(hdr.Name); err != nil {
+// Append creates an append operation for a file and provides a scoped file writer.
+func (w *Writer) Append(p string, cb func(*FileWriter) error) error {
+	fw, err := w.newFileWriter(p, w.cw)
+	if err != nil {
 		return err
 	}
-	// Finish prior file.
-	if err := w.finishPriorFile(); err != nil {
-		return err
-	}
-	w.priorFile = true
-	// Setup annotation in chunk writer.
-	w.setupAnnotation(hdr.Name)
-	// Setup header tag for the file.
-	w.cw.Tag(headerTag)
-	// Write file header.
-	return w.tw.WriteHeader(hdr)
+	return cb(fw)
 }
 
-func (w *Writer) finishPriorFile() error {
-	if !w.priorFile {
-		return nil
+func (w *Writer) newFileWriter(p string, cw *chunk.Writer) (*FileWriter, error) {
+	idx := &index.Index{
+		Path: p,
+		File: &index.File{},
 	}
-	w.priorFile = false
-	w.cw.Tag(paddingTag)
-	// Flush the prior file's content.
-	return w.tw.Flush()
+	if err := w.nextIdx(idx); err != nil {
+		return nil, err
+	}
+	return &FileWriter{
+		w:   w,
+		cw:  cw,
+		idx: idx,
+	}, nil
 }
 
-func (w *Writer) setupAnnotation(path string, empty ...bool) {
-	w.idx = &index.Index{
-		Path:   path,
-		DataOp: &index.DataOp{},
-	}
-	a := &chunk.Annotation{
-		Data: &data{
-			idx: w.idx,
-		},
-	}
-	if len(empty) > 0 {
-		a.Empty = empty[0]
-	}
-	w.cw.Annotate(a)
-}
-
-func (w *Writer) callback() chunk.WriterFunc {
-	return func(annotations []*chunk.Annotation) error {
-		if len(annotations) == 0 {
-			return nil
+func (w *Writer) nextIdx(idx *index.Index) error {
+	if w.idx != nil {
+		if err := w.checkPath(w.idx.Path, idx.Path); err != nil {
+			return err
 		}
-		var idxs []*index.Index
-		// Edge case where the last file from the prior chunk ended at the chunk split point.
-		firstIdx := annotations[0].Data.(*data).idx
-		if w.lastIdx != nil && firstIdx.Path != w.lastIdx.Path {
-			idxs = append(idxs, w.lastIdx)
-		}
-		w.lastIdx = annotations[len(annotations)-1].Data.(*data).idx
-		// Update the file indexes.
-		for i := 0; i < len(annotations); i++ {
-			idx := annotations[i].Data.(*data).idx
-			if annotations[i].NextDataRef != nil {
-				idx.DataOp.DataRefs = append(idx.DataOp.DataRefs, annotations[i].NextDataRef)
-				for _, tag := range annotations[i].NextDataRef.Tags {
-					if tag.Id != headerTag && tag.Id != paddingTag {
-						idx.SizeBytes += int64(tag.SizeBytes)
-					}
-				}
-			}
-			idxs = append(idxs, idx)
-		}
-		// Don't write out the last file index (it may have more content in the next chunk).
-		idxs = idxs[:len(idxs)-1]
-		if !w.noUpload {
-			if err := w.iw.WriteIndexes(idxs); err != nil {
-				return err
-			}
-		}
-		if w.indexFunc != nil {
-			for _, idx := range idxs {
-				if err := w.indexFunc(idx); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
 	}
+	w.idx = idx
+	return w.cw.Annotate(&chunk.Annotation{
+		Data: idx,
+	})
 }
 
-// Tag starts a tag for the next set of bytes (used for the reverse index, mapping file output to datums).
-func (w *Writer) Tag(id string) {
-	w.cw.Tag(id)
-}
-
-// Write writes to the current file in the tar stream.
-func (w *Writer) Write(data []byte) (int, error) {
-	return w.tw.Write(data)
-}
-
-// DeleteFile deletes a file.
-// The optional tag field indicates specific tags in the files to delete.
-func (w *Writer) DeleteFile(name string, tags ...string) error {
-	if len(tags) == 0 {
-		tags = []string{headerTag}
+// Delete creates a delete operation for a file.
+// TODO: Check path order.
+func (w *Writer) Delete(p string, tags ...string) error {
+	if w.deletePath != "" {
+		if err := w.checkPath(w.deletePath, p); err != nil {
+			return err
+		}
 	}
-	// Finish prior file.
-	if err := w.finishPriorFile(); err != nil {
-		return err
+	w.deletePath = p
+	idx := &index.Index{
+		Path: p,
+		File: &index.File{},
 	}
-	w.setupAnnotation(name, true)
 	for _, tag := range tags {
-		w.DeleteTag(tag)
+		idx.File.Parts = append(idx.File.Parts, &index.Part{Tag: tag})
+	}
+	return w.deletive.WriteIndex(idx)
+}
+
+func (w *Writer) checkPath(prev, p string) error {
+	if prev == p {
+		return errors.Errorf("cannot write same path (%s) twice", p)
+	}
+	if prev > p {
+		return errors.Errorf("cannot write path (%s) after (%s)", p, prev)
 	}
 	return nil
 }
 
-// DeleteTag deletes a tag in the current file.
-func (w *Writer) DeleteTag(id string) {
-	w.idx.DataOp.DeleteTags = append(w.idx.DataOp.DeleteTags, &chunk.Tag{Id: id})
-}
-
-// CopyFile copies a file (header and tags included).
-func (w *Writer) CopyFile(fr *FileReader) error {
-	// Finish prior file.
-	if err := w.finishPriorFile(); err != nil {
+// Copy copies a file to the file set writer.
+func (w *Writer) Copy(file File) error {
+	idx := file.Index()
+	copyIdx := &index.Index{
+		Path: idx.Path,
+		File: &index.File{
+			Parts: idx.File.Parts,
+		},
+	}
+	if err := w.nextIdx(copyIdx); err != nil {
 		return err
 	}
-	var empty bool
-	if _, err := fr.PeekTag(); errors.Is(err, io.EOF) {
-		empty = true
+	// Copy the file data refs if they are resolved.
+	if idx.File.DataRefs != nil {
+		for _, dataRef := range idx.File.DataRefs {
+			w.sizeBytes += dataRef.SizeBytes
+			if err := w.cw.Copy(dataRef); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-	w.setupAnnotation(fr.Index().Path, empty)
-	for _, tag := range fr.Index().DataOp.DeleteTags {
-		w.DeleteTag(tag.Id)
+	// Copy the file part data refs otherwise.
+	for _, part := range idx.File.Parts {
+		for _, dataRef := range part.DataRefs {
+			w.sizeBytes += dataRef.SizeBytes
+			if err := w.cw.Copy(dataRef); err != nil {
+				return err
+			}
+		}
 	}
-	return fr.Iterate(func(dr *chunk.DataReader) error {
-		return w.cw.Copy(dr)
-	})
+	return nil
 }
 
-// CopyTags copies the tagged data from the passed in data reader.
-func (w *Writer) CopyTags(dr *chunk.DataReader) error {
-	if err := w.tw.Skip(dr.Len()); err != nil {
-		return err
+func (w *Writer) callback(annotations []*chunk.Annotation) error {
+	for _, annotation := range annotations {
+		idx := annotation.Data.(*index.Index)
+		if w.lastIdx == nil {
+			w.lastIdx = idx
+		}
+		if idx.Path != w.lastIdx.Path {
+			if !w.noUpload {
+				if err := w.additive.WriteIndex(w.lastIdx); err != nil {
+					return err
+				}
+			}
+			if w.indexFunc != nil {
+				if err := w.indexFunc(w.lastIdx); err != nil {
+					return err
+				}
+			}
+			w.lastIdx = idx
+		}
+		if annotation.NextDataRef != nil {
+			w.lastIdx.File.DataRefs = append(w.lastIdx.File.DataRefs, annotation.NextDataRef)
+		}
 	}
-	return w.cw.Copy(dr)
+	return nil
 }
 
 // Close closes the writer.
 func (w *Writer) Close() error {
-	// Finish prior file.
-	if err := w.finishPriorFile(); err != nil {
-		return err
-	}
-	// Close the chunk writer.
 	if err := w.cw.Close(); err != nil {
 		return err
 	}
@@ -213,7 +208,7 @@ func (w *Writer) Close() error {
 	if w.lastIdx != nil {
 		idx := w.lastIdx
 		if !w.noUpload {
-			if err := w.iw.WriteIndexes([]*index.Index{idx}); err != nil {
+			if err := w.additive.WriteIndex(idx); err != nil {
 				return err
 			}
 		}
@@ -226,19 +221,23 @@ func (w *Writer) Close() error {
 	if w.noUpload {
 		return nil
 	}
-	// Close the index writer.
-	return w.iw.Close()
-}
-
-func (w *Writer) checkPath(p string) error {
-	if w.idx != nil {
-		if w.idx.Path > p {
-			return errors.Errorf("can't write path (%s) after (%s)", p, w.idx.Path)
-		}
-		parent := parentOf(p)
-		if w.idx.Path < parent {
-			return errors.Errorf("cannot write path (%s) without first writing parent (%s)", p, parent)
-		}
+	// Close the index writers.
+	additiveIdx, err := w.additive.Close()
+	if err != nil {
+		return err
 	}
-	return nil
+	deletiveIdx, err := w.deletive.Close()
+	if err != nil {
+		return err
+	}
+	// TODO: This should be one transaction.
+	if err := createTrackerObject(w.ctx, w.path, []*index.Index{additiveIdx, deletiveIdx}, w.tracker, w.ttl); err != nil {
+		return err
+	}
+	return w.store.Set(w.ctx, w.path, &Metadata{
+		Path:      w.path,
+		Additive:  additiveIdx,
+		Deletive:  deletiveIdx,
+		SizeBytes: w.sizeBytes,
+	})
 }

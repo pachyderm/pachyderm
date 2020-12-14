@@ -31,7 +31,7 @@ timestamp, size, parent, and other information about the commit.
 The initial commit has `<none>` as a parent.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl list commit images@master
     REPO     BRANCH COMMIT                           PARENT                           STARTED        DURATION           SIZE
     raw_data master 8248d97632874103823c7603fb8c851c 22cdb5ae05cb40868566586140ea5ed5 6 seconds ago  Less than a second 5.121MiB
@@ -51,7 +51,7 @@ If you specify a branch instead of a specific commit, Pachyderm
 displays the information about the HEAD of the branch.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl inspect commit raw_data@master --full-timestamps
     Commit: raw_data@8248d97632874103823c7603fb8c851c
     Original Branch: master
@@ -71,6 +71,6 @@ move the `HEAD` of the branch or create a new commit that removes
 the incorrect data.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl delete commit raw_data@8248d97632874103823c7603fb8c851c
     ```

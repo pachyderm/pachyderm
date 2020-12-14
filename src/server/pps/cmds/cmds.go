@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -32,9 +31,11 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
+	"github.com/fatih/color"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/itchyny/gojq"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -144,6 +145,7 @@ If the job fails, the output commit will not be populated with data.`,
 	var outputCommitStr string
 	var inputCommitStrs []string
 	var history string
+	var stateStrs []string
 	listJob := &cobra.Command{
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
@@ -178,6 +180,13 @@ $ {{alias}} -p foo -i bar@YYY`,
 					return err
 				}
 			}
+			var filter string
+			if len(stateStrs) > 0 {
+				filter, err = ParseJobStates(stateStrs)
+				if err != nil {
+					return errors.Wrap(err, "error parsing state")
+				}
+			}
 
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -188,14 +197,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				if raw {
 					e := encoder(output)
-					return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+					return client.ListJobFilterF(pipelineName, commits, outputCommit, history, true, filter, func(ji *ppsclient.JobInfo) error {
 						return e.EncodeProto(ji)
 					})
 				} else if output != "" {
 					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
 				}
 				writer := tabwriter.NewWriter(w, pretty.JobHeader)
-				if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
+				if err := client.ListJobFilterF(pipelineName, commits, outputCommit, history, false, filter, func(ji *ppsclient.JobInfo) error {
 					pretty.PrintJobInfo(writer, ji, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -215,6 +224,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -367,11 +377,12 @@ each datum.`,
 
 	var pageSize int64
 	var page int64
+	var pipelineInputPath string
 	listDatum := &cobra.Command{
 		Use:   "{{alias}} <job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -383,26 +394,49 @@ each datum.`,
 			if page < 0 {
 				return errors.Errorf("page must be zero or positive")
 			}
-			if raw {
+			var printF func(*ppsclient.DatumInfo) error
+			if !raw {
+				if output != "" {
+					cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				}
+				writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
+				printF = func(di *ppsclient.DatumInfo) error {
+					pretty.PrintDatumInfo(writer, di)
+					return nil
+				}
+				defer func() {
+					if err := writer.Flush(); retErr == nil {
+						retErr = err
+					}
+				}()
+			} else {
 				e := encoder(output)
-				return client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
+				printF = func(di *ppsclient.DatumInfo) error {
 					return e.EncodeProto(di)
-				})
-			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+				}
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
-			if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
-				pretty.PrintDatumInfo(writer, di)
-				return nil
-			}); err != nil {
-				return err
+			if pipelineInputPath != "" && len(args) == 1 {
+				return errors.Errorf("can't specify both a job and a pipeline spec")
+			} else if pipelineInputPath != "" {
+				pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineInputPath)
+				if err != nil {
+					return err
+				}
+				request, err := pipelineReader.NextCreatePipelineRequest()
+				if err != nil {
+					return err
+				}
+				return client.ListDatumInputF(request.Input, pageSize, page, printF)
+			} else if len(args) == 1 {
+				return client.ListDatumF(args[0], pageSize, page, printF)
+			} else {
+				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
-			return writer.Flush()
 		}),
 	}
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
+	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
@@ -613,7 +647,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
 		$ {{alias}} filter repo1@staging=167af5
-		
+
 		# Run the pipeline "filter" on the HEAD commit of the "testing" branch on repo "repo1"
 		$ {{alias}} filter repo1@testing
 
@@ -802,7 +836,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return errors.Wrapf(err, "error parsing history flag")
 			}
-
+			var filter string
+			if len(stateStrs) > 0 {
+				filter, err = ParsePipelineStates(stateStrs)
+				if err != nil {
+					return errors.Wrap(err, "error parsing state")
+				}
+			}
 			// init client & get pipeline info
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
@@ -813,7 +853,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true}
+			request := &ppsclient.ListPipelineRequest{History: history, AllowIncomplete: true, JqFilter: filter}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
@@ -856,12 +896,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var (
-		all      bool
-		force    bool
-		keepRepo bool
+		all              bool
+		force            bool
+		keepRepo         bool
+		splitTransaction bool
 	)
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
@@ -879,10 +921,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
+			if splitTransaction {
+				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return nil
+				}
+			}
 			req := &ppsclient.DeletePipelineRequest{
-				All:      all,
-				Force:    force,
-				KeepRepo: keepRepo,
+				All:              all,
+				Force:            force,
+				KeepRepo:         keepRepo,
+				SplitTransaction: splitTransaction,
 			}
 			if len(args) > 0 {
 				req.Pipeline = pachdclient.NewPipeline(args[0])
@@ -896,6 +947,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
+	deletePipeline.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{
@@ -1122,8 +1174,10 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 		}
 
 		// Add trace if env var is set
-		if ctx, ok := extended.StartAnyExtendedTrace(pc.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
-			pc = pc.WithCtx(ctx)
+		ctx, err := extended.EmbedAnyDuration(pc.Ctx())
+		pc = pc.WithCtx(ctx)
+		if err != nil {
+			logrus.Warning(err)
 		}
 
 		if update {
@@ -1329,7 +1383,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		buildPath = filepath.Join(pipelineParentPath, buildPath)
 	}
 	if _, err := os.Stat(buildPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("build path %q does not exist", buildPath)
 		}
 		return errors.Wrapf(err, "could not stat build path %q", buildPath)
@@ -1481,4 +1535,42 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	}
 
 	return false
+}
+
+func validateJQConditionString(filter string) (string, error) {
+	q, err := gojq.Parse(filter)
+	if err != nil {
+		return "", err
+	}
+	_, err = gojq.Compile(q)
+	if err != nil {
+		return "", err
+	}
+	return filter, nil
+}
+
+// ParseJobStates parses a slice of state names into a jq filter suitable for ListJob
+func ParseJobStates(stateStrs []string) (string, error) {
+	var conditions []string
+	for _, stateStr := range stateStrs {
+		if state, err := ppsclient.JobStateFromName(stateStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
+		} else {
+			return "", err
+		}
+	}
+	return validateJQConditionString(strings.Join(conditions, " or "))
+}
+
+// ParsePipelineStates parses a slice of state names into a jq filter suitable for ListPipeline
+func ParsePipelineStates(stateStrs []string) (string, error) {
+	var conditions []string
+	for _, stateStr := range stateStrs {
+		if state, err := ppsclient.PipelineStateFromName(stateStr); err == nil {
+			conditions = append(conditions, fmt.Sprintf(".state == \"%s\"", state))
+		} else {
+			return "", err
+		}
+	}
+	return validateJQConditionString(strings.Join(conditions, " or "))
 }

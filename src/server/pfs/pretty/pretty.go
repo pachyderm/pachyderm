@@ -284,6 +284,15 @@ func CompactPrintCommit(c *pfs.Commit) string {
 	return fmt.Sprintf("%s@%s", c.Repo.Name, c.ID)
 }
 
+// CompactPrintCommitSafe is similar to CompactPrintCommit but accepts 'nil'
+// arguments
+func CompactPrintCommitSafe(c *pfs.Commit) string {
+	if c == nil {
+		return "nil"
+	}
+	return CompactPrintCommit(c)
+}
+
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {

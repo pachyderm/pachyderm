@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -23,7 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil/random"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -473,7 +474,10 @@ func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 }
 
 func TestLoad(t *testing.T) {
-	msg := tu.SeedRand()
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+	msg := random.SeedRand()
 	require.NoError(t, testLoad(t, fuzzLoad()), msg)
 }
 
@@ -1025,11 +1029,20 @@ func TestPutFileOverwriteV2(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err := env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("foo"), 0)
 		require.NoError(t, err)
-		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
-		require.NoError(t, err)
 		var buf bytes.Buffer
 		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "foo", buf.String())
+		_, err = env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("bar"), 0)
+		require.NoError(t, err)
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
 		require.Equal(t, "bar", buf.String())
+		require.NoError(t, env.PachClient.DeleteFilesV2(repo, "master", []string{"file"}))
+		_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("buzz"))
+		require.NoError(t, err)
+		buf.Reset()
+		require.NoError(t, env.PachClient.GetFile(repo, "master", "file", 0, 0, &buf))
+		require.Equal(t, "buzz", buf.String())
 		return nil
 	}, newPachdConfig()))
 }
@@ -1047,14 +1060,74 @@ func TestTmpFileSet(t *testing.T) {
 		resp, err := pclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
-		_, err = env.PachClient.RenewTmpFileSet(env.Context, &pfs.RenewTmpFileSetRequest{FilesetId: resp.FilesetId, TtlSeconds: 60})
-		require.NoError(t, err)
+		require.NoError(t, env.PachClient.RenewTmpFileSet(resp.FilesetId, 60*time.Second))
 		fileInfos := []*pfs.FileInfo{}
 		require.NoError(t, env.PachClient.ListFileF(client.TmpRepoName, resp.FilesetId, "/", 0, func(fi *pfs.FileInfo) error {
 			fileInfos = append(fileInfos, fi)
 			return nil
 		}))
 		require.Equal(t, 2, len(fileInfos))
+		return nil
+	}, newPachdConfig()))
+}
+
+func TestDeleteFileV2(t *testing.T) {
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		fileContent := "bar\n"
+		_, err = env.PachClient.PutFileOverwrite(repo, commit1.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit1.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
+
+		commit2, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(repo, commit2.ID, "/"))
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit2.ID, "/dir1/dir2/barbar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
+
+		commit3, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(repo, commit3.ID, "/dir1/dir2/"))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit3.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/bar")
+		require.YesError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit3.ID, "/dir1/dir2/barbar")
+		require.YesError(t, err)
+
+		commit4, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = env.PachClient.PutFileOverwrite(repo, commit4.ID, "/dir1/dir2/bar", strings.NewReader(fileContent), 0)
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit4.ID))
+
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/bar")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2")
+		require.NoError(t, err)
+		_, err = env.PachClient.InspectFile(repo, commit4.ID, "/dir1/dir2/bar")
+		require.NoError(t, err)
+
 		return nil
 	}, newPachdConfig()))
 }

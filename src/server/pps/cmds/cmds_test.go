@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -99,19 +98,19 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {"name": "{{.pipeline}}"},
-			  "input": {
-			    "pfs": {
-			      "glob": "/*",
-			      "repo": "data"
-			    }
-			  },
-			  "transform": {
-			    "cmd": ["bash"],
-			    "stdin": ["cp /pfs/data/file /pfs/out"]
-			  }
-			}
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
 		EOF
 		`,
 		"pipeline", tu.UniqueString("p-")).Run())
@@ -208,9 +207,9 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		      "repo": "input"
 		    }
 		  },
-			"parallelism_spec": {
-				"constant": "1"
-			},
+		  "parallelism_spec": {
+		    "constant": "1"
+		  },
 		  "transform": {
 		    "cmd": [ "/bin/bash" ],
 		    "stdin": [
@@ -288,6 +287,9 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 }
 
 func TestRunPipeline(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -331,6 +333,10 @@ func TestRunPipeline(t *testing.T) {
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -372,6 +378,54 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
 		`,
+	).Run())
+}
+
+func TestListPipelineFilter(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl garbage-collect
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		pachctl create pipeline -f - <<EOF
+		{
+		"pipeline": {
+		  "name": "first"
+		},
+		"input": {
+		  "pfs": {
+		    "glob": "/*",
+		    "repo": "input"
+		  }
+		},
+		  "parallelism_spec": {
+		    "constant": "1"
+		  },
+		"transform": {
+		  "cmd": [ "/bin/bash" ],
+		  "stdin": [
+		    "cp /pfs/input/* /pfs/out"
+		  ]
+		}
+		}
+		EOF
+
+		echo foo | pachctl put file input@master:/foo
+		pachctl flush commit input@master
+		# make sure we see the pipeline with the appropriate state filters
+		pachctl list pipeline | match first
+		pachctl list pipeline --state starting --state running | match first
+		pachctl list pipeline --state crashing --state failure | match -v first
+	`,
 	).Run())
 }
 
@@ -566,27 +620,37 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	testPipelineBuildLifecycle(t, "python", "python")
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
+
+	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
 	// intended behavior here
 	require.NoError(t, tu.BashCmd(`
-		pachctl get file test-pipeline-build_build@source:/.pachignore
-	`).Run())
+		pachctl get file {{.pipeline}}_build@source:/.pachignore
+	`, "pipeline", pipeline).Run())
 	require.YesError(t, tu.BashCmd(`
-		pachctl get file test-pipeline-build_build@source:/foo.txt
-	`).Run())
+		pachctl get file {{.pipeline}}_build@source:/foo.txt
+	`, "pipeline", pipeline).Run())
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
+	if os.Getenv("RUN_BAD_TESTS") == "" {
+		t.Skip("Skipping because RUN_BAD_TESTS was empty")
+	}
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
-func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
+func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -599,14 +663,17 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
 	`).Run())
 
+	// give pipeline a unique name to work around
+	// github.com/kubernetes/kubernetes/issues/82130
+	pipeline := tu.UniqueString("test-pipeline-build")
 	spec := fmt.Sprintf(`
 		{
 		  "pipeline": {
-		    "name": "test-pipeline-build"
+		    "name": %q
 		  },
 		  "transform": {
 		    "build": {
-		      "language": "%s"
+		      "language": %q
 		    }
 		  },
 		  "input": {
@@ -616,39 +683,42 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 		    }
 		  }
 		}
-	`, lang)
+	`, pipeline, lang)
 
 	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl create pipeline <<EOF
-			{{.spec}}
+		{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
 	).Run())
-	verifyPipelineBuildOutput(t, "0")
+	require.YesError(t, tu.BashCmd(fmt.Sprintf(`
+		pachctl list pipeline --state failure | match %s
+	`, pipeline)).Run())
+	verifyPipelineBuildOutput(t, pipeline, "0")
 
 	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline <<EOF
-			{{.spec}}
+		{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
 	).Run())
-	verifyPipelineBuildOutput(t, "0")
+	verifyPipelineBuildOutput(t, pipeline, "0")
 
 	// update the pipeline with a custom cmd and verify results
 	spec = fmt.Sprintf(`
 		{
 		  "pipeline": {
-		    "name": "test-pipeline-build"
+		    "name": %q
 		  },
 		  "transform": {
 		    "cmd": [
@@ -657,7 +727,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 		      "_"
 		    ],
 		    "build": {
-		      "language": "%s",
+		      "language": %q,
 		      "path": "."
 		    }
 		  },
@@ -668,30 +738,32 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) {
 		    }
 		  }
 		}
-	`, lang)
+	`, pipeline, lang)
 
 	require.NoError(t, tu.BashCmd(`
 		cd ../../../../etc/testing/pipeline-build/{{.dir}}
 		pachctl update pipeline --reprocess <<EOF
-			{{.spec}}
+		{{.spec}}
 		EOF
-		pachctl flush commit test-pipeline-build@master
+		pachctl flush commit in@master
 		`,
 		"dir", dir,
 		"spec", spec,
 	).Run())
-	verifyPipelineBuildOutput(t, "_")
+	verifyPipelineBuildOutput(t, pipeline, "_")
+	return pipeline
 }
 
-func verifyPipelineBuildOutput(t *testing.T, prefix string) {
+func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
 	t.Helper()
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit test-pipeline-build@master
-		pachctl get file test-pipeline-build@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
-		pachctl get file test-pipeline-build@master:/11.txt | match {{.prefix}}{{.prefix}}11
-		pachctl get file test-pipeline-build@master:/111.txt | match {{.prefix}}111
+		pachctl flush commit in@master
+		pachctl get file {{.pipeline}}@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
+		pachctl get file {{.pipeline}}@master:/11.txt | match {{.prefix}}{{.prefix}}11
+		pachctl get file {{.pipeline}}@master:/111.txt | match {{.prefix}}111
 		`,
+		"pipeline", pipeline,
 		"prefix", prefix,
 	).Run())
 }
@@ -703,17 +775,17 @@ func TestMissingPipeline(t *testing.T) {
 	// should fail because there's no pipeline object in the spec
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "transform": {
-			    "image": "ubuntu"
-			  },
-			  "input": {
-			    "pfs": {
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
+		  {
+		    "transform": {
+		      "image": "ubuntu"
+		    },
+		    "input": {
+		      "pfs": {
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }
 		EOF
 	`).Run())
 }
@@ -725,18 +797,18 @@ func TestUnnamedPipeline(t *testing.T) {
 	// should fail because there's no pipeline name
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {},
-			  "transform": {
-			    "image": "ubuntu"
-			  },
-			  "input": {
-			    "pfs": {
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
+		  {
+		    "pipeline": {},
+		    "transform": {
+		      "image": "ubuntu"
+		    },
+		    "input": {
+		      "pfs": {
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }
 		EOF
 	`).Run())
 }
@@ -748,17 +820,17 @@ func TestPipelineBuildSpout(t *testing.T) {
 	// should fail because pipeline build can't be used w/ spouts
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {
-			    "name": "test"
-			  },
-			  "transform": {
-			    "build": {
-			      "language": "go"
-			    }
-			  },
-			  "spout": {}
-			}
+		  {
+		    "pipeline": {
+		      "name": "test"
+		    },
+		    "transform": {
+		      "build": {
+		        "language": "go"
+		      }
+		    },
+		    "spout": {}
+		  }
 		EOF
 	`).Run())
 }
@@ -770,16 +842,16 @@ func TestPipelineBuildMissingInput(t *testing.T) {
 	// should fail because pipeline build can't be used w/ spouts
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {
-			    "name": "test"
-			  },
-			  "transform": {
-			    "build": {
-			      "language": "go"
-			    }
-			  }
-			}
+		  {
+		    "pipeline": {
+		      "name": "test"
+		    },
+		    "transform": {
+		      "build": {
+		        "language": "go"
+		      }
+		    }
+		  }
 		EOF
 	`).Run())
 }
@@ -792,44 +864,44 @@ func TestPipelineBuildBadInput(t *testing.T) {
 	// using pipeline builds
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {
-			    "name": "test"
-			  },
-			  "transform": {
-			    "build": {
-			      "language": "go"
-			    }
-			  },
-			  "input": {
-			    "pfs": {
-			      "name": "build",
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
+		  {
+		    "pipeline": {
+		      "name": "test"
+		    },
+		    "transform": {
+		      "build": {
+		        "language": "go"
+		      }
+		    },
+		    "input": {
+		      "pfs": {
+		        "name": "build",
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }
 		EOF
 	`).Run())
 	require.YesError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {
-			    "name": "test"
-			  },
-			  "transform": {
-			    "build": {
-			      "language": "go"
-			    }
-			  },
-			  "input": {
-			    "pfs": {
-			      "name": "source",
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
+		  {
+		    "pipeline": {
+		      "name": "test"
+		    },
+		    "transform": {
+		      "build": {
+		        "language": "go"
+		      }
+		    },
+		    "input": {
+		      "pfs": {
+		        "name": "source",
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }
 		EOF
 	`).Run())
 }
@@ -888,24 +960,24 @@ func runPipelineWithImageGetStderr(t *testing.T, image string) (string, error) {
 		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
 	`).Run())
 
-	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(`
+	cmd := tu.BashCmd(`
 		pachctl create pipeline <<EOF
-			{
-			  "pipeline": {
-				"name": "first"
-			  },
-			  "transform": {
-				"image": "%s"
-			  },
-			  "input": {
-			    "pfs": {
-			      "repo": "in",
-			      "glob": "/*"
-			    }
-			  }
-			}
-EOF
-	`, image))
+		  {
+		    "pipeline": {
+		      "name": "first"
+		    },
+		    "transform": {
+		      "image": "{{.image}}"
+		    },
+		    "input": {
+		      "pfs": {
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }
+		EOF
+	`, "image", image)
 	buf := &bytes.Buffer{}
 	cmd.Stderr = buf
 	// cmd.Stdout = os.Stdout // uncomment for debugging
@@ -924,23 +996,23 @@ func TestPipelineBuildRunCron(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl create pipeline <<EOF
 		{
-			"pipeline": {
-			  "name": "crontest"
-			},
-			"input": {
-			  "cron": {
-				"name": "tick",
-				"spec": "*/1 * * * *",
-				"overwrite": true
-			  }  
-			},
-			"transform": {
-			  "build":{
-				"language": "go"
-			  },
-			  "cmd":["echo", "tick"]
-			},
-			"enable_stats": true
+		  "pipeline": {
+		    "name": "crontest"
+		  },
+		  "input": {
+		    "cron": {
+		      "name": "tick",
+		      "spec": "*/1 * * * *",
+		      "overwrite": true
+		    }
+		  },
+		  "transform": {
+		    "build":{
+		      "language": "go"
+		    },
+		    "cmd":["echo", "tick"]
+		  },
+		  "enable_stats": true
 		  }
 		EOF
 	`).Run())
@@ -957,7 +1029,7 @@ func TestWarningLatestTag(t *testing.T) {
 	}
 	// should emit a warning because user specified latest tag on docker image
 	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:latest")
-	require.NoError(t, err)
+	require.NoError(t, err, "%v", err)
 	require.Matches(t, "WARNING", stderr)
 }
 

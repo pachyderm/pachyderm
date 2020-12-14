@@ -64,7 +64,7 @@ provenance of your commits and learn where the data in the repository
 originates in.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl inspect commit split@master
     Commit: split@f71e42704b734598a89c02026c8f7d13
     Original Branch: master
@@ -91,7 +91,7 @@ for this commit, you can see in which repositories and commits that data
 resulted.
 
 !!! example
-    ```bash
+    ```shell
     $ pachctl flush commit raw_data@ccf82debb4b94ca3bfe165aca8d517c3
     REPO        BRANCH COMMIT                           PARENT STARTED        DURATION       SIZE
     split       master f71e42704b734598a89c02026c8f7d13 <none> 52 minutes ago About a minute 0B

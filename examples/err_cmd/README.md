@@ -18,7 +18,7 @@ environment:
 
 To clone the Pachyderm repository, run the following command:
 
-```bash
+```shell
 $ git clone git@github.com:pachyderm/pachyderm.git
 ```
 
@@ -27,7 +27,7 @@ $ git clone git@github.com:pachyderm/pachyderm.git
 The first step is to create a repository called `input` by running the
 following command:
 
-```bash
+```shell
 $ pachctl create repo input
 ```
 
@@ -70,13 +70,13 @@ job succeeds. If it does not, the job fails.
 Create a pipeline by running the following command from the `examples/err_cmd/`
 directory:
 
-```bash
+```shell
 $ pachctl create pipeline -f error_test.json
 ```
 
 Verify that the pipeline was successfully created:
 
-```bash
+```shell
 $ pachctl list pipeline
 NAME       VERSION INPUT    CREATED       STATE / LAST JOB
 error_test 1       input:/* 5 seconds ago running / starting
@@ -92,13 +92,13 @@ line in them.
 
 1. Add `file1`:
 
-   ```bash
+   ```shell
    $ echo "foo" | pachctl put file input@master:file1
    ```
 
    When you add `file1`, your pipeline should succeed:
 
-   ```bash
+   ```shell
    $ pachctl list job --no-pager
    ID                               PIPELINE   STARTED        DURATION           RESTART PROGRESS  DL UL STATE
    c8860dae5a054ec38a33068f75fe9690 error_test 13 seconds ago Less than a second 0       1 + 0 / 1 4B 4B success
@@ -109,7 +109,7 @@ line in them.
 
 1. Add `file2`:
 
-   ```bash
+   ```shell
    $ echo "bar" | pachctl put file input@master:file2
    ```
 
@@ -117,7 +117,7 @@ line in them.
    the datum is marked as *recovered*, and the job finishes without errors.
    Only `file1` is available in the output commit.
 
-   ```bash
+   ```shell
    $ pachctl list job --no-pager
    ID                               PIPELINE   STARTED       DURATION           RESTART PROGRESS      DL UL STATE
    bc3da288ff884d5a9bcb312dd6cf07cb error_test 3 seconds ago Less than a second 0       0 + 1 + 1 / 2 0B 0B success
@@ -131,7 +131,7 @@ line in them.
 1. Add `file3`:
 
 
-   ```bash
+   ```shell
    $ echo "baz" | pachctl put file input@master:file3
    ```
 
@@ -139,7 +139,7 @@ line in them.
    `file2`, this job results in failure. Therefore, both `cmd`
    and `err_cmd` codes result in non-zero status:
 
-   ```bash
+   ```
    ID                               PIPELINE   STARTED        DURATION           RESTART PROGRESS      DL UL STATE
    272370ec03c24cc1be660bf97403712f error_test 26 seconds ago Less than a second 0       0 + 2 / 3     0B 0B failure: failed to process datum:...
    bc3da288ff884d5a9bcb312dd6cf07cb error_test 6 minutes ago  Less than a second 0       0 + 1 + 1 / 2 0B 0B success

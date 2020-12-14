@@ -94,15 +94,18 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool, trigger *pfs.Trigger) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			JoinOn: joinOn,
-			Lazy:   lazy,
+			Name:      name,
+			Repo:      repo,
+			Branch:    branch,
+			Glob:      glob,
+			JoinOn:    joinOn,
+			OuterJoin: outerJoin,
+			GroupBy:   groupBy,
+			Lazy:      lazy,
+			Trigger:   trigger,
 		},
 	}
 }
@@ -143,6 +146,15 @@ func NewJoinInput(input ...*pps.Input) *pps.Input {
 func NewUnionInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Union: input,
+	}
+}
+
+// NewGroupInput returns an input which groups the inputs by the GroupBy pattern.
+// That means that it will return a datum for each group of input datums matching
+// a particular GroupBy pattern
+func NewGroupInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Group: input,
 	}
 }
 
@@ -254,7 +266,15 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 	return result, nil
 }
 
-// ListJobF returns info about all jobs, calling f with each JobInfo.
+// ListJobF is a previous version of ListJobFilterF, returning info about all jobs
+// and calling f on each JobInfo
+func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+	f func(*pps.JobInfo) error) error {
+	return c.ListJobFilterF(pipelineName, inputCommit, outputCommit, history, includePipelineInfo, "", f)
+}
+
+// ListJobFilterF returns info about all jobs, calling f with each JobInfo.
 // If f returns an error iteration of jobs will stop and ListJobF will return
 // that error, unless the error is errutil.ErrBreak in which case it will
 // return nil.
@@ -270,8 +290,8 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
 // details fromt the pipeline spec--setting this to 'false' can improve
 // performance.
-func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
@@ -285,6 +305,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			OutputCommit: outputCommit,
 			History:      history,
 			Full:         includePipelineInfo,
+			JqFilter:     jqFilter,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -383,14 +404,25 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+// ListDatum returns info about datums in a Job
+func (c APIClient) ListDatum(jobID string, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum(NewJob(jobID), nil, pageSize, page)
+}
+
+// ListDatumInput returns info about datums for a pipeline with input. The
+// pipeline doesn't need to exist.
+func (c APIClient) ListDatumInput(input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
+	return c.listDatum(nil, input, pageSize, page)
+}
+
+func (c APIClient) listDatum(job *pps.Job, input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
+			Input:    input,
 			PageSize: pageSize,
 			Page:     page,
+			Job:      job,
 		},
 	)
 	if err != nil {
@@ -415,14 +447,25 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	return resp, nil
 }
 
-// ListDatumF returns info about all datums in a Job, calling f with each datum info.
+// ListDatumF returns info about datums in a Job, calling f with each datum info.
 func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(NewJob(jobID), nil, pageSize, page, f)
+}
+
+// ListDatumInputF returns info about datums for a pipeline with input, calling
+// f with each datum info. The pipeline doesn't need to exist.
+func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
+	return c.listDatumF(nil, input, pageSize, page, f)
+}
+
+func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      NewJob(jobID),
+			Input:    input,
 			PageSize: pageSize,
 			Page:     page,
+			Job:      job,
 		},
 	)
 	if err != nil {
@@ -667,13 +710,17 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.P
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool) error {
+func (c APIClient) DeletePipeline(name string, force bool, splitTransaction ...bool) error {
+	req := &pps.DeletePipelineRequest{
+		Pipeline: NewPipeline(name),
+		Force:    force,
+	}
+	if len(splitTransaction) > 0 {
+		req.SplitTransaction = splitTransaction[0]
+	}
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
-		&pps.DeletePipelineRequest{
-			Pipeline: NewPipeline(name),
-			Force:    force,
-		},
+		req,
 	)
 	return grpcutil.ScrubGRPC(err)
 }

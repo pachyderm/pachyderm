@@ -1,7 +1,5 @@
-FROM golang:1.12.1
-RUN mkdir /app 
-ADD source/main.go /app/
-WORKDIR /app 
-RUN go get github.com/segmentio/kafka-go
-RUN go build -o main . 
+FROM golang:1.15.4
+WORKDIR /app/source
+ADD source .
+RUN go build -o /app/main . 
 CMD ["/app/main"]
