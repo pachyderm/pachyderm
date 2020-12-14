@@ -31,7 +31,7 @@ type apiServer struct {
 
 	config         col.Collection
 	configCacheMtx sync.RWMutex
-	configCache    identity.IdentityConfig
+	configCache    identity.IdentityServerConfig
 
 	api *dexAPI
 	web *dexWeb
@@ -68,7 +68,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, configPrefix),
 			nil,
-			&identity.IdentityConfig{},
+			&identity.IdentityServerConfig{},
 			nil,
 			nil,
 		),
@@ -98,7 +98,7 @@ func (a *apiServer) watchConfig() {
 		defer configWatcher.Close()
 
 		var key string
-		var config identity.IdentityConfig
+		var config identity.IdentityServerConfig
 		for {
 			ev, ok := <-configWatcher.Watch()
 			if !ok {
@@ -141,11 +141,11 @@ func (a *apiServer) isAdmin(ctx context.Context, op string) error {
 	}
 }
 
-func (a *apiServer) SetIdentityConfig(ctx context.Context, req *identity.SetIdentityConfigRequest) (resp *identity.SetIdentityConfigResponse, retErr error) {
+func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "SetIdentityConfig"); err != nil {
+	if err := a.isAdmin(ctx, "SetIdentityServerConfig"); err != nil {
 		return nil, err
 	}
 
@@ -154,14 +154,14 @@ func (a *apiServer) SetIdentityConfig(ctx context.Context, req *identity.SetIden
 	}); err != nil {
 		return nil, err
 	}
-	return &identity.SetIdentityConfigResponse{}, nil
+	return &identity.SetIdentityServerConfigResponse{}, nil
 }
 
-func (a *apiServer) GetIdentityConfig(ctx context.Context, req *identity.GetIdentityConfigRequest) (resp *identity.GetIdentityConfigResponse, retErr error) {
+func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "GetIdentityConfig"); err != nil {
+	if err := a.isAdmin(ctx, "GetIdentityServerConfig"); err != nil {
 		return nil, err
 	}
 
@@ -169,7 +169,7 @@ func (a *apiServer) GetIdentityConfig(ctx context.Context, req *identity.GetIden
 	a.configCacheMtx.RLock()
 	defer a.configCacheMtx.RUnlock()
 
-	return &identity.GetIdentityConfigResponse{Config: &a.configCache}, nil
+	return &identity.GetIdentityServerConfigResponse{Config: &a.configCache}, nil
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {

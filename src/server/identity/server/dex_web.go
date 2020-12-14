@@ -35,7 +35,7 @@ func newDexWeb(sp StorageProvider, logger *logrus.Entry) *dexWeb {
 	}
 }
 
-func (w *dexWeb) updateConfig(conf identity.IdentityConfig) {
+func (w *dexWeb) updateConfig(conf identity.IdentityServerConfig) {
 	w.Lock()
 	defer w.Unlock()
 

@@ -29,11 +29,11 @@ var OIDCAuthConfig = &auth.AuthConfig{
 		Name:        "idp",
 		Description: "fake IdP for testing",
 		OIDC: &auth.IDProvider_OIDCOptions{
-			Issuer:         "http://localhost:30658/",
-			IssuerOverride: "http://localhost:658",
-			ClientID:       "pachyderm",
-			ClientSecret:   "notsecret",
-			RedirectURI:    "http://pachd:657/authorization-code/callback",
+			Issuer:          "http://localhost:30658/",
+			ClientID:        "pachyderm",
+			ClientSecret:    "notsecret",
+			RedirectURI:     "http://pachd:657/authorization-code/callback",
+			LocalhostIssuer: true,
 		},
 	}},
 }
@@ -42,8 +42,8 @@ func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
 
-	_, err = adminClient.SetIdentityConfig(adminClient.Ctx(), &identity.SetIdentityConfigRequest{
-		Config: &identity.IdentityConfig{
+	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{
 			Issuer: "http://localhost:30658/",
 		},
 	})
@@ -51,7 +51,7 @@ func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
 
 	// Block until the web server has restarted with the right config
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := adminClient.GetIdentityConfig(adminClient.Ctx(), &identity.GetIdentityConfigRequest{})
+		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			"http://localhost:30658/", resp.Config.Issuer,

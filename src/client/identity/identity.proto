@@ -3,29 +3,43 @@ syntax = "proto3";
 package identity;
 option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
 
-message IdentityConfig {
+// IdentityServerConfig is the configuration for the identity web server.
+// When the configuration is changed the web server is reloaded automatically.
+message IdentityServerConfig {
 	string issuer = 1;
 }
 
-message SetIdentityConfigRequest {
-	IdentityConfig config = 1;
+message SetIdentityServerConfigRequest {
+	IdentityServerConfig config = 1;
 }
 
-message SetIdentityConfigResponse {}
+message SetIdentityServerConfigResponse {}
 
 
-message GetIdentityConfigRequest {}
+message GetIdentityServerConfigRequest {}
 
-message GetIdentityConfigResponse {
-	IdentityConfig config = 1;
+message GetIdentityServerConfigResponse {
+	IdentityServerConfig config = 1;
 }
 
-/* IDPConnector represents an IDP to delegate authentication to */
+// IDPConnector represents a connection to an identity provider
 message IDPConnector {
+  // ID is the unique identifier for this connector.
   string id = 1; 
+
+  // Name is the human-readable identifier for this connector,
+  // which will be shown to end users when they're authenticating.
   string name = 2;
+
+  // Type is the type of the IDP ex. `saml`, `oidc`, `github`.
   string type = 3;
+
+  // ConfigVersion must be incremented every time a connector is 
+  // updated, to avoid concurrent updates conflicting.
   int64 configVersion = 4;
+
+  // JsonConfig is the configuration for the upstream IDP, which varies
+  // based on the type.
   string jsonConfig = 5;
 }
 
@@ -107,8 +121,8 @@ message DeleteAllRequest {}
 message DeleteAllResponse {}
 
 service API {
-  rpc SetIdentityConfig(SetIdentityConfigRequest) returns (SetIdentityConfigResponse) {}
-  rpc GetIdentityConfig(GetIdentityConfigRequest) returns (GetIdentityConfigResponse) {}
+  rpc SetIdentityServerConfig(SetIdentityServerConfigRequest) returns (SetIdentityServerConfigResponse) {}
+  rpc GetIdentityServerConfig(GetIdentityServerConfigRequest) returns (GetIdentityServerConfigResponse) {}
   rpc CreateIDPConnector(CreateIDPConnectorRequest) returns (CreateIDPConnectorResponse) {}
   rpc UpdateIDPConnector(UpdateIDPConnectorRequest) returns (UpdateIDPConnectorResponse) {}
   rpc ListIDPConnectors(ListIDPConnectorsRequest) returns (ListIDPConnectorsResponse) {}

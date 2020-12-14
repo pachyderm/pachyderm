@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// SetIdentityConfigCmd returns a cobra.Command to configure the identity server
-func SetIdentityConfigCmd() *cobra.Command {
+// SetIdentityServerConfigCmd returns a cobra.Command to configure the identity server
+func SetIdentityServerConfigCmd() *cobra.Command {
 	var issuer string
 	setConfig := &cobra.Command{
 		Short: "Set the identity server config",
@@ -26,12 +26,12 @@ func SetIdentityConfigCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			req := &identity.SetIdentityConfigRequest{
-				Config: &identity.IdentityConfig{
+			req := &identity.SetIdentityServerConfigRequest{
+				Config: &identity.IdentityServerConfig{
 					Issuer: issuer,
 				}}
 
-			_, err = c.SetIdentityConfig(c.Ctx(), req)
+			_, err = c.SetIdentityServerConfig(c.Ctx(), req)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -39,8 +39,8 @@ func SetIdentityConfigCmd() *cobra.Command {
 	return cmdutil.CreateAlias(setConfig, "idp set config")
 }
 
-// GetIdentityConfigCmd returns a cobra.Command to fetch the current ID server config
-func GetIdentityConfigCmd() *cobra.Command {
+// GetIdentityServerConfigCmd returns a cobra.Command to fetch the current ID server config
+func GetIdentityServerConfigCmd() *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Get the identity server config",
 		Long:  `Get the identity server config`,
@@ -49,7 +49,7 @@ func GetIdentityConfigCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			resp, err := c.GetIdentityConfig(c.Ctx(), &identity.GetIdentityConfigRequest{})
+			resp, err := c.GetIdentityServerConfig(c.Ctx(), &identity.GetIdentityServerConfigRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -380,8 +380,8 @@ func Cmds() []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(idp, "idp"))
-	commands = append(commands, GetIdentityConfigCmd())
-	commands = append(commands, SetIdentityConfigCmd())
+	commands = append(commands, GetIdentityServerConfigCmd())
+	commands = append(commands, SetIdentityServerConfigCmd())
 	commands = append(commands, CreateIDPConnectorCmd())
 	commands = append(commands, GetIDPConnectorCmd())
 	commands = append(commands, UpdateIDPConnectorCmd())

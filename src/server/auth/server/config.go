@@ -42,12 +42,12 @@ type canonicalGitHubIDP struct{}
 
 type canonicalOIDCIDP struct {
 	Issuer              string
-	IssuerOverride      string
 	ClientID            string
 	ClientSecret        string
 	RedirectURI         string
 	AdditionalScopes    []string
 	IgnoreEmailVerified bool
+	LocalhostIssuer     bool
 }
 
 type canonicalIDPConfig struct {
@@ -121,7 +121,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				Description: idp.Description,
 				OIDC: &auth.IDProvider_OIDCOptions{
 					Issuer:              idp.OIDC.Issuer,
-					IssuerOverride:      idp.OIDC.IssuerOverride,
+					LocalhostIssuer:     idp.OIDC.LocalhostIssuer,
 					ClientID:            idp.OIDC.ClientID,
 					ClientSecret:        idp.OIDC.ClientSecret,
 					RedirectURI:         idp.OIDC.RedirectURI,
@@ -350,7 +350,7 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 	newIDP.OIDC = &canonicalOIDCIDP{
 		Issuer:              idp.OIDC.Issuer,
-		IssuerOverride:      idp.OIDC.IssuerOverride,
+		LocalhostIssuer:     idp.OIDC.LocalhostIssuer,
 		ClientID:            idp.OIDC.ClientID,
 		ClientSecret:        idp.OIDC.ClientSecret,
 		RedirectURI:         idp.OIDC.RedirectURI,
@@ -363,8 +363,8 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	}
 
 	ctx := context.Background()
-	if idp.OIDC.IssuerOverride != "" {
-		client, err := RewriteClient(idp.OIDC.Issuer, idp.OIDC.IssuerOverride)
+	if idp.OIDC.LocalhostIssuer {
+		client, err := LocalhostRewriteClient(idp.OIDC.Issuer)
 		if err != nil {
 			errors.Wrapf(err, "unable to create OIDC issuer override client")
 		}
@@ -548,12 +548,12 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			a.oidcSP, err = a.NewOIDCSP(
 				idp.Name,
 				idp.OIDC.Issuer,
-				idp.OIDC.IssuerOverride,
 				idp.OIDC.ClientID,
 				idp.OIDC.ClientSecret,
 				idp.OIDC.RedirectURI,
 				idp.OIDC.AdditionalScopes,
-				idp.OIDC.IgnoreEmailVerified)
+				idp.OIDC.IgnoreEmailVerified,
+				idp.OIDC.LocalhostIssuer)
 			if err != nil {
 				return err
 			}

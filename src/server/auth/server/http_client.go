@@ -6,6 +6,9 @@ import (
 	"net/url"
 )
 
+// localhostIdentityServer is the URL we can reach the embedded identity server at
+const localhostIdentityServer = "http://localhost:658/"
+
 // RewriteRoundTripper replaces the expected hostname with a new hostname.
 // If a scheme is specified it's also replaced.
 type RewriteRoundTripper struct {
@@ -13,16 +16,16 @@ type RewriteRoundTripper struct {
 	Rewrite  *url.URL
 }
 
-// RewriteClient returns an http.Client which replaces the host and scheme from `expected` with those from `rewrite`
-func RewriteClient(expected, rewrite string) (*http.Client, error) {
+// LocalhostRewriteClient returns an http.Client which replaces the host and scheme from `expected` with
+func LocalhostRewriteClient(expected string) (*http.Client, error) {
 	expectedURL, err := url.Parse(expected)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse URL %q: %w", expected, err)
 	}
 
-	rewriteURL, err := url.Parse(rewrite)
+	rewriteURL, err := url.Parse(localhostIdentityServer)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse URL %q: %w", rewrite, err)
+		return nil, fmt.Errorf("unable to parse URL %q: %w", localhostIdentityServer, err)
 	}
 
 	if rewriteURL.Host == "" || rewriteURL.Scheme == "" {
