@@ -1,6 +1,7 @@
 package tarutil
 
 import (
+	"archive/tar"
 	"bytes"
 	"io"
 	"os"
@@ -8,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 type File interface {

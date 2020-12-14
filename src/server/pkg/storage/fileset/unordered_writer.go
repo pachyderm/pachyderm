@@ -173,9 +173,9 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memT
 	return uw, nil
 }
 
-// Put reads files from a tar stream and adds them to the fileset.
+// Append reads files from a tar stream and appends them to files in the fileset.
 // TODO: Make overwrite work with tags.
-func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string) error {
+func (uw *UnorderedWriter) Append(r io.Reader, overwrite bool, customTag ...string) error {
 	tag := uw.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
@@ -189,6 +189,10 @@ func (uw *UnorderedWriter) Put(r io.Reader, overwrite bool, customTag ...string)
 			}
 			return err
 		}
+		// TODO: Validate
+		//if err := ppath.ValidatePath(hdr.Name); err != nil {
+		//	return nil, err
+		//}
 		p := Clean(hdr.Name, hdr.FileInfo().IsDir())
 		if hdr.Typeflag == tar.TypeDir {
 			continue

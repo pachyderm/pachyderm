@@ -1,57 +1,43 @@
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	globlib "github.com/pachyderm/ohmyglob"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -63,15 +49,16 @@ const (
 	includeAuth = true
 )
 
+const (
+	storageTaskNamespace = "storage"
+	tmpRepo              = client.TmpRepoName
+	defaultTTL           = client.DefaultTTL
+	maxTTL               = 30 * time.Minute
+)
+
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
-}
-
-func destroyHashtree(tree hashtree.HashTree) {
-	if err := tree.Destroy(); err != nil {
-		log.Infof("failed to destroy hashtree: %v", err)
-	}
 }
 
 // CommitEvent is an event that contains a CommitInfo or an error
@@ -102,42 +89,24 @@ type driver struct {
 	branches       collectionFactory
 	openCommits    col.Collection
 
-	// a cache for hashtrees
-	treeCache *hashtree.Cache
-
-	// storageRoot where we store hashtrees
-	storageRoot string
-
-	// memory limiter (useful for limiting operations that could use a lot of memory)
-	memoryLimiter *semaphore.Weighted
-	// put object limiter (useful for limiting put object requests)
-	putObjectLimiter limit.ConcurrencyLimiter
-	// limits the total parallelism for uploading files over GRPC or loading from external sources
-	putFileLimiter limit.ConcurrencyLimiter
+	storage         *fileset.Storage
+	compactionQueue *work.TaskQueue
 }
 
-// newDriver is used to create a new Driver instance
-func newDriver(
-	env *serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	treeCache *hashtree.Cache,
-	storageRoot string,
-	memoryRequest int64,
-) (*driver, error) {
-	// Validate arguments
-	if treeCache == nil {
-		return nil, errors.Errorf("cannot initialize driver with nil treeCache")
-	}
-	// Initialize driver
+func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
+	// Setup etcd, object storage, and database clients.
 	etcdClient := env.GetEtcdClient()
+	objClient, err := NewObjClient(env.Configuration)
+	if err != nil {
+		return nil, err
+	}
+	// Setup driver struct.
 	d := &driver{
-		env:            env,
-		txnEnv:         txnEnv,
-		etcdClient:     etcdClient,
-		prefix:         etcdPrefix,
-		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
-		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
+		env:        env,
+		txnEnv:     txnEnv,
+		etcdClient: etcdClient,
+		prefix:     etcdPrefix,
+		repos:      pfsdb.Repos(etcdClient, etcdPrefix),
 		commits: func(repo string) col.Collection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
@@ -145,15 +114,26 @@ func newDriver(
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
-		treeCache:   treeCache,
-		storageRoot: storageRoot,
-		// Allow up to a third of the requested memory to be used for memory intensive operations
-		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
-		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
-		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
 		// TODO: set maxFanIn based on downward API.
 	}
-
+	// Setup Postgres.
+	fileset.SetupPostgresStore(db)
+	chunk.SetupPostgresStore(db)
+	track.SetupPostgresTracker(db)
+	// Setup tracker and chunk / fileset storage.
+	tracker := track.NewPostgresTracker(db)
+	chunkStorageOpts, err := env.ChunkStorageOptions()
+	if err != nil {
+		return nil, err
+	}
+	chunkStorage := chunk.NewStorage(objClient, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
+	// Setup compaction queue and worker.
+	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)
+	if err != nil {
+		return nil, err
+	}
+	go d.compactionWorker()
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -166,7 +146,32 @@ func newDriver(
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
+	// Setup PFS master
+	go d.master(env)
 	return d, nil
+}
+
+// TODO: Move this to pachd main.
+func newDB() (db *sqlx.DB, retErr error) {
+	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+	if !ok {
+		return nil, errors.Errorf("postgres service host not found")
+	}
+	postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+	if !ok {
+		return nil, errors.Errorf("postgres service port not found")
+	}
+	postgresPort, err := strconv.Atoi(postgresPortStr)
+	if err != nil {
+		return nil, err
+	}
+	return dbutil.NewDB(dbutil.DBParams{
+		Host:   postgresHost,
+		Port:   postgresPort,
+		User:   "pachyderm",
+		Pass:   "elephantastic",
+		DBName: "pgc",
+	})
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
@@ -243,11 +248,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	}
 }
 
-func (d *driver) inspectRepo(
-	txnCtx *txnenv.TransactionContext,
-	repo *pfs.Repo,
-	includeAuth bool,
-) (*pfs.RepoInfo, error) {
+func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
 	// Validate arguments
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
@@ -295,569 +296,6 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	return resp.Scopes[0], nil
 }
 
-func equalBranches(a, b []*pfs.Branch) bool {
-	aMap := make(map[string]bool)
-	bMap := make(map[string]bool)
-	key := path.Join
-	for _, branch := range a {
-		aMap[key(branch.Repo.Name, branch.Name)] = true
-	}
-	for _, branch := range b {
-		bMap[key(branch.Repo.Name, branch.Name)] = true
-	}
-	if len(aMap) != len(bMap) {
-		return false
-	}
-
-	for k := range aMap {
-		if !bMap[k] {
-			return false
-		}
-	}
-	return true
-}
-
-func equalCommits(a, b []*pfs.Commit) bool {
-	aMap := make(map[string]bool)
-	bMap := make(map[string]bool)
-	key := path.Join
-	for _, commit := range a {
-		aMap[key(commit.Repo.Name, commit.ID)] = true
-	}
-	for _, commit := range b {
-		bMap[key(commit.Repo.Name, commit.ID)] = true
-	}
-	if len(aMap) != len(bMap) {
-		return false
-	}
-
-	for k := range aMap {
-		if !bMap[k] {
-			return false
-		}
-	}
-	return true
-}
-
-// ErrBranchProvenanceTransitivity Branch provenance is not transitively closed.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrBranchProvenanceTransitivity struct {
-	BranchInfo     *pfs.BranchInfo
-	FullProvenance []*pfs.Branch
-}
-
-func (e ErrBranchProvenanceTransitivity) Error() string {
-	var msg strings.Builder
-	msg.WriteString("consistency error: branch provenance was not transitive\n")
-	msg.WriteString("on branch " + e.BranchInfo.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
-	fullMap := make(map[string]*pfs.Branch)
-	provMap := make(map[string]*pfs.Branch)
-	key := path.Join
-	for _, branch := range e.FullProvenance {
-		fullMap[key(branch.Repo.Name, branch.Name)] = branch
-	}
-	provMap[key(e.BranchInfo.Branch.Repo.Name, e.BranchInfo.Name)] = e.BranchInfo.Branch
-	for _, branch := range e.BranchInfo.Provenance {
-		provMap[key(branch.Repo.Name, branch.Name)] = branch
-	}
-	msg.WriteString("the following branches are missing from the provenance:\n")
-	for k, v := range fullMap {
-		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.Name + " in repo " + v.Repo.Name + "\n")
-		}
-	}
-	return msg.String()
-}
-
-// ErrBranchInfoNotFound Branch info could not be found. Typically because of an incomplete deletion of a branch.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrBranchInfoNotFound struct {
-	Branch *pfs.Branch
-}
-
-func (e ErrBranchInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo.Name)
-}
-
-// ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrCommitInfoNotFound struct {
-	Location string
-	Commit   *pfs.Commit
-}
-
-func (e ErrCommitInfoNotFound) Error() string {
-	return fmt.Sprintf("consistency error: the commit %v in repo %v could not be found while checking %v",
-		e.Commit.ID, e.Commit.Repo.Name, e.Location)
-}
-
-// ErrInconsistentCommitProvenance Commit provenance somehow has a branch and commit from different repos.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrInconsistentCommitProvenance struct {
-	CommitProvenance *pfs.CommitProvenance
-}
-
-func (e ErrInconsistentCommitProvenance) Error() string {
-	return fmt.Sprintf("consistency error: the commit provenance has repo %v for the branch but repo %v for the commit",
-		e.CommitProvenance.Branch.Repo.Name, e.CommitProvenance.Commit.Repo.Name)
-}
-
-// ErrHeadProvenanceInconsistentWithBranch The head provenance of a branch does not match the branch's provenance
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrHeadProvenanceInconsistentWithBranch struct {
-	BranchInfo     *pfs.BranchInfo
-	ProvBranchInfo *pfs.BranchInfo
-	HeadCommitInfo *pfs.CommitInfo
-}
-
-func (e ErrHeadProvenanceInconsistentWithBranch) Error() string {
-	var msg strings.Builder
-	msg.WriteString("consistency error: head provenance is not consistent with branch provenance\n")
-	msg.WriteString("on branch " + e.BranchInfo.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
-	msg.WriteString("which has head commit " + e.HeadCommitInfo.Commit.ID + "\n")
-	msg.WriteString("this branch is provenant on the branch " +
-		e.ProvBranchInfo.Name + " in repo " + e.ProvBranchInfo.Branch.Repo.Name + "\n")
-	msg.WriteString("which has head commit " + e.ProvBranchInfo.Head.ID + "\n")
-	msg.WriteString("but this commit is missing from the head commit provenance\n")
-	return msg.String()
-}
-
-// ErrProvenanceTransitivity Commit provenance is not transitively closed.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrProvenanceTransitivity struct {
-	CommitInfo     *pfs.CommitInfo
-	FullProvenance []*pfs.Commit
-}
-
-func (e ErrProvenanceTransitivity) Error() string {
-	var msg strings.Builder
-	msg.WriteString("consistency error: commit provenance was not transitive\n")
-	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
-	fullMap := make(map[string]*pfs.Commit)
-	provMap := make(map[string]*pfs.Commit)
-	key := path.Join
-	for _, prov := range e.FullProvenance {
-		fullMap[key(prov.Repo.Name, prov.ID)] = prov
-	}
-	for _, prov := range e.CommitInfo.Provenance {
-		provMap[key(prov.Commit.Repo.Name, prov.Commit.ID)] = prov.Commit
-	}
-	msg.WriteString("the following commit provenances are missing from the full provenance:\n")
-	for k, v := range fullMap {
-		if _, ok := provMap[k]; !ok {
-			msg.WriteString(v.ID + " in repo " + v.Repo.Name + "\n")
-		}
-	}
-	return msg.String()
-}
-
-// ErrNilCommitInSubvenance Commit provenance somehow has a branch and commit from different repos.
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrNilCommitInSubvenance struct {
-	CommitInfo      *pfs.CommitInfo
-	SubvenanceRange *pfs.CommitRange
-}
-
-func (e ErrNilCommitInSubvenance) Error() string {
-	upper := "<nil>"
-	if e.SubvenanceRange.Upper != nil {
-		upper = e.SubvenanceRange.Upper.ID
-	}
-	lower := "<nil>"
-	if e.SubvenanceRange.Lower != nil {
-		lower = e.SubvenanceRange.Lower.ID
-	}
-	return fmt.Sprintf("consistency error: the commit %v has nil subvenance in the %v - %v range",
-		e.CommitInfo.Commit.ID, lower, upper)
-}
-
-// ErrSubvenanceOfProvenance The commit was not found in its provenance's subvenance
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrSubvenanceOfProvenance struct {
-	CommitInfo     *pfs.CommitInfo
-	ProvCommitInfo *pfs.CommitInfo
-}
-
-func (e ErrSubvenanceOfProvenance) Error() string {
-	var msg strings.Builder
-	msg.WriteString("consistency error: the commit was not in its provenance's subvenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
-	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + e.ProvCommitInfo.Commit.Repo.Name + "\n")
-	return msg.String()
-}
-
-// ErrProvenanceOfSubvenance The commit was not found in its subvenance's provenance
-// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
-type ErrProvenanceOfSubvenance struct {
-	CommitInfo     *pfs.CommitInfo
-	SubvCommitInfo *pfs.CommitInfo
-}
-
-func (e ErrProvenanceOfSubvenance) Error() string {
-	var msg strings.Builder
-	msg.WriteString("consistency error: the commit was not in its subvenance's provenance\n")
-	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
-	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + e.SubvCommitInfo.Commit.Repo.Name + "\n")
-	return msg.String()
-}
-
-// fsck verifies that pfs satisfies the following invariants:
-// 1. Branch provenance is transitive
-// 2. Head commit provenance has heads of branch's branch provenance
-// 3. Commit provenance is transitive
-// 4. Commit provenance and commit subvenance are dual relations
-// If fix is true it will attempt to fix as many of these issues as it can.
-func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
-	ctx := pachClient.Ctx()
-	repos := d.repos.ReadOnly(ctx)
-	key := path.Join
-
-	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
-	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
-
-	// collect all the info for the branches and commits in pfs
-	branchInfos := make(map[string]*pfs.BranchInfo)
-	commitInfos := make(map[string]*pfs.CommitInfo)
-	newCommitInfos := make(map[string]*pfs.CommitInfo)
-	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		commits := d.commits(repoName).ReadOnly(ctx)
-		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-			commitInfos[key(repoName, commitID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			return nil
-		}); err != nil {
-			return err
-		}
-		branches := d.branches(repoName).ReadOnly(ctx)
-		branchInfo := &pfs.BranchInfo{}
-		return branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
-			branchInfos[key(repoName, branchName)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
-			return nil
-		})
-	}); err != nil {
-		return err
-	}
-
-	// for each branch
-	for _, bi := range branchInfos {
-		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
-		// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
-		direct := bi.DirectProvenance
-		union := []*pfs.Branch{bi.Branch}
-		for _, directProvenance := range direct {
-			directProvenanceInfo := branchInfos[key(directProvenance.Repo.Name, directProvenance.Name)]
-			union = append(union, directProvenance)
-			if directProvenanceInfo != nil {
-				union = append(union, directProvenanceInfo.Provenance...)
-			}
-		}
-
-		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			if err := onError(ErrBranchProvenanceTransitivity{
-				BranchInfo:     bi,
-				FullProvenance: union,
-			}); err != nil {
-				return err
-			}
-		}
-
-		// 	if there is a HEAD commit
-		if bi.Head != nil {
-			// we expect the branch's provenance to equal the HEAD commit's provenance
-			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil implies branch.Head.Provenance contains provBranch.Head
-			// =>
-			for _, provBranch := range bi.Provenance {
-				provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
-				if !ok {
-					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
-						return err
-					}
-					continue
-				}
-				if provBranchInfo.Head != nil {
-					// in this case, the headCommit Provenance should contain provBranch.Head
-					headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
-					if !ok {
-						if !fix {
-							if err := onError(ErrCommitInfoNotFound{
-								Location: "head commit provenance (=>)",
-								Commit:   bi.Head,
-							}); err != nil {
-								return err
-							}
-							continue
-						}
-						headCommitInfo = &pfs.CommitInfo{
-							Commit: bi.Head,
-							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-						}
-						commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
-						newCommitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
-						if err := onFix(fmt.Sprintf(
-							"creating commit %s@%s which was missing, but referenced by %s@%s",
-							bi.Head.Repo.Name, bi.Head.ID,
-							bi.Branch.Repo.Name, bi.Branch.Name),
-						); err != nil {
-							return err
-						}
-					}
-					// If this commit was created on an output branch, then we don't expect it to satisfy this invariant
-					// due to the nature of the RunPipeline functionality.
-					if headCommitInfo.Origin != nil && headCommitInfo.Origin.Kind == pfs.OriginKind_AUTO && len(headCommitInfo.Provenance) > 0 {
-						continue
-					}
-					contains := false
-					for _, headProv := range headCommitInfo.Provenance {
-						if provBranchInfo.Head.Repo.Name == headProv.Commit.Repo.Name &&
-							provBranchInfo.Branch.Repo.Name == headProv.Branch.Repo.Name &&
-							provBranchInfo.Name == headProv.Branch.Name &&
-							provBranchInfo.Head.ID == headProv.Commit.ID {
-							contains = true
-						}
-					}
-					if !contains {
-						if err := onError(ErrHeadProvenanceInconsistentWithBranch{
-							BranchInfo:     bi,
-							ProvBranchInfo: provBranchInfo,
-							HeadCommitInfo: headCommitInfo,
-						}); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// for each commit
-	for _, ci := range commitInfos {
-		// ensure that the provenance is transitive
-		directProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
-		transitiveProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
-		for _, prov := range ci.Provenance {
-			// not part of the above invariant, but we want to make sure provenance is self-consistent
-			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
-				if err := onError(ErrInconsistentCommitProvenance{CommitProvenance: prov}); err != nil {
-					return err
-				}
-			}
-			directProvenance = append(directProvenance, prov.Commit)
-			transitiveProvenance = append(transitiveProvenance, prov.Commit)
-			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
-			if !ok {
-				if !fix {
-					if err := onError(ErrCommitInfoNotFound{
-						Location: "provenance transitivity",
-						Commit:   prov.Commit,
-					}); err != nil {
-						return err
-					}
-					continue
-				}
-				provCommitInfo = &pfs.CommitInfo{
-					Commit: prov.Commit,
-					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-				}
-				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
-				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
-				if err := onFix(fmt.Sprintf(
-					"creating commit %s@%s which was missing, but referenced by %s@%s",
-					prov.Commit.Repo.Name, prov.Commit.ID,
-					ci.Commit.Repo.Name, ci.Commit.ID),
-				); err != nil {
-					return err
-				}
-			}
-			for _, provProv := range provCommitInfo.Provenance {
-				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
-			}
-		}
-		if !equalCommits(directProvenance, transitiveProvenance) {
-			if err := onError(ErrProvenanceTransitivity{
-				CommitInfo:     ci,
-				FullProvenance: transitiveProvenance,
-			}); err != nil {
-				return err
-			}
-		}
-	}
-
-	// for each commit
-	for _, ci := range commitInfos {
-		// we expect that the commit is in the subvenance of another commit iff the other commit is in our commit's provenance
-		// i.e. commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
-		// =>
-		for _, prov := range ci.Provenance {
-			if prov.Commit.ID == ci.Commit.ID {
-				continue
-			}
-			contains := false
-			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
-			if !ok {
-				if !fix {
-					if err := onError(ErrCommitInfoNotFound{
-						Location: "provenance for provenance-subvenance duality (=>)",
-						Commit:   prov.Commit,
-					}); err != nil {
-						return err
-					}
-					continue
-				}
-				provCommitInfo = &pfs.CommitInfo{
-					Commit: prov.Commit,
-					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-				}
-				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
-				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
-				if err := onFix(fmt.Sprintf(
-					"creating commit %s@%s which was missing, but referenced by %s@%s",
-					prov.Commit.Repo.Name, prov.Commit.ID,
-					ci.Commit.Repo.Name, ci.Commit.ID),
-				); err != nil {
-					return err
-				}
-			}
-			for _, subvRange := range provCommitInfo.Subvenance {
-				subvCommit := subvRange.Upper
-				// loop through the subvenance range
-				for {
-					if subvCommit == nil {
-						if err := onError(ErrNilCommitInSubvenance{
-							CommitInfo:      provCommitInfo,
-							SubvenanceRange: subvRange,
-						}); err != nil {
-							return err
-						}
-						break // can't continue loop now that subvCommit is nil
-					}
-					subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
-					if !ok {
-						if !fix {
-							if err := onError(ErrCommitInfoNotFound{
-								Location: "subvenance for provenance-subvenance duality (=>)",
-								Commit:   subvCommit,
-							}); err != nil {
-								return err
-							}
-							break // can't continue loop if we can't find this commit
-						}
-						subvCommitInfo = &pfs.CommitInfo{
-							Commit: subvCommit,
-							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-						}
-						commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
-						newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
-						if err := onFix(fmt.Sprintf(
-							"creating commit %s@%s which was missing, but referenced by %s@%s",
-							subvCommit.Repo.Name, subvCommit.ID,
-							ci.Commit.Repo.Name, ci.Commit.ID),
-						); err != nil {
-							return err
-						}
-					}
-					if ci.Commit.ID == subvCommit.ID {
-						contains = true
-					}
-
-					if subvCommit.ID == subvRange.Lower.ID {
-						break // check at the end of the loop so we fsck 'lower' too (inclusive range)
-					}
-					subvCommit = subvCommitInfo.ParentCommit
-				}
-			}
-			if !contains {
-				if err := onError(ErrSubvenanceOfProvenance{
-					CommitInfo:     ci,
-					ProvCommitInfo: provCommitInfo,
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		// <=
-		for _, subvRange := range ci.Subvenance {
-			subvCommit := subvRange.Upper
-			// loop through the subvenance range
-			for {
-				contains := false
-				if subvCommit == nil {
-					if err := onError(ErrNilCommitInSubvenance{
-						CommitInfo:      ci,
-						SubvenanceRange: subvRange,
-					}); err != nil {
-						return err
-					}
-					break // can't continue loop now that subvCommit is nil
-				}
-				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
-				if !ok {
-					if !fix {
-						if err := onError(ErrCommitInfoNotFound{
-							Location: "subvenance for provenance-subvenance duality (<=)",
-							Commit:   subvCommit,
-						}); err != nil {
-							return err
-						}
-						break // can't continue loop if we can't find this commit
-					}
-					subvCommitInfo = &pfs.CommitInfo{
-						Commit: subvCommit,
-						Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
-					}
-					commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
-					newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
-					if err := onFix(fmt.Sprintf(
-						"creating commit %s@%s which was missing, but referenced by %s@%s",
-						subvCommit.Repo.Name, subvCommit.ID,
-						ci.Commit.Repo.Name, ci.Commit.ID),
-					); err != nil {
-						return err
-					}
-				}
-				if ci.Commit.ID == subvCommit.ID {
-					contains = true
-				}
-				for _, subvProv := range subvCommitInfo.Provenance {
-					if ci.Commit.Repo.Name == subvProv.Commit.Repo.Name &&
-						ci.Commit.ID == subvProv.Commit.ID {
-						contains = true
-					}
-				}
-
-				if !contains {
-					if err := onError(ErrProvenanceOfSubvenance{
-						CommitInfo:     ci,
-						SubvCommitInfo: subvCommitInfo,
-					}); err != nil {
-						return err
-					}
-				}
-
-				if subvCommit.ID == subvRange.Lower.ID {
-					break // check at the end of the loop so we fsck 'lower' too (inclusive range)
-				}
-				subvCommit = subvCommitInfo.ParentCommit
-			}
-		}
-	}
-	if fix {
-		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			for _, ci := range newCommitInfos {
-				// We've observed users getting ErrExists from this create,
-				// which doesn't make a lot of sense, but we insulate against
-				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
-					return err
-				}
-			}
-			return nil
-		})
-		return err
-	}
-	return nil
-}
-
 func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
@@ -887,11 +325,11 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
-	// Validate arguments
-	if repo == nil {
-		return errors.New("repo cannot be nil")
+	if err := d.storage.Store().Walk(txnCtx.ClientContext, repo.Name, func(p string) error {
+		return d.storage.Delete(txnCtx.ClientContext, p)
+	}); err != nil {
+		return err
 	}
-
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -1146,21 +584,7 @@ func (d *driver) updateCommitSubvenance(txnCtx *txnenv.TransactionContext, repo 
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
-}
-
-func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
-	branch string, origin *pfs.CommitOrigin, provenance []*pfs.CommitProvenance,
-	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object,
-	started, finished time.Time, sizeBytes uint64) (*pfs.Commit, error) {
-	commit := &pfs.Commit{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, origin, provenance, tree, trees,
-			datums, nil, nil, "", started, finished, sizeBytes)
-		return err
-	})
-	return commit, err
+	return d.makeCommit(txnCtx, ID, parent, branch, nil, provenance, description, time.Time{}, time.Time{}, 0)
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
@@ -1175,6 +599,8 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 //   parent
 // - If only 'parent.ID' is set, and it contains a branch, then the new commit's
 //   parent will be the HEAD of that branch, but the branch will not be moved
+// TODO: Remove the v1 storage data structures from this function, they are not
+// used for now.
 func (d *driver) makeCommit(
 	txnCtx *txnenv.TransactionContext,
 	ID string,
@@ -1182,11 +608,6 @@ func (d *driver) makeCommit(
 	branch string,
 	origin *pfs.CommitOrigin,
 	provenance []*pfs.CommitProvenance,
-	treeRef *pfs.Object,
-	treesRefs []*pfs.Object,
-	datumsRef *pfs.Object,
-	recordFiles []string,
-	records []*pfs.PutFileRecords,
 	description string,
 	started time.Time,
 	finished time.Time,
@@ -1326,7 +747,7 @@ func (d *driver) makeCommit(
 				}
 			}
 
-			if provenanceCount > 0 && treeRef == nil && !hasSpec {
+			if provenanceCount > 0 && !hasSpec {
 				return errors.Errorf("cannot start a commit on an output branch")
 			}
 			// Point 'branch' at the new commit
@@ -1343,53 +764,8 @@ func (d *driver) makeCommit(
 		newCommitInfo.Branch = branchInfo.Branch
 	}
 
-	// 1. Write 'newCommit' to 'openCommits' collection OR
-	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
-	//    "FinishCommit case" above)
-	if treeRef != nil || treesRefs != nil || records != nil || newCommitInfo.Finished != nil {
-		if records != nil {
-			parentTree, err := d.getTreeForCommit(txnCtx, parent)
-			if err != nil {
-				return nil, err
-			}
-			tree, err := parentTree.Copy()
-			if err != nil {
-				return nil, err
-			}
-			defer destroyHashtree(tree)
-			for i, record := range records {
-				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
-					return nil, err
-				}
-			}
-			if err := tree.Hash(); err != nil {
-				return nil, err
-			}
-			treeRef, err = hashtree.PutHashTree(txnCtx.Client, tree)
-			if err != nil {
-				return nil, err
-			}
-			sizeBytes = uint64(tree.FSSize())
-		}
-
-		// at this point, either 'treeRef' is set OR 'newCommit' is tree-less
-		newCommitInfo.Tree = treeRef
-		newCommitInfo.Trees = treesRefs
-		newCommitInfo.Datums = datumsRef
-		newCommitInfo.SizeBytes = sizeBytes
-		if newCommitInfo.Finished == nil {
-			newCommitInfo.Finished = types.TimestampNow()
-		}
-
-		// If we're updating the master branch, also update the repo size (see
-		// "Update repoInfo" below)
-		if branch == "master" {
-			repoInfo.SizeBytes = newCommitInfo.SizeBytes
-		}
-	} else {
-		if err := d.openCommits.ReadWrite(txnCtx.Stm).Put(newCommit.ID, newCommit); err != nil {
-			return nil, err
-		}
+	if err := d.openCommits.ReadWrite(txnCtx.Stm).Put(newCommit.ID, newCommit); err != nil {
+		return nil, err
 	}
 
 	// Update repoInfo (potentially with new branch and new size)
@@ -1547,129 +923,122 @@ func (d *driver) makeCommit(
 	return newCommit, nil
 }
 
-func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
-	// Validate arguments
-	if commit == nil {
-		return errors.New("commit cannot be nil")
+// resolveCommitProvenance resolves a user 'commit' (which may be a commit ID or
+// branch reference) to a commit + branch pair interpreted as commit provenance.
+// If a complete commit provenance is passed in it just uses that.
+// It accepts an STM so that it can be used in a transaction and avoids an
+// inconsistent call to d.inspectCommit()
+func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, error) {
+	if userCommitProvenance == nil {
+		return nil, errors.Errorf("cannot resolve nil commit provenance")
 	}
-	if commit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
+	// resolve the commit in case the commit is actually a branch name
+	userCommitProvInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
+	if err != nil {
+		return nil, err
 	}
+	if userCommitProvenance.Branch == nil || userCommitProvenance.Branch.Name == "" {
+		// if the branch isn't specified, default to using the commit's branch (as long as that isn't nil too)
+		if userCommitProvInfo.Branch != nil {
+			userCommitProvenance.Branch = userCommitProvInfo.Branch
+		}
 
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
+		// but if the original "commit id" was a branch name, use that as the branch instead
+		if userCommitProvInfo.Commit.ID != userCommitProvenance.Commit.ID {
+			userCommitProvenance.Branch.Name = userCommitProvenance.Commit.ID
+			userCommitProvenance.Commit = userCommitProvInfo.Commit
+		}
 	}
+	return userCommitProvenance, nil
+}
+
+func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{commit}
+		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
+	commit = commitInfo.Commit
 	if description != "" {
 		commitInfo.Description = description
 	}
-
-	var parentTree, finishedTree hashtree.HashTree
-	if !empty {
-		// Retrieve the parent commit's tree (to apply writes from etcd or just
-		// compute the size change). If parentCommit.Tree == nil, walk up the branch
-		// until we find a successful commit. Otherwise, require that the immediate
-		// parent of 'commitInfo' is closed, as we use its contents
-		parentCommit := commitInfo.ParentCommit
-		for parentCommit != nil {
-			parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parentCommit)
-			if err != nil {
-				return err
+	commitPath := commitKey(commit)
+	// Run compaction task.
+	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
+		exists := func(p string) (bool, error) {
+			var exists bool
+			if err := d.storage.Store().Walk(m.Ctx(), p, func(_ string) error {
+				exists = true
+				return nil
+			}); err != nil {
+				return false, err
 			}
-			if parentCommitInfo.Tree != nil {
-				break
-			}
-			parentCommit = parentCommitInfo.ParentCommit
+			return exists, nil
 		}
-		parentTree, err = d.getTreeForCommit(txnCtx, parentCommit) // result is empty if parentCommit == nil
+		diffExists, err := exists(path.Join(commitPath, fileset.Diff))
 		if err != nil {
 			return err
 		}
-
-		defer func() {
-			if finishedTree != nil {
-				destroyHashtree(finishedTree)
-			}
-		}()
-
-		if tree == nil {
-			var err error
-			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client, &pfs.File{Commit: commit}, parentTree)
-			if err != nil {
+		if !diffExists {
+			// Compact the commit changes into a diff file set.
+			if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 				return err
 			}
-			// Put the tree to object storage.
-			treeRef, err := hashtree.PutHashTree(txnCtx.Client, finishedTree)
-			if err != nil {
-				return err
-			}
-			commitInfo.Tree = treeRef
-		} else {
-			var err error
-			finishedTree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, tree)
-			if err != nil {
-				return err
-			}
-			commitInfo.Tree = tree
 		}
-		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
-	}
-	commitInfo.Finished = types.TimestampNow()
-	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
-		return err
-	}
-	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
-		return err
-	}
-	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
-	if err != nil {
-		return err
-	}
-	for _, b := range triggeredBranches {
-		if err := txnCtx.PropagateCommit(b, false); err != nil {
+		compactedExists, err := exists(path.Join(commitPath, fileset.Compacted))
+		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished != nil {
-		return errors.Errorf("commit %s has already been finished", commit.FullID())
-	}
-	commitInfo.Trees = trees
-	commitInfo.Datums = datums
-	commitInfo.SizeBytes = size
-	commitInfo.Finished = types.TimestampNow()
-	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
-		return err
-	}
-	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
-		return err
-	}
-	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
-	if err != nil {
-		return err
-	}
-	for _, b := range triggeredBranches {
-		if err := txnCtx.PropagateCommit(b, false); err != nil {
+		if !compactedExists {
+			// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
+			var compactSpec *fileset.CompactSpec
+			if commitInfo.ParentCommit == nil {
+				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
+			} else {
+				parentCommitPath := commitKey(commitInfo.ParentCommit)
+				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
+			}
+			if err != nil {
+				return err
+			}
+			if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+				return err
+			}
+		}
+		// Collect the output size from the file set metadata.
+		var outputSize int64
+		if err := d.storage.Store().Walk(m.Ctx(), path.Join(commitPath, fileset.Compacted), func(p string) error {
+			md, err := d.storage.Store().Get(m.Ctx(), p)
+			if err != nil {
+				return err
+			}
+			outputSize += md.SizeBytes
+			return nil
+		}); err != nil {
 			return err
 		}
-	}
-	return nil
+		commitInfo.SizeBytes = uint64(outputSize)
+		commitInfo.Finished = types.TimestampNow()
+		empty := strings.Contains(commitInfo.Description, pfs.EmptyStr)
+		if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
+			return err
+		}
+		if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+			return err
+		}
+		triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
+		if err != nil {
+			return err
+		}
+		for _, b := range triggeredBranches {
+			if err := txnCtx.PropagateCommit(b, false); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
@@ -1974,6 +1343,14 @@ nextSubvBI:
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+	if commit.GetRepo().GetName() == tmpRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "Temporary Fileset",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
 	ctx := pachClient.Ctx()
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
@@ -2121,20 +1498,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo,
-	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool) ([]*pfs.CommitInfo, error) {
-	var result []*pfs.CommitInfo
-	if err := d.listCommitF(pachClient, repo, to, from, number, reverse, func(ci *pfs.CommitInfo) error {
-		result = append(result, ci)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
-	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, cb func(*pfs.CommitInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
@@ -2207,7 +1571,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 				if reverse {
 					ci = cis[len(cis)-1-i]
 				}
-				if err := f(ci); err != nil {
+				if err := cb(ci); err != nil {
 					return err
 				}
 			}
@@ -2244,7 +1608,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			if err := commits.Get(cursor.ID, &commitInfo); err != nil {
 				return err
 			}
-			if err := f(&commitInfo); err != nil {
+			if err := cb(&commitInfo); err != nil {
 				if errors.Is(err, errutil.ErrBreak) {
 					return nil
 				}
@@ -2257,191 +1621,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	return nil
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance,
-	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
-	// Validate arguments
-	if repo == nil {
-		return errors.New("repo cannot be nil")
-	}
-	if from != nil && from.Repo.Name != repo.Name {
-		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
-	}
-
-	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
-	if err != nil {
-		return err
-	}
-	defer newCommitWatcher.Close()
-	// keep track of the commits that have been sent
-	seen := make(map[string]bool)
-	for {
-		var commitID string
-		commitInfo := &pfs.CommitInfo{}
-		var event *watch.Event
-		var ok bool
-		event, ok = <-newCommitWatcher.Watch()
-		if !ok {
-			return nil
-		}
-		switch event.Type {
-		case watch.EventError:
-			return event.Err
-		case watch.EventPut:
-			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-				return errors.Wrapf(err, "unmarshal")
-			}
-			if commitInfo == nil {
-				return errors.Errorf("commit info is empty for id: %v", commitID)
-			}
-
-			// if provenance is provided, ensure that the returned commits have the commit in their provenance
-			if prov != nil {
-				valid := false
-				for _, cProv := range commitInfo.Provenance {
-					valid = valid || proto.Equal(cProv, prov)
-				}
-				if !valid {
-					continue
-				}
-			}
-
-			if commitInfo.Branch != nil {
-				// if branch is provided, make sure the commit was created on that branch
-				if branch != "" && commitInfo.Branch.Name != branch {
-					continue
-				}
-				// For now, we don't want stats branches to have jobs triggered on them
-				// and this is the simplest way to achieve that. Once we have labels,
-				// we'll use those instead for a more principled approach.
-				if commitInfo.Branch.Name == "stats" {
-					continue
-				}
-			}
-
-			// We don't want to include the `from` commit itself
-			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
-				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
-				if err != nil {
-					return err
-				}
-				if err := f(commitInfo); err != nil {
-					return err
-				}
-				seen[commitInfo.Commit.ID] = true
-			}
-		case watch.EventDelete:
-			continue
-		}
-	}
-}
-
-func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
-	if len(fromCommits) == 0 {
-		return errors.Errorf("fromCommits cannot be empty")
-	}
-
-	// First compute intersection of the fromCommits subvenant commits, those
-	// are the commits we're interested in. Iterate over all commits and keep a
-	// running intersection (in commitsToWatch) of the subvenance of all commits
-	// processed so far
-	commitsToWatch := make(map[string]*pfs.Commit)
-	for i, commit := range fromCommits {
-		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return err
-		}
-		if i == 0 {
-			for _, subvCommit := range commitInfo.Subvenance {
-				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
-			}
-		} else {
-			newCommitsToWatch := make(map[string]*pfs.Commit)
-			for _, subvCommit := range commitInfo.Subvenance {
-				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
-					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
-				}
-			}
-			commitsToWatch = newCommitsToWatch
-		}
-	}
-
-	// Compute a map of repos we're flushing to.
-	toRepoMap := make(map[string]*pfs.Repo)
-	for _, toRepo := range toRepos {
-		toRepoMap[toRepo.Name] = toRepo
-	}
-
-	// Wait for each of the commitsToWatch to be finished.
-
-	// It's possible that downstream commits will create more downstream
-	// commits when they finish due to a trigger firing. To deal with this we
-	// loop while we watch commits and add newly discovered commits to the
-	// commitsToWatch map.
-	watchedCommits := make(map[string]bool)
-	for {
-		if len(watchedCommits) == len(commitsToWatch) {
-			// We've watched every commit so it's time to break.
-			break
-		}
-		additionalCommitsToWatch := make(map[string]*pfs.Commit)
-		for key, commitToWatch := range commitsToWatch {
-			if watchedCommits[key] {
-				continue
-			}
-			watchedCommits[key] = true
-			if len(toRepoMap) > 0 {
-				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
-					continue
-				}
-			}
-			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
-			if err != nil {
-				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
-					continue // just skip this
-				} else if auth.IsErrNotAuthorized(err) {
-					continue // again, just skip (we can't wait on commits we can't access)
-				}
-				return err
-			}
-			if err := f(finishedCommitInfo); err != nil {
-				return err
-			}
-			for _, subvCommit := range finishedCommitInfo.Subvenance {
-				additionalCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
-			}
-		}
-		for key, additionalCommit := range additionalCommitsToWatch {
-			commitsToWatch[key] = additionalCommit
-		}
-	}
-	// Now wait for the root commits to finish. These are not passed to `f`
-	// because it's expecting to just get downstream commits.
-	for _, commit := range fromCommits {
-		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
-		if err != nil {
-			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
-				continue // just skip this
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
-	// Validate arguments
-	if userCommit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if userCommit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit
@@ -2482,11 +1662,16 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			if err := commits.Delete(commit.ID); err != nil {
 				return err
 			}
+			// Delete the commit's filesets
+			if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID)); err != nil {
+				return err
+			}
 			if commit.ID == lower.ID {
 				break // check after deletion so we delete 'lower' (inclusive range)
 			}
 			commit = commitInfo.ParentCommit
 		}
+
 		return nil
 	}
 
@@ -2718,33 +1903,207 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	return nil
 }
 
-// resolveCommitProvenance resolves a user 'commit' (which may be a commit ID or
-// branch reference) to a commit + branch pair interpreted as commit provenance.
-// If a complete commit provenance is passed in it just uses that.
-// It accepts an STM so that it can be used in a transaction and avoids an
-// inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, error) {
-	if userCommitProvenance == nil {
-		return nil, errors.Errorf("cannot resolve nil commit provenance")
-	}
-	// resolve the commit in case the commit is actually a branch name
-	userCommitProvInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
-	if err != nil {
-		return nil, err
-	}
-	if userCommitProvenance.Branch == nil || userCommitProvenance.Branch.Name == "" {
-		// if the branch isn't specified, default to using the commit's branch (as long as that isn't nil too)
-		if userCommitProvInfo.Branch != nil {
-			userCommitProvenance.Branch = userCommitProvInfo.Branch
+// this is a helper function to check if the given provenance has provenance on an input branch
+func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
+	provenanceCount := len(provenance)
+	for _, p := range provenance {
+		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
+		if p.Commit.Repo.Name == ppsconsts.SpecRepo {
+			provenanceCount--
+			break
 		}
+	}
+	return provenanceCount > 0
+}
 
-		// but if the original "commit id" was a branch name, use that as the branch instead
-		if userCommitProvInfo.Commit.ID != userCommitProvenance.Commit.ID {
-			userCommitProvenance.Branch.Name = userCommitProvenance.Commit.ID
-			userCommitProvenance.Commit = userCommitProvInfo.Commit
+func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance, from *pfs.Commit, state pfs.CommitState, cb func(*pfs.CommitInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+	if from != nil && from.Repo.Name != repo.Name {
+		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+	}
+	if err := d.validateRepo(txnCtx.Stm, branch.Repo); err != nil {
+		return err
+	}
+	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
+		return err
+	}
+
+	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
+	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
+	if err != nil {
+		return err
+	}
+	defer newCommitWatcher.Close()
+	// keep track of the commits that have been sent
+	seen := make(map[string]bool)
+	for {
+		var commitID string
+		commitInfo := &pfs.CommitInfo{}
+		var event *watch.Event
+		var ok bool
+		event, ok = <-newCommitWatcher.Watch()
+		if !ok {
+			return nil
+		}
+		switch event.Type {
+		case watch.EventError:
+			return event.Err
+		case watch.EventPut:
+			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
+				return errors.Wrapf(err, "unmarshal")
+			}
+			if commitInfo == nil {
+				return errors.Errorf("commit info is empty for id: %v", commitID)
+			}
+
+			// if provenance is provided, ensure that the returned commits have the commit in their provenance
+			if prov != nil {
+				valid := false
+				for _, cProv := range commitInfo.Provenance {
+					valid = valid || proto.Equal(cProv, prov)
+				}
+				if !valid {
+					continue
+				}
+			}
+
+			if commitInfo.Branch != nil {
+				// if branch is provided, make sure the commit was created on that branch
+				if branch != "" && commitInfo.Branch.Name != branch {
+					continue
+				}
+				// For now, we don't want stats branches to have jobs triggered on them
+				// and this is the simplest way to achieve that. Once we have labels,
+				// we'll use those instead for a more principled approach.
+				if commitInfo.Branch.Name == "stats" {
+					continue
+				}
+			}
+
+			// We don't want to include the `from` commit itself
+			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
+				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
+				if err != nil {
+					return err
+				}
+				if err := cb(commitInfo); err != nil {
+					return err
+				}
+				seen[commitInfo.Commit.ID] = true
+			}
+		case watch.EventDelete:
+			continue
 		}
 	}
-	return userCommitProvenance, nil
+}
+
+func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) error {
+	if len(fromCommits) == 0 {
+		return errors.Errorf("fromCommits cannot be empty")
+	}
+
+	// First compute intersection of the fromCommits subvenant commits, those
+	// are the commits we're interested in. Iterate over all commits and keep a
+	// running intersection (in commitsToWatch) of the subvenance of all commits
+	// processed so far
+	commitsToWatch := make(map[string]*pfs.Commit)
+	for i, commit := range fromCommits {
+		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
+		}
+		if i == 0 {
+			for _, subvCommit := range commitInfo.Subvenance {
+				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			}
+		} else {
+			newCommitsToWatch := make(map[string]*pfs.Commit)
+			for _, subvCommit := range commitInfo.Subvenance {
+				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
+					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+				}
+			}
+			commitsToWatch = newCommitsToWatch
+		}
+	}
+
+	// Compute a map of repos we're flushing to.
+	toRepoMap := make(map[string]*pfs.Repo)
+	for _, toRepo := range toRepos {
+		toRepoMap[toRepo.Name] = toRepo
+	}
+
+	// Wait for each of the commitsToWatch to be finished.
+
+	// It's possible that downstream commits will create more downstream
+	// commits when they finish due to a trigger firing. To deal with this we
+	// loop while we watch commits and add newly discovered commits to the
+	// commitsToWatch map.
+	watchedCommits := make(map[string]bool)
+	for {
+		if len(watchedCommits) == len(commitsToWatch) {
+			// We've watched every commit so it's time to break.
+			break
+		}
+		additionalCommitsToWatch := make(map[string]*pfs.Commit)
+		for key, commitToWatch := range commitsToWatch {
+			if watchedCommits[key] {
+				continue
+			}
+			watchedCommits[key] = true
+			if len(toRepoMap) > 0 {
+				if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
+					continue
+				}
+			}
+			finishedCommitInfo, err := d.inspectCommit(pachClient, commitToWatch, pfs.CommitState_FINISHED)
+			if err != nil {
+				if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+					continue // just skip this
+				} else if auth.IsErrNotAuthorized(err) {
+					continue // again, just skip (we can't wait on commits we can't access)
+				}
+				return err
+			}
+			if err := cb(finishedCommitInfo); err != nil {
+				return err
+			}
+			for _, subvCommit := range finishedCommitInfo.Subvenance {
+				additionalCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
+			}
+		}
+		for key, additionalCommit := range additionalCommitsToWatch {
+			commitsToWatch[key] = additionalCommit
+		}
+	}
+	// Now wait for the root commits to finish. These are not passed to `f`
+	// because it's expecting to just get downstream commits.
+	for _, commit := range fromCommits {
+		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		if err != nil {
+			if errors.As(err, &pfsserver.ErrCommitNotFound{}) {
+				continue // just skip this
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *driver) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) error {
+	ctx := pachClient.Ctx()
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return errors.Errorf("cannot clear finished commit")
+	}
+	return d.storage.Delete(ctx, commitPath(commit))
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one
@@ -2761,9 +2120,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
-	}
-	if err := d.validateRepo(txnCtx.Stm, branch.Repo); err != nil {
-		return err
 	}
 	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
 		return err
@@ -3078,1557 +2434,6 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	return nil
 }
 
-// scratchCommitPrefix returns an etcd prefix that's used to temporarily
-// store the state of a file in an open commit.  Once the commit is finished,
-// the scratch space is removed.
-func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
-	return path.Join(commit.Repo.Name, commit.ID)
-}
-
-// scratchFilePrefix returns an etcd prefix that's used to temporarily
-// store the state of a file in an open commit.  Once the commit is finished,
-// the scratch space is removed.
-func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
-	cleanedPath := path.Clean("/" + file.Path)
-	if err := checkFilePath(cleanedPath); err != nil {
-		return "", err
-	}
-	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
-}
-
-func logPutFileStart(req *pfs.PutFileRequest) {
-	verb := "Writing"
-	if req.Delete {
-		verb = "Deleting"
-	}
-	log.Debugf(`pfs.API.PutFile/%s {"to":%q}`, verb, pretty.CompactPrintFile(req.File))
-}
-
-func logPutFileEnd(req *pfs.PutFileRequest, start time.Time, records *pfs.PutFileRecords, retErr error) {
-	verb := "Wrote"
-	if req.Delete {
-		verb = "Deleted"
-	}
-	var bytes float64
-	if records != nil {
-		for _, r := range records.Records {
-			bytes += float64(r.SizeBytes)
-		}
-	}
-	dur := time.Since(start).Truncate(time.Millisecond)
-	rate := float64(bytes) / dur.Seconds()
-	log.Debugf(`pfs.API.PutFile/%s {"to":%q,"sz":%q,"dur":"%s (%s/s)","err":"%v"`,
-		verb, pretty.CompactPrintFile(req.File), units.BytesSize(bytes), dur, units.BytesSize(rate), retErr)
-}
-
-func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
-	var files []*pfs.File
-	var putFilePaths []string
-	var putFileRecords []*pfs.PutFileRecords
-	var mu sync.Mutex
-	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) (retErr error) {
-		start := time.Now()
-		var records *pfs.PutFileRecords
-		logPutFileStart(req)
-		defer func() { logPutFileEnd(req, start, records, retErr) }() //late binding
-		var err error
-		records, err = d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
-			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
-		if err != nil {
-			return err
-		}
-		mu.Lock()
-		defer mu.Unlock()
-		files = append(files, req.File)
-		putFilePaths = append(putFilePaths, req.File.Path)
-		putFileRecords = append(putFileRecords, records)
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	ctx := pachClient.Ctx()
-	if oneOff {
-		// oneOff puts only work on branches, so we know branch != "". We pass
-		// a commit with no ID, that ID will be filled in with the head of
-		// branch (if it exists).
-		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
-			return err
-		})
-	}
-	for i, file := range files {
-		if err := d.upsertPutFileRecords(pachClient, file, putFileRecords[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	del bool, reader io.Reader) (*pfs.PutFileRecords, error) {
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
-		return nil, err
-	}
-	//  validation -- make sure the various putFileSplit options are coherent
-	hasPutFileOptions := targetFileBytes != 0 || targetFileDatums != 0 || headerRecords != 0
-	if hasPutFileOptions && delimiter == pfs.Delimiter_NONE {
-		return nil, errors.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
-	}
-	records := &pfs.PutFileRecords{}
-	if del {
-		records.Tombstone = true
-		return records, nil
-	}
-	if overwriteIndex != nil && overwriteIndex.Index == 0 {
-		records.Tombstone = true
-	}
-	if err := checkFilePath(file.Path); err != nil {
-		return nil, err
-	}
-	if err := ppath.ValidatePath(file.Path); err != nil {
-		return nil, err
-	}
-
-	if delimiter == pfs.Delimiter_NONE {
-		d.putObjectLimiter.Acquire()
-		defer d.putObjectLimiter.Release()
-		objects, size, err := pachClient.PutObjectSplit(reader)
-		if err != nil {
-			return nil, err
-		}
-
-		// Here we use the invariant that every one but the last object
-		// should have a size of ChunkSize.
-		for i, object := range objects {
-			record := &pfs.PutFileRecord{
-				ObjectHash: object.Hash,
-			}
-
-			if size > pfs.ChunkSize {
-				record.SizeBytes = pfs.ChunkSize
-			} else {
-				record.SizeBytes = size
-			}
-			size -= pfs.ChunkSize
-
-			// The first record takes care of the overwriting
-			if i == 0 && overwriteIndex != nil && overwriteIndex.Index != 0 {
-				record.OverwriteIndex = overwriteIndex
-			}
-
-			records.Records = append(records.Records, record)
-		}
-	} else {
-		var (
-			buffer        = &bytes.Buffer{}
-			datumsWritten int64
-			bytesWritten  int64
-			filesPut      int
-			// Note: this code generally distinguishes between nil header/footer (no
-			// header) and empty header/footer. To create a header-enabled directory
-			// with an empty header, allocate an empty slice & store it here
-			header    []byte
-			footer    []byte
-			EOF       = false
-			eg        errgroup.Group
-			bufioR    = bufio.NewReader(reader)
-			decoder   = json.NewDecoder(bufioR)
-			sqlReader = sql.NewPGDumpReader(bufioR)
-			csvReader = csv.NewReader(bufioR)
-			csvBuffer bytes.Buffer
-			csvWriter = csv.NewWriter(&csvBuffer)
-			// indexToRecord serves as a de-facto slice of PutFileRecords. We can't
-			// use a real slice of PutFileRecords b/c indexToRecord has data appended
-			// to it by concurrent processes, and you can't append() to a slice
-			// concurrently (append() might allocate a new slice while a goro holds an
-			// stale pointer)
-			indexToRecord = make(map[int]*pfs.PutFileRecord)
-			mu            sync.Mutex
-		)
-		csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
-		csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
-		for !EOF {
-			var err error
-			var value []byte
-			var csvRow []string // only used if delimiter == CSV
-			switch delimiter {
-			case pfs.Delimiter_JSON:
-				var jsonValue json.RawMessage
-				err = decoder.Decode(&jsonValue)
-				value = jsonValue
-			case pfs.Delimiter_LINE:
-				value, err = bufioR.ReadBytes('\n')
-			case pfs.Delimiter_SQL:
-				value, err = sqlReader.ReadRow()
-				if errors.Is(err, io.EOF) {
-					if header == nil {
-						header = sqlReader.Header
-					} else {
-						// header contains SQL records if anything, which should come after
-						// the sqlReader header, which creates tables & initializes the DB
-						header = append(sqlReader.Header, header...)
-					}
-					footer = sqlReader.Footer
-				}
-			case pfs.Delimiter_CSV:
-				csvBuffer.Reset()
-				if csvRow, err = csvReader.Read(); err == nil {
-					if err := csvWriter.Write(csvRow); err != nil {
-						return nil, errors.Wrapf(err, "error parsing csv record")
-					}
-					if csvWriter.Flush(); csvWriter.Error() != nil {
-						return nil, errors.Wrapf(csvWriter.Error(), "error copying csv record")
-					}
-					value = csvBuffer.Bytes()
-				}
-			default:
-				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
-			}
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					EOF = true
-				} else {
-					return nil, err
-				}
-			}
-			buffer.Write(value)
-			bytesWritten += int64(len(value))
-			datumsWritten++
-			var (
-				headerDone         = headerRecords == 0 || header != nil
-				headerReady        = !headerDone && datumsWritten >= headerRecords
-				hitFileBytesLimit  = headerDone && targetFileBytes != 0 && bytesWritten >= targetFileBytes
-				hitFileDatumsLimit = headerDone && targetFileDatums != 0 && datumsWritten >= targetFileDatums
-				noLimitsSet        = headerDone && targetFileBytes == 0 && targetFileDatums == 0
-			)
-			if buffer.Len() != 0 &&
-				(headerReady || hitFileBytesLimit || hitFileDatumsLimit || noLimitsSet || EOF) {
-				_buffer := buffer
-				if !headerDone /* implies headerReady || EOF */ {
-					header = _buffer.Bytes() // record header
-				} else {
-					// put contents
-					_bufferLen := int64(_buffer.Len())
-					index := filesPut
-					filesPut++
-					d.memoryLimiter.Acquire(pachClient.Ctx(), _bufferLen)
-					d.putObjectLimiter.Acquire()
-					eg.Go(func() error {
-						defer d.putObjectLimiter.Release()
-						defer d.memoryLimiter.Release(_bufferLen)
-						object, size, err := pachClient.PutObject(_buffer)
-						if err != nil {
-							return err
-						}
-						mu.Lock()
-						defer mu.Unlock()
-						indexToRecord[index] = &pfs.PutFileRecord{
-							SizeBytes:  size,
-							ObjectHash: object.Hash,
-						}
-						return nil
-					})
-				}
-				buffer = &bytes.Buffer{} // can't reset buffer b/c _buffer still in use
-				datumsWritten = 0
-				bytesWritten = 0
-			}
-		}
-		if err := eg.Wait(); err != nil {
-			return nil, err
-		}
-
-		records.Split = true
-		for i := 0; i < len(indexToRecord); i++ {
-			records.Records = append(records.Records, indexToRecord[i])
-		}
-
-		// Put 'header' and 'footer' in PutFileRecords
-		setHeaderFooter := func(value []byte, hf **pfs.PutFileRecord) {
-			// always put empty header, even if 'value' is empty, so
-			// that the parent dir is a header/footer dir
-			*hf = &pfs.PutFileRecord{}
-			if len(value) > 0 {
-				d.putObjectLimiter.Acquire()
-				eg.Go(func() error {
-					defer d.putObjectLimiter.Release()
-					object, size, err := pachClient.PutObject(bytes.NewReader(value))
-					if err != nil {
-						return err
-					}
-					(*hf).SizeBytes = size
-					(*hf).ObjectHash = object.Hash
-					return nil
-				})
-			}
-		}
-		if header != nil {
-			setHeaderFooter(header, &records.Header)
-		}
-		if footer != nil {
-			setHeaderFooter(footer, &records.Footer)
-		}
-		if err := eg.Wait(); err != nil {
-			return nil, err
-		}
-	}
-	return records, nil
-}
-
-func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
-	for i, object := range node.FileNode.Objects {
-		// We only have the whole file size in src file, so mark the first object
-		// as the size of the whole file and all the rest as size 0; applyWrite
-		// will compute the right sum size for the target file
-		// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
-		// only record the sum size of all PutFileRecord messages as well, or
-		// FileNodeProto should record the size of every object
-		var size int64
-		if i == 0 {
-			size = node.SubtreeSize
-		}
-		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
-			SizeBytes:  size,
-			ObjectHash: object.Hash,
-		})
-	}
-	for _, blockRef := range node.FileNode.BlockRefs {
-		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
-			BlockRef:  blockRef,
-			SizeBytes: int64(blockRef.Range.Upper - blockRef.Range.Lower),
-		})
-	}
-}
-
-// headerDirToPutFileRecords is a helper for copyFile that handles copying
-// header/footer directories.
-//
-// Copy uses essentially the same codepath as putFile--it converts hashtree
-// node(s) to PutFileRecords and then uses applyWrite to put the records back
-// in the target hashtree. In putFile, the only way to create a headerDir is
-// with PutFileSplit (PutFileRecord with Split==true). Rather than split the
-// putFile codepath by adding a special case to applyWrite that was valid for
-// copyFile but invalid for putFile, we use heaaderDirToPutFileRecords to
-// convert a DirectoryNode to a PutFileRecord+Split==true, which applyWrite
-// will correctly convert back to a header dir in the target hashtree via the
-// regular putFile codepath.
-func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
-	if tree == nil {
-		return nil, errors.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug)")
-	}
-	if node.DirNode == nil || node.DirNode.Shared == nil {
-		return nil, errors.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
-	}
-	s := node.DirNode.Shared
-	pfr := &pfs.PutFileRecords{
-		Split: true,
-	}
-	if s.Header != nil {
-		pfr.Header = &pfs.PutFileRecord{
-			SizeBytes:  s.HeaderSize,
-			ObjectHash: s.Header.Hash,
-		}
-	}
-	if s.Footer != nil {
-		pfr.Footer = &pfs.PutFileRecord{
-			SizeBytes:  s.FooterSize,
-			ObjectHash: s.Footer.Hash,
-		}
-	}
-	if err := tree.List(path, func(child *hashtree.NodeProto) error {
-		if child.FileNode == nil {
-			return errors.Errorf("header/footer dir contains child subdirectory, " +
-				"which is invalid--header/footer dirs must be created by PutFileSplit")
-		}
-		appendRecords(pfr, child)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return pfr, nil // TODO(msteffen) put something real here
-}
-
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
-	// Validate arguments
-	if src == nil {
-		return errors.New("src cannot be nil")
-	}
-	if src.Commit == nil {
-		return errors.New("src commit cannot be nil")
-	}
-	if src.Commit.Repo == nil {
-		return errors.New("src commit repo cannot be nil")
-	}
-	if dst == nil {
-		return errors.New("dst cannot be nil")
-	}
-	if dst.Commit == nil {
-		return errors.New("dst commit cannot be nil")
-	}
-	if dst.Commit.Repo == nil {
-		return errors.New("dst commit repo cannot be nil")
-	}
-
-	if err := authserver.CheckIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	if err := authserver.CheckIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	if err := checkFilePath(dst.Path); err != nil {
-		return err
-	}
-	if err := ppath.ValidatePath(dst.Path); err != nil {
-		return err
-	}
-	branch := ""
-	if !uuid.IsUUIDWithoutDashes(dst.Commit.ID) {
-		branch = dst.Commit.ID
-	}
-	var dstIsOpenCommit bool
-	if ci, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED); err != nil {
-		if !isNoHeadErr(err) {
-			return err
-		}
-	} else if ci.Finished == nil {
-		dstIsOpenCommit = true
-	}
-	if !dstIsOpenCommit && branch == "" {
-		return pfsserver.ErrCommitFinished{dst.Commit}
-	}
-	var paths []string
-	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic 'put file')
-	if overwrite {
-		if dstIsOpenCommit {
-			if err := d.deleteFile(pachClient, dst); err != nil {
-				return err
-			}
-		} else {
-			paths = append(paths, dst.Path)
-			records = append(records, &pfs.PutFileRecords{Tombstone: true})
-		}
-	}
-	var eg errgroup.Group
-	var srcTree hashtree.HashTree
-	cb := func(walkPath string, node *hashtree.NodeProto) error {
-		relPath, err := filepath.Rel(src.Path, walkPath)
-		if err != nil {
-			return errors.Wrapf(err, "error from filepath.Rel (likely a bug)")
-		}
-		target := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
-		// Populate 'record' appropriately for this node (or skip it)
-		record := &pfs.PutFileRecords{}
-		if node.DirNode != nil && node.DirNode.Shared != nil {
-			var err error
-			record, err = headerDirToPutFileRecords(srcTree, walkPath, node)
-			if err != nil {
-				return err
-			}
-		} else if node.FileNode == nil {
-			return nil
-		} else if node.FileNode.HasHeaderFooter {
-			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
-		} else {
-			appendRecords(record, node)
-		}
-
-		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
-		// to 'records' to be put at the end
-		if dstIsOpenCommit {
-			eg.Go(func() error {
-				return d.upsertPutFileRecords(pachClient, target, record)
-			})
-		} else {
-			paths = append(paths, target.Path)
-			records = append(records, record)
-		}
-		return nil
-	}
-	// This is necessary so we can call filepath.Rel
-	if !strings.HasPrefix(src.Path, "/") {
-		src.Path = "/" + src.Path
-	}
-	srcCi, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if !provenantOnInput(srcCi.Provenance) || srcCi.Tree != nil {
-		// handle input commits
-		srcTree, err = d.getTreeForFile(pachClient, src)
-		if err != nil {
-			return err
-		}
-		defer destroyHashtree(srcTree)
-		if err := srcTree.Walk(src.Path, cb); err != nil {
-			return err
-		}
-	} else {
-		rs, err := d.getTree(pachClient, srcCi, src.Path)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			for _, r := range rs {
-				if err := r.Close(); err != nil && retErr != nil {
-					retErr = err
-				}
-			}
-		}()
-		if err := hashtree.Walk(rs, src.Path, cb); err != nil {
-			return err
-		}
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
-	if !dstIsOpenCommit {
-		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
-			return err
-		})
-	}
-	return nil
-}
-
-func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
-	if commit == nil || commit.ID == "" {
-		return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
-			return hashtree.NewDBHashTree(d.storageRoot)
-		})
-	}
-
-	return d.treeCache.GetOrAdd(commit.ID, func() (hashtree.HashTree, error) {
-		if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
-			return nil, err
-		}
-
-		commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
-		commitInfo := &pfs.CommitInfo{}
-		if err := commits.Get(commit.ID, commitInfo); err != nil {
-			return nil, err
-		}
-		if commitInfo.Finished == nil {
-			return nil, errors.Errorf("cannot read from an open commit")
-		}
-		treeRef := commitInfo.Tree
-
-		if treeRef == nil {
-			return hashtree.NewDBHashTree(d.storageRoot)
-		}
-
-		// read the tree from the block store
-		h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-		if err != nil {
-			return nil, err
-		}
-
-		return h, nil
-	})
-}
-
-func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, path string) (rs []io.ReadCloser, retErr error) {
-	// Determine the hashtree in which the path is located and download the chunk it is in
-	idx := hashtree.PathToTree(path, int64(len(commitInfo.Trees)))
-	r, err := d.downloadTree(pachClient, commitInfo.Trees[idx], path)
-	if err != nil {
-		return nil, err
-	}
-	return []io.ReadCloser{r}, nil
-}
-
-func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, pattern string) (rs []io.ReadCloser, retErr error) {
-	prefix := ppath.GlobLiteralPrefix(pattern)
-	limiter := limit.New(hashtree.DefaultMergeConcurrency)
-	var eg errgroup.Group
-	var mu sync.Mutex
-	// Download each hashtree chunk based on the literal prefix of the pattern
-	for _, object := range commitInfo.Trees {
-		object := object
-		limiter.Acquire()
-		eg.Go(func() (retErr error) {
-			defer limiter.Release()
-			r, err := d.downloadTree(pachClient, object, prefix)
-			if err != nil {
-				return err
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			rs = append(rs, r)
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	return rs, nil
-}
-
-func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (_ uint64, _ uint64, retErr error) {
-	p := path + hashtree.IndexPath
-	r, err := objClient.Reader(ctx, p, 0, 0)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer func() {
-		if err := r.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	idx, err := ioutil.ReadAll(r)
-	if err != nil {
-		return 0, 0, err
-	}
-	return hashtree.GetRangeFromIndex(bytes.NewBuffer(idx), prefix)
-}
-
-// getTreeForFile is like getTreeForCommit except that it can handle open commits.
-// It takes a file instead of a commit so that it can apply the changes for
-// that path to the tree before it returns it. The returned hash tree is not in
-// the treeCache and must be cleaned up by the caller.
-func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (hashtree.HashTree, error) {
-	ctx := pachClient.Ctx()
-	if file.Commit == nil {
-		t, err := hashtree.NewDBHashTree(d.storageRoot)
-		if err != nil {
-			return nil, err
-		}
-		return t, nil
-	}
-
-	var result hashtree.HashTree
-	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		commitInfo, err := d.resolveCommit(txnCtx.Stm, file.Commit)
-		if err != nil {
-			return err
-		}
-		if commitInfo.Finished != nil {
-			t, err := d.getTreeForCommit(txnCtx, file.Commit)
-			if err != nil {
-				return err
-			}
-
-			result, err = t.Copy()
-			return err
-		}
-
-		parentTree, err := d.getTreeForCommit(txnCtx, commitInfo.ParentCommit)
-		if err != nil {
-			return err
-		}
-		result, err = d.getTreeForOpenCommit(txnCtx.Client, file, parentTree)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-// getTreeForOpenCommit obtains the resulting hashtree made by applying the
-// given file to the hashtree of a parent commit. The returned hash tree is not
-// in the treeCache and must be cleaned up by the caller.
-func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.File, parentTree hashtree.HashTree) (result hashtree.HashTree, retErr error) {
-	prefix, err := d.scratchFilePrefix(file)
-	if err != nil {
-		return nil, err
-	}
-	tree, err := parentTree.Copy()
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if retErr != nil {
-			destroyHashtree(tree)
-		}
-	}()
-
-	recordsCol := d.putFileRecords.ReadOnly(pachClient.Ctx())
-	putFileRecords := &pfs.PutFileRecords{}
-	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
-	err = recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
-		return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err := tree.Hash(); err != nil {
-		return nil, err
-	}
-	return tree, nil
-}
-
-// this is a helper function to check if the given provenance has provenance on an input branch
-func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
-	provenanceCount := len(provenance)
-	for _, p := range provenance {
-		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
-		if p.Commit.Repo.Name == ppsconsts.SpecRepo {
-			provenanceCount--
-			break
-		}
-	}
-	return provenanceCount > 0
-}
-
-func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
-	// Validate arguments
-	if file == nil {
-		return nil, errors.New("file cannot be nil")
-	}
-	if file.Commit == nil {
-		return nil, errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return nil, errors.New("file commit repo cannot be nil")
-	}
-
-	ctx := pachClient.Ctx()
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, err
-	}
-	// Handle commits that use the old hashtree format.
-	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
-		if err != nil {
-			return nil, err
-		}
-		defer destroyHashtree(tree)
-		var (
-			pathsFound int
-			objects    []*pfs.Object
-			brs        []*pfs.BlockRef
-			totalSize  uint64
-			footer     *pfs.Object
-			prevDir    string
-		)
-		if err := tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
-			pathsFound++
-			if node.FileNode == nil {
-				return nil
-			}
-
-			// add footer + header for next dir. If a user calls e.g.
-			// 'GetFile("/*/*")', then the output looks like:
-			// [d1 header][d1/1]...[d1/n][d1 footer] [d2 header]...[d2 footer] ...
-			parentPath := path.Dir(p)
-			if parentPath != prevDir {
-				if footer != nil {
-					objects = append(objects, footer)
-				}
-				footer = nil // don't apply footer twice if next dir has no footer
-				prevDir = parentPath
-				if node.FileNode.HasHeaderFooter {
-					// if any child of 'node's parent directory has HasHeaderFooter set,
-					// then they all should
-					parentNode, err := tree.Get(parentPath)
-					if err != nil {
-						return errors.Wrapf(err, "file %q has a header, but could not "+
-							"retrieve parent node at %q to get header content", p, parentPath)
-					}
-					if parentNode.DirNode == nil {
-						return errors.Errorf("parent of %q is not a directory—this is "+
-							"likely an internal error", p)
-					}
-					if parentNode.DirNode.Shared == nil {
-						return errors.Errorf("file %q has a shared header or footer, "+
-							"but parent directory does not permit shared data", p)
-					}
-					if parentNode.DirNode.Shared.Header != nil {
-						objects = append(objects, parentNode.DirNode.Shared.Header)
-					}
-					if parentNode.DirNode.Shared.Footer != nil {
-						footer = parentNode.DirNode.Shared.Footer
-					}
-				}
-			}
-			objects = append(objects, node.FileNode.Objects...)
-			brs = append(brs, node.FileNode.BlockRefs...)
-			totalSize += uint64(node.SubtreeSize)
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-		if footer != nil {
-			objects = append(objects, footer) // apply final footer
-		}
-		if pathsFound == 0 {
-			return nil, pfsserver.ErrFileNotFound{file}
-		}
-
-		// retrieve the content of all objects in 'objects'
-		if len(brs) > 0 {
-			getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
-				ctx,
-				&pfs.GetBlocksRequest{
-					BlockRefs:   brs,
-					OffsetBytes: uint64(offset),
-					SizeBytes:   uint64(size),
-					TotalSize:   uint64(totalSize),
-				})
-			if err != nil {
-				return nil, err
-			}
-			return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
-		}
-		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
-			ctx,
-			&pfs.GetObjectsRequest{
-				Objects:     objects,
-				OffsetBytes: uint64(offset),
-				SizeBytes:   uint64(size),
-				TotalSize:   uint64(totalSize),
-			})
-		if err != nil {
-			return nil, err
-		}
-		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
-	}
-	// Handle commits that use the newer hashtree format.
-	if commitInfo.Finished == nil {
-		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
-	}
-	if commitInfo.Trees == nil {
-		return nil, pfsserver.ErrFileNotFound{file}
-	}
-	var rs []io.ReadCloser
-	// Handles the case when looking for a specific file/directory
-	if !ppath.IsGlob(file.Path) {
-		rs, err = d.getTree(pachClient, commitInfo, file.Path)
-	} else {
-		rs, err = d.getTrees(pachClient, commitInfo, file.Path)
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
-	blockRefs := []*pfs.BlockRef{}
-	var totalSize int64
-	var found bool
-	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil {
-			return nil
-		}
-		blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
-		totalSize += node.SubtreeSize
-		found = true
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, pfsserver.ErrFileNotFound{file}
-	}
-	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
-		ctx,
-		&pfs.GetBlocksRequest{
-			BlockRefs:   blockRefs,
-			OffsetBytes: uint64(offset),
-			SizeBytes:   uint64(size),
-			TotalSize:   uint64(totalSize),
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
-}
-
-// If full is false, exclude potentially large fields such as `Objects`
-// and `Children`
-func nodeToFileInfo(ci *pfs.CommitInfo, path string, node *hashtree.NodeProto, full bool) *pfs.FileInfo {
-	fileInfo := &pfs.FileInfo{
-		File: &pfs.File{
-			Commit: ci.Commit,
-			Path:   path,
-		},
-		SizeBytes: uint64(node.SubtreeSize),
-		Hash:      node.Hash,
-		Committed: ci.Finished,
-	}
-	if node.FileNode != nil {
-		fileInfo.FileType = pfs.FileType_FILE
-		if full {
-			fileInfo.Objects = node.FileNode.Objects
-			fileInfo.BlockRefs = node.FileNode.BlockRefs
-		}
-	} else if node.DirNode != nil {
-		fileInfo.FileType = pfs.FileType_DIR
-		if full {
-			fileInfo.Children = node.DirNode.Children
-		}
-	}
-	return fileInfo
-}
-
-// nodeToFileInfoHeaderFooter is like nodeToFileInfo, but handles the case (which
-// currently only occurs in input commits) where files have a header that is
-// stored in their parent directory
-func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
-	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
-	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
-		return nodeToFileInfo(ci, filePath, node, full), nil
-	}
-	node = proto.Clone(node).(*hashtree.NodeProto)
-	// validate baseFileInfo for logic below--if input hashtrees start using
-	// blockrefs instead of objects, this logic will need to be adjusted
-	if node.FileNode.Objects == nil {
-		return nil, errors.Errorf("input commit node uses blockrefs; cannot apply header")
-	}
-
-	// 'file' includes header from parent—construct synthetic file info that
-	// includes header in list of objects & hash
-	parentPath := path.Dir(filePath)
-	parentNode, err := tree.Get(parentPath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "file %q has a header, but could not "+
-			"retrieve parent node at %q to get header content", filePath,
-			parentPath)
-	}
-	if parentNode.DirNode == nil {
-		return nil, errors.Errorf("parent of %q is not a directory; this is "+
-			"likely an internal error", filePath)
-	}
-	if parentNode.DirNode.Shared == nil {
-		return nil, errors.Errorf("file %q has a shared header or footer, "+
-			"but parent directory does not permit shared data", filePath)
-	}
-
-	s := parentNode.DirNode.Shared
-	var newObjects []*pfs.Object
-	if s.Header != nil {
-		// cap := len+1 => newObjects is right whether or not we append() a footer
-		newL := len(node.FileNode.Objects) + 1
-		newObjects = make([]*pfs.Object, newL, newL+1)
-
-		newObjects[0] = s.Header
-		copy(newObjects[1:], node.FileNode.Objects)
-	} else {
-		newObjects = node.FileNode.Objects
-	}
-	if s.Footer != nil {
-		newObjects = append(newObjects, s.Footer)
-	}
-	node.FileNode.Objects = newObjects
-	node.SubtreeSize += s.HeaderSize + s.FooterSize
-	node.Hash = hashtree.HashFileNode(node.FileNode)
-	return nodeToFileInfo(ci, filePath, node, full), nil
-}
-
-func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
-	if err := validateFile(file); err != nil {
-		return nil, err
-	}
-
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, err
-	}
-	// Handle commits that use the old hashtree format.
-	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, file)
-		if err != nil {
-			return nil, err
-		}
-		defer destroyHashtree(tree)
-		node, err := tree.Get(file.Path)
-		if err != nil {
-			return nil, pfsserver.ErrFileNotFound{file}
-		}
-		return nodeToFileInfoHeaderFooter(commitInfo, file.Path, node, tree, true)
-	}
-	// Handle commits that use the newer hashtree format.
-	if commitInfo.Finished == nil {
-		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
-	}
-	if commitInfo.Trees == nil {
-		return nil, pfsserver.ErrFileNotFound{file}
-	}
-	rs, err := d.getTree(pachClient, commitInfo, file.Path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
-	node, err := hashtree.Get(rs, file.Path)
-	if err != nil {
-		return nil, pfsserver.ErrFileNotFound{file}
-	}
-	return nodeToFileInfo(commitInfo, file.Path, node, true), nil
-}
-
-func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
-	if err := validateFile(file); err != nil {
-		return err
-	}
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	g, err := globlib.Compile(file.Path, '/')
-	if err != nil {
-		// TODO this should be a MalformedGlob error like the hashtree returns
-		return err
-	}
-
-	// Handle commits that use the old hashtree format.
-	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
-		if err != nil {
-			return err
-		}
-		defer destroyHashtree(tree)
-		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
-			if rootNode.DirNode == nil {
-				if history != 0 {
-					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, rootPath), history, f)
-				}
-				fi, err := nodeToFileInfoHeaderFooter(commitInfo, rootPath, rootNode, tree, full)
-				if err != nil {
-					return err
-				}
-				return f(fi)
-			}
-			return tree.List(rootPath, func(node *hashtree.NodeProto) error {
-				path := filepath.Join(rootPath, node.Name)
-				if g.Match(path) {
-					// Don't return the file now, it will be returned later by Glob
-					return nil
-				}
-				if history != 0 {
-					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
-				}
-				fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, full)
-				if err != nil {
-					return err
-				}
-				return f(fi)
-			})
-		})
-	}
-	// Handle commits that use the newer hashtree format.
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
-	}
-	if commitInfo.Trees == nil {
-		return nil
-	}
-	rs, err := d.getTrees(pachClient, commitInfo, file.Path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
-	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		if history != 0 {
-			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
-		}
-		return f(nodeToFileInfo(commitInfo, path, node, full))
-	})
-}
-
-func validateFile(file *pfs.File) error {
-	if file == nil {
-		return errors.New("file cannot be nil")
-	}
-	if file.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
-	return nil
-}
-
-// fileHistory calls f with FileInfos for the file, starting with how it looked
-// at the referenced commit and then all past versions that are different.
-func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, history int64, f func(*pfs.FileInfo) error) error {
-	var fi *pfs.FileInfo
-	for {
-		_fi, err := d.inspectFile(pachClient, file)
-		if err != nil {
-			if errors.As(err, &pfsserver.ErrFileNotFound{}) {
-				return f(fi)
-			}
-			return err
-		}
-		if fi != nil && !bytes.Equal(fi.Hash, _fi.Hash) {
-			if err := f(fi); err != nil {
-				return err
-			}
-			if history > 0 {
-				history--
-				if history == 0 {
-					return nil
-				}
-			}
-		}
-		fi = _fi
-		ci, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return err
-		}
-		if ci.ParentCommit == nil {
-			return f(fi)
-		}
-		file.Commit = ci.ParentCommit
-	}
-}
-
-func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
-	// Validate arguments
-	if file == nil {
-		return errors.New("file cannot be nil")
-	}
-	if file.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
-
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	// Handle commits that use the old hashtree format.
-	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
-		if err != nil {
-			return err
-		}
-		defer destroyHashtree(tree)
-		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
-			if err != nil {
-				return err
-			}
-			return f(fi)
-		})
-	}
-	// Handle commits that use the newer hashtree format.
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
-	}
-	if commitInfo.Trees == nil {
-		return nil
-	}
-	rs, err := d.getTrees(pachClient, commitInfo, file.Path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
-	return hashtree.Walk(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(commitInfo, path, node, false))
-	})
-}
-
-func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) (retErr error) {
-	// Validate arguments
-	if commit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if commit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	// Handle commits that use the old hashtree format.
-	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, client.NewFile(commit.Repo.Name, commit.ID, ""))
-		if err != nil {
-			return err
-		}
-		defer destroyHashtree(tree)
-		globErr := tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
-			if err != nil {
-				return err
-			}
-			return f(fi)
-		})
-		if hashtree.Code(globErr) == hashtree.PathNotFound {
-			// glob pattern is for a file that doesn't exist, no match
-			return nil
-		}
-		return globErr
-	}
-	// Handle commits that use the newer hashtree format.
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
-	}
-	if commitInfo.Trees == nil {
-		return nil
-	}
-	var rs []io.ReadCloser
-	// Handles the case when looking for a specific file/directory
-	if !ppath.IsGlob(pattern) {
-		rs, err = d.getTree(pachClient, commitInfo, pattern)
-	} else {
-		rs, err = d.getTrees(pachClient, commitInfo, pattern)
-	}
-	if err != nil {
-		return err
-	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
-	return hashtree.Glob(rs, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(commitInfo, rootPath, rootNode, false))
-	})
-}
-
-func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
-	// Validate arguments
-	if newFile == nil {
-		return nil, nil, errors.New("file cannot be nil")
-	}
-	if newFile.Commit == nil {
-		return nil, nil, errors.New("file commit cannot be nil")
-	}
-	if newFile.Commit.Repo == nil {
-		return nil, nil, errors.New("file commit repo cannot be nil")
-	}
-
-	// Do READER authorization check for both newFile and oldFile
-	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
-			return nil, nil, err
-		}
-	}
-	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
-			return nil, nil, err
-		}
-	}
-	newTree, err := d.getTreeForFile(pachClient, newFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer destroyHashtree(newTree)
-	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, nil, err
-	}
-	// if oldFile is nil we use the parent of newFile
-	if oldFile == nil {
-		oldFile = &pfs.File{}
-		// ParentCommit may be nil, that's fine because getTreeForCommit
-		// handles nil
-		oldFile.Commit = newCommitInfo.ParentCommit
-		oldFile.Path = newFile.Path
-	}
-	// `oldCommitInfo` may be nil. While `nodeToFileInfoHeaderFooter` called
-	// below expects `oldCommitInfo` to not be nil, it's okay because
-	// `newTree.Diff` won't call its callback unless `oldCommitInfo` is not
-	// `nil`.
-	var oldCommitInfo *pfs.CommitInfo
-	if oldFile.Commit != nil {
-		oldCommitInfo, err = d.inspectCommit(pachClient, oldFile.Commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	oldTree, err := d.getTreeForFile(pachClient, oldFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer destroyHashtree(oldTree)
-	var newFileInfos []*pfs.FileInfo
-	var oldFileInfos []*pfs.FileInfo
-	recursiveDepth := -1
-	if shallow {
-		recursiveDepth = 1
-	}
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, isNewFile bool) error {
-		if isNewFile {
-			fi, err := nodeToFileInfoHeaderFooter(newCommitInfo, path, node, newTree, false)
-			if err != nil {
-				return err
-			}
-			newFileInfos = append(newFileInfos, fi)
-		} else {
-			fi, err := nodeToFileInfoHeaderFooter(oldCommitInfo, path, node, oldTree, false)
-			if err != nil {
-				return err
-			}
-			oldFileInfos = append(oldFileInfos, fi)
-		}
-		return nil
-	}); err != nil {
-		return nil, nil, err
-	}
-	return newFileInfos, oldFileInfos, nil
-}
-
-func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error {
-	// Validate arguments
-	if file == nil {
-		return errors.New("file cannot be nil")
-	}
-	if file.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
-
-	if err := authserver.CheckIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	if err := checkFilePath(file.Path); err != nil {
-		return err
-	}
-	branch := ""
-	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
-		branch = file.Commit.ID
-	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished != nil {
-		if branch == "" {
-			return pfsserver.ErrCommitFinished{file.Commit}
-		}
-		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
-			return err
-		})
-	}
-
-	return d.upsertPutFileRecords(pachClient, file, &pfs.PutFileRecords{Tombstone: true})
-}
-
-func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
-	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
-	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
-	if err != nil {
-		return err
-	}
-	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *driver) deleteAllSplitTransaction(pachClient *client.APIClient) error {
-	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
-	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(pachClient, !includeAuth)
-	if err != nil {
-		return err
-	}
-	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := d.deleteRepoSplitTransaction(pachClient.Ctx(), repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
-		}
-	}
-	return nil
-}
-
-// Put the tree into the blob store
-// Only write the records to etcd if the commit does exist and is open.
-// To check that a key exists in etcd, we assert that its CreateRevision
-// is greater than zero.
-func (d *driver) upsertPutFileRecords(
-	pachClient *client.APIClient,
-	file *pfs.File,
-	newRecords *pfs.PutFileRecords,
-) error {
-	prefix, err := d.scratchFilePrefix(file)
-	if err != nil {
-		return err
-	}
-
-	ctx := pachClient.Ctx()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commitsCol := d.openCommits.ReadWrite(stm)
-		var commit pfs.Commit
-		err := commitsCol.Get(file.Commit.ID, &commit)
-		if err != nil {
-			return err
-		}
-		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
-		// to denote that the current commit is indeed open
-		if commit.ID != file.Commit.ID {
-			return errors.Errorf("commit %v is not open", file.Commit.ID)
-		}
-		recordsCol := d.putFileRecords.ReadWrite(stm)
-		var existingRecords pfs.PutFileRecords
-		return recordsCol.Upsert(prefix, &existingRecords, func() error {
-			if newRecords.Tombstone {
-				existingRecords.Tombstone = true
-				existingRecords.Records = nil
-			}
-			existingRecords.Split = newRecords.Split
-			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-			existingRecords.Header = newRecords.Header
-			existingRecords.Footer = newRecords.Footer
-			return nil
-		})
-	})
-	return err
-}
-
-func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.HashTree) error {
-	// a map that keeps track of the sizes of objects
-	sizeMap := make(map[string]int64)
-
-	if records.Tombstone {
-		if err := tree.DeleteFile(key); err != nil {
-			return err
-		}
-	}
-	if !records.Split {
-		if len(records.Records) == 0 {
-			return nil
-		}
-		for _, record := range records.Records {
-			sizeMap[record.ObjectHash] = record.SizeBytes
-			if record.OverwriteIndex != nil {
-				// Computing size delta
-				delta := record.SizeBytes
-				fileNode, err := tree.Get(key)
-				if err == nil {
-					// If we can't find the file, that's fine.
-					for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
-						delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
-					}
-				}
-
-				if record.ObjectHash != "" {
-					if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-						return err
-					}
-				} else if record.BlockRef != nil {
-					if err := tree.PutFileOverwriteBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.OverwriteIndex, delta); err != nil {
-						return err
-					}
-				}
-			} else {
-				if record.ObjectHash != "" {
-					if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
-					}
-				} else if record.BlockRef != nil {
-					if err := tree.PutFileBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	} else {
-		nodes, err := tree.ListAll(key)
-		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
-			return err
-		}
-		var indexOffset int64
-		if len(nodes) > 0 {
-			indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
-			if err != nil {
-				return errors.Errorf("error parsing filename %s as int, this likely means you're "+
-					"using split on a directory which contains other data that wasn't put with split",
-					path.Base(nodes[len(nodes)-1].Name))
-			}
-			indexOffset++ // start writing to the file after the last file
-		}
-
-		// Upsert parent directory w/ headers if needed
-		// (hashtree.PutFileHeaderFooter requires it to already exist)
-		if records.Header != nil || records.Footer != nil {
-			var headerObj, footerObj *pfs.Object
-			var headerSize, footerSize int64
-			if records.Header != nil {
-				headerObj = client.NewObject(records.Header.ObjectHash)
-				headerSize = records.Header.SizeBytes
-			}
-			if records.Footer != nil {
-				footerObj = client.NewObject(records.Footer.ObjectHash)
-				footerSize = records.Footer.SizeBytes
-			}
-			if err := tree.PutDirHeaderFooter(
-				key, headerObj, footerObj, headerSize, footerSize); err != nil {
-				return err
-			}
-		}
-
-		// Put individual objects into hashtree
-		for i, record := range records.Records {
-			if records.Header != nil || records.Footer != nil {
-				if err := tree.PutFileHeaderFooter(
-					path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
-					[]*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
-				}
-			} else {
-				if record.ObjectHash != "" {
-					if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
-					}
-				} else if record.BlockRef != nil {
-					if err := tree.PutFileBlockRefs(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
@@ -4685,6 +2490,22 @@ func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pf
 	}
 }
 
+func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
+	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
+	// deleted here. Instead, PPS is responsible for deleting and re-creating it
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos.RepoInfo {
+		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+// TODO: Is this really necessary?
 type branchSet []*pfs.Branch
 
 func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
@@ -4731,264 +2552,4 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-type putFileServer struct {
-	pfs.API_PutFileServer
-	req *pfs.PutFileRequest
-}
-
-func newPutFileServer(s pfs.API_PutFileServer) *putFileServer {
-	return &putFileServer{API_PutFileServer: s}
-}
-
-func (s *putFileServer) Recv() (*pfs.PutFileRequest, error) {
-	if s.req != nil {
-		req := s.req
-		s.req = nil
-		return req, nil
-	}
-	return s.API_PutFileServer.Recv()
-}
-
-func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
-	if s.req != nil {
-		return s.req, nil
-	}
-	req, err := s.Recv()
-	if err != nil {
-		return nil, err
-	}
-	s.req = req
-	return req, nil
-}
-
-func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, retErr error) {
-
-	var pl = newPathLock(d.putFileLimiter)
-	var pr *io.PipeReader
-	var pw *io.PipeWriter
-	var req *pfs.PutFileRequest
-	var eg errgroup.Group
-	var rawCommitID string
-	var commitID string
-
-	// Always make sure we've closed any hanging pipes and that our callbacks finish
-	defer func() {
-		// Closing the pipes should be the trigger to cancel any still-running callbacks
-		if pw != nil {
-			if retErr != nil {
-				pw.CloseWithError(retErr)
-			} else {
-				pw.Close()
-			}
-		}
-
-		err := eg.Wait()
-		if retErr == nil && !errors.Is(err, io.EOF) {
-			retErr = err
-		}
-	}()
-
-	var err error
-	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
-		req := req
-		if req.File != nil {
-			if req.File.Commit == nil {
-				return false, "", "", errors.New("file commit cannot be nil")
-			}
-			if req.File.Commit.Repo == nil {
-				return false, "", "", errors.New("file commit repo cannot be nil")
-			}
-
-			// For the first file, dereference the commit ID if needed. For
-			// subsequent files, ensure that they're all referencing the same
-			// commit ID, and replace their commit objects to all refer to the
-			// same thing.
-			if rawCommitID == "" {
-				commit := req.File.Commit
-				repo = commit.Repo.Name
-				// The non-dereferenced commit ID. Used to ensure that all
-				// subsequent requests use the same value.
-				rawCommitID = commit.ID
-				// inspectCommit will replace file.Commit.ID with an actual
-				// commit ID if it's a branch. So we want to save it first.
-				if !uuid.IsUUIDWithoutDashes(commit.ID) {
-					branch = commit.ID
-				}
-				// inspect the commit where we're adding files and figure out
-				// if this is a one-off 'put file'.
-				// - if 'commit' refers to an open commit                -> not oneOff
-				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
-				// Note that if commit is a specific commit ID, it must be
-				// open for this call to succeed
-				commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-				if err != nil {
-					if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
-						return false, "", "", err
-					}
-					oneOff = true
-				}
-				if commitInfo != nil && commitInfo.Finished != nil {
-					if branch == "" {
-						return false, "", "", pfsserver.ErrCommitFinished{commit}
-					}
-					oneOff = true
-				}
-				commitID = commit.ID
-			} else if req.File.Commit.ID != rawCommitID {
-				err = errors.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
-				return false, "", "", err
-			} else if req.File.Commit.Repo.Name != repo {
-				err = errors.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
-				return false, "", "", err
-			} else {
-				req.File.Commit.ID = commitID
-			}
-
-			if req.Url != "" {
-				url, err := url.Parse(req.Url)
-				if err != nil {
-					return false, "", "", err
-				}
-				switch url.Scheme {
-				case "http":
-					fallthrough
-				case "https":
-					resp, err := http.Get(req.Url)
-					if err != nil {
-						return false, "", "", err
-					} else if resp.StatusCode >= 400 {
-						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
-					}
-					if err := pl.start(req.File.Path); err != nil {
-						resp.Body.Close() // drop error as we're failing anyway
-						return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
-					}
-					eg.Go(func() (retErr error) {
-						defer func() {
-							if err := resp.Body.Close(); err != nil && retErr == nil {
-								retErr = err
-							}
-							if err := pl.finish(req.File.Path); err != nil && retErr == nil {
-								retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
-							}
-						}()
-						return f(req, resp.Body)
-					})
-				default:
-					url, err := obj.ParseURL(req.Url)
-					if err != nil {
-						err = errors.Wrapf(err, "error parsing url %v", req.Url)
-						return false, "", "", err
-					}
-					objClient, err := obj.NewClientFromURLAndSecret(url, false)
-					if err != nil {
-						return false, "", "", err
-					}
-					if req.Recursive {
-						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(server.Context(), path, func(name string) error {
-							if strings.HasSuffix(name, "/") {
-								// Creating a file with a "/" suffix breaks
-								// pfs' directory model, so we don't
-								log.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
-							}
-							req := *req // copy req so we can make changes
-							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(server.Context(), name, 0, 0)
-							if err != nil {
-								return err
-							}
-							if err := pl.start(req.File.Path); err != nil {
-								r.Close() // drop error as we're failing anyway
-								return errors.Wrapf(err, "could not lock path %q", req.File.Path)
-							}
-							eg.Go(func() (retErr error) {
-								defer func() {
-									if err := r.Close(); err != nil && retErr == nil {
-										retErr = err
-									}
-									if err := pl.finish(req.File.Path); err != nil && retErr == nil {
-										retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
-									}
-								}()
-								return f(&req, r)
-							})
-							return nil
-						}); err != nil {
-							return false, "", "", err
-						}
-					} else {
-						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
-						if err != nil {
-							return false, "", "", err
-						}
-						if err := pl.start(req.File.Path); err != nil {
-							r.Close() // drop error as we're failing anyway
-							return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
-						}
-						eg.Go(func() (retErr error) {
-							defer func() {
-								if err := r.Close(); err != nil && retErr == nil {
-									retErr = err
-								}
-								if err := pl.finish(req.File.Path); err != nil && retErr == nil {
-									retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
-								}
-							}()
-							return f(req, r)
-						})
-					}
-				}
-				continue
-			}
-			// Close the previous 'put file' if there is one
-			if pw != nil {
-				pw.Close() // can't error
-			}
-			if req.Delete {
-				if err := pl.start(req.File.Path); err != nil {
-					return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
-				}
-				eg.Go(func() (retErr error) {
-					defer func() {
-						if err := pl.finish(req.File.Path); err != nil && retErr == nil {
-							retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
-						}
-					}()
-					return f(req, nil)
-				})
-				continue
-			}
-			pr, pw = io.Pipe()
-			pr := pr
-			if err := pl.start(req.File.Path); err != nil {
-				return false, "", "", errors.Wrapf(err, "could not lock path %q", req.File.Path)
-			}
-			eg.Go(func() (retErr error) {
-				defer func() {
-					if err := pl.finish(req.File.Path); err != nil && retErr == nil {
-						retErr = errors.Wrapf(err, "could not unlock path %q", req.File.Path)
-					}
-				}()
-				if err := f(req, pr); err != nil {
-					// needed so the parent goroutine doesn't block
-					pr.CloseWithError(err)
-					return err
-				}
-				return nil
-			})
-		}
-		if pw == nil {
-			return false, "", "", errors.New("must send a request with a file first")
-		}
-		if _, err := pw.Write(req.Value); err != nil {
-			return false, "", "", err
-		}
-	}
-	if err != nil && !errors.Is(err, io.EOF) {
-		return false, "", "", err
-	}
-	return oneOff, repo, branch, nil
 }

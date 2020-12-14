@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -46,6 +47,29 @@ func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string
 	hash.Write([]byte(pipelineName))
 	hash.Write([]byte(pipelineSalt))
 
+	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
+}
+
+// DatumIDV2 computes the ID of a datum.
+// TODO: This needs more discussion.
+func DatumIDV2(inputs []*Input) string {
+	var files []string
+	for _, input := range inputs {
+		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
+	}
+	return strings.Join(files, "-")
+}
+
+// HashDatumV2 computes the hash of a datum.
+func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*Input) string {
+	hash := sha256.New()
+	for _, input := range inputs {
+		hash.Write([]byte(input.Name))
+		hash.Write([]byte(input.FileInfo.File.Path))
+		hash.Write([]byte(input.FileInfo.Hash))
+	}
+	hash.Write([]byte(pipelineName))
+	hash.Write([]byte(pipelineSalt))
 	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 

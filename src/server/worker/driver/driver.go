@@ -117,9 +117,11 @@ type Driver interface {
 	// data, then runs the pipeline's configured code. It uses a mutex to enforce
 	// that this is not done concurrently, and may block.
 	RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+	RunUserCodeV2(context.Context, logs.TaggedLogger, []string) error
 
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+	RunUserErrorHandlingCodeV2(context.Context, logs.TaggedLogger, []string) error
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
@@ -148,6 +150,8 @@ type Driver interface {
 	WithDatumCache(func(*hashtree.MergeCache, *hashtree.MergeCache) error) error
 
 	Egress(commit *pfs.Commit, egressURL string) error
+
+	StorageV2() bool
 }
 
 type driver struct {
@@ -187,6 +191,8 @@ type driver struct {
 	// These caches are used for storing and merging hashtrees from jobs until the
 	// job is complete
 	chunkCaches, chunkStatsCaches cache.WorkerCache
+
+	storageV2 bool
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -201,30 +207,13 @@ func NewDriver(
 	hashtreePath string,
 	rootPath string,
 	namespace string,
+	storageV2 bool,
 ) (Driver, error) {
 
 	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
-	chunkCachePath := filepath.Join(hashtreePath, "chunk")
-	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
-
-	// Delete the hashtree path (if it exists) in case it is left over from a previous run
-	if err := os.RemoveAll(chunkCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
 	if err != nil {
 		logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
@@ -232,20 +221,41 @@ func NewDriver(
 	}
 
 	result := &driver{
-		pipelineInfo:     pipelineInfo,
-		pachClient:       pachClient,
-		etcdClient:       etcdClient,
-		etcdPrefix:       etcdPrefix,
-		activeDataMutex:  &sync.Mutex{},
-		jobs:             ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:        ppsdb.Pipelines(etcdClient, etcdPrefix),
-		numShards:        numShards,
-		rootDir:          rootPath,
-		inputDir:         pfsPath,
-		hashtreeDir:      hashtreePath,
-		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
-		chunkStatsCaches: cache.NewWorkerCache(chunkStatsCachePath),
-		namespace:        namespace,
+		pipelineInfo:    pipelineInfo,
+		pachClient:      pachClient,
+		etcdClient:      etcdClient,
+		etcdPrefix:      etcdPrefix,
+		activeDataMutex: &sync.Mutex{},
+		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
+		numShards:       numShards,
+		rootDir:         rootPath,
+		inputDir:        pfsPath,
+		hashtreeDir:     hashtreePath,
+		namespace:       namespace,
+		storageV2:       storageV2,
+	}
+
+	if !storageV2 {
+		chunkCachePath := filepath.Join(hashtreePath, "chunk")
+		chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+
+		// Delete the hashtree path (if it exists) in case it is left over from a previous run
+		if err := os.RemoveAll(chunkCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.RemoveAll(chunkStatsCachePath); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+
+		if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		result.chunkCaches = cache.NewWorkerCache(chunkCachePath)
+		result.chunkStatsCaches = cache.NewWorkerCache(chunkStatsCachePath)
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -417,6 +427,10 @@ func (d *driver) ChunkCaches() cache.WorkerCache {
 
 func (d *driver) ChunkStatsCaches() cache.WorkerCache {
 	return d.chunkStatsCaches
+}
+
+func (d *driver) StorageV2() bool {
+	return d.storageV2
 }
 
 // This is broken out into its own function because its scope is small and it
@@ -707,14 +721,6 @@ func (d *driver) RunUserCode(
 	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)
 	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
-	logger.Logf("beginning to run user code")
-	defer func(start time.Time) {
-		if retErr != nil {
-			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
-		} else {
-			logger.Logf("finished running user code after %v", time.Since(start))
-		}
-	}(time.Now())
 	if rawDatumTimeout != nil {
 		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
 		if err != nil {
@@ -724,7 +730,22 @@ func (d *driver) RunUserCode(
 		defer cancel()
 		ctx = datumTimeoutCtx
 	}
+	return d.runUserCode(ctx, logger, environ)
+}
 
+func (d *driver) runUserCode(
+	ctx context.Context,
+	logger logs.TaggedLogger,
+	environ []string,
+) (retErr error) {
+	logger.Logf("beginning to run user code")
+	defer func(start time.Time) {
+		if retErr != nil {
+			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished running user code after %v", time.Since(start))
+		}
+	}(time.Now())
 	if len(d.pipelineInfo.Transform.Cmd) == 0 {
 		return errors.New("invalid pipeline transform, no command specified")
 	}
@@ -784,9 +805,29 @@ func (d *driver) RunUserCode(
 	return nil
 }
 
+func (d *driver) RunUserCodeV2(
+	ctx context.Context,
+	logger logs.TaggedLogger,
+	environ []string,
+) (retErr error) {
+	return d.runUserCode(ctx, logger, environ)
+}
+
 // Run user error code and return the combined output of stdout and stderr.
-func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-	ctx := d.pachClient.Ctx()
+func (d *driver) RunUserErrorHandlingCode(
+	logger logs.TaggedLogger,
+	environ []string,
+	procStats *pps.ProcessStats,
+	rawDatumTimeout *types.Duration,
+) (retErr error) {
+	return d.runUserErrorHandlingCode(d.pachClient.Ctx(), logger, environ)
+}
+
+func (d *driver) runUserErrorHandlingCode(
+	ctx context.Context,
+	logger logs.TaggedLogger,
+	environ []string,
+) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -847,6 +888,14 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 		return errors.EnsureStack(err)
 	}
 	return nil
+}
+
+func (d *driver) RunUserErrorHandlingCodeV2(
+	ctx context.Context,
+	logger logs.TaggedLogger,
+	environ []string,
+) error {
+	return d.runUserErrorHandlingCode(ctx, logger, environ)
 }
 
 func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {

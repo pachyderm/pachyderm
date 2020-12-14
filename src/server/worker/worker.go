@@ -54,6 +54,7 @@ func NewWorker(
 	namespace string,
 	hashtreePath string,
 	rootPath string,
+	storageV2 bool,
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
@@ -70,6 +71,7 @@ func NewWorker(
 		hashtreePath,
 		rootPath,
 		namespace,
+		storageV2,
 	)
 	if err != nil {
 		return nil, err
@@ -120,22 +122,24 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		// Clean the driver hashtree cache for any jobs that are deleted
-		eg.Go(func() error {
-			return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-				var key string
-				jobInfo := &pps.EtcdJobInfo{}
-				if err := e.Unmarshal(&key, jobInfo); err != nil {
-					return err
-				}
+		if !w.driver.StorageV2() {
+			// Clean the driver hashtree cache for any jobs that are deleted
+			eg.Go(func() error {
+				return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+					var key string
+					jobInfo := &pps.EtcdJobInfo{}
+					if err := e.Unmarshal(&key, jobInfo); err != nil {
+						return err
+					}
 
-				if e.Type == watch.EventDelete || (e.Type == watch.EventPut && ppsutil.IsTerminal(jobInfo.State)) {
-					driver.ChunkCaches().RemoveCache(key)
-					driver.ChunkStatsCaches().RemoveCache(key)
-				}
-				return nil
+					if e.Type == watch.EventDelete || (e.Type == watch.EventPut && ppsutil.IsTerminal(jobInfo.State)) {
+						driver.ChunkCaches().RemoveCache(key)
+						driver.ChunkStatsCaches().RemoveCache(key)
+					}
+					return nil
+				})
 			})
-		})
+		}
 
 		// Run any worker tasks that the master creates
 		eg.Go(func() error {
@@ -143,6 +147,9 @@ func (w *Worker) worker() {
 				ctx,
 				func(ctx context.Context, subtask *work.Task) error {
 					driver := w.driver.WithContext(ctx)
+					if w.driver.StorageV2() {
+						return transform.WorkerV2(driver, logger, subtask, w.status)
+					}
 					return transform.Worker(driver, logger, subtask, w.status)
 				},
 			)
@@ -216,6 +223,9 @@ func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 		case driver.PipelineInfo().Spout != nil:
 			return "spout", spout.Run
 		default:
+			if driver.StorageV2() {
+				return "transform", transform.RunV2
+			}
 			return "transform", transform.Run
 		}
 	}()

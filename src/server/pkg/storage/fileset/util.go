@@ -1,6 +1,7 @@
 package fileset
 
 import (
+	"archive/tar"
 	"context"
 	"io"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 )
 

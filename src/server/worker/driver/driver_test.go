@@ -74,6 +74,7 @@ func withTestEnv(cb func(*testEnv)) error {
 			filepath.Clean(filepath.Join(env.Directory, "hashtrees")),
 			filepath.Clean(filepath.Join(env.Directory, "pfs")),
 			"namespace",
+			false,
 		)
 		if err != nil {
 			return err

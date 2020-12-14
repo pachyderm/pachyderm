@@ -14,6 +14,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/cache"
@@ -28,7 +29,8 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd:        []string{"cp", "inputRepo/*", "out"},
+			Cmd:        []string{"bash"},
+			Stdin:      []string{"cp inputRepo/* out"},
 			WorkingDir: client.PPSInputPrefix,
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
@@ -108,8 +110,14 @@ func (td *testDriver) UserCodeEnv(job string, commit *pfs.Commit, inputs []*comm
 func (td *testDriver) RunUserCode(logger logs.TaggedLogger, env []string, stats *pps.ProcessStats, d *types.Duration) error {
 	return td.inner.RunUserCode(logger, env, stats, d)
 }
+func (td *testDriver) RunUserCodeV2(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+	return td.inner.RunUserCodeV2(ctx, logger, env)
+}
 func (td *testDriver) RunUserErrorHandlingCode(logger logs.TaggedLogger, env []string, stats *pps.ProcessStats, d *types.Duration) error {
 	return td.inner.RunUserErrorHandlingCode(logger, env, stats, d)
+}
+func (td *testDriver) RunUserErrorHandlingCodeV2(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+	return td.inner.RunUserErrorHandlingCodeV2(ctx, logger, env)
 }
 func (td *testDriver) DeleteJob(stm col.STM, ji *pps.EtcdJobInfo) error {
 	return td.inner.DeleteJob(stm, ji)
@@ -135,14 +143,16 @@ func (td *testDriver) ChunkStatsCaches() cache.WorkerCache {
 func (td *testDriver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) error {
 	return td.inner.WithDatumCache(cb)
 }
-
 func (td *testDriver) Egress(commit *pfs.Commit, egressURL string) error {
 	return nil
+}
+func (td *testDriver) StorageV2() bool {
+	return td.inner.StorageV2()
 }
 
 // withTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
+func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	return testpachd.WithRealEnv(func(realEnv *testpachd.RealEnv) error {
 		logger := logs.NewMockLogger()
 		workerDir := filepath.Join(realEnv.Directory, "worker")
@@ -154,6 +164,7 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 			filepath.Join(workerDir, "hashtrees"),
 			workerDir,
 			"namespace",
+			false,
 		)
 		if err != nil {
 			return err
@@ -170,5 +181,5 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 		}
 
 		return cb(env)
-	})
+	}, customConfig...)
 }

@@ -67,6 +67,9 @@ func NewAPIServer(
 	}
 	apiServer.validateKube()
 	go apiServer.master()
+	if env.StorageV2 {
+		return newAPIServerV2(apiServer), nil
+	}
 	return apiServer, nil
 }
 
