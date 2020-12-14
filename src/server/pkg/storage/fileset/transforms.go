@@ -5,33 +5,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
-
-var _ FileSet = &headerFilter{}
-
-type headerFilter struct {
-	pred func(th *tar.Header) bool
-	x    FileSet
-}
-
-// NewHeaderFilter filters x using pred
-func NewHeaderFilter(x FileSet, pred func(th *tar.Header) bool) FileSet {
-	return &headerFilter{x: x, pred: pred}
-}
-
-func (hf *headerFilter) Iterate(ctx context.Context, cb func(File) error) error {
-	return hf.x.Iterate(ctx, func(fr File) error {
-		th, err := fr.Header()
-		if err != nil {
-			return err
-		}
-		if hf.pred(th) {
-			return cb(fr)
-		}
-		return nil
-	})
-}
 
 var _ FileSet = &indexFilter{}
 
@@ -45,7 +19,7 @@ func NewIndexFilter(x FileSet, pred func(idx *index.Index) bool) FileSet {
 	return &indexFilter{x: x, pred: pred}
 }
 
-func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error) error {
+func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	return fil.x.Iterate(ctx, func(fr File) error {
 		idx := fr.Index()
 		if fil.pred(idx) {
@@ -55,60 +29,39 @@ func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error) error 
 	})
 }
 
-// NewDeleteFilter creates an index filter that filters out deleted files.
-func NewDeleteFilter(x FileSet) FileSet {
-	return NewIndexFilter(x, func(idx *index.Index) bool {
-		if idx.FileOp.Op == index.Op_DELETE {
-			return false
-		}
-		if len(idx.FileOp.DataRefs) == 0 && len(getDataRefs(idx.FileOp.DataOps)) == 0 {
-			return false
-		}
-		return true
-	})
-}
+var _ FileSet = &indexMapper{}
 
-var _ FileSet = &headerMapper{}
-
-type headerMapper struct {
-	fn func(th *tar.Header) *tar.Header
+type indexMapper struct {
+	fn func(idx *index.Index) *index.Index
 	x  FileSet
 }
 
-// NewHeaderMapper filters x using pred
-func NewHeaderMapper(x FileSet, fn func(*tar.Header) *tar.Header) FileSet {
-	return &headerMapper{x: x, fn: fn}
+// NewIndexMapper performs a map operation on the index entries of the files in the file set.
+func NewIndexMapper(x FileSet, fn func(*index.Index) *index.Index) FileSet {
+	return &indexMapper{x: x, fn: fn}
 }
 
-func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error) error {
-	return hm.x.Iterate(ctx, func(fr File) error {
-		x, err := fr.Header()
-		if err != nil {
-			return err
-		}
-		y := hm.fn(x)
-		return cb(headerMap{
-			header: y,
-			inner:  fr,
+func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
+	return im.x.Iterate(ctx, func(fr File) error {
+		y := im.fn(fr.Index())
+		return cb(&indexMap{
+			idx:   y,
+			inner: fr,
 		})
 	})
 }
 
-var _ File = headerMap{}
+var _ File = &indexMap{}
 
-type headerMap struct {
-	header *tar.Header
-	inner  File
+type indexMap struct {
+	idx   *index.Index
+	inner File
 }
 
-func (hm headerMap) Index() *index.Index {
-	return nil
+func (im *indexMap) Index() *index.Index {
+	return im.idx
 }
 
-func (hm headerMap) Header() (*tar.Header, error) {
-	return hm.header, nil
-}
-
-func (hm headerMap) Content(w io.Writer) error {
-	return hm.inner.Content(w)
+func (im *indexMap) Content(w io.Writer) error {
+	return im.inner.Content(w)
 }

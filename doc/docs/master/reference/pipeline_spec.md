@@ -591,7 +591,7 @@ supported.
 If you want to expose an output repository through an S3
 gateway, see [S3 Output Repository](#s3-output-repository).
 
-`input.pfs.trigger
+`input.pfs.trigger`
 Specifies a trigger that must be met for the pipeline to trigger on this input.
 To learn more about triggers read the
 [deferred process docs](../concepts/advanced-concepts/deferred_processing.md).

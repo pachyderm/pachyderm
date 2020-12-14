@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,7 +34,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -541,6 +539,11 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}
 	}
 
+	// If the request sets the root token, always auth as the root user
+	if req.RootToken != "" {
+		req.Subject = auth.RootUser
+	}
+
 	switch {
 	case req.Subject == "":
 		fallthrough
@@ -556,6 +559,8 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
 		}
 		req.Subject = username
+	case strings.HasPrefix(req.Subject, auth.PachPrefix):
+		fallthrough
 	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
 		// req.Subject will be used verbatim, and the resulting code will
 		// authenticate the holder as the robot account therein
@@ -594,9 +599,15 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, err
 	}
 
-	// Generate a new Pachyderm token (as the caller is authenticating) and
+	// If the token hash was in the request, use it and return an empty response.
+	// Otherwise generate a new random token.
+	pachToken := req.RootToken
+	if pachToken == "" {
+		pachToken = uuid.NewWithoutDashes()
+	}
+
+	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize admins (watchAdmins() above will see the write)
-	pachToken := uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
@@ -607,7 +618,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return err
 		}
 		return tokens.PutTTL(
-			hashToken(pachToken),
+			auth.HashToken(pachToken),
 			&auth.TokenInfo{
 				Subject: req.Subject,
 				Source:  auth.TokenInfo_AUTHENTICATE,
@@ -1015,7 +1026,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		pachToken = uuid.NewWithoutDashes()
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(hashToken(pachToken),
+			return tokens.PutTTL(auth.HashToken(pachToken),
 				&auth.TokenInfo{
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
@@ -1053,7 +1064,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		pachToken = uuid.NewWithoutDashes()
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(hashToken(pachToken),
+			return tokens.PutTTL(auth.HashToken(pachToken),
 				&auth.TokenInfo{
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
@@ -1067,7 +1078,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
 			otps := a.oneTimePasswords.ReadWrite(stm)
-			key := hashToken(req.OneTimePassword)
+			key := auth.HashToken(req.OneTimePassword)
 			var otpInfo auth.OTPInfo
 			if err := otps.Get(key, &otpInfo); err != nil {
 				if col.IsErrNotFound(err) {
@@ -1105,7 +1116,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 
 			// write long-lived pachyderm token
 			pachToken = uuid.NewWithoutDashes()
-			return a.tokens.ReadWrite(stm).PutTTL(hashToken(pachToken), &auth.TokenInfo{
+			return a.tokens.ReadWrite(stm).PutTTL(auth.HashToken(pachToken), &auth.TokenInfo{
 				Subject: otpInfo.Subject,
 				Source:  auth.TokenInfo_AUTHENTICATE,
 			}, ttl)
@@ -1154,7 +1165,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		pachToken = uuid.NewWithoutDashes()
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(hashToken(pachToken),
+			return tokens.PutTTL(auth.HashToken(pachToken),
 				&auth.TokenInfo{
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
@@ -1176,11 +1187,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 }
 
 func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
-	token, err := getAuthToken(ctx)
+	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return 0, err
 	}
-	ttl, err := a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+	ttl, err := a.tokens.ReadOnly(ctx).TTL(auth.HashToken(token)) // lookup token TTL
 	if err != nil {
 		return 0, errors.Wrapf(err, "error looking up TTL for token")
 	}
@@ -1328,7 +1339,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otp
 	// Generate and store new OTP
 	code = "otp/" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.oneTimePasswords.ReadWrite(stm).PutTTL(hashToken(code),
+		return a.oneTimePasswords.ReadWrite(stm).PutTTL(auth.HashToken(code),
 			otpInfo, otpTTL)
 	}); err != nil {
 		return "", err
@@ -1432,11 +1443,11 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
 	if callerInfo.Subject != ppsUser {
-		token, err := getAuthToken(ctx)
+		token, err := auth.GetAuthToken(ctx)
 		if err != nil {
 			return nil, err
 		}
-		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+		ttl, err = a.tokens.ReadOnly(ctx).TTL(auth.HashToken(token)) // lookup token TTL
 		if err != nil {
 			return nil, errors.Wrapf(err, "error looking up TTL for token")
 		}
@@ -2018,9 +2029,6 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 		// get tokens for all existing pipelines during activation
 		return nil, auth.ErrNotActivated
 	}
-	if req.Subject == ppsUser {
-		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
-	}
 
 	// Get current caller and authorize them if req.Subject is set to a different
 	// user
@@ -2048,6 +2056,11 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 			}
 		}
 		return nil, err
+	}
+
+	// TODO: switch the ppsUser to have the `pach:` prefix to simplify this case
+	if req.Subject == ppsUser || strings.HasPrefix(req.Subject, auth.PachPrefix) {
+		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 
 	// Compute TTL for new token that the user will get once OTP is exchanged
@@ -2087,7 +2100,7 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(hashToken(token), &tokenInfo, req.TTL); err != nil {
+	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL); err != nil {
 		if tokenInfo.Subject != ppsUser {
 			return nil, errors.Wrapf(err, "error storing token for user \"%s\"", tokenInfo.Subject)
 		}
@@ -2161,14 +2174,14 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 
 		// Actually look up the request token in the relevant collections
 		var tokenInfo auth.TokenInfo
-		if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+		if err := tokens.Get(auth.HashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
 		if tokenInfo.Subject == "" {
 			return auth.ErrBadToken
 		}
 
-		ttl, err := tokens.TTL(hashToken(req.Token))
+		ttl, err := tokens.TTL(auth.HashToken(req.Token))
 		if err != nil {
 			return errors.Wrapf(err, "error looking up TTL for token")
 		}
@@ -2182,7 +2195,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 				ExistingTTL: ttl,
 			}
 		}
-		return tokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
+		return tokens.PutTTL(auth.HashToken(req.Token), &tokenInfo, req.TTL)
 	}); err != nil {
 		return nil, err
 	}
@@ -2217,7 +2230,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 
 	tokens := a.tokens.ReadWrite(txnCtx.Stm)
 	var tokenInfo auth.TokenInfo
-	if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
+	if err := tokens.Get(auth.HashToken(req.Token), &tokenInfo); err != nil {
 		if !col.IsErrNotFound(err) {
 			return nil, err
 		}
@@ -2228,7 +2241,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 			AdminOp: "RevokeAuthToken on another user's token",
 		}
 	}
-	if err := tokens.Delete(hashToken(req.Token)); err != nil {
+	if err := tokens.Delete(auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
 	return &auth.RevokeAuthTokenResponse{}, nil
@@ -2539,33 +2552,11 @@ func setToList(set map[string]bool) []string {
 	return list
 }
 
-// hashToken converts a token to a cryptographic hash.
-// We don't want to store tokens verbatim in the database, as then whoever
-// that has access to the database has access to all tokens.
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return fmt.Sprintf("%x", sum)
-}
-
-// getAuthToken extracts the auth token embedded in 'ctx', if there is on
-func getAuthToken(ctx context.Context) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", auth.ErrNoMetadata
-	}
-	if len(md[auth.ContextTokenKey]) > 1 {
-		return "", errors.Errorf("multiple authentication token keys found in context")
-	} else if len(md[auth.ContextTokenKey]) == 0 {
-		return "", auth.ErrNotSignedIn
-	}
-	return md[auth.ContextTokenKey][0], nil
-}
-
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, error) {
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
-	token, err := getAuthToken(ctx)
+	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2581,7 +2572,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 
 	// Lookup the token
 	var tokenInfo auth.TokenInfo
-	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokenInfo); err != nil {
+	if err := a.tokens.ReadOnly(ctx).Get(auth.HashToken(token), &tokenInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrBadToken
 		}
@@ -2655,6 +2646,8 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 			return "", err
 		}
 	case auth.PipelinePrefix, auth.RobotPrefix:
+		break
+	case auth.PachPrefix:
 		break
 	default:
 		return "", errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
@@ -2801,4 +2794,130 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		return nil, err
 	}
 	return &auth.SetConfigurationResponse{}, nil
+}
+
+func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest) (resp *auth.ExtractAuthTokensResponse, retErr error) {
+	switch a.activationState() {
+	case none:
+		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
+	}
+
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+
+	// Get calling user. The user must be an admin to extract auth tokens.
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "ExtractAuthTokens",
+		}
+	}
+
+	extracted := make([]*auth.HashedAuthToken, 0)
+
+	tokens := a.tokens.ReadOnly(ctx)
+	var val auth.TokenInfo
+	if err := tokens.List(&val, col.DefaultOptions, func(hash string) error {
+		// Only extract robot tokens
+		if !strings.HasPrefix(val.Subject, auth.RobotPrefix) {
+			return nil
+		}
+
+		ttl, err := tokens.TTL(hash)
+		if err != nil {
+			return err
+		}
+
+		token := &auth.HashedAuthToken{
+			HashedToken: hash,
+			TokenInfo: &auth.TokenInfo{
+				Subject: val.Subject,
+				Source:  val.Source,
+			},
+		}
+		if ttl != -1 {
+			expiration, err := types.TimestampProto(time.Now().Add(time.Second * time.Duration(ttl)))
+			if err != nil {
+				return err
+			}
+			token.Expiration = expiration
+		}
+		extracted = append(extracted, token)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &auth.ExtractAuthTokensResponse{Tokens: extracted}, nil
+}
+
+func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (resp *auth.RestoreAuthTokenResponse, retErr error) {
+	switch a.activationState() {
+	case none:
+		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
+	}
+
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+
+	// Get calling user. The user must be an admin to restore an auth token
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "RestoreAuthToken",
+		}
+	}
+
+	var ttl int64
+	if req.Token.Expiration != nil {
+		ts, err := types.TimestampFromProto(req.Token.Expiration)
+		if err != nil {
+			return nil, err
+		}
+		ttl = int64(time.Until(ts).Seconds())
+		if ttl < 0 {
+			return nil, auth.ErrExpiredToken
+		}
+	}
+
+	// Check whether the token hash already exists - we don't want to replace an existing token
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		tokens := a.tokens.ReadWrite(stm)
+		var existing auth.TokenInfo
+		err := tokens.Get(req.Token.HashedToken, &existing)
+		if err == nil {
+			return errors.New("cannot overwrite existing token with same hash")
+		} else if err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+
+		return tokens.PutTTL(req.Token.HashedToken,
+			req.Token.TokenInfo,
+			ttl)
+	}); err != nil {
+		return nil, errors.Wrapf(err, "error restoring auth token")
+	}
+	return &auth.RestoreAuthTokenResponse{}, nil
 }

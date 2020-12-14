@@ -20,7 +20,7 @@ type indexResolver struct {
 	fs FileSet
 }
 
-func (ir *indexResolver) Iterate(ctx context.Context, cb func(File) error) error {
+func (ir *indexResolver) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	iter := NewIterator(ctx, ir.fs)
 	w := ir.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
 		f, err := iter.Next()
