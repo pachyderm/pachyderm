@@ -52,7 +52,7 @@ If Pachyderm does not find any matching files, you get a zero-datum job.
 
 You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
-[List Datum](../../datum/glob-pattern/#test-a-glob-pattern).
+[List Datum](../../datum/glob-pattern/#test-your-datums).
 
 ## Example
 
