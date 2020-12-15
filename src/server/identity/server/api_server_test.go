@@ -23,11 +23,11 @@ func TestAuthNotActivated(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	client := tu.GetPachClient(t)
-	_, err := client.SetIdentityConfig(client.Ctx(), &identity.SetIdentityConfigRequest{})
+	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
-	_, err = client.GetIdentityConfig(client.Ctx(), &identity.GetIdentityConfigRequest{})
+	_, err = client.GetIdentityServerConfig(client.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
 
@@ -87,13 +87,13 @@ func TestUserNotAdmin(t *testing.T) {
 	alice := tu.UniqueString("alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
-	_, err := aliceClient.SetIdentityConfig(aliceClient.Ctx(), &identity.SetIdentityConfigRequest{})
+	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call SetIdentityConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call SetIdentityServerConfig", alice), err.Error())
 
-	_, err = aliceClient.GetIdentityConfig(aliceClient.Ctx(), &identity.GetIdentityConfigRequest{})
+	_, err = aliceClient.GetIdentityServerConfig(aliceClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call GetIdentityConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call GetIdentityServerConfig", alice), err.Error())
 
 	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
@@ -161,8 +161,8 @@ func TestSetConfiguration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = adminClient.SetIdentityConfig(adminClient.Ctx(), &identity.SetIdentityConfigRequest{
-		Config: &identity.IdentityConfig{
+	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
+		Config: &identity.IdentityServerConfig{
 			Issuer: "http://localhost:30658/",
 		},
 	})
@@ -170,7 +170,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	// Block until the web server has restarted with the right config
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := adminClient.GetIdentityConfig(adminClient.Ctx(), &identity.GetIdentityConfigRequest{})
+		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
 			"http://localhost:30658/", resp.Config.Issuer,

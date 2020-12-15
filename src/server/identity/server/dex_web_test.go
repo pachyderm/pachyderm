@@ -87,7 +87,7 @@ func TestConfigureIssuer(t *testing.T) {
 	require.Equal(t, "", oidcConfig["issuer"].(string))
 
 	// reconfigure the issuer, the server should reload and serve the new issuer value
-	server.updateConfig(identity.IdentityConfig{Issuer: "http://example.com:1234"})
+	server.updateConfig(identity.IdentityServerConfig{Issuer: "http://example.com:1234"})
 
 	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
