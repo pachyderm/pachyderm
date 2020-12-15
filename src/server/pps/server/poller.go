@@ -14,18 +14,18 @@ import (
 )
 
 // startPipelinePoller starts a new goroutine running pollPipelines
-func (a *apiServer) startPipelinePoller(ppsMasterClient *client.APIClient) {
-	a.pollPipelinesMu.Lock()
-	defer a.pollPipelinesMu.Unlock()
-	a.pollCancel = startMonitorThread(ppsMasterClient, "pollPipelines", a.pollPipelines)
+func (m *ppsMaster) startPipelinePoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	m.pollCancel = m.startMonitorThread("pollPipelines", m.pollPipelines)
 }
 
-func (a *apiServer) cancelPipelinePoller() {
-	a.pollPipelinesMu.Lock()
-	defer a.pollPipelinesMu.Unlock()
-	if a.pollCancel != nil {
-		a.pollCancel()
-		a.pollCancel = nil
+func (m *ppsMaster) cancelPipelinePoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	if m.pollCancel != nil {
+		m.pollCancel()
+		m.pollCancel = nil
 	}
 }
 
@@ -35,7 +35,7 @@ func (a *apiServer) cancelPipelinePoller() {
 // avoid reentrancy deadlock.                                               //
 //////////////////////////////////////////////////////////////////////////////
 
-func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
+func (m *ppsMaster) pollPipelines(pachClient *client.APIClient) {
 	ctx := pachClient.Ctx()
 	etcdPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, func() error {
@@ -48,7 +48,7 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 			// CreatePipeline(foo) were to run between querying etcd and querying k8s,
 			// then we might delete the RC for brand-new pipeline 'foo'). Even if we
 			// do delete a live pipeline's RC, it'll be fixed in the next cycle)
-			kc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.env.Namespace)
+			kc := m.a.env.GetKubeClient().CoreV1().ReplicationControllers(m.a.env.Namespace)
 			rcs, err := kc.List(metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
 			})
@@ -60,7 +60,7 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 
 			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
 			// etcd. Note that there may be zero, and etcdPipelines may be empty
-			if err := a.listPipelinePtr(pachClient, nil, 0,
+			if err := m.a.listPipelinePtr(pachClient, nil, 0,
 				func(pipeline string, _ *pps.EtcdPipelineInfo) error {
 					etcdPipelines[pipeline] = true
 					return nil
@@ -80,7 +80,7 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
 					if !etcdPipelines[pipeline] {
-						if err := a.deletePipelineResources(ctx, pipeline); err != nil {
+						if err := m.deletePipelineResources(pipeline); err != nil {
 							// log the error but don't return it, so that one broken RC doesn't
 							// block pollPipelines
 							log.Errorf("could not delete resources for %q: %v", pipeline, err)
@@ -96,7 +96,7 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 			// pipeline 'foo's monitorPipeline goro).  However, the next run through
 			// this loop will restore it, by generating an etcd event for 'foo', which
 			// will cause the pipeline controller to restart monitorPipeline(foo).
-			a.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
+			m.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
 
 			// 5. Retry if there are no etcd pipelines to read/write
 			if len(etcdPipelines) == 0 {
@@ -122,8 +122,8 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 		// generate an etcd event for 'pipeline' by reading it & writing it back
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
 		var curPI pps.EtcdPipelineInfo
-		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Update(pipeline, &curPI,
+		_, err := col.NewSTM(ctx, m.a.env.GetEtcdClient(), func(stm col.STM) error {
+			return m.a.pipelines.ReadWrite(stm).Update(pipeline, &curPI,
 				func() error { /* no modification, just r+w */ return nil })
 		})
 		if col.IsErrNotFound(err) {

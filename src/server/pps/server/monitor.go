@@ -61,19 +61,19 @@ const crashingBackoff = time.Second * 15
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (a *apiServer) startMonitor(ppsMasterClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	if _, ok := a.monitorCancels[pipeline]; !ok {
-		a.monitorCancels[pipeline] = startMonitorThread(ppsMasterClient,
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if _, ok := m.monitorCancels[pipeline]; !ok {
+		m.monitorCancels[pipeline] = m.startMonitorThread(
 			"monitorPipeline for "+pipeline, func(pachClient *client.APIClient) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// blockCommit
 				// TODO(msteffen): run the pipeline monitor as the pipeline user, rather
 				// than as the PPS superuser
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					a.monitorPipeline(superUserClient, pipelineInfo)
+				if err := m.a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					m.monitorPipeline(superUserClient, pipelineInfo)
 					return nil
 				}); err != nil {
 					log.Errorf("error monitoring %q: %v", pipeline, err)
@@ -83,13 +83,13 @@ func (a *apiServer) startMonitor(ppsMasterClient *client.APIClient, pipelineInfo
 }
 
 // cancelMonitor cancels the monitorPipeline goroutine for 'pipeline'. See
-// a.startMonitor().
-func (a *apiServer) cancelMonitor(pipeline string) {
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	if cancel, ok := a.monitorCancels[pipeline]; ok {
+// m.startMonitor().
+func (m *ppsMaster) cancelMonitor(pipeline string) {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if cancel, ok := m.monitorCancels[pipeline]; ok {
 		cancel()
-		delete(a.monitorCancels, pipeline)
+		delete(m.monitorCancels, pipeline)
 	}
 }
 
@@ -99,43 +99,43 @@ func (a *apiServer) cancelMonitor(pipeline string) {
 // Every crashing pipeline has a corresponding goro running
 // monitorCrashingPipeline that checks to see if the issues have resolved
 // themselves and moves the pipeline out of crashing if they have.
-func (a *apiServer) startCrashingMonitor(ppsMasterClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) startCrashingMonitor(parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	if _, ok := a.crashingMonitorCancels[pipeline]; !ok {
-		a.crashingMonitorCancels[pipeline] = startMonitorThread(ppsMasterClient,
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if _, ok := m.crashingMonitorCancels[pipeline]; !ok {
+		m.crashingMonitorCancels[pipeline] = m.startMonitorThread(
 			"monitorCrashingPipeline for "+pipeline,
 			func(pachClient *client.APIClient) {
-				a.monitorCrashingPipeline(pachClient, parallelism, pipelineInfo)
+				m.monitorCrashingPipeline(pachClient, parallelism, pipelineInfo)
 			})
 	}
 }
 
 // cancelCrashingMonitor cancels the monitorCrashingPipeline goroutine for
-// 'pipeline'. See a.startCrashingMonitor().
-func (a *apiServer) cancelCrashingMonitor(pipeline string) {
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	if cancel, ok := a.crashingMonitorCancels[pipeline]; ok {
+// 'pipeline'. See m.startCrashingMonitor().
+func (m *ppsMaster) cancelCrashingMonitor(pipeline string) {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	if cancel, ok := m.crashingMonitorCancels[pipeline]; ok {
 		cancel()
-		delete(a.crashingMonitorCancels, pipeline)
+		delete(m.crashingMonitorCancels, pipeline)
 	}
 }
 
 // cancelAllMonitorsAndCrashingMonitors overlaps with cancelMonitor and
 // cancelCrashingMonitor, but also iterates over the existing members of
-// a.{crashingM,m}onitorCancels in the critical section, so that all monitors
+// m.{crashingM,m}onitorCancels in the critical section, so that all monitors
 // can be cancelled without the risk that a new monitor is added between
 // cancellations.
 //
 // 'leave' indicates pipelines whose monitorPipeline goros shouldn't be
 // cancelled. It's set by pollPipelines, which does not cancel any pipeline in
 // etcd at the time that it runs
-func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) {
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	for _, monitorMap := range []map[string]func(){a.monitorCancels, a.crashingMonitorCancels} {
+func (m *ppsMaster) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) {
+	m.monitorCancelsMu.Lock()
+	defer m.monitorCancelsMu.Unlock()
+	for _, monitorMap := range []map[string]func(){m.monitorCancels, m.crashingMonitorCancels} {
 		remove := make([]string, 0, len(monitorMap))
 		for p := range monitorMap {
 			if !leave[p] {
@@ -166,11 +166,11 @@ func (a *apiServer) cancelAllMonitorsAndCrashingMonitors(leave map[string]bool) 
 // and startPipelinePoller (in poller.go). It doesn't manipulate any of
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
-func startMonitorThread(parentPachClient *client.APIClient, name string, f func(pachClient *client.APIClient)) func() {
-	childCtx, cancel := context.WithCancel(parentPachClient.Ctx())
+func (m *ppsMaster) startMonitorThread(name string, f func(pachClient *client.APIClient)) func() {
+	ctx, cancel := context.WithCancel(m.masterClient.Ctx())
 	done := make(chan struct{})
 	go func() {
-		f(parentPachClient.WithCtx(childCtx))
+		f(m.a.env.GetPachClient(ctx))
 		close(done)
 	}()
 	return func() {
@@ -186,7 +186,7 @@ func startMonitorThread(parentPachClient *client.APIClient, name string, f func(
 	}
 }
 
-func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
@@ -194,7 +194,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
-					return a.makeCronCommits(pachClient, in)
+					return m.makeCronCommits(pachClient, in)
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
 			})
@@ -230,12 +230,12 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					a.env.GetEtcdClient(), pipeline,
+					m.a.env.GetEtcdClient(), pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
 				if childSpan != nil {
 					pachClient = oldPachClient.WithCtx(ctx)
 				}
-				if err := a.transitionPipelineState(pachClient.Ctx(),
+				if err := m.a.transitionPipelineState(pachClient.Ctx(),
 					pipeline,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
@@ -269,14 +269,14 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							a.env.GetEtcdClient(), pipeline,
+							m.a.env.GetEtcdClient(), pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 						if childSpan != nil {
 							pachClient = oldPachClient.WithCtx(ctx)
 						}
 
-						if err := a.transitionPipelineState(pachClient.Ctx(),
+						if err := m.a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -309,7 +309,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									a.env.GetEtcdClient(), pipeline,
+									m.a.env.GetEtcdClient(), pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 								if childSpan != nil {
@@ -320,7 +320,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 						}
 
-						if err := a.transitionPipelineState(pachClient.Ctx(),
+						if err := m.a.transitionPipelineState(pachClient.Ctx(),
 							pipeline,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -351,7 +351,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 }
 
 // allWorkersUp is a helper used by monitorCrashingPipeline
-func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
+func (m *ppsMaster) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
 	parallelism := int(parallelism64)
 	if parallelism == 0 {
 		parallelism = 1
@@ -359,23 +359,23 @@ func (a *apiServer) allWorkersUp(ctx context.Context, parallelism64 uint64, pipe
 	workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name,
 		pipelineInfo.Version)
 	workerStatus, err := workerserver.Status(ctx, workerPoolID,
-		a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+		m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
 	if err != nil {
 		return false, err
 	}
 	return parallelism == len(workerStatus), nil
 }
 
-func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx := pachClient.Ctx()
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		workersUp, err := a.allWorkersUp(ctx, parallelism, pipelineInfo)
+		workersUp, err := m.allWorkersUp(ctx, parallelism, pipelineInfo)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if workersUp {
-			if err := a.transitionPipelineState(ctx, pipeline,
+			if err := m.a.transitionPipelineState(ctx, pipeline,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")
@@ -394,7 +394,7 @@ func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parall
 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
-func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
+func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline

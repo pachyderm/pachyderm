@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -45,13 +46,24 @@ type ppsMaster struct {
 	// Note: 'masterClient' is unauthenticated.  This uses the PPS token (via
 	// a.sudo()) to authenticate requests as needed.
 	masterClient *client.APIClient
+
+	// fields for monitorPipeline goros, monitorCrashingPipeline goros, etc.
+	monitorCancelsMu       sync.Mutex
+	monitorCancels         map[string]func() // protected by monitorCancelsMu
+	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
+
+	// fields for the pollPipelines goro
+	pollPipelinesMu sync.Mutex
+	pollCancel      func() // protected by pollPipelinesMu
 }
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	m := &ppsMaster{
-		a: a,
+		a:                      a,
+		monitorCancels:         make(map[string]func()),
+		crashingMonitorCancels: make(map[string]func()),
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -69,7 +81,7 @@ func (a *apiServer) master() {
 		kubeClient := a.env.GetKubeClient()
 
 		// start pollPipelines in the background to regularly refresh pipelines
-		a.startPipelinePoller(m.masterClient)
+		m.startPipelinePoller()
 
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
@@ -110,14 +122,14 @@ func (a *apiServer) master() {
 				case watch.EventPut:
 					pipeline := string(event.Key)
 					// Create/Modify/Delete pipeline resources as needed per new state
-					if err := a.step(m.masterClient, pipeline, event.Ver, event.Rev); err != nil {
+					if err := m.step(pipeline, event.Ver, event.Rev); err != nil {
 						log.Errorf("PPS master: %v", err)
 					}
 				case watch.EventDelete:
 					// TODO(msteffen) trace this call
 					// This is also called by pollPipelines below, if it discovers
 					// dangling monitorPipeline goroutines
-					if err := a.deletePipelineResources(m.masterClient.Ctx(), string(event.Key)); err != nil {
+					if err := m.deletePipelineResources(string(event.Key)); err != nil {
 						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
 					}
 				}
@@ -178,8 +190,8 @@ func (a *apiServer) master() {
 		// 'RetryNotify' above. However, these cancel calls also block until the
 		// monitor goros exit, ensuring that a leftover goro won't interfere with a
 		// subsequent iteration
-		a.cancelAllMonitorsAndCrashingMonitors(nil)
-		a.cancelPipelinePoller()
+		m.cancelAllMonitorsAndCrashingMonitors(nil)
+		m.cancelPipelinePoller()
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -194,43 +206,39 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
-func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
+func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, //lint:ignore SA4006 ctx is unused, but better to have the right ctx in scope so people don't use the wrong one
+	span, ctx := tracing.AddSpanToAnyExisting(m.masterClient.Ctx(),
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
+		tracing.TagAnySpan(ctx, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
-	// Cancel any running monitorPipeline call
-	a.cancelMonitor(pipelineName)
-	// Same for cancelCrashingMonitor
-	a.cancelCrashingMonitor(pipelineName)
-
-	kubeClient := a.env.GetKubeClient()
+	kubeClient := m.a.env.GetKubeClient()
+	namespace := m.a.namespace
 	// Delete any services associated with op.pipeline
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	services, err := kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	services, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list services")
 	}
 	for _, service := range services.Items {
-		if err := kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Services(namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
 		}
 	}
-	rcs, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list RCs")
 	}
 	for _, rc := range rcs.Items {
-		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
 			}
