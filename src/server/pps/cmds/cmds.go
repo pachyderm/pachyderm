@@ -40,8 +40,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
+	"golang.org/x/term"
 )
 
 // encoder creates an encoder that writes data structures to w[0] (or os.Stdout
@@ -1242,7 +1242,7 @@ func dockerBuildHelper(request *ppsclient.CreatePipelineRequest, build bool, reg
 
 		// request the password
 		fmt.Printf("Password for %s@%s: ", username, registry)
-		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+		passBytes, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return errors.Wrapf(err, "could not read password")
 		}
