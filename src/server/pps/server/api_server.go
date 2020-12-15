@@ -2656,14 +2656,14 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			return
 		}
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 				Trigger: input.Pfs.Trigger,
 			})
 		}
 	})
 	if visitErr != nil {
-		return nil, errors.Wrapf(visitErr, "could not create/update trigger branch")
+		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if pipelineInfo.EnableStats {
 		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
