@@ -6,7 +6,7 @@ import (
 	"os"
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // ReadPassword reads a password from stdin. If stdin is a TTY, a password
@@ -16,8 +16,8 @@ func ReadPassword(prompt string) (string, error) {
 
 	// If stdin is a attached to the TTY (rather than being piped in), use a
 	// terminal password prompt, which will hide the input
-	if terminal.IsTerminal(int(syscall.Stdin)) {
-		pass, err := terminal.ReadPassword(int(syscall.Stdin))
+	if term.IsTerminal(int(syscall.Stdin)) {
+		pass, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return "", err
 		}
