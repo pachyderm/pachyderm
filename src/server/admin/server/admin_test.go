@@ -196,9 +196,6 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 // testExtractRestore effectively implements TestExtractRestoreObjects,
 // TestExtractRestoreNoObjects, TestExtractRestoreAuth, as their logic is mostly the same
 func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -530,9 +527,6 @@ func TestExtractRestoreAuth(t *testing.T) {
 }
 
 func TestExtractRestoreFailedJobs(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -787,9 +781,6 @@ func TestExtractVersion(t *testing.T) {
 }
 
 func TestMigrateFrom1_7(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -846,9 +837,6 @@ func TestMigrateFrom1_7(t *testing.T) {
 }
 
 func TestMigrateAuthFrom1_11(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
