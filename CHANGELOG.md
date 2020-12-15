@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.9
+- Changes to support extract/restore functionality with auth enabled (#5515)
+- Update crewjam/saml to 0.45 fix known security vulnerabilities (#5533)
+
 ## 1.11.8
 - Fixes a bug that prevented deletion directory under certain conditions (#5466)
 - Fixes a bug that prevented debug dump command when Auth is enabled (#5473)
