@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -33,6 +36,14 @@ const (
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
 	PipelinePrefix = "pipeline:"
+
+	// PachPrefix indicates that this Subject is an internal Pachyderm user.
+	PachPrefix = "pach:"
+
+	// RootUser is the user created when auth is initialized. Only one token
+	// can be created for this user (during auth activation) and they cannot
+	// be removed from the set of cluster super-admins.
+	RootUser = "pach:root"
 )
 
 // ParseScope parses the string 's' to a scope (for example, parsing a command-
@@ -72,6 +83,10 @@ var (
 	// ErrBadToken is returned by the Auth API if the caller's token is corrupted
 	// or has expired.
 	ErrBadToken = status.Error(codes.Unauthenticated, "provided auth token is corrupted or has expired (try logging in again)")
+
+	// ErrExpiredToken is returned by the Auth API if a restored token expired in
+	// the past.
+	ErrExpiredToken = status.Error(codes.Internal, "token expiration is in the past")
 )
 
 // IsErrNotActivated checks if an error is a ErrNotActivated
@@ -119,6 +134,14 @@ func IsErrBadToken(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), status.Convert(ErrBadToken).Message())
+}
+
+// IsErrExpiredToken returns true if 'err' is a ErrExpiredToken
+func IsErrExpiredToken(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), status.Convert(ErrExpiredToken).Message())
 }
 
 // ErrNotAuthorized is returned if the user is not authorized to perform
@@ -212,4 +235,26 @@ func IsErrTooShortTTL(err error) bool {
 	return strings.Contains(errMsg, "provided TTL (") &&
 		strings.Contains(errMsg, ") is shorter than token's existing TTL (") &&
 		strings.Contains(errMsg, ")")
+}
+
+// HashToken converts a token to a cryptographic hash.
+// We don't want to store tokens verbatim in the database, as then whoever
+// that has access to the database has access to all tokens.
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return fmt.Sprintf("%x", sum)
+}
+
+// GetAuthToken extracts the auth token embedded in 'ctx', if there is one
+func GetAuthToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", ErrNoMetadata
+	}
+	if len(md[ContextTokenKey]) > 1 {
+		return "", errors.Errorf("multiple authentication token keys found in context")
+	} else if len(md[ContextTokenKey]) == 0 {
+		return "", ErrNotSignedIn
+	}
+	return md[ContextTokenKey][0], nil
 }

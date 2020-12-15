@@ -1,15 +1,47 @@
 setup:
-	mkdir -p ./readings/ID1234 ./parameters
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file1.txt
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file2.txt
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file3.txt
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file4.txt
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file5.txt
-	printf "1\n2\n3\n4\n5" >./readings/ID1234/file6.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file1.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file2.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file3.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file4.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file5.txt
-	printf "1\n2\n3\n4\n5" >./parameters/file6.txt
+	mkdir -p ./stores ./purchases ./returns
+	echo "Creating stores..."
+	printf '{"storeid":"1", "name":"washington st.","address":{"zipcode":"02108","country":"US"}}' \
+	>./stores/STOREID1.txt
+	printf '{"storeid":"2", "name":"hollywood bvd.","address":{"zipcode":"02108","country":"US"}}' \
+	>./stores/STOREID2.txt
+	printf '{"storeid":"3", "name":"beverly hills","address":{"zipcode":"90210","country":"US"}}' \
+	>./stores/STOREID3.txt
+	printf '{"storeid":"4", "name":"mariposa st.","address":{"zipcode":"94107","country":"US"}}' \
+	>./stores/STOREID4.txt
+	printf '{"storeid":"5", "name":"tremont st.","address":{"zipcode":"90210","country":"US"}}' \
+	>./stores/STOREID5.txt
+	echo "Creating purchases..."
+	printf "ORDER_HEADER|W080520|2020-10-10\nSKU|1001|QTY|2|UNIT_PRICE|100.00\n" \
+	 >./purchases/ORDERW080520_STOREID1.txt
+	printf "ORDER_HEADER|W080521|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
+	 >./purchases/ORDERW080521_STOREID1.txt
+	printf "ORDER_HEADER|W078929|2020-10-10\nSKU|0615|QTY|1|UNIT_PRICE|75.00\n" \
+	 >./purchases/ORDERW078929_STOREID2.txt
+	printf "ORDER_HEADER|W598471|2020-10-10\nSKU|1001|QTY|3|UNIT_PRICE|100.00\n" \
+	 >./purchases/ORDERW598471_STOREID3.txt
+	printf "ORDER_HEADER|W080231|2020-10-10\nSKU|1001|QTY|2|UNIT_PRICE|100.00\n" \
+	 >./purchases/ORDERW080231_STOREID5.txt
+	printf "ORDER_HEADER|W080528|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
+	 >./purchases/ORDERW080528_STOREID5.txt
+	echo "Creating returns..."
+	printf "ORDER_HEADER|W080520|2020-10-12\nSKU|1001|QTY|1|UNIT_PRICE|100.00\n" \
+	 >./returns/ORDERW080520_STOREID1.txt
+	printf "ORDER_HEADER|W080231|2020-10-10\nSKU|1001|QTY|1|UNIT_PRICE|100.00\n" \
+	 >./returns/ORDERW080231_STOREID5.txt
+	printf "ORDER_HEADER|W080528|2020-10-10\nSKU|2002|QTY|1|UNIT_PRICE|250.00\n" \
+	 >./returns/ORDERW080528_STOREID5.txt
+	printf "ORDER_HEADER|W261452|2020-10-10\nSKU|0246|QTY|1|UNIT_PRICE|50.00\n" \
+	 >./returns/ORDERW261452_STOREID0.txt
+
+create:
+	pachctl create repo stores
+	pachctl create repo purchases
+	pachctl create repo returns
+	pachctl put file -r stores@master:/ -f stores
+	pachctl list file stores@master
+	pachctl put file -r purchases@master:/ -f purchases
+	pachctl list file purchases@master
+	pachctl put file -r returns@master:/ -f returns
+	pachctl list file returns@master	
 

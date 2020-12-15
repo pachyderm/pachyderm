@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 // Dex's mock connector always returns the same identity for all authentication
@@ -37,14 +37,11 @@ var OIDCAuthConfig = &auth.AuthConfig{
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient, testClient := getPachClient(t, admin), getPachClient(t, "")
+	tu.DeleteAll(t)
+	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -96,19 +93,16 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	require.Equal(t, "idp:"+dexMockConnectorEmail, whoAmIResp.Username)
 	require.False(t, whoAmIResp.IsAdmin)
 
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient, testClient := getPachClient(t, admin), getPachClient(t, "")
+	tu.DeleteAll(t)
+	adminClient, testClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser), tu.GetAuthenticatedPachClient(t, "")
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -143,7 +137,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	// idp:admin is an admin of the IDP but not Pachyderm
 	require.False(t, whoAmIResp.IsAdmin)
 
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // Rewrite the Location header to point to the returned path at `host`

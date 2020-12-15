@@ -73,6 +73,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
 	}, {
+		Name:  "PACH_CACHE_ROOT",
+		Value: a.cacheRoot,
+	}, {
 		Name:  "PACH_NAMESPACE",
 		Value: a.namespace,
 	}, {
@@ -121,6 +124,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "PACH_ROOT",
 			Value: a.storageRoot,
+		},
+		{
+			Name:  "PACH_CACHE_ROOT",
+			Value: a.cacheRoot,
 		},
 		{
 			Name:  "PACH_NAMESPACE",
@@ -527,6 +534,16 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	volumeMounts = append(volumeMounts, v1.VolumeMount{
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
+	})
+	volumes = append(volumes, v1.Volume{
+		Name: "pach-tmp",
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		},
+	})
+	volumeMounts = append(volumeMounts, v1.VolumeMount{
+		Name:      "pach-tmp",
+		MountPath: a.cacheRoot,
 	})
 
 	volumes = append(volumes, v1.Volume{

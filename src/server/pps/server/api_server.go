@@ -111,6 +111,7 @@ type apiServer struct {
 	storageRoot            string
 	storageBackend         string
 	storageHostPath        string
+	cacheRoot              string
 	iamRole                string
 	imagePullSecret        string
 	noExposeDockerSocket   bool
@@ -2649,6 +2650,21 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
+	visitErr = nil
+	pps.VisitInput(request.Input, func(input *pps.Input) {
+		if visitErr != nil {
+			return
+		}
+		if input.Pfs != nil && input.Pfs.Trigger != nil {
+			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Trigger: input.Pfs.Trigger,
+			})
+		}
+	})
+	if visitErr != nil {
+		return nil, errors.Wrapf(visitErr, "could not create/update trigger branch")
+	}
 	if pipelineInfo.EnableStats {
 		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
@@ -2702,10 +2718,20 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	now := time.Now()
+	nCreatedBranches := make(map[string]int)
 	pps.VisitInput(input, func(input *pps.Input) {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
-				input.Pfs.Branch = "master"
+				if input.Pfs.Trigger != nil {
+					// We start counting trigger branches at 1
+					nCreatedBranches[input.Pfs.Repo]++
+					input.Pfs.Branch = fmt.Sprintf("%s-trigger-%d", pipelineName, nCreatedBranches[input.Pfs.Repo])
+					if input.Pfs.Trigger.Branch == "" {
+						input.Pfs.Trigger.Branch = "master"
+					}
+				} else {
+					input.Pfs.Branch = "master"
+				}
 			}
 			if input.Pfs.Name == "" {
 				input.Pfs.Name = input.Pfs.Repo

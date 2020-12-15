@@ -51,7 +51,7 @@ base:
     RUN cd /root && wget -nv -O - https://dl.google.com/go/go1.15.4.linux-amd64.tar.gz | tar -zxf -
     ENV GOPATH=/root/go
     ENV PATH=/root/go/bin:${PATH}
-    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD" >> /etc/ssh/sshd_config
+    RUN echo "AcceptEnv ENT_ACT_CODE BUCKET PPS_BUCKETS AUTH_BUCKETS GOPROXY CIRCLE_BRANCH RUN_BAD_TESTS DOCKER_PWD AMAZON_CLIENT_ID AMAZON_CLIENT_SECRET AMAZON_CLIENT_BUCKET AMAZON_CLIENT_REGION ECS_CLIENT_ID ECS_CLIENT_SECRET ECS_CLIENT_BUCKET ECS_CLIENT_CUSTOM_ENDPOINT GOOGLE_CLIENT_BUCKET GOOGLE_CLIENT_CREDS GOOGLE_CLIENT_HMAC_ID GOOGLE_CLIENT_HMAC_SECRET GOOGLE_CLIENT_REGION MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET MICROSOFT_CLIENT_CONTAINER" >> /etc/ssh/sshd_config
     RUN mkdir /root/project
     WORKDIR /root/project
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
@@ -59,7 +59,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout e378f6fcb9e1d548bf4ea79cd76f92fe71f150b7 && \
+        git checkout d7882cab75485d4bca986c11c0d910d0b3878e7c && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
