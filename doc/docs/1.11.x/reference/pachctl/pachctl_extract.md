@@ -24,9 +24,11 @@ $ pachctl extract -u s3://bucket/backup
 ### Options
 
 ```
-  -h, --help         help for extract
-      --no-objects   don't extract from object storage, only extract data from etcd
-  -u, --url string   An object storage url (i.e. s3://...) to extract to.
+  -h, --help            help for extract
+      --no-auth         don't extract the authentication information
+      --no-enterprise   don't extract the enterprise license information
+      --no-objects      don't extract from object storage, only extract data from etcd
+  -u, --url string      An object storage url (i.e. s3://...) to extract to.
 ```
 
 ### Options inherited from parent commands

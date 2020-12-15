@@ -25,6 +25,7 @@ $ pachctl restore -u s3://bucket/backup
 
 ```
   -h, --help         help for restore
+      --no-token     Don't generate a new auth token at the beginning of the restore.
   -u, --url string   An object storage url (i.e. s3://...) to restore from.
 ```
 
