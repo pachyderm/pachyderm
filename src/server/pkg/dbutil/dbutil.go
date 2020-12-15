@@ -1,8 +1,8 @@
 package dbutil
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -55,10 +55,14 @@ type dBConfig struct {
 }
 
 func ephemeralDBName() string {
+	buf := [8]byte{}
+	if n, err := rand.Reader.Read(buf[:]); err != nil || n < 8 {
+		panic(err)
+	}
 	// TODO: it looks like postgres is truncating identifiers to 32 bytes,
 	// it should be 64 but we might be passing the name as non-ascii, i'm not really sure.
 	// for now just use a random int, but it would be nice to go back to names with a timestamp.
-	return fmt.Sprintf("test_%08x", rand.Uint64())
+	return fmt.Sprintf("test_%08x", buf)
 	//now := time.Now()
 	// test_<date>T<time>_<random int>
 	// return fmt.Sprintf("test_%04d%02d%02dT%02d%02d%02d_%04x",
