@@ -56,6 +56,11 @@ type PfsPropagater interface {
 	Run() error
 }
 
+type PipelineCommitFinisher interface {
+	FinishPipelineCommits(branch *pfs.Branch) error
+	Run() error
+}
+
 // TransactionContext is a helper type to encapsulate the state for a given
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
@@ -69,11 +74,12 @@ type PfsPropagater interface {
 //   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
 type TransactionContext struct {
-	ClientContext context.Context
-	Client        *client.APIClient
-	Stm           col.STM
-	pfsPropagater PfsPropagater
-	txnEnv        *TransactionEnv
+	ClientContext  context.Context
+	Client         *client.APIClient
+	Stm            col.STM
+	pfsPropagater  PfsPropagater
+	commitFinisher PipelineCommitFinisher
+	txnEnv         *TransactionEnv
 }
 
 // Auth returns a reference to the Auth API Server so that transactionally-
@@ -98,7 +104,21 @@ func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit boo
 }
 
 func (t *TransactionContext) finish() error {
+	if t.commitFinisher != nil {
+		if err := t.commitFinisher.Run(); err != nil {
+			return err
+		}
+	}
 	return t.pfsPropagater.Run()
+}
+
+// FinishPipelineCommits saves a pipeline output branch to have its commits
+// finished at the end of the transaction
+func (t *TransactionContext) FinishPipelineCommits(branch *pfs.Branch) error {
+	if t.commitFinisher != nil {
+		return t.commitFinisher.FinishPipelineCommits(branch)
+	}
+	return nil
 }
 
 // TransactionServer is an interface used by other servers to append a request
@@ -130,6 +150,7 @@ type AuthTransactionServer interface {
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
 	NewPropagater(col.STM) PfsPropagater
+	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
 	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
@@ -366,6 +387,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			pfsPropagater: env.pfsServer.NewPropagater(stm),
 			txnEnv:        env,
 		}
+		txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -383,11 +405,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
-			Client:        pachClient,
-			ClientContext: pachClient.Ctx(),
-			Stm:           stm,
-			pfsPropagater: env.pfsServer.NewPropagater(stm),
-			txnEnv:        env,
+			Client:         pachClient,
+			ClientContext:  pachClient.Ctx(),
+			Stm:            stm,
+			pfsPropagater:  env.pfsServer.NewPropagater(stm),
+			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
+			txnEnv:         env,
 		}
 
 		err := cb(txnCtx)

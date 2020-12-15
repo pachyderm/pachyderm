@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -41,4 +42,62 @@ func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 // propagating branches
 func (t *Propagater) Run() error {
 	return t.d.propagateCommits(t.stm, t.branches, t.isNewCommit)
+}
+
+// PipelineFinisher closes any open commits on a pipeline output branch,
+// preventing any in-progress jobs from pipelines about to be replaced.
+// The Run method is called at the end of any transaction
+type PipelineFinisher struct {
+	d      *driver
+	txnCtx *txnenv.TransactionContext
+
+	// pipeline output branches to finish commits on
+	branches []*pfs.Branch
+}
+
+func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnenv.PipelineCommitFinisher {
+	return &PipelineFinisher{
+		d:      a.driver,
+		txnCtx: txnCtx,
+	}
+}
+
+// FinishPipelineCommits marks a branch as belonging to a pipeline which is being modified and thus
+// needs old open commits finished
+func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
+	if branch == nil {
+		return errors.Errorf("cannot finish commits on nil branch")
+	}
+	f.branches = append(f.branches, branch)
+	return nil
+}
+
+// Run finishes any open commits on output branches of pipelines modified in the preceeding transaction
+func (f *PipelineFinisher) Run() error {
+	for _, branch := range f.branches {
+		if err := f.d.listCommitF(
+			f.txnCtx.Client,
+			branch.Repo,
+			client.NewCommit(branch.Repo.Name, branch.Name), // to
+			nil,   // from
+			0,     // number
+			false, // reverse
+			func(commitInfo *pfs.CommitInfo) error {
+				// finish all open commits on the branch
+				if commitInfo.Finished != nil {
+					return nil
+				}
+				return f.d.finishCommit(
+					f.txnCtx,
+					client.NewCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID),
+					// empty, no tree
+					nil,
+					true,
+					"",
+				)
+			}); err != nil && !isNotFoundErr(err) {
+			return err
+		}
+	}
+	return nil
 }

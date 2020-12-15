@@ -30,6 +30,7 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -1924,52 +1925,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-// closePipelineCommitsInTransaction performs some steps from StopPipeline
-// (deletes any open commits, causing any k8s workers to be deleted) inside of
-// a provided transaction. This is to avoid races between operations
-// that will do subsequent work (e.g. UpdatePipeline and DeletePipeline) and the
-// PPS master
-func (a *apiServer) closePipelineCommitsInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
-	// Now that new commits won't be created on the master branch, enumerate
-	// existing commits and close any open ones.
-	iter, err := txnCtx.Client.ListCommitStream(txnCtx.ClientContext, &pfs.ListCommitRequest{
-		Repo: client.NewRepo(pipelineInfo.Pipeline.Name),
-		To:   client.NewCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
-	})
-	if err != nil {
-		return errors.Wrapf(err, "couldn't get open commits on '%s'", pipelineInfo.OutputBranch)
-	}
-
-	// Finish all open commits, most recent first (so that we finish the
-	// current job's output commit--the oldest--last, and unblock the master
-	// only after all other commits are also finished, preventing any new jobs)
-	for {
-		ci, err := iter.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		if ci.Finished == nil {
-			// Finish the commit and don't pass a tree
-			txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
-				Commit: ci.Commit,
-				Empty:  true,
-			})
-		}
-	}
-
-	// We're not stopping the old pipeline right away, so inspect the output branch directly to ensure
-	// we don't miss any new commits that might be created
-	_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
-		Branch: client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
-	})
-	if isNotFoundErr(err) {
-		return nil
-	}
-	return err
-}
-
 var (
 	// superUserToken is the cached auth token used by PPS to write to the spec
 	// repo, create pipeline subjects, and
@@ -2229,6 +2184,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	if err := a.validatePipelineRequest(request); err != nil {
+		return nil, err
+	}
+
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
@@ -2384,14 +2343,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 						return nil
 					}
 				}
-
-				// something has changed, try to delete this commit and make a new one
-				superClient.DeleteCommit(ppsconsts.SpecRepo, specCommit.ID)
 				specCommit = nil
-				if prevSpecCommit != nil {
-					*prevSpecCommit = nil
-				}
-				return nil
+				return errors.Errorf("pipeline updated outside of transaction")
 			}); err != nil {
 				return specCommit, err
 			}
@@ -2416,16 +2369,35 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				if err != nil {
 					return err
 				}
+				// don't bother failing on error here, we won't be able to clean it up later, either
+				_ = superClient.DeleteBranch(ppsconsts.SpecRepo, tempBranch, false)
+
 				err = superClient.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
 				if err != nil {
 					specCommit = nil // don't use the open commit
 					return err
 				}
-				// don't bother failing on error here, we won't be able to clean it up later, either
-				_ = superClient.DeleteBranch(ppsconsts.SpecRepo, tempBranch, false)
 				return nil
 			}); err != nil {
 				return nil, err
+			}
+			// we just created a new commit outside of the transaction, so our transaction reads won't see it
+			// to prevent errors, start and finish a commit in the transaction with the same ID
+			// this *will* cause an STM conflict, but will succeed on retry since specCommit already exists
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
+					Parent: client.NewCommit(ppsconsts.SpecRepo, ""),
+				}, specCommit); collection.IsErrExists(err) {
+					// if a miracle occurs and we see the existing specCommit, that's fine, just continue
+					return nil
+				} else if err != nil {
+					return err
+				}
+				return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
+					Commit: client.NewCommit(ppsconsts.SpecRepo, specCommit.ID),
+				})
+			}); err != nil {
+				return specCommit, err
 			}
 		}
 
@@ -2446,10 +2418,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
-		}
-
-		if err := a.closePipelineCommitsInTransaction(txnCtx, pipelineInfo); err != nil {
-			return err
 		}
 
 		// Look up existing pipelineInfo and update it, writing updated
@@ -2494,10 +2462,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}
 
 			// move the spec branch for this pipeline to the new commit
-			txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			if err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 				Head:   specCommit,
 				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
-			})
+			}); err != nil {
+				return err
+			}
 
 			// Update pipelinePtr to point to new commit
 			pipelinePtr.SpecCommit = specCommit
@@ -2606,10 +2576,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				return err
 			}
 			// move the spec branch for this pipeline to the new commit
-			txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			if err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 				Head:   commit,
 				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
