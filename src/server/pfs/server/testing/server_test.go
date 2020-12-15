@@ -6515,42 +6515,42 @@ func TestTriggerValidation(t *testing.T) {
 	}))
 }
 
-// TODO: Reenable when PFS metadata is in postgres.
-//func TestLargeDeleteRepo(t *testing.T) {
-//	t.Parallel()
-//	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-//		numRepos := 10
-//		numCommits := 1000
-//		var repos []string
-//		for i := 0; i < numRepos; i++ {
-//			repo := fmt.Sprintf("repo-%d", i)
-//			require.NoError(t, env.PachClient.CreateRepo(repo))
-//			if i > 0 {
-//				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
-//			}
-//			repos = append(repos, repo)
-//		}
-//		for i := 0; i < numCommits; i++ {
-//			_, err := env.PachClient.StartCommit(repos[0], "master")
-//			require.NoError(t, err)
-//			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
-//		}
-//		repo := repos[len(repos)-1]
-//		ctx, cf := context.WithTimeout(context.Background(), time.Second)
-//		defer cf()
-//		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
-//		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
-//		_, err := env.PachClient.StartCommit(repo, "master")
-//		require.YesError(t, err)
-//		for i := len(repos) - 1; i >= 0; i-- {
-//			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
-//			require.NoError(t, env.PachClient.FsckFastExit())
-//		}
-//		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
-//		require.NoError(t, err)
-//		return nil
-//	}))
-//}
+func TestLargeDeleteRepo(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		numRepos := 10
+		numCommits := 1000
+		var repos []string
+		for i := 0; i < numRepos; i++ {
+			repo := fmt.Sprintf("repo-%d", i)
+			require.NoError(t, env.PachClient.CreateRepo(repo))
+			if i > 0 {
+				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
+			}
+			repos = append(repos, repo)
+		}
+		for i := 0; i < numCommits; i++ {
+			_, err := env.PachClient.StartCommit(repos[0], "master")
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
+		}
+		repo := repos[len(repos)-1]
+		ctx, cf := context.WithTimeout(context.Background(), time.Second)
+		defer cf()
+		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
+		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
+		_, err := env.PachClient.StartCommit(repo, "master")
+		require.YesError(t, err)
+		for i := len(repos) - 1; i >= 0; i-- {
+			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
+			require.NoError(t, env.PachClient.FsckFastExit())
+		}
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		require.NoError(t, err)
+		return nil
+	}))
+}
 
 func TestRegressionOrphanedFile(t *testing.T) {
 	t.Parallel()
