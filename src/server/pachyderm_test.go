@@ -13130,6 +13130,150 @@ func TestDebug(t *testing.T) {
 	require.Equal(t, 0, len(expectedFiles))
 }
 
+func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	input := tu.UniqueString("in")
+	pipelineA := tu.UniqueString("A")
+	pipelineB := tu.UniqueString("B")
+
+	createPipeline := func(c *client.APIClient, input, pipeline string, update bool) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(input))
+	_, err := c.PutFile(input, "master", "foo", strings.NewReader("bar"))
+	require.NoError(t, err)
+
+	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, false))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, false))
+		return nil
+	})
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input, "master")}, []*pfs.Repo{client.NewRepo(pipelineB)})
+	require.NoError(t, err)
+
+	// now update both
+	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, true))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, true))
+		return nil
+	})
+	require.NoError(t, err)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input, "master")}, []*pfs.Repo{client.NewRepo(pipelineB)})
+	require.NoError(t, err)
+	commits, err := c.ListCommitByRepo(pipelineB)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	jobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+}
+
+func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	inputA := tu.UniqueString("A")
+	inputB := tu.UniqueString("B")
+	inputC := tu.UniqueString("C")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient, input string, update bool) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(inputA))
+	require.NoError(t, c.CreateRepo(inputB))
+	require.NoError(t, c.CreateRepo(inputC))
+	require.NoError(t, createPipeline(c, inputA, false))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	require.NoError(t, createPipeline(c.WithTransaction(txn), inputB, true))
+	require.NoError(t, createPipeline(c, inputC, true))
+
+	_, err = c.FinishTransaction(txn)
+	require.YesError(t, err)
+	require.Matches(t, "outside of transaction", err.Error())
+}
+
+func TestPipelineSpecCommitCleanup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	input := tu.UniqueString("in")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			false,
+		)
+	}
+	require.NoError(t, c.CreateRepo(input))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+	require.NoError(t, createPipeline(c.WithTransaction(txn)))
+	require.NoError(t, c.DeleteTransaction(txn))
+
+	commits, err := c.ListCommitByRepo(ppsconsts.SpecRepo)
+	require.NoError(t, err)
+	require.Equal(t, len(commits), 0)
+
+	require.NoError(t, createPipeline(c))
+	// creating again should error
+	require.YesError(t, createPipeline(c))
+	// resulting in any temporary spec commit being deleted
+	commits, err = c.ListCommitByRepo(ppsconsts.SpecRepo)
+	require.NoError(t, err)
+	require.Equal(t, len(commits), 1)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)

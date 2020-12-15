@@ -575,24 +575,22 @@ func TestBatchTransaction(t *testing.T) {
 func TestCreatePipelineTransaction(t *testing.T) {
 	c := testutil.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	txn, err := c.StartTransaction()
-	require.NoError(t, err)
-	txnClient := c.WithTransaction(txn)
-
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
-	require.NoError(t, txnClient.CreateRepo(repo))
-	require.NoError(t, txnClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/"),
-		"master",
-		false,
-	))
-	_, err = txnClient.FinishTransaction(txn)
+	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, txnClient.CreateRepo(repo))
+		require.NoError(t, txnClient.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
+			&pps.ParallelismSpec{Constant: 1},
+			client.NewPFSInput(repo, "/"),
+			"master",
+			false,
+		))
+		return nil
+	})
 	require.NoError(t, err)
 
 	c.PutFile(repo, "master", "foo", strings.NewReader("bar"))

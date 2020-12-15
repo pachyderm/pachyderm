@@ -37,7 +37,7 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 
 // WithoutTransaction returns a new APIClient which will run all future operations
 // outside of any active transaction
-// Removing from both incoming and ougoing metadata is necessary because Ctx() merges them
+// Removing from both incoming and outgoing metadata is necessary because Ctx() merges them
 func (c APIClient) WithoutTransaction() *APIClient {
 	ctx := c.Ctx()
 	incomingMD, _ := metadata.FromIncomingContext(ctx)
