@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -51,6 +52,19 @@ type dBConfig struct {
 	port           int
 	user, password string
 	name           string
+}
+
+func ephemeralDBName() string {
+	// TODO: it looks like postgres is truncating identifiers to 32 bytes,
+	// it should be 64 but we might be passing the name as non-ascii, i'm not really sure.
+	// for now just use a random int, but it would be nice to go back to names with a timestamp.
+	return fmt.Sprintf("test_%08x", rand.Uint64())
+	//now := time.Now()
+	// test_<date>T<time>_<random int>
+	// return fmt.Sprintf("test_%04d%02d%02dT%02d%02d%02d_%04x",
+	// 	now.Year(), now.Month(), now.Day(),
+	// 	now.Hour(), now.Minute(), now.Second(),
+	// 	rand.Uint32())
 }
 
 // NewDB creates a new DB.
