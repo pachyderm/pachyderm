@@ -15,7 +15,7 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
   || [[ "$(pachctl version | grep pachd | awk '{print $2}' )" != "1.11.9" ]]; then
   # Clear any existing pachyderm cluster
   if pachctl version --timeout=2s &>/dev/null; then
-    ( (yes | pachctl delete-all) && pachctl undeploy) || {
+    ( (yes | pachctl delete all) && pachctl undeploy) || {
       echo "Error: could not clear existing Pachyderm cluster. Giving up..."
       exit 1
     }
@@ -25,8 +25,6 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
   pachctl_1_11 deploy local
 
   # Wait for pachyderm to come up
-  set +x
   HERE="$(dirname "${0}")"
-  PACHCTL=pachctl_1_11 "${HERE}/../../../kube/wait_for_startup.sh"
-  set -x
+  until timeout 1s ${HERE}/../../../kube/check_ready.sh app=pachd; do sleep 1; done
 fi

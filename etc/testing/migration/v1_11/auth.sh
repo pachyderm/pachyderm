@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # auth.sh enables authorization and creates a collection of pachyderm pipelines that look like:
 #    left─┐
@@ -12,13 +12,11 @@
 # right: 5,...,9
 
 HERE="$(dirname "${0}")"
-# shellcheck source=./etc/testing/migration/v1_11/deploy.sh
-#source "${HERE}/deploy.sh"
 
 set -x
 
-pachctl enterprise activate "$ENT_ACT_CODE"
-pachctl auth activate --initial-admin=robot:test
+pachctl_1_11 enterprise activate "$ENT_ACT_CODE"
+pachctl_1_11 auth activate --initial-admin=robot:test
 
 pachctl_1_11 create repo left
 pachctl_1_11 create repo right
@@ -77,19 +75,19 @@ for _i in $(seq 0 9); do
   done
 
   # Write to pachd
-  pachctl_1_11 put-file "${repo}" master "/${i}" <"${tmpfile}"
+  pachctl_1_11 put file "${repo}"@master:"/${i}" <"${tmpfile}"
 done
 
 # Wait for pipelines to process all commits
-pachctl_1_11 flush-commit left/master
+pachctl_1_11 flush commit left@master
 
 # Delete a few commits, as that has caused migration bugs in the past
 # TODO(msteffen): Split this test up into tests of distinct bugs (stats,
-# delete-commit, multiple pipelines)
-pachctl_1_11 delete-commit left master~4
-pachctl_1_11 delete-commit left master~3
-pachctl_1_11 delete-commit right master~4
-pachctl_1_11 delete-commit right master~3
+# delete commit, multiple pipelines)
+pachctl_1_11 delete commit left@master~4
+pachctl_1_11 delete commit left@master~3
+pachctl_1_11 delete commit right@master~4
+pachctl_1_11 delete commit right@master~3
 
 echo "Extracting metadata from Pachyderm. Note that this step occasionally"
 echo "fails due to transient encoding issues, and you may need to re-run it"
