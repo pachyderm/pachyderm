@@ -34,7 +34,9 @@ func (d *driver) triggerCommit(
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
-	headBranches[newHead.Branch.Name] = true
+	if newHead.Branch != nil {
+		headBranches[newHead.Branch.Name] = true
+	}
 	for _, b := range repoInfo.Branches {
 		bi := &pfs.BranchInfo{}
 		if err := branches.Get(b.Name, bi); err != nil {
