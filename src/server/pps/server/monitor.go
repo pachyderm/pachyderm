@@ -350,31 +350,20 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
-// allWorkersUp is a helper used by monitorCrashingPipeline
-func (m *ppsMaster) allWorkersUp(ctx context.Context, parallelism64 uint64, pipelineInfo *pps.PipelineInfo) (bool, error) {
-	parallelism := int(parallelism64)
-	if parallelism == 0 {
-		parallelism = 1
-	}
-	workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name,
-		pipelineInfo.Version)
-	workerStatus, err := workerserver.Status(ctx, workerPoolID,
-		m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
-	if err != nil {
-		return false, err
-	}
-	return parallelism == len(workerStatus), nil
-}
-
 func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx := pachClient.Ctx()
+	if parallelism == 0 {
+		parallelism = 1
+	}
+	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		workersUp, err := m.allWorkersUp(ctx, parallelism, pipelineInfo)
+		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
+			m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
-		if workersUp {
+		if int(parallelism) == len(workerStatus) {
 			if err := m.a.transitionPipelineState(ctx, pipeline,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
