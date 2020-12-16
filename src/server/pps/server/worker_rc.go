@@ -676,7 +676,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = ptr.AuthToken
-	context.PachdAddress = "localhost:650"
+	context.PachdAddress = "localhost:653"
 
 	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {

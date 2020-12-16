@@ -75,7 +75,7 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
-func Read(ignoreCache bool) (*Config, error) {
+func Read(ignoreCache, readOnly bool) (*Config, error) {
 	configMu.Lock()
 	defer configMu.Unlock()
 
@@ -127,7 +127,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			}
 		}
 
-		if updated {
+		if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
 			if err := value.Write(); err != nil {
