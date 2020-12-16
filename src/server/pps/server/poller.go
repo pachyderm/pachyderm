@@ -4,7 +4,10 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	kube_err "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -12,6 +15,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
+
+const pollBackoffTime = 2 * time.Second
 
 // startPipelinePoller starts a new goroutine running pollPipelines
 func (m *ppsMaster) startPipelinePoller() {
@@ -26,6 +31,22 @@ func (m *ppsMaster) cancelPipelinePoller() {
 	if m.pollCancel != nil {
 		m.pollCancel()
 		m.pollCancel = nil
+	}
+}
+
+// startPipelinePodsPoller starts a new goroutine running pollPipelinePods
+func (m *ppsMaster) startPipelinePodsPoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	m.pollPodsCancel = m.startMonitorThread("pollPipelinePods", m.pollPipelinePods)
+}
+
+func (m *ppsMaster) cancelPipelinePodsPoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	if m.pollPodsCancel != nil {
+		m.pollPodsCancel()
+		m.pollPodsCancel = nil
 	}
 }
 
@@ -135,11 +156,73 @@ func (m *ppsMaster) pollPipelines(pachClient *client.APIClient) {
 
 		// move to next pipeline
 		return backoff.ErrContinue
-	}, backoff.NewConstantBackOff(2*time.Second),
+	}, backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelines"),
 	); err != nil {
 		if ctx.Err() == nil {
 			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
+		}
+	}
+}
+
+func (m *ppsMaster) pollPipelinePods(pachClient *client.APIClient) {
+	if err := backoff.RetryUntilCancel(pachClient.Ctx(), func() error {
+		// watchChan will be nil if the Watch call below errors, this means
+		// that we won't receive events from k8s and won't be able to detect
+		// errors in pods. We could just return that error and retry but that
+		// prevents pachyderm from creating pipelines when there's an issue
+		// talking to k8s.
+		kubePipelineWatch, err := m.a.env.GetKubeClient().CoreV1().Pods(m.a.namespace).Watch(
+			metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{
+						"component": "worker",
+					})),
+				Watch: true,
+			})
+		if err != nil {
+			return errors.Wrap(err, "failed to watch kubernetes pods")
+		}
+		defer kubePipelineWatch.Stop()
+		for event := range kubePipelineWatch.ResultChan() {
+			// if we get an error we restart the watch
+			if event.Type == kube_watch.Error {
+				return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
+			} else if event.Type == "" {
+				// k8s watches seem to sometimes get stuck in a loop returning events
+				// with Type = "". We treat these as errors as otherwise we get an
+				// endless stream of them and can't do anything.
+				return errors.New("error while watching kubernetes pods: empty event type")
+			}
+			pod, ok := event.Object.(*v1.Pod)
+			if !ok {
+				continue // irrelevant event
+			}
+			if pod.Status.Phase == v1.PodFailed {
+				log.Errorf("pod failed because: %s", pod.Status.Message)
+			}
+			pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
+					if err := m.a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
+						return errors.Wrap(err, "error moving pipeline to CRASHING")
+					}
+				}
+			}
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == v1.PodScheduled &&
+					condition.Status != v1.ConditionTrue && failures[condition.Reason] {
+					if err := m.a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, condition.Message); err != nil {
+						return errors.Wrap(err, "error moving pipeline to CRASHING")
+					}
+				}
+			}
+		}
+		return backoff.ErrContinue // keep polling until cancelled
+	}, backoff.NewConstantBackOff(pollBackoffTime),
+		backoff.NotifyContinue("pollPipelinePods")); err != nil {
+		if pachClient.Ctx().Err() == nil {
+			panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
 		}
 	}
 }
