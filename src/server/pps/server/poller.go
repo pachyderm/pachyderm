@@ -56,8 +56,8 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 // avoid reentrancy deadlock.                                               //
 //////////////////////////////////////////////////////////////////////////////
 
-func (m *ppsMaster) pollPipelines(pachClient *client.APIClient) {
-	ctx := pachClient.Ctx()
+func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
+	ctx := pollClient.Ctx()
 	etcdPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if len(etcdPipelines) == 0 {
@@ -81,7 +81,7 @@ func (m *ppsMaster) pollPipelines(pachClient *client.APIClient) {
 
 			// 2. Replenish 'etcdPipelines' with the set of pipelines currently in
 			// etcd. Note that there may be zero, and etcdPipelines may be empty
-			if err := m.a.listPipelinePtr(pachClient, nil, 0,
+			if err := m.a.listPipelinePtr(pollClient, nil, 0,
 				func(pipeline string, _ *pps.EtcdPipelineInfo) error {
 					etcdPipelines[pipeline] = true
 					return nil
@@ -165,8 +165,9 @@ func (m *ppsMaster) pollPipelines(pachClient *client.APIClient) {
 	}
 }
 
-func (m *ppsMaster) pollPipelinePods(pachClient *client.APIClient) {
-	if err := backoff.RetryUntilCancel(pachClient.Ctx(), func() error {
+func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
+	ctx := pollClient.Ctx()
+	if err := backoff.RetryUntilCancel(ctx, func() error {
 		// watchChan will be nil if the Watch call below errors, this means
 		// that we won't receive events from k8s and won't be able to detect
 		// errors in pods. We could just return that error and retry but that
@@ -204,7 +205,7 @@ func (m *ppsMaster) pollPipelinePods(pachClient *client.APIClient) {
 			pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-					if err := m.a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
+					if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
 						return errors.Wrap(err, "error moving pipeline to CRASHING")
 					}
 				}
@@ -212,7 +213,7 @@ func (m *ppsMaster) pollPipelinePods(pachClient *client.APIClient) {
 			for _, condition := range pod.Status.Conditions {
 				if condition.Type == v1.PodScheduled &&
 					condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-					if err := m.a.setPipelineCrashing(m.masterClient.Ctx(), pipelineName, condition.Message); err != nil {
+					if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
 						return errors.Wrap(err, "error moving pipeline to CRASHING")
 					}
 				}
@@ -221,7 +222,7 @@ func (m *ppsMaster) pollPipelinePods(pachClient *client.APIClient) {
 		return backoff.ErrContinue // keep polling until cancelled
 	}, backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelinePods")); err != nil {
-		if pachClient.Ctx().Err() == nil {
+		if ctx.Err() == nil {
 			panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
 		}
 	}
