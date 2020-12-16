@@ -2607,22 +2607,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return
 		}
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			var prevHead *pfs.Commit
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 			})
 
 			if err != nil && !isNotFoundErr(err) {
 				visitErr = err
-				return
-			} else if err == nil {
-				prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch)
+			} else {
+				var prevHead *pfs.Commit
+				if err == nil {
+					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch)
+				}
+				_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+					Head:    prevHead,
+					Trigger: input.Pfs.Trigger,
+				})
 			}
-			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
-				Head:    prevHead,
-				Trigger: input.Pfs.Trigger,
-			})
 		}
 	})
 	if visitErr != nil {
