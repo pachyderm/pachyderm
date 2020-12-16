@@ -2576,10 +2576,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			if commit, err = createOrValidateSpecCommit(); err != nil {
 				return err
 			}
-			// move the spec branch for this pipeline to the new commit
-			if err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Head:   commit,
-				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				// move the spec branch for this pipeline to the new commit
+				return superCtx.Pfs().CreateBranchInTransaction(superCtx, &pfs.CreateBranchRequest{
+					Head:   commit,
+					Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+				})
 			}); err != nil {
 				return err
 			}
@@ -2643,10 +2645,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-		Branch:     outputBranch,
-		Provenance: provenance,
-		Head:       outputBranchHead,
+	if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+		return txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+			Branch:     outputBranch,
+			Provenance: provenance,
+			Head:       outputBranchHead,
+		})
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}

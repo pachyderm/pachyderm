@@ -56,6 +56,8 @@ type PfsPropagater interface {
 	Run() error
 }
 
+// PipelineCommitFinisher is an interface to facilitate finishing pipeline commits
+// at the end of a transaction
 type PipelineCommitFinisher interface {
 	FinishPipelineCommits(branch *pfs.Branch) error
 	Run() error
