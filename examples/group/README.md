@@ -191,10 +191,15 @@ The following table lists the expected result (the "net amount") for each store.
     $ pachctl list file purchases@master
     $ pachctl list file returns@master	
     ```
+    Here is the list of the files in the purchases repo:
+
+    ![list_file_purchase_master](./img/list_file_purchase_master.png)
+
     and your pipeline:
     ```shell
     $ pachctl list pipeline
     ```
+    ![retail_list_pipeline](./img/retail_list_pipeline.png)
 
 1. Have a look at your final product:
 
