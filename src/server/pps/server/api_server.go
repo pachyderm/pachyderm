@@ -30,7 +30,6 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -2388,7 +2387,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
 				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
 					Parent: client.NewCommit(ppsconsts.SpecRepo, ""),
-				}, specCommit); collection.IsErrExists(err) {
+				}, specCommit); col.IsErrExists(err) {
 					// if a miracle occurs and we see the existing specCommit, that's fine, just continue
 					return nil
 				} else if err != nil {
@@ -2463,9 +2462,11 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}
 
 			// move the spec branch for this pipeline to the new commit
-			if err = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Head:   specCommit,
-				Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				return txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Head:   specCommit,
+					Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+				})
 			}); err != nil {
 				return err
 			}
@@ -2645,12 +2646,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-		return txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     outputBranch,
-			Provenance: provenance,
-			Head:       outputBranchHead,
-		})
+	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+		Branch:     outputBranch,
+		Provenance: provenance,
+		Head:       outputBranchHead,
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
