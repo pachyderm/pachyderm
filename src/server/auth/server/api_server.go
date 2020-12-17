@@ -942,22 +942,22 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			} else if err := fsAdmins.Delete(principal); err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
+		}
 
-			// select an arbitrary existential witness to guarantee that that there
-			// are still super admins left at the end of this txn. If 'witness' was
-			// added during this txn, they will be in the STM wset. If they're
-			// preexisting they'll be in the stm rset and thus in the txn's cmps.
-			if len(adminWitnesses) == 0 {
-				return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
+		// select an arbitrary existential witness to guarantee that that there
+		// are still super admins left at the end of this txn. If 'witness' was
+		// added during this txn, they will be in the STM wset. If they're
+		// preexisting they'll be in the stm rset and thus in the txn's cmps.
+		if len(adminWitnesses) == 0 {
+			return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
+		}
+		for witness := range adminWitnesses {
+			var tmp types.BoolValue
+			if err := admins.Get(witness, &tmp); err != nil {
+				// return any error *especially including* not found
+				return errors.Wrapf(err, "could not verify %q as surviving super admin (possible collision with a concurrent admin change)", witness)
 			}
-			for witness := range adminWitnesses {
-				var tmp types.BoolValue
-				if err := admins.Get(witness, &tmp); err != nil {
-					// return any error *especially including* not found
-					return errors.Wrapf(err, "could not verify %q as surviving super admin (possible collision with a concurrent admin change)", witness)
-				}
-				break // TODO(msteffen): how to get first element of map?
-			}
+			break // TODO(msteffen): how to get first element of map?
 		}
 		return nil
 	}); err != nil {
