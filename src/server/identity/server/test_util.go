@@ -8,6 +8,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
+// DeleteAll deletes all data in the cluster, including the identity server.
 // TODO: DeleteAll should be part of the client DeleteAll method,
 // but it fails if postgres isn't running. Once we run postgres for
 // all tests, remove this.
