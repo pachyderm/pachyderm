@@ -26,6 +26,7 @@ export {ReactComponent as ElephantHeadSVG} from './ElephantHead.svg';
 export {ReactComponent as ElephantHeadExtraLargeSVG} from './elephantHeadExtraLarge.svg';
 export {ReactComponent as ElephantHeadLargeSVG} from './elephantHeadLarge.svg';
 export {ReactComponent as EllipsisSVG} from './ellipsis.svg';
+export {ReactComponent as EnlargeSVG} from './enlarge.svg';
 export {ReactComponent as ExclamationErrorSVG} from './exclamationError.svg';
 export {ReactComponent as ExitSVG} from './exit.svg';
 export {ReactComponent as GeneralFusionLogoSVG} from './generalFusionLogo.svg';
