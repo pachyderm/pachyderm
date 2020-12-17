@@ -65,7 +65,7 @@ func (a *apiServer) NewPipelineFinisher(txnCtx *txnenv.TransactionContext) txnen
 // FinishPipelineCommits marks a branch as belonging to a pipeline which is being modified and thus
 // needs old open commits finished
 func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
-	if branch == nil {
+	if branch == nil || branch.Repo == nil {
 		return errors.Errorf("cannot finish commits on nil branch")
 	}
 	f.branches = append(f.branches, branch)
