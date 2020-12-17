@@ -2662,10 +2662,23 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			return
 		}
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
-				Trigger: input.Pfs.Trigger,
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 			})
+
+			if err != nil && !isNotFoundErr(err) {
+				visitErr = err
+			} else {
+				var prevHead *pfs.Commit
+				if err == nil {
+					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch)
+				}
+				visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+					Head:    prevHead,
+					Trigger: input.Pfs.Trigger,
+				})
+			}
 		}
 	})
 	if visitErr != nil {
