@@ -21,10 +21,10 @@ if ! grep . <( kubectl get po -l suite=pachyderm 2>/dev/null ) \
     }
   fi
 
-  # Deploy Pachyderm 1.7 cluster
+  # Deploy Pachyderm 1.11 cluster
   pachctl_1_11 deploy local
 
   # Wait for pachyderm to come up
   HERE="$(dirname "${0}")"
-  until timeout 1s ${HERE}/../../../kube/check_ready.sh app=pachd; do sleep 1; done
+  until timeout 1s "${HERE}/../../../kube/check_ready.sh" app=pachd; do sleep 1; done
 fi
