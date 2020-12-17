@@ -2420,6 +2420,9 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				"delete this open commit")
 		}
 
+		// finish any open output commits at the end of the transaction
+		txnCtx.FinishPipelineCommits(client.NewBranch(pipelineName, pipelineInfo.OutputBranch))
+
 		// Look up existing pipelineInfo and update it, writing updated
 		// pipelineInfo back to PFS in a new commit. Do this inside an etcd
 		// transaction as PFS doesn't support transactions and this prevents
@@ -2463,7 +2466,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 			// move the spec branch for this pipeline to the new commit
 			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-				return txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				return superCtx.Pfs().CreateBranchInTransaction(superCtx, &pfs.CreateBranchRequest{
 					Head:   specCommit,
 					Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
 				})
