@@ -36,7 +36,7 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 		}),
 	}
 	setConfig.PersistentFlags().StringVar(&issuer, "issuer", "", `The issuer for the identity server.`)
-	return cmdutil.CreateAlias(setConfig, "idp set config")
+	return cmdutil.CreateAlias(setConfig, "idp set-config")
 }
 
 // GetIdentityServerConfigCmd returns a cobra.Command to fetch the current ID server config
@@ -57,7 +57,7 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(getConfig, "idp get config")
+	return cmdutil.CreateAlias(getConfig, "idp get-config")
 }
 
 // CreateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
@@ -106,7 +106,7 @@ func CreateIDPConnectorCmd() *cobra.Command {
 	createConnector.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the connector.`)
 	createConnector.PersistentFlags().StringVar(&t, "type", "", `The type of the connector, ex. github, ldap, saml.`)
 	createConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
-	return cmdutil.CreateAlias(createConnector, "idp create connector")
+	return cmdutil.CreateAlias(createConnector, "idp create-connector")
 }
 
 // UpdateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
@@ -155,7 +155,7 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 	updateConnector.PersistentFlags().StringVar(&name, "name", "", `The new user-visible name of the connector.`)
 	updateConnector.PersistentFlags().IntVar(&version, "version", 0, `The new configuration version. This must be one greater than the current version.`)
 	updateConnector.PersistentFlags().StringVar(&file, "config", "", `The file to read the JSON-encoded connector configuration from, or '-' for stdin.`)
-	return cmdutil.CreateAlias(updateConnector, "idp update connector")
+	return cmdutil.CreateAlias(updateConnector, "idp update-connector")
 }
 
 // GetIDPConnectorCmd returns a cobra.Command to get an IDP connector configuration
@@ -178,7 +178,7 @@ func GetIDPConnectorCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(getConnector, "idp get connector")
+	return cmdutil.CreateAlias(getConnector, "idp get-connector")
 }
 
 // DeleteIDPConnectorCmd returns a cobra.Command to delete an IDP connector
@@ -196,7 +196,7 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAlias(deleteConnector, "idp delete connector")
+	return cmdutil.CreateAlias(deleteConnector, "idp delete-connector")
 }
 
 // ListIDPConnectorsCmd returns a cobra.Command to list IDP integrations
@@ -222,7 +222,7 @@ func ListIDPConnectorsCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(listConnectors, "idp list connector")
+	return cmdutil.CreateAlias(listConnectors, "idp list-connector")
 }
 
 // CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
@@ -262,7 +262,7 @@ func CreateOIDCClientCmd() *cobra.Command {
 	createClient.PersistentFlags().StringVar(&secret, "secret", "", `The client secret for the new client. A random secret will be generated if not specified.`)
 	createClient.PersistentFlags().StringVar(&redirectURI, "redirectUris", "", `A comma-separated list of authorized redirect URLs for callbacks.`)
 	createClient.PersistentFlags().StringVar(&trustedPeers, "trustedPeers", "", `A comma-separated list of clients who can get tokens for this service.`)
-	return cmdutil.CreateAlias(createClient, "idp create client")
+	return cmdutil.CreateAlias(createClient, "idp create-client")
 }
 
 // DeleteOIDCClientCmd returns a cobra.Command to delete an OIDC client
@@ -282,7 +282,7 @@ func DeleteOIDCClientCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAlias(deleteClient, "idp delete client")
+	return cmdutil.CreateAlias(deleteClient, "idp delete-client")
 }
 
 // GetOIDCClientCmd returns a cobra.Command to get an OIDC client
@@ -306,7 +306,7 @@ func GetOIDCClientCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(getClient, "idp get client")
+	return cmdutil.CreateAlias(getClient, "idp get-client")
 }
 
 // UpdateOIDCClientCmd returns a cobra.Command to update an existing OIDC client
@@ -340,7 +340,7 @@ func UpdateOIDCClientCmd() *cobra.Command {
 	updateClient.PersistentFlags().StringVar(&name, "name", "", `The user-visible name of the new client.`)
 	updateClient.PersistentFlags().StringSliceVar(&redirectURIs, "redirectUris", nil, `A comma-separated list of redirect URLs for callbacks.`)
 	updateClient.PersistentFlags().StringSliceVar(&trustedPeers, "trustedPeers", nil, `A comma-separated list of clients that can get tokens for this service`)
-	return cmdutil.CreateAlias(updateClient, "idp update client")
+	return cmdutil.CreateAlias(updateClient, "idp update-client")
 }
 
 // ListOIDCClientsCmd returns a cobra.Command to list IDP integrations
@@ -366,7 +366,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(listConnectors, "idp list client")
+	return cmdutil.CreateAlias(listConnectors, "idp list-client")
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
