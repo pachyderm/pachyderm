@@ -81,6 +81,7 @@ func setupIdentityServer(t *testing.T, adminClient *client.APIClient) error {
 	_, err = adminClient.CreateOIDCClient(adminClient.Ctx(), &identity.CreateOIDCClientRequest{
 		Client: &identity.OIDCClient{
 			Id:           "pachyderm",
+			Name:         "pachyderm",
 			RedirectUris: []string{"http://pachd:657/authorization-code/callback"},
 			Secret:       "notsecret",
 			TrustedPeers: []string{"testapp"},
