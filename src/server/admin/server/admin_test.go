@@ -857,9 +857,8 @@ func TestMigrateAuthFrom1_11(t *testing.T) {
 	require.NoError(t, md.Close())
 
 	// Wait for final imported commit to be processed
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit("left", "master")}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit("left", "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	// filter-left and filter-right both compute a join of left and
 	// right--depending on when the final commit to 'left' was added, it may have
 	// been processed multiple times (should be n * 3, as there are 3 pipelines)
