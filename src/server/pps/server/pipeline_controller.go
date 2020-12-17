@@ -543,11 +543,15 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 
 	var errCount int
 	return backoff.RetryNotify(func() error {
+		err := op.apiServer.setupWorkerPachctlAuth(op.opClient.Ctx(), op.ptr, op.pipelineInfo)
+		if err != nil {
+			return err
+		}
 		newRC := *op.rc
 		// Apply op's update to rc
 		update(&newRC)
 		// write updated RC to k8s
-		_, err := rc.Update(&newRC)
+		_, err = rc.Update(&newRC)
 		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		errCount++

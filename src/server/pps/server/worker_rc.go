@@ -12,7 +12,6 @@ import (
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -501,12 +500,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		)
 	}
 
-	// transform.Secrets = append(transform.Secrets, &pps.SecretMount{
-	// 	Name:      "pachyderm-pachctl-secret",
-	// 	MountPath: "/pachyderm-pachctl-secret",
-	// 	Key:       "secret-with-pachctl-config-data",
-	// })
-
 	var volumes []v1.Volume
 	var volumeMounts []v1.VolumeMount
 	for _, secret := range transform.Secrets {
@@ -643,6 +636,20 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}, nil
 }
 
+func (a *apiServer) setupWorkerPachctlAuth(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+	s, err := assets.CreatePachctlSecret(ptr.AuthToken, pipelineInfo.Pipeline.Name)
+	if err != nil {
+		return err
+	}
+	// send RPC to k8s to create the secret there
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(s); err != nil {
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
 // getWorkerOptions returned an error to it (getWorkerOptions does not return
 // noValidOptions). This is a mechanism for createWorkerSvcAndRc to signal to
@@ -662,48 +669,8 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 
 	pachClient := a.env.GetPachClient(context.Background())
 
-	// cfg, err := config.Read(false)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
-	// }
-	var cfg config.Config
-	err := cfg.InitV2()
-	if err != nil {
-		return errors.Wrapf(err, "error initializing V2 for config")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return errors.Wrapf(err, "error getting the active context")
-	}
-	context.SessionToken = ptr.AuthToken
-	context.PachdAddress = "localhost:653"
-
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return errors.Wrapf(err, "error marshaling the config")
-	}
-	s := v1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
-		},
-		Data: map[string][]byte{
-			"config.json": rawConfig,
-		},
-	}
-
-	labels := make(map[string]string)
-	labels["suite"] = "pachyderm"
-	labels["secret-source"] = "pachyderm-pachd"
-	s.SetLabels(labels)
-	// send RPC to k8s to create the secret there
-	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
-		if !isAlreadyExistsErr(err) {
-			return err
-		}
+	if err := a.setupWorkerPachctlAuth(ctx, ptr, pipelineInfo); err != nil {
+		return err
 	}
 
 	options, err := a.getWorkerOptions(ptr, pipelineInfo)
