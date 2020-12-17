@@ -19,8 +19,8 @@ func TestAuthNotActivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	DeleteAll(t)
+	defer DeleteAll(t)
 
 	client := tu.GetPachClient(t)
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
@@ -81,8 +81,8 @@ func TestUserNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	DeleteAll(t)
+	defer DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
@@ -145,8 +145,8 @@ func TestSetConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	DeleteAll(t)
+	defer DeleteAll(t)
 
 	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
@@ -189,8 +189,8 @@ func TestOIDCClientCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	DeleteAll(t)
+	defer DeleteAll(t)
 
 	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
@@ -236,8 +236,8 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	DeleteAll(t)
+	defer DeleteAll(t)
 
 	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
