@@ -543,6 +543,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 
 	var errCount int
 	return backoff.RetryNotify(func() error {
+		// make sure we setup the auth secret for pachctl in case auth has been enabled
 		err := op.apiServer.setupWorkerPachctlAuth(op.opClient.Ctx(), op.ptr, op.pipelineInfo)
 		if err != nil {
 			return err

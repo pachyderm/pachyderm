@@ -30,10 +30,7 @@ func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
 		return env
 	}
-	log.Info("Config path")
-
 	if _, err := os.Stat(pachctlConfigPath); err == nil {
-		log.Info("Stat pachctl config path")
 		return pachctlConfigPath
 	}
 	return defaultConfigPath
@@ -146,6 +143,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 	return cloned, nil
 }
 
+// InitV2 initializes the V2 object of the config
 func (c *Config) InitV2() error {
 	c.V2 = &ConfigV2{
 		ActiveContext: "default",
@@ -234,7 +232,7 @@ func (c *Config) Write() error {
 // WritePachTokenToConfig sets the auth token for the current pachctl config.
 // Used during tests to ensure we don't lose access to a cluster if a test fails.
 func WritePachTokenToConfig(token string) error {
-	cfg, err := Read(false)
+	cfg, err := Read(false, false)
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
