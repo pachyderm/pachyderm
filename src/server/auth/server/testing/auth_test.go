@@ -1543,10 +1543,11 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	require.Matches(t, "no authentication token", err.Error())
 }
 
-// Creating a pipeline when the output repo already exists gives you an error to
-// that effect, even when auth is already activated (rather than "access
-// denied")
-func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
+// Creating a pipeline when the output repo already exists gives is allowed
+// (assuming write permission)
+// this used to return a specific error regardless of permissions, in contrast
+// to the auth-disabled behavior
+func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1566,8 +1567,7 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pipeline))
 
-	// bob creates a pipeline, and should get an error to the effect that the
-	// repo already exists (rather than "access denied")
+	// bob creates a pipeline, and should get an "access denied" error
 	err := bobClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1579,7 +1579,24 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 		false, // Don't update -- we want an error
 	)
 	require.YesError(t, err)
-	require.Matches(t, "cannot overwrite repo", err.Error())
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice gives bob writer scope
+	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_WRITER,
+		Repo:     inputRepo,
+	})
+	require.NoError(t, bobClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(inputRepo, "/*"),
+		"",    // default output branch: master
+		false, // Don't update -- we want an error
+	))
 }
 
 // TestAuthorizedNoneRole tests that Authorized(user, repo, NONE) yields 'true',
@@ -3202,6 +3219,19 @@ func TestDebug(t *testing.T) {
 		}
 	}
 	require.Equal(t, 0, len(expectedFiles))
+}
+
+func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// just for side effects, ensuring auth is active
+	tu.GetAuthenticatedPachClient(t, tu.UniqueString("unused"))
+
+	tu.TestPipelineBuildLifecycle(t, "go", "go", 5)
 }
 
 func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
