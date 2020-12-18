@@ -34,18 +34,19 @@ Install the following prerequisites:
 
  To install `pachctl`, complete the following steps:
 
- * To install on macOS by using `brew`, run the following command:
+ - To install on macOS by using `brew`, run the following command:
 
    ```shell
-   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.12
+   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ```
- * To install on Linux 64-bit or Windows 10 or later, run the following command:
+   
+ - To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```shell
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
- 1. Verify your installation by running `pachctl version`:
+ - Verify your installation by running `pachctl version`:
 
     ```shell
     pachctl version --client-only
@@ -64,99 +65,79 @@ You can deploy Kubernetes on Azure by following the official [Azure Container Se
 following the steps in this section. When you deploy Kubernetes on Azure,
 you need to specify the following parameters:
 
-<style type="text/css">
-.tg  {border-collapse:collapse;border-spacing:0;border-color:#ccc;}
-.tg td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#fff;}
-.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#f0f0f0;}
-.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
-</style>
-<table class="tg">
-  <tr>
-    <th class="tg-0pky">Variable</th>
-    <th class="tg-0pky">Description</th>
-  </tr>
-  <tr>
-    <td class="tg-0pky">RESOURCE_GROUP</td>
-    <td class="tg-0pky">A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.</td>
-  </tr>
-  <tr>
-    <td class="tg-0pky">LOCATION</td>
-    <td class="tg-0pky">An Azure availability zone where AKS is available. For example, `centralus`.</td>
-  </tr>
-  <tr>
-    <td class="tg-0pky">NODE_SIZE</td>
-    <td class="tg-0pky">The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you
-    set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.</td>
-  </tr>
-  <tr>
-    <td class="tg-0pky">CLUSTER_NAME</td>
-    <td class="tg-0pky">A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.</td>
-  </tr>
-</table>
+|Variable|Description|
+|--------|-----------|
+|RESOURCE_GROUP|A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.|
+|LOCATION|An Azure availability zone where AKS is available. For example, `centralus`.|
+|NODE_SIZE|The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.|
+|CLUSTER_NAME|A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.|
+
 
 To deploy Kubernetes on Azure, complete the following steps:
 
 1. Log in to Azure:
 
-   ```shell
-   az login
-   ```
+    ```shell
+    az login
+    ```
 
-   **System Response:**
+    **System Response:**
 
-   ```shell
-   Note, we have launched a browser for you to login. For old experience with
-   device code, use "az login --use-device-code"
-   ```
+    ```shell
+    Note, we have launched a browser for you to login. For old experience with
+    device code, use "az login --use-device-code"
+    ```
+    If you have not already logged in, this command opens a browser window. Log in with your Azure credentials.
+    After you log in, the following message appears in the command prompt:
+    
+    ```shell
+    You have logged in. Now let us find all the subscriptions to which you have access...
+    ```
+    
+    ```json
+    [
+      {
+        "cloudName": "AzureCloud",
+        "id": "your_id",
+        "isDefault": true,
+        "name": "Microsoft Azure Sponsorship",
+        "state": "Enabled",
+        "tenantId": "your_tenant_id",
+        "user": {
+          "name": "your_contact_id",
+          "type": "user"
+        }
+      }
+    ]
+    ```  
+  
+1. Create an Azure resource group:
 
-   If you have not already logged in this command opens a browser window. Log in with your Azure credentials.
-   After you log in, the following message appears in the command prompt:
+    ```shell
+    az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
+    ```
 
-   ```shell
-   You have logged in. Now let us find all the subscriptions to which you have access...
-   [
-     {
-       "cloudName": "AzureCloud",
-       "id": "your_id",
-       "isDefault": true,
-       "name": "Microsoft Azure Sponsorship",
-       "state": "Enabled",
-       "tenantId": "your_tenant_id",
-       "user": {
-         "name": "your_contact_id",
-         "type": "user"
-       }
-     }
-   ]
-   ```
+    **Example:**
 
-1. Create an Azure resource group.
+    ```shell
+    az group create --name="test-group" --location=centralus
+    ```
 
-   ```shell
-   az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
-   ```
+    **System Response:**
 
-   **Example:**
-
-   ```shell
-   az group create --name="test-group" --location=centralus
-   ```
-
-   **System Response:**
-
-   ```shell
-   {
-     "id": "/subscriptions/6c9f2e1e-0eba-4421-b4cc-172f959ee110/resourceGroups/pach-resource-group",
-     "location": "centralus",
-     "managedBy": null,
-     "name": "pach-resource-group",
-     "properties": {
-       "provisioningState": "Succeeded"
-     },
-     "tags": null,
-     "type": null
-   }
-   ```
+    ```json
+    {
+      "id": "/subscriptions/6c9f2e1e-0eba-4421-b4cc-172f959ee110/resourceGroups/pach-resource-group",
+      "location": "centralus",
+      "managedBy": null,
+      "name": "pach-resource-group",
+      "properties": {
+        "provisioningState": "Succeeded"
+      },
+      "tags": null,
+      "type": null
+    }
+    ```
 
 1. Create an AKS cluster:
 
@@ -172,7 +153,7 @@ To deploy Kubernetes on Azure, complete the following steps:
 
    **System Response:**
 
-   ```shell
+   ```json
    {
      "aadProfile": null,
      "addonProfiles": null,
@@ -224,30 +205,11 @@ Managed Disks* that are available with the Azure Premium Storage offering.
 You need to specify the following parameters when you create storage
 resources:
 
-<style type="text/css">
-.tg  {border-collapse:collapse;border-spacing:0;border-color:#ccc;}
-.tg td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#fff;}
-.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#f0f0f0;}
-.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
-</style>
-<table class="tg">
-  <tr>
-    <th class="tg-0pky">Variable</th>
-    <th class="tg-0pky">Description</th>
-  </tr>
-  <tr>
-    <td class="tg-0pky">STORAGE_ACCOUNT</td>
-    <td class="tg-0pky">The name of the storage account where you store your data, unique in the Azure location</td>
-  </tr>
-  <tr>
-    <td class="tg-0pky">CONTAINER_NAME</td>
-    <td class="tg-0pky">The name of the Azure blob container where you store your data</td>
-  </tr>
-  <tr>
-    <td class="tg-0pky">STORAGE_SIZE</td>
-    <td class="tg-0pky">The size of the persistent volume to create in GBs. Allocate at least 10 GB.</td>
-  </tr>
-</table>
+|Variable|Description|
+|--------|-----------|
+|STORAGE_ACCOUNT|The name of the storage account where you store your data, unique in the Azure location.|
+|CONTAINER_NAME|The name of the Azure blob container where you store your data.|
+|STORAGE_SIZE|The size of the persistent volume to create in GBs. Allocate at least 10 GB.|
 
 To create these resources, follow these steps:
 
@@ -265,7 +227,7 @@ To create these resources, follow these steps:
    ```
    **System response:**
 
-   ```
+   ```json
    {
      "accessTier": null,
      "creationTime": "2019-06-20T16:05:55.616832+00:00",
@@ -314,7 +276,7 @@ To create these resources, follow these steps:
 
    **System Response:**
 
-   ```shell
+   ```json
    [
      {
        "keyName": "key1",
@@ -352,7 +314,7 @@ you might accidentally deploy your cluster on Minikube.
    This command should return the name of your Kubernetes cluster that
    runs on Azure.
 
-   * If you have a different contents displayed, configure `kubectl`
+   If you have a different contents displayed, configure `kubectl`
    to use your Azure configuration:
 
    ```shell

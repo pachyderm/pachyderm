@@ -83,7 +83,7 @@ You can confirm each pipeline is paused using the `list pipeline` command
 
 Alternatively, a useful shell script for running `stop pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
 
-```
+```shell
 pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
@@ -132,8 +132,8 @@ $ pachctl config update context `pachctl config get active-context` --pachd-addr
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.9.7
-pachd               1.9.7
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
 ```
 
 ### 2. Extract a pachyderm backup with the --no-objects flag
@@ -189,7 +189,7 @@ You can confirm each pipeline is started using the `list pipeline` command
 A useful shell script for running `start pipeline` on all pipelines is included below.
 It may be necessary to install several of the utlilies used in the script, like jq, on your system.
 
-```
+```shell
 pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
   | xargs -P3 -n1 -I{} pachctl start pipeline {}
@@ -222,8 +222,8 @@ $ pachctl config update context `pachctl config get active-context` --pachd-addr
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
 $ pc version
 COMPONENT           VERSION
-pachctl             1.7.11
-pachd               1.7.11
+pachctl             {{ config.pach_latest_version }}
+pachd               {{ config.pach_latest_version }}
 ```
 
 Your old pachyderm cluster can operate while you're creating a migrated one.

@@ -84,15 +84,17 @@ To restore all paused pipelines, complete the following steps:
 1. Run the `pachctl start pipeline` command on each paused pipeline or
    use the multi-line shell script to restart all pipelines at once:
 
-   ```pachctl tab="Command"
-   pachctl start pipeline <pipeline-name>
-   ```
+   - one-by-one
+      ```shell
+      pachctl start pipeline <pipeline-name>
+      ```
 
-   ```shell tab="Script"
-   pachctl list pipeline --raw \
-   | jq -r '.pipeline.name' \
-   | xargs -P3 -n1 -I{} pachctl start pipeline {}
-   ```
+   - all-at-once
+      ```shell
+      pachctl list pipeline --raw \
+      | jq -r '.pipeline.name' \
+      | xargs -P3 -n1 -I{} pachctl start pipeline {}
+      ```
 
    You might need to install `jq` and other utilities to run the script.
 
@@ -220,15 +222,16 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
 
 1. Verify that your cluster has been deployed:
 
-   ```pachctl tab="In a Namespace"
-   kubectl get pod --namespace=<new-cluster>
-   ```
+- In a namespace
+    ```shell
+    kubectl get pod --namespace=<new-cluster>
+    ```
 
-   ```shell tab="On a Separate Cluster"
-   kubectl get pod
-   ```
-
-   * If you have deployed your new cluster in a namespace, Pachyderm should
+- On a cluster
+    ```shell
+    kubectl get pod
+    ```
+   If you have deployed your new cluster in a namespace, Pachyderm should
    have created a new context for this deployement. Verify that you are
    using this.
 
@@ -253,12 +256,12 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 
   **Example System Response:**
 
-  ``` hl_lines="5"
+  ``` json
   {
-    "source": "IMPORTED",
-    "cluster_name": "test-migration.us-east-1.eksctl.io",
-    "auth_info": "user@test-migration.us-east-1.eksctl.io",
-    "namespace": "new-cluster"
+      "source": "IMPORTED",
+      "cluster_name": "test-migration.us-east-1.eksctl.io",
+      "auth_info": "user@test-migration.us-east-1.eksctl.io",
+      "namespace": "new-cluster"
   }
   ```
 
@@ -268,7 +271,8 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 1. Check that the cluster does not have any exisiting Pachyderm objects:
 
    ```shell
-   pachctl list repo & pachctl list pipeline
+   pachctl list repo 
+   pachctl list pipeline
    ```
 
    You should get empty output.
@@ -276,13 +280,15 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 1. Restore your cluster from the backup you have created in
 [Step 1](#step-1-back-up-your-cluster):
 
-   ```pachctl tab="From a Local File"
-   pachctl restore < path/to/your/backup/file
-   ```
+  - Local File
+      ```shell
+      pachctl restore < path/to/your/backup/file
+      ```
 
-   ```pachctl tab="From an S3 Bucker"
-   pachctl restore --url s3://path/to/backup
-   ```
+   - S3 Bucket
+      ```shell
+      pachctl restore --url s3://path/to/backup
+      ```
 
    This S3 bucket is different from the s3 bucket to which you cloned
    your Pachyderm data. This is merely a bucket you allocated to hold
@@ -312,7 +318,7 @@ Confirm that the data output is as expected and the new cluster is operating as 
 
    1. Undeploy your old cluster:
 
-      ```pachctl
+      ```shell
       pachctl undeploy
       ```
 

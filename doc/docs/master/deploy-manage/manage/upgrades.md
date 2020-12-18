@@ -19,7 +19,7 @@ section.
 
 1. Destroy your Pachyderm cluster:
 
-   ```
+   ```shell
    pachctl undeploy
    ```
 
@@ -28,15 +28,15 @@ section.
    **Example:**
 
    ```shell
-   brew upgrade pachyderm/tap/pachctl@1.12
+   brew upgrade pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ```
 
    **System response:**
 
    ```shell
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.12
-   ==> Upgrading pachyderm/tap/pachctl@1.12
+   pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+   ==> Upgrading pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ...
    ```
 
@@ -134,7 +134,7 @@ It can use Persistent Volume Provisioning or pre-provisioned PV’s,
 both of which are dynamically allocated from Pachyderm's point of view.
 Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pachyderm using StatefulSets.
 
-It is recommended that you deploy Pachyderm using StatefulSets when possible. 
+!!! tip It is recommended that you deploy Pachyderm using StatefulSets when possible. 
 All of the instructions for cloud provider deployments do this by default.
 We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
@@ -154,7 +154,7 @@ or re-deploying all of Pachyderm again will fix the issue.
 
 Occasionally, you might see errors similar to the following:
 
-```
+```shell
 Error from server (AlreadyExists): error when creating "STDIN": secrets "pachyderm-storage-secret" already exists
 ```
 
@@ -168,8 +168,11 @@ the IP address for Pachyderm may have changed.
 
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
-- Re-run `pachctl port-forward &`, or
-- Set the pachd address config value to the updated value, e.g.: ```pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650```
+- Re-run `pachctl port-forward`, or
+- Set the pachd address config value to the updated value, e.g.: 
+```shell
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+```
 
 
 

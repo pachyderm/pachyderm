@@ -141,7 +141,7 @@ gsutil ls
 
 ```shell
 # For macOS:
-brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.12
+brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
 
 # For Linux (64 bit) or Window 10+ on WSL:
 
@@ -214,7 +214,7 @@ forward a port so that `pachctl` can talk to the cluster.
 
 ```shell
 # Forward the ports. We background this process because it blocks.
-pachctl port-forward &
+pachctl port-forward
 ```
 
 And you're done! You can test to make sure the cluster is working

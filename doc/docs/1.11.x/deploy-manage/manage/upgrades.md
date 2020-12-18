@@ -19,7 +19,7 @@ section.
 
 1. Destroy your Pachyderm cluster:
 
-   ```
+   ```shell
    pachctl undeploy
    ```
 
@@ -28,21 +28,21 @@ section.
    **Example:**
 
    ```shell
-   brew upgrade pachyderm/tap/pachctl@1.11
+   brew upgrade pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ```
 
    **System response:**
 
    ```shell
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.11
-   ==> Upgrading pachyderm/tap/pachctl@1.11
+   pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+   ==> Upgrading pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ...
    ```
 
    **Note:** You need to specify the version of `pachctl` to which
    you want to upgrade. For example, if you want to upgrade `1.11.0` to
-   `{{ config.pach_latest_version }}`, add `@1.9` at the end of the upgrade path.
+   `1.11.2`, add `@1.11` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -134,7 +134,7 @@ It can use Persistent Volume Provisioning or pre-provisioned PV’s,
 both of which are dynamically allocated from Pachyderm's point of view.
 Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pachyderm using StatefulSets.
 
-It is recommended that you deploy Pachyderm using StatefulSets when possible. 
+!!! tip It is recommended that you deploy Pachyderm using StatefulSets when possible. 
 All of the instructions for cloud provider deployments do this by default.
 We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
@@ -154,7 +154,7 @@ or re-deploying all of Pachyderm again will fix the issue.
 
 Occasionally, you might see errors similar to the following:
 
-```
+```shell
 Error from server (AlreadyExists): error when creating "STDIN": secrets "pachyderm-storage-secret" already exists
 ```
 
@@ -168,8 +168,11 @@ the IP address for Pachyderm may have changed.
 
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
-- Re-run `pachctl port-forward &`, or
-- Set the pachd address config value to the updated value, e.g.: ```pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650```
+- Re-run `pachctl port-forward `, or
+- Set the pachd address config value to the updated value, e.g.: 
+```shell
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+```
 
 
 

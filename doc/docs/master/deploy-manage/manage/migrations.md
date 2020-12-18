@@ -84,17 +84,17 @@ To restore all paused pipelines, complete the following steps:
 1. Run the `pachctl start pipeline` command on each paused pipeline one-by-one, or
    use the multi-line shell script to restart pipelines all-at-once:
 
-=== "one-by-one"
-    ```shell
-    pachctl start pipeline <pipeline-name>
-    ```
+   - one-by-one
+      ```shell
+      pachctl start pipeline <pipeline-name>
+      ```
 
-=== "all-at-once"
-    ```shell
-    pachctl list pipeline --raw \
-    | jq -r '.pipeline.name' \
-    | xargs -P3 -n1 -I{} pachctl start pipeline {}
-    ```
+   - all-at-once
+      ```shell
+      pachctl list pipeline --raw \
+      | jq -r '.pipeline.name' \
+      | xargs -P3 -n1 -I{} pachctl start pipeline {}
+      ```
 
    You might need to install `jq` and other utilities to run the script.
 
@@ -150,16 +150,6 @@ To restore all paused pipelines, complete the following steps:
    pachctl version
    ```
 
-```shell
-pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
-```
-
-1. Verify that you can access `pachd`:
-
-```shell
-pachctl version
-```
-
    **System Response:**
 
    ```
@@ -199,23 +189,16 @@ steps:
 1. Upgrade your Pachyderm version to the latest version:
 
    ```shell
-   brew upgrade pachyderm/tap/pachctl@1.12
+   brew upgrade pachyderm/tap/pachctl@{{config.pach_major_minor_version}}
    ```
 
-```shell
-brew upgrade pachyderm/tap/pachctl@1.12
-```
+   If you are deploying your cluster in a separate Kubernetes namespace,
+   create a new namespace:
 
-* If you are deploying your cluster in a separate Kubernetes namespace,
- create a new namespace:
+   ```shell
+   kubectl create namespace <new-cluster-namespace>
+   ```
 
-  ```shell
-  kubectl create namespace <new-cluster-namespace>
-  ```
-
-```shell
-kubectl create namespace <new-cluster-namespace>
-```
 
 1. Deploy your cluster in a separate namespace or on a separate Kubernetes
 cluster by using a `pachctl deploy` command for your cloud provider with the
@@ -223,39 +206,39 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
 
 **Examples:**
 
-=== "AWS EKS"
+   - AWS EKS
     ```shell
     pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
     ```
 
-=== "GKE"
+   - GKE
     ```shell
     pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
     ```
 
-=== "Azure"
+   - Azure
     ```shell
     pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
     ```
 
-**Note:** Parameters for your Pachyderm cluster deployment might be different.
-For more information, see [Deploy Pachyderm](../../deploy/).
+   **Note:** Parameters for your Pachyderm cluster deployment might be different.
+   For more information, see [Deploy Pachyderm](../../deploy/).
 
 1. Verify that your cluster has been deployed:
 
-=== "In a namespace"
+- In a namespace
     ```shell
     kubectl get pod --namespace=<new-cluster>
     ```
 
-=== "On a cluster"
+- On a cluster
     ```shell
     kubectl get pod
     ```
 
-* If you have deployed your new cluster in a namespace, Pachyderm should
-have created a new context for this deployement. Verify that you are
-using this.
+   If you have deployed your new cluster in a namespace, Pachyderm should
+   have created a new context for this deployement. Verify that you are
+   using this.
 
 1. Proceed to [Step 4](#step-4-restore-your-cluster).
 
@@ -269,8 +252,8 @@ this new context to access the correct cluster. Before you run the
 
 To restore your cluster, complete the following steps:
 
-* If you deployed your new cluster into a different namespace on the same
-Kubernetes cluster as your old cluster, verify that you on the correct namespace:
+1. If you deployed your new cluster into a different namespace on the same
+   Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
   ```shell
   $ pachctl config get context `pachctl config get active-context`
@@ -278,7 +261,7 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 
   **Example System Response:**
 
-  ``` hl_lines="5"
+  ``` json
   {
     "source": "IMPORTED",
     "cluster_name": "test-migration.us-east-1.eksctl.io",
@@ -293,7 +276,8 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 1. Check that the cluster does not have any existing Pachyderm objects:
 
    ```shell
-   pachctl list repo & pachctl list pipeline
+   pachctl list repo
+   pachctl list pipeline
    ```
 
    You should get empty output.
@@ -301,19 +285,19 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
 1. Restore your cluster from the backup you have created in
 [Step 1](#step-1-back-up-your-cluster):
 
-=== "Local File"
+   - Local File
     ```shell
     pachctl restore < path/to/your/backup/file
     ```
 
-=== "S3 Bucket"
+   - S3 Bucket
     ```shell
     pachctl restore --url s3://path/to/backup
     ```
 
-This S3 bucket is different from the s3 bucket to which you cloned
-your Pachyderm data. This is merely a bucket you allocated to hold
-the Pachyderm backup without objects.
+   This S3 bucket is different from the s3 bucket to which you cloned
+   your Pachyderm data. This is merely a bucket you allocated to hold
+   the Pachyderm backup without objects.
 
 1. Configure any external data loading systems to point at the new,
 upgraded Pachyderm cluster and play back transactions from the checkpoint
@@ -323,23 +307,23 @@ Confirm that the data output is as expected and the new cluster is operating as 
 
 1. Disable the old cluster:
 
-* If you have deployed the new cluster on the same Kuberenetes cluster
-switch to the old cluster's Pachyderm context:
+   -  If you have deployed the new cluster on the same Kuberenetes cluster
+   switch to the old cluster's Pachyderm context:
 
-   ```shell
-   pachctl config set active-context <old-context>
-   ```
+      ```shell
+      pachctl config set active-context <old-context>
+      ```
 
-   * If you have deployed the new cluster to a different Kubernetes cluster,
+   - If you have deployed the new cluster to a different Kubernetes cluster,
    switch to the old cluster's Kubernetes context:
 
-   ```shell
-   kubectl config use-context <old cluster>
-   ```
+      ```shell
+      kubectl config use-context <old cluster>
+      ```
 
    1. Undeploy your old cluster:
 
-      ```pachctl
+      ```shell
       pachctl undeploy
       ```
 
@@ -347,6 +331,6 @@ switch to the old cluster's Pachyderm context:
    You may need to reconfigure the following:
 
    - Data loading operations from Pachyderm to processes outside
-   of it to work as expected.
+      of it to work as expected.
    - Kubernetes ingress and port changes taken to avoid conflicts
-   with the old cluster.
+      with the old cluster.

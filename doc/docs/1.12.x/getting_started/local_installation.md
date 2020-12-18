@@ -91,7 +91,7 @@ to have pachctl installed on your machine by following these steps:
    * For macOS, run:
 
      ```shell
-     brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.12
+     brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
      ```
 
    * For a Debian-based Linux 64-bit or Windows 10 or later running on
