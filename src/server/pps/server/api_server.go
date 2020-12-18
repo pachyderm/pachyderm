@@ -3125,6 +3125,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
+	// TODO(msteffen): a job may be created by the worker master after this step
+	// but before the pipeline RC is deleted. Check for orphaned jobs in
+	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
@@ -3151,15 +3154,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
 		})
 	})
-	// Delete EtcdPipelineInfo
-	eg.Go(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
-		}
-		return nil
-	})
 	// Delete cron input repos
 	if !request.KeepRepo {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -3170,6 +3164,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		})
 	}
+	// Delete EtcdPipelineInfo
+	eg.Go(func() error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+		}); err != nil {
+			return errors.Wrapf(err, "collection.Delete")
+		}
+		return nil
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
