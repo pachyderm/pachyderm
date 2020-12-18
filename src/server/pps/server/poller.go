@@ -56,6 +56,10 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 // avoid reentrancy deadlock.                                               //
 //////////////////////////////////////////////////////////////////////////////
 
+// pollPipelines generates regular updateEv and deleteEv events for each
+// pipeline and sends them to ppsMaster.Run(). By scanning etcd and k8s
+// regularly and generating events for them, it prevents pipelines from
+// getting orphaned.
 func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
 	etcdPipelines := map[string]bool{}
@@ -110,16 +114,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 				}
 			}
 
-			// 4. Likewise, clean up any orphaned monitorPipeline and
-			// monitorCrashingPipeline goros. Note that this may delete a new
-			// pipeline's monitorPipeline goro (if CreatePipeline(foo) runs between
-			// 'listPipelinePtr' above, and here, then this may delete brand-new
-			// pipeline 'foo's monitorPipeline goro).  However, the next run through
-			// this loop will restore it, by generating an etcd event for 'foo', which
-			// will cause the pipeline controller to restart monitorPipeline(foo).
-			m.cancelAllMonitorsAndCrashingMonitors(etcdPipelines)
-
-			// 5. Retry if there are no etcd pipelines to read/write
+			// 4. Retry if there are no etcd pipelines to read/write
 			if len(etcdPipelines) == 0 {
 				return backoff.ErrContinue
 			}
