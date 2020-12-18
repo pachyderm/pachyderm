@@ -3889,12 +3889,17 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 				}
 				_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 					var pipelinePtr pps.EtcdPipelineInfo
+
 					if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 						pipelinePtr.AuthToken = tokenResp.Token
 						return nil
 					}); err != nil {
 						return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
 					}
+					if err := a.createWorkerPachctlSecret(ctx, &pipelinePtr, pipeline); err != nil {
+						return errors.Wrapf(err, "could not update %v with new pachctl secret", pipelineName)
+					}
+
 					return nil
 				})
 				return err

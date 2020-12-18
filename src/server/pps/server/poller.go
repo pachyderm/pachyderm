@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -79,7 +80,9 @@ func (a *apiServer) pollPipelines(pachClient *client.APIClient) {
 					if !ok {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
+					fmt.Println("ollo")
 					if !etcdPipelines[pipeline] {
+						fmt.Println("not an etcd pipeline")
 						if err := a.deletePipelineResources(ctx, pipeline); err != nil {
 							// log the error but don't return it, so that one broken RC doesn't
 							// block pollPipelines

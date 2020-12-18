@@ -667,6 +667,9 @@ func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.Etcd
 			"config.json": rawConfig,
 		},
 	}
+	labels := s.GetLabels()
+	labels["pipelineName"] = pipelineInfo.Pipeline.Name
+	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
 	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
