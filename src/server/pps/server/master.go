@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -34,6 +33,26 @@ var (
 	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
+
+type eventType int
+
+const (
+	writeEv eventType = iota
+	deleteEv
+)
+
+type pipelineEvent struct {
+	eventType
+	pipeline string
+
+	// etcdVer and etcdRev record the etcd version and key revision at which a
+	// write/delete was observed. These are recorded in traces and are useful for
+	// debugging (e.g. if two consecutive spans have non-consecutive versions,
+	// that would indicate a concurrent write). These will not be set for events
+	// created by pollPipelines.
+	etcdVer int64
+	etcdRev int64
+}
 
 type ppsMaster struct {
 	// The PPS APIServer that owns this struct
@@ -54,6 +73,10 @@ type ppsMaster struct {
 	pollPipelinesMu sync.Mutex
 	pollCancel      func() // protected by pollPipelinesMu
 	pollPodsCancel  func() // protected by pollPipelinesMu
+	pollEtcdCancel  func() // protected by pollPipelinesMu
+
+	// channel through which pipeline events are passed
+	eventCh chan *pipelineEvent
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -63,6 +86,7 @@ func (a *apiServer) master() {
 		a:                      a,
 		monitorCancels:         make(map[string]func()),
 		crashingMonitorCancels: make(map[string]func()),
+		eventCh:                make(chan *pipelineEvent, 1), // avoid thrashing
 	}
 
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
@@ -102,40 +126,31 @@ func (m *ppsMaster) run() {
 	defer m.cancelPipelinePoller()
 	m.startPipelinePodsPoller()
 	defer m.cancelPipelinePodsPoller()
+	m.startPipelineEtcdPoller()
+	defer m.cancelPipelineEtcdPoller()
 
-	backoff.RetryUntilCancel(m.masterClient.Ctx(), func() error {
-		// TODO(msteffen) request only keys, since pipeline_controller.go reads
-		// fresh values for each event anyway
-		pipelineWatcher, err := m.a.pipelines.ReadOnly(m.masterClient.Ctx()).Watch()
-		if err != nil {
-			return errors.Wrapf(err, "error creating watch")
-		}
-		defer pipelineWatcher.Close()
-
-		for {
-			select {
-			case event := <-pipelineWatcher.Watch():
-				if event.Err != nil {
-					return errors.Wrapf(event.Err, "event err")
+	masterCtx := m.masterClient.Ctx()
+	for {
+		select {
+		case e := <-m.eventCh:
+			switch e.eventType {
+			case writeEv:
+				// Create/Modify/Delete pipeline resources as needed per new state
+				if err := m.step(e.pipeline, e.etcdVer, e.etcdRev); err != nil {
+					log.Errorf("PPS master: could not update resources for pipeline %q: %v",
+						e.pipeline, err)
 				}
-				switch event.Type {
-				case watch.EventPut:
-					pipeline := string(event.Key)
-					// Create/Modify/Delete pipeline resources as needed per new state
-					if err := m.step(pipeline, event.Ver, event.Rev); err != nil {
-						log.Errorf("PPS master: %v", err)
-					}
-				case watch.EventDelete:
-					// TODO(msteffen) trace this call
-					// This is also called by pollPipelines below, if it discovers
-					// dangling monitorPipeline goroutines
-					if err := m.deletePipelineResources(string(event.Key)); err != nil {
-						log.Errorf("PPS master: could not delete pipeline resources for %q: %v", string(event.Key), err)
-					}
+			case deleteEv:
+				// TODO(msteffen) trace this call
+				if err := m.deletePipelineResources(e.pipeline); err != nil {
+					log.Errorf("PPS master: could not delete resources for pipeline %q: %v",
+						e.pipeline, err)
 				}
 			}
+		case <-masterCtx.Done():
+			break
 		}
-	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue("ppsMaster.Run()"))
+	}
 }
 
 func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {

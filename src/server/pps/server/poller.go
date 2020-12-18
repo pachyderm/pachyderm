@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const pollBackoffTime = 2 * time.Second
@@ -47,6 +47,23 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 	if m.pollPodsCancel != nil {
 		m.pollPodsCancel()
 		m.pollPodsCancel = nil
+	}
+}
+
+// startPipelineEtcdPoller starts a new goroutine running
+// pollPipelinesEtcd
+func (m *ppsMaster) startPipelineEtcdPoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	m.pollEtcdCancel = m.startMonitorThread("pollPipelinesEtcd", m.pollPipelinesEtcd)
+}
+
+func (m *ppsMaster) cancelPipelineEtcdPoller() {
+	m.pollPipelinesMu.Lock()
+	defer m.pollPipelinesMu.Unlock()
+	if m.pollEtcdCancel != nil {
+		m.pollEtcdCancel()
+		m.pollEtcdCancel = nil
 	}
 }
 
@@ -96,8 +113,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 				return errors.Wrap(err, "error polling pipelines")
 			}
 
-			// 3. Clean up any orphaned RCs (because we can't generate etcd delete
-			// events for the master to process)
+			// 3. Generate a delete event for orphaned RCs
 			if rcs != nil {
 				for _, rc := range rcs.Items {
 					pipeline, ok := rc.Labels["pipelineName"]
@@ -105,11 +121,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
 					if !etcdPipelines[pipeline] {
-						if err := m.deletePipelineResources(pipeline); err != nil {
-							// log the error but don't return it, so that one broken RC doesn't
-							// block pollPipelines
-							log.Errorf("could not delete resources for %q: %v", pipeline, err)
-						}
+						m.eventCh <- &pipelineEvent{eventType: deleteEv, pipeline: pipeline}
 					}
 				}
 			}
@@ -135,19 +147,9 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 		// always rm 'pipeline', to advance loop
 		delete(etcdPipelines, pipeline)
 
-		// generate an etcd event for 'pipeline' by reading it & writing it back
+		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
-		var curPI pps.EtcdPipelineInfo
-		_, err := col.NewSTM(ctx, m.a.env.GetEtcdClient(), func(stm col.STM) error {
-			return m.a.pipelines.ReadWrite(stm).Update(pipeline, &curPI,
-				func() error { /* no modification, just r+w */ return nil })
-		})
-		if col.IsErrNotFound(err) {
-			log.Warnf("%q polling conflicted with delete (not found)", pipeline)
-		} else if err != nil {
-			// No sensible error recovery here, just keep polling...
-			log.Errorf("could not poll %q: %v", pipeline, err)
-		}
+		m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}
 
 		// move to next pipeline
 		return backoff.ErrContinue
@@ -216,9 +218,66 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 		}
 		return backoff.ErrContinue // keep polling until cancelled
 	}, backoff.NewConstantBackOff(pollBackoffTime),
-		backoff.NotifyContinue("pollPipelinePods")); err != nil {
-		if ctx.Err() == nil {
-			panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
+		backoff.NotifyContinue("pollPipelinePods"),
+	); err != nil && ctx.Err() == nil {
+		panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
+	}
+}
+
+// pollPipelinesEtcd watches the 'pipelines' collection in etcd and sends
+// writeEv and deleteEv events to the PPS master when it sees them.
+//
+// pollPipelinesEtcd is unlike the other poll and monitor goroutines in that it
+// sees the result of other poll/monitor goroutines' writes. For example, when
+// pollPipelinePods (above) observes that a pipeline is crashing and updates its
+// state in etcd, the flow for starting monitorPipelineCrashing is:
+//
+//  k8s watch ─> pollPipelinePods  ╭──> pollPipelinesEtcd  ╭──> m.run()
+//                      │          │            │          │      │
+//                      ↓          │            ↓          │      ↓
+//                  etcd write─────╯       m.eventCh ──────╯   m.step()
+//
+// most of the other poll/monitor goroutines actually go through
+// pollPipelinesEtcd (by writing to etcd, which is then observed by the etcd
+// watch below)
+func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
+	ctx := pollClient.Ctx()
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		// TODO(msteffen) request only keys, since pipeline_controller.go reads
+		// fresh values for each event anyway
+		pipelineWatcher, err := m.a.pipelines.ReadOnly(ctx).Watch()
+		if err != nil {
+			return errors.Wrapf(err, "error creating watch")
 		}
+		defer pipelineWatcher.Close()
+
+		for {
+			select {
+			case event := <-pipelineWatcher.Watch():
+				if event.Err != nil {
+					return errors.Wrapf(event.Err, "event err")
+				}
+				switch event.Type {
+				case watch.EventPut:
+					m.eventCh <- &pipelineEvent{
+						eventType: writeEv,
+						pipeline:  string(event.Key),
+						etcdVer:   event.Ver,
+						etcdRev:   event.Rev,
+					}
+				case watch.EventDelete:
+					m.eventCh <- &pipelineEvent{
+						eventType: deleteEv,
+						pipeline:  string(event.Key),
+						etcdVer:   event.Ver,
+						etcdRev:   event.Rev,
+					}
+				}
+			}
+		}
+	}, backoff.NewConstantBackOff(pollBackoffTime),
+		backoff.NotifyContinue("pollPipelinesEtcd"),
+	); err != nil && ctx.Err() == nil {
+		panic("pollPipelinesEtcd is exiting prematurely which should not happen; restarting pod...")
 	}
 }
