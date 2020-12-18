@@ -77,7 +77,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 		m.masterClient = a.env.GetPachClient(ctx)
-		m.Run()
+		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
@@ -94,9 +94,10 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
-func (m *ppsMaster) Run() {
+func (m *ppsMaster) run() {
 	defer m.cancelAllMonitorsAndCrashingMonitors(nil)
-	// start pollPipelines in the background to regularly refresh pipelines
+	// start pollXYZ in the background--cancellation ensures goroutines are stopped
+	// (either because cancelXYZ returns or because the pod panics)
 	m.startPipelinePoller()
 	defer m.cancelPipelinePoller()
 	m.startPipelinePodsPoller()
