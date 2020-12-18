@@ -3896,10 +3896,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 					}); err != nil {
 						return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
 					}
-					if err := a.createWorkerPachctlSecret(ctx, &pipelinePtr, pipeline); err != nil {
-						return errors.Wrapf(err, "could not update %v with new pachctl secret", pipelineName)
-					}
-
 					return nil
 				})
 				return err

@@ -223,6 +223,7 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 			}
 		}
 	}
+	// delete any secrets associated with the pipeline
 	secrets, err := kubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list secrets")
