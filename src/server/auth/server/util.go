@@ -1,8 +1,6 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -14,8 +12,6 @@ import (
 // CheckIsAuthorizedInTransaction is identicalto CheckIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
-	fmt.Println("cheque")
-
 	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
@@ -35,7 +31,6 @@ func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Re
 // CheckIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for repo 'r'
 func CheckIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
-	fmt.Println("check")
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
