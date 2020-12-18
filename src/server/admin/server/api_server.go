@@ -477,7 +477,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 // |         ↓                                                                        |
 // | start/startFromURL // (reads ops from stream in a loop)                          |
 // |         ↓                                                                        |
-// | validateAndApplyOp ──┬───────────-┬─────────────┬─────────────╮                  |
+// | validateAndApplyOp ──┬────────────┬─────────────┬─────────────╮                  |
 // |         ↓            ↓            ↓             ↓             ↓                  |
 // |     applyOp1_7 → applyOp1_8 → applyOp1_9 → applyOp1_10 → applyOp1_11 → applyOp   |
 type restoreCtx struct {
