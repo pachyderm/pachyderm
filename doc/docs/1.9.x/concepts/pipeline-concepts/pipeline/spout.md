@@ -1,5 +1,15 @@
 # Spout
 
+!!! note
+    This document addresses spouts 1.0 implementation
+    prior to Pachyderm 1.12.
+    The implementation in spouts 2.0 is significantly different.
+    We recommend upgrading 
+    to the latest version
+    of Pachyderm
+    and using the spouts 2.0 implementation.
+    
+
 A spout is a type of pipeline that ingests
 streaming data. Generally, you use spouts for
 situations when the interval between new data generation
