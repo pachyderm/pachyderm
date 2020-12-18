@@ -10965,20 +10965,25 @@ time.Sleep(5)
 		require.NoError(t, c.DeleteAll())
 	})
 }
+
 func TestSpoutPachctl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
+	// helper functions for SpoutPachctl
+	putFileCommand := func(branch, flags, file string) string {
+		return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
+	}
+	basicPutFile := func(file string) string {
+		return putFileCommand("master", "", file)
+	}
+
 	t.Run("SpoutAuth", func(t *testing.T) {
 		tu.DeleteAll(t)
 		defer tu.DeleteAll(t)
-		c := tu.GetPachClient(t)
-		putFileCommand := func(branch, flags, file string) string {
-			return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
-		}
-		basicPutFile := func(file string) string {
-			return putFileCommand("master", "", file)
-		}
+		c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
 		dataRepo := tu.UniqueString("TestSpoutAuth_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -11022,35 +11027,98 @@ func TestSpoutPachctl(t *testing.T) {
 			prevLength = fileLength
 		}
 
-		// get 5 succesive commits, and ensure that the file size increases each time
-		// since the spout should be appending to that file on each commit
-		iter, err = c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
-		// now let's authenticate, and make sure the spout still works
-		c = tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+			if resp.Error != "" {
+				return errors.New(resp.Error)
+			}
+			return nil
+		}))
+	})
+	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
+		tu.DeleteAll(t)
+		c := tu.GetPachClient(t)
 
-		iter, err = c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		dataRepo := tu.UniqueString("TestSpoutAuthEnabledAfter_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 0.1",
+						"pachctl auth whoami &> whoami",
+						basicPutFile("./whoami*"),
+						"done"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
 		require.NoError(t, err)
 
-		prevLength = 0
+		// get 5 succesive commits
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
 			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))
-
-			fileLength := files[0].SizeBytes
-			if fileLength <= prevLength {
-				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
-			}
-			prevLength = fileLength
 		}
+
+		// now let's authenticate, and make sure the spout fails due to a lack of authorization
+		tu.ClearPachClientState(t)
+		c = tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+		defer tu.DeleteAll(t)
 
 		// make sure we can delete commits
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
+
+		// now let's update the pipeline and make sure it works again
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						basicPutFile("./date*"),
+						"done"},
+				},
+				Update:    true,
+				Reprocess: true,         // to ensure subscribe commit will only read commits since the update
+				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits
+		iter, err = c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+		}
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -11064,12 +11132,6 @@ func TestSpoutPachctl(t *testing.T) {
 		tu.DeleteAll(t)
 		defer tu.DeleteAll(t)
 		c := tu.GetPachClient(t)
-		putFileCommand := func(branch, flags, file string) string {
-			return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
-		}
-		basicPutFile := func(file string) string {
-			return putFileCommand("master", "", file)
-		}
 		dataRepo := tu.UniqueString("TestSpoutAuth_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -11129,8 +11191,9 @@ func TestSpoutPachctl(t *testing.T) {
 						basicPutFile("./date*"),
 						"done"},
 				},
-				Update: true,
-				Spout:  &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Update:    true,
+				Reprocess: true,         // to ensure subscribe commit will only read commits since the update
+				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
 			})
 		require.NoError(t, err)
 

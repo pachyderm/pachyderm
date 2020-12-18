@@ -1,7 +1,6 @@
 package assets
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -10,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
@@ -545,44 +543,6 @@ func GetPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 			Name:      client.PachctlSecretName,
 			MountPath: "/pachctl",
 		}
-}
-
-// CreatePachctlSecret returns a Secret configured for the pachctl secret (currently used in spout pipelines).
-func CreatePachctlSecret(token, secret string) (*v1.Secret, error) {
-	var cfg config.Config
-	err := cfg.InitV2()
-	if err != nil {
-		return nil, errors.Wrapf(err, "error initializing V2 for config")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting the active context")
-	}
-	context.SessionToken = token
-	context.PachdAddress = "localhost:653"
-
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return nil, errors.Wrapf(err, "error marshaling the config")
-	}
-	s := v1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "spout-pachctl-secret-" + secret,
-		},
-		Data: map[string][]byte{
-			"config.json": rawConfig,
-		},
-	}
-
-	labels := make(map[string]string)
-	labels["suite"] = "pachyderm"
-	labels["secret-source"] = "pachyderm-pachd"
-	s.SetLabels(labels)
-	return &s, nil
 }
 
 // GetSecretEnvVars returns the environment variable specs for the storage secret.

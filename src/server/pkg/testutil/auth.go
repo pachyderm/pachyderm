@@ -193,6 +193,11 @@ func getPachClientConfigAgnostic(tb testing.TB, subject string) *client.APIClien
 	return getPachClientP(tb, subject, false)
 }
 
+// ClearPachClientState clears the state of the pipeline
+func ClearPachClientState(tb testing.TB) {
+	seedClient = nil
+}
+
 // GetAuthenticatedPachClient explicitly checks that the auth config is set to the default,
 // and will fail otherwise.
 func GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient {
