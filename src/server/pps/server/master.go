@@ -147,6 +147,11 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 		tracing.FinishAnySpan(span)
 	}()
 
+	// Cancel any running monitorPipeline call
+	m.cancelMonitor(pipelineName)
+	// Same for cancelCrashingMonitor
+	m.cancelCrashingMonitor(pipelineName)
+
 	kubeClient := m.a.env.GetKubeClient()
 	namespace := m.a.namespace
 	// Delete any services associated with op.pipeline
