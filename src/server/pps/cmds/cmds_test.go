@@ -622,7 +622,7 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	pipeline := tu.TestPipelineBuildLifecycle(t, "python", "python", 4)
 
 	// the python example also contains a `.pachignore`, so we can verify it's
@@ -639,6 +639,7 @@ func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	tu.TestPipelineBuildLifecycle(t, "python", "python_no_deps", 4)
 }
 
@@ -646,6 +647,7 @@ func TestPipelineBuildLifecycleGo(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	tu.TestPipelineBuildLifecycle(t, "go", "go", 4)
 }
 

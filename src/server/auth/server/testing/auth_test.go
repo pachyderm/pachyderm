@@ -1581,11 +1581,11 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
-	// alice gives bob writer scope
+	// alice gives bob writer scope on pipeline output repo
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Username: bob,
 		Scope:    auth.Scope_WRITER,
-		Repo:     inputRepo,
+		Repo:     pipeline,
 	})
 	require.NoError(t, bobClient.CreatePipeline(
 		pipeline,
@@ -3219,19 +3219,6 @@ func TestDebug(t *testing.T) {
 		}
 	}
 	require.Equal(t, 0, len(expectedFiles))
-}
-
-func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	// just for side effects, ensuring auth is active
-	tu.GetAuthenticatedPachClient(t, tu.UniqueString("unused"))
-
-	tu.TestPipelineBuildLifecycle(t, "go", "go", 5)
 }
 
 func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {

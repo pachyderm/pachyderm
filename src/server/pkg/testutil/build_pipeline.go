@@ -20,7 +20,6 @@ func TestPipelineBuildLifecycle(t *testing.T, lang, dir string, directoryDepth i
 
 	// reset and create some test input
 	require.NoError(t, BashCmd(`
-		yes | pachctl delete all
 		pachctl create repo in
 		pachctl put file -r in@master:/ -f {{.prefix}}etc/testing/pipeline-build/input
 	`, "prefix", prefix).Run())
