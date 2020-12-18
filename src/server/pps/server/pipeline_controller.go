@@ -82,9 +82,12 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 
 	// Handle tracing
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
-		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
-		"key-version", keyVer,
-		"mod-revision", keyRev)
+		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate")
+	if keyVer != 0 || keyRev != 0 {
+		tracing.TagAnySpan(span, "key-version", keyVer, "mod-revision", keyRev)
+	} else {
+		tracing.TagAnySpan(span, "pollpipelines-event", "true")
+	}
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
