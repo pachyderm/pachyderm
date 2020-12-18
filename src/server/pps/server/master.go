@@ -119,9 +119,13 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 }
 
 func (m *ppsMaster) run() {
-	defer m.cancelAllMonitorsAndCrashingMonitors(nil)
-	// start pollXYZ in the background--cancellation ensures goroutines are stopped
-	// (either because cancelXYZ returns or because the pod panics)
+	// close m.eventCh after all cancels have returned and therefore all pollers
+	// (which are what write to m.eventCh) have exited
+	defer close(m.eventCh)
+	defer m.cancelAllMonitorsAndCrashingMonitors()
+	// start pollers in the background--cancel functions ensure poll/monitor
+	// goroutines all definitely stop (either because cancelXYZ returns or because
+	// the binary panics)
 	m.startPipelinePoller()
 	defer m.cancelPipelinePoller()
 	m.startPipelinePodsPoller()
@@ -130,6 +134,7 @@ func (m *ppsMaster) run() {
 	defer m.cancelPipelineEtcdPoller()
 
 	masterCtx := m.masterClient.Ctx()
+eventLoop:
 	for {
 		select {
 		case e := <-m.eventCh:
@@ -148,7 +153,7 @@ func (m *ppsMaster) run() {
 				}
 			}
 		case <-masterCtx.Done():
-			break
+			break eventLoop
 		}
 	}
 }

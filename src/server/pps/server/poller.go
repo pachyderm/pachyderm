@@ -151,7 +151,7 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
 		m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}
 
-		// move to next pipeline
+		// move to next pipeline (after 2s sleep)
 		return backoff.ErrContinue
 	}, backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelines"),
@@ -216,9 +216,8 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 				}
 			}
 		}
-		return backoff.ErrContinue // keep polling until cancelled
-	}, backoff.NewConstantBackOff(pollBackoffTime),
-		backoff.NotifyContinue("pollPipelinePods"),
+		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
+	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
 		panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
 	}
@@ -251,32 +250,29 @@ func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
 		}
 		defer pipelineWatcher.Close()
 
-		for {
-			select {
-			case event := <-pipelineWatcher.Watch():
-				if event.Err != nil {
-					return errors.Wrapf(event.Err, "event err")
+		for event := range pipelineWatcher.Watch() {
+			if event.Err != nil {
+				return errors.Wrapf(event.Err, "event err")
+			}
+			switch event.Type {
+			case watch.EventPut:
+				m.eventCh <- &pipelineEvent{
+					eventType: writeEv,
+					pipeline:  string(event.Key),
+					etcdVer:   event.Ver,
+					etcdRev:   event.Rev,
 				}
-				switch event.Type {
-				case watch.EventPut:
-					m.eventCh <- &pipelineEvent{
-						eventType: writeEv,
-						pipeline:  string(event.Key),
-						etcdVer:   event.Ver,
-						etcdRev:   event.Rev,
-					}
-				case watch.EventDelete:
-					m.eventCh <- &pipelineEvent{
-						eventType: deleteEv,
-						pipeline:  string(event.Key),
-						etcdVer:   event.Ver,
-						etcdRev:   event.Rev,
-					}
+			case watch.EventDelete:
+				m.eventCh <- &pipelineEvent{
+					eventType: deleteEv,
+					pipeline:  string(event.Key),
+					etcdVer:   event.Ver,
+					etcdRev:   event.Rev,
 				}
 			}
 		}
-	}, backoff.NewConstantBackOff(pollBackoffTime),
-		backoff.NotifyContinue("pollPipelinesEtcd"),
+		return backoff.ErrContinue // reset until ctx is cancelled (RetryUntilCancel)
+	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinesEtcd"),
 	); err != nil && ctx.Err() == nil {
 		panic("pollPipelinesEtcd is exiting prematurely which should not happen; restarting pod...")
 	}
