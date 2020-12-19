@@ -264,10 +264,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
-	options.volumes = append(options.volumes, pachctlSecretVolume)
-	sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
-	userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
+	// mount secret for spouts using pachctl
+	if pipelineInfo.Spout != nil {
+		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
+		options.volumes = append(options.volumes, pachctlSecretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
+		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
+	}
 
 	// Explicitly set CPU requests to zero because some cloud providers set their
 	// own defaults which are usually not what we want. Mem request defaults to
@@ -713,8 +716,11 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 		tracing.FinishAnySpan(span)
 	}()
 
-	if err := a.createWorkerPachctlSecret(ctx, ptr, pipelineInfo); err != nil {
-		return err
+	// create pachctl secret used in spouts
+	if pipelineInfo.Spout != nil {
+		if err := a.createWorkerPachctlSecret(ctx, ptr, pipelineInfo); err != nil {
+			return err
+		}
 	}
 
 	options, err := a.getWorkerOptions(ptr, pipelineInfo)
