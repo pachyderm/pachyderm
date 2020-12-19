@@ -183,7 +183,7 @@ func (s *shell) run() {
 			Fn:  func(*prompt.Buffer) { s.clearCache() },
 		}),
 		prompt.OptionLivePrefix(func() (string, bool) {
-			cfg, err := config.Read(true)
+			cfg, err := config.Read(true, false)
 			if err != nil {
 				return "", false
 			}

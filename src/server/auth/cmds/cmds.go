@@ -232,7 +232,7 @@ func LogoutCmd() *cobra.Command {
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
 		Run: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 			}
