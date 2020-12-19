@@ -65,6 +65,22 @@ type workerOptions struct {
 	service          *pps.Service
 }
 
+// getPachctlSecretVolumeAndMount returns a Volume and
+// VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: client.PachctlSecretName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secret,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      client.PachctlSecretName,
+			MountPath: "/pachctl",
+		}
+}
+
 func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
@@ -248,7 +264,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	pachctlSecretVolume, pachctlSecretMount := assets.GetPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
+	pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
 	options.volumes = append(options.volumes, pachctlSecretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
 	userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
