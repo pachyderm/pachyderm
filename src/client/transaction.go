@@ -404,6 +404,12 @@ func (c *pfsBuilderClient) CreateFileset(ctx context.Context, opts ...grpc.CallO
 func (c *pfsBuilderClient) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RenewFileset")
 }
+func (c *pfsBuilderClient) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("AddFileset")
+}
+func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest, opts ...grpc.CallOption) (*pfs.CreateFilesetResponse, error) {
+	return nil, unsupportedError("GetFileset")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")

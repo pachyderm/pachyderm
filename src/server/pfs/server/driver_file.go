@@ -5,7 +5,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -42,7 +41,7 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 		}
 		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
-	return d.withCommitWriter(ctx, commitInfo.Commit, cb)
+	return d.withCommitUnorderedWriter(ctx, commitInfo.Commit, cb)
 }
 
 // TODO: Cleanup after failure?
@@ -57,37 +56,26 @@ func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb f
 				retErr = d.finishCommit(txnCtx, commit, "")
 			}
 		}()
-		return d.withCommitWriter(txnCtx.ClientContext, commit, cb)
+		return d.withCommitUnorderedWriter(txnCtx.ClientContext, commit, cb)
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
-	n := d.getSubFileset()
-	subFileSetStr := fileset.SubFileSetStr(n)
-	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
+func (d *driver) withCommitUnorderedWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
 		if err != nil {
 			return err
 		}
-		tmpPath := path.Join(tmpRepo, id)
-		return d.storage.Copy(ctx, tmpPath, subFileSetPath, 0)
+		return d.addFileset(ctx, commit, id)
 	})
-}
-
-func (d *driver) getSubFileset() int64 {
-	// TODO subFileSet will need to be incremented through postgres or etcd.
-	nonce := atomic.AddUint64(&d.nonce, 1)
-	millis := time.Now().UnixNano() / 1e6 // nano -> milli
-	return millis + int64(nonce%1e6)
 }
 
 func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
 	id := uuid.NewWithoutDashes()
 	inputPath := path.Join(tmpRepo, id)
 	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
-	defaultTag := fileset.SubFileSetStr(d.getSubFileset())
+	defaultTag := d.getDefaultTag()
 	uw, err := d.storage.NewUnorderedWriter(ctx, inputPath, defaultTag, opts...)
 	if err != nil {
 		return "", err
@@ -109,7 +97,7 @@ func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.Stri
 	return id, nil
 }
 
-func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, tag string, cb func(string, *fileset.Writer) error) (retErr error) {
+func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(string, *fileset.Writer) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -119,7 +107,7 @@ func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, ta
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
 	commit = commitInfo.Commit
-	n := d.getSubFileset()
+	n := time.Now().UnixNano()
 	subFileSetStr := fileset.SubFileSetStr(n)
 	if tag == "" {
 		tag = subFileSetStr
@@ -132,7 +120,11 @@ func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, ta
 	return fsw.Close()
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool, tag string) (retErr error) {
+func (d *driver) getDefaultTag() string {
+	return fileset.SubFileSetStr(time.Now().UnixNano())
+}
+
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -174,7 +166,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		idx.Path = pathTransform(idx.Path)
 		return idx
 	})
-	return d.withWriter(pachClient, dstCommit, tag, func(tag string, dst *fileset.Writer) error {
+	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
 			return dst.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
 				fw.Append(tag)
@@ -433,44 +425,17 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	return diff.Iterate(pachClient.Ctx(), cb)
 }
 
-// TODO: We shouldn't be operating on a gRPC server in the driver.
-func (d *driver) createFileset(server pfs.API_CreateFilesetServer) (string, error) {
-	ctx := server.Context()
-	var id string
+// createFileset creates a new temporary fileset and returns it.
+func (d *driver) createFileset(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (string, error) {
+	var filesetID string
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var err error
-		id, err = d.withTmpUnorderedWriter(ctx, renewer, true, func(uw *fileset.UnorderedWriter) error {
-			for {
-				req, err := server.Recv()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						return nil
-					}
-					return err
-				}
-				// TODO: Refactor this switching logic into one place, this is basically the same as ModifyFile in the API server.
-				switch mod := req.Modification.(type) {
-				case *pfs.ModifyFileRequest_AppendFile:
-					var err error
-					switch mod.AppendFile.Source.(type) {
-					case *pfs.AppendFile_RawFileSource:
-						_, err = appendFileRaw(uw, server, mod.AppendFile)
-					case *pfs.AppendFile_TarFileSource:
-						_, err = appendFileTar(uw, server, mod.AppendFile)
-					case *pfs.AppendFile_UrlFileSource:
-						_, err = appendFileURL(server.Context(), uw, mod.AppendFile)
-					}
-					if err != nil {
-						return err
-					}
-				}
-			}
-		})
+		filesetID, err = d.withTmpUnorderedWriter(ctx, renewer, false, cb)
 		return err
 	}); err != nil {
 		return "", err
 	}
-	return id, nil
+	return filesetID, nil
 }
 
 func (d *driver) renewFileset(ctx context.Context, id string, ttl time.Duration) error {
@@ -488,4 +453,19 @@ func (d *driver) renewFileset(ctx context.Context, id string, ttl time.Duration)
 	p := path.Join(tmpRepo, id)
 	_, err := d.storage.SetTTL(ctx, p, ttl)
 	return err
+}
+
+func (d *driver) addFileset(ctx context.Context, commit *pfs.Commit, filesetID string) error {
+	return d.commitStore.AddFileset(ctx, commit, filesetID)
+}
+
+func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (string, error) {
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return "", err
+	}
+	if commitInfo.Finished == nil {
+		return "", pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	return d.commitStore.GetFileset(pachClient.Ctx(), commit)
 }

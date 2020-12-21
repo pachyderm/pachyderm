@@ -83,6 +83,7 @@ type driver struct {
 	openCommits col.Collection
 
 	storage         *fileset.Storage
+	commitStore     commitStore
 	compactionQueue *work.TaskQueue
 
 	// TODO: remove this. It prevents flakiness when running on macOS (millisecond resolution timestamps)
@@ -126,6 +127,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
+	d.commitStore = newKeySpaceCommitStore(d.storage)
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
