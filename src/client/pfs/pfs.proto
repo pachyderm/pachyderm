@@ -352,7 +352,7 @@ message AppendFileRequest {
 }
 
 message DeleteFileRequest {
-  repeated string files = 1; 
+  string file = 1; 
   string tag = 2;
 }
 

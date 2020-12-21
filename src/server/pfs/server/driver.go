@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +19,6 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -149,29 +146,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	// Setup PFS master
 	go d.master(env)
 	return d, nil
-}
-
-// TODO: Move this to pachd main.
-func newDB() (db *sqlx.DB, retErr error) {
-	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-	if !ok {
-		return nil, errors.Errorf("postgres service host not found")
-	}
-	postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-	if !ok {
-		return nil, errors.Errorf("postgres service port not found")
-	}
-	postgresPort, err := strconv.Atoi(postgresPortStr)
-	if err != nil {
-		return nil, err
-	}
-	return dbutil.NewDB(dbutil.DBParams{
-		Host:   postgresHost,
-		Port:   postgresPort,
-		User:   "pachyderm",
-		Pass:   "elephantastic",
-		DBName: "pgc",
-	})
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {

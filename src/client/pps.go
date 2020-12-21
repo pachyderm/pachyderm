@@ -296,7 +296,7 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
 	}
-	client, err := c.PpsAPIClient.ListJobStream(
+	client, err := c.PpsAPIClient.ListJob(
 		c.Ctx(),
 		&pps.ListJobRequest{
 			Pipeline:     pipeline,
@@ -404,86 +404,48 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about datums in a Job
-func (c APIClient) ListDatum(jobID string, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	return c.listDatum(NewJob(jobID), nil, pageSize, page)
-}
-
-// ListDatumInput returns info about datums for a pipeline with input. The
-// pipeline doesn't need to exist.
-func (c APIClient) ListDatumInput(input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	return c.listDatum(nil, input, pageSize, page)
-}
-
-func (c APIClient) listDatum(job *pps.Job, input *pps.Input, pageSize, page int64) (*pps.ListDatumResponse, error) {
-	client, err := c.PpsAPIClient.ListDatumStream(
+func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Input:    input,
-			PageSize: pageSize,
-			Page:     page,
-			Job:      job,
+			Job: NewJob(job),
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	resp := &pps.ListDatumResponse{}
-	first := true
-	for {
-		r, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
-		}
-		if first {
-			resp.TotalPages = r.TotalPages
-			resp.Page = r.Page
-			first = false
-		}
-		resp.DatumInfos = append(resp.DatumInfos, r.DatumInfo)
-	}
-	return resp, nil
-}
-
-// ListDatumF returns info about datums in a Job, calling f with each datum info.
-func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(NewJob(jobID), nil, pageSize, page, f)
-}
-
-// ListDatumInputF returns info about datums for a pipeline with input, calling
-// f with each datum info. The pipeline doesn't need to exist.
-func (c APIClient) ListDatumInputF(input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
-	return c.listDatumF(nil, input, pageSize, page, f)
-}
-
-func (c APIClient) listDatumF(job *pps.Job, input *pps.Input, pageSize, page int64, f func(di *pps.DatumInfo) error) error {
-	client, err := c.PpsAPIClient.ListDatumStream(
-		c.Ctx(),
-		&pps.ListDatumRequest{
-			Input:    input,
-			PageSize: pageSize,
-			Page:     page,
-			Job:      job,
-		},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		resp, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			return nil
-		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
+		di, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
 		}
-		if err := f(resp.DatumInfo); err != nil {
+		if err := cb(di); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
 			}
 			return err
 		}
 	}
+}
+
+func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	var dis []*pps.DatumInfo
+	if err := c.ListDatum(job, func(di *pps.DatumInfo) error {
+		dis = append(dis, di)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return dis, nil
 }
 
 // InspectDatum returns info about a single datum
@@ -503,113 +465,114 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 	return datumInfo, nil
 }
 
-// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
-// be fetched with 'Next()'. The log message received can be examined with
-// 'Message()', and any errors can be examined with 'Err()'.
-type LogsIter struct {
-	logsClient pps.API_GetLogsClient
-	msg        *pps.LogMessage
-	err        error
-}
-
-// Next retrieves the next relevant log message from pachd
-func (l *LogsIter) Next() bool {
-	if l.err != nil {
-		l.msg = nil
-		return false
-	}
-	l.msg, l.err = l.logsClient.Recv()
-	return l.err == nil
-}
-
-// Message returns the most recently retrieve log message (as an annotated log
-// line, in the form of a pps.LogMessage)
-func (l *LogsIter) Message() *pps.LogMessage {
-	return l.msg
-}
-
-// Err retrieves any errors encountered in the course of calling 'Next()'.
-func (l *LogsIter) Err() error {
-	if errors.Is(l.err, io.EOF) {
-		return nil
-	}
-	return grpcutil.ScrubGRPC(l.err)
-}
-
-// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
-func (c APIClient) GetLogs(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	tail int64,
-) *LogsIter {
-	request := pps.GetLogsRequest{
-		Master: master,
-		Follow: follow,
-		Tail:   tail,
-	}
-	resp := &LogsIter{}
-	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
-	}
-	if jobID != "" {
-		request.Job = NewJob(jobID)
-	}
-	request.DataFilters = data
-	if datumID != "" {
-		request.Datum = &pps.Datum{
-			Job: NewJob(jobID),
-			ID:  datumID,
-		}
-	}
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-	resp.err = grpcutil.ScrubGRPC(resp.err)
-	return resp
-}
-
-// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
-func (c APIClient) GetLogsLoki(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	tail int64,
-) *LogsIter {
-	request := pps.GetLogsRequest{
-		Master:         master,
-		Follow:         follow,
-		Tail:           tail,
-		UseLokiBackend: true,
-	}
-	resp := &LogsIter{}
-	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
-	}
-	if jobID != "" {
-		request.Job = NewJob(jobID)
-	}
-	request.DataFilters = data
-	if datumID != "" {
-		request.Datum = &pps.Datum{
-			Job: NewJob(jobID),
-			ID:  datumID,
-		}
-	}
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-	resp.err = grpcutil.ScrubGRPC(resp.err)
-	return resp
-}
+// TODO: Implement logs with V2.
+//// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
+//// be fetched with 'Next()'. The log message received can be examined with
+//// 'Message()', and any errors can be examined with 'Err()'.
+//type LogsIter struct {
+//	logsClient pps.API_GetLogsClient
+//	msg        *pps.LogMessage
+//	err        error
+//}
+//
+//// Next retrieves the next relevant log message from pachd
+//func (l *LogsIter) Next() bool {
+//	if l.err != nil {
+//		l.msg = nil
+//		return false
+//	}
+//	l.msg, l.err = l.logsClient.Recv()
+//	return l.err == nil
+//}
+//
+//// Message returns the most recently retrieve log message (as an annotated log
+//// line, in the form of a pps.LogMessage)
+//func (l *LogsIter) Message() *pps.LogMessage {
+//	return l.msg
+//}
+//
+//// Err retrieves any errors encountered in the course of calling 'Next()'.
+//func (l *LogsIter) Err() error {
+//	if errors.Is(l.err, io.EOF) {
+//		return nil
+//	}
+//	return grpcutil.ScrubGRPC(l.err)
+//}
+//
+//// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+//// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+//// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+//// must be set. Responses are written to 'messages'
+//func (c APIClient) GetLogs(
+//	pipelineName string,
+//	jobID string,
+//	data []string,
+//	datumID string,
+//	master bool,
+//	follow bool,
+//	tail int64,
+//) *LogsIter {
+//	request := pps.GetLogsRequest{
+//		Master: master,
+//		Follow: follow,
+//		Tail:   tail,
+//	}
+//	resp := &LogsIter{}
+//	if pipelineName != "" {
+//		request.Pipeline = NewPipeline(pipelineName)
+//	}
+//	if jobID != "" {
+//		request.Job = NewJob(jobID)
+//	}
+//	request.DataFilters = data
+//	if datumID != "" {
+//		request.Datum = &pps.Datum{
+//			Job: NewJob(jobID),
+//			ID:  datumID,
+//		}
+//	}
+//	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+//	resp.err = grpcutil.ScrubGRPC(resp.err)
+//	return resp
+//}
+//
+//// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+//// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+//// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+//// must be set. Responses are written to 'messages'
+//func (c APIClient) GetLogsLoki(
+//	pipelineName string,
+//	jobID string,
+//	data []string,
+//	datumID string,
+//	master bool,
+//	follow bool,
+//	tail int64,
+//) *LogsIter {
+//	request := pps.GetLogsRequest{
+//		Master:         master,
+//		Follow:         follow,
+//		Tail:           tail,
+//		UseLokiBackend: true,
+//	}
+//	resp := &LogsIter{}
+//	if pipelineName != "" {
+//		request.Pipeline = NewPipeline(pipelineName)
+//	}
+//	if jobID != "" {
+//		request.Job = NewJob(jobID)
+//	}
+//	request.DataFilters = data
+//	if datumID != "" {
+//		request.Datum = &pps.Datum{
+//			Job: NewJob(jobID),
+//			ID:  datumID,
+//		}
+//	}
+//	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+//	resp.err = grpcutil.ScrubGRPC(resp.err)
+//	return resp
+//}
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
@@ -844,23 +807,6 @@ func (c APIClient) CreatePipelineService(
 				ExternalPort: externalPort,
 			},
 		},
-	)
-	return grpcutil.ScrubGRPC(err)
-}
-
-// GarbageCollect garbage collects unused data.  Currently GC needs to be run
-// while no data is being added or removed (which, among other things, implies
-// that there shouldn't be jobs actively running).  Pfs Garbage collection uses
-// bloom filters to keep track of live objects because it can store more
-// objects than can be indexed in memory. This means that there is a chance for
-// unreferenced objects to not be GCed, this chance increases as the number of
-// objects in the system increases. You can tradeoff using more memory to get a
-// lower chance of collisions, the default value is 10 MB and collisions should
-// be unlikely until you have 10 million objects.
-func (c APIClient) GarbageCollect(memoryBytes int64) error {
-	_, err := c.PpsAPIClient.GarbageCollect(
-		c.Ctx(),
-		&pps.GarbageCollectRequest{MemoryBytes: memoryBytes},
 	)
 	return grpcutil.ScrubGRPC(err)
 }

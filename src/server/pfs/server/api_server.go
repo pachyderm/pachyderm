@@ -370,9 +370,7 @@ func (afr *appendFileReader) Read(data []byte) (int, error) {
 }
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFileRequest) error {
-	for _, file := range request.Files {
-		uw.Delete(file, request.Tag)
-	}
+	uw.Delete(request.File, request.Tag)
 	return nil
 }
 

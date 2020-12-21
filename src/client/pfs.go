@@ -560,20 +560,11 @@ func (c APIClient) ClearCommit(repo, commit string) (retErr error) {
 	return err
 }
 
-// PutFileClient is a client interface for putting files. There are 2
-// implementations, 1 that does each file as a seperate request and one that
-// does them all together in the same request.
 type PutFileClient interface {
 	// PutFileWriter writes a file to PFS.
 	// NOTE: PutFileWriter returns an io.WriteCloser that you must call Close on when
 	// you are done writing.
-	PutFileWriter(repoName, commitID, path string) (io.WriteCloser, error)
-
-	// PutFileSplitWriter writes multiple files to PFS by splitting up the data
-	// that is written to it.
-	// NOTE: PutFileSplitWriter returns an io.WriteCloser that you must call Close on when
-	// you are done writing.
-	PutFileSplitWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error)
+	PutFileWriter(repo, commit, path string) (io.WriteCloser, error)
 
 	// PutFile writes a file to PFS from a reader.
 	PutFile(repo, commit, path string, r io.Reader) error
@@ -582,11 +573,7 @@ type PutFileClient interface {
 	// appending to it. overwriteIndex allows you to specify the index of the
 	// object starting from which you'd like to overwrite. If you want to
 	// overwrite the entire file, specify an index of 0.
-	PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) error
-
-	// PutFileSplit writes a file to PFS from a reader.
-	// delimiter is used to tell PFS how to break the input into blocks.
-	PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) error
+	PutFileOverwrite(repo, commit, path string, r io.Reader) error
 
 	// PutFileURL puts a file using the content found at a URL.
 	// The URL is sent to the server which performs the request.
@@ -619,15 +606,10 @@ func (pfc *putFileClient) PutFileWriter(repo, commit, path string) (io.WriteClos
 	return nil, errV1NotImplemented
 }
 
-func (pfc *putFileClient) PutFileSplitWriter(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
-	return nil, errV1NotImplemented
-}
-
 func (pfc *putFileClient) PutFile(repo, commit, path string, r io.Reader) error {
 	return pfc.c.putFile(repo, commit, path, r, false)
 }
 
-// PutFileV2 puts a file into PFS.
 // TODO: Change this to not buffer the file locally.
 // We will want to move to a model where we buffer in chunk storage.
 func (c APIClient) putFile(repo string, commit string, path string, r io.Reader, overwrite bool) error {
@@ -675,13 +657,8 @@ func withTmpFile(cb func(*os.File) error) (retErr error) {
 	return cb(f)
 }
 
-func (pfc *putFileClient) PutFileOverwrite(repo, commit, path string, r io.Reader, overwriteIndex int64) error {
+func (pfc *putFileClient) PutFileOverwrite(repo, commit, path string, r io.Reader) error {
 	return pfc.c.putFile(repo, commit, path, r, true)
-}
-
-func (pfc *putFileClient) PutFileSplit(repo, commit, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, r io.Reader) error {
-	// TODO: Add split support.
-	return errV1NotImplemented
 }
 
 func (pfc *putFileClient) PutFileURL(repo, commit, path, url string, recursive bool, overwrite bool) error {
@@ -690,7 +667,7 @@ func (pfc *putFileClient) PutFileURL(repo, commit, path, url string, recursive b
 }
 
 func (pfc *putFileClient) DeleteFile(repo, commit, path string) error {
-	return pfc.c.deleteFile(repo, commit, []string{path})
+	return pfc.c.deleteFile(repo, commit, path)
 }
 
 func (pfc *putFileClient) Close() error {
@@ -708,18 +685,6 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 	return pfc.PutFileWriter(repoName, commitID, path)
 }
 
-// PutFileSplitWriter writes a multiple files to PFS by splitting up the data
-// that is written to it.
-// NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
-// you are done writing.
-func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
-	pfc, err := c.NewPutFileClient()
-	if err != nil {
-		return nil, err
-	}
-	return pfc.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite)
-}
-
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repo, commit, path string, r io.Reader) error {
 	pfc, err := c.NewPutFileClient()
@@ -733,23 +698,12 @@ func (c APIClient) PutFile(repo, commit, path string, r io.Reader) error {
 // appending to it.  overwriteIndex allows you to specify the index of the
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
-func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) error {
+func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader) error {
 	pfc, err := c.NewPutFileClient()
 	if err != nil {
 		return err
 	}
-	return pfc.PutFileOverwrite(repoName, commitID, path, reader, overwriteIndex)
-}
-
-//PutFileSplit writes a file to PFS from a reader
-// delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) error {
-	// TODO(msteffen) update
-	pfc, err := c.NewPutFileClient()
-	if err != nil {
-		return err
-	}
-	return pfc.PutFileSplit(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite, reader)
+	return pfc.PutFileOverwrite(repoName, commitID, path, reader)
 }
 
 // PutFileURL puts a file using the content found at a URL.
@@ -782,7 +736,7 @@ func (c APIClient) CopyFile(srcRepo, srcCommit, srcPath, dstRepo, dstCommit, dst
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
-func (c APIClient) GetFile(repo, commit, path string, offset, size int64, w io.Writer) error {
+func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
 	r, err := c.getFile(repo, commit, path)
 	if err != nil {
 		return err

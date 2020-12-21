@@ -95,8 +95,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 					retErr = errors.WithStack(err)
 				}
 			}()
-			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
-				pathpkg.Join(parts[1:]...), f, 0); err != nil {
+			if err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...), f); err != nil {
 				return err
 			}
 			return nil

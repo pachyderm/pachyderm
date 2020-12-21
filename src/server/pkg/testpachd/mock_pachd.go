@@ -44,51 +44,21 @@ func linkServers(mockServerPtr interface{}, realServer interface{}) {
 
 /* Admin Server Mocks */
 
-type extractFunc func(*admin.ExtractRequest, admin.API_ExtractServer) error
-type extractPipelineFunc func(context.Context, *admin.ExtractPipelineRequest) (*admin.Op, error)
-type restoreFunc func(admin.API_RestoreServer) error
 type inspectClusterFunc func(context.Context, *types.Empty) (*admin.ClusterInfo, error)
 
-type mockExtract struct{ handler extractFunc }
-type mockExtractPipeline struct{ handler extractPipelineFunc }
-type mockRestore struct{ handler restoreFunc }
 type mockInspectCluster struct{ handler inspectClusterFunc }
 
-func (mock *mockExtract) Use(cb extractFunc)                 { mock.handler = cb }
-func (mock *mockExtractPipeline) Use(cb extractPipelineFunc) { mock.handler = cb }
-func (mock *mockRestore) Use(cb restoreFunc)                 { mock.handler = cb }
-func (mock *mockInspectCluster) Use(cb inspectClusterFunc)   { mock.handler = cb }
+func (mock *mockInspectCluster) Use(cb inspectClusterFunc) { mock.handler = cb }
 
 type adminServerAPI struct {
 	mock *mockAdminServer
 }
 
 type mockAdminServer struct {
-	api             adminServerAPI
-	Extract         mockExtract
-	ExtractPipeline mockExtractPipeline
-	Restore         mockRestore
-	InspectCluster  mockInspectCluster
+	api            adminServerAPI
+	InspectCluster mockInspectCluster
 }
 
-func (api *adminServerAPI) Extract(req *admin.ExtractRequest, serv admin.API_ExtractServer) error {
-	if api.mock.Extract.handler != nil {
-		return api.mock.Extract.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock: admin.Extract")
-}
-func (api *adminServerAPI) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest) (*admin.Op, error) {
-	if api.mock.ExtractPipeline.handler != nil {
-		return api.mock.ExtractPipeline.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock admin.ExtractPipeline")
-}
-func (api *adminServerAPI) Restore(serv admin.API_RestoreServer) error {
-	if api.mock.Restore.handler != nil {
-		return api.mock.Restore.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock admin.Restore")
-}
 func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
@@ -693,15 +663,13 @@ func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFileset
 
 type createJobFunc func(context.Context, *pps.CreateJobRequest) (*pps.Job, error)
 type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
-type listJobFunc func(context.Context, *pps.ListJobRequest) (*pps.JobInfos, error)
-type listJobStreamFunc func(*pps.ListJobRequest, pps.API_ListJobStreamServer) error
+type listJobFunc func(*pps.ListJobRequest, pps.API_ListJobServer) error
 type flushJobFunc func(*pps.FlushJobRequest, pps.API_FlushJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
 type stopJobFunc func(context.Context, *pps.StopJobRequest) (*types.Empty, error)
 type updateJobStateFunc func(context.Context, *pps.UpdateJobStateRequest) (*types.Empty, error)
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
-type listDatumFunc func(context.Context, *pps.ListDatumRequest) (*pps.ListDatumResponse, error)
-type listDatumStreamFunc func(*pps.ListDatumRequest, pps.API_ListDatumStreamServer) error
+type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*types.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*types.Empty, error)
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
@@ -716,21 +684,17 @@ type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*types.Em
 type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
 type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
-type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
-type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockCreateJob struct{ handler createJobFunc }
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
-type mockListJobStream struct{ handler listJobStreamFunc }
 type mockFlushJob struct{ handler flushJobFunc }
 type mockDeleteJob struct{ handler deleteJobFunc }
 type mockStopJob struct{ handler stopJobFunc }
 type mockUpdateJobState struct{ handler updateJobStateFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
-type mockListDatumStream struct{ handler listDatumStreamFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
 type mockCreatePipeline struct{ handler createPipelineFunc }
 type mockInspectPipeline struct{ handler inspectPipelineFunc }
@@ -745,21 +709,17 @@ type mockDeleteSecret struct{ handler deleteSecretFunc }
 type mockInspectSecret struct{ handler inspectSecretFunc }
 type mockListSecret struct{ handler listSecretFunc }
 type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
-type mockGetLogs struct{ handler getLogsFunc }
-type mockGarbageCollect struct{ handler garbageCollectFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
 func (mock *mockCreateJob) Use(cb createJobFunc)             { mock.handler = cb }
 func (mock *mockInspectJob) Use(cb inspectJobFunc)           { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                 { mock.handler = cb }
-func (mock *mockListJobStream) Use(cb listJobStreamFunc)     { mock.handler = cb }
 func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
 func (mock *mockStopJob) Use(cb stopJobFunc)                 { mock.handler = cb }
 func (mock *mockUpdateJobState) Use(cb updateJobStateFunc)   { mock.handler = cb }
 func (mock *mockInspectDatum) Use(cb inspectDatumFunc)       { mock.handler = cb }
 func (mock *mockListDatum) Use(cb listDatumFunc)             { mock.handler = cb }
-func (mock *mockListDatumStream) Use(cb listDatumStreamFunc) { mock.handler = cb }
 func (mock *mockRestartDatum) Use(cb restartDatumFunc)       { mock.handler = cb }
 func (mock *mockCreatePipeline) Use(cb createPipelineFunc)   { mock.handler = cb }
 func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc) { mock.handler = cb }
@@ -774,8 +734,6 @@ func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)       { mock.handler = cb
 func (mock *mockInspectSecret) Use(cb inspectSecretFunc)     { mock.handler = cb }
 func (mock *mockListSecret) Use(cb listSecretFunc)           { mock.handler = cb }
 func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
-func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
-func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)   { mock.handler = cb }
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
@@ -787,14 +745,12 @@ type mockPPSServer struct {
 	CreateJob       mockCreateJob
 	InspectJob      mockInspectJob
 	ListJob         mockListJob
-	ListJobStream   mockListJobStream
 	FlushJob        mockFlushJob
 	DeleteJob       mockDeleteJob
 	StopJob         mockStopJob
 	UpdateJobState  mockUpdateJobState
 	InspectDatum    mockInspectDatum
 	ListDatum       mockListDatum
-	ListDatumStream mockListDatumStream
 	RestartDatum    mockRestartDatum
 	CreatePipeline  mockCreatePipeline
 	InspectPipeline mockInspectPipeline
@@ -809,8 +765,6 @@ type mockPPSServer struct {
 	InspectSecret   mockInspectSecret
 	ListSecret      mockListSecret
 	DeleteAll       mockDeleteAllPPS
-	GetLogs         mockGetLogs
-	GarbageCollect  mockGarbageCollect
 	ActivateAuth    mockActivateAuthPPS
 }
 
@@ -826,17 +780,11 @@ func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequ
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectJob")
 }
-func (api *ppsServerAPI) ListJob(ctx context.Context, req *pps.ListJobRequest) (*pps.JobInfos, error) {
+func (api *ppsServerAPI) ListJob(req *pps.ListJobRequest, serv pps.API_ListJobServer) error {
 	if api.mock.ListJob.handler != nil {
-		return api.mock.ListJob.handler(ctx, req)
+		return api.mock.ListJob.handler(req, serv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.ListJob")
-}
-func (api *ppsServerAPI) ListJobStream(req *pps.ListJobRequest, serv pps.API_ListJobStreamServer) error {
-	if api.mock.ListJobStream.handler != nil {
-		return api.mock.ListJobStream.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock pps.ListJobStream")
+	return errors.Errorf("unhandled pachd mock pps.ListJob")
 }
 func (api *ppsServerAPI) FlushJob(req *pps.FlushJobRequest, serv pps.API_FlushJobServer) error {
 	if api.mock.FlushJob.handler != nil {
@@ -868,17 +816,11 @@ func (api *ppsServerAPI) InspectDatum(ctx context.Context, req *pps.InspectDatum
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.InspectDatum")
 }
-func (api *ppsServerAPI) ListDatum(ctx context.Context, req *pps.ListDatumRequest) (*pps.ListDatumResponse, error) {
+func (api *ppsServerAPI) ListDatum(req *pps.ListDatumRequest, serv pps.API_ListDatumServer) error {
 	if api.mock.ListDatum.handler != nil {
-		return api.mock.ListDatum.handler(ctx, req)
+		return api.mock.ListDatum.handler(req, serv)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.ListDatum")
-}
-func (api *ppsServerAPI) ListDatumStream(req *pps.ListDatumRequest, serv pps.API_ListDatumStreamServer) error {
-	if api.mock.ListDatumStream.handler != nil {
-		return api.mock.ListDatumStream.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock pps.ListDatumStream")
+	return errors.Errorf("unhandled pachd mock pps.ListDatum")
 }
 func (api *ppsServerAPI) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest) (*types.Empty, error) {
 	if api.mock.RestartDatum.handler != nil {
@@ -963,18 +905,6 @@ func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*type
 		return api.mock.DeleteAll.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.DeleteAll")
-}
-func (api *ppsServerAPI) GetLogs(req *pps.GetLogsRequest, serv pps.API_GetLogsServer) error {
-	if api.mock.GetLogs.handler != nil {
-		return api.mock.GetLogs.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock pps.GetLogs")
-}
-func (api *ppsServerAPI) GarbageCollect(ctx context.Context, req *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error) {
-	if api.mock.GarbageCollect.handler != nil {
-		return api.mock.GarbageCollect.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock pps.GarbageCollect")
 }
 func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	if api.mock.ActivateAuth.handler != nil {

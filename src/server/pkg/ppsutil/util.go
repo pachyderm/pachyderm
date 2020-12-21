@@ -126,7 +126,7 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
+	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -292,24 +292,24 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		ResourceRequests:      pipelineInfo.ResourceRequests,
 		ResourceLimits:        pipelineInfo.ResourceLimits,
 		SidecarResourceLimits: pipelineInfo.SidecarResourceLimits,
-		Input:                 pipelineInfo.Input,
-		Description:           pipelineInfo.Description,
-		CacheSize:             pipelineInfo.CacheSize,
-		EnableStats:           pipelineInfo.EnableStats,
-		MaxQueueSize:          pipelineInfo.MaxQueueSize,
-		Service:               pipelineInfo.Service,
-		ChunkSpec:             pipelineInfo.ChunkSpec,
-		DatumTimeout:          pipelineInfo.DatumTimeout,
-		JobTimeout:            pipelineInfo.JobTimeout,
-		Salt:                  pipelineInfo.Salt,
-		PodSpec:               pipelineInfo.PodSpec,
-		PodPatch:              pipelineInfo.PodPatch,
-		Spout:                 pipelineInfo.Spout,
-		SchedulingSpec:        pipelineInfo.SchedulingSpec,
-		DatumTries:            pipelineInfo.DatumTries,
-		Standby:               pipelineInfo.Standby,
-		S3Out:                 pipelineInfo.S3Out,
-		Metadata:              pipelineInfo.Metadata,
+		Input:          pipelineInfo.Input,
+		Description:    pipelineInfo.Description,
+		CacheSize:      pipelineInfo.CacheSize,
+		EnableStats:    pipelineInfo.EnableStats,
+		MaxQueueSize:   pipelineInfo.MaxQueueSize,
+		Service:        pipelineInfo.Service,
+		ChunkSpec:      pipelineInfo.ChunkSpec,
+		DatumTimeout:   pipelineInfo.DatumTimeout,
+		JobTimeout:     pipelineInfo.JobTimeout,
+		Salt:           pipelineInfo.Salt,
+		PodSpec:        pipelineInfo.PodSpec,
+		PodPatch:       pipelineInfo.PodPatch,
+		Spout:          pipelineInfo.Spout,
+		SchedulingSpec: pipelineInfo.SchedulingSpec,
+		DatumTries:     pipelineInfo.DatumTries,
+		Standby:        pipelineInfo.Standby,
+		S3Out:          pipelineInfo.S3Out,
+		Metadata:       pipelineInfo.Metadata,
 	}
 }
 

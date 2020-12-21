@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -24,11 +23,8 @@ func benchmarkIterators(j int, b *testing.B) {
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		for i := 0; i < 100*j; i++ {
-			_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("foo%v", i), strings.NewReader("bar"))
-			require.NoError(b, err)
+			require.NoError(b, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("foo%v", i), strings.NewReader("bar")))
 		}
-
-		require.NoError(b, err)
 		require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
 
 		// make one with zero datums for testing edge cases
@@ -65,23 +61,24 @@ func benchmarkIterators(j int, b *testing.B) {
 			validateDI(b, cross1)
 		})
 
-		b.Run("join", func(b *testing.B) {
-			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", "", false, false)
-			in8.Pfs.Commit = commit.ID
-			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", "", false, false)
-			in9.Pfs.Commit = commit.ID
-			join1, err := newJoinIterator(c, []*pps.Input{in8, in9})
-			require.NoError(b, err)
-			validateDI(b, join1)
-		})
+		// TODO: Implement for V2.
+		//b.Run("join", func(b *testing.B) {
+		//	in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", "", false, false)
+		//	in8.Pfs.Commit = commit.ID
+		//	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", "", false, false)
+		//	in9.Pfs.Commit = commit.ID
+		//	join1, err := newJoinIterator(c, []*pps.Input{in8, in9})
+		//	require.NoError(b, err)
+		//	validateDI(b, join1)
+		//})
 
-		b.Run("group", func(b *testing.B) {
-			in10 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "", "$2", false, false)
-			in10.Pfs.Commit = commit.ID
-			group1, err := newGroupIterator(c, []*pps.Input{in10})
-			require.NoError(b, err)
-			validateDI(b, group1)
-		})
+		//b.Run("group", func(b *testing.B) {
+		//	in10 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "", "$2", false, false)
+		//	in10.Pfs.Commit = commit.ID
+		//	group1, err := newGroupIterator(c, []*pps.Input{in10})
+		//	require.NoError(b, err)
+		//	validateDI(b, group1)
+		//})
 
 		b.Run("iterated", func(b *testing.B) {
 			in3 := client.NewUnionInput(in1, in2)

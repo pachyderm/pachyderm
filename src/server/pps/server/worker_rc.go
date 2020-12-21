@@ -179,10 +179,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.StorageV2 {
-		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-		workerEnv = append(workerEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-	}
 	if a.env.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})

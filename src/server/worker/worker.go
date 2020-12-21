@@ -18,12 +18,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
-	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/service"
-	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/spout"
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform"
 	"github.com/pachyderm/pachyderm/src/server/worker/server"
 	"github.com/pachyderm/pachyderm/src/server/worker/stats"
@@ -52,9 +49,7 @@ func NewWorker(
 	pipelineInfo *pps.PipelineInfo,
 	workerName string,
 	namespace string,
-	hashtreePath string,
 	rootPath string,
-	storageV2 bool,
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
@@ -68,10 +63,8 @@ func NewWorker(
 		pachClient,
 		etcdClient,
 		etcdPrefix,
-		hashtreePath,
 		rootPath,
 		namespace,
-		storageV2,
 	)
 	if err != nil {
 		return nil, err
@@ -122,34 +115,12 @@ func (w *Worker) worker() {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
-		if !w.driver.StorageV2() {
-			// Clean the driver hashtree cache for any jobs that are deleted
-			eg.Go(func() error {
-				return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
-					var key string
-					jobInfo := &pps.EtcdJobInfo{}
-					if err := e.Unmarshal(&key, jobInfo); err != nil {
-						return err
-					}
-
-					if e.Type == watch.EventDelete || (e.Type == watch.EventPut && ppsutil.IsTerminal(jobInfo.State)) {
-						driver.ChunkCaches().RemoveCache(key)
-						driver.ChunkStatsCaches().RemoveCache(key)
-					}
-					return nil
-				})
-			})
-		}
-
 		// Run any worker tasks that the master creates
 		eg.Go(func() error {
 			return driver.NewTaskWorker().Run(
 				ctx,
 				func(ctx context.Context, subtask *work.Task) error {
 					driver := w.driver.WithContext(ctx)
-					if w.driver.StorageV2() {
-						return transform.WorkerV2(driver, logger, subtask, w.status)
-					}
 					return transform.Worker(driver, logger, subtask, w.status)
 				},
 			)
@@ -218,14 +189,12 @@ type spawnerFunc func(driver.Driver, logs.TaggedLogger) error
 func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
-		case driver.PipelineInfo().Service != nil:
-			return "service", service.Run
-		case driver.PipelineInfo().Spout != nil:
-			return "spout", spout.Run
+		// TODO: Make work with V2.
+		//case driver.PipelineInfo().Service != nil:
+		//	return "service", service.Run
+		//case driver.PipelineInfo().Spout != nil:
+		//	return "spout", spout.Run
 		default:
-			if driver.StorageV2() {
-				return "transform", transform.RunV2
-			}
 			return "transform", transform.Run
 		}
 	}()

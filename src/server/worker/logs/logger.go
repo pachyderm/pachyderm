@@ -12,18 +12,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
-)
-
-const (
-	logBuffer = 25
 )
 
 // TaggedLogger is an interface providing logging functionality for use by the
@@ -50,10 +43,6 @@ type TaggedLogger interface {
 	WithUserCode() TaggedLogger
 
 	JobID() string
-
-	// Close will flush any writes to object storage and return information about
-	// where log statements were stored in object storage.
-	Close() (*pfs.Object, int64, error)
 }
 
 type taggedLogger struct {
@@ -61,12 +50,7 @@ type taggedLogger struct {
 	stderrLog *log.Logger
 	marshaler *jsonpb.Marshaler
 
-	// Used for mirroring log statements to object storage
-	putObjClient pfs.ObjectAPI_PutObjectClient
-	objSize      int64
-	msgCh        chan string
-	buffer       bytes.Buffer
-	eg           errgroup.Group
+	buffer bytes.Buffer
 }
 
 func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
@@ -82,7 +66,6 @@ func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 		},
 		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
 		marshaler: &jsonpb.Marshaler{},
-		msgCh:     make(chan string, logBuffer),
 	}
 }
 
@@ -101,27 +84,6 @@ func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 // Abstract this into a separate object with a more explicit lifetime?
 func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
 	result := newLogger(pipelineInfo)
-
-	if pachClient != nil && pipelineInfo.EnableStats {
-		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
-		if err != nil {
-			return nil, err
-		}
-		result.putObjClient = putObjClient
-		result.eg.Go(func() error {
-			for msg := range result.msgCh {
-				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
-					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
-						Value: chunk,
-					}); err != nil && !errors.Is(err, io.EOF) {
-						return err
-					}
-				}
-				result.objSize += int64(len(msg))
-			}
-			return nil
-		})
-	}
 	return result, nil
 }
 
@@ -188,11 +150,9 @@ func (logger *taggedLogger) JobID() string {
 
 func (logger *taggedLogger) clone() *taggedLogger {
 	return &taggedLogger{
-		template:     logger.template,  // Copy struct
-		stderrLog:    logger.stderrLog, // logger should be goroutine-safe
-		marshaler:    &jsonpb.Marshaler{},
-		putObjClient: logger.putObjClient,
-		msgCh:        logger.msgCh,
+		template:  logger.template,  // Copy struct
+		stderrLog: logger.stderrLog, // logger should be goroutine-safe
+		marshaler: &jsonpb.Marshaler{},
 	}
 }
 
@@ -214,9 +174,6 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		return
 	}
 	fmt.Println(msg)
-	if logger.putObjClient != nil {
-		logger.msgCh <- msg + "\n"
-	}
 }
 
 // LogStep will log before and after the given callback function runs, using
@@ -262,22 +219,4 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 		// will result in errors being logged.
 		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
 	}
-}
-
-// Close flushes and closes the object storage client used to mirror log
-// statements to object storage.  Returns a pointer to the generated pfs.Object
-// as well as the total size of all written messages.
-func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
-	close(logger.msgCh)
-	if logger.putObjClient != nil {
-		if err := logger.eg.Wait(); err != nil {
-			return nil, 0, err
-		}
-		object, err := logger.putObjClient.CloseAndRecv()
-		// we set putObjClient to nil so that future calls to Logf won't send
-		// msg down logger.msgCh as we've just closed that channel.
-		logger.putObjClient = nil
-		return object, logger.objSize, err
-	}
-	return nil, 0, nil
 }

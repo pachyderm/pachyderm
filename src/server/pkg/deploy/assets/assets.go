@@ -135,10 +135,7 @@ type TLSOpts struct {
 }
 
 // FeatureFlags are flags for experimental features.
-type FeatureFlags struct {
-	// StorageV2, if true, will make Pachyderm use the new storage layer.
-	StorageV2 bool
-}
+type FeatureFlags struct{}
 
 const (
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
@@ -146,9 +143,6 @@ const (
 
 	// PutFileConcurrencyLimitEnvVar is the environment variable for the PutFile concurrency limit.
 	PutFileConcurrencyLimitEnvVar = "STORAGE_PUT_FILE_CONCURRENCY_LIMIT"
-
-	// StorageV2EnvVar is the environment variable for enabling V2 storage.
-	StorageV2EnvVar = "STORAGE_V2"
 )
 
 const (
@@ -547,7 +541,6 @@ func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
 		{Name: PutFileConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.PutFileConcurrencyLimit)},
-		{Name: StorageV2EnvVar, Value: strconv.FormatBool(opts.FeatureFlags.StorageV2)},
 	}
 }
 
@@ -1811,56 +1804,54 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		return err
 	}
 
-	if opts.StorageV2 {
-		// In the dynamic route, we create a storage class which dynamically
-		// provisions volumes, and run postgres as a stateful set.
-		// In the static route, we create a single volume, a single volume
-		// claim, and run etcd as a replication controller with a single node.
-		if objectStoreBackend == localBackend {
-			if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
-				return err
-			}
-		} else if opts.PostgresNodes > 0 {
-			// Create a StorageClass, if the user didn't provide one.
-			if opts.PostgresStorageClassName == "" {
-				sc, err := PostgresStorageClass(opts, persistentDiskBackend)
-				if err != nil {
-					return err
-				}
-				if sc != nil {
-					if err = encoder.Encode(sc); err != nil {
-						return err
-					}
-				}
-			}
-			// TODO: is this necessary?
-			// if err := encoder.Encode(PostgresHeadlessService(opts)); err != nil {
-			// 	return err
-			// }
-			// TODO: add stateful set
-			// if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
-			// 	return err
-			// }
-		} else if opts.PostgresVolume != "" || persistentDiskBackend == localBackend {
-			volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresVolume, volumeSize)
+	// In the dynamic route, we create a storage class which dynamically
+	// provisions volumes, and run postgres as a stateful set.
+	// In the static route, we create a single volume, a single volume
+	// claim, and run etcd as a replication controller with a single node.
+	if objectStoreBackend == localBackend {
+		if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
+			return err
+		}
+	} else if opts.PostgresNodes > 0 {
+		// Create a StorageClass, if the user didn't provide one.
+		if opts.PostgresStorageClassName == "" {
+			sc, err := PostgresStorageClass(opts, persistentDiskBackend)
 			if err != nil {
 				return err
 			}
-			if err = encoder.Encode(volume); err != nil {
-				return err
+			if sc != nil {
+				if err = encoder.Encode(sc); err != nil {
+					return err
+				}
 			}
-			if err = encoder.Encode(PostgresVolumeClaim(volumeSize, opts)); err != nil {
-				return err
-			}
-			if err = encoder.Encode(PostgresDeployment(opts, "")); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 		}
-		if err := encoder.Encode(PostgresService(objectStoreBackend == localBackend, opts)); err != nil {
+		// TODO: is this necessary?
+		// if err := encoder.Encode(PostgresHeadlessService(opts)); err != nil {
+		// 	return err
+		// }
+		// TODO: add stateful set
+		// if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+		// 	return err
+		// }
+	} else if opts.PostgresVolume != "" || persistentDiskBackend == localBackend {
+		volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresVolume, volumeSize)
+		if err != nil {
 			return err
 		}
+		if err = encoder.Encode(volume); err != nil {
+			return err
+		}
+		if err = encoder.Encode(PostgresVolumeClaim(volumeSize, opts)); err != nil {
+			return err
+		}
+		if err = encoder.Encode(PostgresDeployment(opts, "")); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
+	}
+	if err := encoder.Encode(PostgresService(objectStoreBackend == localBackend, opts)); err != nil {
+		return err
 	}
 
 	if err := encoder.Encode(PachdService(opts)); err != nil {
