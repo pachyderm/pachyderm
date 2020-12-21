@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	gosync "sync"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
@@ -28,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
-	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 
@@ -197,7 +195,6 @@ or type (e.g. csv, binary, images, etc).`,
 
 	var force bool
 	var all bool
-	var splitTransaction bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
@@ -210,9 +207,8 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			request := &pfsclient.DeleteRepoRequest{
-				Force:            force,
-				All:              all,
-				SplitTransaction: splitTransaction,
+				Force: force,
+				All:   all,
 			}
 			if len(args) > 0 {
 				if all {
@@ -221,14 +217,6 @@ or type (e.g. csv, binary, images, etc).`,
 				request.Repo = client.NewRepo(args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
-			}
-			if splitTransaction {
-				fmt.Println("WARNING: If using the --split-txn flag, this command must run until complete. If a failure or incomplete run occurs, then Pachyderm will be left in an inconsistent state. To resolve an inconsistent state, rerun this command.")
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-					return err
-				} else if !ok {
-					return nil
-				}
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
@@ -240,7 +228,6 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().BoolVar(&splitTransaction, "split-txn", false, "split large transactions into multiple smaller transactions")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 
@@ -753,14 +740,8 @@ from commits with 'get file'.`,
 	commands = append(commands, cmdutil.CreateDocsAlias(fileDocs, "file", " file$"))
 
 	var filePaths []string
-	var recursive bool
 	var inputFile string
 	var parallelism int
-	var split string
-	var targetFileDatums uint
-	var targetFileBytes uint
-	var headerRecords uint
-	var putFileCommit bool
 	var overwrite bool
 	var compress bool
 	putFile := &cobra.Command{
@@ -831,10 +812,6 @@ $ {{alias}} repo@branch -i http://host/path`,
 					retErr = err
 				}
 			}()
-			if putFileCommit {
-				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
-			}
-
 			limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
@@ -879,7 +856,6 @@ $ {{alias}} repo@branch -i http://host/path`,
 
 			// Arguments parsed; create putFileHelper and begin copying data
 			var eg errgroup.Group
-			filesPut := &gosync.Map{}
 			for _, source := range sources {
 				source := source
 				if file.Path == "" {
@@ -888,19 +864,25 @@ $ {{alias}} repo@branch -i http://host/path`,
 						return errors.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						limiter.Acquire()
+						defer limiter.Release()
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths("", source), source, overwrite)
 					})
 				} else if len(sources) == 1 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, file.Path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						limiter.Acquire()
+						defer limiter.Release()
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, file.Path, source, overwrite)
 					})
 				} else {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths(file.Path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						limiter.Acquire()
+						defer limiter.Release()
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths(file.Path, source), source, overwrite)
 					})
 				}
 			}
@@ -909,14 +891,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
-	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
-	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
-	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
-	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
-	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
@@ -987,13 +963,6 @@ $ {{alias}} foo@master^2:XXX`,
 				return err
 			}
 			defer c.Close()
-			if recursive {
-				if outputPath == "" {
-					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
-				}
-				puller := sync.NewPuller()
-				return puller.Pull(c, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
-			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
@@ -1006,12 +975,10 @@ $ {{alias}} foo@master^2:XXX`,
 				defer f.Close()
 				w = f
 			}
-			return c.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, w)
+			return c.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, w)
 		}),
 	}
-	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
@@ -1086,7 +1053,7 @@ $ {{alias}} foo@master --history all`,
 			}
 			defer c.Close()
 			if raw {
-				return c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
+				return c.ListFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
@@ -1095,7 +1062,7 @@ $ {{alias}} foo@master --history all`,
 				header = pretty.FileHeaderWithCommit
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
-			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
+			if err := c.ListFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
@@ -1132,7 +1099,7 @@ $ {{alias}} "foo@master:data/*"`,
 				return err
 			}
 			defer c.Close()
-			fileInfos, err := c.GlobFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+			fileInfos, err := c.GlobFileAll(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1200,7 +1167,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					}()
 				}
 
-				newFiles, oldFiles, err := c.DiffFile(
+				newFiles, oldFiles, err := c.DiffFileAll(
 					newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
 					oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
 					shallow,
@@ -1366,107 +1333,30 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	return commands
 }
 
-func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
-	repo, commit, path, source string, recursive, overwrite bool, // destination
-	limiter limit.ConcurrencyLimiter,
-	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
-	filesPut *gosync.Map) (retErr error) {
+func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string, overwrite bool) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
 	// to the server
 	path = filepath.Clean(path)
 	for strings.HasPrefix(path, "../") {
 		path = strings.TrimPrefix(path, "../")
 	}
-
-	if _, ok := filesPut.LoadOrStore(path, nil); ok {
-		return errors.Errorf("multiple files put with the path %s, aborting, "+
-			"some files may already have been put and should be cleaned up with "+
-			"'delete file' or 'delete commit'", path)
-	}
-	putFile := func(reader io.ReadSeeker) error {
-		if split == "" {
-			pipe, err := isPipe(reader)
-			if err != nil {
-				return err
-			}
-			if overwrite && !pipe {
-				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
-			}
-			if overwrite {
-				_, err = pfc.PutFileOverwrite(repo, commit, path, reader, 0)
-				return err
-			}
-			_, err = pfc.PutFile(repo, commit, path, reader)
-			return err
+	putFile := func(r io.Reader) error {
+		if overwrite {
+			return pfc.PutFileOverwrite(repo, commit, path, r)
 		}
-
-		var delimiter pfsclient.Delimiter
-		switch split {
-		case "line":
-			delimiter = pfsclient.Delimiter_LINE
-		case "json":
-			delimiter = pfsclient.Delimiter_JSON
-		case "sql":
-			delimiter = pfsclient.Delimiter_SQL
-		case "csv":
-			delimiter = pfsclient.Delimiter_CSV
-		default:
-			return errors.Errorf("unrecognized delimiter '%s'; only accepts one of "+
-				"{json,line,sql,csv}", split)
-		}
-		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
-		return err
+		return pfc.PutFile(repo, commit, path, r)
 	}
-
 	if source == "-" {
-		if recursive {
-			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
-		}
-		limiter.Acquire()
-		defer limiter.Release()
 		stdin := progress.Stdin()
 		defer stdin.Finish()
 		return putFile(stdin)
 	}
-	// try parsing the filename as a url, if it is one do a PutFileURL
-	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		limiter.Acquire()
-		defer limiter.Release()
-		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
-	}
-	if recursive {
-		var eg errgroup.Group
-		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
-			// file doesn't exist
-			if info == nil {
-				return errors.Errorf("%s doesn't exist", filePath)
-			}
-			if info.IsDir() {
-				return nil
-			}
-			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
-			eg.Go(func() error {
-				// don't do a second recursive 'put file', just put the one file at
-				// filePath into childDest, and then this walk loop will go on to the
-				// next one
-				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,
-					overwrite, limiter, split, targetFileDatums, targetFileBytes,
-					headerRecords, filesPut)
-			})
-			return nil
-		}); err != nil {
-			return err
-		}
-		return eg.Wait()
-	}
-	limiter.Acquire()
-	defer limiter.Release()
 	f, err := progress.Open(source)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
+		if err := f.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
@@ -1514,7 +1404,7 @@ func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr e
 			retErr = err
 		}
 	}()
-	if err := pachClient.GetFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, 0, file); err != nil {
+	if err := pachClient.GetFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, file); err != nil {
 		return "", err
 	}
 	return file.Name(), nil

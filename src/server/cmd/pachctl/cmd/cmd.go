@@ -839,7 +839,6 @@ This resets the cluster to its initial state.`,
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
 	applyRootUsageFunc(rootCmd)
-	applyCommandCompat1_8(rootCmd)
 
 	return rootCmd
 }

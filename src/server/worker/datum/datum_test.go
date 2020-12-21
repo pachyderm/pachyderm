@@ -1,7 +1,6 @@
 package datum
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -9,19 +8,21 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	pfstesting "github.com/pachyderm/pachyderm/src/server/pfs/server/testing"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 func TestSet(t *testing.T) {
-	config := pfstesting.NewPachdConfig()
-	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		inputRepo := tu.UniqueString(t.Name() + "_input")
 		require.NoError(t, c.CreateRepo(inputRepo))
@@ -29,15 +30,9 @@ func TestSet(t *testing.T) {
 		require.NoError(t, c.CreateRepo(outputRepo))
 		inputCommit, err := c.StartCommit(inputRepo, "master")
 		require.NoError(t, err)
-		buf := &bytes.Buffer{}
-		tw := tar.NewWriter(buf)
 		for i := 0; i < 50; i++ {
-			require.NoError(t, writeFile(tw, &testFile{
-				name: fmt.Sprintf("/foo%v", i),
-				data: []byte("input"),
-			}))
+			require.NoError(t, c.PutFile(inputRepo, inputCommit.ID, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 		}
-		require.NoError(t, c.PutTarV2(inputRepo, inputCommit.ID, buf, false))
 		require.NoError(t, c.FinishCommit(inputRepo, inputCommit.ID))
 		inputName := "test"
 		in := client.NewPFSInput(inputRepo, "/foo*")
@@ -47,17 +42,17 @@ func TestSet(t *testing.T) {
 		require.NoError(t, err)
 		var allInputs [][]*common.Input
 		// Create datum fileset.
-		require.NoError(t, c.WithFileOperationClientV2(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
+		require.NoError(t, c.WithFileOperationClient(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
 			require.NoError(t, withTmpDir(func(storageRoot string) error {
 				require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
-					di, err := NewIteratorV2(c, in)
+					di, err := NewIterator(c, in)
 					if err != nil {
 						return err
 					}
 					return di.Iterate(func(meta *Meta) error {
 						allInputs = append(allInputs, meta.Inputs)
 						return s.WithDatum(context.Background(), meta, func(d *Datum) error {
-							return copyFiles(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
+							return processFiles(path.Join(d.PFSStorageRoot(), OutputPrefix), path.Join(d.PFSStorageRoot(), inputName), func(_ []byte) []byte {
 								return []byte("output")
 							})
 						})
@@ -81,28 +76,10 @@ func TestSet(t *testing.T) {
 			return nil
 		}))
 		return nil
-	}, config))
+	}))
 }
 
-// TODO: Should refactor this and fileset tests to have a general purpose tool for creating tar streams.
-type testFile struct {
-	name string
-	data []byte
-}
-
-func writeFile(w *tar.Writer, f *testFile) error {
-	hdr := &tar.Header{
-		Name: f.name,
-		Size: int64(len(f.data)),
-	}
-	if err := w.WriteHeader(hdr); err != nil {
-		return err
-	}
-	_, err := w.Write(f.data)
-	return err
-}
-
-func copyFiles(outputDir, inputDir string, cb func([]byte) []byte) error {
+func processFiles(outputDir, inputDir string, cb func([]byte) []byte) error {
 	return filepath.Walk(inputDir, func(file string, fi os.FileInfo, err error) (retErr error) {
 		if err != nil {
 			return err

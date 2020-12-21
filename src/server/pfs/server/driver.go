@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -149,29 +147,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	// Setup PFS master
 	go d.master(env)
 	return d, nil
-}
-
-// TODO: Move this to pachd main.
-func newDB() (db *sqlx.DB, retErr error) {
-	postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
-	if !ok {
-		return nil, errors.Errorf("postgres service host not found")
-	}
-	postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
-	if !ok {
-		return nil, errors.Errorf("postgres service port not found")
-	}
-	postgresPort, err := strconv.Atoi(postgresPortStr)
-	if err != nil {
-		return nil, err
-	}
-	return dbutil.NewDB(dbutil.DBParams{
-		Host:   postgresHost,
-		Port:   postgresPort,
-		User:   "pachyderm",
-		Pass:   "elephantastic",
-		DBName: "pgc",
-	})
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
@@ -451,136 +426,6 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	return nil
 }
 
-func (d *driver) deleteRepoSplitTransaction(ctx context.Context, repo *pfs.Repo, force bool) error {
-	// Validate arguments.
-	if repo == nil {
-		return errors.New("repo cannot be nil")
-	}
-	// Tombstone repo.
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		return d.tombstoneRepo(txnCtx, repo, force)
-	}); err != nil {
-		return err
-	}
-	// Update provenant / subvenant commits and delete commits.
-	commits := d.commits(repo.Name).ReadOnly(ctx)
-	ci := &pfs.CommitInfo{}
-	if err := commits.List(ci, col.DefaultOptions, func(ID string) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
-			if err := commits.Delete(ID); err != nil {
-				if col.IsErrNotFound(err) {
-					return nil
-				}
-				return err
-			}
-			// Update provenant commits' subvenance.
-			for _, prov := range ci.Provenance {
-				if prov.Commit.Repo.Name == repo.Name {
-					continue
-				}
-				if err := d.updateCommitSubvenance(txnCtx, repo, prov); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-	}); err != nil {
-		return err
-	}
-	// Delete all branches / commits and repo.
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		// Despite the fact that we already deleted each branch with
-		// tombstoneRepo, we also do branches.DeleteAll(), this insulates us
-		// against certain corruption situations where the RepoInfo doesn't
-		// exist in etcd but branches do.
-		branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm)
-		branches.DeleteAll()
-		// Similarly with commits
-		commitsX := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
-		commitsX.DeleteAll()
-		repos := d.repos.ReadWrite(txnCtx.Stm)
-		if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		if _, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-			Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
-		}); err != nil && !auth.IsErrNotActivated(err) {
-			return grpcutil.ScrubGRPC(err)
-		}
-		return nil
-	})
-}
-
-func (d *driver) tombstoneRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
-	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
-	// recreate the PPS spec repo, then uncomment this block to prevent users from
-	// deleting it and breaking their cluster
-	// if repo.Name == ppsconsts.SpecRepo {
-	// 	return errors.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
-	// }
-	repos := d.repos.ReadWrite(txnCtx.Stm)
-	// check if 'repo' is already gone. If so, return that error. Otherwise,
-	// proceed with auth check (avoids awkward "access denied" error when calling
-	// "deleteRepo" on a repo that's already gone)
-	var existingRepoInfo pfs.RepoInfo
-	if err := repos.Get(repo.Name, &existingRepoInfo); err != nil {
-		if !col.IsErrNotFound(err) {
-			return err
-		}
-	}
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
-		return err
-	}
-	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Update(repo.Name, repoInfo, func() error {
-		repoInfo.Tombstone = true
-		return nil
-	}); err != nil {
-		if !col.IsErrNotFound(err) {
-			return err
-		}
-	}
-	var branchInfos []*pfs.BranchInfo
-	for _, branch := range repoInfo.Branches {
-		bi, err := d.inspectBranch(txnCtx, branch)
-		if err != nil {
-			return err
-		}
-		branchInfos = append(branchInfos, bi)
-	}
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	for i := range branchInfos {
-		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (such as with stats branches) we
-		// delete them in the right order.
-		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *driver) updateCommitSubvenance(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, prov *pfs.CommitProvenance) error {
-	provCI := &pfs.CommitInfo{}
-	if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
-		subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
-		for subvFrom, subv := range provCI.Subvenance {
-			if subv.Upper.Repo.Name == repo.Name {
-				continue
-			}
-			provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
-			subvTo++
-		}
-		provCI.Subvenance = provCI.Subvenance[:subvTo]
-		return nil
-	}); err != nil {
-		return errors.Wrapf(err, "error fixing commit subvenance %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
-	}
-	return nil
-}
-
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
@@ -616,9 +461,6 @@ func (d *driver) makeCommit(
 	// Validate arguments:
 	if parent == nil {
 		return nil, errors.Errorf("parent cannot be nil")
-	}
-	if err := d.validateRepo(txnCtx.Stm, parent.Repo); err != nil {
-		return nil, err
 	}
 	// Check that caller is authorized
 	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, parent.Repo, auth.Scope_WRITER); err != nil {
@@ -1924,12 +1766,6 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	if from != nil && from.Repo.Name != repo.Name {
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
-	if err := d.validateRepo(txnCtx.Stm, branch.Repo); err != nil {
-		return err
-	}
-	if err := d.validateTrigger(txnCtx, branch, trigger); err != nil {
-		return err
-	}
 
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
 	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
@@ -2298,18 +2134,6 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		if err := txnCtx.PropagateCommit(b, false); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (d *driver) validateRepo(stm col.STM, repo *pfs.Repo) error {
-	repos := d.repos.ReadWrite(stm)
-	repoInfo := &pfs.RepoInfo{}
-	if err := repos.Get(repo.Name, repoInfo); err != nil {
-		return err
-	}
-	if repoInfo.Tombstone {
-		return pfsserver.ErrRepoDeleted{repo}
 	}
 	return nil
 }

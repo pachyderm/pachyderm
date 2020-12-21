@@ -25,12 +25,12 @@ func (c APIClient) AppendFile(repo, commit string, r io.Reader, overwrite bool, 
 
 // DeleteFile deletes a set of files.
 // The optional tag field indicates specific tags in the files to delete.
-func (c APIClient) deleteFile(repo, commit string, files []string, tag ...string) error {
+func (c APIClient) deleteFile(repo, commit, path string, tag ...string) error {
 	foc, err := c.NewFileOperationClient(repo, commit)
 	if err != nil {
 		return err
 	}
-	if err := foc.DeleteFile(files, tag...); err != nil {
+	if err := foc.DeleteFile(path, tag...); err != nil {
 		return err
 	}
 	return foc.Close()
@@ -139,9 +139,9 @@ func (foc *fileOperationCore) sendAppendFile(req *pfs.AppendFileRequest) error {
 
 // DeleteFile deletes a set of files.
 // The optional tag field indicates specific tags in the files to delete.
-func (foc *fileOperationCore) DeleteFile(files []string, tag ...string) error {
+func (foc *fileOperationCore) DeleteFile(path string, tag ...string) error {
 	return foc.maybeError(func() error {
-		req := &pfs.DeleteFileRequest{Files: files}
+		req := &pfs.DeleteFileRequest{File: path}
 		if len(tag) > 0 {
 			if len(tag) > 1 {
 				return errors.Errorf("DeleteFile called with %v tags, expected 0 or 1", len(tag))
