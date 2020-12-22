@@ -124,6 +124,4 @@ set -x
 killall kubectl || true
 
 # Port forward to postgres
-POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
-export POSTGRES_POD
-kubectl port-forward "$POSTGRES_POD" 32228:5432 &
+etc/kube/forward_postgres.sh &
