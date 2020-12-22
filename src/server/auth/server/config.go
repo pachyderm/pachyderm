@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/watch"
 
 	"github.com/crewjam/saml"
 	logrus "github.com/sirupsen/logrus"

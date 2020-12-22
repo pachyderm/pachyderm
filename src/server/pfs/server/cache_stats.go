@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 type cacheStats struct {

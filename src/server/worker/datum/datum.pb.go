@@ -7,7 +7,7 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	pps "github.com/pachyderm/pachyderm/src/client/pps"
+	pps "github.com/pachyderm/pachyderm/src/pps"
 	common "github.com/pachyderm/pachyderm/src/server/worker/common"
 	io "io"
 	math "math"

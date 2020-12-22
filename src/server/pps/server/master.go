@@ -11,13 +11,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/src/internal/watch"
 )
 
 const (

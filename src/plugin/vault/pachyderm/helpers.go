@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // errMissingField returns a logical response error that prints a consistent

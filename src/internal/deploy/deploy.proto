@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package deploy;
+option go_package = "github.com/pachyderm/pachyderm/src/internal/deploy";
+
+import "google/protobuf/empty.proto";
+
+message KubeEndpoint {
+    string host = 1;
+    // TODO auth stuff goes here
+}
+
+message Cluster {
+    string name = 1;
+}
+
+message ClusterInfo {
+    Cluster cluster = 1;
+    uint64 shards = 2;
+}
+
+message ClusterInfos {
+    repeated ClusterInfo cluster_infos = 1;
+}
+
+message CreateClusterRequest {
+    Cluster cluster = 1;
+    uint64 shards = 2;
+}
+
+message UpdateClusterRequest {
+    Cluster cluster = 1;
+    uint64 nodes = 2;
+}
+
+message InspectClusterRequest {
+    Cluster cluster = 1;
+}
+
+message ListClusterRequest {
+}
+
+message DeleteClusterRequest {
+    Cluster cluster = 1;
+}
+
+service API {
+    rpc CreateCluster(CreateClusterRequest) returns (google.protobuf.Empty) {}
+    rpc UpdateCluster(UpdateClusterRequest) returns (google.protobuf.Empty)  {}
+    rpc InspectCluster(InspectClusterRequest) returns (ClusterInfo) {}
+    rpc ListCluster(ListClusterRequest) returns (ClusterInfos) {}
+    rpc DeleteCluster(DeleteClusterRequest) returns (google.protobuf.Empty) {}
+}

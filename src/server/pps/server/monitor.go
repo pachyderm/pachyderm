@@ -29,15 +29,15 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
 

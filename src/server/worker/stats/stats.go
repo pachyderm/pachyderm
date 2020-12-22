@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 const (

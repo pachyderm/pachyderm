@@ -7,10 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
 )
 
 // startPipelinePoller starts a new goroutine running pollPipelines

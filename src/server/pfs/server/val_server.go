@@ -3,12 +3,12 @@ package server
 import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
 	"golang.org/x/net/context"
 )
 

@@ -12,10 +12,10 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 

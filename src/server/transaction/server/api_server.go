@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/transaction"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/log"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
 
 	"golang.org/x/net/context"
 )

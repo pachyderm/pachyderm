@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 

@@ -9,11 +9,11 @@ import (
 	"os"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/src/internal/tarutil"
 )
 
 // NewRepo creates a pfs.Repo.

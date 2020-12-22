@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 
 	"github.com/gogo/protobuf/types"
 )

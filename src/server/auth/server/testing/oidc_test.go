@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 // Dex's mock connector always returns the same identity for all authentication

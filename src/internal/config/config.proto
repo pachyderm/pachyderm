@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package config;
+option go_package = "github.com/pachyderm/pachyderm/src/internal/config";
+
+import "gogoproto/gogo.proto";
+
+// Config specifies the pachyderm config that is read and interpreted by the
+// pachctl command-line tool. Right now, this is stored at
+// $HOME/.pachyderm/config.
+//
+// Different versions of the pachyderm config are specified as subfields of this
+// message (this allows us to make significant changes to the config structure
+// without breaking existing users by defining a new config version).
+//
+// DO NOT change or remove field numbers from this proto, otherwise ALL
+// pachyderm user configs will fail to parse.
+message Config {
+    string user_id = 1 [(gogoproto.customname) = "UserID"];
+
+    // Configuration options. Exactly one of these fields should be set
+    // (depending on which version of the config is being used)
+    ConfigV1 v1 = 2;
+    ConfigV2 v2 = 3;
+}
+
+// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
+// DO NOT change or remove field numbers from this proto, as if you do, v1 user
+// configs will become unparseable.
+message ConfigV1 {
+    // A host:port pointing pachd at a pachyderm cluster.
+    string pachd_address = 2;
+
+    // Trusted root certificates (overrides installed certificates), formatted
+    // as base64-encoded PEM
+    string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
+
+    // A secret token identifying the current pachctl user within their
+    // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+    // to determine if pachctl actions are authorized.
+    string session_token = 1;
+
+    // The currently active transaction for batching together pachctl commands.
+    // This can be set or cleared via many of the `pachctl * transaction` commands.
+    // This is the ID of the transaction object stored in the pachyderm etcd.
+    string active_transaction = 4;
+}
+
+// ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
+message ConfigV2 {
+    string active_context = 1;
+    map<string, Context> contexts = 2;
+    bool metrics = 3;
+    int64 max_shell_completions = 4;
+}
+
+message Context {
+    reserved 9;
+
+    // Where this context came from
+    ContextSource source = 1;
+
+    // The hostname or IP address pointing pachd at a pachyderm cluster.
+    string pachd_address = 2;
+
+    // Trusted root certificates (overrides installed certificates), formatted
+    // as base64-encoded PEM.
+    string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
+
+    // A secret token identifying the current pachctl user within their
+    // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+    // to determine if pachctl actions are authorized.
+    string session_token = 4;
+
+    // The currently active transaction for batching together pachctl commands.
+    // This can be set or cleared via many of the `pachctl * transaction` commands.
+    // This is the ID of the transaction object stored in the pachyderm etcd.
+    string active_transaction = 5;
+
+    // The k8s cluster name - used to construct a k8s context.
+    string cluster_name = 6;
+
+    // The k8s auth info - used to construct a k8s context.
+    string auth_info = 7;
+
+    // The k8s namespace - used to construct a k8s context.
+    string namespace = 8;
+
+    // A mapping of service -> port number, when port forwarding is
+    // running for this context.
+    map<string, uint32> port_forwarders = 10;
+
+    // A unique ID for the cluster deployment. At client initialization time,
+    // we ensure this is the same as what the cluster reports back, to prevent
+    // us from connecting to the wrong cluster.
+    string cluster_deployment_id = 11 [(gogoproto.customname) = "ClusterDeploymentID"];
+}
+
+enum ContextSource {
+    NONE = 0;
+    CONFIG_V1 = 1;
+    HUB = 2;
+    IMPORTED = 3;
+}

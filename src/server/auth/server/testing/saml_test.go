@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 // SimpleSAMLIDPMetadata returns a hand-generated XML snippet with metadata for

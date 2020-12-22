@@ -14,8 +14,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 

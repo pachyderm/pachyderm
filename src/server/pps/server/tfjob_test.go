@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/internal/serde"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 func YAMLToJSONString(t *testing.T, yamlStr string) string {

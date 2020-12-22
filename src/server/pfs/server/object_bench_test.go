@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/src/internal/workload"
 )
 
 const (
