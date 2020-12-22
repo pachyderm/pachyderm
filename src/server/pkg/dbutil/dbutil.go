@@ -13,20 +13,22 @@ import (
 var devDontDropDatabase = false
 
 const (
-	// DefaultPostgresHost for tests
-	DefaultPostgresHost = "127.0.0.1"
-	// DefaultPostgresPort for tests
-	DefaultPostgresPort = 32228
-	// TestPostgresUser is the default postgres user
-	TestPostgresUser = "postgres"
+	// DefaultHost is the default host.
+	DefaultHost = "127.0.0.1"
+	// DefaultPort is the default port.
+	DefaultPort = 32228
+	// DefaultUser is the default user
+	DefaultUser = "postgres"
+	// DefaultDBName is the default DB name.
+	DefaultDBName = "pgc"
 )
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s sslmode=disable", DefaultPostgresHost, DefaultPostgresPort, TestPostgresUser)
-	db := sqlx.MustOpen("postgres", dsn)
+	db, err := NewDB()
+	require.NoError(t, err)
 	dbName := fmt.Sprintf("test_%d", time.Now().UnixNano())
 	db.MustExec("CREATE DATABASE " + dbName)
 	t.Log("database", dbName, "successfully created")
@@ -36,23 +38,32 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 		}
 		require.NoError(t, db.Close())
 	})
-	db2 := sqlx.MustOpen("postgres", dsn+" dbname="+dbName)
+	db2, err := NewDB(WithDBName(dbName))
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db2.Close())
 	})
 	return db2
 }
 
-// DBParams are parameters passed to the db constructor.
-type DBParams struct {
-	Host       string
-	Port       int
-	User, Pass string
-	DBName     string
+type dBConfig struct {
+	host           string
+	port           int
+	user, password string
+	name           string
 }
 
-// NewDB returns a db created with the given parameters
-func NewDB(x DBParams) (*sqlx.DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", x.Host, x.Port, x.User, x.Pass, x.DBName)
+// NewDB creates a new DB.
+func NewDB(opts ...Option) (*sqlx.DB, error) {
+	dbc := &dBConfig{
+		host: DefaultHost,
+		port: DefaultPort,
+		user: DefaultUser,
+		name: DefaultDBName,
+	}
+	for _, opt := range opts {
+		opt(dbc)
+	}
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbc.host, dbc.port, dbc.user, dbc.password, dbc.name)
 	return sqlx.Open("postgres", dsn)
 }

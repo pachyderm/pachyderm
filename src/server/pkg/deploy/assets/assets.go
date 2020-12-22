@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -1538,9 +1539,11 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
 							Env: []v1.EnvVar{
-								{Name: "POSTGRES_DB", Value: "pgc"},
-								{Name: "POSTGRES_USER", Value: "pachyderm"},
-								{Name: "POSTGRES_PASSWORD", Value: "elephantastic"},
+								// TODO: Figure out how we want to handle auth in real deployments.
+								// The auth has been removed for now to allow PFS tests to run against
+								// a deployed Postgres instance.
+								{Name: "POSTGRES_DB", Value: dbutil.DefaultDBName},
+								{Name: "POSTGRES_HOST_AUTH_METHOD", Value: "trust"},
 							},
 						},
 					},

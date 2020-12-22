@@ -178,25 +178,19 @@ func (env *ServiceEnv) initKubeClient() error {
 
 func (env *ServiceEnv) initDBClient() error {
 	return backoff.Retry(func() error {
-		postgresHost, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+		host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
 		if !ok {
 			return errors.Errorf("postgres service host not found")
 		}
-		postgresPortStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+		portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
 		if !ok {
 			return errors.Errorf("postgres service port not found")
 		}
-		postgresPort, err := strconv.Atoi(postgresPortStr)
+		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			return err
 		}
-		db, err := dbutil.NewDB(dbutil.DBParams{
-			Host:   postgresHost,
-			Port:   postgresPort,
-			User:   "pachyderm",
-			Pass:   "elephantastic",
-			DBName: "pgc",
-		})
+		db, err := dbutil.NewDB(dbutil.WithHostPort(host, port))
 		if err != nil {
 			return err
 		}
