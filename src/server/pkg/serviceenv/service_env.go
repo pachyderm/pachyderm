@@ -5,14 +5,17 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -58,6 +61,11 @@ type ServiceEnv struct {
 	// of this environment, it doesn't require an initialization funcion, so
 	// there's no errgroup associated with it.
 	lokiClient *loki.Client
+
+	// dbClient is a database client.
+	dbClient *sqlx.DB
+	// dbEg coordinates the initialization of dbClient (see pachdEg)
+	dbEg errgroup.Group
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -83,6 +91,7 @@ func InitServiceEnv(config *Configuration) *ServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
+	env.dbEg.Go(env.initDBClient)
 	if env.LokiHost != "" && env.LokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
@@ -167,6 +176,29 @@ func (env *ServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
+func (env *ServiceEnv) initDBClient() error {
+	return backoff.Retry(func() error {
+		host, ok := os.LookupEnv("POSTGRES_SERVICE_HOST")
+		if !ok {
+			return errors.Errorf("postgres service host not found")
+		}
+		portStr, ok := os.LookupEnv("POSTGRES_SERVICE_PORT")
+		if !ok {
+			return errors.Errorf("postgres service port not found")
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return err
+		}
+		db, err := dbutil.NewDB(dbutil.WithHostPort(host, port))
+		if err != nil {
+			return err
+		}
+		env.dbClient = db
+		return nil
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
+}
+
 // GetPachClient returns a pachd client with the same authentication
 // credentials and cancellation as 'ctx' (ensuring that auth credentials are
 // propagated through downstream RPCs).
@@ -214,4 +246,15 @@ func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
 		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
 	}
 	return env.lokiClient, nil
+}
+
+// GetDBClient returns the already connected database client without modification.
+func (env *ServiceEnv) GetDBClient() *sqlx.DB {
+	if err := env.dbEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.dbClient == nil {
+		panic("service env never connected to the database")
+	}
+	return env.dbClient
 }

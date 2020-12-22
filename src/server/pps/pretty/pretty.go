@@ -356,8 +356,6 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
-	case ppsclient.JobState_JOB_MERGING:
-		return color.New(color.FgYellow).SprintFunc()("merging")
 	case ppsclient.JobState_JOB_FAILURE:
 		return color.New(color.FgRed).SprintFunc()("failure")
 	case ppsclient.JobState_JOB_SUCCESS:

@@ -21,38 +21,9 @@ func IsDone(ctx context.Context) bool {
 	}
 }
 
-// DatumID computes the id for a datum, this value is used in ListDatum and
-// InspectDatum.
-func DatumID(inputs []*Input) string {
-	hash := sha256.New()
-	for _, input := range inputs {
-		hash.Write([]byte(input.FileInfo.File.Path))
-		hash.Write(input.FileInfo.Hash)
-	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-// HashDatum computes and returns the hash of datum + pipeline, with a
-// pipeline-specific prefix.
-func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string {
-	hash := sha256.New()
-	for _, input := range inputs {
-		hash.Write([]byte(input.Name))
-		hash.Write([]byte(input.FileInfo.File.Path))
-		hash.Write(input.FileInfo.Hash)
-	}
-
-	hash.Write([]byte(pipelineName))
-	hash.Write([]byte(pipelineSalt))
-
-	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
-}
-
-// DatumIDV2 computes the ID of a datum.
+// DatumID computes the ID of a datum.
 // TODO: This needs more discussion.
-func DatumIDV2(inputs []*Input) string {
+func DatumID(inputs []*Input) string {
 	var files []string
 	for _, input := range inputs {
 		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
@@ -60,8 +31,8 @@ func DatumIDV2(inputs []*Input) string {
 	return strings.Join(files, "-")
 }
 
-// HashDatumV2 computes the hash of a datum.
-func HashDatumV2(pipelineName string, pipelineSalt string, inputs []*Input) string {
+// HashDatum computes the hash of a datum.
+func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string {
 	hash := sha256.New()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))

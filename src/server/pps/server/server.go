@@ -67,9 +67,6 @@ func NewAPIServer(
 	}
 	apiServer.validateKube()
 	go apiServer.master()
-	if env.StorageV2 {
-		return newAPIServerV2(apiServer), nil
-	}
 	return apiServer, nil
 }
 
@@ -102,6 +99,7 @@ func NewSidecarAPIServer(
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	// TODO: Make work with V2
+	//go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

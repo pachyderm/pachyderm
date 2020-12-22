@@ -194,7 +194,7 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 	if err = s.client.DeleteFile(repoName, commit.ID, "commit.json"); err != nil {
 		return err
 	}
-	if _, err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
+	if err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
 		return err
 	}
 	return nil

@@ -5,7 +5,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
@@ -112,11 +111,4 @@ func (ml *MockLogger) WithUserCode() TaggedLogger {
 // TaggedLogger interface.
 func (ml *MockLogger) JobID() string {
 	return ml.Job
-}
-
-// Close is meant to be called to flush logs to object storage and return the
-// generated object, but this behavior is not implemented in MockLogger.
-func (ml *MockLogger) Close() (*pfs.Object, int64, error) {
-	// If you need an actual pfs.Object here, inherit and shadow this function
-	return nil, 0, nil
 }

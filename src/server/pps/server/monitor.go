@@ -383,7 +383,7 @@ func (a *apiServer) monitorCrashingPipeline(pachClient *client.APIClient, parall
 
 func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {
@@ -454,8 +454,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 
 		// Put in an empty file named by the timestamp
-		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
-		if err != nil {
+		if err := pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
 			return errors.Wrapf(err, "put error")
 		}
 

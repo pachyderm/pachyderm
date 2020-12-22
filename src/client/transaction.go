@@ -457,11 +457,8 @@ func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequ
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
 }
-func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (*pps.JobInfos, error) {
+func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {
 	return nil, unsupportedError("ListJob")
-}
-func (c *ppsBuilderClient) ListJobStream(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobStreamClient, error) {
-	return nil, unsupportedError("ListJobStream")
 }
 func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobRequest, opts ...grpc.CallOption) (pps.API_FlushJobClient, error) {
 	return nil, unsupportedError("FlushJob")
@@ -475,11 +472,8 @@ func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest,
 func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
-func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (*pps.ListDatumResponse, error) {
+func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumClient, error) {
 	return nil, unsupportedError("ListDatum")
-}
-func (c *ppsBuilderClient) ListDatumStream(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumStreamClient, error) {
-	return nil, unsupportedError("ListDatumStream")
 }
 func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
@@ -507,12 +501,6 @@ func (c *ppsBuilderClient) RunPipeline(ctx context.Context, req *pps.RunPipeline
 }
 func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
-}
-func (c *ppsBuilderClient) GetLogs(ctx context.Context, req *pps.GetLogsRequest, opts ...grpc.CallOption) (pps.API_GetLogsClient, error) {
-	return nil, unsupportedError("GetLogs")
-}
-func (c *ppsBuilderClient) GarbageCollect(ctx context.Context, req *pps.GarbageCollectRequest, opts ...grpc.CallOption) (*pps.GarbageCollectResponse, error) {
-	return nil, unsupportedError("GarbageCollect")
 }
 func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
@@ -626,15 +614,6 @@ func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty,
 	return nil, unsupportedError("GetVersion")
 }
 
-func (c *adminBuilderClient) Extract(ctx context.Context, req *admin.ExtractRequest, opts ...grpc.CallOption) (admin.API_ExtractClient, error) {
-	return nil, unsupportedError("Extract")
-}
-func (c *adminBuilderClient) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest, opts ...grpc.CallOption) (*admin.Op, error) {
-	return nil, unsupportedError("ExtractPipeline")
-}
-func (c *adminBuilderClient) Restore(ctx context.Context, opts ...grpc.CallOption) (admin.API_RestoreClient, error) {
-	return nil, unsupportedError("Restore")
-}
 func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }

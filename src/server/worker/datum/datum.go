@@ -1,6 +1,7 @@
 package datum
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -17,8 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pfssync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
@@ -37,10 +37,10 @@ const (
 	defaultNumRetries = 3
 )
 
-// PutTarClient is the standard interface for a client that implements PutTar.
-type PutTarClient interface {
-	// PutTar puts a tar stream.
-	PutTar(r io.Reader, overwrite bool, datum ...string) error
+// AppendFileClient is the standard interface for a client that implements AppendFile.
+type AppendFileClient interface {
+	// AppendFile puts a tar stream.
+	AppendFile(r io.Reader, overwrite bool, datum ...string) error
 }
 
 const defaultDatumsPerSet = 10
@@ -51,7 +51,7 @@ type SetSpec struct {
 }
 
 // CreateSets creates datum sets from the passed in datum iterator.
-func CreateSets(dit IteratorV2, storageRoot string, setSpec *SetSpec, upload func(func(PutTarClient) error) error) error {
+func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(AppendFileClient) error) error) error {
 	var metas []*Meta
 	datumsPerSet := defaultDatumsPerSet
 	if setSpec != nil {
@@ -72,8 +72,8 @@ func CreateSets(dit IteratorV2, storageRoot string, setSpec *SetSpec, upload fun
 	return createSet(metas, storageRoot, upload)
 }
 
-func createSet(metas []*Meta, storageRoot string, upload func(func(PutTarClient) error) error) error {
-	return upload(func(ptc PutTarClient) error {
+func createSet(metas []*Meta, storageRoot string, upload func(func(AppendFileClient) error) error) error {
+	return upload(func(afc AppendFileClient) error {
 		return WithSet(nil, storageRoot, func(s *Set) error {
 			for _, meta := range metas {
 				d := newDatum(s, meta)
@@ -82,7 +82,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(PutTarClient)
 				}
 			}
 			return nil
-		}, WithMetaOutput(ptc))
+		}, WithMetaOutput(afc))
 	})
 }
 
@@ -90,7 +90,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(PutTarClient)
 type Set struct {
 	pachClient                        *client.APIClient
 	storageRoot                       string
-	metaOutputClient, pfsOutputClient PutTarClient
+	metaOutputClient, pfsOutputClient AppendFileClient
 	stats                             *Stats
 }
 
@@ -152,7 +152,7 @@ type Datum struct {
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
 	// TODO: ID needs more discussion.
-	ID := common.DatumIDV2(meta.Inputs)
+	ID := common.DatumID(meta.Inputs)
 	d := &Datum{
 		set:         set,
 		meta:        meta,
@@ -229,7 +229,7 @@ func (d *Datum) downloadData() error {
 		d.meta.Stats.DownloadTime = types.DurationProto(time.Since(start))
 	}()
 	for _, input := range d.meta.Inputs {
-		if err := sync.PullV2(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name), func(hdr *tar.Header) error {
+		if err := pfssync.Pull(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name), func(hdr *tar.Header) error {
 			d.meta.Stats.DownloadBytes += uint64(hdr.Size)
 			return nil
 		}); err != nil {
@@ -308,7 +308,7 @@ func (d *Datum) uploadOutput() error {
 	return d.uploadMetaOutput()
 }
 
-func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Header) error) error {
+func (d *Datum) upload(afc AppendFileClient, storageRoot string, cb ...func(*tar.Header) error) error {
 	// TODO: Might make more sense to convert to tar on the fly.
 	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
 	if err != nil {
@@ -320,16 +320,16 @@ func (d *Datum) upload(ptc PutTarClient, storageRoot string, cb ...func(*tar.Hea
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-	return ptc.PutTar(f, false, d.ID)
+	return afc.AppendFile(f, false, d.ID)
 }
 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
 type fileWalkerFunc func(string) ([]string, error)
 
-// DeleteClient is the standard interface for a client that implements DeleteFiles.
+// DeleteClient is the standard interface for a client that implements DeleteFile.
 type DeleteClient interface {
-	// DeleteFiles deletes a set of files.
-	DeleteFiles(files []string, datum ...string) error
+	// DeleteFile deletes a file.
+	DeleteFile(file string, datum ...string) error
 }
 
 // Deleter deletes a datum.
@@ -338,12 +338,12 @@ type Deleter func(*Meta) error
 // NewDeleter creates a new deleter.
 func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient DeleteClient) Deleter {
 	return func(meta *Meta) error {
-		ID := common.DatumIDV2(meta.Inputs)
+		ID := common.DatumID(meta.Inputs)
 		// Delete the datum directory in the meta output.
-		if err := metaOutputClient.DeleteFiles([]string{path.Join(MetaPrefix, ID) + "/"}); err != nil {
+		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID) + "/"); err != nil {
 			return err
 		}
-		if err := metaOutputClient.DeleteFiles([]string{path.Join(PFSPrefix, ID) + "/"}); err != nil {
+		if err := metaOutputClient.DeleteFile(path.Join(PFSPrefix, ID) + "/"); err != nil {
 			return err
 		}
 		// Delete the content output by the datum.
@@ -357,12 +357,14 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 		}
 		// Remove the output directory prefix.
 		for i := range files {
-			var err error
-			files[i], err = filepath.Rel(outputDir, files[i])
+			file, err := filepath.Rel(outputDir, files[i])
 			if err != nil {
 				return err
 			}
+			if err := pfsOutputClient.DeleteFile(file, ID); err != nil {
+				return err
+			}
 		}
-		return pfsOutputClient.DeleteFiles(files, ID)
+		return nil
 	}
 }

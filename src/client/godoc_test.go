@@ -121,7 +121,7 @@ func ExampleAPIClient_PutFileWriter() {
 		panic(err)
 	}
 
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -157,10 +157,10 @@ func ExampleAPIClient_NewPutFileClient() {
 			panic(err)
 		}
 	}()
-	if _, err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -190,10 +190,10 @@ func ExampleAPIClient_PutFile_string() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -230,10 +230,10 @@ func ExampleAPIClient_PutFile_file() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "text", f); err != nil {
+	if err := c.PutFile("test", "master", "text", f); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "master", "/")
+	files, err := c.ListFileAll("test", "master", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -302,13 +302,13 @@ func ExampleAPIClient_ListCommit() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -353,13 +353,13 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -371,10 +371,10 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 	if err := c.CreateBranch("test", "new-branch", cis[1].Commit.ID, nil); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "new-branch", "file4", strings.NewReader("fizz\n")); err != nil {
+	if err := c.PutFile("test", "new-branch", "file4", strings.NewReader("fizz\n")); err != nil {
 		panic(err)
 	}
-	files, err := c.ListFile("test", "new-branch", "/")
+	files, err := c.ListFileAll("test", "new-branch", "/")
 	if err != nil {
 		panic(err)
 	}
@@ -406,13 +406,13 @@ func ExampleAPIClient_ListCommitF() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
+	if err := c.PutFile("test", "master", "file2", strings.NewReader("bar\n")); err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
+	if err := c.PutFile("test", "master", "file3", strings.NewReader("buzz\n")); err != nil {
 		panic(err)
 	}
 
@@ -457,7 +457,7 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
+	if err := c.PutFile("test", "master", "file1", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
 

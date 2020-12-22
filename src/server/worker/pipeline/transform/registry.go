@@ -1,30 +1,25 @@
 package transform
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"math"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -33,48 +28,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform/chain"
+	"golang.org/x/sync/errgroup"
 )
-
-func jobArtifactPrefix(jobID string) string {
-	return path.Join("artifacts", fmt.Sprintf("job-%s", jobID))
-}
-
-func jobArtifactChunkDatumList(jobID string, subtaskID string) string {
-	return path.Join(jobArtifactPrefix(jobID), fmt.Sprintf("chunk-datum-list-%s", subtaskID))
-}
-
-func jobArtifactHashtrees(jobID string) string {
-	return path.Join(jobArtifactPrefix(jobID), "hashtrees")
-}
-
-func jobArtifactRecoveredObject(jobID string) string {
-	return path.Join(jobArtifactPrefix(jobID), "recovered")
-}
-
-type pendingJob struct {
-	driver          driver.Driver
-	commitInfo      *pfs.CommitInfo
-	statsCommitInfo *pfs.CommitInfo
-	cancel          context.CancelFunc
-	logger          logs.TaggedLogger
-	ji              *pps.JobInfo
-	jdit            chain.JobDatumIterator
-	taskMaster      *work.Master
-
-	// These are filled in when the RUNNING phase completes, but may be re-fetched
-	// from object storage.
-	chunkHashtrees []*HashtreeInfo
-	statsHashtrees []*HashtreeInfo
-}
-
-type registry struct {
-	driver      driver.Driver
-	logger      logs.TaggedLogger
-	taskQueue   *work.TaskQueue
-	concurrency int64
-	limiter     limit.ConcurrencyLimiter
-	jobChain    chain.JobChain
-}
 
 type hasher struct {
 	name string
@@ -85,231 +40,19 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.name, h.salt, inputs)
 }
 
-// Returns the registry or lazily instantiates it
-func newRegistry(
-	logger logs.TaggedLogger,
-	driver driver.Driver,
-) (*registry, error) {
-	// Determine the maximum number of concurrent tasks we will allow
-	concurrency, err := driver.ExpectedNumWorkers()
-	if err != nil {
-		return nil, err
-	}
-
-	taskQueue, err := driver.NewTaskQueue()
-	if err != nil {
-		return nil, err
-	}
-
-	return &registry{
-		driver:      driver,
-		logger:      logger,
-		concurrency: concurrency,
-		taskQueue:   taskQueue,
-		limiter:     limit.New(int(concurrency)),
-		jobChain:    nil,
-	}, nil
+type pendingJob struct {
+	driver                     driver.Driver
+	logger                     logs.TaggedLogger
+	ji                         *pps.JobInfo
+	commitInfo, metaCommitInfo *pfs.CommitInfo
+	jdit                       *chain.JobDatumIterator
+	taskMaster                 *work.Master
+	cancel                     context.CancelFunc
 }
 
-// Helper function for succeedJob and failJob, do not use directly
-func finishJob(
-	pipelineInfo *pps.PipelineInfo,
-	pachClient *client.APIClient,
-	jobInfo *pps.JobInfo,
-	state pps.JobState,
-	reason string,
-	datums *pfs.Object,
-	trees []*pfs.Object,
-	size uint64,
-	statsTrees []*pfs.Object,
-	statsSize uint64,
-) error {
-	// Optimistically update the local state and reason - if any errors occur the
-	// local state will be reloaded way up the stack
-	jobInfo.State = state
-	jobInfo.Reason = reason
-
-	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if pipelineInfo.S3Out {
-			if err := builder.FinishCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID); err != nil {
-				return err
-			}
-		} else {
-			if jobInfo.StatsCommit != nil {
-				if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-					Commit:    jobInfo.StatsCommit,
-					Empty:     statsTrees == nil,
-					Trees:     statsTrees,
-					SizeBytes: statsSize,
-				}); err != nil {
-					return err
-				}
-			}
-
-			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit:    jobInfo.OutputCommit,
-				Empty:     trees == nil,
-				Datums:    datums,
-				Trees:     trees,
-				SizeBytes: size,
-			}); err != nil {
-				return err
-			}
-		}
-
-		return writeJobInfo(&builder.APIClient, jobInfo)
-	}); err != nil {
-		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) || ppsserver.IsJobFinishedErr(err) {
-			// For certain types of errors, we want to reattempt these operations
-			// outside of a transaction (in case the job or commits were affected by
-			// some non-transactional code elsewhere, we can attempt to recover)
-			return recoverFinishedJob(pipelineInfo, pachClient, jobInfo, state, reason, datums, trees, size, statsTrees, statsSize)
-		}
-		// For other types of errors, we want to fail the job supervision and let it
-		// reattempt later
-		return err
-	}
-	return nil
-}
-
-// recoverFinishedJob performs job and output commit updates outside of a
-// transaction in an attempt to get everything in a consistent state if they
-// were modified non-transactionally elsewhere.
-func recoverFinishedJob(
-	pipelineInfo *pps.PipelineInfo,
-	pachClient *client.APIClient,
-	jobInfo *pps.JobInfo,
-	state pps.JobState,
-	reason string,
-	datums *pfs.Object,
-	trees []*pfs.Object,
-	size uint64,
-	statsTrees []*pfs.Object,
-	statsSize uint64,
-) error {
-	if pipelineInfo.S3Out {
-		if err := pachClient.FinishCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID); err != nil {
-			return err
-		}
-	} else {
-		if jobInfo.StatsCommit != nil {
-			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit:    jobInfo.StatsCommit,
-				Empty:     statsTrees == nil,
-				Trees:     statsTrees,
-				SizeBytes: statsSize,
-			}); err != nil {
-				if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
-					return err
-				}
-			}
-		}
-
-		if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit:    jobInfo.OutputCommit,
-			Empty:     trees == nil,
-			Datums:    datums,
-			Trees:     trees,
-			SizeBytes: size,
-		}); err != nil {
-			if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
-				return err
-			}
-		}
-	}
-
-	if err := writeJobInfo(pachClient, jobInfo); err != nil {
-		if !ppsserver.IsJobFinishedErr(err) {
-			return err
-		}
-	}
-	return nil
-}
-
-// succeedJob will move a job to the successful state and propagate to any
-// dependent jobs in the jobChain.
-func (reg *registry) succeedJob(
-	pj *pendingJob,
-	trees []*pfs.Object,
-	size uint64,
-	statsTrees []*pfs.Object,
-	statsSize uint64,
-) error {
-	datums, err := reg.storeJobDatums(pj)
-	if err != nil {
-		return err
-	}
-
-	var newState pps.JobState
-	if pj.ji.Egress == nil {
-		pj.logger.Logf("job successful, closing commits")
-		newState = pps.JobState_JOB_SUCCESS
-	} else {
-		pj.logger.Logf("job successful, advancing to egress")
-		newState = pps.JobState_JOB_EGRESSING
-	}
-
-	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
-		return err
-	}
-
-	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
-		return err
-	}
-
-	return reg.jobChain.Succeed(pj)
-}
-
-func (reg *registry) failJob(
-	pj *pendingJob,
-	reason string,
-	statsTrees []*pfs.Object,
-	statsSize uint64,
-) error {
-	pj.logger.Logf("failing job with reason: %s", reason)
-
-	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, statsTrees, statsSize); err != nil {
-		return err
-	}
-
-	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
-		return err
-	}
-
-	// Disregard job chain errors when failing the job - in case of egress, the
-	// pending job should already have been removed from the chain.
-	reg.jobChain.Fail(pj)
-	return nil
-}
-
-func (reg *registry) killJob(
-	pj *pendingJob,
-	reason string,
-) error {
-	pj.logger.Logf("killing job with reason: %s", reason)
-
-	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason, nil, nil, 0, nil, 0); err != nil {
-		return err
-	}
-
-	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
-		return err
-	}
-
-	return reg.jobChain.Fail(pj)
-}
-
-func (reg *registry) cleanJobArtifacts(job *pps.Job) error {
-	reg.logger.WithJob(job.ID).Logf("Cleaning job artifacts")
-	prefix := jobArtifactPrefix(job.ID)
-	_, err := reg.driver.PachClient().DeleteObjDirect(
-		reg.driver.PachClient().Ctx(),
-		&pfs.DeleteObjDirectRequest{Prefix: prefix},
-	)
-	return err
+func (pj *pendingJob) writeJobInfo() error {
+	pj.logger.Logf("updating job info, state: %s", pj.ji.State)
+	return writeJobInfo(pj.driver.PachClient(), pj.ji)
 }
 
 func writeJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
@@ -328,257 +71,144 @@ func writeJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 	return err
 }
 
-func (pj *pendingJob) writeJobInfo() error {
-	pj.logger.Logf("updating job info, state: %s", pj.ji.State)
-	return writeJobInfo(pj.driver.PachClient(), pj.ji)
+// TODO: The job info should eventually just have a field with type *datum.Stats
+func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
+	// TODO: Need to clean up the setup of process stats.
+	if pj.ji.Stats == nil {
+		pj.ji.Stats = &pps.ProcessStats{}
+	}
+	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
+	pj.ji.DataProcessed += stats.Processed
+	pj.ji.DataSkipped += stats.Skipped
+	pj.ji.DataFailed += stats.Failed
+	pj.ji.DataRecovered += stats.Recovered
+	pj.ji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
 }
 
-func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
-	if reg.jobChain == nil {
-		// Get the most recent successful commit starting from the given commit
-		parentCommitInfo, err := reg.getParentCommitInfo(commitInfo)
-		if err != nil {
-			return err
-		}
-
-		var baseDatums chain.DatumSet
-		if parentCommitInfo != nil {
-			baseDatums, err = reg.getDatumSet(parentCommitInfo.Datums)
-			if err != nil {
-				return err
-			}
-		} else {
-			baseDatums = make(chain.DatumSet)
-		}
-
-		if reg.driver.PipelineInfo().S3Out {
-			// When running a pipeline with S3Out, we need to yield every datum for
-			// every job, use a no-skip job chain for this.
-			reg.jobChain = chain.NewNoSkipJobChain(
-				&hasher{
-					name: reg.driver.PipelineInfo().Pipeline.Name,
-					salt: reg.driver.PipelineInfo().Salt,
-				},
-			)
-		} else {
-			reg.jobChain = chain.NewJobChain(
-				&hasher{
-					name: reg.driver.PipelineInfo().Pipeline.Name,
-					salt: reg.driver.PipelineInfo().Salt,
-				},
-				baseDatums,
-			)
-		}
-	}
-
-	return nil
-}
-
-// Generate a datum task (and split it up into subtasks) for the added datums
-// in the pending job.
-func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatums int64, subtasks chan<- *work.Task) error {
-	chunkSpec := pj.ji.ChunkSpec
-	if chunkSpec == nil {
-		chunkSpec = &pps.ChunkSpec{}
-	}
-
-	maxDatumsPerTask := int64(chunkSpec.Number)
-	maxBytesPerTask := int64(chunkSpec.SizeBytes)
-	driver := pj.driver.WithContext(ctx)
-	var numTasks int64
-	if numDatums < reg.concurrency {
-		numTasks = numDatums
-	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency {
-		numTasks = numDatums / maxDatumsPerTask
-	} else {
-		numTasks = reg.concurrency
-	}
-	datumsPerTask := int64(math.Ceil(float64(numDatums) / float64(numTasks)))
-
-	datumsSize := int64(0)
-	datums := []*DatumInputs{}
-
-	// writeDatumsObject is a helper function to synchronously write out the
-	// current list of datums to a temporary job artifact object.
-	writeDatumsObject := func(objectName string) (retErr error) {
-		writer, err := driver.PachClient().DirectObjWriter(objectName)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer func() {
-			if err := writer.Close(); err != nil && retErr == nil {
-				retErr = errors.EnsureStack(err)
-			}
-		}()
-
-		protoWriter := pbutil.NewWriter(writer)
-		_, err = protoWriter.Write(&DatumInputsList{Datums: datums})
-		return err
-	}
-
-	// finishTask will finish the currently-writing object and append it to the
-	// subtasks, then reset all the relevant variables
-	finishTask := func() error {
-		subtaskID := uuid.NewWithoutDashes()
-		objectName := jobArtifactChunkDatumList(pj.ji.Job.ID, subtaskID)
-
-		if err := writeDatumsObject(objectName); err != nil {
-			return err
-		}
-
-		taskData, err := serializeDatumData(&DatumData{DatumsObject: objectName, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
-		if err != nil {
-			return err
-		}
-
-		select {
-		case subtasks <- &work.Task{ID: subtaskID, Data: taskData}:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		datumsSize = 0
-		datums = []*DatumInputs{}
-		return nil
-	}
-
-	// Build up chunks to be put into work tasks from the datum iterator
-	for i := int64(0); i < numDatums; i++ {
-		inputs, index := pj.jdit.NextDatum()
-		if inputs == nil {
-			return errors.New("job datum iterator returned nil inputs")
-		}
-
-		datums = append(datums, &DatumInputs{Inputs: inputs, Index: index})
-
-		// If we have enough input bytes, finish the task
-		if maxBytesPerTask != 0 {
-			for _, input := range inputs {
-				datumsSize += int64(input.FileInfo.SizeBytes)
-			}
-			if datumsSize >= maxBytesPerTask {
-				if err := finishTask(); err != nil {
-					return err
+func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error) error {
+	// Setup file operation client for output Meta commit.
+	metaCommit := pj.metaCommitInfo.Commit
+	return pachClient.WithFileOperationClient(metaCommit.Repo.Name, metaCommit.ID, func(focMeta *client.FileOperationClient) error {
+		// Setup file operation client for output PFS commit.
+		outputCommit := pj.commitInfo.Commit
+		return pachClient.WithFileOperationClient(outputCommit.Repo.Name, outputCommit.ID, func(focPFS *client.FileOperationClient) error {
+			parentMetaCommit := pj.metaCommitInfo.ParentCommit
+			metaFileWalker := func(path string) ([]string, error) {
+				var files []string
+				if err := pachClient.WalkFile(parentMetaCommit.Repo.Name, parentMetaCommit.ID, path, func(fi *pfs.FileInfo) error {
+					if fi.FileType == pfs.FileType_FILE {
+						files = append(files, fi.File.Path)
+					}
+					return nil
+				}); err != nil {
+					return nil, err
 				}
+				return files, nil
 			}
-		}
-
-		// If we hit the upper threshold for task size, finish the task
-		if int64(len(datums)) >= datumsPerTask {
-			if err := finishTask(); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(datums) > 0 {
-		if err := finishTask(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, focMeta, focPFS))
+			return cb()
+		})
+	})
 }
 
-func serializeDatumData(data *DatumData) (*types.Any, error) {
-	serialized, err := types.MarshalAny(data)
+type registry struct {
+	driver      driver.Driver
+	logger      logs.TaggedLogger
+	taskQueue   *work.TaskQueue
+	concurrency int64
+	limiter     limit.ConcurrencyLimiter
+	jobChain    *chain.JobChain
+}
+
+// TODO:
+// s3 input / gateway stuff (need more information here).
+// egress.
+// Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
+// capture logs (reuse driver tests and reintroduce tagged logger).
+func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
+	// Determine the maximum number of concurrent tasks we will allow
+	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
 		return nil, err
 	}
-	return serialized, nil
-}
-
-func deserializeDatumData(any *types.Any) (*DatumData, error) {
-	data := &DatumData{}
-	if err := types.UnmarshalAny(any, data); err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func serializeMergeData(data *MergeData) (*types.Any, error) {
-	serialized, err := types.MarshalAny(data)
+	taskQueue, err := driver.NewTaskQueue()
 	if err != nil {
 		return nil, err
 	}
-	return serialized, nil
+	return &registry{
+		driver:      driver,
+		logger:      logger,
+		taskQueue:   taskQueue,
+		concurrency: concurrency,
+		limiter:     limit.New(int(concurrency)),
+	}, nil
 }
 
-func deserializeMergeData(any *types.Any) (*MergeData, error) {
-	data := &MergeData{}
-	if err := types.UnmarshalAny(any, data); err != nil {
-		return nil, err
+func (reg *registry) succeedJob(pj *pendingJob) error {
+	var newState pps.JobState
+	if pj.ji.Egress == nil {
+		pj.logger.Logf("job successful, closing commits")
+		newState = pps.JobState_JOB_SUCCESS
+	} else {
+		pj.logger.Logf("job successful, advancing to egress")
+		newState = pps.JobState_JOB_EGRESSING
 	}
-	return data, nil
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, newState, "")
 }
 
-func (reg *registry) getDatumSet(datumsObj *pfs.Object) (_ chain.DatumSet, retErr error) {
-	pachClient := reg.driver.PachClient()
-	if datumsObj == nil {
-		return nil, nil
-	}
-	r, err := pachClient.GetObjectReader(datumsObj.Hash)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := r.Close(); err != nil && retErr != nil {
-			retErr = err
+func (reg *registry) failJob(pj *pendingJob, reason string) error {
+	pj.logger.Logf("failing job with reason: %s", reason)
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_FAILURE, reason)
+}
+
+func (reg *registry) killJob(pj *pendingJob, reason string) error {
+	pj.logger.Logf("killing job with reason: %s", reason)
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_KILLED, reason)
+}
+
+func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
+	if reg.jobChain == nil {
+		hasher := &hasher{
+			name: reg.driver.PipelineInfo().Pipeline.Name,
+			salt: reg.driver.PipelineInfo().Salt,
 		}
-	}()
-	pbr := pbutil.NewReader(r)
-	datums := make(chain.DatumSet)
-	for {
-		k, err := pbr.ReadBytes()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return datums, retErr
-			}
-			return nil, err
-		}
-		datums[string(k)]++
-	}
-}
-
-// Walk from the given commit back to a successfully completed commit so we can
-// get the initial state of datumsBase in the registry.
-func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.CommitInfo, error) {
-	pachClient := reg.driver.PachClient()
-	// Walk up the commit chain to find a successfully finished commit
-	for commitInfo.ParentCommit != nil {
-		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
+		pachClient := reg.driver.PachClient()
+		metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
-				Commit: commitInfo.ParentCommit,
+				Commit: metaCommit,
 			})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		// If the parent commit isn't finished, then finish it and continue the traversal.
-		// If the parent commit is finished and has output, then return it.
-		if parentCommitInfo.Finished == nil {
-			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit: parentCommitInfo.Commit,
-				Empty:  true,
-			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
-				return nil, err
-			}
-		} else if parentCommitInfo.Trees != nil {
-			return parentCommitInfo, nil
+		if metaCommitInfo.ParentCommit == nil {
+			reg.jobChain = chain.NewJobChain(hasher)
+			return nil
 		}
-		commitInfo = parentCommitInfo
+		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
+			&pfs.InspectCommitRequest{
+				Commit:     metaCommitInfo.ParentCommit,
+				BlockState: pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			return err
+		}
+		commit := parentMetaCommitInfo.Commit
+		reg.jobChain = chain.NewJobChain(
+			hasher,
+			datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
+		)
 	}
-	return nil, nil
+	return nil
 }
 
 // ensureJob loads an existing job for the given commit in the pipeline, or
 // creates it if there is none. If more than one such job exists, an error will
 // be generated.
-func (reg *registry) ensureJob(
-	commitInfo *pfs.CommitInfo,
-	statsCommit *pfs.Commit,
-) (*pps.JobInfo, error) {
+func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) (*pps.JobInfo, error) {
 	pachClient := reg.driver.PachClient()
-
 	// Check if a job was previously created for this commit. If not, make one
 	jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
 	if err != nil {
@@ -587,7 +217,7 @@ func (reg *registry) ensureJob(
 	if len(jobInfos) > 1 {
 		return nil, errors.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 	} else if len(jobInfos) < 1 {
-		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, statsCommit)
+		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, metaCommit)
 		if err != nil {
 			return nil, err
 		}
@@ -598,91 +228,76 @@ func (reg *registry) ensureJob(
 		// have an older pipeline version than the master)
 		return pachClient.InspectJob(job.ID, false)
 	}
-
-	// get latest job state
+	// Get latest job state.
 	reg.logger.Logf("found existing job %q for output commit %q", jobInfos[0].Job.ID, commitInfo.Commit.ID)
 	return pachClient.InspectJob(jobInfos[0].Job.ID, false)
 }
 
-func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commit) error {
-	if err := reg.initializeJobChain(commitInfo); err != nil {
-		return err
-	}
-
+func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
-
 	defer func() {
 		if asyncEg == nil {
 			// The async errgroup never got started, so give up the limiter lock
 			reg.limiter.Release()
 		}
 	}()
-
-	jobInfo, err := reg.ensureJob(commitInfo, statsCommit)
+	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
 	if err != nil {
 		return err
 	}
-
-	var statsCommitInfo *pfs.CommitInfo
-	if statsCommit != nil {
-		statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
-		if err != nil {
-			return err
-		}
-	}
-
-	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
-	driver := reg.driver.WithContext(jobCtx)
-
-	// Build the pending job to send out to workers - this will block if we have
-	// too many already
-	pj := &pendingJob{
-		driver:          driver,
-		commitInfo:      commitInfo,
-		statsCommitInfo: statsCommitInfo,
-		logger:          reg.logger.WithJob(jobInfo.Job.ID),
-		ji:              jobInfo,
-		cancel:          cancel,
-	}
-
 	switch {
-	case ppsutil.IsTerminal(jobInfo.State):
-		// Make sure the output commits are closed
-		if err := recoverFinishedJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, jobInfo.State, "", nil, nil, 0, nil, 0); err != nil {
-			return err
-		}
-		// ignore finished jobs (e.g. old pipeline & already killed)
-		return nil
+	case commitInfo.Finished != nil:
+		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
 	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
-		// kill unfinished jobs from old pipelines (should generally be cleaned
-		// up by PPS master, but the PPS master can fail, and if these jobs
-		// aren't killed, future jobs will hang indefinitely waiting for their
-		// parents to finish)
-		pj.ji.State = pps.JobState_JOB_KILLED
-		pj.ji.Reason = "pipeline has been updated"
-		if err := pj.writeJobInfo(); err != nil {
-			if !ppsserver.IsJobFinishedErr(err) {
-				return errors.Wrap(err, "failed to kill stale job")
-			}
-		}
-		return nil
+		jobInfo.State = pps.JobState_JOB_KILLED
+		jobInfo.Reason = "pipeline has been updated"
+		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
 	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
 		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
 			"version (%d), this should automatically resolve when the worker "+
 			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
 	}
-
-	// Inputs must be ready before we can construct a datum iterator, so do this
-	// synchronously to ensure correct order in the jobChain.
-	if pj.ji.State == pps.JobState_JOB_STARTING {
-		if err := pj.logger.LogStep("waiting for job inputs", func() error {
-			return reg.processJobStarting(pj)
-		}); err != nil {
+	if err := reg.initializeJobChain(metaCommit); err != nil {
+		return err
+	}
+	var metaCommitInfo *pfs.CommitInfo
+	if metaCommit != nil {
+		metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
+		if err != nil {
 			return err
 		}
 	}
-
+	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
+	driver := reg.driver.WithContext(jobCtx)
+	// Build the pending job to send out to workers - this will block if we have
+	// too many already
+	pj := &pendingJob{
+		driver:         driver,
+		ji:             jobInfo,
+		logger:         reg.logger.WithJob(jobInfo.Job.ID),
+		commitInfo:     commitInfo,
+		metaCommitInfo: metaCommitInfo,
+		cancel:         cancel,
+	}
+	// Inputs must be ready before we can construct a datum iterator, so do this
+	// synchronously to ensure correct order in the jobChain.
+	if err := pj.logger.LogStep("waiting for job inputs", func() error {
+		return reg.processJobStarting(pj)
+	}); err != nil {
+		return err
+	}
+	// TODO: we should NOT start the job this way if it is in EGRESSING
+	// TODO: This could probably be scoped to a callback, and we could move job specific features
+	// in the chain package (timeouts for example).
+	// TODO: I use the registry pachclient for the iterators, so I can reuse across jobs for skipping.
+	pachClient := reg.driver.PachClient()
+	dit, err := datum.NewIterator(pachClient, pj.ji.Input)
+	if err != nil {
+		return err
+	}
+	outputDit := datum.NewFileSetIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(pj.ji.Started)
@@ -695,67 +310,33 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		}
 		afterTime = time.Until(startTime.Add(timeout))
 	}
-
 	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
 	pj.driver = reg.driver.WithContext(jobCtx)
-
-	// Use a separate context for egress - it should not be canceled when the
-	// output commit is closed.
-	egressCtx, egressCancel := context.WithCancel(reg.driver.PachClient().Ctx())
-
-	// If the job is already in egressing, we need to skip the job chain
-	if pj.ji.State != pps.JobState_JOB_EGRESSING {
-		pj.jdit, err = reg.jobChain.Start(pj)
-		if err != nil {
-			return err
-		}
-		pj.ji.DataTotal = pj.jdit.MaxLen()
-		if err := pj.writeJobInfo(); err != nil {
-			return err
-		}
-	}
-
 	asyncEg.Go(func() error {
 		defer pj.cancel()
-
 		if pj.ji.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
 				reg.killJob(pj, "job timed out")
-
-				// We cancel egress after the timeout, but we don't cancel egress if the
-				// job's output commit is closed - that is both how jobs complete and
-				// how they are killed by user action, but there's no way to distinguish
-				// the two at the moment.
-				egressCancel()
 			})
 			defer timer.Stop()
 		}
-
-		// We don't cancel the errgroup if the supervise fails because the job will
-		// be canceled anyway, and this makes it easier to filter out spurious
-		// errors when waiting on the errgroup.
-		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		return backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 			return reg.superviseJob(pj)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("error in superviseJob: %v, retrying in %+v", err, d)
 			return nil
 		})
-
-		return nil
 	})
-
 	asyncEg.Go(func() error {
 		defer pj.cancel()
 		mutex := &sync.Mutex{}
 		mutex.Lock()
 		defer mutex.Unlock()
-
 		// This runs the callback asynchronously, but we want to block the errgroup until it completes
 		if err := reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
 			defer mutex.Unlock()
 			pj.taskMaster = master
-
 			backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 				var err error
 				for err == nil {
@@ -773,87 +354,69 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 					}
 					err = errors.Unwrap(err)
 				}
-
-				pj.jdit.Reset()
-
 				// Get job state, increment restarts, write job state
 				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.ID, false)
 				if err != nil {
 					return err
 				}
-
 				pj.ji.Restart++
 				if err := pj.writeJobInfo(); err != nil {
 					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
 				}
-
-				// Reload the job's commitInfo as it may have changed
+				// Reload the job's commitInfo(s) as they may have changed and clear the state of the commit(s).
 				pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
 				if err != nil {
 					return err
 				}
-
-				if statsCommit != nil {
-					pj.statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+				if err := pj.driver.PachClient().ClearCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID); err != nil {
+					return err
+				}
+				if metaCommit != nil {
+					pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
 					if err != nil {
 						return err
 					}
+					if err := pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID); err != nil {
+						return err
+					}
 				}
-
 				return nil
 			})
 			pj.logger.Logf("master done running processJobs")
+			// TODO: make sure that all paths close the commit correctly
 		}); err != nil {
 			return err
 		}
-
 		// This should block until the callback has completed
 		mutex.Lock()
 		return nil
 	})
-
 	go func() {
 		defer reg.limiter.Release()
-
-		// Make sure the job has been removed from the job chain, ignore any errors
-		defer reg.jobChain.Fail(pj)
-
+		// Make sure the job has been removed from the job chain.
+		defer pj.jdit.Finish()
 		if err := asyncEg.Wait(); err != nil {
 			pj.logger.Logf("fatal job error: %v", err)
 		}
-
-		if pj.ji.State == pps.JobState_JOB_EGRESSING {
-			// Set up the driver for the egress context, which has different cancel conditions
-			pj.driver = reg.driver.WithContext(egressCtx)
-
-			// If egress fails, there isn't much we can do - the output commit is
-			// already done, so the job is 'complete' regardless.
-			pj.logger.LogStep("egressing job data", func() error {
-				return reg.processJobEgress(pj)
-			})
-		}
 	}()
-
 	return nil
 }
 
 // superviseJob watches for the output commit closing and cancels the job, or
 // deletes it if the output commit is removed.
 func (reg *registry) superviseJob(pj *pendingJob) error {
-	commitInfo, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
+	defer pj.cancel()
+	ci, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit:     pj.ji.OutputCommit,
 			BlockState: pfs.CommitState_FINISHED,
 		})
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			defer pj.cancel() // whether we return error or nil, job is done
-
 			// Stop the job and clean up any job state in the registry
 			if err := reg.killJob(pj, "output commit missing"); err != nil {
 				return err
 			}
-
 			// Output commit was deleted. Delete job as well
 			if _, err := pj.driver.NewSTM(func(stm col.STM) error {
 				// Delete the job if no other worker has deleted it yet
@@ -869,20 +432,18 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 		}
 		return err
 	}
-	// commitInfo.Trees is set by non-S3-output jobs, while commitInfo.Tree is
-	// set by S3-output jobs
-	// TODO: why don't we cancel in all cases?
-	if commitInfo.Trees == nil && commitInfo.Tree == nil {
-		defer pj.cancel() // whether job state update succeeds or not, job is done
+	if strings.Contains(ci.Description, pfs.EmptyStr) {
 		return reg.killJob(pj, "output commit closed")
 	}
 	return nil
+
 }
 
 func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
 	switch {
 	case ppsutil.IsTerminal(state):
+		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
@@ -890,13 +451,8 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		return pj.logger.LogStep("processing job datums", func() error {
 			return reg.processJobRunning(pj)
 		})
-	case state == pps.JobState_JOB_MERGING:
-		return pj.logger.LogStep("merging job hashtrees", func() error {
-			return reg.processJobMerging(pj)
-		})
-	case state == pps.JobState_JOB_EGRESSING:
-		return errutil.ErrBreak
 	}
+	pj.cancel()
 	return errors.Errorf("unknown job state: %v", state)
 }
 
@@ -906,464 +462,127 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 	if err != nil {
 		return err
 	}
-
 	if len(failed) > 0 {
 		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
-		return reg.failJob(pj, reason, nil, 0)
+		return reg.failJob(pj, reason)
 	}
-
-	if pj.driver.PipelineInfo().S3Out && pj.commitInfo.ParentCommit != nil {
-		// We don't want S3-out pipelines to merge datum output with the parent
-		// commit, so we create a PutFile record to delete "/". Doing it before
-		// we move the job to the RUNNING state ensures that:
-		// 1) workers can't process datums unless DeleteFile("/") has run
-		// 2) DeleteFile("/") won't run after work has started
-		if err := pj.driver.PachClient().DeleteFile(
-			pj.commitInfo.Commit.Repo.Name,
-			pj.commitInfo.Commit.ID,
-			"/",
-		); err != nil {
-			return errors.Wrap(err, "couldn't prepare output commit for S3-out job")
-		}
-	}
-
 	pj.ji.State = pps.JobState_JOB_RUNNING
-	return nil
+	return pj.writeJobInfo()
 }
 
-// Iterator fulfills the chain.JobData interface for pendingJob
-func (pj *pendingJob) Iterator() (datum.Iterator, error) {
-	var dit datum.Iterator
-	err := pj.logger.LogStep("constructing datum iterator", func() (err error) {
-		dit, err = datum.NewIterator(pj.driver.PachClient(), pj.ji.Input)
-		return
-	})
-	return dit, err
-}
-
+// TODO:
+// Need to put some more thought into the context use.
 func (reg *registry) processJobRunning(pj *pendingJob) error {
-	pj.logger.Logf("processJobRunning creating task channel")
-	subtasks := make(chan *work.Task, 10)
-
-	eg, ctx := errgroup.WithContext(reg.driver.PachClient().Ctx())
-
-	// Spawn a goroutine to emit tasks on the datum task channel
-	eg.Go(func() error {
-		defer close(subtasks)
-		return pj.logger.LogStep("collecting datums for tasks", func() error {
-			for {
-				numDatums, err := pj.jdit.NextBatch(ctx)
-				if err != nil {
-					return err
-				}
-				if numDatums == 0 {
-					return nil
-				}
-
-				if err := reg.sendDatumTasks(ctx, pj, numDatums, subtasks); err != nil {
-					return err
+	pachClient := pj.driver.PachClient()
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
+	pachClient = pachClient.WithCtx(ctx)
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	// Setup datum set subtask channel.
+	subtasks := make(chan *work.Task)
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		// Setup goroutine for creating datum set subtasks.
+		// TODO: When the datum set spec is not set, evenly distribute the datums.
+		eg.Go(func() error {
+			defer close(subtasks)
+			storageRoot := filepath.Join(pj.driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+			var setSpec *datum.SetSpec
+			if pj.driver.PipelineInfo().ChunkSpec != nil {
+				setSpec = &datum.SetSpec{
+					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
 				}
 			}
-		})
-	})
-
-	mutex := &sync.Mutex{}
-	stats := &DatumStats{ProcessStats: &pps.ProcessStats{}}
-	chunkHashtrees := []*HashtreeInfo{}
-	statsHashtrees := []*HashtreeInfo{}
-	recoveredObjects := []string{}
-
-	// Run subtasks until we are done
-	eg.Go(func() error {
-		return pj.logger.LogStep("running datum tasks", func() error {
-			return pj.taskMaster.RunSubtasksChan(
-				subtasks,
-				func(ctx context.Context, taskInfo *work.TaskInfo) error {
-					if taskInfo.State == work.State_FAILURE {
-						return errors.Errorf("datum task failed: %s", taskInfo.Reason)
-					}
-
-					data, err := deserializeDatumData(taskInfo.Task.Data)
+			return pj.withDeleter(pachClient, func() error {
+				return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileClient) error) error {
+					subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
 					if err != nil {
 						return err
 					}
-
-					mutex.Lock()
-					defer mutex.Unlock()
-
-					mergeStats(stats, data.Stats)
-
-					if data.ChunkHashtree != nil {
-						chunkHashtrees = append(chunkHashtrees, data.ChunkHashtree)
+					select {
+					case subtasks <- subtask:
+					case <-ctx.Done():
+						return ctx.Err()
 					}
-					if data.StatsHashtree != nil {
-						statsHashtrees = append(statsHashtrees, data.StatsHashtree)
-					}
-					if data.RecoveredDatumsObject != "" {
-						recoveredObjects = append(recoveredObjects, data.RecoveredDatumsObject)
-					}
-					// propagate the stats to etcd
-					pj.saveJobStats(stats)
-					return pj.writeJobInfo()
-				},
-			)
+					return nil
+				})
+			})
 		})
-	})
-
-	err := eg.Wait()
-	if err != nil {
-		// If these was no failed datum, we can reattempt later
-		return errors.Wrap(err, "process datum error")
-	}
-
-	if stats.FailedDatumID != "" {
-		// A datum failed, but we still may need to merge stats - discard chunk hashtrees
-		chunkHashtrees = []*HashtreeInfo{}
-	}
-
-	// S3Out pipelines don't use hashtrees, so skip over the MERGING state - this
-	// will go to EGRESSING, if applicable.
-	if pj.driver.PipelineInfo().S3Out {
-		if stats.FailedDatumID != "" {
-			return reg.failJob(pj, "datum failed", nil, 0)
-		}
-		pj.logger.Logf("processJobRunning succeeding s3out job, total stats: %v", stats)
-		return reg.succeedJob(pj, nil, 0, nil, 0)
-	}
-
-	// Write the hashtrees list and recovered datums list to object storage
-	if err := pj.storeHashtreeInfos(chunkHashtrees, statsHashtrees); err != nil {
-		return err
-	}
-	if err := pj.storeRecoveredDatums(recoveredObjects); err != nil {
-		return err
-	}
-
-	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
-	pj.ji.State = pps.JobState_JOB_MERGING
-	pj.finalizeJobStats()
-	return pj.writeJobInfo()
-}
-
-func (pj *pendingJob) saveJobStats(stats *DatumStats) {
-	// Any unaccounted-for datums were skipped in the job datum iterator
-	pj.ji.DataSkipped = stats.DatumsSkipped
-	pj.ji.DataProcessed = stats.DatumsProcessed
-	pj.ji.DataFailed = stats.DatumsFailed
-	pj.ji.DataRecovered = stats.DatumsRecovered
-	pj.ji.DataTotal = int64(pj.jdit.MaxLen())
-	pj.ji.Stats = stats.ProcessStats
-}
-
-func (pj *pendingJob) finalizeJobStats() {
-	pj.ji.DataSkipped = int64(pj.jdit.MaxLen()) - pj.ji.DataProcessed - pj.ji.DataFailed - pj.ji.DataRecovered
-}
-
-func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) (retErr error) {
-	pj.chunkHashtrees = chunks
-	pj.statsHashtrees = stats
-
-	objects := &HashtreeObjects{ChunkObjects: []string{}, StatsObjects: []string{}}
-	for _, info := range chunks {
-		objects.ChunkObjects = append(objects.ChunkObjects, info.Object)
-	}
-	for _, info := range stats {
-		objects.StatsObjects = append(objects.StatsObjects, info.Object)
-	}
-
-	writer, err := pj.driver.PachClient().DirectObjWriter(jobArtifactHashtrees(pj.ji.Job.ID))
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = errors.EnsureStack(err)
-		}
-	}()
-
-	pbw := pbutil.NewWriter(writer)
-	_, err = pbw.Write(objects)
-	return err
-}
-
-func (pj *pendingJob) storeRecoveredDatums(recoveredObjects []string) (retErr error) {
-	if len(recoveredObjects) == 0 {
-		return nil
-	}
-
-	objects := &RecoveredDatumObjects{Objects: recoveredObjects}
-	writer, err := pj.driver.PachClient().DirectObjWriter(jobArtifactRecoveredObject(pj.ji.Job.ID))
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = errors.EnsureStack(err)
-		}
-	}()
-
-	pbw := pbutil.NewWriter(writer)
-	_, err = pbw.Write(objects)
-	return err
-}
-
-func (pj *pendingJob) initializeHashtrees() (retErr error) {
-	if pj.chunkHashtrees == nil {
-		// We are picking up an old job and don't have the hashtrees generated by
-		// the 'running' state, load them from object storage
-		reader, err := pj.driver.PachClient().DirectObjReader(jobArtifactHashtrees(pj.ji.Job.ID))
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer func() {
-			if err := reader.Close(); err != nil && retErr == nil {
-				retErr = errors.EnsureStack(err)
-			}
-		}()
-
-		hashtreeObjects := &HashtreeObjects{}
-		protoReader := pbutil.NewReader(reader)
-		if err := protoReader.Read(hashtreeObjects); err != nil {
-			return err
-		}
-
-		pj.chunkHashtrees = []*HashtreeInfo{}
-		for _, object := range hashtreeObjects.ChunkObjects {
-			pj.chunkHashtrees = append(pj.chunkHashtrees, &HashtreeInfo{Object: object})
-		}
-
-		pj.statsHashtrees = []*HashtreeInfo{}
-		for _, object := range hashtreeObjects.StatsObjects {
-			pj.statsHashtrees = append(pj.statsHashtrees, &HashtreeInfo{Object: object})
-		}
-
-		return nil
-	}
-	return nil
-}
-
-func (pj *pendingJob) loadRecoveredDatums() (chain.DatumSet, error) {
-	datumSet := make(chain.DatumSet)
-
-	// We are picking up an old job and don't have the recovered datums generated by
-	// the 'running' state, load them from object storage
-	reader, err := pj.driver.PachClient().DirectObjReader(jobArtifactRecoveredObject(pj.ji.Job.ID))
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	recoveredObjects := &RecoveredDatumObjects{}
-	protoReader := pbutil.NewReader(reader)
-	if err := protoReader.Read(recoveredObjects); err != nil {
-		reader.Close()
-		if errutil.IsNotFoundError(err) {
-			return datumSet, nil
-		}
-		return nil, err
-	}
-
-	if err := reader.Close(); err != nil {
-		return nil, err
-	}
-
-	recoveredDatums := &RecoveredDatums{}
-	for _, object := range recoveredObjects.Objects {
-		reader, err := pj.driver.PachClient().DirectObjReader(object)
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-
-		protoReader := pbutil.NewReader(reader)
-		if err := protoReader.Read(recoveredDatums); err != nil {
-			reader.Close()
-			return nil, err
-		}
-
-		if err := reader.Close(); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-
-		for _, hash := range recoveredDatums.Hashes {
-			datumSet[hash]++
-		}
-	}
-
-	return datumSet, nil
-}
-
-func (reg *registry) makeMergeSubtasks(pj *pendingJob, commitInfo *pfs.CommitInfo, stats bool) ([]*work.Task, error) {
-	hashtrees := pj.chunkHashtrees
-	if stats {
-		hashtrees = pj.statsHashtrees
-	}
-
-	// For jobs that can base their hashtree off of the parent hashtree, fetch the
-	// object information for the parent hashtrees
-	// TODO: this is risky - there's no check that the parent the jobChain is
-	// thinking of is the same one we find.  Add some extra guarantees here if we can.
-	var parentHashtrees []*pfs.Object
-	if pj.jdit.AdditiveOnly() {
-		parentCommitInfo, err := reg.getParentCommitInfo(commitInfo)
-		if err != nil {
-			return nil, err
-		}
-
-		if parentCommitInfo != nil {
-			parentHashtrees = parentCommitInfo.Trees
-			if len(parentHashtrees) != int(reg.driver.NumShards()) {
-				return nil, errors.Errorf(
-					"unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)",
-					len(parentHashtrees), reg.driver.NumShards(),
+		// Setup goroutine for running and collecting datum set subtasks.
+		eg.Go(func() error {
+			return pj.logger.LogStep("running and collecting datum set subtasks", func() error {
+				return pj.taskMaster.RunSubtasksChan(
+					subtasks,
+					func(ctx context.Context, taskInfo *work.TaskInfo) error {
+						if taskInfo.State == work.State_FAILURE {
+							return errors.Errorf("datum set subtask failed: %s", taskInfo.Reason)
+						}
+						data, err := deserializeDatumSet(taskInfo.Task.Data)
+						if err != nil {
+							return err
+						}
+						renewer.Remove(data.FileSet)
+						return datum.MergeStats(stats, data.Stats)
+					},
 				)
-			}
-		}
-	}
-
-	if stats {
-		if parentHashtrees != nil {
-			pj.logger.Logf("merging %d stats hashtrees with parent hashtree across %d shards", len(hashtrees), reg.driver.NumShards())
-		} else {
-			pj.logger.Logf("merging %d stats hashtrees across %d shards", len(hashtrees), reg.driver.NumShards())
-		}
-	} else {
-		if parentHashtrees != nil {
-			pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(hashtrees), reg.driver.NumShards())
-		} else {
-			pj.logger.Logf("merging %d hashtrees across %d shards", len(hashtrees), reg.driver.NumShards())
-		}
-	}
-
-	mergeSubtasks := []*work.Task{}
-	for i := int64(0); i < reg.driver.NumShards(); i++ {
-		mergeData := &MergeData{Hashtrees: hashtrees, Shard: i, JobID: pj.ji.Job.ID, Stats: stats}
-
-		if parentHashtrees != nil {
-			mergeData.Parent = parentHashtrees[i]
-		}
-
-		data, err := serializeMergeData(mergeData)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to serialize merge data")
-		}
-
-		mergeSubtasks = append(mergeSubtasks, &work.Task{
-			ID:   uuid.NewWithoutDashes(),
-			Data: data,
+			})
 		})
-	}
-
-	return mergeSubtasks, nil
-}
-
-func (reg *registry) processJobMerging(pj *pendingJob) error {
-	if err := pj.initializeHashtrees(); err != nil {
+		return eg.Wait()
+	}); err != nil {
 		return err
 	}
-
-	mutex := &sync.Mutex{}
-	mergeSubtasks := []*work.Task{}
-
-	if pj.ji.DataFailed == 0 {
-		chunkMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.commitInfo, false)
-		if err != nil {
-			return err
-		}
-		mergeSubtasks = append(mergeSubtasks, chunkMergeSubtasks...)
+	// TODO: This shouldn't be necessary.
+	select {
+	case <-pj.driver.PachClient().Ctx().Done():
+		return pj.driver.PachClient().Ctx().Err()
+	default:
 	}
-
-	if pj.statsCommitInfo != nil {
-		statsMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.statsCommitInfo, true)
-		if err != nil {
-			return err
-		}
-		mergeSubtasks = append(mergeSubtasks, statsMergeSubtasks...)
+	pj.saveJobStats(pj.jdit.Stats())
+	pj.saveJobStats(stats)
+	if stats.FailedID != "" {
+		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
-
-	trees := make([]*pfs.Object, reg.driver.NumShards())
-	size := uint64(0)
-	statsTrees := make([]*pfs.Object, reg.driver.NumShards())
-	statsSize := uint64(0)
-
-	pj.logger.Logf("sending out %d merge tasks", len(mergeSubtasks))
-
-	// Run merge subtasks and wait for them to complete
-	if err := pj.taskMaster.RunSubtasks(
-		mergeSubtasks,
-		func(ctx context.Context, taskInfo *work.TaskInfo) error {
-			if taskInfo.State == work.State_FAILURE {
-				return errors.Errorf("merge task failed: %s", taskInfo.Reason)
-			}
-
-			data, err := deserializeMergeData(taskInfo.Task.Data)
-			if err != nil {
-				return err
-			}
-
-			if data.Tree == nil {
-				return errors.Errorf("merge task for shard %d failed, no tree returned", data.Shard)
-			}
-
-			mutex.Lock()
-			defer mutex.Unlock()
-
-			if data.Stats {
-				statsTrees[data.Shard] = data.Tree
-				statsSize += data.TreeSize
-			} else {
-				trees[data.Shard] = data.Tree
-				size += data.TreeSize
-			}
-			return nil
-		},
-	); err != nil {
-		// TODO: persist error to job?
-		return errors.Wrap(err, "merge error")
-	}
-
-	pj.logger.Logf("merge results: %v trees (%d bytes), %v stats trees (%d bytes)", trees, size, statsTrees, statsSize)
-
-	if pj.ji.DataFailed == 0 {
-		if err := reg.succeedJob(pj, trees, size, statsTrees, statsSize); err != nil {
-			return err
-		}
-	} else if err := reg.failJob(pj, "datum failed", statsTrees, statsSize); err != nil {
-		return err
-	}
-	return nil
+	return reg.succeedJob(pj)
 }
 
-func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
-	// Update recovered datums through the job chain, which will update its internal DatumSet
-	recoveredDatums, err := pj.loadRecoveredDatums()
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.AppendFileClient) error, renewer *renew.StringSet) (*work.Task, error) {
+	resp, err := pachClient.WithCreateFilesetClient(func(ctfsc *client.CreateFilesetClient) error {
+		return upload(ctfsc)
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	if err := reg.jobChain.RecoveredDatums(pj, recoveredDatums); err != nil {
+	renewer.Add(resp.FilesetId)
+	data, err := serializeDatumSet(&DatumSet{
+		JobID: pj.ji.Job.ID,
+		// TODO: It might make sense for this to be a hash of the constituent datums?
+		// That could make it possible to recover from a master restart.
+		FileSet:      resp.FilesetId,
+		OutputCommit: pj.commitInfo.Commit,
+		MetaCommit:   pj.metaCommitInfo.Commit,
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	// Write out the datums processed/skipped and merged for this job
-	buf := &bytes.Buffer{}
-	pbw := pbutil.NewWriter(buf)
-	for hash, count := range pj.jdit.DatumSet() {
-		for i := int64(0); i < count; i++ {
-			if _, err := pbw.WriteBytes([]byte(hash)); err != nil {
-				return nil, err
-			}
-		}
-	}
-	datums, _, err := pj.driver.PachClient().PutObject(buf)
-	return datums, err
+	return &work.Task{
+		// TODO: Should this just be a uuid?
+		ID:   uuid.NewWithoutDashes(),
+		Data: data,
+	}, nil
 }
 
-func (reg *registry) processJobEgress(pj *pendingJob) error {
-	if err := reg.egress(pj); err != nil {
-		return reg.failJob(pj, fmt.Sprintf("egress error: %v", err), nil, 0)
+func serializeDatumSet(data *DatumSet) (*types.Any, error) {
+	serialized, err := types.MarshalAny(data)
+	if err != nil {
+		return nil, err
 	}
+	return serialized, nil
+}
 
-	pj.ji.State = pps.JobState_JOB_SUCCESS
-	return pj.writeJobInfo()
+func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
+	data := &DatumSet{}
+	if err := types.UnmarshalAny(any, data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
@@ -1382,7 +601,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 			}
 			return
 		}
-		if ci.Tree == nil && ci.Trees == nil {
+		if strings.Contains(ci.Description, pfs.EmptyStr) {
 			failed = append(failed, name)
 		}
 	}
@@ -1400,21 +619,71 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	return failed, vistErr
 }
 
-func (reg *registry) egress(pj *pendingJob) error {
-	var egressFailureCount int
-	return backoff.RetryNotify(func() (retErr error) {
-		if pj.ji.Egress != nil {
-			return pj.logger.LogStep("egress upload", func() error {
-				return pj.driver.Egress(pj.ji.OutputCommit, pj.ji.Egress.URL)
-			})
-		}
-		return nil
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		egressFailureCount++
-		if egressFailureCount > 3 {
+// TODO: Errors that can occur while finishing jobs needs more thought.
+// TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
+func finishJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj *pendingJob, state pps.JobState, reason string) error {
+	jobInfo := pj.ji
+	// Optimistically update the local state and reason - if any errors occur the
+	// local state will be reloaded way up the stack
+	jobInfo.State = state
+	jobInfo.Reason = reason
+	var empty bool
+	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
+		empty = true
+	}
+	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.StatsCommit,
+			Empty:  empty,
+		}); err != nil {
 			return err
 		}
-		pj.logger.Logf("egress failed: %v; retrying in %v", err, d)
-		return nil
-	})
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Empty:  empty,
+		}); err != nil {
+			return err
+		}
+		return writeJobInfo(&builder.APIClient, jobInfo)
+	}); err != nil {
+		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+			if err := recoverJob(pipelineInfo, pachClient, jobInfo, empty); err != nil {
+				return err
+			}
+			// TODO: How to handle errors without causing subsequent jobs to get stuck.
+			pj.jdit.Finish()
+			return nil
+		}
+		// For other types of errors, we want to fail the job supervision and let it
+		// reattempt later
+		return err
+	}
+	// TODO: How to handle errors without causing subsequent jobs to get stuck.
+	pj.jdit.Finish()
+	return nil
+}
+
+func recoverJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, jobInfo *pps.JobInfo, empty bool) error {
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+		Commit: jobInfo.StatsCommit,
+		Empty:  empty,
+	}); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
+			return err
+		}
+	}
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+		Commit: jobInfo.OutputCommit,
+		Empty:  empty,
+	}); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
+			return err
+		}
+	}
+	if err := writeJobInfo(pachClient, jobInfo); err != nil {
+		if !ppsserver.IsJobFinishedErr(err) {
+			return err
+		}
+	}
+	return nil
 }

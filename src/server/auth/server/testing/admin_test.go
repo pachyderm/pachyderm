@@ -174,13 +174,13 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	err = bobClient.GetFile(repo, "master", "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -219,7 +219,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// now bob can read from the repo
 	buf.Reset()
-	require.NoError(t, bobClient.GetFile(repo, "master", "/file", 0, 0, buf))
+	require.NoError(t, bobClient.GetFile(repo, "master", "/file", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
@@ -253,7 +253,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// bob can no longer read from the repo
 	buf.Reset()
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	err = bobClient.GetFile(repo, "master", "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -299,13 +299,13 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	err = bobClient.GetFile(repo, "master", "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -344,7 +344,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// now bob can read from the repo
 	buf.Reset()
-	require.NoError(t, bobClient.GetFile(repo, "master", "/file", 0, 0, buf))
+	require.NoError(t, bobClient.GetFile(repo, "master", "/file", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
@@ -378,7 +378,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// bob can no longer read from the repo
 	buf.Reset()
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	err = bobClient.GetFile(repo, "master", "/file", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -465,7 +465,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	// now alice can write to the repo
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
@@ -735,7 +735,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// alice makes an input commit
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
@@ -769,14 +769,14 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
 	// alice, it will fail)
 	buf := &bytes.Buffer{}
-	err = aliceClient.GetFile(repo, "master", "/file1", 0, 0, buf)
+	err = aliceClient.GetFile(repo, "master", "/file1", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// Admin creates an input commit
 	commit, err = adminClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = adminClient.PutFile(repo, commit.ID, "/file2", strings.NewReader("test data"))
+	err = adminClient.PutFile(repo, commit.ID, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
 
@@ -808,7 +808,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// alice creates a commit
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, aliceClient, repo))
@@ -834,7 +834,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// now alice can't read from the repo
 	buf := &bytes.Buffer{}
-	err = aliceClient.GetFile(repo, "master", "/file1", 0, 0, buf)
+	err = aliceClient.GetFile(repo, "master", "/file1", buf)
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 
@@ -863,13 +863,13 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// admin can read from the repo
 	buf.Reset()
-	require.NoError(t, adminClient.GetFile(repo, "master", "/file1", 0, 0, buf))
+	require.NoError(t, adminClient.GetFile(repo, "master", "/file1", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// admin can write to the repo
 	commit, err = adminClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = adminClient.PutFile(repo, commit.ID, "/file2", strings.NewReader("test data"))
+	err = adminClient.PutFile(repo, commit.ID, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 2, CommitCnt(t, adminClient, repo)) // check that a new commit was created
@@ -914,13 +914,13 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice can read from the repo again
 	buf = &bytes.Buffer{}
-	require.NoError(t, aliceClient.GetFile(repo, "master", "/file1", 0, 0, buf))
+	require.NoError(t, aliceClient.GetFile(repo, "master", "/file1", buf))
 	require.Matches(t, "test data", buf.String())
 
 	// alice can write to the repo again
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file3", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file3", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 3, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
@@ -974,7 +974,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
+	err = aliceClient.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
@@ -1010,7 +1010,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline still runs successfully
 	commit, err = adminClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = adminClient.PutFile(repo, commit.ID, tu.UniqueString("/file2"),
+	err = adminClient.PutFile(repo, commit.ID, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
@@ -1299,7 +1299,7 @@ func TestGetAuthToken(t *testing.T) {
 	// input commit
 	commit, err := robotClient2.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = robotClient2.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
+	err = robotClient2.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, robotClient2.FinishCommit(repo, commit.ID))
@@ -1868,7 +1868,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	// alice makes an input commit
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
+	err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
@@ -1920,7 +1920,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -1964,7 +1964,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Create new input commit (to force pipeline out of standby) & make sure
 	// flush-commit returns (pipeline either fails or restarts RC & finishes)
-	_, err = c.PutFile(repo, "master", "/file.2", strings.NewReader("1"))
+	err = c.PutFile(repo, "master", "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	iter, err = c.FlushCommit(
 		[]*pfs.Commit{client.NewCommit(repo, "master")},
@@ -2006,7 +2006,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	_, err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -2050,7 +2050,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 
 	// Create a new input commit, and flush its output to 'pipeline', to make sure
 	// the pipeline either restarts the RC and recreates the output repo, or fails
-	_, err = aliceClient.PutFile(repo, "master", "/file.2", strings.NewReader("2"))
+	err = aliceClient.PutFile(repo, "master", "/file.2", strings.NewReader("2"))
 	require.NoError(t, err)
 	iter, err := aliceClient.FlushCommit(
 		[]*pfs.Commit{client.NewCommit(repo, "master")},
@@ -2093,10 +2093,10 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		return err
 	})
 	buf := &bytes.Buffer{}
-	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.1", 0, 0, buf))
+	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.1", buf))
 	require.Equal(t, "1", buf.String())
 	buf.Reset()
-	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
+	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", buf))
 	require.Equal(t, "2", buf.String())
 }
 
@@ -2120,7 +2120,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	_, err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline

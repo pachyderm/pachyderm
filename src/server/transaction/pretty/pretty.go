@@ -119,8 +119,6 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 			return "SUCCESS"
 		case pps.JobState_JOB_KILLED:
 			return "KILLED"
-		case pps.JobState_JOB_MERGING:
-			return "MERGING"
 		default:
 			return "<unknown state>"
 		}
