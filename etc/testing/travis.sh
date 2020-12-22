@@ -35,22 +35,21 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
+make install
+VERSION=$(pachctl version --client-only)
+export VERSION
 if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
     # Pull the pre-built images. This is only done if we have access to the
     # secret env vars, because otherwise the build step would've had to be
     # skipped.
-    make install
-    version=$(pachctl version --client-only)
-    docker pull "pachyderm/pachd:${version}"
-    docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
-    docker pull "pachyderm/worker:${version}"
-    docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
+    docker pull "pachyderm/pachd:${VERSION}"
+    docker tag "pachyderm/pachd:${VERSION}" "pachyderm/pachd:local"
+    docker pull "pachyderm/worker:${VERSION}"
+    docker tag "pachyderm/worker:${VERSION}" "pachyderm/worker:local"
 else
     make docker-build
-    # push pipeline build images
-    pushd etc/pipeline-build
-        make push-to-minikube
-    popd
+    make docker-build-pipeline-build
+    make push-build-pipeline-to-minikube
 fi
 
 make launch-loki
@@ -126,9 +125,7 @@ case "${BUCKET}" in
     make test-pfs-storage
     ;;
  PPS?)
-    pushd etc/testing/images/ubuntu_with_s3_clients
-    make push-to-minikube
-    popd
+    make push-ubuntu-s3-client-to-minikube
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
