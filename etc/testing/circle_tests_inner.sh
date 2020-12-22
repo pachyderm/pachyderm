@@ -101,7 +101,7 @@ case "${BUCKET}" in
     make test-pfs-storage
     ;;
  PPS?)
-    make push-ubuntu-s3-client-to-minikuke
+    make push-ubuntu-s3-client-to-minikube
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
