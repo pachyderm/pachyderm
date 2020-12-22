@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 LABEL maintainer="jdoliner@pachyderm.io"
 
 # Install FUSE
@@ -12,9 +12,9 @@ RUN \
   apt-get clean && \
   rm -rf /var/lib/apt
 
-# Install Go 1.6.0
+# Install Go 1.15.4
 RUN \
-  curl -sSL https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz | tar -C /usr/local -xz && \
+  curl -sSL https://golang.org/dl/go1.15.4.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
 ENV PATH /usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 ENV GOPATH /go

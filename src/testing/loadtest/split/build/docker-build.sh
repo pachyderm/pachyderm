@@ -60,4 +60,4 @@ docker run \
   -v "${GOPATH}/${PACH_PATH}:/go/${PACH_PATH}" \
   -v "${GOPATH}/${PACH_PATH}/src/server/vendor:/go/${PACH_PATH}/src/client/vendor" \
   -v "${PWD}/_out:/go/${PACH_PATH}/src/client/vendor/github.com/pachyderm" \
-  golang:1.11 /bin/sh -c "${BUILD_CMD}"
+  golang:1.15.4 /bin/sh -c "${BUILD_CMD}"

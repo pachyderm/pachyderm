@@ -62,7 +62,7 @@ type testDriver struct {
 	inner driver.Driver
 }
 
-// Fuck golang
+// Functions
 func (td *testDriver) Jobs() col.Collection {
 	return td.inner.Jobs()
 }

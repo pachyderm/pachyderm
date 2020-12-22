@@ -7,7 +7,7 @@ set -o nounset		# using an unset variable is an error
 set -o errexit		# exit with a nonzero exit status on any unhandled error
 
 USERNAME="${1}"
-GO_VERSION=1.7.3
+GO_VERSION=1.15.4
 
 # to determine which Ubuntu version we're running on for updating the apt sources
 # shellcheck disable=SC1091

@@ -12,9 +12,6 @@ base:
    - gcr.io/google_containers/kube-state-metrics:v0.5.0
    - gcr.io/k8s-minikube/storage-provisioner:v1.8.1
    - giantswarm/tiny-tools:latest
-   - golang:1.12.1
-   - golang:1.13.8
-   - golang:1.14.2
    - golang:1.15.4
    - grafana/grafana:4.2.0
    - grafana/loki:2.0.0
@@ -26,7 +23,7 @@ base:
    - k8s.gcr.io/kube-proxy:v1.18.3
    - k8s.gcr.io/kube-scheduler:v1.18.3
    - k8s.gcr.io/pause:3.2
-   - pachyderm/dash:0.5.48
+   - pachyderm/dash:0.5.57
    - pachyderm/etcd:v3.3.5
    - pachyderm/grpc-proxy:0.4.10
    - pachyderm/opencv:latest
@@ -36,10 +33,8 @@ base:
    - prom/prometheus:v1.7.0
    - python:latest
    - quay.io/prometheus/alertmanager:v0.7.1
-   - ubuntu:16.04
    - ubuntu:18.04
-   - ubuntu:latest
-   - v4tech/imagemagick:latest
+   - dpokidov/imagemagick:7.0.10-45
 
   # TODO: make this optional
   kernel_image: "quay.io/testfaster/ignite-kernel"
@@ -57,9 +52,10 @@ base:
     # Warm up go mod cache and go build cache we set VERSION_ADDITIONAL so that
     # Makefile uses cacheable build params (version).  Also cache the go deps
     # the linter uses (we don't really care if the linter passes)
+    # To update the hash value below use `git log --pretty=format:%H | head -n 1`
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout d7882cab75485d4bca986c11c0d910d0b3878e7c && \
+        git checkout 453f261e5c9a274c7fd5e39111493324ab31f6cc && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \

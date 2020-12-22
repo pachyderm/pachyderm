@@ -777,7 +777,7 @@ func TestMissingPipeline(t *testing.T) {
 		pachctl create pipeline <<EOF
 		  {
 		    "transform": {
-		      "image": "ubuntu"
+			  "image": "ubuntu"
 		    },
 		    "input": {
 		      "pfs": {
@@ -800,7 +800,7 @@ func TestUnnamedPipeline(t *testing.T) {
 		  {
 		    "pipeline": {},
 		    "transform": {
-		      "image": "ubuntu"
+			  "image": "ubuntu"
 		    },
 		    "input": {
 		      "pfs": {

@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 
 # Install Go
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
 	&& rm -rf /var/lib/apt/lists/*
 
-ENV GOLANG_VERSION 1.7
+ENV GOLANG_VERSION 1.15.4
 ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
-ENV GOLANG_DOWNLOAD_SHA256 702ad90f705365227e902b42d91dd1a40e48ca7f67a2f4b2fd052aaa4295cd95
+ENV GOLANG_DOWNLOAD_SHA256 eb61005f0b932c93b424a3a4eaa67d72196c79129d9a3ea8578047683e2c80d5
 
 RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
 	&& echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - \
