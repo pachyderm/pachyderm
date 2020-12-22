@@ -55,7 +55,7 @@ base:
     # To update the hash value below use `git log --pretty=format:%H | head -n 1`
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 812fa3f2029b2dfff14ce88a1035743a6c029cd1 && \
+        git checkout de78c48e9adacd618b4ff40e2a49aa92f647090c && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
