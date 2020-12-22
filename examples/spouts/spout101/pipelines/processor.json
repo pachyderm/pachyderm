@@ -1,0 +1,17 @@
+{
+    "pipeline": {
+      "name": "processor"
+    },
+    "description": "A pipeline that sorts 1KB vs 2KB files...",
+    "input": {
+        "pfs": {
+            "repo": "spout",
+            "branch": "master",
+            "glob": "/*"
+        }
+    },
+    "transform": {
+        "cmd": [ "python", "processor/main.py" ],
+        "image": "spout101:0.1"
+      }
+  }
