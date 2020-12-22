@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -66,8 +65,7 @@ const (
 )
 
 var (
-	suite           = "pachyderm"
-	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
+	suite = "pachyderm"
 )
 
 func newErrPipelineNotFound(pipeline string) error {
@@ -1467,6 +1465,26 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 //func contains(s string) string {
 //	return fmt.Sprintf(" |= %q", s)
 //}
+//
+//type podSlice []v1.Pod
+//
+//func (s podSlice) Len() int {
+//	return len(s)
+//}
+//func (s podSlice) Swap(i, j int) {
+//	s[i], s[j] = s[j], s[i]
+//}
+//func (s podSlice) Less(i, j int) bool {
+//	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
+//}
+
+func now() *types.Timestamp {
+	t, err := types.TimestampProto(time.Now())
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	// TODO: Remove when at feature parity.
@@ -1509,9 +1527,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
 	if request.TFJob != nil {
 		return nil, errors.Errorf("TFJob not implemented")
-	}
-	if request.HashtreeSpec != nil {
-		return nil, errors.Errorf("HashtreeSpec not implemented")
 	}
 	if request.Egress != nil {
 		return nil, errors.Errorf("Egress not implemented")
@@ -1579,11 +1594,6 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")
-		}
-	}
-	if pipelineInfo.HashtreeSpec != nil {
-		if pipelineInfo.HashtreeSpec.Constant == 0 {
-			return errors.New("invalid pipeline spec: HashtreeSpec.Constant must be > 0")
 		}
 	}
 	if pipelineInfo.OutputBranch == "" {
@@ -1983,7 +1993,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Transform:             request.Transform,
 		TFJob:                 request.TFJob,
 		ParallelismSpec:       request.ParallelismSpec,
-		HashtreeSpec:          request.HashtreeSpec,
 		Input:                 request.Input,
 		OutputBranch:          request.OutputBranch,
 		Egress:                request.Egress,
@@ -3378,33 +3387,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	return &pps.ActivateAuthResponse{}, nil
 }
 
-// incrementGCGeneration increments the GC generation number in etcd
-func (a *apiServer) incrementGCGeneration(ctx context.Context) error {
-	resp, err := a.env.GetEtcdClient().Get(ctx, client.GCGenerationKey)
-	if err != nil {
-		return err
-	}
-
-	if resp.Count == 0 {
-		// If the generation number does not exist, create it.
-		// It's important that the new generation is 1, as the first
-		// generation is assumed to be 0.
-		if _, err := a.env.GetEtcdClient().Put(ctx, client.GCGenerationKey, "1"); err != nil {
-			return err
-		}
-	} else {
-		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Value))
-		if err != nil {
-			return err
-		}
-		newGen := oldGen + 1
-		if _, err := a.env.GetEtcdClient().Put(ctx, client.GCGenerationKey, strconv.Itoa(newGen)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func isAlreadyExistsErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "already exists")
 }
@@ -3463,24 +3445,4 @@ func labels(app string) map[string]string {
 		"suite":     suite,
 		"component": "worker",
 	}
-}
-
-type podSlice []v1.Pod
-
-func (s podSlice) Len() int {
-	return len(s)
-}
-func (s podSlice) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-func (s podSlice) Less(i, j int) bool {
-	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
 }

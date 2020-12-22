@@ -404,7 +404,7 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListDatum returns info about datums in a Job
+// ListDatum returns info about datums in a job.
 func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -435,6 +435,7 @@ func (c APIClient) ListDatum(job string, cb func(*pps.DatumInfo) error) (retErr 
 	}
 }
 
+// ListDatumAll returns info about datums in a job.
 func (c APIClient) ListDatumAll(job string) (_ []*pps.DatumInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)

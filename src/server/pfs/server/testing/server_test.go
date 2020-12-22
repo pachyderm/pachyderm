@@ -81,15 +81,6 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 
 type fileSetSpec map[string]tarutil.File
 
-func (fs fileSetSpec) recordFile(file tarutil.File) error {
-	hdr, err := file.Header()
-	if err != nil {
-		return err
-	}
-	fs[hdr.Name] = file
-	return nil
-}
-
 func (fs fileSetSpec) makeTarStream() io.Reader {
 	buf := &bytes.Buffer{}
 	if err := tarutil.WithWriter(buf, func(tw *tar.Writer) error {
@@ -992,6 +983,7 @@ func TestAncestrySyntax(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFileOverwrite(repo, "master", "file", strings.NewReader("1")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
 
@@ -6523,41 +6515,42 @@ func TestTriggerValidation(t *testing.T) {
 	}))
 }
 
-func TestLargeDeleteRepo(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		numRepos := 10
-		numCommits := 1000
-		var repos []string
-		for i := 0; i < numRepos; i++ {
-			repo := fmt.Sprintf("repo-%d", i)
-			require.NoError(t, env.PachClient.CreateRepo(repo))
-			if i > 0 {
-				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
-			}
-			repos = append(repos, repo)
-		}
-		for i := 0; i < numCommits; i++ {
-			_, err := env.PachClient.StartCommit(repos[0], "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
-		}
-		repo := repos[len(repos)-1]
-		ctx, cf := context.WithTimeout(context.Background(), time.Second)
-		defer cf()
-		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
-		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
-		_, err := env.PachClient.StartCommit(repo, "master")
-		require.YesError(t, err)
-		for i := len(repos) - 1; i >= 0; i-- {
-			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
-			require.NoError(t, env.PachClient.FsckFastExit())
-		}
-		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
-		require.NoError(t, err)
-		return nil
-	}))
-}
+// TODO: Reenable when PFS metadata is in postgres.
+//func TestLargeDeleteRepo(t *testing.T) {
+//	t.Parallel()
+//	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+//		numRepos := 10
+//		numCommits := 1000
+//		var repos []string
+//		for i := 0; i < numRepos; i++ {
+//			repo := fmt.Sprintf("repo-%d", i)
+//			require.NoError(t, env.PachClient.CreateRepo(repo))
+//			if i > 0 {
+//				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(repos[i-1], "master")}))
+//			}
+//			repos = append(repos, repo)
+//		}
+//		for i := 0; i < numCommits; i++ {
+//			_, err := env.PachClient.StartCommit(repos[0], "master")
+//			require.NoError(t, err)
+//			require.NoError(t, env.PachClient.FinishCommit(repos[0], "master"))
+//		}
+//		repo := repos[len(repos)-1]
+//		ctx, cf := context.WithTimeout(context.Background(), time.Second)
+//		defer cf()
+//		require.YesError(t, env.PachClient.WithCtx(ctx).DeleteRepo(repo, false, true))
+//		require.YesError(t, env.PachClient.CreateBranch(repo, "test", "", nil))
+//		_, err := env.PachClient.StartCommit(repo, "master")
+//		require.YesError(t, err)
+//		for i := len(repos) - 1; i >= 0; i-- {
+//			require.NoError(t, env.PachClient.DeleteRepo(repos[i], false, true))
+//			require.NoError(t, env.PachClient.FsckFastExit())
+//		}
+//		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+//		require.NoError(t, err)
+//		return nil
+//	}))
+//}
 
 func TestRegressionOrphanedFile(t *testing.T) {
 	t.Parallel()

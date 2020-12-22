@@ -64,7 +64,6 @@ enum JobState {
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
-  JOB_MERGING = 5;
   JOB_EGRESSING = 6;
 }
 
@@ -164,12 +163,6 @@ message ParallelismSpec {
   // reserve half the nodes in your cluster for other tasks, you might set
   // 'coefficient' to 0.5.
   double coefficient = 3;
-}
-
-// HashTreeSpec sets the number of shards into which pps splits a pipeline's
-// output commits (sharded commits are implemented in Pachyderm 1.8+ only)
-message HashtreeSpec {
-  uint64 constant = 1;
 }
 
 message InputFile {
@@ -348,10 +341,6 @@ message Worker {
   WorkerState state = 2;
 }
 
-message JobInfos {
-  repeated JobInfo job_info = 1;
-}
-
 message Pipeline {
   string name = 1;
 }
@@ -414,7 +403,6 @@ message PipelineInfo {
   // Exactly one of 'tf_job' and 'transform' should be set
   TFJob tf_job = 46 [(gogoproto.customname) = "TFJob"];
   ParallelismSpec parallelism_spec = 10;
-  HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -659,7 +647,6 @@ message CreatePipelineRequest {
   TFJob tf_job = 35 [(gogoproto.customname) = "TFJob"];
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
-  HashtreeSpec hashtree_spec = 31;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;

@@ -108,17 +108,6 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(limits)
 }
 
-// GetExpectedNumHashtrees computes the expected number of hashtrees that
-// Pachyderm will create given the HashtreeSpec 'spec'.
-func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
-	if spec == nil || spec.Constant == 0 {
-		return 1, nil
-	} else if spec.Constant > 0 {
-		return int64(spec.Constant), nil
-	}
-	return 0, errors.Errorf("unable to interpret HashtreeSpec %+v", spec)
-}
-
 // GetPipelineInfoAllowIncomplete retrieves and returns a PipelineInfo from PFS,
 // or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
 // (e.g. due to corruption or a missing block). It does the PFS
@@ -286,30 +275,29 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Pipeline:              pipelineInfo.Pipeline,
 		Transform:             pipelineInfo.Transform,
 		ParallelismSpec:       pipelineInfo.ParallelismSpec,
-		HashtreeSpec:          pipelineInfo.HashtreeSpec,
 		Egress:                pipelineInfo.Egress,
 		OutputBranch:          pipelineInfo.OutputBranch,
 		ResourceRequests:      pipelineInfo.ResourceRequests,
 		ResourceLimits:        pipelineInfo.ResourceLimits,
 		SidecarResourceLimits: pipelineInfo.SidecarResourceLimits,
-		Input:          pipelineInfo.Input,
-		Description:    pipelineInfo.Description,
-		CacheSize:      pipelineInfo.CacheSize,
-		EnableStats:    pipelineInfo.EnableStats,
-		MaxQueueSize:   pipelineInfo.MaxQueueSize,
-		Service:        pipelineInfo.Service,
-		ChunkSpec:      pipelineInfo.ChunkSpec,
-		DatumTimeout:   pipelineInfo.DatumTimeout,
-		JobTimeout:     pipelineInfo.JobTimeout,
-		Salt:           pipelineInfo.Salt,
-		PodSpec:        pipelineInfo.PodSpec,
-		PodPatch:       pipelineInfo.PodPatch,
-		Spout:          pipelineInfo.Spout,
-		SchedulingSpec: pipelineInfo.SchedulingSpec,
-		DatumTries:     pipelineInfo.DatumTries,
-		Standby:        pipelineInfo.Standby,
-		S3Out:          pipelineInfo.S3Out,
-		Metadata:       pipelineInfo.Metadata,
+		Input:                 pipelineInfo.Input,
+		Description:           pipelineInfo.Description,
+		CacheSize:             pipelineInfo.CacheSize,
+		EnableStats:           pipelineInfo.EnableStats,
+		MaxQueueSize:          pipelineInfo.MaxQueueSize,
+		Service:               pipelineInfo.Service,
+		ChunkSpec:             pipelineInfo.ChunkSpec,
+		DatumTimeout:          pipelineInfo.DatumTimeout,
+		JobTimeout:            pipelineInfo.JobTimeout,
+		Salt:                  pipelineInfo.Salt,
+		PodSpec:               pipelineInfo.PodSpec,
+		PodPatch:              pipelineInfo.PodPatch,
+		Spout:                 pipelineInfo.Spout,
+		SchedulingSpec:        pipelineInfo.SchedulingSpec,
+		DatumTries:            pipelineInfo.DatumTries,
+		Standby:               pipelineInfo.Standby,
+		S3Out:                 pipelineInfo.S3Out,
+		Metadata:              pipelineInfo.Metadata,
 	}
 }
 
@@ -320,7 +308,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING, pps.JobState_JOB_EGRESSING:
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))

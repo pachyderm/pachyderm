@@ -102,6 +102,7 @@ func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*servicee
 	})
 }
 
+// NewDefaultConfig creates a new default pachd configuration.
 func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
 	config.StorageMemoryThreshold = units.GB

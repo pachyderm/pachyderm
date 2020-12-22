@@ -561,6 +561,8 @@ func (c APIClient) ClearCommit(repo, commit string) (retErr error) {
 	return err
 }
 
+// PutFileClient manages put file operations.
+// TODO: Needs more design work before V2.
 type PutFileClient interface {
 	// PutFileWriter writes a file to PFS.
 	// NOTE: PutFileWriter returns an io.WriteCloser that you must call Close on when
@@ -599,14 +601,17 @@ type putFileClient struct {
 	c APIClient
 }
 
+// NewPutFileClient creates a new put file client.
 func (c APIClient) NewPutFileClient() (PutFileClient, error) {
 	return &putFileClient{c: c}, nil
 }
 
+// PutFileWriter returns a write closer for a file.
 func (pfc *putFileClient) PutFileWriter(repo, commit, path string) (io.WriteCloser, error) {
 	return nil, errV1NotImplemented
 }
 
+// PutFile puts a file into PFS.
 func (pfc *putFileClient) PutFile(repo, commit, path string, r io.Reader) error {
 	return pfc.c.putFile(repo, commit, path, r, false)
 }
@@ -747,6 +752,7 @@ func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
 	}, true)
 }
 
+// GetTarFile gets a tar file from PFS.
 func (c APIClient) GetTarFile(repo, commit, path string) (io.Reader, error) {
 	return c.getFile(repo, commit, path)
 }
@@ -814,6 +820,7 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 	}
 }
 
+// ListFileAll returns info about all files in a Commit under path.
 func (c APIClient) ListFileAll(repo, commit, path string) (_ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -862,6 +869,8 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 	}
 }
 
+// GlobFileAll returns files that match a given glob pattern in a given commit.
+// The pattern is documented here: https://golang.org/pkg/path/filepath/#Match
 func (c APIClient) GlobFileAll(repo, commit, pattern string) (_ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -911,6 +920,7 @@ func (c APIClient) DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, old
 	}
 }
 
+// DiffFileAll returns the differences between 2 paths at 2 commits.
 func (c APIClient) DiffFileAll(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, shallow bool) (_ []*pfs.FileInfo, _ []*pfs.FileInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -930,9 +940,8 @@ func (c APIClient) DiffFileAll(newRepo, newCommit, newPath, oldRepo, oldCommit, 
 	return newFis, oldFis, nil
 }
 
-type WalkCallback func(*pfs.FileInfo) error
-
-func (c APIClient) WalkFile(repo, commit, path string, cb WalkCallback) (retErr error) {
+// WalkFile walks the files under path.
+func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()

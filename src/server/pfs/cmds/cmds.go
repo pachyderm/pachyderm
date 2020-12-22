@@ -1379,18 +1379,6 @@ func joinPaths(prefix, filePath string) string {
 	return filepath.Join(prefix, filePath)
 }
 
-func isPipe(r io.ReadSeeker) (bool, error) {
-	file, ok := r.(*os.File)
-	if !ok {
-		return false, nil
-	}
-	fi, err := file.Stat()
-	if err != nil {
-		return false, err
-	}
-	return fi.Mode()&os.ModeNamedPipe != 0, nil
-}
-
 func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {
 	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
 		return "", err

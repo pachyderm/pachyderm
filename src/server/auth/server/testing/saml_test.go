@@ -249,7 +249,7 @@ func TestGroupsBasic(t *testing.T) {
 	// Create a repo only accessible by 'group'--alice should be able to access it
 	dataRepo := tu.UniqueString("TestGroupsBasic")
 	require.NoError(t, adminClient.CreateRepo(dataRepo))
-	_, err = adminClient.PutFile(dataRepo, "master", "/data", strings.NewReader("file contents"))
+	err = adminClient.PutFile(dataRepo, "master", "/data", strings.NewReader("file contents"))
 	require.NoError(t, err)
 	_, err = adminClient.SetScope(adminClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     dataRepo,
@@ -258,7 +258,7 @@ func TestGroupsBasic(t *testing.T) {
 	})
 	require.NoError(t, err)
 	var buf bytes.Buffer
-	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/data", 0, 0, &buf))
+	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/data", &buf))
 	require.NoError(t, err)
 	require.Equal(t, "file contents", buf.String())
 	tu.DeleteAll(t)

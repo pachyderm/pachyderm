@@ -39,10 +39,6 @@ import (
 )
 
 const (
-	splitSuffixBase  = 16
-	splitSuffixWidth = 64
-	splitSuffixFmt   = "%016x"
-
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
 )
@@ -81,11 +77,10 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos          col.Collection
-	putFileRecords col.Collection
-	commits        collectionFactory
-	branches       collectionFactory
-	openCommits    col.Collection
+	repos       col.Collection
+	commits     collectionFactory
+	branches    collectionFactory
+	openCommits col.Collection
 
 	storage         *fileset.Storage
 	compactionQueue *work.TaskQueue

@@ -48,10 +48,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	defaultTreeCacheSize = 8
-)
-
 var mode string
 var readiness bool
 
