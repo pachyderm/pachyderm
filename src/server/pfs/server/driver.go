@@ -1761,6 +1761,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	if from != nil && from.Repo.Name != repo.Name {
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
+
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
 	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
 	if err != nil {
@@ -2370,19 +2371,4 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-func (d *driver) deleteAllSplitTransaction(pachClient *client.APIClient) error {
-	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
-	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(pachClient, !includeAuth)
-	if err != nil {
-		return err
-	}
-	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := d.deleteRepoSplitTransaction(pachClient.Ctx(), repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
-		}
-	}
-	return nil
 }
