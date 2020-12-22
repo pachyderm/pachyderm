@@ -3,9 +3,9 @@ package server
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

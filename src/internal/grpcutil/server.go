@@ -15,9 +15,9 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tls"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	log "github.com/sirupsen/logrus"
 )
 

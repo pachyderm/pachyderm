@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	pb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	pb "github.com/pachyderm/pachyderm/v2/src/client/version/versionpb"
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"

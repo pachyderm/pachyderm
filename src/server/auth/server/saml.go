@@ -11,8 +11,8 @@ import (
 
 	"github.com/crewjam/saml"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 )
 
 // DefaultDashRedirectURL is the default URL used for redirecting the dashboard

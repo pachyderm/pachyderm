@@ -7,11 +7,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 )
 
 // triggerCommit is called when a commit is finished, it updates branches in

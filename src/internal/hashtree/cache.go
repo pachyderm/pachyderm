@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/localcache"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/localcache"
 	"github.com/sirupsen/logrus"
 )
 

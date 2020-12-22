@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/internal/obj"
-	"github.com/pachyderm/pachyderm/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 // NewTestStorage creates a local storage instance for testing during the lifetime of

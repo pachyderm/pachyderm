@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pachyderm/pachyderm/src/internal/obj"
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
 var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")

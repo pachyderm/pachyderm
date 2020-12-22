@@ -15,15 +15,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/internal/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/internal/obj"
-	"github.com/pachyderm/pachyderm/src/internal/serde"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // This test suite works by spinning up separate pachd deployments in a new

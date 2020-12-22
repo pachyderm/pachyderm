@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package deploy;
-option go_package = "github.com/pachyderm/pachyderm/src/internal/deploy";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/deploy";
 
 import "google/protobuf/empty.proto";
 

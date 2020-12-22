@@ -3,7 +3,7 @@ package collection
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	"github.com/gogo/protobuf/proto"
 )

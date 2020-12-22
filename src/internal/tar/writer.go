@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Writer provides sequential writing of a tar archive.

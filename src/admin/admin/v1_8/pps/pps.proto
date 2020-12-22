@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package pps_1_8;
-option go_package = "github.com/pachyderm/pachyderm/src/admin/v1_8/pps";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/admin/v1_8/pps";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

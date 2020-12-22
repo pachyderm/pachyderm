@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // The Load.*Parameters functions in this file are where we get the credentials

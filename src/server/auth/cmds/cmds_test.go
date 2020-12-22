@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 var activateMut sync.Mutex

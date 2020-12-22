@@ -5,9 +5,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/pbutil"
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"modernc.org/mathutil"
 )
 

@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/admin"
-	"github.com/pachyderm/pachyderm/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 // APIServer represents and APIServer

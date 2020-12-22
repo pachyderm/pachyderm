@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {

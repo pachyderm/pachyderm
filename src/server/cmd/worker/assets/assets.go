@@ -1,6 +1,6 @@
 package assets
 
-import "github.com/pachyderm/pachyderm/src/internal/errors"
+import "github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 // This is an empty placeholder file. At build time, go-bindata will package
 // cert data from /etc/ssl/certs here.

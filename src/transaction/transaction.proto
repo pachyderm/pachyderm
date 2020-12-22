@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package transaction;
-option go_package = "github.com/pachyderm/pachyderm/src/transaction";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/transaction";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

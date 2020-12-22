@@ -10,10 +10,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"

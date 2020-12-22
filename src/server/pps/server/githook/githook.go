@@ -14,12 +14,12 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/pps"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"

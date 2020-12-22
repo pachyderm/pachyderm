@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"

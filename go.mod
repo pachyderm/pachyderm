@@ -1,4 +1,4 @@
-module github.com/pachyderm/pachyderm
+module github.com/pachyderm/pachyderm/v2
 
 go 1.15
 

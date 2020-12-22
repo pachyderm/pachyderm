@@ -3,7 +3,7 @@ package index
 import (
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 )
 
 // Perm calls f with each permutation of a.

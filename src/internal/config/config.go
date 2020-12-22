@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )

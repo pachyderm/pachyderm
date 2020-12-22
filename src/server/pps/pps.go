@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // ErrJobFinished represents a finished job error.

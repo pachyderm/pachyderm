@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
-	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 
 	"github.com/spf13/cobra/doc"
 )

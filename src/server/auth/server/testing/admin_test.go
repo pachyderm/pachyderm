@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/client/version"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
@@ -628,7 +628,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 }
 
 // TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
-// https://github.com/pachyderm/pachyderm/issues/3010
+// https://github.com/pachyderm/pachyderm/v2/issues/3010
 // Basically, ModifyClusterRoleBinding should not return an error if the only cluster admin
 // is a robot user
 func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {

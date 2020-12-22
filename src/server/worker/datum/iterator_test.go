@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/src/internal/testpachd"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestIterators(t *testing.T) {
@@ -301,7 +301,7 @@ func TestIterators(t *testing.T) {
 //      TODO: Convert these tests when join and s3 inputs are supported.
 // TestJoinOnTrailingSlash tests that the same glob pattern is used for
 // extracting JoinOn and GroupBy capture groups as is used to match paths. Tests
-// the fix for https://github.com/pachyderm/pachyderm/issues/5365
+// the fix for https://github.com/pachyderm/pachyderm/v2/issues/5365
 //func TestJoinTrailingSlash(t *testing.T) {
 //	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 //		c := env.PachClient

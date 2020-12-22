@@ -6,9 +6,9 @@ import (
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	pclient "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	pclient "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Revoke revokes the caller's credentials (by sending a request to Pachyderm).

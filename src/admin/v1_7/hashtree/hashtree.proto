@@ -4,7 +4,7 @@
 syntax = "proto3";
 
 package hashtree_1_7;
-option go_package = "github.com/pachyderm/pachyderm/src/admin/v1_7/hashtree";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/admin/v1_7/hashtree";
 
 import "client/admin/v1_7/pfs/pfs.proto";
 

@@ -10,21 +10,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/auth"
-	enterpriseclient "github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/log"
-	"github.com/pachyderm/pachyderm/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/client/version"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/proto"
@@ -1804,7 +1804,7 @@ func (a *apiServer) GetACLInTransaction(
 		})
 	}
 	// For now, no access is require to read a repo's ACL
-	// https://github.com/pachyderm/pachyderm/issues/2353
+	// https://github.com/pachyderm/pachyderm/v2/issues/2353
 	return response, nil
 }
 

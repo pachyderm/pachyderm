@@ -3,7 +3,7 @@ package ancestry
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 var ancestryTests = []struct {

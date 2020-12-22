@@ -3,8 +3,8 @@ package testpachd
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/pps"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 )
 
 // This code can all go away if we ever get the ability to run a PPS server without external dependencies

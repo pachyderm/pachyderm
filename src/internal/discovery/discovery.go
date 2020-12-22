@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // ErrCancelled is returned when an action is cancelled by the user

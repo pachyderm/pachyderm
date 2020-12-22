@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	uuid "github.com/satori/go.uuid"
 )
 

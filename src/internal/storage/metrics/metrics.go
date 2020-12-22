@@ -25,7 +25,7 @@ var (
 )
 
 const (
-	trimPrefix = "github.com/pachyderm/pachyderm/src/"
+	trimPrefix = "github.com/pachyderm/pachyderm/v2/src/"
 )
 
 // ReportRequest reports a request to Prometheus.

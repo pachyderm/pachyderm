@@ -9,12 +9,12 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/src/internal/obj"
-	"github.com/pachyderm/pachyderm/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/src/internal/testutil/random"
-	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"modernc.org/mathutil"
 )
 

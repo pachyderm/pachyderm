@@ -22,22 +22,22 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
-	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
-	"github.com/pachyderm/pachyderm/src/internal/ancestry"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/src/internal/pretty"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/src/internal/workload"
-	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/workload"
+	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -2944,7 +2944,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipelineName))
 
 	// Pipeline should start and create a job should succeed -- fix
-	// https://github.com/pachyderm/pachyderm/issues/3934)
+	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
 	commitIter, err = c.FlushCommit(
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
@@ -3665,7 +3665,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 //	}
 //}
 
-// TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
+// TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
 func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -5296,7 +5296,7 @@ func TestJoinInput(t *testing.T) {
 //		require.Equal(t, expected, actual)
 //	})
 //	t.Run("Symlink", func(t *testing.T) {
-//		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
+//		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/v2/tree/example-groupby/examples/group
 //		repo := tu.UniqueString("TestGroupInputSymlink")
 //		require.NoError(t, c.CreateRepo(repo))
 //
@@ -8788,7 +8788,7 @@ func TestCancelManyJobs(t *testing.T) {
 		// Check that the job is now killed
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
 			return backoff.Retry(func() error {
-				// TODO(msteffen): once github.com/pachyderm/pachyderm/pull/2642 is
+				// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 				// submitted, change ListJob here to filter on commit1 as the input commit,
 				// rather than inspecting the input in the test
 				updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
@@ -8950,7 +8950,7 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 	// Wait until PPS has started processing commit2
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			// TODO(msteffen): once github.com/pachyderm/pachyderm/pull/2642 is
+			// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 			// submitted, change ListJob here to filter on commit1 as the input commit,
 			// rather than inspecting the input in the test
 			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -10455,7 +10455,7 @@ func TestPipelineVersions(t *testing.T) {
 //>>>>>>> 57ca3b357... Checkpoint V2 / V1 merge (PPS and a ton of other stuff)
 //}
 
-// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/issues/5172
+// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/v2/issues/5172
 func TestDeferredCross(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -11314,7 +11314,7 @@ func TestSecrets(t *testing.T) {
 
 // TestPFSPanicOnNilArgs tests for a regression where pachd would panic
 // if passed nil args on some PFS endpoints. See
-// https://github.com/pachyderm/pachyderm/issues/4279.
+// https://github.com/pachyderm/pachyderm/v2/issues/4279.
 func TestPFSPanicOnNilArgs(t *testing.T) {
 	// TODO: Move to PFS tests.
 	// TODO: Need feature parity for this test.

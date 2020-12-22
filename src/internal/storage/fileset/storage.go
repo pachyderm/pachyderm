@@ -9,11 +9,11 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/internal/storage/renew"
-	"github.com/pachyderm/pachyderm/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"golang.org/x/sync/semaphore"
 )
 

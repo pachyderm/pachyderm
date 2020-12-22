@@ -9,12 +9,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/crewjam/saml" // used to format saml IdP in config
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // requireConfigsEqual compares 'expected' and 'actual' using 'proto.Equal', but

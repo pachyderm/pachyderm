@@ -3,7 +3,7 @@ package hashtree
 import (
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // ErrCode identifies different kinds of errors returned by methods in

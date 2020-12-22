@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package common;
-option go_package = "github.com/pachyderm/pachyderm/src/server/worker/common";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/common";
 
 import "client/pfs/pfs.proto";
 import "gogoproto/gogo.proto";

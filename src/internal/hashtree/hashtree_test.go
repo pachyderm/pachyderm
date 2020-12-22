@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	ppath "github.com/pachyderm/pachyderm/src/internal/path"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	ppath "github.com/pachyderm/pachyderm/v2/src/internal/path"
 
 	bolt "github.com/coreos/bbolt"
 )

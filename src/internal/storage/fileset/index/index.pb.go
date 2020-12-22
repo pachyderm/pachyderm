@@ -6,7 +6,7 @@ package index
 import (
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	chunk "github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	chunk "github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	io "io"
 	math "math"
 	math_bits "math/bits"

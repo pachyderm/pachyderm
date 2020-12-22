@@ -9,7 +9,7 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
-	auth "github.com/pachyderm/pachyderm/src/admin/v1_10/auth"
+	auth "github.com/pachyderm/pachyderm/v2/src/admin/v1_10/auth"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

@@ -15,13 +15,13 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
-	ec "github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/log"
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/src/internal/watch"
+	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 const (

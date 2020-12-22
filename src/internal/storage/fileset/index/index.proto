@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package index;
-option go_package = "github.com/pachyderm/pachyderm/src/internal/storage/fileset/index";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index";
 
 import "server/pkg/storage/chunk/chunk.proto";
 

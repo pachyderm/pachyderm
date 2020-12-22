@@ -14,8 +14,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"golang.org/x/sync/errgroup"
 )
 

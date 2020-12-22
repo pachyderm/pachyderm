@@ -10,13 +10,13 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom_model "github.com/prometheus/common/model"
@@ -232,7 +232,7 @@ func TestPrometheusStats(t *testing.T) {
 }
 
 // Regression: stats commits would not close when there were no input datums.
-//For more info, see github.com/pachyderm/pachyderm/issues/3337
+//For more info, see github.com/pachyderm/pachyderm/v2/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())

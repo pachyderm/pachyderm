@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical/plugin"
-	"github.com/pachyderm/pachyderm/src/plugin/vault/pachyderm"
+	"github.com/pachyderm/pachyderm/v2/src/plugin/vault/pachyderm"
 )
 
 func main() {

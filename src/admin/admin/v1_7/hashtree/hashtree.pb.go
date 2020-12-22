@@ -6,7 +6,7 @@ package hashtree
 import (
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	pfs "github.com/pachyderm/pachyderm/src/admin/v1_7/pfs"
+	pfs "github.com/pachyderm/pachyderm/v2/src/admin/v1_7/pfs"
 	io "io"
 	math "math"
 	math_bits "math/bits"

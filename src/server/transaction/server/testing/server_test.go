@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/transaction"
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 )
 
 func TestEmptyTransaction(t *testing.T) {

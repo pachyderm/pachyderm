@@ -13,11 +13,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	ppsclient "github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 )
 
 const (

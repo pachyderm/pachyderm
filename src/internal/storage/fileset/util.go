@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test

@@ -7,15 +7,15 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/src/admin"
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/transaction"
-	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	version "github.com/pachyderm/pachyderm/v2/src/client/version/versionpb"
 )
 
 // linkServers can be used to default a mock server to make calls to a real api

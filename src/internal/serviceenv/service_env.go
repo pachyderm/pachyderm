@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	loki "github.com/grafana/loki/pkg/logcli/client"

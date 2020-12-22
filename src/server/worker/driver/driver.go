@@ -17,17 +17,17 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/pps"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/exec"
-	"github.com/pachyderm/pachyderm/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/src/internal/work"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
 // TODO:
