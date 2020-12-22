@@ -1507,7 +1507,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(postgresName, labels(postgresName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
