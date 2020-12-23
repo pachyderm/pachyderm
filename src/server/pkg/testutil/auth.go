@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -18,7 +19,7 @@ import (
 
 const (
 	// AdminUser is the sole cluster admin after GetAuthenticatedPachClient is called
-	AdminUser = auth.RobotPrefix + "admin"
+	AdminUser = auth.RootUser
 
 	adminTokenFile = "/tmp/pach-auth-test_admin-token"
 )
@@ -155,6 +156,7 @@ func activateAuth(tb testing.TB) {
 	}
 	tokenMap[AdminUser] = resp.PachToken
 	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
+	config.WritePachTokenToConfig(resp.PachToken)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
@@ -189,6 +191,12 @@ func initSeedClient(tb testing.TB) {
 // i.e. it can be used to retrieve the pach client even after the auth config has been manipulated
 func getPachClientConfigAgnostic(tb testing.TB, subject string) *client.APIClient {
 	return getPachClientP(tb, subject, false)
+}
+
+// ClearPachClientState clears the state of the pipeline
+func ClearPachClientState(tb testing.TB) {
+	seedClient = nil
+
 }
 
 // GetAuthenticatedPachClient explicitly checks that the auth config is set to the default,

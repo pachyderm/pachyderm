@@ -47,7 +47,13 @@ message ActivateRequest {
   // is that string (unless this "looks like" a GitHub access code, in which
   // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
+
+  // If set, activate auth for the root user (`pach:root`), and add this
+  // token as the initial login token. The root user will have super
+  // admin permissions on the cluster.
+  string root_token = 3;
 }
+
 
 message ActivateResponse {
   // pach_token authenticates the caller with Pachyderm (if you want to perform
@@ -544,6 +550,27 @@ message GetOneTimePasswordResponse {
   google.protobuf.Timestamp otp_expiration = 2 [(gogoproto.customname) = "OTPExpiration"];
 }
 
+message HashedAuthToken {
+  string hashed_token = 1;
+  TokenInfo token_info = 2;
+  google.protobuf.Timestamp expiration = 3;
+}
+
+// ExtractAuthTokens returns all the hashed robot tokens that have been issued.
+// User tokens are not extracted as they can be recreated by logging in.
+message ExtractAuthTokensRequest {}
+
+message ExtractAuthTokensResponse {
+  repeated HashedAuthToken tokens = 1; 
+}
+
+// RestoreAuthToken inserts a hashed token that has previously been extracted.
+message RestoreAuthTokenRequest {
+  HashedAuthToken token = 1; 
+}
+
+message RestoreAuthTokenResponse {}
+
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
@@ -585,4 +612,7 @@ service API {
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
   rpc GetOneTimePassword(GetOneTimePasswordRequest) returns (GetOneTimePasswordResponse) {}
+  
+  rpc ExtractAuthTokens(ExtractAuthTokensRequest) returns (ExtractAuthTokensResponse) {}
+  rpc RestoreAuthToken(RestoreAuthTokenRequest) returns (RestoreAuthTokenResponse) {}
 }

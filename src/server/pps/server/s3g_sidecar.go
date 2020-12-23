@@ -141,7 +141,6 @@ func (s *sidecarS3G) createK8sServices() {
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
 				s.pipelineInfo.Salt))
-		//lint:ignore SA4006 'env' is passed to 'Unlock' below
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock

@@ -36,6 +36,7 @@ type PfsWrites interface {
 // depending on if there is an active transaction in the client context.
 type PpsWrites interface {
 	UpdateJobState(*pps.UpdateJobStateRequest) error
+	CreatePipeline(*pps.CreatePipelineRequest, **pfs.Commit) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -55,6 +56,13 @@ type PfsPropagater interface {
 	Run() error
 }
 
+// PipelineCommitFinisher is an interface to facilitate finishing pipeline commits
+// at the end of a transaction
+type PipelineCommitFinisher interface {
+	FinishPipelineCommits(branch *pfs.Branch) error
+	Run() error
+}
+
 // TransactionContext is a helper type to encapsulate the state for a given
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
@@ -68,11 +76,12 @@ type PfsPropagater interface {
 //   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
 type TransactionContext struct {
-	ClientContext context.Context
-	Client        *client.APIClient
-	Stm           col.STM
-	pfsPropagater PfsPropagater
-	txnEnv        *TransactionEnv
+	ClientContext  context.Context
+	Client         *client.APIClient
+	Stm            col.STM
+	pfsPropagater  PfsPropagater
+	commitFinisher PipelineCommitFinisher
+	txnEnv         *TransactionEnv
 }
 
 // Auth returns a reference to the Auth API Server so that transactionally-
@@ -97,7 +106,21 @@ func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit boo
 }
 
 func (t *TransactionContext) finish() error {
+	if t.commitFinisher != nil {
+		if err := t.commitFinisher.Run(); err != nil {
+			return err
+		}
+	}
 	return t.pfsPropagater.Run()
+}
+
+// FinishPipelineCommits saves a pipeline output branch to have its commits
+// finished at the end of the transaction
+func (t *TransactionContext) FinishPipelineCommits(branch *pfs.Branch) error {
+	if t.commitFinisher != nil {
+		return t.commitFinisher.FinishPipelineCommits(branch)
+	}
+	return nil
 }
 
 // TransactionServer is an interface used by other servers to append a request
@@ -129,6 +152,7 @@ type AuthTransactionServer interface {
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
 	NewPropagater(col.STM) PfsPropagater
+	NewPipelineFinisher(*TransactionContext) PipelineCommitFinisher
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
 	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
@@ -139,6 +163,7 @@ type PfsTransactionServer interface {
 	DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
+	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
 }
 
@@ -146,6 +171,7 @@ type PfsTransactionServer interface {
 // methods that can be called through the PPS server.
 type PpsTransactionServer interface {
 	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
+	CreatePipelineInTransaction(*TransactionContext, *pps.CreatePipelineRequest, **pfs.Commit) error
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -253,6 +279,11 @@ func (t *directTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLRe
 	return t.txnCtx.txnEnv.authServer.SetACLInTransaction(t.txnCtx, req)
 }
 
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
+	req := proto.Clone(original).(*pps.CreatePipelineRequest)
+	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
+}
+
 type appendTransaction struct {
 	ctx       context.Context
 	activeTxn *transaction.Transaction
@@ -310,6 +341,11 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return err
 }
 
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **pfs.Commit) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
+	return err
+}
+
 func (t *appendTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
 	panic("SetScope not yet implemented in transactions")
 }
@@ -353,6 +389,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 			pfsPropagater: env.pfsServer.NewPropagater(stm),
 			txnEnv:        env,
 		}
+		txnCtx.commitFinisher = env.pfsServer.NewPipelineFinisher(txnCtx)
 
 		err := cb(txnCtx)
 		if err != nil {
@@ -370,11 +407,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
-			Client:        pachClient,
-			ClientContext: pachClient.Ctx(),
-			Stm:           stm,
-			pfsPropagater: env.pfsServer.NewPropagater(stm),
-			txnEnv:        env,
+			Client:         pachClient,
+			ClientContext:  pachClient.Ctx(),
+			Stm:            stm,
+			pfsPropagater:  env.pfsServer.NewPropagater(stm),
+			commitFinisher: nil, // don't alter any pipeline commits in a read-only setting
+			txnEnv:         env,
 		}
 
 		err := cb(txnCtx)

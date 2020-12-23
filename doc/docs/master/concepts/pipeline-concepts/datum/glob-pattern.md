@@ -45,9 +45,9 @@ The following are examples of glob patterns that you can define:
 If you have more than one input repo in your pipeline,
 you can define a different glob pattern for each input
 repo. You can combine the datums from each input repo
-by using either the `cross` or `union` operator to
+by using the `cross`, `union`, `join`, or `group` operator to
 create the final datums that your code processes.
-For more information, see [Cross and Union](cross-union.md).
+For more information, see [Cross and Union](./cross-union.md), [Join](./join.md), [Group](./group.md).
 
 ## Example of Defining Datums
 
@@ -138,3 +138,50 @@ datum:
     /requirements.txt      file 74B
     /seq2seq_utils.py      file 13.81KiB
     ```
+
+## Test your Datums
+
+The granularity of your datums defines how your data will be distributed across the available workers allocated to a job.
+Pachyderm allows you to check those datums:
+
+  - for a pipeline currently being developed  
+  - for a past job 
+
+### Testing your glob pattern before creating a pipeline
+You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to preview the datums defined by a pipeline given its specification file. 
+
+!!! note "Note"  
+    The pipeline does not need to have been created for the command to return the list of datums. This "dry run" helps you adjust your glob pattern when creating your pipeline.
+ 
+
+!!! example
+    ```shell
+    pachctl list datum -f edges.json
+    ```
+    **System Response:**
+
+    ```shell
+        ID FILES                                                STATUS TIME
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
+    -  images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
+    ```
+
+### Running list datum on a past job 
+You can use the `pachctl list datum <job_number>` command to check the datums processed by a given job.
+
+!!! example
+    ```shell
+    pachctl list datum d10979d9f9894610bb287fa5e0d734b5
+    ```
+    **System Response:**
+
+    ```shell
+        ID                                                                   FILES                                                STATUS TIME
+    ebd35bb33c5f772f02d7dfc4735ad1dde8cc923474a1ee28a19b16b2990d29592e30 images@8c958d1523f3428a98ac97fbfc367bae:/g2QnNqa.jpg -      -
+    ebd3ce3cdbab9b78cc58f40aa2019a5a6bce82d1f70441bd5d41a625b7769cce9bc4 images@8c958d1523f3428a98ac97fbfc367bae:/8MN9Kg0.jpg -      -
+    ebd32cf84c73cfcc4237ac4afdfe6f27beee3cb039d38613421149122e1f9faff349 images@8c958d1523f3428a98ac97fbfc367bae:/46Q8nDz.jpg -      -
+    ```
+
+!!! note "Note"  
+    Now that the 3 datums have been processed, their ID field is showing.

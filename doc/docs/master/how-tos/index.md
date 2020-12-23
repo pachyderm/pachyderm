@@ -75,9 +75,13 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="create-pipeline/" class="md-typeset md-link">
-            Create a Pipeline
+           <li><a href="https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
+           Test datums
            </a>
+           <li><a href="create-pipeline/" class="md-typeset md-link">
+           Create a Pipeline
+           </a>
+           </li>
            </li>
            <li><a href="updating_pipelines/" class="md-typeset md-link">
            Update a Pipeline

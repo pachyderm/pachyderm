@@ -18,12 +18,6 @@ import (
 )
 
 const (
-	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
-	// lexicographical ordering of file content tags.
-	// headerTag is the tag used for the tar header bytes.
-	headerTag = ""
-	// paddingTag is the tag used for the padding bytes at the end of a tar entry.
-	paddingTag = "~"
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * units.MB
@@ -78,6 +72,14 @@ func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...St
 	return s
 }
 
+// Store returns the underlying store.
+// TODO Store is just used to poke through the information about file set sizes.
+// I think there might be a cleaner way to handle this through the file set interface, and changing
+// the metadata we expose for a file set as a set of metadata entries.
+func (s *Storage) Store() Store {
+	return s.store
+}
+
 // ChunkStorage returns the underlying chunk storage instance for this storage instance.
 func (s *Storage) ChunkStorage() *chunk.Storage {
 	return s.chunks
@@ -106,38 +108,22 @@ func (s *Storage) newReader(fileSet string, opts ...index.Option) *Reader {
 // Open opens a file set for reading.
 // TODO: It might make sense to have some of the file set transforms as functional options here.
 func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
-	fs, err := s.open(ctx, fileSets, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return NewDeleteFilter(fs), nil
-}
-
-func (s *Storage) open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
 	var fss []FileSet
 	for _, fileSet := range fileSets {
-		if err := s.store.Walk(ctx, fileSet, func(name string) error {
-			fss = append(fss, s.newReader(name, opts...))
+		if err := s.store.Walk(ctx, fileSet, func(p string) error {
+			fss = append(fss, s.newReader(p, opts...))
 			return nil
 		}); err != nil {
 			return nil, err
 		}
 	}
-	// TODO: Error if no filesets found?
+	if len(fss) == 0 {
+		return &emptyReader{}, nil
+	}
 	if len(fss) == 1 {
 		return fss[0], nil
 	}
 	return newMergeReader(s.chunks, fss), nil
-}
-
-// OpenWithDeletes opens a file set for reading and does not filter out deleted files.
-// TODO: This should be a functional option on New.
-func (s *Storage) OpenWithDeletes(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
-	fs, err := s.open(ctx, fileSets, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
 }
 
 // Shard shards the file set into path ranges.
@@ -169,7 +155,7 @@ func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallba
 				Lower: f.Index().Path,
 			}
 		}
-		size += f.Index().SizeBytes
+		size += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
 		return err
@@ -183,14 +169,7 @@ func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl tim
 	// TODO: perform this atomically with postgres
 	return s.store.Walk(ctx, srcPrefix, func(srcPath string) error {
 		dstPath := dstPrefix + srcPath[len(srcPrefix):]
-		if err := copyPath(ctx, s.store, s.store, srcPath, dstPath); err != nil {
-			return err
-		}
-		if ttl > 0 {
-			_, err := s.SetTTL(ctx, dstPath, ttl)
-			return err
-		}
-		return nil
+		return copyPath(ctx, s.store, s.store, srcPath, dstPath, s.tracker, ttl)
 	})
 }
 
@@ -203,14 +182,14 @@ type CompactStats struct {
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
 	var size int64
 	w := s.newWriter(ctx, outputFileSet, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
-		size += idx.SizeBytes
+		size += index.SizeBytes(idx)
 		return nil
 	}))
-	fs, err := s.open(ctx, inputFileSets)
+	fs, err := s.Open(ctx, inputFileSets)
 	if err != nil {
 		return nil, err
 	}
-	if err := CopyFiles(ctx, w, fs); err != nil {
+	if err := CopyFiles(ctx, w, fs, true); err != nil {
 		return nil, err
 	}
 	if err := w.Close(); err != nil {
@@ -239,11 +218,11 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 }
 
 func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
-	idx, err := s.store.GetIndex(ctx, path.Join(fileSet, Diff))
+	md, err := s.store.Get(ctx, path.Join(fileSet, Diff))
 	if err != nil {
 		return nil, err
 	}
-	size := idx.SizeBytes
+	size := md.SizeBytes
 	spec := &CompactSpec{
 		Input: []string{path.Join(fileSet, Diff)},
 	}
@@ -259,14 +238,14 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 	// While we can't fit it all in the current level
 	for {
 		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
-		idx, err := s.store.GetIndex(ctx, levelPath)
+		md, err := s.store.Get(ctx, levelPath)
 		if err != nil {
 			if err != ErrPathNotExists {
 				return nil, err
 			}
 		} else {
 			spec.Input = append(spec.Input, levelPath)
-			size += idx.SizeBytes
+			size += md.SizeBytes
 		}
 		if size <= s.levelSize(level) {
 			break
@@ -284,7 +263,7 @@ func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFile
 		}
 		if l > level {
 			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := copyPath(ctx, s.store, s.store, src, dst); err != nil {
+			if err := copyPath(ctx, s.store, s.store, src, dst, s.tracker, 0); err != nil {
 				return err
 			}
 		}
@@ -310,15 +289,7 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	})
 }
 
-// WalkFileSet calls f with the path of every primitive fileSet under prefix.
-func (s *Storage) WalkFileSet(ctx context.Context, prefix string, cb func(string) error) error {
-	return s.store.Walk(ctx, prefix, func(p string) error {
-		return cb(p)
-	})
-}
-
 // SetTTL sets the time-to-live for the prefix p.
-// if no fileset is found SetTTL returns ErrNoFileSetFound
 func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
 	oid := filesetObjectID(p)
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
@@ -336,12 +307,15 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 // GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
 func (s *Storage) GC(ctx context.Context) error {
 	const period = 10 * time.Second
+	tmpDeleter := track.NewTmpDeleter()
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
 		store: s.store,
 	}
 	mux := track.DeleterMux(func(id string) track.Deleter {
 		switch {
+		case strings.HasPrefix(id, track.TmpTrackerPrefix):
+			return tmpDeleter
 		case strings.HasPrefix(id, chunk.TrackerPrefix):
 			return chunkDeleter
 		case strings.HasPrefix(id, TrackerPrefix):
@@ -386,6 +360,7 @@ type deleter struct {
 	store Store
 }
 
+// TODO: This needs to be implemented, temporary filesets are still in Postgres.
 func (d *deleter) Delete(ctx context.Context, id string) error {
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -12,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	minio "github.com/minio/minio-go/v6"
-	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -23,6 +22,10 @@ import (
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+
+	"github.com/gogo/protobuf/types"
+	minio "github.com/minio/minio-go/v6"
+	globlib "github.com/pachyderm/ohmyglob"
 )
 
 // aclEntry mirrors auth.ACLEntry, but without XXX_fields, which make
@@ -2988,6 +2991,121 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestExtractAuthToken tests that admins can extract hashed robot auth tokens
+func TestExtractAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+	// alice can't extract auth tokens because she's not an admin
+	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// Create a token with the default TTL and confirm it is extracted with an expiration
+	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{Subject: "robot:other"})
+	require.NoError(t, err)
+
+	// admins can extract auth tokens
+	resp, err := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, err)
+
+	// only robot tokens are extracted, so only the admin token (not the alice one) should be included
+	containsToken := func(plaintext, subject string, expires bool) error {
+		hash := auth.HashToken(plaintext)
+		for _, token := range resp.Tokens {
+			if token.HashedToken == hash {
+				require.Equal(t, subject, token.TokenInfo.Subject)
+				if expires {
+					exp, err := types.TimestampFromProto(token.Expiration)
+					require.NoError(t, err)
+					require.True(t, exp.After(time.Now()))
+				} else {
+					require.Nil(t, token.Expiration)
+				}
+				return nil
+			}
+		}
+		return fmt.Errorf("didn't find a token with hash %q", hash)
+	}
+
+	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
+}
+
+// TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
+func TestRestoreAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// Create a request to restore a token with known plaintext
+	req := &auth.RestoreAuthTokenRequest{
+		Token: &auth.HashedAuthToken{
+			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
+			TokenInfo: &auth.TokenInfo{
+				Subject: "robot:restored",
+				Source:  auth.TokenInfo_AUTHENTICATE,
+			},
+		},
+	}
+
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+	// alice can't restore auth tokens because she's not an admin
+	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admins can restore auth tokens
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	req.Token.TokenInfo.Subject = "robot:overwritten"
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
+
+	// now we can authenticate with the restored token
+	aliceClient.SetAuthToken("an-auth-token")
+	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "robot:restored", whoAmIResp.Username)
+	require.Equal(t, int64(-1), whoAmIResp.TTL)
+
+	// restore a token with an expiration date in the past
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
+	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(-1 * time.Minute))
+	require.NoError(t, err)
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrExpiredToken(err))
+
+	// restore a token with an expiration date in the future
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
+	req.Token.Expiration, err = types.TimestampProto(time.Now().Add(10 * time.Minute))
+	require.NoError(t, err)
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	aliceClient.SetAuthToken("expiring-token")
+	whoAmIResp, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+
+	// Relying on time.Now is gross but the token should have a TTL in the
+	// next 10 minutes
+	require.True(t, whoAmIResp.TTL > 0 && whoAmIResp.TTL < 600)
 }
 
 // TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.

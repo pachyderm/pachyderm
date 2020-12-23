@@ -7,7 +7,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
 var _ Store = &postgresStore{}
@@ -21,16 +20,16 @@ func NewPostgresStore(db *sqlx.DB) Store {
 	return &postgresStore{db: db}
 }
 
-func (s *postgresStore) PutIndex(ctx context.Context, p string, idx *index.Index) error {
-	if idx == nil {
-		idx = &index.Index{}
+func (s *postgresStore) Set(ctx context.Context, p string, md *Metadata) error {
+	if md == nil {
+		md = &Metadata{}
 	}
-	data, err := proto.Marshal(idx)
+	data, err := proto.Marshal(md)
 	if err != nil {
 		return err
 	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO storage.paths (path, index_pb)
+		`INSERT INTO storage.filesets (path, metadata_pb)
 		VALUES ($1, $2)
 		ON CONFLICT (path) DO NOTHING
 		`, p, data)
@@ -47,23 +46,23 @@ func (s *postgresStore) PutIndex(ctx context.Context, p string, idx *index.Index
 	return nil
 }
 
-func (s *postgresStore) GetIndex(ctx context.Context, p string) (*index.Index, error) {
-	var indexData []byte
-	if err := s.db.GetContext(ctx, &indexData, `SELECT index_pb FROM storage.paths WHERE path = $1`, p); err != nil {
+func (s *postgresStore) Get(ctx context.Context, p string) (*Metadata, error) {
+	var mdData []byte
+	if err := s.db.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE path = $1`, p); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrPathNotExists
 		}
 		return nil, err
 	}
-	idx := &index.Index{}
-	if err := proto.Unmarshal(indexData, idx); err != nil {
+	md := &Metadata{}
+	if err := proto.Unmarshal(mdData, md); err != nil {
 		return nil, err
 	}
-	return idx, nil
+	return md, nil
 }
 
 func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) (retErr error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.paths WHERE path LIKE $1 || '%'`, prefix)
+	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.filesets WHERE path LIKE $1 || '%'`, prefix)
 	if err != nil {
 		return err
 	}
@@ -85,16 +84,16 @@ func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string)
 }
 
 func (s *postgresStore) Delete(ctx context.Context, p string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.paths WHERE path = $1`, p)
+	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.filesets WHERE path = $1`, p)
 	return err
 }
 
 const schema = `
 	CREATE SCHEMA IF NOT EXISTS storage;
 
-	CREATE TABLE IF NOT EXISTS storage.paths (
+	CREATE TABLE IF NOT EXISTS storage.filesets (
 		path VARCHAR(250) PRIMARY KEY,
-		index_pb BYTEA NOT NULL,
+		metadata_pb BYTEA NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 `
