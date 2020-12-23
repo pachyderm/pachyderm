@@ -520,7 +520,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	createPipeline := func(args createArgs) error {
 		return args.client.CreatePipeline(
 			args.name,
-			"", // default image: ubuntu:16.04
+			"", // default image: ubuntu:18.04
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
@@ -720,7 +720,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	createPipeline := func(args createArgs) error {
 		return args.client.CreatePipeline(
 			args.name,
-			"", // default image: ubuntu:16.04
+			"", // default image: ubuntu:18.04
 			[]string{"bash"},
 			[]string{"echo \"work\" >/pfs/out/x"},
 			&pps.ParallelismSpec{Constant: 1},
@@ -939,7 +939,7 @@ func TestPipelineRevoke(t *testing.T) {
 	pipeline := tu.UniqueString("bob-pipeline")
 	require.NoError(t, bobClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1028,7 +1028,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice updates bob's pipline, but the pipeline still doesn't run
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1098,7 +1098,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1138,7 +1138,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	pipeline = tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1261,7 +1261,7 @@ func TestStopJob(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"sleep 600"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1570,7 +1570,7 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 	// repo already exists (rather than "access denied")
 	err := bobClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1746,7 +1746,7 @@ func TestListDatum(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -1866,7 +1866,7 @@ func TestListJob(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -2023,7 +2023,7 @@ func TestGetLogs(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -2187,7 +2187,7 @@ func TestPipelineNewInput(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -2221,7 +2221,7 @@ func TestPipelineNewInput(t *testing.T) {
 	// alice updates the pipeline to replace repo[0] with repo[2]
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
@@ -2522,7 +2522,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
-		"", // default image: ubuntu:16.04
+		"", // default image: ubuntu:18.04
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},

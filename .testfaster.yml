@@ -33,6 +33,7 @@ base:
    - prom/prometheus:v1.7.0
    - python:latest
    - quay.io/prometheus/alertmanager:v0.7.1
+   - ubuntu:16.04
    - ubuntu:18.04
    - dpokidov/imagemagick:7.0.10-45
 
@@ -55,7 +56,7 @@ base:
     # To update the hash value below use `git log --pretty=format:%H | head -n 1`
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout 5fb9cad41b941c4bfa72dd3f9c8cb70d9d562d8f && \
+        git checkout 3db216add840e6329b3b17ab1567739a98359df9 && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
