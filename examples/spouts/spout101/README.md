@@ -170,7 +170,7 @@ Remember, a spout pipeline keeps running:
     ```shell
     $ pachctl delete all
     ```
-    You will be prompted to make sure the delete is intentional. Yes it is. A final check to your pipelines: the list should be empty. You are good to go.
+    You will be prompted to make sure the delete is intentional. Yes it is. A final check on your pipelines: the list should be empty. You are good to go.
     ```shell
     $ pachctl list pipeline
     ```
