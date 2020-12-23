@@ -31,6 +31,11 @@ func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes [
 			return err
 		}
 	}
+	// TODO: There is probably a better way to handle empty filesets.
+	if len(inputPaths) == 0 {
+		w := d.storage.NewWriter(ctx, outputPath)
+		return w.Close()
+	}
 	if len(inputPaths) == 1 {
 		return d.storage.Copy(ctx, inputPaths[0], outputPath, 0)
 	}

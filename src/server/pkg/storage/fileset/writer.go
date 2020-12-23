@@ -111,7 +111,6 @@ func (w *Writer) nextIdx(idx *index.Index) error {
 }
 
 // Delete creates a delete operation for a file.
-// TODO: Check path order.
 func (w *Writer) Delete(p string, tags ...string) error {
 	if w.deletePath != "" {
 		if err := w.checkPath(w.deletePath, p); err != nil {

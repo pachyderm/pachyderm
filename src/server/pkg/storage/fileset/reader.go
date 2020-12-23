@@ -71,9 +71,3 @@ func (fr *FileReader) Content(w io.Writer) error {
 	r := fr.chunks.NewReader(fr.ctx, dataRefs)
 	return r.Get(w)
 }
-
-type emptyReader struct{}
-
-func (*emptyReader) Iterate(_ context.Context, _ func(File) error, _ ...bool) error {
-	return nil
-}
