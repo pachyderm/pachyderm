@@ -1050,7 +1050,7 @@ func TestNoWarningTagSpecified(t *testing.T) {
 	}
 	// should not emit a warning (stderr should be empty) because user
 	// specified non-empty, non-latest tag
-	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:xenial")
+	stderr, err := runPipelineWithImageGetStderr(t, "ubuntu:18.04")
 	require.NoError(t, err)
 	require.Equal(t, "", stderr)
 }
