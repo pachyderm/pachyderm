@@ -31,8 +31,6 @@ GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
-UBUNTU_WITHS3_CLIENT_IMAGE=pachyderm/ubuntu-with-s3-clients:v0.0.1
-
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -145,14 +143,6 @@ docker-push: docker-tag
 docker-push-pipeline-build:
 	$(SKIP) docker push pachyderm/go-build:$(VERSION)
 	$(SKIP) docker push pachyderm/python-build:$(VERSION)
-
-push-build-pipeline-to-minikube:
-	./etc/kube/push-to-minikube.sh pachyderm/go-build:$(VERSION)
-	./etc/kube/push-to-minikube.sh pachyderm/python-build:$(VERSION)
-
-push-ubuntu-s3-client-to-minikube:
-	docker build -t $(UBUNTU_WITHS3_CLIENT_IMAGE) etc/testing/images/ubuntu_with_s3_clients/
-	./etc/kube/push-to-minikube.sh $(UBUNTU_WITHS3_CLIENT_IMAGE)
 
 check-kubectl:
 	@# check that kubectl is installed

@@ -2,7 +2,8 @@
 This test is for PPS pipelines that use S3 inputs/outputs. Most of these
 pipelines use the pachyderm/s3testing image, which exists on dockerhub but can
 be built by running:
-  make push-ubuntu-s3-client-to-minikube
+  cd etc/testing/images/s3testing
+  make push-to-minikube
 */
 package server
 
