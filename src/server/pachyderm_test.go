@@ -10819,6 +10819,7 @@ func TestSpoutPipe(t *testing.T) {
 			}
 		}
 
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -10955,6 +10956,8 @@ time.Sleep(5)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfo.Subvenance))
 
+		require.NoError(t, c.StopPipeline(pipeline))
+		require.NoError(t, c.StopPipeline(downstreamPipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11031,6 +11034,7 @@ func TestSpoutPachctl(t *testing.T) {
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11120,6 +11124,7 @@ func TestSpoutPachctl(t *testing.T) {
 			require.Equal(t, 1, len(files))
 		}
 
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11219,6 +11224,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commitInfo.Subvenance))
 
+		require.NoError(t, c.StopPipeline(pipeline))
+		require.NoError(t, c.StopPipeline(downstreamPipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11276,6 +11283,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			prevLength = fileLength
 		}
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11376,6 +11384,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				require.Equal(t, provenanceID, provenance.ID)
 			}
 		}
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11482,6 +11491,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 		require.Equal(t, buf.String(), "foo")
 
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -11690,6 +11700,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				t.Errorf("line did not have the expected form %v, '%v'", len(line), line)
 			}
 		}
+		require.NoError(t, c.StopPipeline(pipeline))
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
