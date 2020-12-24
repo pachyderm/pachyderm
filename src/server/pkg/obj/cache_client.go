@@ -87,13 +87,10 @@ func (c *cacheClient) IsRetryable(err error) bool {
 func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.cache.Contains(p) {
-		return nil
-	}
+	c.cache.Remove(p)
 	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
 		return err
 	}
-	c.cache.Remove(p)
 	return nil
 }
 
