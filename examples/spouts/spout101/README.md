@@ -32,7 +32,7 @@ file by adding a `spout` section after its pipeline section.
 At a minimum, a spout pipeline will need a pipeline name,
 an empty spout section, and a transform section
 where you will specify the transformation you want
-to operate on the messages consumed.
+to execute on the messages consumed.
 
 >![pach_logo](./img/pach_logo.svg) Note that the use
 of the [build pipelines](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/) has not been made available
@@ -80,7 +80,7 @@ one of 1KB and one of 2KB,
 at intervals varying between 10s and 30s. 
 A spout pipeline will actively poll those data,
 then commit them to its output repo -
-in the form of a text file - using the **pachctl put** command. 
+in the form of a text file - using the **pachctl put file** command. 
 A second pipeline will process those commits
 and log an entry in a separate log file
 depending on their size.
@@ -135,6 +135,9 @@ depending on their size.
     ![list_file_spout_master](./img/pachctl_list_file_spout_master_later.png)
     
     Each of those commits triggers a job in the `processing` pipeline:
+    ```shell
+    $ pachctl list job
+    ```
 
     ![list_job](./img/pachctl_list_job.png)
 
@@ -153,7 +156,7 @@ depending on their size.
     
     ![list_file_processor](./img/pachctl_list_file_processor_master_later.png)
 
-    Or for a zoom into one of them:
+    Zoom into one of them:
     ```shell
     $ pachctl get file processor@master:/1K.txt
     ```
