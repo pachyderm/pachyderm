@@ -7,9 +7,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
-
-var localDiskCachePath = filepath.Join(os.TempDir(), "pfs-cache")
 
 // ChunkStorageOptions returns the chunk storage options for the service environment.
 func (env *ServiceEnv) ChunkStorageOptions() ([]chunk.StorageOption, error) {
@@ -18,7 +17,7 @@ func (env *ServiceEnv) ChunkStorageOptions() ([]chunk.StorageOption, error) {
 		opts = append(opts, chunk.WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
 	}
 	if env.StorageDiskCacheSize > 0 {
-		diskCache, err := obj.NewLocalClient(localDiskCachePath)
+		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
 		if err != nil {
 			return nil, err
 		}

@@ -88,9 +88,6 @@ func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cache.Remove(p)
-	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
-		return err
-	}
 	return nil
 }
 
