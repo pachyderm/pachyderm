@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/beevik/etree v1.1.0
-	github.com/brianvoe/gofakeit v3.18.0+incompatible
+	github.com/brianvoe/gofakeit v3.18.0+incompatible // indirect
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/cheggaaa/pb/v3 v3.0.4
@@ -38,10 +38,10 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
-	github.com/golang/snappy v0.0.1
+	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible
-	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.2
@@ -55,7 +55,7 @@ require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/julienschmidt/httprouter v1.3.0
+	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
@@ -65,13 +65,13 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
-	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
+	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520 // indirect
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.5.0
-	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.9.1
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
@@ -79,14 +79,14 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
-	github.com/segmentio/kafka-go v0.4.8
+	github.com/segmentio/kafka-go v0.4.8 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	github.com/willf/bitset v1.1.10 // indirect
-	github.com/willf/bloom v2.0.3+incompatible
+	github.com/willf/bloom v2.0.3+incompatible // indirect
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
@@ -95,7 +95,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
-	golang.org/x/tools v0.0.0-20201221201019-196535612888 // indirect
+	golang.org/x/tools v0.0.0-20201223174954-9cbb1efa7745 // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
