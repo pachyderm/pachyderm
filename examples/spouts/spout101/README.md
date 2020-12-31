@@ -6,7 +6,7 @@
 A spout is a type of pipeline that ingests 
 streaming data (message queue, database transactions logs,
 event notifications... ). 
-See spout pipelines as a bridge
+Spout pipelines act as a bridge
 between an external stream of data and Pachyderm's repo.
 In Martin Fowler's enterprise integration patterns' terms,
 a Pachyderm spout is a 
