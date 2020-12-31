@@ -21,7 +21,7 @@ In these workloads, a regular pipeline with a cron input
 that polls for new data at a consistent time interval might not be an optimal solution.
 
 A spout pipeline has three major differences from regular pipelines:
-- it runs continuously
+- it runs continuously, waiting for new events from any subscribed queues
 - it does not take an input repo. Instead, it consumes messages from a third-party messaging system.
 - `pfs/out` is not directly accessible. You will need to use `pachctl put file` to write into your output repo. In this example, we have used the `pachyderm-python` library. 
 
