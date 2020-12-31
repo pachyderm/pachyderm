@@ -13,9 +13,9 @@ a Pachyderm spout is a
 *[Polling Consumer](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PollingConsumer.html)* 
 (actively polls for a message, processes it, then polls for another).
 
-Generally, you use spouts for situations 
-when the interval between new data generation
-is large or sporadic, but the latency requirement
+Generally, spout pipelines are ideal for situations 
+when the frequency of new incoming data 
+is sporadic and the latency requirement
 to start the processing is short. 
 Therefore, a regular pipeline with a cron input
 that polls for new data might not be an optimal solution.
