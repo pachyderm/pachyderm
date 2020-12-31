@@ -87,35 +87,38 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 	}
 }
 
-// NewObjClient creates an obj.Client by selecting a construcot from the obj package.
+// NewObjClient creates an obj.Client by selecting a constructor from the obj package.
+// TODO: Not sure if we want to keep the storage root configuration for non-local deployments.
+// If so, we will need to connect it to the object path prefix for chunks.
 func NewObjClient(conf *serviceenv.Configuration) (obj.Client, error) {
-	dir := conf.StorageRoot
 	switch conf.StorageBackend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes
-		if len(dir) > 0 && dir[0] == '/' {
-			dir = dir[1:]
-		}
-		return obj.NewMinioClientFromSecret(dir)
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
+		return obj.NewMinioClientFromSecret("")
 
 	case AmazonBackendEnvVar:
 		// amazon doesn't like leading slashes
-		if len(dir) > 0 && dir[0] == '/' {
-			dir = dir[1:]
-		}
-		return obj.NewAmazonClientFromSecret(dir)
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
+		return obj.NewAmazonClientFromSecret("")
 
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
-		return obj.NewGoogleClientFromSecret(dir)
+		return obj.NewGoogleClientFromSecret("")
 
 	case MicrosoftBackendEnvVar:
-		return obj.NewMicrosoftClientFromSecret(dir)
+		return obj.NewMicrosoftClientFromSecret("")
 
 	case LocalBackendEnvVar:
 		fallthrough
 
 	default:
-		return obj.NewLocalClient(dir)
+		return obj.NewLocalClient(conf.StorageRoot)
 	}
 }
