@@ -17,8 +17,8 @@ Generally, spout pipelines are ideal for situations
 when the frequency of new incoming data 
 is sporadic and the latency requirement
 to start the processing is short. 
-Therefore, a regular pipeline with a cron input
-that polls for new data might not be an optimal solution.
+In these workloads, a regular pipeline with a cron input
+that polls for new data at a consistent time interval might not be an optimal solution.
 
 A spout pipeline has three major differences from regular pipelines:
 - it runs continuously
