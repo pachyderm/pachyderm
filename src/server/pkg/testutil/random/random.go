@@ -18,6 +18,7 @@ func SeedRand(customSeed ...int64) string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
 
+// String returns a random string with length n.
 func String(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
