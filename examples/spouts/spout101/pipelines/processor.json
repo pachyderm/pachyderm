@@ -12,6 +12,6 @@
     },
     "transform": {
         "cmd": [ "python", "processor/main.py" ],
-        "image": "spout101:0.1"
+        "image": "spout101:1"
       }
   }

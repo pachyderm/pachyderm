@@ -10,9 +10,7 @@ from time import sleep
 
 def receive_message():
     # Emulates a network response time to poll new messages
-    print("receiving")
     sleep(randint(10, 30))
-    print("emiting")
     # Creates a random string of 1KB
     random1 = os.urandom(1024)
     random2 = os.urandom(2048)
@@ -22,22 +20,19 @@ def receive_message():
 
 
 def polling_consumer():
-    print("polling")
+
     while True:
         # Polls queue
         msgs = receive_message()
-        print("message: " + str(msgs[0]))
         if msgs:
             print("connecting to pachd")
             client = python_pachyderm.Client(host="pachd", port=650)
             print(client.health())
             print("connected")
             with client.commit('spout', 'master') as c:
-                print("creating commit")
                 for msg in msgs:
                     # hash the file to assign unique name
                     filename = hashlib.sha256(msg).hexdigest() + ".txt"
-                    print("adding file" + filename)
                     client.put_file_bytes(c, filename, msg)
 
 
