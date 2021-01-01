@@ -6,12 +6,15 @@
 A spout is a type of pipeline that ingests 
 streaming data (message queue, database transactions logs,
 event notifications... ). 
-Spout pipelines act as a bridge
-between an external stream of data and Pachyderm's repo.
-In Martin Fowler's enterprise integration patterns' terms,
-a Pachyderm spout is a 
+Spout pipelines act as **a bridge
+between an external stream of data and Pachyderm's repo**.
+
+For those familiar with enterprise integration patterns,
+a Pachyderm spout is a by-the-book use case of the
 *[Polling Consumer](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PollingConsumer.html)* 
-(actively polls for a message, processes it, then polls for another).
+(the consumer subscribes to a stream of data,
+ingests its published messages, 
+then push them to the spout's output repository.).
 
 Generally, spout pipelines are ideal for situations 
 when the frequency of new incoming data 
@@ -21,9 +24,16 @@ In these workloads, a regular pipeline with a cron input
 that polls for new data at a consistent time interval might not be an optimal solution.
 
 A spout pipeline has three major differences from regular pipelines:
-- it runs continuously, waiting for new events from any subscribed queues
-- it does not take an input repo. Instead, it consumes messages from a third-party messaging system.
-- `pfs/out` is not directly accessible. You will need to use `pachctl put file` to write into your output repo. In this example, we have used the `pachyderm-python` library. 
+- it runs continuously, 
+waiting for new events from any subscribed queues
+- it does not take an input repo. 
+Instead, it consumes messages from a third-party messaging system.
+- `pfs/out` is not directly accessible. 
+To write into your output repo, you will need to use the `put file` API call via:
+    - the CLI (`pachctl put file`) 
+    - one of the Pachyderm's SDKs
+(like the ones for golang or Python - in this example, we have used the `pachyderm-python` library.)
+    - or your own API client.  
 
 
 You configure a spout in the 
@@ -77,10 +87,12 @@ Ideally, have your pachctl and pachd versions match. At a minimum, you should al
 In this example,
 we will keep generating two random strings, 
 one of 1KB and one of 2KB,
-at intervals varying between 10s and 30s. 
-A spout pipeline will actively poll those data,
-then commit them to its output repo -
-in the form of a text file - using the **pachctl put file** command. 
+at intervals varying between 10s and 30s.
+Our spout pipeline will actively receive
+those events and commit them as text files
+to the output repo 
+using the **put file** command
+of `pachyderm-python`'s library. 
 A second pipeline will process those commits
 and log an entry in a separate log file
 depending on their size.
