@@ -78,7 +78,8 @@ case "${BUCKET}" in
     make test-proto-static
     make test-transaction
     make test-deploy-manifests
-    make test-s3gateway-unit
+    # TODO: Readd when s3 gateway is implemented in V2.
+    #make test-s3gateway-unit
     make test-enterprise
     make test-worker
     if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then

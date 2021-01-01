@@ -1,7 +1,9 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -19,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -11852,93 +11855,93 @@ func TestMalformedPipeline(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Equal(t, 25, len(resp.DatumInfos))
 //}
-//
-//func TestDebug(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//
-//	c := tu.GetPachClient(t)
-//	require.NoError(t, c.DeleteAll())
-//
-//	dataRepo := tu.UniqueString("TestDebug_data")
-//	require.NoError(t, c.CreateRepo(dataRepo))
-//
-//	expectedFiles := make(map[string]*globlib.Glob)
-//	// Record glob patterns for expected pachd files.
-//	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
-//		pattern := path.Join("pachd", "*", "pachd", file)
-//		g, err := globlib.Compile(pattern, '/')
-//		require.NoError(t, err)
-//		expectedFiles[pattern] = g
-//	}
-//	for i := 0; i < 3; i++ {
-//		pipeline := tu.UniqueString("TestDebug")
-//		require.NoError(t, c.CreatePipeline(
-//			pipeline,
-//			"",
-//			[]string{"bash"},
-//			[]string{
-//				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-//			},
-//			&pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			client.NewPFSInput(dataRepo, "/*"),
-//			"",
-//			false,
-//		))
-//		// Record glob patterns for expected pipeline files.
-//		for _, container := range []string{"user", "storage"} {
-//			for _, file := range []string{"logs", "goroutine", "heap"} {
-//				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
-//				g, err := globlib.Compile(pattern, '/')
-//				require.NoError(t, err)
-//				expectedFiles[pattern] = g
-//			}
-//		}
-//		pattern := path.Join("pipelines", pipeline, "spec")
-//		g, err := globlib.Compile(pattern, '/')
-//		require.NoError(t, err)
-//		expectedFiles[pattern] = g
-//	}
-//
-//	commit1, err := c.StartCommit(dataRepo, "master")
-//	require.NoError(t, err)
-//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
-//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-//
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-//	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
-//	require.Equal(t, 3, len(commitInfos))
-//
-//	buf := &bytes.Buffer{}
-//	require.NoError(t, c.Dump(nil, buf))
-//	gr, err := gzip.NewReader(buf)
-//	require.NoError(t, err)
-//	defer func() {
-//		require.NoError(t, gr.Close())
-//	}()
-//	// Check that all of the expected files were returned.
-//	tr := tar.NewReader(gr)
-//	for {
-//		hdr, err := tr.Next()
-//		if err != nil {
-//			if err == io.EOF {
-//				break
-//			}
-//			require.NoError(t, err)
-//		}
-//		for pattern, g := range expectedFiles {
-//			if g.Match(hdr.Name) {
-//				delete(expectedFiles, pattern)
-//				break
-//			}
-//		}
-//	}
-//	require.Equal(t, 0, len(expectedFiles))
-//}
+
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDebug_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	expectedFiles := make(map[string]*globlib.Glob)
+	// Record glob patterns for expected pachd files.
+	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
+		pattern := path.Join("pachd", "*", "pachd", file)
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+	for i := 0; i < 3; i++ {
+		pipeline := tu.UniqueString("TestDebug")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+		// Record glob patterns for expected pipeline files.
+		for _, container := range []string{"user", "storage"} {
+			for _, file := range []string{"logs", "goroutine", "heap"} {
+				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
+				g, err := globlib.Compile(pattern, '/')
+				require.NoError(t, err)
+				expectedFiles[pattern] = g
+			}
+		}
+		pattern := path.Join("pipelines", pipeline, "spec")
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 6, len(commitInfos))
+
+	buf := &bytes.Buffer{}
+	require.NoError(t, c.Dump(nil, buf))
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, gr.Close())
+	}()
+	// Check that all of the expected files were returned.
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		for pattern, g := range expectedFiles {
+			if g.Match(hdr.Name) {
+				delete(expectedFiles, pattern)
+				break
+			}
+		}
+	}
+	require.Equal(t, 0, len(expectedFiles))
+}
 
 //// getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
 //// connection that actually works

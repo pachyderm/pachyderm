@@ -2725,7 +2725,9 @@ func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 }
 
+// TODO: Make work with V2.
 func TestS3GatewayAuthRequests(t *testing.T) {
+	t.Skip("S3 gateway not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3173,7 +3175,7 @@ func TestDebug(t *testing.T) {
 	commitIter, err := aliceClient.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
 
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
