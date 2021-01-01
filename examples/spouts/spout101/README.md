@@ -1,4 +1,4 @@
-# Spout Pipelines 
+# Spout Pipelines - An introductory example
 >![pach_logo](./img/pach_logo.svg) This new implementation of the spout functionality is available in version **1.12 and higher**.
 
 
@@ -10,11 +10,11 @@ Spout pipelines act as **a bridge
 between an external stream of data and Pachyderm's repo**.
 
 For those familiar with enterprise integration patterns,
-a Pachyderm spout is a by-the-book use case of the
+a Pachyderm spout implements the
 *[Polling Consumer](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PollingConsumer.html)* 
 (the consumer subscribes to a stream of data,
 ingests its published messages, 
-then push them to the spout's output repository.).
+then push them to the spout's output repository).
 
 Generally, spout pipelines are ideal for situations 
 when the frequency of new incoming data 
