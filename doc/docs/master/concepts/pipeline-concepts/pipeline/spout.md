@@ -1,24 +1,11 @@
 # Spout
 
-!!! note
-    This document addresses spouts 2.0 implementation
-    in Pachyderm 1.12 and newer releases.
-    The implementation in spouts 1.0 is significantly different.
-    We recommend upgrading 
-    to the latest version
-    of Pachyderm
-    and using the spouts 2.0 implementation.
-    
-A spout is a type of pipeline 
-that ingests streaming data. 
-Generally, 
-you use spouts for situations 
-when the interval
-between new data generation is large or sporadic,
-but the latency requirement to start the processing is short. 
-Therefore, 
-a regular pipeline with a cron input 
-that polls for new data
+A spout is a type of pipeline that ingests
+streaming data. Generally, you use spouts for
+situations when the interval between new data generation
+is large or sporadic, but the latency requirement to start the
+processing is short. Therefore, a regular pipeline
+with a cron input that polls for new data
 might not be an optimal solution.
 
 Examples of streaming data include a message queue,
@@ -33,15 +20,14 @@ One main difference from regular pipelines is that
 spouts ingest their data from outside sources. Therefore, they
 do not take an input.
 
-Another important aspect is that,
-in spouts, 
-`pfs/out` is not directly accessible.
-Your code uses the Pachyderm APIs,
-via `pachctl`, 
-one of the Pachyderm SDKs
-(like the ones for golang or Python),
-or directly,
-to put data into its repo.
+Another important aspect is that in spouts, `pfs/out` is
+a *named pipe*, or *First in, First Out* (FIFO), and is not
+a directory like in standard pipelines. Unlike
+the traditional pipe, that is familiar to most Linux users,
+a *named pipe* enables two system processes to access
+the pipe simultaneously and gives one of the processes read-only and the other
+process write-only access. Therefore, the two processes can simultaneously
+read and write to the same pipe.
 
 To create a spout pipeline, you need the following items:
 
@@ -52,13 +38,14 @@ To create a spout pipeline, you need the following items:
 Your spout code performs the following actions:
 
 1. Connects to the specified streaming data source.
+1. Opens `/pfs/out` as a named pipe.
 1. Reads the data from the streaming data source.
-1. Uses stdout or caches files to the local filesystem.
-1. Uses the Pachyderm APIs to write data to a repo
-
-Having the entire Pachyderm API at your fingertips
-allows you to package data into commits and transactions
-at the granularity your problem requires.
+1. Packages the data into a `tar` stream.
+1. Writes the `tar` stream into the `pfs/out` pipe. In case of transient
+errors produced by closing a previous write to the pipe, retries the write
+operation.
+1. Closes the `tar` stream and connection to `/pfs/out`, which produces the
+commit.
 
 A minimum spout specification must include the following
 parameters:
@@ -67,6 +54,7 @@ parameters:
 | ----------- | ----------- |
 | `name`      | The name of your data pipeline and the output repository. You can set an <br> arbitrary name that is meaningful to the code you want to run. |
 | `transform` | Specifies the code that you want to run against your data, such as a Python <br> or Go script. Also, it specifies a Docker image that you want to use to run that script. |
+| `overwrite` | (Optional) Specifies whether to overwrite the existing content <br> of the file from previous commits or previous calls to the <br> `put file` command  within this commit. The default value is `false`. |
 
 The following text is an example of a minimum specification:
 
@@ -91,13 +79,33 @@ The following text is an example of a minimum specification:
     },
   },
   "spout": {
+    "overwrite": false
   }
 }
 ```
 
+## Resuming Spout Progress
 
-# to do
+When a spout container crashes, all incomplete operations
+that were processed before the crash are lost, and the spout needs
+to start the interrupted data operation from scratch.
+To keep the history of changes, so that the spout can
+continue where it left off after the restart, you can
+configure a record tracking `marker` file for your spout.
 
-* describe what the local repo syntax looks like
-  * can you write to other repos?
-* authentication workflow
+When you specify the `marker` parameter as a subfield in the
+`spout` section of your pipeline, Pachyderm creates
+the `marker` file or directory. The file or directory is named
+according to the provided value. For example, if you specify
+`"marker": "offset"`, Pachyderm stores the current marker
+in `pfs/out/offset` and the previous marker in `pfs/offset`.
+If a spout container crashes and then starts
+again, it can read the `marker` file and resume where it left
+off instead of starting over.
+
+Markers are useful if you want to leverage a record tracking
+functionality of an external messaging system, such as
+Apache® Kafka offset management or similar.
+
+If you want to check how a marker works in Pahcyderm, see
+the [Resuming a Spout Pipeline example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker).
