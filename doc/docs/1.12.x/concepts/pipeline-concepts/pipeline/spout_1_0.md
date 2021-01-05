@@ -8,6 +8,7 @@
     to the latest version
     of Pachyderm
     and using the spouts 2.0 implementation.
+    Return to the [documentation page of spouts 2.0](./spout.md)
     
 A spout is a type of pipeline that ingests
 streaming data. Generally, you use spouts for

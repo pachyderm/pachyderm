@@ -89,7 +89,6 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     "external_port": int
   },
   "spout": {
-  "overwrite": bool
   \\ Optionally, you can combine a spout with a service:
   "service": {
         "internal_port": int,
@@ -943,16 +942,24 @@ created, you should be able to access it at
 
 ### Spout (optional)
 
-`spout` is a type of pipeline that processes streaming data.
-Unlike a union or cross pipeline, a spout pipeline does not have
-a PFS input. Instead, it opens a Linux *named pipe* into the source of the
-streaming data. Your pipeline
-can be either a spout or a service and not both. Therefore, if you added
-the `service` as a top-level object in your pipeline, you cannot add `spout`.
-However, you can expose a service from inside of a spout pipeline by
-specifying it as a field in the `spout` spec. Then, Kubernetes creates
-a service endpoint that you can expose externally. You can get the information
-about the service by running `kubectl get services`.
+`spout` is a type of pipeline
+that ingests streaming data.
+Unlike a union or cross pipeline,
+a spout pipeline does not have
+a PFS input.
+Instead, it consumes data from an outside source.
+
+!!! Note A pipeline can be **either a spout
+    or a service**,
+    not both. 
+    Therefore, if you added
+    the `service` as a top-level
+    object in your pipeline,
+    you cannot add `spout`.
+    However, you can **expose a service from inside of a spout pipeline** by
+    specifying it as a field in the `spout` spec. Then, Kubernetes creates
+    a service endpoint that you can expose externally. You can get the information
+    about the service by running `kubectl get services`.
 
 For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).
 
