@@ -9,7 +9,7 @@
     We recommend upgrading 
     to the latest version
     of Pachyderm
-    and using spouts 2.0.
+    and using **spouts 2.0**.
     You can access the [documentation page
     of spouts 1.0 here](./spout_1_0.md).
 
