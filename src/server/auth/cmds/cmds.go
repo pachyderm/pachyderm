@@ -61,6 +61,7 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
+	var supplyRootToken bool
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
@@ -72,7 +73,17 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			}
 			defer c.Close()
 
-			resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{})
+			var rootToken string
+			if supplyRootToken {
+				rootToken, err = cmdutil.ReadPassword("")
+				if err != nil {
+					return errors.Wrapf(err, "error reading token")
+				}
+			}
+
+			resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{
+				RootToken: strings.TrimSpace(rootToken),
+			})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
@@ -87,6 +98,9 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			return nil
 		}),
 	}
+	activate.PersistentFlags().BoolVar(&supplyRootToken, "supply-root-token", false, `
+Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
+
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
 

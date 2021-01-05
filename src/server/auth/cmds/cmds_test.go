@@ -45,8 +45,8 @@ func activateAuth(t *testing.T) {
 	// TODO(msteffen): Make sure client & server have the same version
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
-	cmd := tu.Cmd("pachctl", "auth", "activate")
-	cmd.Stdin = strings.NewReader("admin\n")
+	cmd := tu.Cmd("pachctl", "auth", "activate", "--supply-root-token")
+	cmd.Stdin = strings.NewReader("iamroot\n")
 	require.NoError(t, cmd.Run())
 }
 
@@ -56,15 +56,14 @@ func deactivateAuth(t *testing.T) {
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	if err := tu.BashCmd("echo admin | pachctl auth login").Run(); err == nil {
+	if err := tu.BashCmd("echo iamroot | pachctl auth use-auth-token").Run(); err == nil {
 		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
 
 	// Wait for auth to finish deactivating
 	time.Sleep(time.Second)
 	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login")
-		cmd.Stdin = strings.NewReader("admin\n")
+		cmd := tu.Cmd("pachctl", "auth", "whoami")
 		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
 		if cmd.Run() != nil {
 			return nil // cmd errored -- auth is deactivated
@@ -80,12 +79,12 @@ func TestAuthBasic(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
-		pachctl create repo {{.repo}}
-		pachctl list repo \
-			| match {{.repo}}
-		pachctl inspect repo {{.repo}}
-		`,
+			echo "{{.alice}}" | pachctl auth login
+			pachctl create repo {{.repo}}
+			pachctl list repo \
+				| match {{.repo}}
+			pachctl inspect repo {{.repo}}
+			`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
 	).Run())
@@ -147,14 +146,14 @@ func TestAdmins(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 
-	// Modify the list of admins to replace 'admin' with 'admin2'
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
+	// Modify the list of admins to add 'admin2'
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
-			| match "admin"
-		pachctl auth modify-admins --add admin2
+			| match "pach:root"
+		pachctl auth modify-admins --add admin,admin2
 		pachctl auth list-admins \
-			| match  "admin2"
+			| match "^github:admin2$" \
+			| match "^github:admin$" 
 		pachctl auth modify-admins --remove admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
@@ -188,57 +187,12 @@ func TestGetAndUseAuthToken(t *testing.T) {
 
 	// Test both get-auth-token and use-auth-token; make sure that they work
 	// together with -q
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
 	pachctl auth get-auth-token -q robot:marvin \
 	  | pachctl auth use-auth-token
 	pachctl auth whoami \
 	  | match 'robot:marvin'
 		`).Run())
-}
-
-func TestActivateAsRobotUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// We need a custom 'activate' command, so reproduce 'activateAuth' minus the
-	// actual call
-	defer deactivateAuth(t) // unwind "activate" command before deactivating
-	activateMut.Lock()
-	defer activateMut.Unlock()
-	activateEnterprise(t)
-	// Logout (to clear any expired tokens) and activate Pachyderm auth
-	require.NoError(t, tu.BashCmd(`
-	pachctl auth logout
-	pachctl auth activate --initial-admin=robot:hal9000
-	pachctl auth whoami \
-		| match 'robot:hal9000'
-	`).Run())
-
-	// Make "admin" a cluster admins, so that deactivateAuth works
-	require.NoError(t,
-		tu.Cmd("pachctl", "auth", "modify-admins", "--add=admin").Run())
-}
-
-func TestActivateMismatchedUsernames(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// We need a custom 'activate' command, to reproduce 'activateAuth' minus the
-	// actual call
-	activateMut.Lock()
-	defer activateMut.Unlock()
-	activateEnterprise(t)
-	// Logout (to clear any expired tokens) and activate Pachyderm auth
-	activate := tu.BashCmd(`
-		pachctl auth logout
-		echo alice | pachctl auth activate --initial-admin=bob
-	`)
-	var errorMsg bytes.Buffer
-	activate.Stderr = &errorMsg
-	require.YesError(t, activate.Run())
-	require.Matches(t, "github:alice", errorMsg.String())
-	require.Matches(t, "github:bob", errorMsg.String())
 }
 
 func TestConfig(t *testing.T) {
@@ -269,7 +223,6 @@ func TestConfig(t *testing.T) {
       </SPSSODescriptor>
     </EntityDescriptor>`))
 	require.NoError(t, tu.BashCmd(`
-		echo "admin" | pachctl auth login
 		pachctl auth set-config <<EOF
 		{
 		  "live_config_version": 1,
@@ -407,7 +360,6 @@ func TestYAMLConfig(t *testing.T) {
 	defer deactivateAuth(t)
 
 	require.NoError(t, tu.BashCmd(`
-		echo "admin" | pachctl auth login
 		pachctl auth get-config -o yaml \
 		  | match 'live_config_version: 1' \
 		  | match 'id_providers:' \
@@ -419,7 +371,11 @@ func TestYAMLConfig(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
-	if err := tu.BashCmd("echo 'admin' | pachctl auth login &>/dev/null").Run(); err == nil {
+	if err := tu.BashCmd("echo 'iamroot' | pachctl auth use-auth-token &>/dev/null").Run(); err != nil {
+		panic(err.Error())
+	}
+
+	if err := tu.BashCmd("pachctl auth whoami &>/dev/null").Run(); err == nil {
 		if err := tu.BashCmd("yes | pachctl auth deactivate").Run(); err != nil {
 			panic(err.Error())
 		}
