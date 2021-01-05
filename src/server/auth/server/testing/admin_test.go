@@ -106,17 +106,16 @@ func TestActivate(t *testing.T) {
 
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
-	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(resp.PachToken)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
+	defer adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 
-	// Check that the token 'c' received from pachd authenticates them as "admin"
+	// Check that the token 'c' received from pachd authenticates them as "pach:root"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.ClusterRole_SUPER, who.ClusterRoles.Roles[0])
-	require.Equal(t, tu.AdminUser, who.Username)
+	require.Equal(t, auth.RootUser, who.Username)
 }
 
 // TestActivateKnownToken tests activating auth with a known token.
@@ -133,16 +132,13 @@ func TestActivateKnownToken(t *testing.T) {
 	// this test to pass)
 	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
-	token := "iamroot"
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
-	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{RootToken: token})
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
-	require.Equal(t, resp.PachToken, "iamroot")
+	require.Equal(t, resp.PachToken, tu.RootToken)
 
-	adminClient.SetAuthToken(token)
-	tu.UpdateAuthToken(tu.AdminUser, token)
+	adminClient.SetAuthToken(tu.RootToken)
 
 	// Check that the token 'c' received from pachd authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
@@ -792,11 +788,8 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	})
 
 	// activate auth
-	resp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		Subject: tu.AdminUser,
-	})
+	resp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
 	adminClient.SetAuthToken(resp.PachToken)
 
 	// re-authenticate, as old tokens were deleted
@@ -804,7 +797,6 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		GitHubToken: alice,
 	})
 	require.NoError(t, err)
-	tu.UpdateAuthToken(alice, aliceResp.PachToken)
 	aliceClient.SetAuthToken(aliceResp.PachToken)
 
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
@@ -1580,12 +1572,6 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
-
-	deactivateResp, err := robotClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
-	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, deactivateResp.PachToken)
-	robotClient.SetAuthToken(deactivateResp.PachToken)
 }
 
 // TestTokenTTL tests that an admin can create a token with a TTL for a user,
@@ -1820,60 +1806,6 @@ func TestGetAuthTokenPermanent(t *testing.T) {
 	// require.Nil(t, resp)
 	// require.YesError(t, err)
 	// require.Matches(t, "must be an admin", err.Error())
-}
-
-// TestActivateAsRobotUser tests that Pachyderm can be activated such that the
-// initial admin is a robot user (i.e. without any human intervention)
-func TestActivateAsRobotUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
-	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, tu.ActivateEnterprise(t, client))
-
-	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject: robot("deckard"),
-	})
-	require.NoError(t, err)
-	client.SetAuthToken(resp.PachToken)
-	who, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, robot("deckard"), who.Username)
-
-	// Make sure the robot token has no TTL
-	require.Equal(t, int64(-1), who.TTL)
-
-	client.Deactivate(client.Ctx(), &auth.DeactivateRequest{})
-	require.NoError(t, err)
-
-	resp, err = client.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: tu.AdminUser})
-	require.NoError(t, err)
-	tu.UpdateAuthToken(tu.AdminUser, resp.PachToken)
-}
-
-func TestActivateMismatchedUsernames(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
-	// Activate Pachyderm Enterprise (if it's not already active)
-	require.NoError(t, tu.ActivateEnterprise(t, client))
-
-	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject:     "alice",
-		GitHubToken: "bob",
-	})
-	require.YesError(t, err)
-	require.Matches(t, "github:alice", err.Error())
-	require.Matches(t, "github:bob", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
@@ -2269,54 +2201,4 @@ func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
 	require.Nil(t, otpResp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
-}
-
-// TestInitialRobotUserGetOTP tests that Pachyderm can be activated with a robot
-// user, which will have no session expiration, and that when this user gets an
-// OTP, the token associated with their OTP will expire
-func TestInitialRobotUserGetOTP(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-
-	adminClient := tu.GetPachClient(t)
-
-	// Activate enterprise manually
-	_, err := adminClient.Enterprise.Activate(adminClient.Ctx(),
-		&enterprise.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(t),
-		})
-
-	require.NoError(t, err)
-
-	// Activate auth as a robot user, not `pach:root`
-	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: "robot:test"})
-	require.NoError(t, err)
-	adminClient.SetAuthToken(resp.PachToken)
-	defer adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
-
-	// make sure the admin client is a robot user initial admin
-	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, superClusterRole(), who.ClusterRoles)
-	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
-	require.Equal(t, int64(-1), who.TTL)
-
-	// Get an OTP as the initial admin
-	otpResp, err := adminClient.GetOneTimePassword(adminClient.Ctx(),
-		&auth.GetOneTimePasswordRequest{})
-	require.NoError(t, err)
-
-	authResp, err := adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: otpResp.Code,
-	})
-	require.NoError(t, err)
-	adminClient.SetAuthToken(authResp.PachToken)
-	who, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, superClusterRole(), who.ClusterRoles)
-	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
-	require.True(t, who.TTL > 0)
 }
