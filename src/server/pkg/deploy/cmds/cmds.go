@@ -433,6 +433,19 @@ func standardDeployCmds() []*cobra.Command {
 
 		opts = &assets.AssetOpts{
 			FeatureFlags: assets.FeatureFlags{},
+			EtcdOpts: assets.EtcdOpts{
+				Nodes:            etcdNodes,
+				Volume:           etcdVolume,
+				CPURequest:       etcdCPURequest,
+				MemRequest:       etcdMemRequest,
+				StorageClassName: etcdStorageClassName,
+			},
+			PostgresOpts: assets.PostgresOpts{
+				Volume:           postgresVolume,
+				CPURequest:       postgresCPURequest,
+				MemRequest:       postgresMemRequest,
+				StorageClassName: postgresStorageClassName,
+			},
 			StorageOpts: assets.StorageOpts{
 				UploadConcurrencyLimit:  uploadConcurrencyLimit,
 				PutFileConcurrencyLimit: putFileConcurrencyLimit,
@@ -444,15 +457,6 @@ func standardDeployCmds() []*cobra.Command {
 			PachdCPURequest:            pachdCPURequest,
 			PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
 			BlockCacheSize:             blockCacheSize,
-			EtcdCPURequest:             etcdCPURequest,
-			EtcdMemRequest:             etcdMemRequest,
-			EtcdNodes:                  etcdNodes,
-			EtcdVolume:                 etcdVolume,
-			EtcdStorageClassName:       etcdStorageClassName,
-			PostgresCPURequest:         postgresCPURequest,
-			PostgresMemRequest:         postgresMemRequest,
-			PostgresVolume:             postgresVolume,
-			PostgresStorageClassName:   postgresStorageClassName,
 			DashOnly:                   dashOnly,
 			NoDash:                     noDash,
 			DashImage:                  dashImage,
@@ -468,8 +472,8 @@ func standardDeployCmds() []*cobra.Command {
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
 		}
-		if opts.PostgresVolume == "" {
-			opts.PostgresNodes = 1
+		if opts.PostgresOpts.Volume == "" {
+			opts.PostgresOpts.Nodes = 1
 		}
 		if tlsCertKey != "" {
 			// TODO(msteffen): If either the cert path or the key path contains a
@@ -842,12 +846,12 @@ If <object store backend> is \"s3\", then the arguments are:
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return errors.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
-			if opts.EtcdVolume != "" {
-				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
+			if opts.EtcdOpts.Volume != "" {
+				tempURI, err := url.ParseRequestURI(opts.EtcdOpts.Volume)
 				if err != nil {
-					return errors.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+					return errors.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdOpts.Volume)
 				}
-				opts.EtcdVolume = tempURI.String()
+				opts.EtcdOpts.Volume = tempURI.String()
 			}
 			volumeSize, err := strconv.Atoi(args[3])
 			if err != nil {
