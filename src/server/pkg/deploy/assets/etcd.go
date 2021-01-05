@@ -43,6 +43,7 @@ var (
 	}
 )
 
+// EtcdOpts are options that are applicable to etcd.
 type EtcdOpts struct {
 	Nodes  int
 	Volume string

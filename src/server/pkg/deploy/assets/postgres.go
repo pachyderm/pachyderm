@@ -27,6 +27,7 @@ var (
 	defaultPostgresStorageClassName = "postgres-storage-class"
 )
 
+// PostgresOpts are options that are applicable to postgres.
 type PostgresOpts struct {
 	Nodes  int
 	Volume string
