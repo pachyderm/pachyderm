@@ -20,7 +20,7 @@ from an outside source**
 (message queue, database transactions logs, event notifications... )
 as schematized in the diagram below.
 
-![spout-tldr](../../../assets/images/concepts/pipeline-concepts/pipeline/spout-tldr.png)
+![spout-tldr](../../../assets/images/concepts/pipeline-concepts/pipeline/spout_tldr.png)
 
 Generally, 
 spout pipelines are ideal for situations
