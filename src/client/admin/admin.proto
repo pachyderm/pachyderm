@@ -15,6 +15,8 @@ import "client/admin/v1_10/pfs/pfs.proto";
 import "client/admin/v1_10/pps/pps.proto";
 import "client/admin/v1_11/pfs/pfs.proto";
 import "client/admin/v1_11/pps/pps.proto";
+import "client/admin/v1_11/auth/auth.proto";
+import "client/admin/v1_11/enterprise/enterprise.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "client/auth/auth.proto";
@@ -78,6 +80,13 @@ message Op1_11 {
   pfs_1_11.CreateBranchRequest branch = 6;
   pps_1_11.CreatePipelineRequest pipeline = 7;
   pps_1_11.CreateJobRequest job = 8;
+  auth_1_11.SetACLRequest set_acl = 11;
+  auth_1_11.ModifyClusterRoleBindingRequest set_cluster_role_binding = 12;
+  auth_1_11.SetConfigurationRequest set_auth_config = 13;
+  auth_1_11.ActivateRequest activate_auth = 14;
+  auth_1_11.RestoreAuthTokenRequest restore_auth_token = 15;
+  enterprise_1_11.ActivateRequest activate_enterprise = 16;
+  CheckAuthToken check_auth_token = 17;
 }
 
 message Op1_12 {

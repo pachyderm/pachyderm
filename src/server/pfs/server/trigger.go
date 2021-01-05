@@ -34,6 +34,15 @@ func (d *driver) triggerCommit(
 	}
 	// find which branches this commit is the head of
 	headBranches := make(map[string]bool)
+	if newHead.Branch != nil {
+		// If the commit was made as part of a branch, then it _was_ the branch head
+		// at some point in time, although it is not guaranteed to still be the
+		// branch head. This can happen on a downstream pipeline with triggers - the
+		// upstream pipeline may have multiple unfinished commits in its output
+		// branch that will be finished one at a time. Without this code, only
+		// finishing the _last_ commit would have a chance of triggering.
+		headBranches[newHead.Branch.Name] = true
+	}
 	for _, b := range repoInfo.Branches {
 		bi := &pfs.BranchInfo{}
 		if err := branches.Get(b.Name, bi); err != nil {

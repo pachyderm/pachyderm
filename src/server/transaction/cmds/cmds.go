@@ -43,6 +43,8 @@ The following pachctl commands are supported in transactions:
   delete commit
   create branch
   delete branch
+  create pipeline
+  update pipeline
 
 A transaction can be started with 'start transaction', after which the above
 commands will be stored in the transaction rather than immediately executed.
