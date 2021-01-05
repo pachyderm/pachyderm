@@ -56,7 +56,6 @@ As a result, the authentication is seamless when using `pachctl`.
 !!! Note 
     Support for a transparent
     authentication in our SDKs is coming soon.
-    Stay tuned.
     In the meantime, check our Spout 101 example
     at the end of this page
     to learn how to retrieve
@@ -67,7 +66,7 @@ As a result, the authentication is seamless when using `pachctl`.
 To create a spout pipeline, you will need:
 
 * A source of streaming data.
-* A Docker container with your spout code that connects/reads/transforms/push data from the data source to your output repo. 
+* A Docker container with your spout code that connects to, reads, transforms, and pushes data from the data source to your output repo.
 * A spout pipeline specification file that uses your container.
 
 !!! Note

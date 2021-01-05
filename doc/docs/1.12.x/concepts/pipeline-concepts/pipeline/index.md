@@ -17,28 +17,6 @@ In Pachyderm, a Pipeline is an individual execution step. You can
 chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
-Pachyderm has the following special types of pipelines:
-
-**Cron**
-:   A cron input enables you to trigger the pipeline code at
-    a specific interval. This type of pipeline is useful for
-    such tasks as web scraping, querying a database, and other
-    similar operations where you do not want to wait for new
-    data, but instead trigger the pipeline periodically.
-
-**Service**
-:   A service is a special type of pipeline that instead of
-    executing jobs and then waiting, permanently runs a serving
-    data through an endpoint. For example, you can be serving
-    an ML model or a REST API that can be queried. A service
-    reads data from Pachyderm but does not have an output repo.
-
-**Spout**
-:   A spout is a special type of pipeline for ingesting data from
-    a data stream. A spout can subscribe to a message stream, such
-    as Kafka or Amazon SQS, and ingest data when it receives a
-    message. A spout does not have an input repo.
-
 A minimum pipeline specification must include the following parameters:
 
 - `name` — The name of your data pipeline. Set a meaningful name for
@@ -52,7 +30,8 @@ A minimum pipeline specification must include the following parameters:
 - `input` — A location of the data that you want to process, such as a
   Pachyderm repository. You can specify multiple input
   repositories and set up the data to be combined in various ways.
-  For more information, see [Cross and Union](../datum/cross-union.md).
+  For more information, see [Cross and Union](../datum/cross-union.md), 
+  [Join](../datum/join.md), [Group](../datum/group.md).
 
   One very important property that is defined in the `input` field
   is the `glob` pattern that specifies how Pachyderm breaks the data into
@@ -85,6 +64,27 @@ A minimum pipeline specification must include the following parameters:
     }
 }
 ```
+Pachyderm has the following special types of pipelines whose behavior might slightly differ from the 'regular' pipelines described above:
+
+**Cron**
+:   A cron input enables you to trigger the pipeline code at
+    a specific interval. This type of pipeline is useful for
+    such tasks as web scraping, querying a database, and other
+    similar operations where you do not want to wait for new
+    data, but instead trigger the pipeline periodically.
+
+**Service**
+:   A service is a special type of pipeline that instead of
+    executing jobs and then waiting, permanently runs a serving
+    data through an endpoint. For example, you can be serving
+    an ML model or a REST API that can be queried. A service
+    reads data from Pachyderm but does not have an output repo.
+
+**Spout**
+:   A spout is a special type of pipeline for ingesting data from
+    a data stream. A spout can subscribe to a message stream, such
+    as Kafka or Amazon SQS, and ingest data when it receives a
+    message. A spout does not have an input repo.
 
 !!! note "See Also:"
     [Pipeline Specification](../../../reference/pipeline_spec.md)
