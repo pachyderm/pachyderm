@@ -84,12 +84,12 @@ To create a spout pipeline, you will need:
 
 
 A minimum spout specification must include the following
-parameters:
+parameters in the [pipeline specification](../../reference/pipeline_spec.md):
 
 | Parameter   | Description |
 | ----------- | ----------- |
 | `name`      | The name of your data pipeline and the output repository. You can set an arbitrary name that is meaningful to the code you want to run. |
-| `spout`      | This section can be left empty. Optional: Add a service field to expose your spout as a service. |
+| `spout`     | This attribute can be left empty. Optional: Add a `service` field to expose your spout as a service. |
 | `transform` | Specifies the command that you want to call to ingest your data and the Docker image it is packaged in. |
 
 
