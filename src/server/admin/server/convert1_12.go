@@ -1,10 +1,10 @@
 package server
 
 import (
-	auth1_12 "./src/client/admin/v1_12/auth"
-	pfs1_12 "./src/client/admin/v1_12/pfs"
-	pps1_12 "./src/client/admin/v1_12/pps"
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	auth1_12 "github.com/pachyderm/pachyderm/src/client/admin/v1_12/auth"
+	pfs1_12 "github.com/pachyderm/pachyderm/src/client/admin/v1_12/pfs"
+	pps1_12 "github.com/pachyderm/pachyderm/src/client/admin/v1_12/pps"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
