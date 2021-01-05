@@ -61,37 +61,18 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
-	var initialAdmin string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
-Activate Pachyderm's auth system, and restrict access to existing data to the
-user running the command (or the argument to --initial-admin), who will be the
-first cluster admin`[1:],
+Activate Pachyderm's auth system, and restrict access to existing data to the root user`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			var token string
-			var err error
-
-			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
-				token, err = githubLogin()
-				if err != nil {
-					return err
-				}
-			}
-			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
-			fmt.Println("Retrieving Pachyderm token...")
-
-			resp, err := c.Activate(c.Ctx(),
-				&auth.ActivateRequest{
-					GitHubToken: token,
-					Subject:     initialAdmin,
-				})
+			resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
@@ -99,22 +80,13 @@ first cluster admin`[1:],
 			if err := config.WritePachTokenToConfig(resp.PachToken); err != nil {
 				return err
 			}
-			if strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
-				fmt.Println("WARNING: DO NOT LOSE THE ROBOT TOKEN BELOW WITHOUT " +
-					"ADDING OTHER ADMINS.\nIF YOU DO, YOU WILL BE PERMANENTLY LOCKED OUT " +
-					"OF YOUR CLUSTER!")
-				fmt.Printf("Pachyderm token for \"%s\":\n%s\n", initialAdmin, resp.PachToken)
-			}
+
+			fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+				"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
+			fmt.Printf("Pachyderm root token:\n%s\n", resp.PachToken)
 			return nil
 		}),
 	}
-	activate.PersistentFlags().StringVar(&initialAdmin, "initial-admin", "", `
-The subject (robot user or github user) who
-will be the first cluster admin; the user running 'activate' will identify as
-this user once auth is active.  If you set 'initial-admin' to a robot
-user, pachctl will print that robot user's Pachyderm token; this token is
-effectively a root token, and if it's lost you will be locked out of your
-cluster`[1:])
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
 

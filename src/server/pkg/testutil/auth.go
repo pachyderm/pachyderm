@@ -3,7 +3,6 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -21,7 +20,8 @@ const (
 	// AdminUser is the sole cluster admin after GetAuthenticatedPachClient is called
 	AdminUser = auth.RootUser
 
-	adminTokenFile = "/tmp/pach-auth-test_admin-token"
+	// RootToken is the hard-coded admin token used on all activated test clusters
+	RootToken = "iamroot"
 )
 
 var (
@@ -39,14 +39,6 @@ func gh(user string) string {
 // helper method to generate a super admin role
 func superClusterRole() *auth.ClusterRoles {
 	return &auth.ClusterRoles{Roles: []auth.ClusterRole{auth.ClusterRole_SUPER}}
-}
-
-// UpdateAuthToken manually updates the auth token for a given user
-func UpdateAuthToken(user string, token string) {
-	tokenMapMut.Lock()
-	defer tokenMapMut.Unlock()
-
-	tokenMap[user] = token
 }
 
 // isAuthActive is a helper that checks if auth is currently active in the
@@ -100,20 +92,16 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	if subject == "" {
 		return resultClient // anonymous client
 	}
+	if subject == AdminUser {
+		resultClient.SetAuthToken(RootToken)
+		return resultClient
+	}
+
 	if token, ok := tokenMap[subject]; ok {
 		resultClient.SetAuthToken(token)
 		return resultClient
 	}
-	if subject == AdminUser {
-		bytes, err := ioutil.ReadFile(adminTokenFile)
-		if err == nil {
-			tb.Logf("couldn't find admin token in cache, reading from %q", adminTokenFile)
-			resultClient.SetAuthToken(string(bytes))
-			return resultClient
-		}
-		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
-			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
-	}
+
 	if !strings.Contains(subject, ":") {
 		subject = gh(subject)
 	}
@@ -149,13 +137,12 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 // Caller must hold tokenMapMut. Currently only called by getPachClient()
 func activateAuth(tb testing.TB) {
 	resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: AdminUser},
+		&auth.ActivateRequest{RootToken: RootToken},
 	)
 	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
 	tokenMap[AdminUser] = resp.PachToken
-	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
 	config.WritePachTokenToConfig(resp.PachToken)
 
 	// Wait for the Pachyderm Auth system to activate
