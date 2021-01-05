@@ -2,43 +2,85 @@ package server
 
 import (
 	"context"
-	"path"
-	"time"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 type commitStore interface {
-	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID string) error
-	GetFileset(ctx context.Context, commit *pfs.Commit) (filesetID string, err error)
+	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
+	GetFileset(ctx context.Context, commit *pfs.Commit) (filesetID *fileset.ID, err error)
+	UpdateFileset(ctx context.Context, commit *pfs.Commit, fn func(x fileset.ID) (*fileset.ID, error)) error
 }
 
-// keySpaceCommitStore is a temporary implementation using the existing keyspace for filesets.
-type keySpaceCommitStore struct {
-	storage *fileset.Storage
+type memCommitStore struct {
+	s *fileset.Storage
+
+	mu       sync.Mutex
+	staging  map[string][]fileset.ID
+	finished map[string]fileset.ID
 }
 
-func newKeySpaceCommitStore(s *fileset.Storage) *keySpaceCommitStore {
-	return &keySpaceCommitStore{
-		storage: s,
+func newMemCommitStore(s *fileset.Storage) *memCommitStore {
+	return &memCommitStore{
+		s:        s,
+		staging:  make(map[string][]fileset.ID),
+		finished: make(map[string]fileset.ID),
 	}
 }
 
-func (s *keySpaceCommitStore) AddFileset(ctx context.Context, commit *pfs.Commit, filesetID string) error {
-	n := time.Now().UnixNano()
-	subFilesetStr := fileset.SubFileSetStr(n)
-	subFilesetPath := path.Join(commit.Repo.Name, commit.ID, subFilesetStr)
-	return s.storage.Copy(ctx, path.Join(tmpRepo, filesetID), subFilesetPath, 0)
+func (s *memCommitStore) AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := commitKey(commit)
+	if _, exists := s.finished[key]; exists {
+		return errors.Errorf("commit is finished")
+	}
+	id, err := s.s.Clone(ctx, filesetID, track.NoTTL)
+	if err != nil {
+		return err
+	}
+	ids := s.staging[key]
+	ids = append(ids, *id)
+	s.staging[key] = ids
+	return nil
 }
 
-func (s *keySpaceCommitStore) GetFileset(ctx context.Context, commit *pfs.Commit) (string, error) {
-	filesetID := uuid.NewWithoutDashes()
-	if err := s.storage.Copy(ctx, commitPath(commit), path.Join(tmpRepo, filesetID), defaultTTL); err != nil {
-		return "", err
+func (s *memCommitStore) GetFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := commitKey(commit)
+	if id, exists := s.finished[key]; exists {
+		return s.s.Clone(ctx, id, defaultTTL)
 	}
-	return filesetID, nil
+	return nil, errors.Errorf("commit is not finished")
+}
+
+func (s *memCommitStore) UpdateFileset(ctx context.Context, commit *pfs.Commit, fn func(fileset.ID) (*fileset.ID, error)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := commitKey(commit)
+	x, exists := s.finished[key]
+	if !exists {
+		id, err := s.s.Compose(ctx, s.staging[key], defaultTTL)
+		if err != nil {
+			return err
+		}
+		x = *id
+	}
+	y, err := fn(x)
+	if err != nil {
+		return err
+	}
+	id, err := s.s.Clone(ctx, *y, track.NoTTL)
+	if err != nil {
+		return err
+	}
+	s.finished[key] = *id
+	return s.s.Drop(ctx, x)
 }
 
 // TODO

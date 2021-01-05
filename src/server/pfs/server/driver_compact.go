@@ -19,6 +19,17 @@ import (
 	"golang.org/x/net/context"
 )
 
+func (d *driver) compactCommit(master *work.Master, commit *pfs.Commit) error {
+	ctx := master.Ctx()
+	return d.commitStore.UpdateFileset(ctx, commit, func(x fileset.ID) (*fileset.ID, error) {
+		if d.storage.IsCompacted(ctx, x) {
+			return nil
+		}
+		y, _, err := d.storage.Compact(ctx, []fileset.ID{x}, defaultTTL)
+		return y, err
+	})
+}
+
 func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
@@ -60,7 +71,7 @@ type compactSpec struct {
 }
 
 type compactResult struct {
-	OutputPath string
+	ID fileset.ID
 }
 
 // compactIter is one level of compaction.  It will only perform compaction
@@ -171,8 +182,7 @@ func (d *driver) shardedCompact(ctx context.Context, master *work.Master, inputP
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
 func (d *driver) concatFileSets(ctx context.Context, inputPaths []string) (*compactResult, error) {
-	outputPath := path.Join(tmpRepo, uuid.NewWithoutDashes())
-	fsw := d.storage.NewWriter(ctx, outputPath, fileset.WithTTL(defaultTTL))
+	fsw := d.storage.NewWriter(ctx, fileset.WithTTL(defaultTTL))
 	for _, inputPath := range inputPaths {
 		fs, err := d.storage.Open(ctx, []string{inputPath})
 		if err != nil {
@@ -182,10 +192,11 @@ func (d *driver) concatFileSets(ctx context.Context, inputPaths []string) (*comp
 			return nil, err
 		}
 	}
-	if err := fsw.Close(); err != nil {
+	id, err := fsw.Close()
+	if err != nil {
 		return nil, err
 	}
-	return &compactResult{OutputPath: outputPath}, nil
+	return &compactResult{ID: *id}, nil
 }
 
 func (d *driver) compactionWorker() {

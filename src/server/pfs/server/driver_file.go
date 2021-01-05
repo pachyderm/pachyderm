@@ -76,23 +76,23 @@ func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.Stri
 	inputPath := path.Join(tmpRepo, id)
 	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
 	defaultTag := d.getDefaultTag()
-	uw, err := d.storage.NewUnorderedWriter(ctx, inputPath, defaultTag, opts...)
+	uw, err := d.storage.NewUnorderedWriter(ctx, defaultTag, opts...)
 	if err != nil {
 		return "", err
 	}
 	if err := cb(uw); err != nil {
 		return "", err
 	}
-	if err := uw.Close(); err != nil {
+	if _, err := uw.Close(); err != nil {
 		return "", err
 	}
 	if compact {
 		outputPath := path.Join(tmpRepo, id, fileset.Compacted)
-		_, err := d.storage.Compact(ctx, outputPath, []string{inputPath}, defaultTTL)
+		id, _, err := d.storage.Compact(ctx, []string{inputPath}, defaultTTL)
 		if err != nil {
 			return "", err
 		}
-		renewer.Add(outputPath)
+		renewer.Add(*id)
 	}
 	return id, nil
 }

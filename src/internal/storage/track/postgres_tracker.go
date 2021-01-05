@@ -30,7 +30,7 @@ func (t *postgresTracker) CreateObject(ctx context.Context, id string, pointsTo 
 	return t.withTx(ctx, func(tx *sqlx.Tx) error {
 		var oid int
 		if err := func() error {
-			if ttl > 0 {
+			if ttl == NoTTL {
 				return tx.GetContext(ctx, &oid,
 					`INSERT INTO storage.tracker_objects (str_id, expires_at)
 				VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')

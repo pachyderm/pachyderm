@@ -127,7 +127,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	d.commitStore = newKeySpaceCommitStore(d.storage)
+	d.commitStore = newMemCommitStore(d.storage)
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -805,6 +805,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	commitPath := commitKey(commit)
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
+		return d.compactCommit(m, commit)
 		exists := func(p string) (bool, error) {
 			var exists bool
 			if err := d.storage.Store().Walk(m.Ctx(), p, func(_ string) error {

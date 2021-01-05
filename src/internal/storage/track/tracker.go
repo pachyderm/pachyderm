@@ -23,6 +23,9 @@ var (
 	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
 
+// NoTTL will cause the object to live forever
+const NoTTL = time.Duration(0)
+
 // Tracker tracks objects and their references to one another.
 type Tracker interface {
 	// CreateObject creates an object with id=id, and pointers to everything in pointsTo
