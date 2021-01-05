@@ -20,6 +20,6 @@ func do(appEnvObj interface{}) error {
 	os.Args[0] = "pachctl"
 
 	rootCmd := cmd.PachctlCmd()
-
+	rootCmd.DisableAutoGenTag = true
 	return doc.GenMarkdownTree(rootCmd, "./doc/docs/master/reference/pachctl/")
 }
