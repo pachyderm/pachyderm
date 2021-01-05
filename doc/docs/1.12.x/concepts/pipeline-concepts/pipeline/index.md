@@ -32,7 +32,6 @@ A minimum pipeline specification must include the following parameters:
   repositories and set up the data to be combined in various ways.
   For more information, see [Cross and Union](../datum/cross-union.md), 
   [Join](../datum/join.md), [Group](../datum/group.md).
-
   One very important property that is defined in the `input` field
   is the `glob` pattern that specifies how Pachyderm breaks the data into
   individual processing units, called Datums. For more information, see
@@ -45,25 +44,23 @@ A minimum pipeline specification must include the following parameters:
   container that you want to execute, such as a Python script.
 
 !!! example
-
-```shell
-
-{
-  "pipeline": {
-    "name": "wordcount"
-  },
-  "transform": {
-    "image": "wordcount-image",
-    "cmd": ["python3", "/my_python_code.py"]
-  },
-  "input": {
-        "pfs": {
-            "repo": "data",
-            "glob": "/*"
+    ```shell
+    {
+      "pipeline": {
+        "name": "wordcount"
+      },
+      "transform": {
+        "image": "wordcount-image",
+        "cmd": ["python3", "/my_python_code.py"]
+      },
+      "input": {
+            "pfs": {
+                "repo": "data",
+                "glob": "/*"
+            }
         }
     }
-}
-```
+    ```
 Pachyderm has the following special types of pipelines whose behavior might slightly differ from the 'regular' pipelines described above:
 
 **Cron**
