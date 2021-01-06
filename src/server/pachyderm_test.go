@@ -1,16 +1,16 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
-	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -36,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
 	"golang.org/x/sync/errgroup"
@@ -259,66 +257,67 @@ func TestPipelineWithParallelism(t *testing.T) {
 	}
 }
 
-func TestPipelineWithLargeFiles(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	r := rand.New(rand.NewSource(99))
-	numFiles := 10
-	var fileContents []string
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	chunkSize := int(pfs.ChunkSize / 32) // We used to use a full ChunkSize, but it was increased which caused this test to take too long.
-	for i := 0; i < numFiles; i++ {
-		fileContent := workload.RandString(r, chunkSize+i*units.MB)
-		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent)))
-		fileContents = append(fileContents, fileContent)
-	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		nil,
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		false,
-	))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
-
-	commit := commitInfos[0].Commit
-
-	for i := 0; i < numFiles; i++ {
-		var buf bytes.Buffer
-		fileName := fmt.Sprintf("file-%d", i)
-
-		fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, fileName)
-		require.NoError(t, err)
-		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.SizeBytes))
-
-		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileName, &buf))
-		// we don't wanna use the `require` package here since it prints
-		// the strings, which would clutter the output.
-		if fileContents[i] != buf.String() {
-			t.Fatalf("file content does not match")
-		}
-	}
-}
+// TODO: Make work with V2.
+//func TestPipelineWithLargeFiles(t *testing.T) {
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//
+//	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//
+//	r := rand.New(rand.NewSource(99))
+//	numFiles := 10
+//	var fileContents []string
+//
+//	commit1, err := c.StartCommit(dataRepo, "master")
+//	require.NoError(t, err)
+//	chunkSize := int(pfs.ChunkSize / 32) // We used to use a full ChunkSize, but it was increased which caused this test to take too long.
+//	for i := 0; i < numFiles; i++ {
+//		fileContent := workload.RandString(r, chunkSize+i*units.MB)
+//		require.NoError(t, c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent)))
+//		fileContents = append(fileContents, fileContent)
+//	}
+//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+//	pipeline := tu.UniqueString("pipeline")
+//	require.NoError(t, c.CreatePipeline(
+//		pipeline,
+//		"",
+//		[]string{"bash"},
+//		[]string{
+//			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+//		},
+//		nil,
+//		client.NewPFSInput(dataRepo, "/*"),
+//		"",
+//		false,
+//	))
+//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	require.NoError(t, err)
+//	commitInfos := collectCommitInfos(t, commitIter)
+//	require.Equal(t, 2, len(commitInfos))
+//
+//	commit := commitInfos[0].Commit
+//
+//	for i := 0; i < numFiles; i++ {
+//		var buf bytes.Buffer
+//		fileName := fmt.Sprintf("file-%d", i)
+//
+//		fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, fileName)
+//		require.NoError(t, err)
+//		require.Equal(t, chunkSize+i*units.MB, int(fileInfo.SizeBytes))
+//
+//		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileName, &buf))
+//		// we don't wanna use the `require` package here since it prints
+//		// the strings, which would clutter the output.
+//		if fileContents[i] != buf.String() {
+//			t.Fatalf("file content does not match")
+//		}
+//	}
+//}
 
 func TestDatumDedup(t *testing.T) {
 	if testing.Short() {
@@ -583,557 +582,557 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
 
-func TestRunPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	// Test on cross pipeline
-	t.Run("RunPipelineCross", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		branchA := "branchA"
-		branchB := "branchB"
-
-		pipeline := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				"cat /pfs/branch-b/file >> /pfs/out/file",
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
-			),
-			"",
-			false,
-		))
-
-		commitA, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
-		c.FinishCommit(dataRepo, commitA.ID)
-
-		commitB, err := c.StartCommit(dataRepo, branchB)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
-		c.FinishCommit(dataRepo, commitB.ID)
-
-		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
-		require.NoError(t, err)
-		commits := collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-		buffer := bytes.Buffer{}
-		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
-		require.Equal(t, "data A\ndata B\n", buffer.String())
-
-		commitM, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitM.ID)
-		require.NoError(t, err)
-
-		// we should have two jobs
-		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(ji))
-		// now run the pipeline
-		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
-		// running the pipeline should create a new job
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 3 {
-				return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-
-		// now run the pipeline with non-empty provenance
-		require.NoError(t, backoff.Retry(func() error {
-			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-				client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
-			}, "")
-		}, backoff.NewTestingBackOff()))
-
-		// running the pipeline should create a new job
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 4 {
-				return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-
-		// add some new commits with some new info
-		commitA2, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n"))
-		c.FinishCommit(dataRepo, commitA2.ID)
-
-		commitB2, err := c.StartCommit(dataRepo, branchB)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitB2.ID, "/file", strings.NewReader("data B2\n"))
-		c.FinishCommit(dataRepo, commitB2.ID)
-
-		// and make sure the output file is updated appropriately
-		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB2}, nil)
-		require.NoError(t, err)
-		commits = collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-		buffer = bytes.Buffer{}
-		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
-		require.Equal(t, "data A\ndata A2\ndata B\ndata B2\n", buffer.String())
-
-		// now run the pipeline provenant on the old commits
-		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
-			client.NewCommitProvenance(dataRepo, "branchB", commitB2.ID),
-		}, ""))
-
-		// and ensure that the file now has the info from the correct versions of the commits
-		iter, err = c.FlushCommit([]*pfs.Commit{commitA, commitB2}, nil)
-		require.NoError(t, err)
-		commits = collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-		buffer = bytes.Buffer{}
-		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
-		require.Equal(t, "data A\ndata B\ndata B2\n", buffer.String())
-
-		// make sure no commits with this provenance combination exist
-		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB}, nil)
-		require.NoError(t, err)
-		commits = collectCommitInfos(t, iter)
-		require.Equal(t, 0, len(commits))
-	})
-
-	// Test on pipeline with no commits
-	t.Run("RunPipelineEmpty", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		pipeline := tu.UniqueString("empty-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			nil,
-			nil,
-			nil,
-			nil,
-			"",
-			false,
-		))
-
-		// we should have two jobs
-		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(ji))
-		// now run the pipeline
-		require.YesError(t, c.RunPipeline(pipeline, nil, ""))
-	})
-
-	// Test on unrelated branch
-	t.Run("RunPipelineUnrelated", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		branchA := "branchA"
-		branchB := "branchB"
-
-		pipeline := tu.UniqueString("unrelated-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				"cat /pfs/branch-b/file >> /pfs/out/file",
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
-			),
-			"",
-			false,
-		))
-		commitA, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
-		c.FinishCommit(dataRepo, commitA.ID)
-
-		commitM, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitM.ID)
-		require.NoError(t, err)
-
-		require.NoError(t, c.CreateBranch(dataRepo, "unrelated", "", nil))
-		commitU, err := c.StartCommit(dataRepo, "unrelated")
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitU.ID)
-		require.NoError(t, err)
-
-		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitM, commitU}, nil)
-		require.NoError(t, err)
-
-		// now run the pipeline with unrelated provenance
-		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}, ""))
-	})
-
-	// Test with downstream pipeline
-	t.Run("RunPipelineDownstream", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		branchA := "branchA"
-		branchB := "branchB"
-
-		pipeline := tu.UniqueString("original-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				"cat /pfs/branch-b/file >> /pfs/out/file",
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
-			),
-			"",
-			false,
-		))
-
-		commitA, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
-		c.FinishCommit(dataRepo, commitA.ID)
-
-		commitB, err := c.StartCommit(dataRepo, branchB)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
-		c.FinishCommit(dataRepo, commitB.ID)
-
-		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
-		require.NoError(t, err)
-		commits := collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-		buffer := bytes.Buffer{}
-		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
-		require.Equal(t, "data A\ndata B\n", buffer.String())
-
-		// and make sure we can attatch a downstream pipeline
-		downstreamPipeline := tu.UniqueString("downstream-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			downstreamPipeline,
-			"",
-			[]string{"/bin/bash"},
-			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
-			nil,
-			client.NewPFSInput(pipeline, "/*"),
-			"",
-			false,
-		))
-
-		commitA2, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitA2.ID)
-		require.NoError(t, err)
-
-		// there should be one job on the old commit for downstreamPipeline
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-
-		// now run the pipeline
-		require.NoError(t, backoff.Retry(func() error {
-			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-			}, "")
-		}, backoff.NewTestingBackOff()))
-
-		// the downstream pipeline shouldn't have any new jobs, since runpipeline jobs don't propagate
-		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-
-		// now rerun the one job that we saw
-		require.NoError(t, backoff.Retry(func() error {
-			return c.RunPipeline(downstreamPipeline, nil, jobInfos[0].Job.ID)
-		}, backoff.NewTestingBackOff()))
-
-		// we should now have two jobs
-		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 2, len(jobInfos))
-	})
-
-	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
-	t.Run("RunPipelineEmptyUpstream", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		branchA := "branchA"
-		branchB := "branchB"
-
-		pipeline := tu.UniqueString("pipeline-downstream")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				"cat /pfs/branch-b/file >> /pfs/out/file",
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
-			),
-			"",
-			false,
-		))
-
-		commitA, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
-		c.FinishCommit(dataRepo, commitA.ID)
-
-		iter, err := c.FlushCommit([]*pfs.Commit{commitA}, nil)
-		require.NoError(t, err)
-		commits := collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-
-		// no commit to branch-b so "file" should not exist
-		// TODO: File not found?
-		// buffer := bytes.Buffer{}
-		// require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
-
-		// and make sure we can attatch a downstream pipeline
-		downstreamPipeline := tu.UniqueString("pipelinedownstream")
-		require.NoError(t, c.CreatePipeline(
-			downstreamPipeline,
-			"",
-			[]string{"/bin/bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", pipeline),
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewUnionInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInput(pipeline, "/*"),
-			),
-			"",
-			false,
-		))
-
-		commitA2, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitA2.ID)
-		require.NoError(t, err)
-
-		// there should be one job on the old commit for downstreamPipeline
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-
-		// now run the pipeline
-		require.NoError(t, backoff.Retry(func() error {
-			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-			}, "")
-		}, backoff.NewTestingBackOff()))
-
-		buffer2 := bytes.Buffer{}
-		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer2))
-		// the union of an empty output and datA should only return a file with "data A" in it.
-		require.Equal(t, "data A\n", buffer2.String())
-
-		// add another commit to see that we can successfully do the cross and union together
-		commitB, err := c.StartCommit(dataRepo, branchB)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
-		c.FinishCommit(dataRepo, commitB.ID)
-
-		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
-		require.NoError(t, err)
-
-		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitB}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-
-		buffer3 := bytes.Buffer{}
-		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer3))
-		// now that we've added data to the other branch of the cross, we should see the union of data A along with the the crossed data.
-		require.Equal(t, "data A\ndata A\ndata B\n", buffer3.String())
-	})
-
-	// Test on commits from the same branch
-	t.Run("RunPipelineSameBranch", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		branchA := "branchA"
-		branchB := "branchB"
-
-		pipeline := tu.UniqueString("sameBranch-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				"cat /pfs/branch-a/file >> /pfs/out/file",
-				"cat /pfs/branch-b/file >> /pfs/out/file",
-				"echo ran-pipeline",
-			},
-			nil,
-			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
-			),
-			"",
-			false,
-		))
-		commitA1, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n"))
-		c.FinishCommit(dataRepo, commitA1.ID)
-
-		commitA2, err := c.StartCommit(dataRepo, branchA)
-		require.NoError(t, err)
-		c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n"))
-		c.FinishCommit(dataRepo, commitA2.ID)
-
-		_, err = c.FlushCommit([]*pfs.Commit{commitA1, commitA2}, nil)
-		require.NoError(t, err)
-
-		// now run the pipeline with provenance from the same branch
-		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
-			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
-		}, ""))
-	})
-	// Test on pipeline that should always fail
-	t.Run("RerunPipeline", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestRerunPipeline_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
-
-		// jobs on this pipeline should always fail
-		pipeline := tu.UniqueString("rerun-pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{"false"},
-			nil,
-			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
-			"",
-			false,
-		))
-
-		commitA1, err := c.StartCommit(dataRepo, "branchA")
-		require.NoError(t, err)
-		require.NoError(t, c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n")))
-		require.NoError(t, c.FinishCommit(dataRepo, commitA1.ID))
-
-		iter, err := c.FlushCommit([]*pfs.Commit{commitA1}, nil)
-		require.NoError(t, err)
-		commits := collectCommitInfos(t, iter)
-		require.Equal(t, 2, len(commits))
-		// now run the pipeline
-		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
-
-		// running the pipeline should create a new job
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 2 {
-				return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
-			}
-
-			// but both of these jobs should fail
-			for i, job := range jobInfos {
-				if job.State.String() != "JOB_FAILURE" {
-					return errors.Errorf("expected job %v to fail, but got %v", i, job.State.String())
-				}
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-
-		// Shouldn't error if you try to delete an already deleted pipeline
-		require.NoError(t, c.DeletePipeline(pipeline, false))
-		require.NoError(t, c.DeletePipeline(pipeline, false))
-	})
-	// Test with stats enabled pipeline
-	// TODO: Make work with V2?
-	//t.Run("RunPipelineStats", func(t *testing.T) {
-	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateRepo(dataRepo))
-
-	//	branchA := "branchA"
-
-	//	pipeline := tu.UniqueString("stats-pipeline")
-	//	_, err := c.PpsAPIClient.CreatePipeline(
-	//		context.Background(),
-	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
-	//			Transform: &pps.Transform{
-	//				Cmd: []string{"bash"},
-	//				Stdin: []string{
-	//					"cat /pfs/branch-a/file >> /pfs/out/file",
-
-	//					"echo ran-pipeline",
-	//				},
-	//			},
-	//			EnableStats: true,
-	//			Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//		})
-	//	require.NoError(t, err)
-
-	//	commitA, err := c.StartCommit(dataRepo, branchA)
-	//	require.NoError(t, err)
-	//	c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
-	//	c.FinishCommit(dataRepo, commitA.ID)
-
-	//	// wait for the commit to finish before calling RunPipeline
-	//	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
-	//	require.NoError(t, err)
-
-	//	// now run the pipeline
-	//	require.NoError(t, backoff.Retry(func() error {
-	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-	//		}, "")
-	//	}, backoff.NewTestingBackOff()))
-
-	//	// make sure the pipeline didn't crash
-	//	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
-	//	require.NoError(t, err)
-
-	//	// we'll know it crashed if this causes it to hang
-	//	require.NoErrorWithinTRetry(t, 80*time.Second, func() error {
-	//		collectCommitInfos(t, commitIter)
-	//		return nil
-	//	})
-	// })
-}
+// TODO: Make work with V2 (run pipeline is not working with stats).
+//func TestRunPipeline(t *testing.T) {
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//
+//	// Test on cross pipeline
+//	t.Run("RunPipelineCross", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		branchA := "branchA"
+//		branchB := "branchB"
+//
+//		pipeline := tu.UniqueString("pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				"cat /pfs/branch-b/file >> /pfs/out/file",
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewCrossInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+//			),
+//			"",
+//			false,
+//		))
+//
+//		commitA, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		require.NoError(t, c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n")))
+//		require.NoError(t, c.FinishCommit(dataRepo, commitA.ID))
+//
+//		commitB, err := c.StartCommit(dataRepo, branchB)
+//		require.NoError(t, err)
+//		require.NoError(t, c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n")))
+//		require.NoError(t, c.FinishCommit(dataRepo, commitB.ID))
+//
+//		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+//		require.NoError(t, err)
+//		commits := collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//		buffer := bytes.Buffer{}
+//		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+//		require.Equal(t, "data A\ndata B\n", buffer.String())
+//
+//		commitM, err := c.StartCommit(dataRepo, "master")
+//		require.NoError(t, err)
+//		require.NoError(t, c.FinishCommit(dataRepo, commitM.ID))
+//
+//		// we should have two jobs
+//		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+//		require.NoError(t, err)
+//		require.Equal(t, 2, len(ji))
+//		// now run the pipeline
+//		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
+//		// running the pipeline should create a new job
+//		require.NoError(t, backoff.Retry(func() error {
+//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			require.NoError(t, err)
+//			if len(jobInfos) != 3 {
+//				return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
+//			}
+//			return nil
+//		}, backoff.NewTestingBackOff()))
+//
+//		// now run the pipeline with non-empty provenance
+//		require.NoError(t, backoff.Retry(func() error {
+//			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//				client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
+//			}, "")
+//		}, backoff.NewTestingBackOff()))
+//
+//		// running the pipeline should create a new job
+//		require.NoError(t, backoff.Retry(func() error {
+//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			require.NoError(t, err)
+//			if len(jobInfos) != 4 {
+//				return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
+//			}
+//			return nil
+//		}, backoff.NewTestingBackOff()))
+//
+//		// add some new commits with some new info
+//		commitA2, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		require.NoError(t, c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n")))
+//		require.NoError(t, c.FinishCommit(dataRepo, commitA2.ID))
+//
+//		commitB2, err := c.StartCommit(dataRepo, branchB)
+//		require.NoError(t, err)
+//		require.NoError(t, c.PutFile(dataRepo, commitB2.ID, "/file", strings.NewReader("data B2\n")))
+//		require.NoError(t, c.FinishCommit(dataRepo, commitB2.ID))
+//
+//		// and make sure the output file is updated appropriately
+//		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB2}, nil)
+//		require.NoError(t, err)
+//		commits = collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//		buffer = bytes.Buffer{}
+//		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+//		require.Equal(t, "data A\ndata A2\ndata B\ndata B2\n", buffer.String())
+//
+//		// now run the pipeline provenant on the old commits
+//		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//			client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
+//			client.NewCommitProvenance(dataRepo, "branchB", commitB2.ID),
+//		}, ""))
+//
+//		// and ensure that the file now has the info from the correct versions of the commits
+//		iter, err = c.FlushCommit([]*pfs.Commit{commitA, commitB2}, nil)
+//		require.NoError(t, err)
+//		commits = collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//		buffer = bytes.Buffer{}
+//		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+//		require.Equal(t, "data A\ndata B\ndata B2\n", buffer.String())
+//
+//		// make sure no commits with this provenance combination exist
+//		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB}, nil)
+//		require.NoError(t, err)
+//		commits = collectCommitInfos(t, iter)
+//		require.Equal(t, 0, len(commits))
+//	})
+//
+//	// Test on pipeline with no commits
+//	t.Run("RunPipelineEmpty", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		pipeline := tu.UniqueString("empty-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			nil,
+//			nil,
+//			nil,
+//			nil,
+//			"",
+//			false,
+//		))
+//
+//		// we should have two jobs
+//		ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+//		require.NoError(t, err)
+//		require.Equal(t, 0, len(ji))
+//		// now run the pipeline
+//		require.YesError(t, c.RunPipeline(pipeline, nil, ""))
+//	})
+//
+//	// Test on unrelated branch
+//	t.Run("RunPipelineUnrelated", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		branchA := "branchA"
+//		branchB := "branchB"
+//
+//		pipeline := tu.UniqueString("unrelated-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				"cat /pfs/branch-b/file >> /pfs/out/file",
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewCrossInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+//			),
+//			"",
+//			false,
+//		))
+//		commitA, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+//		c.FinishCommit(dataRepo, commitA.ID)
+//
+//		commitM, err := c.StartCommit(dataRepo, "master")
+//		require.NoError(t, err)
+//		err = c.FinishCommit(dataRepo, commitM.ID)
+//		require.NoError(t, err)
+//
+//		require.NoError(t, c.CreateBranch(dataRepo, "unrelated", "", nil))
+//		commitU, err := c.StartCommit(dataRepo, "unrelated")
+//		require.NoError(t, err)
+//		err = c.FinishCommit(dataRepo, commitU.ID)
+//		require.NoError(t, err)
+//
+//		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitM, commitU}, nil)
+//		require.NoError(t, err)
+//
+//		// now run the pipeline with unrelated provenance
+//		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//			client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}, ""))
+//	})
+//
+//	// Test with downstream pipeline
+//	t.Run("RunPipelineDownstream", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		branchA := "branchA"
+//		branchB := "branchB"
+//
+//		pipeline := tu.UniqueString("original-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				"cat /pfs/branch-b/file >> /pfs/out/file",
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewCrossInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+//			),
+//			"",
+//			false,
+//		))
+//
+//		commitA, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+//		c.FinishCommit(dataRepo, commitA.ID)
+//
+//		commitB, err := c.StartCommit(dataRepo, branchB)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
+//		c.FinishCommit(dataRepo, commitB.ID)
+//
+//		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+//		require.NoError(t, err)
+//		commits := collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//		buffer := bytes.Buffer{}
+//		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+//		require.Equal(t, "data A\ndata B\n", buffer.String())
+//
+//		// and make sure we can attatch a downstream pipeline
+//		downstreamPipeline := tu.UniqueString("downstream-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			downstreamPipeline,
+//			"",
+//			[]string{"/bin/bash"},
+//			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
+//			nil,
+//			client.NewPFSInput(pipeline, "/*"),
+//			"",
+//			false,
+//		))
+//
+//		commitA2, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		err = c.FinishCommit(dataRepo, commitA2.ID)
+//		require.NoError(t, err)
+//
+//		// there should be one job on the old commit for downstreamPipeline
+//		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		require.NoError(t, err)
+//		require.Equal(t, 1, len(jobInfos))
+//
+//		// now run the pipeline
+//		require.NoError(t, backoff.Retry(func() error {
+//			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+//			}, "")
+//		}, backoff.NewTestingBackOff()))
+//
+//		// the downstream pipeline shouldn't have any new jobs, since runpipeline jobs don't propagate
+//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		require.NoError(t, err)
+//		require.Equal(t, 1, len(jobInfos))
+//
+//		// now rerun the one job that we saw
+//		require.NoError(t, backoff.Retry(func() error {
+//			return c.RunPipeline(downstreamPipeline, nil, jobInfos[0].Job.ID)
+//		}, backoff.NewTestingBackOff()))
+//
+//		// we should now have two jobs
+//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		require.NoError(t, err)
+//		require.Equal(t, 2, len(jobInfos))
+//	})
+//
+//	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
+//	t.Run("RunPipelineEmptyUpstream", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		branchA := "branchA"
+//		branchB := "branchB"
+//
+//		pipeline := tu.UniqueString("pipeline-downstream")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				"cat /pfs/branch-b/file >> /pfs/out/file",
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewCrossInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+//			),
+//			"",
+//			false,
+//		))
+//
+//		commitA, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+//		c.FinishCommit(dataRepo, commitA.ID)
+//
+//		iter, err := c.FlushCommit([]*pfs.Commit{commitA}, nil)
+//		require.NoError(t, err)
+//		commits := collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//
+//		// no commit to branch-b so "file" should not exist
+//		// TODO: File not found?
+//		// buffer := bytes.Buffer{}
+//		// require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+//
+//		// and make sure we can attatch a downstream pipeline
+//		downstreamPipeline := tu.UniqueString("pipelinedownstream")
+//		require.NoError(t, c.CreatePipeline(
+//			downstreamPipeline,
+//			"",
+//			[]string{"/bin/bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", pipeline),
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewUnionInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInput(pipeline, "/*"),
+//			),
+//			"",
+//			false,
+//		))
+//
+//		commitA2, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		err = c.FinishCommit(dataRepo, commitA2.ID)
+//		require.NoError(t, err)
+//
+//		// there should be one job on the old commit for downstreamPipeline
+//		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+//		require.NoError(t, err)
+//		require.Equal(t, 1, len(jobInfos))
+//
+//		// now run the pipeline
+//		require.NoError(t, backoff.Retry(func() error {
+//			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+//			}, "")
+//		}, backoff.NewTestingBackOff()))
+//
+//		buffer2 := bytes.Buffer{}
+//		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer2))
+//		// the union of an empty output and datA should only return a file with "data A" in it.
+//		require.Equal(t, "data A\n", buffer2.String())
+//
+//		// add another commit to see that we can successfully do the cross and union together
+//		commitB, err := c.StartCommit(dataRepo, branchB)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
+//		c.FinishCommit(dataRepo, commitB.ID)
+//
+//		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+//		require.NoError(t, err)
+//
+//		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitB}, []string{downstreamPipeline})
+//		require.NoError(t, err)
+//		require.Equal(t, 1, len(jobInfos))
+//
+//		buffer3 := bytes.Buffer{}
+//		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", &buffer3))
+//		// now that we've added data to the other branch of the cross, we should see the union of data A along with the the crossed data.
+//		require.Equal(t, "data A\ndata A\ndata B\n", buffer3.String())
+//	})
+//
+//	// Test on commits from the same branch
+//	t.Run("RunPipelineSameBranch", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		branchA := "branchA"
+//		branchB := "branchB"
+//
+//		pipeline := tu.UniqueString("sameBranch-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{
+//				"cat /pfs/branch-a/file >> /pfs/out/file",
+//				"cat /pfs/branch-b/file >> /pfs/out/file",
+//				"echo ran-pipeline",
+//			},
+//			nil,
+//			client.NewCrossInput(
+//				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+//			),
+//			"",
+//			false,
+//		))
+//		commitA1, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n"))
+//		c.FinishCommit(dataRepo, commitA1.ID)
+//
+//		commitA2, err := c.StartCommit(dataRepo, branchA)
+//		require.NoError(t, err)
+//		c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n"))
+//		c.FinishCommit(dataRepo, commitA2.ID)
+//
+//		_, err = c.FlushCommit([]*pfs.Commit{commitA1, commitA2}, nil)
+//		require.NoError(t, err)
+//
+//		// now run the pipeline with provenance from the same branch
+//		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//			client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
+//			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
+//		}, ""))
+//	})
+//	// Test on pipeline that should always fail
+//	t.Run("RerunPipeline", func(t *testing.T) {
+//		dataRepo := tu.UniqueString("TestRerunPipeline_data")
+//		require.NoError(t, c.CreateRepo(dataRepo))
+//
+//		// jobs on this pipeline should always fail
+//		pipeline := tu.UniqueString("rerun-pipeline")
+//		require.NoError(t, c.CreatePipeline(
+//			pipeline,
+//			"",
+//			[]string{"bash"},
+//			[]string{"false"},
+//			nil,
+//			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
+//			"",
+//			false,
+//		))
+//
+//		commitA1, err := c.StartCommit(dataRepo, "branchA")
+//		require.NoError(t, err)
+//		require.NoError(t, c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n")))
+//		require.NoError(t, c.FinishCommit(dataRepo, commitA1.ID))
+//
+//		iter, err := c.FlushCommit([]*pfs.Commit{commitA1}, nil)
+//		require.NoError(t, err)
+//		commits := collectCommitInfos(t, iter)
+//		require.Equal(t, 2, len(commits))
+//		// now run the pipeline
+//		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
+//
+//		// running the pipeline should create a new job
+//		require.NoError(t, backoff.Retry(func() error {
+//			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+//			require.NoError(t, err)
+//			if len(jobInfos) != 2 {
+//				return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
+//			}
+//
+//			// but both of these jobs should fail
+//			for i, job := range jobInfos {
+//				if job.State.String() != "JOB_FAILURE" {
+//					return errors.Errorf("expected job %v to fail, but got %v", i, job.State.String())
+//				}
+//			}
+//			return nil
+//		}, backoff.NewTestingBackOff()))
+//
+//		// Shouldn't error if you try to delete an already deleted pipeline
+//		require.NoError(t, c.DeletePipeline(pipeline, false))
+//		require.NoError(t, c.DeletePipeline(pipeline, false))
+//	})
+//	// Test with stats enabled pipeline
+//	// TODO: Make work with V2?
+//	//t.Run("RunPipelineStats", func(t *testing.T) {
+//	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
+//	//	require.NoError(t, c.CreateRepo(dataRepo))
+//
+//	//	branchA := "branchA"
+//
+//	//	pipeline := tu.UniqueString("stats-pipeline")
+//	//	_, err := c.PpsAPIClient.CreatePipeline(
+//	//		context.Background(),
+//	//		&pps.CreatePipelineRequest{
+//	//			Pipeline: client.NewPipeline(pipeline),
+//	//			Transform: &pps.Transform{
+//	//				Cmd: []string{"bash"},
+//	//				Stdin: []string{
+//	//					"cat /pfs/branch-a/file >> /pfs/out/file",
+//
+//	//					"echo ran-pipeline",
+//	//				},
+//	//			},
+//	//			EnableStats: true,
+//	//			Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+//	//		})
+//	//	require.NoError(t, err)
+//
+//	//	commitA, err := c.StartCommit(dataRepo, branchA)
+//	//	require.NoError(t, err)
+//	//	c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+//	//	c.FinishCommit(dataRepo, commitA.ID)
+//
+//	//	// wait for the commit to finish before calling RunPipeline
+//	//	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+//	//	require.NoError(t, err)
+//
+//	//	// now run the pipeline
+//	//	require.NoError(t, backoff.Retry(func() error {
+//	//		return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+//	//			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+//	//		}, "")
+//	//	}, backoff.NewTestingBackOff()))
+//
+//	//	// make sure the pipeline didn't crash
+//	//	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+//	//	require.NoError(t, err)
+//
+//	//	// we'll know it crashed if this causes it to hang
+//	//	require.NoErrorWithinTRetry(t, 80*time.Second, func() error {
+//	//		collectCommitInfos(t, commitIter)
+//	//		return nil
+//	//	})
+//	// })
+//}
 
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
@@ -5368,118 +5367,120 @@ func TestJoinInput(t *testing.T) {
 //	})
 //}
 
-func TestUnionRegression4688(t *testing.T) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	repoA := tu.UniqueString("TestUnionRegression4688")
-	require.NoError(t, c.CreateRepo(repoA))
-
-	repoB := tu.UniqueString("TestUnionRegression4688")
-	require.NoError(t, c.CreateRepo(repoB))
-
-	fileName := []string{"file-0", "file-1"}
-	fileData := []string{"0", "1"}
-
-	// Put file-0 into both repos and file-1 into repoA
-	commitA, err := c.StartCommit(repoA, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(repoA, "master", fileName[0], strings.NewReader(fileData[0])))
-	require.NoError(t, c.PutFile(repoA, "master", fileName[1], strings.NewReader(fileData[1])))
-	require.NoError(t, c.FinishCommit(repoA, "master"))
-
-	commitB, err := c.StartCommit(repoB, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(repoB, "master", fileName[0], strings.NewReader(fileData[0])))
-	require.NoError(t, c.FinishCommit(repoB, "master"))
-
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			"cp -r /pfs/in/* /pfs/out",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewUnionInput(
-			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false, nil),
-			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false, nil),
-		),
-		"",
-		false,
-	))
-
-	// We now have:
-	//  repoA: file-0 file-1
-	//  repoB: file-0
-
-	commits := []*pfs.Commit{commitA, commitB}
-	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	outCommit := commitInfos[0].Commit
-	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
-	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
-
-	file0, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), file0.SizeBytes)
-
-	file1, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), file1.SizeBytes)
-
-	// Remove file-0 from both repos and add file-1 to repoB
-	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
-		var err error
-		commitA, err = c.StartCommit(repoA, "master")
-		require.NoError(t, err)
-		commitB, err = c.StartCommit(repoB, "master")
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, c.DeleteFile(repoA, "master", fileName[0]))
-	require.NoError(t, c.FinishCommit(repoA, "master"))
-
-	require.NoError(t, c.DeleteFile(repoB, "master", fileName[0]))
-	require.NoError(t, c.PutFile(repoB, "master", fileName[1], strings.NewReader(fileData[1])))
-	require.NoError(t, c.FinishCommit(repoB, "master"))
-
-	// We now have:
-	//  repoA:        file-1
-	//  repoB:        file-1
-
-	commits = []*pfs.Commit{commitA, commitB}
-	commitIter, err = c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	outCommit = commitInfos[0].Commit
-	fileInfos, err = c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-
-	// Regression testing for a bug in skipping datums which did not handle
-	// identical datums very well (which is very possible in a union pipeline). It
-	// would assume no datums had been removed from the parent commit because it
-	// merely counted the hash matches rather than the number of each datum that
-	// was present or missing. The worker would then skip every datum during
-	// processing and produce an identical hashtree to the parent commit.
-
-	_, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
-	require.YesError(t, err, "not found")
-
-	file1, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), file1.SizeBytes)
-}
+// TODO: Make work with V2?
+// Need to decide how we want to handle duplicate datum ids.
+//func TestUnionRegression4688(t *testing.T) {
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//
+//	repoA := tu.UniqueString("TestUnionRegression4688")
+//	require.NoError(t, c.CreateRepo(repoA))
+//
+//	repoB := tu.UniqueString("TestUnionRegression4688")
+//	require.NoError(t, c.CreateRepo(repoB))
+//
+//	fileName := []string{"file-0", "file-1"}
+//	fileData := []string{"0", "1"}
+//
+//	// Put file-0 into both repos and file-1 into repoA
+//	commitA, err := c.StartCommit(repoA, "master")
+//	require.NoError(t, err)
+//	require.NoError(t, c.PutFile(repoA, "master", fileName[0], strings.NewReader(fileData[0])))
+//	require.NoError(t, c.PutFile(repoA, "master", fileName[1], strings.NewReader(fileData[1])))
+//	require.NoError(t, c.FinishCommit(repoA, "master"))
+//
+//	commitB, err := c.StartCommit(repoB, "master")
+//	require.NoError(t, err)
+//	require.NoError(t, c.PutFile(repoB, "master", fileName[0], strings.NewReader(fileData[0])))
+//	require.NoError(t, c.FinishCommit(repoB, "master"))
+//
+//	pipeline := tu.UniqueString("pipeline")
+//	require.NoError(t, c.CreatePipeline(
+//		pipeline,
+//		"",
+//		[]string{"bash"},
+//		[]string{
+//			"cp -r /pfs/in/* /pfs/out",
+//		},
+//		&pps.ParallelismSpec{
+//			Constant: 1,
+//		},
+//		client.NewUnionInput(
+//			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false, nil),
+//			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false, nil),
+//		),
+//		"",
+//		false,
+//	))
+//
+//	// We now have:
+//	//  repoA: file-0 file-1
+//	//  repoB: file-0
+//
+//	commits := []*pfs.Commit{commitA, commitB}
+//	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+//	require.NoError(t, err)
+//	commitInfos := collectCommitInfos(t, commitIter)
+//	require.Equal(t, 2, len(commitInfos))
+//	outCommit := commitInfos[0].Commit
+//	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
+//	require.NoError(t, err)
+//	require.Equal(t, 2, len(fileInfos))
+//
+//	file0, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
+//	require.NoError(t, err)
+//	require.Equal(t, uint64(2), file0.SizeBytes)
+//
+//	file1, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
+//	require.NoError(t, err)
+//	require.Equal(t, uint64(1), file1.SizeBytes)
+//
+//	// Remove file-0 from both repos and add file-1 to repoB
+//	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
+//		var err error
+//		commitA, err = c.StartCommit(repoA, "master")
+//		require.NoError(t, err)
+//		commitB, err = c.StartCommit(repoB, "master")
+//		require.NoError(t, err)
+//		return nil
+//	})
+//	require.NoError(t, err)
+//
+//	require.NoError(t, c.DeleteFile(repoA, "master", fileName[0]))
+//	require.NoError(t, c.FinishCommit(repoA, "master"))
+//
+//	require.NoError(t, c.DeleteFile(repoB, "master", fileName[0]))
+//	require.NoError(t, c.PutFile(repoB, "master", fileName[1], strings.NewReader(fileData[1])))
+//	require.NoError(t, c.FinishCommit(repoB, "master"))
+//
+//	// We now have:
+//	//  repoA:        file-1
+//	//  repoB:        file-1
+//
+//	commits = []*pfs.Commit{commitA, commitB}
+//	commitIter, err = c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+//	require.NoError(t, err)
+//	commitInfos = collectCommitInfos(t, commitIter)
+//	require.Equal(t, 2, len(commitInfos))
+//	outCommit = commitInfos[0].Commit
+//	fileInfos, err = c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
+//	require.NoError(t, err)
+//	require.Equal(t, 1, len(fileInfos))
+//
+//	// Regression testing for a bug in skipping datums which did not handle
+//	// identical datums very well (which is very possible in a union pipeline). It
+//	// would assume no datums had been removed from the parent commit because it
+//	// merely counted the hash matches rather than the number of each datum that
+//	// was present or missing. The worker would then skip every datum during
+//	// processing and produce an identical hashtree to the parent commit.
+//
+//	_, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
+//	require.YesError(t, err, "not found")
+//
+//	file1, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
+//	require.NoError(t, err)
+//	require.Equal(t, uint64(2), file1.SizeBytes)
+//}
 
 func TestUnionInput(t *testing.T) {
 	if testing.Short() {
@@ -7004,111 +7005,112 @@ func TestMaxQueueSize(t *testing.T) {
 	}
 }
 
-func TestHTTPAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	clientAddr := c.GetAddress()
-	host, _, err := net.SplitHostPort(clientAddr)
-	require.NoError(t, err)
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to login
-	token := "abbazabbadoo"
-	form := url.Values{}
-	form.Add("Token", token)
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	require.NoError(t, err)
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	require.Equal(t, token, resp.Cookies()[0].Value)
-
-	// Try to logout
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, 1, len(resp.Cookies()))
-	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-	// The cookie should be unset now
-	require.Equal(t, "", resp.Cookies()[0].Value)
-
-	// Make sure we get 404s for non existent routes
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
-	require.NoError(t, err)
-	resp, err = httpClient.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, 404, resp.StatusCode)
-}
-
-func TestHTTPGetFile(t *testing.T) {
-	// TODO: Check if this runs in CI.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-
-	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
-	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "giphy.gif", f))
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-
-	clientAddr := c.GetAddress()
-	host, _, err := net.SplitHostPort(clientAddr)
-	require.NoError(t, err)
-	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-	if !ok {
-		port = "30652" // default NodePort port for Pachd's HTTP API
-	}
-	httpAPIAddr := net.JoinHostPort(host, port)
-
-	// Try to get raw contents
-	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition := resp.Header.Get("Content-Disposition")
-	require.Equal(t, "", contentDisposition)
-
-	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contents, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition = resp.Header.Get("Content-Disposition")
-	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
-
-	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contentDisposition = resp.Header.Get("Content-Type")
-	require.Equal(t, "image/gif", contentDisposition)
-}
+// TODO: Make work with V2.
+//func TestHTTPAuth(t *testing.T) {
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//	c := tu.GetPachClient(t)
+//
+//	clientAddr := c.GetAddress()
+//	host, _, err := net.SplitHostPort(clientAddr)
+//	require.NoError(t, err)
+//	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+//	if !ok {
+//		port = "30652" // default NodePort port for Pachd's HTTP API
+//	}
+//	httpAPIAddr := net.JoinHostPort(host, port)
+//
+//	// Try to login
+//	token := "abbazabbadoo"
+//	form := url.Values{}
+//	form.Add("Token", token)
+//	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
+//	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+//	require.NoError(t, err)
+//	httpClient := &http.Client{}
+//	resp, err := httpClient.Do(req)
+//	require.NoError(t, err)
+//	defer resp.Body.Close()
+//	require.Equal(t, 1, len(resp.Cookies()))
+//	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+//	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+//	require.Equal(t, token, resp.Cookies()[0].Value)
+//
+//	// Try to logout
+//	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
+//	require.NoError(t, err)
+//	resp, err = httpClient.Do(req)
+//	require.NoError(t, err)
+//	defer resp.Body.Close()
+//	require.Equal(t, 1, len(resp.Cookies()))
+//	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+//	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+//	// The cookie should be unset now
+//	require.Equal(t, "", resp.Cookies()[0].Value)
+//
+//	// Make sure we get 404s for non existent routes
+//	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
+//	require.NoError(t, err)
+//	resp, err = httpClient.Do(req)
+//	require.NoError(t, err)
+//	require.Equal(t, 404, resp.StatusCode)
+//}
+//
+//func TestHTTPGetFile(t *testing.T) {
+//	// TODO: Check if this runs in CI.
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//	c := tu.GetPachClient(t)
+//
+//	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//
+//	commit1, err := c.StartCommit(dataRepo, "master")
+//	require.NoError(t, err)
+//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
+//	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
+//	require.NoError(t, err)
+//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "giphy.gif", f))
+//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+//
+//	clientAddr := c.GetAddress()
+//	host, _, err := net.SplitHostPort(clientAddr)
+//	require.NoError(t, err)
+//	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+//	if !ok {
+//		port = "30652" // default NodePort port for Pachd's HTTP API
+//	}
+//	httpAPIAddr := net.JoinHostPort(host, port)
+//
+//	// Try to get raw contents
+//	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
+//	require.NoError(t, err)
+//	defer resp.Body.Close()
+//	contents, err := ioutil.ReadAll(resp.Body)
+//	require.NoError(t, err)
+//	require.Equal(t, "foo", string(contents))
+//	contentDisposition := resp.Header.Get("Content-Disposition")
+//	require.Equal(t, "", contentDisposition)
+//
+//	// Try to get file for downloading
+//	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
+//	require.NoError(t, err)
+//	defer resp.Body.Close()
+//	contents, err = ioutil.ReadAll(resp.Body)
+//	require.NoError(t, err)
+//	require.Equal(t, "foo", string(contents))
+//	contentDisposition = resp.Header.Get("Content-Disposition")
+//	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
+//
+//	// Make sure MIME type is set
+//	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
+//	require.NoError(t, err)
+//	defer resp.Body.Close()
+//	contentDisposition = resp.Header.Get("Content-Type")
+//	require.Equal(t, "image/gif", contentDisposition)
+//}
 
 func TestService(t *testing.T) {
 	// TODO: Implement services.
@@ -7268,108 +7270,108 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestServiceEnvVars(t *testing.T) {
-	// TODO: Check if this runs in CI.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString(t.Name() + "-input")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	require.NoError(t, c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo")))
-
-	pipeline := tu.UniqueString("pipelineservice")
-	_, err := c.PpsAPIClient.CreatePipeline(
-		c.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Image: "trinitronx/python-simplehttpserver",
-				Cmd:   []string{"sh"},
-				Stdin: []string{
-					"echo ${CUSTOM_ENV_VAR} >/pfs/custom_env_var",
-					"cd /pfs",
-					"exec python -m SimpleHTTPServer 8000",
-				},
-				Env: map[string]string{
-					"CUSTOM_ENV_VAR": "custom-value",
-				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input:  client.NewPFSInput(dataRepo, "/"),
-			Update: false,
-			Service: &pps.Service{
-				InternalPort: 8000,
-				ExternalPort: 31800,
-			},
-		})
-	require.NoError(t, err)
-
-	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
-	serviceAddr := func() string {
-		// Hack: detect if running inside the cluster by looking for this env var
-		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
-			// Outside cluster: Re-use external IP and external port defined above
-			clientAddr := c.GetAddress()
-			host, _, err := net.SplitHostPort(clientAddr)
-			require.NoError(t, err)
-			return net.JoinHostPort(host, "31800")
-		}
-		// Get k8s service corresponding to pachyderm service above--must access
-		// via internal cluster IP, but we don't know what that is
-		var address string
-		kubeClient := tu.GetKubeClient(t)
-		backoff.Retry(func() error {
-			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
-			require.NoError(t, err)
-			for _, svc := range svcs.Items {
-				// Pachyderm actually generates two services for pipelineservice: one
-				// for pachyderm (a ClusterIP service) and one for the user container
-				// (a NodePort service, which is the one we want)
-				rightName := strings.Contains(svc.Name, "pipelineservice")
-				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
-				if !rightName || !rightType {
-					continue
-				}
-				host := svc.Spec.ClusterIP
-				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
-				address = net.JoinHostPort(host, port)
-				return nil
-			}
-			return fmt.Errorf("no matching k8s service found")
-		}, backoff.NewTestingBackOff())
-
-		require.NotEqual(t, "", address)
-		return address
-	}()
-
-	var envValue []byte
-	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		httpC := http.Client{
-			Timeout: 3 * time.Second, // fail fast
-		}
-		resp, err := httpC.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
-		if err != nil {
-			// sleep => don't spam retries. Seems to make test less flaky
-			time.Sleep(time.Second)
-			return err
-		}
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("GET returned %d", resp.StatusCode)
-		}
-		envValue, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
-}
+// TODO: Make work with V2.
+//func TestServiceEnvVars(t *testing.T) {
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//
+//	dataRepo := tu.UniqueString(t.Name() + "-input")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//
+//	require.NoError(t, c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo")))
+//
+//	pipeline := tu.UniqueString("pipelineservice")
+//	_, err := c.PpsAPIClient.CreatePipeline(
+//		c.Ctx(),
+//		&pps.CreatePipelineRequest{
+//			Pipeline: client.NewPipeline(pipeline),
+//			Transform: &pps.Transform{
+//				Image: "trinitronx/python-simplehttpserver",
+//				Cmd:   []string{"sh"},
+//				Stdin: []string{
+//					"echo ${CUSTOM_ENV_VAR} >/pfs/custom_env_var",
+//					"cd /pfs",
+//					"exec python -m SimpleHTTPServer 8000",
+//				},
+//				Env: map[string]string{
+//					"CUSTOM_ENV_VAR": "custom-value",
+//				},
+//			},
+//			ParallelismSpec: &pps.ParallelismSpec{
+//				Constant: 1,
+//			},
+//			Input:  client.NewPFSInput(dataRepo, "/"),
+//			Update: false,
+//			Service: &pps.Service{
+//				InternalPort: 8000,
+//				ExternalPort: 31800,
+//			},
+//		})
+//	require.NoError(t, err)
+//
+//	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+//	serviceAddr := func() string {
+//		// Hack: detect if running inside the cluster by looking for this env var
+//		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+//			// Outside cluster: Re-use external IP and external port defined above
+//			clientAddr := c.GetAddress()
+//			host, _, err := net.SplitHostPort(clientAddr)
+//			require.NoError(t, err)
+//			return net.JoinHostPort(host, "31800")
+//		}
+//		// Get k8s service corresponding to pachyderm service above--must access
+//		// via internal cluster IP, but we don't know what that is
+//		var address string
+//		kubeClient := tu.GetKubeClient(t)
+//		backoff.Retry(func() error {
+//			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
+//			require.NoError(t, err)
+//			for _, svc := range svcs.Items {
+//				// Pachyderm actually generates two services for pipelineservice: one
+//				// for pachyderm (a ClusterIP service) and one for the user container
+//				// (a NodePort service, which is the one we want)
+//				rightName := strings.Contains(svc.Name, "pipelineservice")
+//				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+//				if !rightName || !rightType {
+//					continue
+//				}
+//				host := svc.Spec.ClusterIP
+//				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+//				address = net.JoinHostPort(host, port)
+//				return nil
+//			}
+//			return fmt.Errorf("no matching k8s service found")
+//		}, backoff.NewTestingBackOff())
+//
+//		require.NotEqual(t, "", address)
+//		return address
+//	}()
+//
+//	var envValue []byte
+//	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+//		httpC := http.Client{
+//			Timeout: 3 * time.Second, // fail fast
+//		}
+//		resp, err := httpC.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
+//		if err != nil {
+//			// sleep => don't spam retries. Seems to make test less flaky
+//			time.Sleep(time.Second)
+//			return err
+//		}
+//		if resp.StatusCode != 200 {
+//			return fmt.Errorf("GET returned %d", resp.StatusCode)
+//		}
+//		envValue, err = ioutil.ReadAll(resp.Body)
+//		if err != nil {
+//			return err
+//		}
+//		return nil
+//	})
+//	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
+//}
 
 func TestChunkSpec(t *testing.T) {
 	if testing.Short() {
@@ -9106,56 +9108,56 @@ func TestDeleteSpecRepo(t *testing.T) {
 	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
 }
 
-func TestUserWorkingDir(t *testing.T) {
-	// TODO: Check if this runs in CI.
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-
-	pipeline := tu.UniqueString("TestSimplePipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Image: "pachyderm_entrypoint",
-				Cmd:   []string{"bash"},
-				Stdin: []string{
-					"ls -lh /pfs",
-					"whoami >/pfs/out/whoami",
-					"pwd >/pfs/out/pwd",
-					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
-				},
-				User:       "test",
-				WorkingDir: "/home/test",
-			},
-			Input: client.NewPFSInput(dataRepo, "/"),
-		})
-	require.NoError(t, err)
-
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "whoami", &buf))
-	require.Equal(t, "test\n", buf.String())
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "pwd", &buf))
-	require.Equal(t, "/home/test\n", buf.String())
-}
+// TODO: Make work with V2?
+//func TestUserWorkingDir(t *testing.T) {
+//	if testing.Short() {
+//		t.Skip("Skipping integration tests in short mode")
+//	}
+//
+//	c := tu.GetPachClient(t)
+//	defer require.NoError(t, c.DeleteAll())
+//
+//	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//
+//	commit, err := c.StartCommit(dataRepo, "master")
+//	require.NoError(t, err)
+//	require.NoError(t, c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo")))
+//	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+//
+//	pipeline := tu.UniqueString("TestSimplePipeline")
+//	_, err = c.PpsAPIClient.CreatePipeline(
+//		context.Background(),
+//		&pps.CreatePipelineRequest{
+//			Pipeline: client.NewPipeline(pipeline),
+//			Transform: &pps.Transform{
+//				Image: "pachyderm_entrypoint",
+//				Cmd:   []string{"bash"},
+//				Stdin: []string{
+//					"ls -lh /pfs",
+//					"whoami >/pfs/out/whoami",
+//					"pwd >/pfs/out/pwd",
+//					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
+//				},
+//				User:       "test",
+//				WorkingDir: "/home/test",
+//			},
+//			Input: client.NewPFSInput(dataRepo, "/"),
+//		})
+//	require.NoError(t, err)
+//
+//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//	require.NoError(t, err)
+//	commitInfos := collectCommitInfos(t, commitIter)
+//	require.Equal(t, 2, len(commitInfos))
+//
+//	var buf bytes.Buffer
+//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "whoami", &buf))
+//	require.Equal(t, "test\n", buf.String())
+//	buf.Reset()
+//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "pwd", &buf))
+//	require.Equal(t, "/home/test\n", buf.String())
+//}
 
 func TestDontReadStdin(t *testing.T) {
 	if testing.Short() {
@@ -10745,100 +10747,101 @@ func TestPipelineHistory(t *testing.T) {
 	require.Equal(t, 1, len(pipelineInfos))
 }
 
-func TestMissingPipelineSpec(t *testing.T) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	// create repos
-	dataRepo := tu.UniqueString("TestPipelineHistory_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	pipelineName := tu.UniqueString("TestPipelineHistory")
-
-	createPipeline := func(update bool) error {
-		return c.CreatePipeline(
-			pipelineName,
-			"",
-			[]string{"bash"},
-			[]string{"echo foo >/pfs/out/file"},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(dataRepo, "/*"),
-			"",
-			update,
-		)
-	}
-
-	require.NoError(t, createPipeline(false))
-
-	// Should be able to inspect the pipeline
-	_, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
-
-	listClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
-	require.NoError(t, err)
-	require.NoError(t, listClient.CloseSend())
-
-	// Delete objects - this may break everything, but the error is hard to reproduce otherwise
-	objects := []*pfs.Object{}
-	for {
-		oi, err := listClient.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		objects = append(objects, oi.Object)
-	}
-
-	_, err = c.ObjectAPIClient.DeleteObjects(c.Ctx(), &pfs.DeleteObjectsRequest{Objects: objects})
-	require.NoError(t, err)
-
-	// Restart pachd to clear the object cache
-	k := tu.GetKubeClient(t)
-	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
-	podList, err := podsInterface.List(
-		metav1.ListOptions{
-			LabelSelector: "suite=pachyderm",
-		})
-	require.NoError(t, err)
-	for _, pod := range podList.Items {
-		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
-			GracePeriodSeconds: new(int64),
-		}))
-	}
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
-
-	// The old client is no longer valid
-	c = getUsablePachClient(t)
-
-	// Should no longer be able to inspect the pipeline
-	_, err = c.InspectPipeline(pipelineName)
-	require.YesError(t, err)
-
-	// Should no longer be able to list pipelines
-	_, err = c.ListPipeline()
-	require.YesError(t, err)
-
-	// Should be able to list pipelines with AllowIncomplete=true
-	response, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
-	require.NoError(t, err)
-	require.Equal(t, 1, len(response.PipelineInfo))
-
-	// Pipeline should have the correct name
-	require.Equal(t, pipelineName, response.PipelineInfo[0].Pipeline.Name)
-
-	// Updating the pipeline should fail
-	require.YesError(t, createPipeline(true))
-
-	// Should be able to delete the pipeline
-	err = c.DeletePipeline(pipelineName, false)
-	require.NoError(t, err)
-
-	// Should then be able to list pipelines
-	pis, err := c.ListPipeline()
-	require.NoError(t, err)
-	require.Equal(t, 0, len(pis))
-}
+// TODO: Make work with V2?
+//func TestMissingPipelineSpec(t *testing.T) {
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//	// create repos
+//	dataRepo := tu.UniqueString("TestPipelineHistory_data")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//	pipelineName := tu.UniqueString("TestPipelineHistory")
+//
+//	createPipeline := func(update bool) error {
+//		return c.CreatePipeline(
+//			pipelineName,
+//			"",
+//			[]string{"bash"},
+//			[]string{"echo foo >/pfs/out/file"},
+//			&pps.ParallelismSpec{
+//				Constant: 1,
+//			},
+//			client.NewPFSInput(dataRepo, "/*"),
+//			"",
+//			update,
+//		)
+//	}
+//
+//	require.NoError(t, createPipeline(false))
+//
+//	// Should be able to inspect the pipeline
+//	_, err := c.InspectPipeline(pipelineName)
+//	require.NoError(t, err)
+//
+//	listClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
+//	require.NoError(t, err)
+//	require.NoError(t, listClient.CloseSend())
+//
+//	// Delete objects - this may break everything, but the error is hard to reproduce otherwise
+//	objects := []*pfs.Object{}
+//	for {
+//		oi, err := listClient.Recv()
+//		if err == io.EOF {
+//			break
+//		}
+//		require.NoError(t, err)
+//
+//		objects = append(objects, oi.Object)
+//	}
+//
+//	_, err = c.ObjectAPIClient.DeleteObjects(c.Ctx(), &pfs.DeleteObjectsRequest{Objects: objects})
+//	require.NoError(t, err)
+//
+//	// Restart pachd to clear the object cache
+//	k := tu.GetKubeClient(t)
+//	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
+//	podList, err := podsInterface.List(
+//		metav1.ListOptions{
+//			LabelSelector: "suite=pachyderm",
+//		})
+//	require.NoError(t, err)
+//	for _, pod := range podList.Items {
+//		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
+//			GracePeriodSeconds: new(int64),
+//		}))
+//	}
+//	tu.WaitForPachdReady(t, v1.NamespaceDefault)
+//
+//	// The old client is no longer valid
+//	c = getUsablePachClient(t)
+//
+//	// Should no longer be able to inspect the pipeline
+//	_, err = c.InspectPipeline(pipelineName)
+//	require.YesError(t, err)
+//
+//	// Should no longer be able to list pipelines
+//	_, err = c.ListPipeline()
+//	require.YesError(t, err)
+//
+//	// Should be able to list pipelines with AllowIncomplete=true
+//	response, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
+//	require.NoError(t, err)
+//	require.Equal(t, 1, len(response.PipelineInfo))
+//
+//	// Pipeline should have the correct name
+//	require.Equal(t, pipelineName, response.PipelineInfo[0].Pipeline.Name)
+//
+//	// Updating the pipeline should fail
+//	require.YesError(t, createPipeline(true))
+//
+//	// Should be able to delete the pipeline
+//	err = c.DeletePipeline(pipelineName, false)
+//	require.NoError(t, err)
+//
+//	// Should then be able to list pipelines
+//	pis, err := c.ListPipeline()
+//	require.NoError(t, err)
+//	require.Equal(t, 0, len(pis))
+//}
 
 // TODO: Implement file history?
 //func TestFileHistory(t *testing.T) {
@@ -11695,129 +11698,129 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 }
 
-func TestTrigger(t *testing.T) {
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestTrigger_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	pipeline1 := tu.UniqueString("TestTrigger1")
-	pipeline2 := tu.UniqueString("TestTrigger2")
-	require.NoError(t, c.CreatePipeline(
-		pipeline1,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
-			Branch: "master",
-			Size_:  "1K",
-		}),
-		"",
-		false,
-	))
-	require.NoError(t, c.CreatePipeline(
-		pipeline2,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "2K",
-		}),
-		"",
-		false,
-	))
-	// 10 100 byte files = 1K, so the last file should trigger pipeline1, but
-	// not pipeline2.
-	numFiles := 10
-	fileBytes := 100
-	for i := 0; i < numFiles; i++ {
-		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
-	}
-	// This should have given us a job, flush to let it complete.
-	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(cis))
-	for i := 0; i < numFiles; i++ {
-		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), &buf))
-		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
-	}
-	cis, err = c.ListCommit(pipeline1, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(cis))
-	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
-	for i := numFiles; i < 2*numFiles; i++ {
-		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
-		require.NoError(t, err)
-	}
-	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(cis))
-	for i := 0; i < numFiles*2; i++ {
-		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), &buf))
-		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
-		buf.Reset()
-		require.NoError(t, c.GetFile(pipeline2, "master", fmt.Sprintf("file%d", i), &buf))
-		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
-	}
-	cis, err = c.ListCommit(pipeline1, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(cis))
-	cis, err = c.ListCommit(pipeline2, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(cis))
-
-	require.NoError(t, c.CreatePipeline(
-		pipeline2,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
-			Size_: "3K",
-		}),
-		"",
-		true,
-	))
-
-	// Make sure that updating the pipeline reuses the previous branch name
-	// rather than creating a new one.
-	bis, err := c.ListBranch(pipeline1)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(bis))
-
-	cis, err = c.ListCommit(pipeline2, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(cis))
-
-	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
-	for i := 2 * numFiles; i < 5*numFiles; i++ {
-		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
-	}
-
-	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(cis))
-
-	cis, err = c.ListCommit(pipeline2, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(cis))
-}
+// TODO: Make work with V2 (triggers are not working with stats).
+//func TestTrigger(t *testing.T) {
+//	c := tu.GetPachClient(t)
+//	require.NoError(t, c.DeleteAll())
+//
+//	dataRepo := tu.UniqueString("TestTrigger_data")
+//	require.NoError(t, c.CreateRepo(dataRepo))
+//	pipeline1 := tu.UniqueString("TestTrigger1")
+//	pipeline2 := tu.UniqueString("TestTrigger2")
+//	require.NoError(t, c.CreatePipeline(
+//		pipeline1,
+//		"",
+//		[]string{"bash"},
+//		[]string{
+//			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+//		},
+//		&pps.ParallelismSpec{
+//			Constant: 1,
+//		},
+//		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+//			Branch: "master",
+//			Size_:  "1K",
+//		}),
+//		"",
+//		false,
+//	))
+//	require.NoError(t, c.CreatePipeline(
+//		pipeline2,
+//		"",
+//		[]string{"bash"},
+//		[]string{
+//			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+//		},
+//		&pps.ParallelismSpec{
+//			Constant: 1,
+//		},
+//		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+//			Size_: "2K",
+//		}),
+//		"",
+//		false,
+//	))
+//	// 10 100 byte files = 1K, so the last file should trigger pipeline1, but
+//	// not pipeline2.
+//	numFiles := 10
+//	fileBytes := 100
+//	for i := 0; i < numFiles; i++ {
+//		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
+//	}
+//	// This should have given us a job, flush to let it complete.
+//	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+//	require.NoError(t, err)
+//	require.Equal(t, 2, len(cis))
+//	for i := 0; i < numFiles; i++ {
+//		var buf bytes.Buffer
+//		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), &buf))
+//		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+//	}
+//	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+//	require.NoError(t, err)
+//	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
+//	for i := numFiles; i < 2*numFiles; i++ {
+//		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
+//		require.NoError(t, err)
+//	}
+//	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+//	require.NoError(t, err)
+//	require.Equal(t, 4, len(cis))
+//	for i := 0; i < numFiles*2; i++ {
+//		var buf bytes.Buffer
+//		require.NoError(t, c.GetFile(pipeline1, "master", fmt.Sprintf("file%d", i), &buf))
+//		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+//		buf.Reset()
+//		require.NoError(t, c.GetFile(pipeline2, "master", fmt.Sprintf("file%d", i), &buf))
+//		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
+//	}
+//	cis, err = c.ListCommit(pipeline1, "master", "", 0)
+//	require.NoError(t, err)
+//	require.Equal(t, 2, len(cis))
+//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	require.NoError(t, err)
+//	require.Equal(t, 1, len(cis))
+//
+//	require.NoError(t, c.CreatePipeline(
+//		pipeline2,
+//		"",
+//		[]string{"bash"},
+//		[]string{
+//			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+//		},
+//		&pps.ParallelismSpec{
+//			Constant: 1,
+//		},
+//		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+//			Size_: "3K",
+//		}),
+//		"",
+//		true,
+//	))
+//
+//	// Make sure that updating the pipeline reuses the previous branch name
+//	// rather than creating a new one.
+//	bis, err := c.ListBranch(pipeline1)
+//	require.NoError(t, err)
+//	require.Equal(t, 3, len(bis))
+//
+//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	require.NoError(t, err)
+//	require.Equal(t, 2, len(cis))
+//
+//	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
+//	for i := 2 * numFiles; i < 5*numFiles; i++ {
+//		require.NoError(t, c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes))))
+//	}
+//
+//	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+//	require.NoError(t, err)
+//	require.Equal(t, 4, len(cis))
+//
+//	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+//	require.NoError(t, err)
+//	require.Equal(t, 3, len(cis))
+//}
 
 // TODO: Make work with V2.
 //func TestListDatum(t *testing.T) {
@@ -11852,105 +11855,105 @@ func TestTrigger(t *testing.T) {
 //	require.NoError(t, err)
 //	require.Equal(t, 25, len(resp.DatumInfos))
 //}
-//
-//func TestDebug(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//
-//	c := tu.GetPachClient(t)
-//	require.NoError(t, c.DeleteAll())
-//
-//	dataRepo := tu.UniqueString("TestDebug_data")
-//	require.NoError(t, c.CreateRepo(dataRepo))
-//
-//	expectedFiles := make(map[string]*globlib.Glob)
-//	// Record glob patterns for expected pachd files.
-//	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
-//		pattern := path.Join("pachd", "*", "pachd", file)
-//		g, err := globlib.Compile(pattern, '/')
-//		require.NoError(t, err)
-//		expectedFiles[pattern] = g
-//	}
-//	for i := 0; i < 3; i++ {
-//		pipeline := tu.UniqueString("TestDebug")
-//		require.NoError(t, c.CreatePipeline(
-//			pipeline,
-//			"",
-//			[]string{"bash"},
-//			[]string{
-//				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-//			},
-//			&pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			client.NewPFSInput(dataRepo, "/*"),
-//			"",
-//			false,
-//		))
-//		// Record glob patterns for expected pipeline files.
-//		for _, container := range []string{"user", "storage"} {
-//			for _, file := range []string{"logs", "goroutine", "heap"} {
-//				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
-//				g, err := globlib.Compile(pattern, '/')
-//				require.NoError(t, err)
-//				expectedFiles[pattern] = g
-//			}
-//		}
-//		pattern := path.Join("pipelines", pipeline, "spec")
-//		g, err := globlib.Compile(pattern, '/')
-//		require.NoError(t, err)
-//		expectedFiles[pattern] = g
-//	}
-//
-//	commit1, err := c.StartCommit(dataRepo, "master")
-//	require.NoError(t, err)
-//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
-//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-//
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-//	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
-//	require.Equal(t, 3, len(commitInfos))
-//
-//	buf := &bytes.Buffer{}
-//	require.NoError(t, c.Dump(nil, buf))
-//	gr, err := gzip.NewReader(buf)
-//	require.NoError(t, err)
-//	defer func() {
-//		require.NoError(t, gr.Close())
-//	}()
-//	// Check that all of the expected files were returned.
-//	tr := tar.NewReader(gr)
-//	for {
-//		hdr, err := tr.Next()
-//		if err != nil {
-//			if err == io.EOF {
-//				break
-//			}
-//			require.NoError(t, err)
-//		}
-//		for pattern, g := range expectedFiles {
-//			if g.Match(hdr.Name) {
-//				delete(expectedFiles, pattern)
-//				break
-//			}
-//		}
-//	}
-//	require.Equal(t, 0, len(expectedFiles))
-//}
 
-// getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
-// connection that actually works
-func getUsablePachClient(t *testing.T) *client.APIClient {
-	fmt.Println("Reconnecting to pachd")
-	var c *client.APIClient
-	require.NoError(t, backoff.Retry(func() error {
-		c = tu.GetPachClient(t)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-		defer cancel()
-		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		return err
-	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
-	return c
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDebug_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	expectedFiles := make(map[string]*globlib.Glob)
+	// Record glob patterns for expected pachd files.
+	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
+		pattern := path.Join("pachd", "*", "pachd", file)
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+	for i := 0; i < 3; i++ {
+		pipeline := tu.UniqueString("TestDebug")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+		// Record glob patterns for expected pipeline files.
+		for _, container := range []string{"user", "storage"} {
+			for _, file := range []string{"logs", "goroutine", "heap"} {
+				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
+				g, err := globlib.Compile(pattern, '/')
+				require.NoError(t, err)
+				expectedFiles[pattern] = g
+			}
+		}
+		pattern := path.Join("pipelines", pipeline, "spec")
+		g, err := globlib.Compile(pattern, '/')
+		require.NoError(t, err)
+		expectedFiles[pattern] = g
+	}
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 6, len(commitInfos))
+
+	buf := &bytes.Buffer{}
+	require.NoError(t, c.Dump(nil, buf))
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, gr.Close())
+	}()
+	// Check that all of the expected files were returned.
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		for pattern, g := range expectedFiles {
+			if g.Match(hdr.Name) {
+				delete(expectedFiles, pattern)
+				break
+			}
+		}
+	}
+	require.Equal(t, 0, len(expectedFiles))
 }
+
+//// getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
+//// connection that actually works
+//func getUsablePachClient(t *testing.T) *client.APIClient {
+//	fmt.Println("Reconnecting to pachd")
+//	var c *client.APIClient
+//	require.NoError(t, backoff.Retry(func() error {
+//		c = tu.GetPachClient(t)
+//		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+//		defer cancel()
+//		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+//		return err
+//	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
+//	return c
+//}

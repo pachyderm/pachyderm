@@ -2,15 +2,16 @@ package server
 
 import (
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"golang.org/x/net/context"
 )
+
+// TODO: Block tmp repo writes.
 
 var _ APIServer = &validatedAPIServer{}
 
@@ -31,7 +32,7 @@ func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv)
 func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	repo := request.Repo
 	// Check if the caller is authorized to delete this repo
-	if err := a.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
+	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
 		return err
 	}
 	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)
@@ -48,7 +49,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.Transactio
 	if userCommit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
@@ -65,7 +66,7 @@ func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.Transactio
 	if userCommit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	return a.APIServer.DeleteCommitInTransaction(txnCtx, request)
@@ -94,10 +95,10 @@ func (a *validatedAPIServer) CopyFile(ctx context.Context, request *pfs.CopyFile
 		return nil, errors.New("dst commit repo cannot be nil")
 	}
 	// authorization
-	if err := a.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(ctx), src.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	if err := a.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(ctx), dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 	if err := checkFilePath(dst.Path); err != nil {
@@ -111,7 +112,7 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 	if err := validateFile(request.File); err != nil {
 		return nil, err
 	}
-	if err := a.checkIsAuthorized(ctx, request.File.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(ctx), request.File.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	return a.APIServer.InspectFile(ctx, request)
@@ -122,7 +123,7 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
-	if err := a.checkIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(server.Context()), request.File.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	return a.APIServer.ListFile(request, server)
@@ -141,7 +142,7 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	if file.Commit.Repo == nil {
 		return errors.New("file commit repo cannot be nil")
 	}
-	if err := a.checkIsAuthorized(server.Context(), file.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(server.Context()), file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	return a.APIServer.WalkFile(request, server)
@@ -157,7 +158,7 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 	if commit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.checkIsAuthorized(server.Context(), commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(server.Context()), commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	return a.APIServer.GlobFile(request, server)
@@ -167,55 +168,10 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 	if req.Commit == nil {
 		return nil, errors.Errorf("commit cannot be nil")
 	}
-	if err := a.checkIsAuthorized(ctx, req.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckIsAuthorized(a.env.GetPachClient(ctx), req.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 	return a.APIServer.ClearCommit(ctx, req)
-}
-
-func (a *validatedAPIServer) getAuth(ctx context.Context) client.AuthAPIClient {
-	return a.env.GetPachClient(ctx)
-}
-
-func (a *validatedAPIServer) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
-	if r.GetName() == tmpRepo {
-		if s != auth.Scope_READER {
-			return errors.Errorf("can only read from __repo__")
-		}
-		return nil
-	}
-
-	client := a.getAuth(ctx)
-	me, err := client.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		return nil
-	}
-	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err := client.Authorize(ctx, req)
-	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
-	}
-	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
-	}
-	return nil
-}
-
-func (a *validatedAPIServer) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
-	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		return nil
-	}
-
-	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
-	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
-	}
-	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
-	}
-	return nil
 }
 
 func validateFile(file *pfs.File) error {

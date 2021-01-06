@@ -86,6 +86,7 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 }
 
 func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error) error {
+	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
 	return pachClient.WithFileOperationClient(metaCommit.Repo.Name, metaCommit.ID, func(focMeta *client.FileOperationClient) error {
@@ -477,6 +478,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+
+	// TODO: This is a hack to ensure that deletions are generated before any output is uploaded.
+	// This may be resolved by either explicitly generating deletes first (somewhat similar to this hack) or
+	// relying on temporary fileset identifiers being associated with the commit after the datumsets have been
+	// generated (and therefore after the deletes).
+	if err := pj.withDeleter(pachClient, func() error {
+		return pj.jdit.Iterate(func(_ *datum.Meta) error { return nil })
+	}); err != nil {
+		return err
+	}
+
 	// Setup datum set subtask channel.
 	subtasks := make(chan *work.Task)
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -491,19 +503,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
 				}
 			}
-			return pj.withDeleter(pachClient, func() error {
-				return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileClient) error) error {
-					subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
-					if err != nil {
-						return err
-					}
-					select {
-					case subtasks <- subtask:
-					case <-ctx.Done():
-						return ctx.Err()
-					}
-					return nil
-				})
+			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileClient) error) error {
+				subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
+				if err != nil {
+					return err
+				}
+				select {
+				case subtasks <- subtask:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				return nil
 			})
 		})
 		// Setup goroutine for running and collecting datum set subtasks.

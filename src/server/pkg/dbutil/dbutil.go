@@ -29,23 +29,41 @@ const (
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
-	db, err := NewDB()
-	require.NoError(t, err)
 	dbName := ephemeralDBName()
-	db.MustExec("CREATE DATABASE " + dbName)
-	t.Log("database", dbName, "successfully created")
-	t.Cleanup(func() {
-		if !devDontDropDatabase {
-			db.MustExec("DROP DATABASE " + dbName)
-		}
-		require.NoError(t, db.Close())
-	})
+	require.NoError(t, WithDB(func(db *sqlx.DB) error {
+		db.MustExec("CREATE DATABASE " + dbName)
+		t.Log("database", dbName, "successfully created")
+		return nil
+	}))
+	if !devDontDropDatabase {
+		t.Cleanup(func() {
+			require.NoError(t, WithDB(func(db *sqlx.DB) error {
+				db.MustExec("DROP DATABASE " + dbName)
+				t.Log("database", dbName, "successfully deleted")
+				return nil
+			}))
+		})
+	}
 	db2, err := NewDB(WithDBName(dbName))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db2.Close())
 	})
 	return db2
+}
+
+// WithDB creates a database connection that is scoped to the passed in callback.
+func WithDB(cb func(*sqlx.DB) error, opts ...Option) (retErr error) {
+	db, err := NewDB(opts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := db.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	return cb(db)
 }
 
 type dBConfig struct {
