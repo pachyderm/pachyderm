@@ -263,8 +263,21 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}, nil
 }
 
-// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE)
+// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), without the activation code
 func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp *ec.GetStateResponse, retErr error) {
+	record, err := a.getEnterpriseRecord()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ec.GetStateResponse{
+		Info:  record.Info,
+		State: record.State,
+	}, nil
+}
+
+// GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
+func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivationCodeRequest) (resp *ec.GetActivationCodeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
@@ -283,6 +296,10 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		}
 	}
 
+	return a.getEnterpriseRecord()
+}
+
+func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error) {
 	record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
 	if !ok {
 		return nil, errors.Errorf("could not retrieve enterprise expiration time")
@@ -292,9 +309,9 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
 	}
 	if expiration.IsZero() {
-		return &ec.GetStateResponse{State: ec.State_NONE}, nil
+		return &ec.GetActivationCodeResponse{State: ec.State_NONE}, nil
 	}
-	resp = &ec.GetStateResponse{
+	resp := &ec.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.Expires,
 		},
