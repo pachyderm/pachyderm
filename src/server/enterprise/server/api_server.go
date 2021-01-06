@@ -15,6 +15,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -266,6 +267,21 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp *ec.GetStateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return nil, err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return nil, &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "GetState",
+			}
+		}
+	}
 
 	record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
 	if !ok {

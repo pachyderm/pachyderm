@@ -86,6 +86,19 @@ func TestGetState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestGetStateNotAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	aliceClient := testutil.GetAuthenticatedPachClient(t, "alice")
+	_, err := aliceClient.Enterprise.GetState(aliceClient.Ctx(), &enterprise.GetStateRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
 func TestDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
