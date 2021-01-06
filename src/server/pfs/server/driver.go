@@ -508,7 +508,16 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
 func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
+	// Check that the user is logged in (user doesn't need any access level to
+	// fsck, but they must be authenticated if auth is active)
+	if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
+		}
+	}
+
 	ctx := pachClient.Ctx()
+
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join
 
@@ -2965,6 +2974,13 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	}
 	if branch.Repo == nil {
 		return nil, errors.New("branch repo cannot be nil")
+	}
+
+	// Check that the user is logged in, but don't require any access level
+	if _, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{}); err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
+		}
 	}
 
 	result := &pfs.BranchInfo{}
