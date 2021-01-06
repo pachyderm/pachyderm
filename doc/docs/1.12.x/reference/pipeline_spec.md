@@ -949,16 +949,13 @@ a spout pipeline does not have
 a PFS input.
 Instead, it consumes data from an outside source.
 
-!!! Note A pipeline can be **either a spout
-    or a service**,
-    not both. 
-    Therefore, if you added
-    the `service` as a top-level
-    object in your pipeline,
-    you cannot add `spout`.
-    However, you can **expose a service from inside of a spout pipeline** by
-    specifying it as a field in the `spout` spec. Then, Kubernetes creates
-    a service endpoint that you can expose externally. You can get the information
+!!! Note
+    A service pipeline cannot be configured as a spout,
+    but **a spout can have a service added to it**
+    by adding the `service` attribute to the `spout` field.
+    In that case, Kubernetes creates
+    a service endpoint that you can expose externally. 
+    You can get the information
     about the service by running `kubectl get services`.
 
 For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).

@@ -813,7 +813,10 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 		c.Ctx(),
 		&types.Empty{},
 	)
-	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return secretInfos.SecretInfo, nil
 }
 
 // CreatePipelineService creates a new pipeline service.

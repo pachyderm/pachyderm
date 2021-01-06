@@ -1,7 +1,7 @@
 # Inner and Outer Join Pipelines 
 >![pach_logo](./img/pach_logo.svg) The outer join functionality is available in version **1.12 and higher**.
 - Our first example will walk you through a typical inner join case. In a similar way to SQL, "inner-join" pipelines **only** run your code on the files, in your joined repositories, that match a specific naming pattern  (i.e., ***match your glob pattern/capture groups***). In Pachyderm's terms, inner joins will only create a datum (see Key concepts below) if there is a match in all join repos.
-- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that for an input repo with `"outer_join": true` set in the pipeline specifications, datums will still be created even if it does not have a match.
+- Our second example will showcase 3 variations of "outer-join" pipelines and outline how they differ from the first. In short, outer joins specify that, for an input repo with `"outer_join": true` set in the pipeline specifications, datums will still be created even if they do not have a match.
 
 
 >![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the join operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
@@ -55,7 +55,7 @@ The goal of this example is to build a list of all purchases by `zipcode.` This 
     }
 ```
 
->![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](#Add the link to group) could have been used instead.  
+>![pach_logo](./img/pach_logo.svg) Had we not needed the location info(zip) in the content of the Store file, and, say, just wanted to aggregate purchases by STOREID, then a [group](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/) could have been used instead.  
 
 * Repo: `purchases` - Each purchase info is kept in a file named by concatenating the purchase's order number and its store ID.
 ```shell
@@ -179,7 +179,7 @@ Now for a visual confirmation of their content:
 ```shell
 $ pachctl get file inner_join@master:/02108.txt
 ```
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](Add link to group). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 ## 5. Example 2 - Outer-Join pipeline creation 
 >![pach_logo](./img/pach_logo.svg) You specify an outer join by adding an "outer_join" boolean field to an input repo in your pipeline spec (see outer_join.json [here](https://github.com/pachyderm/pachyderm/blob/example-join/examples/joins/outer_join.json)). This boolean can be set independently on one or many input repo. Setting `"outer_join": true` means that files in that repo, even if they don't match, will still be processed as a datum. 

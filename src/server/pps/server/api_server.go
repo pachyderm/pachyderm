@@ -100,32 +100,27 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix             string
-	env                    *serviceenv.ServiceEnv
-	txnEnv                 *txnenv.TransactionEnv
-	namespace              string
-	workerImage            string
-	workerSidecarImage     string
-	workerImagePullPolicy  string
-	storageRoot            string
-	storageBackend         string
-	storageHostPath        string
-	cacheRoot              string
-	iamRole                string
-	imagePullSecret        string
-	noExposeDockerSocket   bool
-	reporter               *metrics.Reporter
-	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func() // protected by monitorCancelsMu
-	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
-	pollPipelinesMu        sync.Mutex
-	pollCancel             func() // protected by pollPipelinesMu
-	workerUsesRoot         bool
-	workerGrpcPort         uint16
-	port                   uint16
-	httpPort               uint16
-	peerPort               uint16
-	gcPercent              int
+	etcdPrefix            string
+	env                   *serviceenv.ServiceEnv
+	txnEnv                *txnenv.TransactionEnv
+	namespace             string
+	workerImage           string
+	workerSidecarImage    string
+	workerImagePullPolicy string
+	storageRoot           string
+	storageBackend        string
+	storageHostPath       string
+	cacheRoot             string
+	iamRole               string
+	imagePullSecret       string
+	noExposeDockerSocket  bool
+	reporter              *metrics.Reporter
+	workerUsesRoot        bool
+	workerGrpcPort        uint16
+	port                  uint16
+	httpPort              uint16
+	peerPort              uint16
+	gcPercent             int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -493,7 +488,8 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
 			}); err == nil {
-				return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
+				// the repo already exists, so we need the same permissions as update
+				required = auth.Scope_WRITER
 			} else if !isNotFoundErr(err) {
 				return err
 			}
@@ -3069,7 +3065,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Get current pipeline info from:
 	// - etcdPipelineInfo
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
-	//   pipeline's spec branch_
+	//   pipeline's spec branch)
 	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
@@ -3107,11 +3103,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		}
 	}
 
-	// Delete pipeline's workers
-	if err := a.deletePipelineResources(ctx, request.Pipeline.Name); err != nil {
-		return nil, errors.Wrapf(err, "error deleting workers")
-	}
-
 	// If necessary, revoke the pipeline's auth token and remove it from its
 	// inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
@@ -3135,6 +3126,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
+	// TODO(msteffen): a job may be created by the worker master after this step
+	// but before the pipeline RC is deleted. Check for orphaned jobs in
+	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
@@ -3161,15 +3155,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
 		})
 	})
-	// Delete EtcdPipelineInfo
-	eg.Go(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
-		}
-		return nil
-	})
 	// Delete cron input repos
 	if !request.KeepRepo {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -3180,6 +3165,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		})
 	}
+	// Delete EtcdPipelineInfo
+	eg.Go(func() error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+		}); err != nil {
+			return errors.Wrapf(err, "collection.Delete")
+		}
+		return nil
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -3516,9 +3510,13 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
+
 	var s v1.Secret
-	err := json.Unmarshal(request.GetFile(), &s)
-	if err != nil {
+	if err := json.Unmarshal(request.GetFile(), &s); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal secret")
 	}
 
@@ -3533,7 +3531,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	labels["secret-source"] = "pachyderm-user"
 	s.SetLabels(labels)
 
-	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
 	return &types.Empty{}, nil
@@ -3545,6 +3543,11 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
@@ -3558,6 +3561,11 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
 	if err != nil {
@@ -3585,6 +3593,11 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
 		LabelSelector: "secret-source=pachyderm-user",
