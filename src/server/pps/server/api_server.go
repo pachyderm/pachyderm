@@ -3516,9 +3516,13 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
+
 	var s v1.Secret
-	err := json.Unmarshal(request.GetFile(), &s)
-	if err != nil {
+	if err := json.Unmarshal(request.GetFile(), &s); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal secret")
 	}
 
@@ -3533,7 +3537,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	labels["secret-source"] = "pachyderm-user"
 	s.SetLabels(labels)
 
-	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
 	return &types.Empty{}, nil
@@ -3545,6 +3549,11 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
@@ -3558,6 +3567,11 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
 	if err != nil {
@@ -3585,6 +3599,11 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	if _, err := checkLoggedIn(pachClient); err != nil {
+		return nil, err
+	}
 
 	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
 		LabelSelector: "secret-source=pachyderm-user",
