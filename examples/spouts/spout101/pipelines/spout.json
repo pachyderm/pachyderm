@@ -7,6 +7,6 @@
     "description": "A spout pipeline that emulates the reception of data from an external source.",
     "transform": {
         "cmd": [ "python", "consumer/main.py" ],
-        "image": "spout101:1"
+        "image": "npepin/pachyderm-spout101:10"
       }
   }

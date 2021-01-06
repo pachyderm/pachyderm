@@ -13,7 +13,7 @@ For those familiar with enterprise integration patterns,
 a Pachyderm spout implements the
 *[Polling Consumer](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PollingConsumer.html)* 
 (the consumer subscribes to a stream of data,
-ingests its published messages, 
+reads its published messages, 
 then push them to the spout's output repository).
 
 Generally, spout pipelines are ideal for situations 
@@ -36,11 +36,10 @@ To write into your output repo, you will need to use the `put file` API call via
     - or your own API client.  
 
 
-You configure a spout in the 
-[pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/)
-file by adding a `spout` section after its pipeline section.
+You configure a spout by adding a `spout` attribute to your 
+[pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file.
 At a minimum, a spout pipeline will need a pipeline name,
-an empty spout section, and a transform section
+an empty spout, and a transform attribute
 where you will specify the transformation you want
 to execute on the messages consumed.
 

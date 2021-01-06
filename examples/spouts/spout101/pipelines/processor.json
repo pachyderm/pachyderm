@@ -12,6 +12,6 @@
     },
     "transform": {
         "cmd": [ "python", "processor/main.py" ],
-        "image": "spout101:1"
+        "image": "npepin/pachyderm-spout101:10"
       }
   }

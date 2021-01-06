@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
-import python_pachyderm
+from python_pachyderm import Client
 import os
+import json
 import hashlib
 from random import randint
 from time import sleep
@@ -26,14 +27,20 @@ def polling_consumer():
         msgs = receive_message()
         if msgs:
             print("connecting to pachd")
-            client = python_pachyderm.Client(host="pachd", port=650)
-            print(client.health())
-            print("connected")
-            with client.commit('spout', 'master') as c:
-                for msg in msgs:
-                    # hash the file to assign unique name
-                    filename = hashlib.sha256(msg).hexdigest() + ".txt"
-                    client.put_file_bytes(c, filename, msg)
+            # to Connect locally on Minikube
+            # client = python_pachyderm.Client(host="pachd", port=650)
+
+            # To connect on hub
+            with open("/pachctl/config.json", 'r') as config:
+                
+                client = Client.new_from_config(config)
+                print("connected")
+            
+                with client.commit('spout', 'master') as c:
+                    for msg in msgs:
+                        # hash the file to assign unique name
+                        filename = hashlib.sha256(msg).hexdigest() + ".txt"
+                        client.put_file_bytes(c, filename, msg)
 
 
 if __name__ == '__main__':
