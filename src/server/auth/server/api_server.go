@@ -841,28 +841,6 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest) (resp *auth.ModifyClusterRoleBindingResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	switch a.activationState() {
-	case none:
-		return nil, auth.ErrNotActivated
-	case partial:
-		return nil, auth.ErrPartiallyActivated
-	}
-
-	// Get calling user. The user must be an admin to change the list of admins
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "ModifyClusterRoleBinding",
-		}
-	}
 
 	roles := []auth.ClusterRole{} // make sure map value is non-nil
 	if req.Roles != nil {
@@ -877,6 +855,30 @@ func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.Modi
 }
 
 func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings map[string][]auth.ClusterRole) error {
+	// Check user is authenticated as a super admin for both ModifyClusterRoleBinding and ModifyAdmins
+	switch a.activationState() {
+	case none:
+		return auth.ErrNotActivated
+	case partial:
+		return auth.ErrPartiallyActivated
+	}
+
+	// Get calling user. The user must be an admin to change the list of admins
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return err
+	}
+	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
+	if err != nil {
+		return err
+	}
+	if !isAdmin {
+		return &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "ModifyClusterRoleBinding",
+		}
+	}
+
 	// We need confirm that there will be at least one SUPER admin after applying
 	// all role bindings. We copy the admin cache to an in-memory collection here
 	// and update it below while applying the role bindings. At the end, we
