@@ -22,45 +22,12 @@ import (
 func (d *driver) compactCommit(master *work.Master, commit *pfs.Commit) error {
 	ctx := master.Ctx()
 	return d.commitStore.UpdateFileset(ctx, commit, func(x fileset.ID) (*fileset.ID, error) {
-		if d.storage.IsCompacted(ctx, x) {
-			return nil
+		if yes, err := d.storage.IsCompacted(ctx, x); err != nil {
+			return nil, err
+		} else if yes {
+			return &x, nil
 		}
-		y, _, err := d.storage.Compact(ctx, []fileset.ID{x}, defaultTTL)
-		return y, err
-	})
-}
-
-func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
-	ctx := master.Ctx()
-	// resolve prefixes into paths
-	inputPaths := []string{}
-	for _, inputPrefix := range inputPrefixes {
-		if err := d.storage.Store().Walk(ctx, inputPrefix, func(p string) error {
-			inputPaths = append(inputPaths, p)
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	// TODO: There is probably a better way to handle empty filesets.
-	if len(inputPaths) == 0 {
-		w := d.storage.NewWriter(ctx, outputPath)
-		return w.Close()
-	}
-	if len(inputPaths) == 1 {
-		return d.storage.Copy(ctx, inputPaths[0], outputPath, 0)
-	}
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
-		res, err := d.compactIter(ctx, compactSpec{
-			master:     master,
-			inputPaths: inputPaths,
-			maxFanIn:   d.env.StorageCompactionMaxFanIn,
-		})
-		if err != nil {
-			return err
-		}
-		renewer.Add(res.OutputPath)
-		return d.storage.Copy(ctx, res.OutputPath, outputPath, 0)
+		return d.storage.Compact(ctx, []fileset.ID{x}, defaultTTL)
 	})
 }
 

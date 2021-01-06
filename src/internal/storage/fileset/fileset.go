@@ -7,7 +7,7 @@ import (
 )
 
 // ID is the unique identifier for a fileset
-// TODO: change this to [16]byte
+// TODO: change this to [16]byte, add ParseID, and HexString methods.
 type ID = string
 
 func newID() ID {

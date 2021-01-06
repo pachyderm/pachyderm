@@ -368,7 +368,7 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 		return nil, err
 	}
 	return &pfs.CreateFilesetResponse{
-		FilesetId: filesetID,
+		FilesetId: *filesetID,
 	}, nil
 }
 

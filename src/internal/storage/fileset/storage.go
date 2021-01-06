@@ -62,6 +62,9 @@ func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...St
 	for _, opt := range opts {
 		opt(s)
 	}
+	if s.levelFactor < 1 {
+		panic("level factor cannot be < 1")
+	}
 	return s
 }
 
@@ -127,7 +130,9 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 	return newMergeReader(s.chunks, fss), nil
 }
 
-// Compose produces a composite fileset from the filesets under ids
+// Compose produces a composite fileset from the filesets under ids.
+// It does not perform a merge or check the the filesets at ids in any way
+// other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	c := &Composite{
 		Layers: ids,
@@ -173,15 +178,33 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 	return flattened, nil
 }
 
-// Drop allows a fileset to be deleted if it is no otherwise referenced.
-func (s *Storage) Drop(ctx context.Context, id string) error {
-	_, err := s.tracker.SetTTLPrefix(ctx, id, -1)
+// Merge writes the contents of ids to a new fileset with the specified ttl and returns the ID
+// Merge always returns the ID of a primitive fileset.
+func (s *Storage) Merge(ctx context.Context, ids []string, ttl time.Duration) (*ID, error) {
+	var size int64
+	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
+		size += index.SizeBytes(idx)
+		return nil
+	}))
+	fs, err := s.Open(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	if err := CopyFiles(ctx, w, fs, true); err != nil {
+		return nil, err
+	}
+	return w.Close()
+}
+
+// Drop allows a fileset to be deleted if it is not otherwise referenced.
+func (s *Storage) Drop(ctx context.Context, id ID) error {
+	_, err := s.SetTTL(ctx, id, -1)
 	return err
 }
 
 // SetTTL sets the time-to-live for the prefix p.
-func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
-	oid := filesetObjectID(p)
+func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
+	oid := filesetObjectID(id)
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
 }
 
@@ -224,6 +247,13 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 		Value: &Metadata_Primitive{
 			Primitive: prim,
 		},
+	}
+	var pointsTo []string
+	for _, chunkID := range prim.PointsTo() {
+		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
+	}
+	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
+		return nil, err
 	}
 	if err := s.store.Set(ctx, id, md); err != nil {
 		return nil, err
