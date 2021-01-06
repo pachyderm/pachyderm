@@ -10,12 +10,8 @@ pachctl auth whoami
 # Make sure vault binary is present
 command -v vault
 
-# generate an auth token for one of Pachyderm's existing admins
-admin="$(
-  pachctl auth list-admins \
-    | grep 'github:' | head -n 1 | sed 's/^github://'
-)"
-ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}')"
+# Use the hard-coded root token for tests
+export ADMIN_TOKEN="iamroot"
 
 # Login to vault, so we can disable the previous Pachyderm plugin (if any is running)
 export VAULT_ADDR='http://127.0.0.1:8200'

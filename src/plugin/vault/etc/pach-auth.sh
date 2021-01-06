@@ -17,28 +17,12 @@ function activate {
     fi
 
     # Activate Pachyderm auth, if needed, and log in
-    if ! pachctl auth list-admins; then
-        admin="admin"
-        echo "${admin}" | pachctl auth activate
-    elif pachctl auth list-admins | grep "github:"; then
-        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
-        admin="${admin#github:}"
-        echo "${admin}" | pachctl auth login
-    else
-        echo "Could not find a github user to log in as. Cannot get admin token"
-        exit 1
+    if ! pachctl auth list-admins ; then
+        echo "iamroot" | pachctl auth activate --supply-root-token
     fi
 }
 
 function delete_all {
-    if pachctl auth list-admins; then
-        admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
-        admin="${admin#github:}"
-        echo "${admin}" | pachctl auth login
-    else
-        echo "Could not find a github user to log in as. Cannot get admin token"
-        exit 1
-    fi
     echo "yes" | pachctl delete all
 }
 

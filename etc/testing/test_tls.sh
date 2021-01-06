@@ -31,10 +31,8 @@ go test -v -count=1 ./src/server -run TestSimplePipeline
 
 # Make sure that config's pachd_address isn't disfigured by pachctl cmds that
 # modify the pachctl config (bug fix)
-echo admin | pachctl auth activate
-otp="$(pachctl auth get-otp admin)"
-echo "${otp}" | pachctl auth login --one-time-password
-pachctl auth whoami | match admin # will fail if pachctl can't connect
+pachctl auth activate
+pachctl auth whoami | match 'pach:root' # will fail if pachctl can't connect
 echo yes | pachctl auth deactivate
 
 # Undeploy TLS
