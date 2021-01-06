@@ -1,0 +1,159 @@
+.base:not(.inline) {
+  display: flex;
+}
+
+.inline {
+  display: inline-flex;
+}
+
+.vertical {
+  flex-direction: column;
+}
+
+.vertical.reverse {
+  flex-direction: column-reverse;
+}
+
+.vertical.spacing8 > * {
+  margin-top: 8px;
+}
+
+.vertical.spacing16 > * {
+  margin-top: 16px;
+}
+
+.vertical.spacing24 > * {
+  margin-top: 24px;
+}
+
+.vertical.spacing32 > * {
+  margin-top: 32px;
+}
+
+.vertical.spacing40 > * {
+  margin-top: 2.5rem;
+}
+
+.vertical.spacing64 > * {
+  margin-top: 64px;
+}
+
+.vertical.spacing128 > * {
+  margin-top: 128px;
+}
+
+.horizontal.spacing8 > * {
+  margin-left: 8px;
+}
+
+.horizontal.spacing16 > * {
+  margin-left: 16px;
+}
+
+.horizontal.spacing24 > * {
+  margin-left: 24px;
+}
+
+.horizontal.spacing32 > * {
+  margin-left: 32px;
+}
+
+.horizontal.spacing40 > * {
+  margin-left: 2.5rem;
+}
+
+.horizontal.spacing64 > * {
+  margin-left: 64px;
+}
+
+.horizontal.spacing128 > * {
+  margin-left: 128px;
+}
+
+.vertical:not(.reverse) > *:first-child {
+  margin-top: 0;
+}
+
+.vertical.reverse > *:last-child {
+  margin-top: 0;
+}
+
+.horizontal:not(.reverse) > *:first-child {
+  margin-left: 0;
+}
+
+.horizontal.reverse > *:last-child {
+  margin-left: 0;
+}
+
+.horizontal {
+  flex-direction: row;
+}
+
+.horizontal.reverse {
+  flex-direction: row-reverse;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.justifyEnd {
+  justify-content: flex-end;
+}
+
+.justifyBetween {
+  justify-content: space-between;
+}
+
+.justifyEnd.vertical {
+  height: 100%;
+}
+
+.justifyEnd.horizontal {
+  width: 100%;
+}
+
+.justifyStretch {
+  justify-content: space-between;
+}
+
+.justifyStretch.vertical {
+  height: 100%;
+}
+
+.justifyStretch.horizontal {
+  width: 100%;
+}
+
+.alignCenter {
+  align-items: center;
+}
+
+.alignStart {
+  align-items: flex-start;
+}
+
+.alignEnd {
+  align-items: flex-end;
+}
+
+.alignBaseline {
+  align-items: baseline;
+}
+
+.noshrink {
+  flex-shrink: 0;
+}
+
+.divider {
+  background-color: var(--line-grey);
+}
+
+.vertical > .divider {
+  height: 1px;
+}
+
+.horizontal > .divider {
+  width: 1px;
+}
