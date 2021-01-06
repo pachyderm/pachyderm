@@ -1,0 +1,12 @@
+.base {
+    display: inline-flex;
+    width: 100%;
+}
+
+.base > *:last-child {
+    flex: 1;
+}
+
+.leftPane {
+    width: 400px;
+}

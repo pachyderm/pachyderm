@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="150px" height="139px" viewBox="0 0 150 139" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>pipeline</title>
+    <g id="Wireframes" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Default-Dag" transform="translate(-442.000000, -703.000000)">
+            <g id="Group-4" transform="translate(257.000000, 84.000000)">
+                <g id="Group-5" transform="translate(185.400000, 619.100000)">
+                    <g id="pipeline" transform="translate(0.000000, 0.100000)">
+                        <g id="box-2-copy-2" transform="translate(49.500000, 0.900000)" fill-rule="nonzero">
+                            <polygon id="Layer_2" fill="#CE6767" points="0 14.9359304 24.9881924 29.0304 49.7664 14.9359304 24.8832 0"></polygon>
+                            <polygon id="Layer_3" fill="#FB9A7D" points="24.8832 28.8973348 24.8832 53.9136 49.7664 39.9461852 49.7664 14.92992"></polygon>
+                            <polygon id="Layer_3_copy" fill="#A3597D" points="0 14.92992 24.8832 28.8973348 24.8832 53.9136 0 39.5292475"></polygon>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

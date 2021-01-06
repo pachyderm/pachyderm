@@ -2,7 +2,7 @@ import React from 'react';
 import {BrowserRouter, Route, Switch} from 'react-router-dom';
 
 import ApolloProvider from 'providers/ApolloProvider';
-import HelloDash from 'views/HelloDash';
+import Home from 'views/Home';
 
 const DashUI: React.FC = () => {
   return (
@@ -10,7 +10,7 @@ const DashUI: React.FC = () => {
       <ApolloProvider>
         <main id="main">
           <Switch>
-            <Route path="/" exact component={HelloDash} />
+            <Route path="/" exact component={Home} />
           </Switch>
         </main>
       </ApolloProvider>

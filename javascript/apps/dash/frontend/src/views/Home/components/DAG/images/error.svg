@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="30px" height="30px" viewBox="0 0 30 30" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Group 6</title>
+    <g id="Wireframes" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Pipeline_Error" transform="translate(-571.000000, -728.000000)">
+            <g id="Group-7" transform="translate(257.000000, 84.000000)">
+                <g id="Group-6" transform="translate(314.100000, 644.400000)">
+                    <g id="Group-5">
+                        <circle id="Oval" fill="#E02020" cx="14.256" cy="14.256" r="14.256"></circle>
+                        <path d="M14.7096,5.184 C13.7433226,5.184 12.96,5.9673226 12.96,6.9336 L12.96,15.693264 C12.96,16.6595414 13.7433226,17.442864 14.7096,17.442864 C15.6758774,17.442864 16.4592,16.6595414 16.4592,15.693264 L16.4592,6.945264 C16.462307,6.47922358 16.2793472,6.03120361 15.9508962,5.70056293 C15.6224452,5.36992224 15.1756508,5.184 14.7096,5.184 Z M14.7096,19.192464 C13.7433226,19.192464 12.96,19.9757866 12.96,20.942064 C12.96,21.9083414 13.7433226,22.691664 14.7096,22.691664 C15.6758774,22.691664 16.4592,21.9083414 16.4592,20.942064 C16.4592,19.9757866 15.6758774,19.192464 14.7096,19.192464 Z" id="Shape" fill="#FFFFFF" fill-rule="nonzero"></path>
+                    </g>
+                    <g id="Group-4" transform="translate(12.960000, 5.184000)"></g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
