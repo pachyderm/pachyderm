@@ -174,6 +174,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 
 	kubeClient := m.a.env.GetKubeClient()
 	namespace := m.a.namespace
+
 	// Delete any services associated with op.pipeline
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
 	opts := &metav1.DeleteOptions{
@@ -190,6 +191,22 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 			}
 		}
 	}
+
+	// Delete any secrets associated with op.pipeline
+	secrets, err := kubeClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return errors.Wrapf(err, "could not list secrets")
+	}
+	for _, secret := range secrets.Items {
+		if err := kubeClient.CoreV1().Secrets(namespace).Delete(secret.Name, opts); err != nil {
+			if !isNotFoundErr(err) {
+				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
+			}
+		}
+	}
+
+	// Finally, delete op.pipeline's RC, which will cause pollPipelines to stop
+	// polling it.
 	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list RCs")
@@ -201,18 +218,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 			}
 		}
 	}
-	// delete any secrets associated with the pipeline
-	secrets, err := kubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return errors.Wrapf(err, "could not list secrets")
-	}
-	for _, secret := range secrets.Items {
-		if err := kubeClient.CoreV1().Secrets(a.namespace).Delete(secret.Name, opts); err != nil {
-			if !isNotFoundErr(err) {
-				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
-			}
-		}
-	}
+
 	return nil
 }
 
