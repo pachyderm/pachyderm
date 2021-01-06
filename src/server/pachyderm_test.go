@@ -12661,6 +12661,51 @@ func TestSecrets(t *testing.T) {
 	require.YesError(t, err)
 }
 
+// Test that an unauthenticated user can't call secrets APIS
+func TestSecretsUnauthenticated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// Enable auth on the cluster
+	tu.DeleteAll(t)
+	tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	defer tu.DeleteAll(t)
+
+	// Get an unauthenticated client
+	c := tu.GetPachClient(t)
+	c.SetAuthToken("")
+
+	b := []byte(
+		`{
+			"kind": "Secret",
+			"apiVersion": "v1",
+			"metadata": {
+				"name": "test-secret",
+				"creationTimestamp": null
+			},
+			"data": {
+				"mykey": "bXktdmFsdWU="
+			}
+		}`)
+
+	err := c.CreateSecret(b)
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.InspectSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.ListSecret()
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	err = c.DeleteSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+}
+
 // TestPFSPanicOnNilArgs tests for a regression where pachd would panic
 // if passed nil args on some PFS endpoints. See
 // https://github.com/pachyderm/pachyderm/issues/4279.
