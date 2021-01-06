@@ -1372,8 +1372,8 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
 	filesPut *gosync.Map) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
-	// to the server
-	path = filepath.Clean(path)
+	// to the server, and convert to unix path in case we're on windows.
+	path = filepath.ToSlash(filepath.Clean(path))
 	for strings.HasPrefix(path, "../") {
 		path = strings.TrimPrefix(path, "../")
 	}

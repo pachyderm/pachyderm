@@ -61,15 +61,15 @@ in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-depl
 1. Clone your S3 bucket that you used for the olf cluster to this new bucket.
    Follow the instructions for your cloud provider:
 
-   * If you use Google cloud, see the [gsutil instructions](https://cloud.google.com/storage/docs/gsutil/commands/cp).
-   * If you use Microsoft Azure, see the [azcopy instructions](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
-   * If you use Amazon EKS, see [AWS CLI instructions](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).
+      * If you use Google cloud, see the [gsutil instructions](https://cloud.google.com/storage/docs/gsutil/commands/cp).
+      * If you use Microsoft Azure, see the [azcopy instructions](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
+      * If you use Amazon EKS, see [AWS CLI instructions](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).
 
-   **Example:**
+      **Example:**
 
-   ```shell
-   aws s3 sync s3://mybucket s3://mybucket2
-   ```
+      ```shell
+      aws s3 sync s3://mybucket s3://mybucket2
+      ```
 
 1. Proceed to [Step 2](#step-2-restore-all-paused-pipelines).
 
@@ -84,83 +84,83 @@ To restore all paused pipelines, complete the following steps:
 1. Run the `pachctl start pipeline` command on each paused pipeline one-by-one, or
    use the multi-line shell script to restart pipelines all-at-once:
 
-   - one-by-one
-      ```shell
-      pachctl start pipeline <pipeline-name>
-      ```
+      - one-by-one
+         ```shell
+         pachctl start pipeline <pipeline-name>
+         ```
 
-   - all-at-once
-      ```shell
-      pachctl list pipeline --raw \
-      | jq -r '.pipeline.name' \
-      | xargs -P3 -n1 -I{} pachctl start pipeline {}
-      ```
+      - all-at-once
+         ```shell
+         pachctl list pipeline --raw \
+         | jq -r '.pipeline.name' \
+         | xargs -P3 -n1 -I{} pachctl start pipeline {}
+         ```
 
-   You might need to install `jq` and other utilities to run the script.
+      You might need to install `jq` and other utilities to run the script.
 
 1. Confirm that each pipeline is started using the `list pipeline` command:
 
-   ```shell
-   pachctl list pipeline
-   ```
+      ```shell
+      pachctl list pipeline
+      ```
 
-   * If you have switched the ports to stop data loading from outside sources,
-   change the ports back:
+      * If you have switched the ports to stop data loading from outside sources,
+      change the ports back:
 
-     1. Back up the current configuration:
+         1. Back up the current configuration:
 
-        ```shell
-        kubectl get svc/pachd -o json >pachd_service_backup_30649.json
-        kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
-        kubectl get svc/dash -o json >dash_svc_backup_30080.json
-        ```
+            ```shell
+            kubectl get svc/pachd -o json >pachd_service_backup_30649.json
+            kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
+            kubectl get svc/dash -o json >dash_svc_backup_30080.json
+            ```
 
-     1. Modify the services to accept traffic on the corresponding ports to
-     avoid collisions with the migration cluster:
+         1. Modify the services to accept traffic on the corresponding ports to
+         avoid collisions with the migration cluster:
 
-        ```shell
-        # Modify the pachd API endpoint to run on 30650:
-        kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
-        # Modify the pachd trace port to run on 30651:
-        kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
-        # Modify the pachd api-over-http port to run on 30652:
-        kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
-        # Modify the pachd SAML authentication port to run on 30654:
-        kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
-        # Modify the pachd git API callback port to run on 30655:
-        kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
-        # Modify the pachd s3 port to run on 30600:
-        kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
-        # Modify the etcd client port to run on 32378:
-        kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
-        # Modify the dashboard ports to run on 30081 and 30080:
-        kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
-        kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
-        ```
+            ```shell
+            # Modify the pachd API endpoint to run on 30650:
+            kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
+            # Modify the pachd trace port to run on 30651:
+            kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
+            # Modify the pachd api-over-http port to run on 30652:
+            kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
+            # Modify the pachd SAML authentication port to run on 30654:
+            kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
+            # Modify the pachd git API callback port to run on 30655:
+            kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
+            # Modify the pachd s3 port to run on 30600:
+            kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
+            # Modify the etcd client port to run on 32378:
+            kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
+            # Modify the dashboard ports to run on 30081 and 30080:
+            kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
+            kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
+            ```
 
 1. Modify your environment so that you can access `pachd` on the old port:
 
-   ```shell
-   pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
-   ```
+      ```shell
+      pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+      ```
 
 1. Verify that you can access `pachd`:
 
-   ```shell
-   pachctl version
-   ```
+      ```shell
+      pachctl version
+      ```
 
-   **System Response:**
+      **System Response:**
 
-   ```
-   COMPONENT           VERSION
-   pachctl             {{ config.pach_latest_version }}
-   pachd               {{ config.pach_latest_version }}
-   ```
+      ```
+      COMPONENT           VERSION
+      pachctl             {{ config.pach_latest_version }}
+      pachd               {{ config.pach_latest_version }}
+      ```
 
-   If the command above hangs, you might need to adjust your firewall rules.
-   Your old Pachyderm cluster can operate while you are creating a migrated
-   one.
+      If the command above hangs, you might need to adjust your firewall rules.
+      Your old Pachyderm cluster can operate while you are creating a migrated
+      one.
 
 1. Proceed to [Step 3](#step-3-deploy-a-pachyderm-cluster-with-the-cloned-bucket).
 
@@ -188,56 +188,56 @@ steps:
 
 1. Upgrade your Pachyderm version to the latest version:
 
-   ```shell
-   brew upgrade pachyderm/tap/pachctl@{{config.pach_major_minor_version}}
-   ```
+      ```shell
+      brew upgrade pachyderm/tap/pachctl@{{config.pach_major_minor_version}}
+      ```
 
-   If you are deploying your cluster in a separate Kubernetes namespace,
-   create a new namespace:
+      If you are deploying your cluster in a separate Kubernetes namespace,
+      create a new namespace:
 
-   ```shell
-   kubectl create namespace <new-cluster-namespace>
-   ```
+      ```shell
+      kubectl create namespace <new-cluster-namespace>
+      ```
 
 
 1. Deploy your cluster in a separate namespace or on a separate Kubernetes
 cluster by using a `pachctl deploy` command for your cloud provider with the
 `--namespace` flag.
 
-   **Examples:**
+      **Examples:**
 
-   - AWS EKS
-      ```shell
-      pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
-      ```
+      - AWS EKS
+         ```shell
+         pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
+         ```
 
-   - GKE
-      ```shell
-      pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
-      ```
+      - GKE
+         ```shell
+         pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
+         ```
 
-   - Azure
-      ```shell
-      pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
-      ```
+      - Azure
+         ```shell
+         pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
+         ```
 
-   **Note:** Parameters for your Pachyderm cluster deployment might be different.
-   For more information, see [Deploy Pachyderm](../../deploy/).
+      **Note:** Parameters for your Pachyderm cluster deployment might be different.
+      For more information, see [Deploy Pachyderm](../../deploy/).
 
 1. Verify that your cluster has been deployed:
 
-- In a namespace
-    ```shell
-    kubectl get pod --namespace=<new-cluster>
-    ```
+      - In a namespace
+         ```shell
+         kubectl get pod --namespace=<new-cluster>
+         ```
 
-- On a cluster
-    ```shell
-    kubectl get pod
-    ```
-   If you have deployed your new cluster in a namespace, Pachyderm should
-   have created a new context for this deployement. Verify that you are
-   using this.
+      - On a cluster
+         ```shell
+         kubectl get pod
+         ```
+      If you have deployed your new cluster in a namespace, Pachyderm should
+      have created a new context for this deployement. Verify that you are
+      using this.
 
 1. Proceed to [Step 4](#step-4-restore-your-cluster).
 
@@ -254,49 +254,49 @@ To restore your cluster, complete the following steps:
 1. If you deployed your new cluster into a different namespace on the same
    Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
-   ```shell
-   pachctl config get context `pachctl config get active-context`
-   ```
+      ```shell
+      pachctl config get context `pachctl config get active-context`
+      ```
 
-   **Example System Response:**
+      **Example System Response:**
 
-   ``` json
-   {
-      "source": "IMPORTED",
-      "cluster_name": "test-migration.us-east-1.eksctl.io",
-      "auth_info": "user@test-migration.us-east-1.eksctl.io",
-      "namespace": "new-cluster"
-   }
-   ```
+      ``` json
+      {
+         "source": "IMPORTED",
+         "cluster_name": "test-migration.us-east-1.eksctl.io",
+         "auth_info": "user@test-migration.us-east-1.eksctl.io",
+         "namespace": "new-cluster"
+      }
+      ```
 
-   Your active context must have the namespace you have deployed your new
-   cluster into.
+      Your active context must have the namespace you have deployed your new
+      cluster into.
 
 1. Check that the cluster does not have any existing Pachyderm objects:
 
-   ```shell
-   pachctl list repo
-   pachctl list pipeline
-   ```
+      ```shell
+      pachctl list repo
+      pachctl list pipeline
+      ```
 
-   You should get empty output.
+      You should get empty output.
 
 1. Restore your cluster from the backup you have created in
 [Step 1](#step-1-back-up-your-cluster):
 
-   - Local File
-      ```shell
-      pachctl restore < path/to/your/backup/file
-      ```
+      - Local File
+         ```shell
+         pachctl restore < path/to/your/backup/file
+         ```
 
-   - S3 Bucket
-      ```shell
-      pachctl restore --url s3://path/to/backup
-      ```
+      - S3 Bucket
+         ```shell
+         pachctl restore --url s3://path/to/backup
+         ```
 
-   This S3 bucket is different from the s3 bucket to which you cloned
-   your Pachyderm data. This is merely a bucket you allocated to hold
-   the Pachyderm backup without objects.
+      This S3 bucket is different from the s3 bucket to which you cloned
+      your Pachyderm data. This is merely a bucket you allocated to hold
+      the Pachyderm backup without objects.
 
 1. Configure any external data loading systems to point at the new,
 upgraded Pachyderm cluster and play back transactions from the checkpoint

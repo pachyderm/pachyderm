@@ -517,7 +517,6 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	for _, idp := range newConfig.IDPs {
 		if idp.SAML != nil {
 			a.samlSP = &saml.ServiceProvider{
-				Logger:      logrus.StandardLogger(),
 				IDPMetadata: idp.SAML.Metadata,
 				AcsURL:      *newConfig.SAMLSvc.ACSURL,
 				MetadataURL: *newConfig.SAMLSvc.MetadataURL,

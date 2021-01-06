@@ -92,7 +92,7 @@ parameters in the [pipeline specification](../../reference/pipeline_spec.md):
 | `spout`     | This attribute can be left empty. Optional: Add a `service` field to expose your spout as a service. |
 | `transform` | Specifies the command that you want to call to ingest your data and the Docker image it is packaged in. |
 
-
+xs
 Here is an example of a minimum spout pipeline specification:
 
 !!! note

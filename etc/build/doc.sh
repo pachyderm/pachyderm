@@ -25,23 +25,6 @@ rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
 LANG=C find "${pachctl_docs}" -name '*.md' -type f -exec \
   sed "${sed_opts[@]}" -n -e '/### SEE ALSO/,$d;p' {} \;
 
-# Update deb URL
-#NEW_DEB_URL="pachyderm/releases/download/v${version}/pachctl_${version}_amd64.deb"
-#LANG=C find doc -type f -exec \
-  #sed "${sed_opts[@]}" -e 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_amd64.deb@'"$NEW_DEB_URL"'@g' {} \;
-
-# Update 'other linux flavors' URL
-#NEW_URL="pachyderm/releases/download/v${version}/pachctl_${version}_linux_amd64.tar.gz"
-#LANG=C find doc -type f -exec \
-  #sed "${sed_opts[@]}" -e 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_linux_amd64.tar.gz@'"$NEW_URL"'@g' {} \;
-# also need to replace the version elsewhere in that command:
-#LANG=C find doc -type f -exec \
-  #sed "${sed_opts[@]}" -e 's@tmp\/pachctl_.*_linux_amd64\/pachctl@'"tmp/pachctl_${version}_linux_amd64/pachctl"'@g' {} \;
-
-# Update brew formula (only needed when major_minor changes)
-LANG=C find doc -type f -exec \
-  sed "${sed_opts[@]}" -e 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$major_minor"'#g' {} \;
-
 # Copy "master" to current version's docs
 rm -rf "${doc_root}/docs/${major_minor}.x"
 cp -R "${doc_root}/docs/master" "${doc_root}/docs/${major_minor}.x"
