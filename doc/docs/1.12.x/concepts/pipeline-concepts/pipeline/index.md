@@ -44,7 +44,7 @@ A minimum pipeline specification must include the following parameters:
   container that you want to execute, such as a Python script.
 
 !!! example
-    ```shell
+    ```json
     {
       "pipeline": {
         "name": "wordcount"
