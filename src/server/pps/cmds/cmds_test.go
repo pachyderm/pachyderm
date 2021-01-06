@@ -382,10 +382,6 @@ func TestYAMLPipelineSpec(t *testing.T) {
 }
 
 func TestListPipelineFilter(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -393,13 +389,14 @@ func TestListPipelineFilter(t *testing.T) {
 		yes | pachctl delete all
 		pachctl garbage-collect
 	`).Run())
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
 		{
 		"pipeline": {
-		  "name": "first"
+		  "name": "{{.pipeline}}"
 		},
 		"input": {
 		  "pfs": {
@@ -422,10 +419,10 @@ func TestListPipelineFilter(t *testing.T) {
 		echo foo | pachctl put file input@master:/foo
 		pachctl flush commit input@master
 		# make sure we see the pipeline with the appropriate state filters
-		pachctl list pipeline | match first
-		pachctl list pipeline --state starting --state running | match first
-		pachctl list pipeline --state crashing --state failure | match -v first
-	`,
+		pachctl list pipeline | match {{.pipeline}}
+		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
+		pachctl list pipeline --state starting --state running | match {{.pipeline}}
+	`, "pipeline", pipeline,
 	).Run())
 }
 
