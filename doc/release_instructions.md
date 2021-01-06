@@ -124,10 +124,10 @@ make point-release
 ```
 * To release an alpha/beta/RC version, specify the additional text to appear in the release version and run
 ```shell
- make VERSION_ADDITIONAL=-alpha1 release-candidate
- OR
- make VERSION_ADDITIONAL=-beta1 release-candidate
- OR
+make VERSION_ADDITIONAL=-alpha1 release-candidate
+OR
+make VERSION_ADDITIONAL=-beta1 release-candidate
+OR
 make VERSION_ADDITIONAL=-rc1 release-candidate
  ```
 

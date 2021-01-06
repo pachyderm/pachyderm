@@ -128,7 +128,7 @@ Then update `convert1_12.go`:
 
 Update the admin client (`src/client/admin.go`) and admin server
 (`src/server/admin/server/api_server.go`). Mostly this just involves looking
-for instances of `1_11` or `1_12` in those files and updating the code and 
+for instances of `1_11` or `1_12` in those files and updating the code and
 add `applyOp2_0` function which should be a copy of `applyOp1_12`
 
 Update `convert1_7.go`, around line 309, to include `convert1_12Objects`.
