@@ -488,7 +488,8 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
 			}); err == nil {
-				return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
+				// the repo already exists, so we need the same permissions as update
+				required = auth.Scope_WRITER
 			} else if !isNotFoundErr(err) {
 				return err
 			}

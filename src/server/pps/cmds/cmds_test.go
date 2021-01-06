@@ -26,7 +26,6 @@ package cmds
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"testing"
 
@@ -620,8 +619,8 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-
-	pipeline := testPipelineBuildLifecycle(t, "python", "python")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	pipeline := tu.TestPipelineBuildLifecycle(t, "python", "python", 4)
 
 	// the python example also contains a `.pachignore`, so we can verify it's
 	// intended behavior here
@@ -637,132 +636,16 @@ func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	testPipelineBuildLifecycle(t, "python", "python_no_deps")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	tu.TestPipelineBuildLifecycle(t, "python", "python_no_deps", 4)
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
 	}
-	testPipelineBuildLifecycle(t, "go", "go")
-}
-
-func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	// reset and create some test input
-	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
-		pachctl create repo in
-		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
-	`).Run())
-
-	// give pipeline a unique name to work around
-	// github.com/kubernetes/kubernetes/issues/82130
-	pipeline := tu.UniqueString("test-pipeline-build")
-	spec := fmt.Sprintf(`
-		{
-		  "pipeline": {
-		    "name": %q
-		  },
-		  "transform": {
-		    "build": {
-		      "language": %q
-		    }
-		  },
-		  "input": {
-		    "pfs": {
-		      "repo": "in",
-		      "glob": "/*"
-		    }
-		  }
-		}
-	`, pipeline, lang)
-
-	// test a barebones pipeline with a build spec and verify results
-	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
-		pachctl create pipeline <<EOF
-		{{.spec}}
-		EOF
-		pachctl flush commit in@master
-		`,
-		"dir", dir,
-		"spec", spec,
-	).Run())
-	require.YesError(t, tu.BashCmd(fmt.Sprintf(`
-		pachctl list pipeline --state failure | match %s
-	`, pipeline)).Run())
-	verifyPipelineBuildOutput(t, pipeline, "0")
-
-	// update the barebones pipeline and verify results
-	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
-		pachctl update pipeline <<EOF
-		{{.spec}}
-		EOF
-		pachctl flush commit in@master
-		`,
-		"dir", dir,
-		"spec", spec,
-	).Run())
-	verifyPipelineBuildOutput(t, pipeline, "0")
-
-	// update the pipeline with a custom cmd and verify results
-	spec = fmt.Sprintf(`
-		{
-		  "pipeline": {
-		    "name": %q
-		  },
-		  "transform": {
-		    "cmd": [
-		      "sh",
-		      "/pfs/build/run.sh",
-		      "_"
-		    ],
-		    "build": {
-		      "language": %q,
-		      "path": "."
-		    }
-		  },
-		  "input": {
-		    "pfs": {
-		      "repo": "in",
-		      "glob": "/*"
-		    }
-		  }
-		}
-	`, pipeline, lang)
-
-	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
-		pachctl update pipeline --reprocess <<EOF
-		{{.spec}}
-		EOF
-		pachctl flush commit in@master
-		`,
-		"dir", dir,
-		"spec", spec,
-	).Run())
-	verifyPipelineBuildOutput(t, pipeline, "_")
-	return pipeline
-}
-
-func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
-	t.Helper()
-
-	require.NoError(t, tu.BashCmd(`
-		pachctl flush commit in@master
-		pachctl get file {{.pipeline}}@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
-		pachctl get file {{.pipeline}}@master:/11.txt | match {{.prefix}}{{.prefix}}11
-		pachctl get file {{.pipeline}}@master:/111.txt | match {{.prefix}}111
-		`,
-		"pipeline", pipeline,
-		"prefix", prefix,
-	).Run())
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	tu.TestPipelineBuildLifecycle(t, "go", "go", 4)
 }
 
 func TestMissingPipeline(t *testing.T) {
