@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -27,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -2692,28 +2694,27 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 //	}))
 //}
 
-// TODO: Make work with V2?
-//func TestPutFileURL(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		if testing.Short() {
-//			t.Skip("Skipping integration tests in short mode")
-//		}
-//
-//		repo := "TestPutFileURL"
-//		require.NoError(t, env.PachClient.CreateRepo(repo))
-//		commit, err := env.PachClient.StartCommit(repo, "master")
-//		require.NoError(t, err)
-//		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false, false))
-//		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-//		fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "readme")
-//		require.NoError(t, err)
-//		require.True(t, fileInfo.SizeBytes > 0)
-//
-//		return nil
-//	}))
-//}
+func TestPutFileURL(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		if testing.Short() {
+			t.Skip("Skipping integration tests in short mode")
+		}
+
+		repo := "TestPutFileURL"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false, false))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		fileInfo, err := env.PachClient.InspectFile(repo, commit.ID, "readme")
+		require.NoError(t, err)
+		require.True(t, fileInfo.SizeBytes > 0)
+
+		return nil
+	}))
+}
 
 // TODO: Make work with V2?
 //func TestBigListFile(t *testing.T) {
@@ -5233,99 +5234,93 @@ func TestWalkFile2(t *testing.T) {
 //		return nil
 //	}))
 //}
-//
-//func TestPutFilesURL(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		require.NoError(t, env.PachClient.CreateRepo("repo"))
-//		pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
-//		paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
-//		for _, path := range paths {
-//			require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
-//				File: pclient.NewFile("repo", "master", path),
-//				Url:  fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path),
-//			}))
-//		}
-//		_, err = pfclient.CloseAndRecv()
-//		require.NoError(t, err)
-//
-//		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(cis))
-//
-//		for _, path := range paths {
-//			fileInfo, err := env.PachClient.InspectFile("repo", "master", path)
-//			require.NoError(t, err)
-//			require.True(t, fileInfo.SizeBytes > 0)
-//		}
-//
-//		return nil
-//	}))
-//}
-//
-//func writeObj(t *testing.T, c obj.Client, path, content string) {
-//	w, err := c.Writer(context.Background(), path)
-//	require.NoError(t, err)
-//	defer func() {
-//		require.NoError(t, w.Close())
-//	}()
-//	_, err = w.Write([]byte(content))
-//	require.NoError(t, err)
-//}
-//
-//func TestPutFilesObjURL(t *testing.T) {
-//	t.Parallel()
-//	db := dbutil.NewTestDB(t)
-//	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-//		paths := []string{"files/foo", "files/bar", "files/fizz"}
-//		wd, err := os.Getwd()
-//		require.NoError(t, err)
-//		objC, err := obj.NewLocalClient(wd)
-//		require.NoError(t, err)
-//		for _, path := range paths {
-//			writeObj(t, objC, path, path)
-//		}
-//		defer func() {
-//			for _, path := range paths {
-//				// ignored error, this is just cleanup, not actually part of the test
-//				objC.Delete(context.Background(), path)
-//			}
-//		}()
-//
-//		require.NoError(t, env.PachClient.CreateRepo("repo"))
-//		pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
-//		require.NoError(t, err)
-//		for _, path := range paths {
-//			require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
-//				File: pclient.NewFile("repo", "master", path),
-//				Url:  fmt.Sprintf("local://%s/%s", wd, path),
-//			}))
-//		}
-//		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
-//			File:      pclient.NewFile("repo", "master", "recursive"),
-//			Url:       fmt.Sprintf("local://%s/files", wd),
-//			Recursive: true,
-//		}))
-//		_, err = pfclient.CloseAndRecv()
-//		require.NoError(t, err)
-//
-//		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(cis))
-//
-//		for _, path := range paths {
-//			var b bytes.Buffer
-//			require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
-//			require.Equal(t, path, b.String())
-//			b.Reset()
-//			require.NoError(t, env.PachClient.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), &b))
-//			require.Equal(t, path, b.String())
-//		}
-//
-//		return nil
-//	}))
-//}
+
+func TestPutFilesURL(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		repo := "repo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
+		for _, path := range paths {
+			url := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path)
+			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false, false))
+		}
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+
+		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+
+		for _, path := range paths {
+			fileInfo, err := env.PachClient.InspectFile("repo", "master", path)
+			require.NoError(t, err)
+			require.True(t, fileInfo.SizeBytes > 0)
+		}
+
+		return nil
+	}))
+}
+
+func writeObj(t *testing.T, c obj.Client, path, content string) {
+	w, err := c.Writer(context.Background(), path)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, w.Close())
+	}()
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+}
+
+func TestPutFilesObjURL(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		paths := []string{"files/foo", "files/bar", "files/fizz"}
+		wd, err := os.Getwd()
+		require.NoError(t, err)
+		objC, err := obj.NewLocalClient(wd)
+		require.NoError(t, err)
+		for _, path := range paths {
+			writeObj(t, objC, path, path)
+		}
+		defer func() {
+			for _, path := range paths {
+				// ignored error, this is just cleanup, not actually part of the test
+				objC.Delete(context.Background(), path)
+			}
+		}()
+
+		repo := "repo"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		for _, path := range paths {
+			url := fmt.Sprintf("local://%s/%s", wd, path)
+			require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, path, url, false, false))
+		}
+		url := fmt.Sprintf("local://%s/files", wd)
+		require.NoError(t, env.PachClient.PutFileURL(repo, commit.ID, "recursive", url, true, false))
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+
+		cis, err := env.PachClient.ListCommit("repo", "", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+
+		for _, path := range paths {
+			var b bytes.Buffer
+			require.NoError(t, env.PachClient.GetFile("repo", "master", path, &b))
+			require.Equal(t, path, b.String())
+			b.Reset()
+			require.NoError(t, env.PachClient.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), &b))
+			require.Equal(t, path, b.String())
+		}
+
+		return nil
+	}))
+}
 
 func TestPutFileOutputRepo(t *testing.T) {
 	t.Parallel()
@@ -6496,7 +6491,7 @@ func TestRegressionOrphanedFile(t *testing.T) {
 			"file1.txt": tarutil.NewMemFile("file1.txt", data),
 			"file2.txt": tarutil.NewMemFile("file2.txt", data),
 		}
-		require.NoError(t, fsclient.AppendFile(spec.makeTarStream(), false))
+		require.NoError(t, fsclient.AppendFileTar(false, spec.makeTarStream()))
 		resp, err := fsclient.Close()
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
@@ -6539,7 +6534,7 @@ func TestCompaction(t *testing.T) {
 				}
 				fsSpec[hdr.Name] = file
 			}
-			if err := env.PachClient.AppendFile(repo, commit1.ID, fsSpec.makeTarStream(), false); err != nil {
+			if err := env.PachClient.AppendFileTar(repo, commit1.ID, false, fsSpec.makeTarStream()); err != nil {
 				return err
 			}
 			runtime.GC()

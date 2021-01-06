@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tar"
 )
 
 type memFile struct {
@@ -173,50 +172,36 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, name string, memT
 	return uw, nil
 }
 
-// Append reads files from a tar stream and appends them to files in the fileset.
-// TODO: Make overwrite work with tags.
-func (uw *UnorderedWriter) Append(r io.Reader, overwrite bool, customTag ...string) error {
+// Append appends a file to the file set.
+func (uw *UnorderedWriter) Append(p string, overwrite bool, r io.Reader, customTag ...string) error {
+	// TODO: Validate
+	//if err := ppath.ValidatePath(hdr.Name); err != nil {
+	//	return nil, err
+	//}
+	p = Clean(p, false)
 	tag := uw.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
 	}
-	tr := tar.NewReader(r)
+	// TODO: Tag overwrite?
+	if overwrite {
+		uw.memFileSet.deleteFile(p, "")
+	}
+	w := uw.memFileSet.appendFile(p, tag)
 	for {
-		hdr, err := tr.Next()
+		n, err := io.CopyN(w, r, uw.memAvailable)
+		uw.memAvailable -= n
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
 		}
-		// TODO: Validate
-		//if err := ppath.ValidatePath(hdr.Name); err != nil {
-		//	return nil, err
-		//}
-		p := Clean(hdr.Name, hdr.FileInfo().IsDir())
-		if hdr.Typeflag == tar.TypeDir {
-			continue
-		}
-		// TODO: Tag overwrite?
-		if overwrite {
-			uw.memFileSet.deleteFile(p, "")
-		}
-		w := uw.memFileSet.appendFile(p, tag)
-		for {
-			n, err := io.CopyN(w, tr, uw.memAvailable)
-			uw.memAvailable -= n
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
+		if uw.memAvailable == 0 {
+			if err := uw.serialize(); err != nil {
 				return err
 			}
-			if uw.memAvailable == 0 {
-				if err := uw.serialize(); err != nil {
-					return err
-				}
-				w = uw.memFileSet.appendFile(p, tag)
-			}
+			w = uw.memFileSet.appendFile(p, tag)
 		}
 	}
 }

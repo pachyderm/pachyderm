@@ -89,10 +89,10 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 	defer pj.jdit.SetDeleter(nil)
 	// Setup file operation client for output Meta commit.
 	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithFileOperationClient(metaCommit.Repo.Name, metaCommit.ID, func(focMeta *client.FileOperationClient) error {
+	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithFileOperationClient(outputCommit.Repo.Name, outputCommit.ID, func(focPFS *client.FileOperationClient) error {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) error {
 			parentMetaCommit := pj.metaCommitInfo.ParentCommit
 			metaFileWalker := func(path string) ([]string, error) {
 				var files []string
@@ -106,7 +106,7 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func() error)
 				}
 				return files, nil
 			}
-			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, focMeta, focPFS))
+			pj.jdit.SetDeleter(datum.NewDeleter(metaFileWalker, mfcMeta, mfcPFS))
 			return cb()
 		})
 	})
@@ -503,7 +503,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
 				}
 			}
-			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileClient) error) error {
+			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileTarClient) error) error {
 				subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
 				if err != nil {
 					return err
@@ -553,7 +553,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.AppendFileClient) error, renewer *renew.StringSet) (*work.Task, error) {
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.AppendFileTarClient) error, renewer *renew.StringSet) (*work.Task, error) {
 	resp, err := pachClient.WithCreateFilesetClient(func(ctfsc *client.CreateFilesetClient) error {
 		return upload(ctfsc)
 	})

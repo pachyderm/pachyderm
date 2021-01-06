@@ -21,7 +21,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (d *driver) fileOperation(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	ctx := pachClient.Ctx()
 	repo := commit.Repo.Name
 	var branch string
@@ -33,19 +33,19 @@ func (d *driver) fileOperation(pachClient *client.APIClient, commit *pfs.Commit,
 		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
 			return err
 		}
-		return d.oneOffFileOperation(ctx, repo, branch, cb)
+		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
 	if commitInfo.Finished != nil {
 		if branch == "" {
 			return pfsserver.ErrCommitFinished{commitInfo.Commit}
 		}
-		return d.oneOffFileOperation(ctx, repo, branch, cb)
+		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
 	return d.withCommitWriter(ctx, commitInfo.Commit, cb)
 }
 
 // TODO: Cleanup after failure?
-func (d *driver) oneOffFileOperation(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
+func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb func(*fileset.UnorderedWriter) error) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) (retErr error) {
 		commit, err := d.startCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, "")
 		if err != nil {
@@ -442,8 +442,21 @@ func (d *driver) createFileset(server pfs.API_CreateFilesetServer) (string, erro
 					}
 					return err
 				}
-				if _, err := appendFile(uw, server, req.Operation.(*pfs.FileOperationRequest_AppendFile).AppendFile); err != nil {
-					return err
+				// TODO: Refactor this switching logic into one place, this is basically the same as ModifyFile in the API server.
+				switch mod := req.Modification.(type) {
+				case *pfs.ModifyFileRequest_AppendFile:
+					var err error
+					switch mod.AppendFile.Source.(type) {
+					case *pfs.AppendFile_RawFileSource:
+						_, err = appendFileRaw(uw, server, mod.AppendFile)
+					case *pfs.AppendFile_TarFileSource:
+						_, err = appendFileTar(uw, server, mod.AppendFile)
+					case *pfs.AppendFile_UrlFileSource:
+						_, err = appendFileURL(server.Context(), uw, mod.AppendFile)
+					}
+					if err != nil {
+						return err
+					}
 				}
 			}
 		})

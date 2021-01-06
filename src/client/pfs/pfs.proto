@@ -307,16 +307,15 @@ enum Delimiter {
   CSV = 4;
 }
 
-message AppendFileRequest {
+message AppendFile {
   bool overwrite = 1;
   string tag = 2;
-  bytes data = 3;
+  oneof source {
+    RawFileSource raw_file_source = 3;
+    TarFileSource tar_file_source = 4;
+    URLFileSource url_file_source = 5;
+  }
 // TODO:
-//  string url = 5;
-//  // applies only to URLs that can be recursively walked, for example s3:// URLs
-//  bool recursive = 6;
-//  // Delimiter causes data to be broken up into separate files with File.Path
-//  // as a prefix.
 //  Delimiter delimiter = 7;
 //  // TargetFileDatums specifies the target number of datums in each written
 //  // file it may be lower if data does not split evenly, but will never be
@@ -351,16 +350,32 @@ message AppendFileRequest {
 //  bool delete = 12;
 }
 
-message DeleteFileRequest {
+message RawFileSource {
+  string path = 1;
+  bytes data = 2;
+  bool EOF = 3;
+}
+
+message TarFileSource {
+  bytes data = 1;
+}
+
+message URLFileSource {
+  string path = 1;
+  string URL = 2;
+  bool recursive = 3;
+}
+
+message DeleteFile {
   string file = 1; 
   string tag = 2;
 }
 
-message FileOperationRequest {
+message ModifyFileRequest {
   Commit commit = 1;
-  oneof operation {
-    AppendFileRequest append_file = 2;
-    DeleteFileRequest delete_file = 3;
+  oneof modification {
+    AppendFile append_file = 2;
+    DeleteFile delete_file = 3;
   }
 }
 
@@ -481,9 +496,8 @@ service API {
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 
-  // FileOperation performs an operation on a set of files (append / delete).
-  // TODO: Potentially split this into separate Append / Delete RPCs.
-  rpc FileOperation(stream FileOperationRequest) returns (google.protobuf.Empty) {}
+  // ModifyFile performs modifications on a set of files.
+  rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
   // CopyFile copies the contents of one file to another.
   rpc CopyFile(CopyFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
@@ -505,7 +519,7 @@ service API {
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
   // CreateFileset creates a new fileset.
-  rpc CreateFileset(stream FileOperationRequest) returns (CreateFilesetResponse) {}
+  rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
 }

@@ -344,8 +344,8 @@ func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBr
 func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfos, error) {
 	return nil, unsupportedError("ListBranch")
 }
-func (c *pfsBuilderClient) FileOperation(ctx context.Context, opts ...grpc.CallOption) (pfs.API_FileOperationClient, error) {
-	return nil, unsupportedError("FileOperation")
+func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
+	return nil, unsupportedError("ModifyFile")
 }
 func (c *pfsBuilderClient) CopyFile(ctx context.Context, req *pfs.CopyFileRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CopyFile")

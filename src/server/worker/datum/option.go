@@ -8,17 +8,17 @@ import (
 // SetOption configures a set.
 type SetOption func(*Set)
 
-// WithMetaOutput sets the AppendFileClient for the meta output.
-func WithMetaOutput(afc AppendFileClient) SetOption {
+// WithMetaOutput sets the AppendFileTarClient for the meta output.
+func WithMetaOutput(aftc AppendFileTarClient) SetOption {
 	return func(s *Set) {
-		s.metaOutputClient = afc
+		s.metaOutputClient = aftc
 	}
 }
 
-// WithPFSOutput sets the AppendFileClient for the pfs output.
-func WithPFSOutput(afc AppendFileClient) SetOption {
+// WithPFSOutput sets the AppendFileTarClient for the pfs output.
+func WithPFSOutput(aftc AppendFileTarClient) SetOption {
 	return func(s *Set) {
-		s.pfsOutputClient = afc
+		s.pfsOutputClient = aftc
 	}
 }
 

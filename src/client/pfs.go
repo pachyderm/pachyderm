@@ -1,12 +1,9 @@
 package client
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
-	"os"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -613,63 +610,15 @@ func (pfc *putFileClient) PutFileWriter(repo, commit, path string) (io.WriteClos
 
 // PutFile puts a file into PFS.
 func (pfc *putFileClient) PutFile(repo, commit, path string, r io.Reader) error {
-	return pfc.c.putFile(repo, commit, path, r, false)
-}
-
-// TODO: Change this to not buffer the file locally.
-// We will want to move to a model where we buffer in chunk storage.
-func (c APIClient) putFile(repo string, commit string, path string, r io.Reader, overwrite bool) error {
-	return withTmpFile(func(tarF *os.File) error {
-		if err := withTmpFile(func(f *os.File) error {
-			size, err := io.Copy(f, r)
-			if err != nil {
-				return err
-			}
-			_, err = f.Seek(0, 0)
-			if err != nil {
-				return err
-			}
-			return tarutil.WithWriter(tarF, func(tw *tar.Writer) error {
-				return tarutil.WriteFile(tw, tarutil.NewStreamFile(path, size, f))
-			})
-		}); err != nil {
-			return err
-		}
-		_, err := tarF.Seek(0, 0)
-		if err != nil {
-			return err
-		}
-		return c.AppendFile(repo, commit, tarF, overwrite)
-	})
-}
-
-// TODO: refactor into utility package, also exists in debug util.
-func withTmpFile(cb func(*os.File) error) (retErr error) {
-	if err := os.MkdirAll(os.TempDir(), 0700); err != nil {
-		return err
-	}
-	f, err := ioutil.TempFile(os.TempDir(), "pachyderm_put_file")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.Remove(f.Name()); retErr == nil {
-			retErr = err
-		}
-		if err := f.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
-	return cb(f)
+	return pfc.c.AppendFile(repo, commit, path, false, r)
 }
 
 func (pfc *putFileClient) PutFileOverwrite(repo, commit, path string, r io.Reader) error {
-	return pfc.c.putFile(repo, commit, path, r, true)
+	return pfc.c.AppendFile(repo, commit, path, true, r)
 }
 
-func (pfc *putFileClient) PutFileURL(repo, commit, path, url string, recursive bool, overwrite bool) error {
-	// TODO: Add URL support.
-	return errV1NotImplemented
+func (pfc *putFileClient) PutFileURL(repo, commit, path, url string, recursive, overwrite bool) error {
+	return pfc.c.AppendFileURL(repo, commit, path, url, recursive, overwrite)
 }
 
 func (pfc *putFileClient) DeleteFile(repo, commit, path string) error {
