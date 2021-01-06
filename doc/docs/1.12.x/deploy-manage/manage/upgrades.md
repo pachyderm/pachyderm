@@ -170,6 +170,7 @@ To fix problems with connections to `pachd` after upgrading, you can perform the
 
 - Re-run `pachctl port-forward`, or
 - Set the pachd address config value to the updated value, e.g.: 
+
 ```shell
 pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
 ```
