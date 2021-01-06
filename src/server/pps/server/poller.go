@@ -162,14 +162,15 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 	}
 }
 
+// pollPipelinePods creates a kubernetes watch, and for each event:
+//   1) Checks if the event concerns a Pod
+//   2) Checks if the Pod belongs to a pipeline (pipelineName annotation is set)
+//   3) Checks if the Pod is failing
+// If all three conditions are met, then the pipline (in 'pipelineName') is set
+// to CRASHING
 func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 	ctx := pollClient.Ctx()
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		// watchChan will be nil if the Watch call below errors, this means
-		// that we won't receive events from k8s and won't be able to detect
-		// errors in pods. We could just return that error and retry but that
-		// prevents pachyderm from creating pipelines when there's an issue
-		// talking to k8s.
 		kubePipelineWatch, err := m.a.env.GetKubeClient().CoreV1().Pods(m.a.namespace).Watch(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
