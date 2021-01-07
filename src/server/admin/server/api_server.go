@@ -296,7 +296,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 	if !request.NoEnterprise {
-		state, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
+		state, err := pachClient.Enterprise.GetActivationCode(pachClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 		if err != nil {
 			return err
 		}

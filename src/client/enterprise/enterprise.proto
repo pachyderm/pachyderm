@@ -51,6 +51,17 @@ enum State {
 message GetStateResponse {
   State state = 1;
   TokenInfo info = 2;
+
+  // activation_code will always be an empty string,
+  // call GetEnterpriseCode to get the activation code
+  string activation_code = 3;
+}
+
+message GetActivationCodeRequest {}
+
+message GetActivationCodeResponse {
+  State state = 1;
+  TokenInfo info = 2;
   string activation_code = 3;
 }
 
@@ -62,6 +73,7 @@ service API {
   // features, such as the Pachyderm Dashboard and Auth system
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}
   rpc GetState(GetStateRequest) returns (GetStateResponse) {}
+  rpc GetActivationCode(GetActivationCodeRequest) returns (GetActivationCodeResponse) {}
 
   // Deactivate is a testing API. It removes a cluster's enterprise activation
   // token and sets its enterprise state to NONE (normally, once a cluster has
