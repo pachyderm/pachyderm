@@ -15,7 +15,7 @@ fi
 # material/overrides/partials/versions.html. This must be built before running 'mkdocs'
 # itself
 latest_version="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V | head -n 1)"
-cat <<EOF >>overrides/partials/versions.html
+cat <<EOF >overrides/partials/versions.html
 <div class="mdl-selectfield">
     <select class="mdl-selectfield__select" id="version-selector" onchange="
         let pathParts = window.location.pathname.split('/');
@@ -24,14 +24,11 @@ cat <<EOF >>overrides/partials/versions.html
     ">
         <option style="color:white;background-color:#4b2a5c;" value="latest">latest (${latest_version})</option>
 EOF
-for d in docs/*; do
-    d=$(basename "${d}")
 
-    # don't rebuild archived dir
-    if [[ "${d}" == "archived" ]]; then
-        continue
-    fi
-    if [[ "${d}" == "master" ]]; then
+all_versions="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V)"
+for d in $all_versions; do
+    # don't link latest version again
+    if [[ "${d}" == "$latest_version" ]]; then
          continue
     fi
     cat <<EOF >>overrides/partials/versions.html
@@ -52,16 +49,7 @@ cat <<EOF >>overrides/partials/versions.html
 EOF
 
 # Rebuild all docs versions
-for d in docs/*; do
-    d=$(basename "${d}")
-
-    # don't rebuild archived dir
-    if [[ "${d}" == "archived" ]]; then
-        continue
-    fi
-    if [[ "${d}" == "master" ]]; then
-        continue
-    fi
+for d in $all_versions; do
     out_dir="site/${d}"
 
     # Check for mkdocs file

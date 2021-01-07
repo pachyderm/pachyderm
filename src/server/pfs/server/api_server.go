@@ -273,6 +273,10 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	return branchInfo, nil
 }
 
+func (a *apiServer) InspectBranchInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+	return a.driver.inspectBranch(txnCtx, request.Branch)
+}
+
 // ListBranch implements the protobuf pfs.ListBranch RPC
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

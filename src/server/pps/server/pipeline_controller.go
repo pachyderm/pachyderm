@@ -49,12 +49,7 @@ func max(is ...int) int {
 // pipelineOp contains all of the relevent current state for a pipeline. It's
 // used by step() to take any necessary actions
 type pipelineOp struct {
-	apiServer *apiServer
-	// a pachyderm client wrapping the PPS Master's context. This should only be
-	// used in startPipelineMonitor and startCrashingPipelineMonitor
-	// TODO(msteffen): refactor master() into its own service and make those
-	// methods of that service
-	masterClient *client.APIClient
+	m *ppsMaster
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of step())
 	opClient     *client.APIClient
@@ -75,30 +70,33 @@ var (
 // 1. retrieves its full pipeline spec and RC
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'ptr', if needed, to reflect the action it just took
-func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer, keyRev int64) (retErr error) {
+func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	log.Infof("PPS master: processing event for %q", pipeline)
 
 	// Initialize op ctx (cancelled at the end of step(), to avoid leaking
 	// resources). op.opClient wraps opCtx, whereas masterClient is passed by the
 	// PPS master and used in case a monitor needs to be spawned for 'pipeline',
 	// whose lifetime is tied to the master rather than this op.
-	opCtx, cancel := context.WithCancel(masterClient.Ctx())
+	opCtx, cancel := context.WithCancel(m.masterClient.Ctx())
 	defer cancel()
 
 	// Handle tracing
 	span, opCtx := extended.AddSpanToAnyPipelineTrace(opCtx,
-		a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate",
-		"key-version", keyVer,
-		"mod-revision", keyRev)
+		m.a.env.GetEtcdClient(), pipeline, "/pps.Master/ProcessPipelineUpdate")
+	if keyVer != 0 || keyRev != 0 {
+		tracing.TagAnySpan(span, "key-version", keyVer, "mod-revision", keyRev)
+	} else {
+		tracing.TagAnySpan(span, "pollpipelines-event", "true")
+	}
 	defer func() {
 		tracing.FinishAnySpan(span, "err", retErr)
 	}()
 
 	// Retrieve pipelineInfo from the spec repo
-	op, err := a.newPipelineOp(masterClient, masterClient.WithCtx(opCtx), pipeline)
+	op, err := m.newPipelineOp(m.masterClient.WithCtx(opCtx), pipeline)
 	if err != nil {
 		// op is nil, so can't use op.failPipeline
-		return a.setPipelineFailure(opCtx, pipeline,
+		return m.a.setPipelineFailure(opCtx, pipeline,
 			fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
 	// set op.rc
@@ -112,17 +110,16 @@ func (a *apiServer) step(masterClient *client.APIClient, pipeline string, keyVer
 	return op.run()
 }
 
-func (a *apiServer) newPipelineOp(masterClient *client.APIClient, opClient *client.APIClient, pipeline string) (*pipelineOp, error) {
+func (m *ppsMaster) newPipelineOp(opClient *client.APIClient, pipeline string) (*pipelineOp, error) {
 	op := &pipelineOp{
-		apiServer:    a,
-		masterClient: masterClient,
-		opClient:     opClient,
-		ptr:          &pps.EtcdPipelineInfo{},
-		name:         pipeline,
+		m:        m,
+		opClient: opClient,
+		ptr:      &pps.EtcdPipelineInfo{},
+		name:     pipeline,
 	}
 	// get latest EtcdPipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
-	if err := a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
+	if err := m.a.pipelines.ReadOnly(opClient.Ctx()).Get(pipeline, op.ptr); err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
 	}
 	// Update trace with any new pipeline info from getPipelineInfo()
@@ -241,7 +238,7 @@ func (op *pipelineOp) run() error {
 func (op *pipelineOp) getPipelineInfo() error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.sudo(op.opClient, func(superUserClient *client.APIClient) error {
+		return op.m.a.sudo(op.opClient, func(superUserClient *client.APIClient) error {
 			var err error
 			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.name, op.ptr)
 			return err
@@ -277,8 +274,8 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	kubeClient := op.apiServer.env.GetKubeClient()
-	namespace := op.apiServer.namespace
+	kubeClient := op.m.a.env.GetKubeClient()
+	namespace := op.m.a.namespace
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.name)
 
 	// count error types separately, so that this only errors if the pipeline is
@@ -395,7 +392,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.setPipelineState(op.opClient.Ctx(),
+		return op.m.a.setPipelineState(op.opClient.Ctx(),
 			op.pipelineInfo.Pipeline.Name, state, reason)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
@@ -415,7 +412,7 @@ func (op *pipelineOp) createPipelineResources() error {
 	log.Infof("PPS master: creating resources for pipeline %q", op.name)
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.createWorkerSvcAndRc(op.opClient.Ctx(), op.ptr, op.pipelineInfo)
+		return op.m.a.createWorkerSvcAndRc(op.opClient.Ctx(), op.ptr, op.pipelineInfo)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		invalidOpts := errors.As(err, &noValidOptionsErr{})
 		errCount++
@@ -440,19 +437,19 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.apiServer.startMonitor(op.masterClient, op.pipelineInfo)
+	op.m.startMonitor(op.pipelineInfo)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
-	op.apiServer.startCrashingMonitor(op.masterClient, op.ptr.Parallelism, op.pipelineInfo)
+	op.m.startCrashingMonitor(op.ptr.Parallelism, op.pipelineInfo)
 }
 
 func (op *pipelineOp) stopPipelineMonitor() {
-	op.apiServer.cancelMonitor(op.name)
+	op.m.cancelMonitor(op.name)
 }
 
 func (op *pipelineOp) stopCrashingPipelineMonitor() {
-	op.apiServer.cancelCrashingMonitor(op.name)
+	op.m.cancelCrashingMonitor(op.name)
 }
 
 // finishPipelineOutputCommits finishes any output commits of
@@ -482,7 +479,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 		pachClient = op.opClient
 	}
 
-	return op.apiServer.sudo(pachClient, func(superUserClient *client.APIClient) error {
+	return op.m.a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		commitInfos, err := superUserClient.ListCommit(op.name, op.pipelineInfo.OutputBranch, "", 0)
 		if isNotFoundErr(err) {
 			return nil // already deleted
@@ -522,7 +519,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 //   deleted, then (per step() above) the error will be logged and the PPS
 //   master will move on
 func (op *pipelineOp) deletePipelineResources() error {
-	return op.apiServer.deletePipelineResources(op.opClient.Ctx(), op.name)
+	return op.m.deletePipelineResources(op.name)
 }
 
 // updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
@@ -537,8 +534,8 @@ func (op *pipelineOp) deletePipelineResources() error {
 // it will return an error to the caller to indicate that the caller shouldn't
 // continue with further operations
 func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error {
-	kubeClient := op.apiServer.env.GetKubeClient()
-	namespace := op.apiServer.namespace
+	kubeClient := op.m.a.env.GetKubeClient()
+	namespace := op.m.a.namespace
 	rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 
 	var errCount int
@@ -680,7 +677,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 // Like other functions in this file, failPipeline takes responsibility for
 // retrying.
 func (op *pipelineOp) failPipeline(reason string) error {
-	if err := op.apiServer.setPipelineFailure(op.opClient.Ctx(), op.name, reason); err != nil {
+	if err := op.m.a.setPipelineFailure(op.opClient.Ctx(), op.name, reason); err != nil {
 		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)

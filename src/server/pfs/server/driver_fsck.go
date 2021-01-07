@@ -224,7 +224,16 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
 func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
+	// Check that the user is logged in (user doesn't need any access level to
+	// fsck, but they must be authenticated if auth is active)
+	if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
+		}
+	}
+
 	ctx := pachClient.Ctx()
+
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join
 

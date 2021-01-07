@@ -4,8 +4,8 @@ If you need to upgrade Pachyderm from one major version
 to another, such as from `1.8.x` to `1.9.x`, follow the
 instructions in the [Migrate between major versions](./migrations.md).
 
-Upgrades from one minor version to another, such as from version `1.9.0` to
-version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
+Upgrades from one minor version to another, such as from version `1.10.0` to
+version `1.10.2` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
 !!! warning
@@ -19,7 +19,7 @@ section.
 
 1. Destroy your Pachyderm cluster:
 
-   ```
+   ```shell
    pachctl undeploy
    ```
 
@@ -28,21 +28,21 @@ section.
    **Example:**
 
    ```shell
-   brew upgrade pachyderm/tap/pachctl@1.10
+   brew upgrade pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ```
 
    **System response:**
 
    ```shell
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.10
-   ==> Upgrading pachyderm/tap/pachctl@1.10
+   pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
+   ==> Upgrading pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
    ...
    ```
 
    **Note:** You need to specify the version of `pachctl` to which
-   you want to upgrade. For example, if you want to upgrade `1.9.0` to
-   `1.9.2`, add `@1.9` at the end of the upgrade path.
+   you want to upgrade. For example, if you want to upgrade `1.10.0` to
+   `1.10.2`, add `@1.10` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -55,7 +55,7 @@ the following command:
 
    ```shell
    COMPONENT           VERSION
-   pachctl             1.9.2
+   pachctl             {{ config.pach_latest_version }}
    ```
 
 1. Redeploy Pachyderm by running the `pachctl deploy` command
@@ -113,8 +113,8 @@ of Pachyderm:
 
    ```shell
    COMPONENT           VERSION
-   pachctl             1.9.2
-   pachd               1.9.2
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
    The `pachd` and `pachctl` versions must both match the new version.
@@ -154,7 +154,7 @@ or re-deploying all of Pachyderm again will fix the issue.
 
 Occasionally, you might see errors similar to the following:
 
-```
+```shell
 Error from server (AlreadyExists): error when creating "STDIN": secrets "pachyderm-storage-secret" already exists
 ```
 
@@ -169,7 +169,10 @@ the IP address for Pachyderm may have changed.
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
 - Re-run `pachctl port-forward &`, or
-- Set the pachd address config value to the updated value, e.g.: ```pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650```
+- Set the pachd address config value to the updated value, e.g.: 
+```shell
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+```
 
 
 

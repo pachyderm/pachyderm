@@ -2143,6 +2143,13 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 		return nil, errors.New("branch repo cannot be nil")
 	}
 
+	// Check that the user is logged in, but don't require any access level
+	if _, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{}); err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to run fsck)")
+		}
+	}
+
 	result := &pfs.BranchInfo{}
 	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(branch.Name, result); err != nil {
 		return nil, err

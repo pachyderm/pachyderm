@@ -50,6 +50,9 @@ const (
 	// obj -> client dependency, so any changes to this variable need to be applied there.
 	// The obj package should eventually get refactored so that it does not have this dependency.
 	StorageSecretName = "pachyderm-storage-secret"
+	// PachctlSecretName is the name of the Kubernetes secret in which
+	// pachctl credentials are stored.
+	PachctlSecretName = "pachyderm-pachctl-secret"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -421,7 +424,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
@@ -455,7 +458,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
@@ -559,8 +562,24 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 // NewInWorker constructs a new APIClient intended to be used from a worker
 // to talk to the sidecar pachd container
 func NewInWorker(options ...Option) (*APIClient, error) {
+	cfg, err := config.Read(false, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		return NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create client")
+		}
+		if context.SessionToken != "" {
+			client.authenticationToken = context.SessionToken
+		}
+		return client, nil
 	}
 	return nil, errors.New("PEER_PORT not set")
 }
@@ -636,7 +655,6 @@ func DefaultDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
-
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())

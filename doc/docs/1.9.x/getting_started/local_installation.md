@@ -84,20 +84,20 @@ to have pachctl installed on your machine by following these steps:
    * For macOS, run:
 
      ```shell
-     $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+     $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}
      ```
 
    * For a Debian-based Linux 64-bit or Windows 10 or later running on
    WSL:
 
      ```shell
-     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```shell
-     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.11_linux_amd64/pachctl /usr/local/bin
+     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
@@ -105,7 +105,7 @@ to have pachctl installed on your machine by following these steps:
    ```shell
    $ pachctl version --client-only
    COMPONENT           VERSION
-   pachctl             1.9.11
+   pachctl             {{ config.pach_latest_version }}
    ```
 
    If you run `pachctl version` without `--client-only`, the command times
@@ -167,8 +167,8 @@ all Pachyderm pods must be in the **Running** status.
    ```shell
    $ pachctl version
    COMPONENT           VERSION
-   pachctl             1.9.11
-   pachd               1.9.11
+   pachctl             {{ config.pach_latest_version }}
+   pachd               {{ config.pach_latest_version }}
    ```
 
 1. Open a new terminal window.

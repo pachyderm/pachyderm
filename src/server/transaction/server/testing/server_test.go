@@ -1,15 +1,19 @@
 package testing
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 func TestEmptyTransaction(t *testing.T) {
@@ -577,4 +581,35 @@ func TestBatchTransaction(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestCreatePipelineTransaction(t *testing.T) {
+	c := testutil.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	repo := testutil.UniqueString("in")
+	pipeline := testutil.UniqueString("pipeline")
+	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, txnClient.CreateRepo(repo))
+		require.NoError(t, txnClient.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
+			&pps.ParallelismSpec{Constant: 1},
+			client.NewPFSInput(repo, "/"),
+			"master",
+			false,
+		))
+		return nil
+	})
+	require.NoError(t, err)
+
+	c.PutFile(repo, "master", "foo", strings.NewReader("bar"))
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
 }

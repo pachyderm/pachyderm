@@ -436,3 +436,14 @@ func TestMain(m *testing.M) {
 	}, backoff.RetryEvery(time.Second))
 	os.Exit(m.Run())
 }
+
+func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.BashCmd("yes | pachctl delete all").Run()
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	tu.TestPipelineBuildLifecycle(t, "go", "go", 4)
+}

@@ -1331,8 +1331,8 @@ Tags are a low-level resource and should not be accessed directly by most users.
 
 func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string, recursive, overwrite bool, limiter limit.ConcurrencyLimiter) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
-	// to the server
-	path = filepath.Clean(path)
+	// to the server, and convert to unix path in case we're on windows.
+	path = filepath.ToSlash(filepath.Clean(path))
 	for strings.HasPrefix(path, "../") {
 		path = strings.TrimPrefix(path, "../")
 	}

@@ -462,7 +462,7 @@ Environment variables:
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfg, err := config.Read(true)
+			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
 			}
@@ -543,7 +543,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -645,7 +645,7 @@ This resets the cluster to its initial state.`,
 			defer func() {
 				// reload config in case changes have happened since the
 				// config was last read
-				cfg, err := config.Read(true)
+				cfg, err := config.Read(true, false)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
 					return

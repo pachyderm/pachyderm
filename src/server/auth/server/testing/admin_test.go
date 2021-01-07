@@ -471,6 +471,47 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 }
 
+func TestModifyAdmins(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+	// alice cannot make herself an admin
+	_, err := aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{gh(alice)}})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// root can make alice an admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{gh(alice)}})
+	require.NoError(t, err)
+
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(tu.AdminUser, gh(alice))(), resp.Bindings,
+		)
+	})
+
+	// alice can remove herself
+	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Remove: []string{gh(alice)}})
+	require.NoError(t, err)
+
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(tu.AdminUser)(), resp.Bindings,
+		)
+	})
+}
+
 // TestCannotRemoveAllClusterAdminsRace attempts to put the cluster in a
 // no-admin state by rapidly issuing racing calls to swap an admin and a
 // non-admin.

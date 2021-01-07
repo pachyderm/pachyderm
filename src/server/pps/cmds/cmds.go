@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
@@ -1077,12 +1078,14 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n")
 			}
 		}
-
-		if _, err := pc.PpsAPIClient.CreatePipeline(
-			pc.Ctx(),
-			request,
-		); err != nil {
+		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
+			_, err := txClient.PpsAPIClient.CreatePipeline(
+				txClient.Ctx(),
+				request,
+			)
 			return grpcutil.ScrubGRPC(err)
+		}); err != nil {
+			return err
 		}
 	}
 
@@ -1245,17 +1248,18 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		return errors.Wrapf(err, "failed to create repo for build step-enabled pipeline")
 	}
 
-	// create the build pipeline
-	if err := pc.CreatePipeline(
-		buildPipelineName,
-		image,
-		[]string{"sh", "./build.sh"},
-		[]string{},
-		&ppsclient.ParallelismSpec{Constant: 1},
-		createBuildPipelineInput("source"),
-		"build",
-		update,
-	); err != nil {
+	if err := txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
+		return txClient.CreatePipeline(
+			buildPipelineName,
+			image,
+			[]string{"sh", "./build.sh"},
+			[]string{},
+			&ppsclient.ParallelismSpec{Constant: 1},
+			createBuildPipelineInput("source"),
+			"build",
+			update,
+		)
+	}); err != nil {
 		return errors.Wrapf(err, "failed to create build pipeline for build step-enabled pipeline")
 	}
 

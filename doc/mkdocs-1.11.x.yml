@@ -11,7 +11,9 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2020'
-pach_latest_version: '1.11.8'
+pach_featured_version: '1.12.0'
+pach_latest_version: '1.11.9'
+pach_major_minor_version: '1.11'
 
 
 # Configuration

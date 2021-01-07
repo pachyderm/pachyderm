@@ -129,6 +129,14 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 	)
 }
 
+func sprintCreatePipeline(request *pps.CreatePipelineRequest) string {
+	verb := "create"
+	if request.Update {
+		verb = "update"
+	}
+	return fmt.Sprintf("%s pipeline %s", verb, request.Pipeline.Name)
+}
+
 func transactionRequests(
 	requests []*transaction.TransactionRequest,
 	responses []*transaction.TransactionResponse,
@@ -160,6 +168,8 @@ func transactionRequests(
 			line = sprintDeleteBranch(request.DeleteBranch)
 		} else if request.UpdateJobState != nil {
 			line = sprintUpdateJobState(request.UpdateJobState)
+		} else if request.CreatePipeline != nil {
+			line = sprintCreatePipeline(request.CreatePipeline)
 		} else {
 			line = "ERROR (unknown request type)"
 		}

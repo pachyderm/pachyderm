@@ -235,7 +235,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		authInfo = kubeContext.AuthInfo
 	}
 
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func standardDeployCmds() []*cobra.Command {
 	}
 
 	preRunInternal := func(args []string) error {
-		cfg, err := config.Read(false)
+		cfg, err := config.Read(false, false)
 		if err != nil {
 			log.Warningf("could not read config to check whether cluster metrics "+
 				"will be enabled: %v.\n", err)
@@ -885,7 +885,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy azure"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
-		cfg, err := config.Read(false)
+		cfg, err := config.Read(false, false)
 		if err != nil {
 			return err
 		}
@@ -1051,7 +1051,7 @@ func Cmds() []*cobra.Command {
 		Short: "Deploy the Pachyderm IDE.",
 		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -1235,7 +1235,7 @@ persistent volume was manually provisioned (i.e. if you used the
 				return nil
 			}
 
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -1292,7 +1292,7 @@ persistent volume was manually provisioned (i.e. if you used the
 			}
 			kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
 			if kubeContext != nil {
-				cfg, err := config.Read(true)
+				cfg, err := config.Read(true, false)
 				if err != nil {
 					return err
 				}
@@ -1344,7 +1344,7 @@ underlying volume will not be removed.`)
 		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
