@@ -1460,7 +1460,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
-		// no authorization is done to get logs from master
+
+		// Users must be authenticated to access logs from master, but permissions don't matter
+		_, err := checkLoggedIn(pachClient)
+		if err != nil {
+			return err
+		}
 		containerName, rcName = "pachd", "pachd"
 	} else {
 		containerName = client.PPSWorkerUserContainerName
