@@ -47,8 +47,12 @@ func TestGetState(t *testing.T) {
 		if time.Until(expires) <= year {
 			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
-		if resp.ActivationCode != "" {
-			return errors.Errorf("incorrect activation code, expected empty string")
+		activationCode, err := unmarshalActivationCode(resp.ActivationCode)
+		if err != nil {
+			return err
+		}
+		if activationCode.Signature != "" {
+			return errors.Errorf("incorrect activation code signature, expected empty string")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))

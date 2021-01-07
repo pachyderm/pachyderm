@@ -160,14 +160,9 @@ func validateActivationCode(code string) (expiration time.Time, err error) {
 		return time.Time{}, errors.Errorf("public key isn't an RSA key")
 	}
 
-	// Decode the base64-encoded activation code
-	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	activationCode, err := unmarshalActivationCode(code)
 	if err != nil {
-		return time.Time{}, errors.Errorf("activation code is not base64 encoded")
-	}
-	activationCode := &activationCode{}
-	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
-		return time.Time{}, errors.Errorf("activation code is not valid JSON")
+		return time.Time{}, err
 	}
 
 	// Decode the signature
@@ -203,6 +198,20 @@ func validateActivationCode(code string) (expiration time.Time, err error) {
 		return time.Time{}, errors.Errorf("the activation code has expired")
 	}
 	return expiration, nil
+}
+
+func unmarshalActivationCode(code string) (*activationCode, error) {
+	// Decode the base64-encoded activation code
+	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		return nil, errors.Errorf("activation code is not base64 encoded")
+	}
+	activationCode := &activationCode{}
+	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
+		return nil, errors.Errorf("activation code is not valid JSON")
+	}
+
+	return activationCode, nil
 }
 
 // Activate implements the Activate RPC
@@ -270,10 +279,27 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		return nil, err
 	}
 
-	return &ec.GetStateResponse{
+	resp = &ec.GetStateResponse{
 		Info:  record.Info,
 		State: record.State,
-	}, nil
+	}
+
+	if record.ActivationCode != "" {
+		activationCode, err := unmarshalActivationCode(record.ActivationCode)
+		if err != nil {
+			return nil, err
+		}
+
+		activationCode.Signature = ""
+		activationCodeStr, err := json.Marshal(activationCode)
+		if err != nil {
+			return nil, err
+		}
+
+		resp.ActivationCode = string(activationCodeStr)
+	}
+
+	return resp, nil
 }
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
