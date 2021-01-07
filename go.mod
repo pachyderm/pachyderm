@@ -82,7 +82,7 @@ require (
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
-	golang.org/x/tools v0.0.0-20201202200335-bef1c476418a // indirect
+	golang.org/x/tools v0.0.0-20210106214847-113979e3529a // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
@@ -101,7 +101,7 @@ require (
 	sigs.k8s.io/yaml v1.1.0
 )
 
-// Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
+// Wow, the docker library versions are less than ideal, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 

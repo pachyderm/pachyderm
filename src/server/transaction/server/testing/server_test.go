@@ -610,6 +610,6 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", 0, 0, &buf))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", &buf))
 	require.Equal(t, "bar", buf.String())
 }

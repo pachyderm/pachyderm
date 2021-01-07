@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -8806,71 +8807,72 @@ func TestCancelManyJobs(t *testing.T) {
 	}
 }
 
+// TODO: Make work with V2: Implement PutFileSplit?
 // TestDeleteCommitPropagation deletes an input commit and makes sure all
 // downstream commits are also deleted.
 // DAG in this test: repo -> pipeline[0] -> pipeline[1]
-func TestDeleteCommitPropagation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+// func TestDeleteCommitPropagation(t *testing.T) {
+// 	if testing.Short() {
+// 		t.Skip("Skipping integration tests in short mode")
+// 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+// 	c := tu.GetPachClient(t)
+// 	require.NoError(t, c.DeleteAll())
 
-	// Create an input repo
-	repo := tu.UniqueString("TestDeleteCommitPropagation")
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-		strings.NewReader(tu.TestPGDump))
-	require.NoError(t, err)
+// 	// Create an input repo
+// 	repo := tu.UniqueString("TestDeleteCommitPropagation")
+// 	require.NoError(t, c.CreateRepo(repo))
+// 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
+// 		strings.NewReader(tu.TestPGDump))
+// 	require.NoError(t, err)
 
-	// Create a pipeline that roughly validates the header
-	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"/bin/bash"},
-		[]string{
-			`ls /pfs/*/d/*`, // for debugging
-			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
-			`(( cars_tables == 1 )) && exit 0 || exit 1`,
-		},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/d/*"),
-		"",
-		false,
-	))
+// 	// Create a pipeline that roughly validates the header
+// 	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
+// 	require.NoError(t, c.CreatePipeline(
+// 		pipeline,
+// 		"",
+// 		[]string{"/bin/bash"},
+// 		[]string{
+// 			`ls /pfs/*/d/*`, // for debugging
+// 			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
+// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
+// 		},
+// 		&pps.ParallelismSpec{Constant: 1},
+// 		client.NewPFSInput(repo, "/d/*"),
+// 		"",
+// 		false,
+// 	))
 
-	// wait for job to run & check that all rows were processed
-	var jobCount int
-	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-		func(jobInfo *pps.JobInfo) error {
-			jobCount++
-			require.Equal(t, 1, jobCount)
-			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-			require.Equal(t, int64(5), jobInfo.DataProcessed)
-			require.Equal(t, int64(0), jobInfo.DataSkipped)
-			return nil
-		})
+// 	// wait for job to run & check that all rows were processed
+// 	var jobCount int
+// 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+// 		func(jobInfo *pps.JobInfo) error {
+// 			jobCount++
+// 			require.Equal(t, 1, jobCount)
+// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+// 			require.Equal(t, int64(5), jobInfo.DataProcessed)
+// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
+// 			return nil
+// 		})
 
-	// put empty dataset w/ new header
-	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-		strings.NewReader(tu.TestPGDumpNewHeader))
-	require.NoError(t, err)
+// 	// put empty dataset w/ new header
+// 	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
+// 		strings.NewReader(tu.TestPGDumpNewHeader))
+// 	require.NoError(t, err)
 
-	// everything gets reprocessed (hashes all change even though the files
-	// themselves weren't altered)
-	jobCount = 0
-	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
-		func(jobInfo *pps.JobInfo) error {
-			jobCount++
-			require.Equal(t, 1, jobCount)
-			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
-			require.Equal(t, int64(0), jobInfo.DataSkipped)
-			return nil
-		})
-}
+// 	// everything gets reprocessed (hashes all change even though the files
+// 	// themselves weren't altered)
+// 	jobCount = 0
+// 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+// 		func(jobInfo *pps.JobInfo) error {
+// 			jobCount++
+// 			require.Equal(t, 1, jobCount)
+// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+// 			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
+// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
+// 			return nil
+// 		})
+// }
 
 // TestDeleteCommitRunsJob creates an input reo, commits several times, and then
 // creates a pipeline. Creating the pipeline will spawn a job and while that
@@ -11074,10 +11076,9 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	}
 
 	require.NoError(t, c.CreateRepo(input))
-	_, err := c.PutFile(input, "master", "foo", strings.NewReader("bar"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(input, "master", "foo", strings.NewReader("bar")))
 
-	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, createPipeline(txnClient, input, pipelineA, false))
 		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, false))
 		return nil
@@ -11192,38 +11193,6 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 }
 
-func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
-	pipelineInfos, err := c.ListPipeline()
-	require.NoError(t, err)
-	repoInfo, err := c.InspectRepo(repo)
-	require.NoError(t, err)
-	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0, "")
-	require.NoError(t, err)
-	return activeStat.NObjects
-}
-
-func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
-	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
-	require.NoError(t, err)
-	var objects []*pfs.Object
-	for object, err := objectsClient.Recv(); !errors.Is(err, io.EOF); object, err = objectsClient.Recv() {
-		require.NoError(t, err)
-		objects = append(objects, object.Object)
-	}
-	return objects
-}
-
-func getAllTags(t testing.TB, c *client.APIClient) []string {
-	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
-	require.NoError(t, err)
-	var tags []string
-	for resp, err := tagsClient.Recv(); !errors.Is(err, io.EOF); resp, err = tagsClient.Recv() {
-		require.NoError(t, err)
-		tags = append(tags, resp.Tag.Name)
-	}
-	return tags
-}
-
 //lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
 	k := tu.GetKubeClient(t)
@@ -11256,111 +11225,89 @@ func restartOne(t *testing.T) {
 	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
 
-// getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
-// connection that actually works
-func getUsablePachClient(t *testing.T) *client.APIClient {
-	fmt.Println("Reconnecting to pachd")
-	var c *client.APIClient
-	require.NoError(t, backoff.Retry(func() error {
-		c = tu.GetPachClient(t)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-		defer cancel()
-		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-		return err
-	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
-	return c
-}
+// TODO: Can we remove this?
+// // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
+// // connection that actually works
+// func getUsablePachClient(t *testing.T) *client.APIClient {
+// 	fmt.Println("Reconnecting to pachd")
+// 	var c *client.APIClient
+// 	require.NoError(t, backoff.Retry(func() error {
+// 		c = tu.GetPachClient(t)
+// 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+// 		defer cancel()
+// 		_, err := c.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+// 		return err
+// 	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
+// 	return c
+// }
 
-func simulateGitPush(t *testing.T, pathToPayload string) {
-	payload, err := ioutil.ReadFile(pathToPayload)
-	require.NoError(t, err)
-	req, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("http://127.0.0.1:%v/v1/handle/push", githook.GitHookPort+30000),
-		bytes.NewBuffer(payload),
-	)
-	require.NoError(t, err)
-	req.Header.Set("X-Github-Delivery", "2984f5d0-c032-11e7-82d7-ed3ee54be25d")
-	req.Header.Set("User-Agent", "GitHub-Hookshot/c1d08eb")
-	req.Header.Set("X-Github-Event", "push")
-	req.Header.Set("Content-Type", "application/json")
+// func simulateGitPush(t *testing.T, pathToPayload string) {
+// 	payload, err := ioutil.ReadFile(pathToPayload)
+// 	require.NoError(t, err)
+// 	req, err := http.NewRequest(
+// 		"POST",
+// 		fmt.Sprintf("http://127.0.0.1:%v/v1/handle/push", githook.GitHookPort+30000),
+// 		bytes.NewBuffer(payload),
+// 	)
+// 	require.NoError(t, err)
+// 	req.Header.Set("X-Github-Delivery", "2984f5d0-c032-11e7-82d7-ed3ee54be25d")
+// 	req.Header.Set("User-Agent", "GitHub-Hookshot/c1d08eb")
+// 	req.Header.Set("X-Github-Event", "push")
+// 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
+// 	require.NoError(t, err)
+// 	defer resp.Body.Close()
 
-	require.Equal(t, 200, resp.StatusCode)
-}
+// 	require.Equal(t, 200, resp.StatusCode)
+// }
 
-// scalePachd scales the number of pachd nodes up or down.
-// If up is true, then the number of nodes will be within (n, 2n]
-// If up is false, then the number of nodes will be within [1, n)
-func scalePachdRandom(t testing.TB, up bool) {
-	pachdRc := tu.PachdDeployment(t, v1.NamespaceDefault)
-	originalReplicas := *pachdRc.Spec.Replicas
-	for {
-		if up {
-			*pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
-		} else {
-			*pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
-		}
+// // scalePachd scales the number of pachd nodes up or down.
+// // If up is true, then the number of nodes will be within (n, 2n]
+// // If up is false, then the number of nodes will be within [1, n)
+// func scalePachdRandom(t testing.TB, up bool) {
+// 	pachdRc := tu.PachdDeployment(t, v1.NamespaceDefault)
+// 	originalReplicas := *pachdRc.Spec.Replicas
+// 	for {
+// 		if up {
+// 			*pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
+// 		} else {
+// 			*pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
+// 		}
 
-		if *pachdRc.Spec.Replicas != originalReplicas {
-			break
-		}
-	}
-	scalePachdN(t, int(*pachdRc.Spec.Replicas))
-}
+// 		if *pachdRc.Spec.Replicas != originalReplicas {
+// 			break
+// 		}
+// 	}
+// 	scalePachdN(t, int(*pachdRc.Spec.Replicas))
+// }
 
-// scalePachdN scales the number of pachd nodes to N
-func scalePachdN(t testing.TB, n int) {
-	k := tu.GetKubeClient(t)
-	// Modify the type metadata of the Deployment spec we read from k8s, so that
-	// k8s will accept it if we're talking to a 1.7 cluster
-	pachdDeployment := tu.PachdDeployment(t, v1.NamespaceDefault)
-	*pachdDeployment.Spec.Replicas = int32(n)
-	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
-	_, err := k.AppsV1().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
-	require.NoError(t, err)
-	tu.WaitForPachdReady(t, v1.NamespaceDefault)
-	// Unfortunately, even when all pods are ready, the cluster membership
-	// protocol might still be running, thus PFS API calls might fail.  So
-	// we wait a little bit for membership to stablize.
-	time.Sleep(15 * time.Second)
-}
+// // scalePachdN scales the number of pachd nodes to N
+// func scalePachdN(t testing.TB, n int) {
+// 	k := tu.GetKubeClient(t)
+// 	// Modify the type metadata of the Deployment spec we read from k8s, so that
+// 	// k8s will accept it if we're talking to a 1.7 cluster
+// 	pachdDeployment := tu.PachdDeployment(t, v1.NamespaceDefault)
+// 	*pachdDeployment.Spec.Replicas = int32(n)
+// 	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
+// 	_, err := k.AppsV1().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
+// 	require.NoError(t, err)
+// 	tu.WaitForPachdReady(t, v1.NamespaceDefault)
+// 	// Unfortunately, even when all pods are ready, the cluster membership
+// 	// protocol might still be running, thus PFS API calls might fail.  So
+// 	// we wait a little bit for membership to stablize.
+// 	time.Sleep(15 * time.Second)
+// }
 
-// scalePachd reads the number of pachd nodes from an env variable and
-// scales pachd accordingly.
-func scalePachd(t testing.TB) {
-	nStr := os.Getenv("PACHD")
-	if nStr == "" {
-		return
-	}
-	n, err := strconv.Atoi(nStr)
-	require.NoError(t, err)
-	scalePachdN(t, n)
-}
-
-//lint:ignore U1000 false positive from staticcheck
-var etcdClient *etcd.Client
-
-//lint:ignore U1000 false positive from staticcheck
-var getEtcdClientOnce sync.Once
-
-const (
-	etcdAddress = "localhost:32379" // etcd must already be serving at this address
-)
-
-//lint:ignore U1000 false positive from staticcheck
-func getEtcdClient(t testing.TB) *etcd.Client {
-	getEtcdClientOnce.Do(func() {
-		var err error
-		etcdClient, err = etcd.New(etcd.Config{
-			Endpoints:   []string{etcdAddress},
-			DialOptions: client.DefaultDialOptions(),
-		})
-		require.NoError(t, err)
-	})
-	return etcdClient
-}
+// // scalePachd reads the number of pachd nodes from an env variable and
+// // scales pachd accordingly.
+// func scalePachd(t testing.TB) {
+// 	nStr := os.Getenv("PACHD")
+// 	if nStr == "" {
+// 		return
+// 	}
+// 	n, err := strconv.Atoi(nStr)
+// 	require.NoError(t, err)
+// 	scalePachdN(t, n)
+// }

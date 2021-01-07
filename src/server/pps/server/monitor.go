@@ -375,29 +375,6 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 	}
 }
 
-func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
-	var latestTime time.Time
-	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "")
-	if err != nil && !pfsserver.IsNoHeadErr(err) {
-		return latestTime, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return latestTime, err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return latestTime, err
-		}
-	}
-	return latestTime, nil
-}
-
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
@@ -468,7 +445,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 // (typically set by 'pachctl extract')
 func getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	files, err := pachClient.ListFileAll(in.Cron.Repo, "master", "")
 	if err != nil && !pfsserver.IsNoHeadErr(err) {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

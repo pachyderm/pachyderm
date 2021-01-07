@@ -1725,7 +1725,7 @@ func (a *apiServer) makePipelineInfoCommitOnBranch(pachClient *client.APIClient,
 		if err != nil {
 			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
-		if err := superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, pipelineName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
+		if err := superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
 			return err
 		}
 		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, branchName)
@@ -2428,10 +2428,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			return errors.Wrapf(err, "could not create/update marker branch")
 		}
 		return nil
-	}); err != nil {
-		return nil, err
 	}
-
 	return nil
 }
 
