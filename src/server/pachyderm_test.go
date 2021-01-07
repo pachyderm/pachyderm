@@ -11099,7 +11099,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	require.NoError(t, err)
 	commits, err := c.ListCommitByRepo(pipelineB)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 4, len(commits))
 
 	jobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
 	require.NoError(t, err)

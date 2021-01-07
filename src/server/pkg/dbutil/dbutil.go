@@ -3,6 +3,7 @@ package dbutil
 import (
 	"crypto/rand"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,21 +24,26 @@ const (
 	DefaultUser = "postgres"
 	// DefaultDBName is the default DB name.
 	DefaultDBName = "pgc"
+
+	postgresMaxConnections = 100
 )
+
+// we want to divide the total number of connections we can have up among the
+var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name
 // then calls cb with a sqlx.DB configured to use the newly created database.
 // After cb returns the database is dropped.
 func NewTestDB(t testing.TB) *sqlx.DB {
 	dbName := ephemeralDBName()
-	require.NoError(t, WithDB(func(db *sqlx.DB) error {
+	require.NoError(t, withDB(func(db *sqlx.DB) error {
 		db.MustExec("CREATE DATABASE " + dbName)
 		t.Log("database", dbName, "successfully created")
 		return nil
 	}))
 	if !devDontDropDatabase {
 		t.Cleanup(func() {
-			require.NoError(t, WithDB(func(db *sqlx.DB) error {
+			require.NoError(t, withDB(func(db *sqlx.DB) error {
 				db.MustExec("DROP DATABASE " + dbName)
 				t.Log("database", dbName, "successfully deleted")
 				return nil
@@ -46,14 +52,15 @@ func NewTestDB(t testing.TB) *sqlx.DB {
 	}
 	db2, err := NewDB(WithDBName(dbName))
 	require.NoError(t, err)
+	db2.SetMaxOpenConns(maxOpenConnsPerPool)
 	t.Cleanup(func() {
 		require.NoError(t, db2.Close())
 	})
 	return db2
 }
 
-// WithDB creates a database connection that is scoped to the passed in callback.
-func WithDB(cb func(*sqlx.DB) error, opts ...Option) (retErr error) {
+// withDB creates a database connection that is scoped to the passed in callback.
+func withDB(cb func(*sqlx.DB) error, opts ...Option) (retErr error) {
 	db, err := NewDB(opts...)
 	if err != nil {
 		return err
