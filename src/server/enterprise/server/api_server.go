@@ -15,6 +15,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -159,14 +160,9 @@ func validateActivationCode(code string) (expiration time.Time, err error) {
 		return time.Time{}, errors.Errorf("public key isn't an RSA key")
 	}
 
-	// Decode the base64-encoded activation code
-	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	activationCode, err := unmarshalActivationCode(code)
 	if err != nil {
-		return time.Time{}, errors.Errorf("activation code is not base64 encoded")
-	}
-	activationCode := &activationCode{}
-	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
-		return time.Time{}, errors.Errorf("activation code is not valid JSON")
+		return time.Time{}, err
 	}
 
 	// Decode the signature
@@ -202,6 +198,20 @@ func validateActivationCode(code string) (expiration time.Time, err error) {
 		return time.Time{}, errors.Errorf("the activation code has expired")
 	}
 	return expiration, nil
+}
+
+func unmarshalActivationCode(code string) (*activationCode, error) {
+	// Decode the base64-encoded activation code
+	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		return nil, errors.Errorf("activation code is not base64 encoded")
+	}
+	activationCode := &activationCode{}
+	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
+		return nil, errors.Errorf("activation code is not valid JSON")
+	}
+
+	return activationCode, nil
 }
 
 // Activate implements the Activate RPC
@@ -262,11 +272,60 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}, nil
 }
 
-// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE)
+// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), without the activation code
 func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp *ec.GetStateResponse, retErr error) {
+	record, err := a.getEnterpriseRecord()
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &ec.GetStateResponse{
+		Info:  record.Info,
+		State: record.State,
+	}
+
+	if record.ActivationCode != "" {
+		activationCode, err := unmarshalActivationCode(record.ActivationCode)
+		if err != nil {
+			return nil, err
+		}
+
+		activationCode.Signature = ""
+		activationCodeStr, err := json.Marshal(activationCode)
+		if err != nil {
+			return nil, err
+		}
+
+		resp.ActivationCode = base64.StdEncoding.EncodeToString(activationCodeStr)
+	}
+
+	return resp, nil
+}
+
+// GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
+func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivationCodeRequest) (resp *ec.GetActivationCodeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	pachClient := a.env.GetPachClient(ctx)
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return nil, err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return nil, &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "GetActivationCode",
+			}
+		}
+	}
+
+	return a.getEnterpriseRecord()
+}
+
+func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error) {
 	record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
 	if !ok {
 		return nil, errors.Errorf("could not retrieve enterprise expiration time")
@@ -276,9 +335,9 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
 	}
 	if expiration.IsZero() {
-		return &ec.GetStateResponse{State: ec.State_NONE}, nil
+		return &ec.GetActivationCodeResponse{State: ec.State_NONE}, nil
 	}
-	resp = &ec.GetStateResponse{
+	resp := &ec.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
 			Expires: record.Expires,
 		},
