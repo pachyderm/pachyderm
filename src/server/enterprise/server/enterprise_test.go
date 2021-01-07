@@ -83,8 +83,12 @@ func TestGetState(t *testing.T) {
 		if expires.Unix() != respExpires.Unix() {
 			return errors.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
 		}
-		if resp.ActivationCode != "" {
-			return errors.Errorf("incorrect activation code, expected empty string")
+		activationCode, err := unmarshalActivationCode(resp.ActivationCode)
+		if err != nil {
+			return err
+		}
+		if activationCode.Signature != "" {
+			return errors.Errorf("incorrect activation code signature, expected empty string")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))

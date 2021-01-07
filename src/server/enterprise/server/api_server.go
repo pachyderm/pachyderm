@@ -296,7 +296,7 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 			return nil, err
 		}
 
-		resp.ActivationCode = string(activationCodeStr)
+		resp.ActivationCode = base64.StdEncoding.EncodeToString(activationCodeStr)
 	}
 
 	return resp, nil
@@ -317,7 +317,7 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivation
 		if !whoAmI.IsAdmin {
 			return nil, &auth.ErrNotAuthorized{
 				Subject: whoAmI.Username,
-				AdminOp: "GetState",
+				AdminOp: "GetActivationCode",
 			}
 		}
 	}
