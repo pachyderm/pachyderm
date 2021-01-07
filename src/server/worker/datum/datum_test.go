@@ -42,7 +42,7 @@ func TestSet(t *testing.T) {
 		require.NoError(t, err)
 		var allInputs [][]*common.Input
 		// Create datum fileset.
-		require.NoError(t, c.WithFileOperationClient(outputRepo, outputCommit.ID, func(foc *client.FileOperationClient) error {
+		require.NoError(t, c.WithModifyFileClient(outputRepo, outputCommit.ID, func(mfc *client.ModifyFileClient) error {
 			require.NoError(t, withTmpDir(func(storageRoot string) error {
 				require.NoError(t, WithSet(c, storageRoot, func(s *Set) error {
 					di, err := NewIterator(c, in)
@@ -57,7 +57,7 @@ func TestSet(t *testing.T) {
 							})
 						})
 					})
-				}, WithMetaOutput(foc)))
+				}, WithMetaOutput(mfc)))
 				return nil
 			}))
 			return nil

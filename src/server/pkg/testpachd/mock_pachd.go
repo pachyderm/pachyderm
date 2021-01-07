@@ -405,7 +405,7 @@ type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Em
 type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 type listBranchFunc func(context.Context, *pfs.ListBranchRequest) (*pfs.BranchInfos, error)
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
-type fileOperationFunc func(pfs.API_FileOperationServer) error
+type modifyFileFunc func(pfs.API_ModifyFileServer) error
 type copyFileFunc func(context.Context, *pfs.CopyFileRequest) (*types.Empty, error)
 type getFileFunc func(*pfs.GetFileRequest, pfs.API_GetFileServer) error
 type inspectFileFunc func(context.Context, *pfs.InspectFileRequest) (*pfs.FileInfo, error)
@@ -434,7 +434,7 @@ type mockCreateBranch struct{ handler createBranchFunc }
 type mockInspectBranch struct{ handler inspectBranchFunc }
 type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
-type mockFileOperation struct{ handler fileOperationFunc }
+type mockModifyFile struct{ handler modifyFileFunc }
 type mockCopyFile struct{ handler copyFileFunc }
 type mockGetFile struct{ handler getFileFunc }
 type mockInspectFile struct{ handler inspectFileFunc }
@@ -463,7 +463,7 @@ func (mock *mockCreateBranch) Use(cb createBranchFunc)       { mock.handler = cb
 func (mock *mockInspectBranch) Use(cb inspectBranchFunc)     { mock.handler = cb }
 func (mock *mockListBranch) Use(cb listBranchFunc)           { mock.handler = cb }
 func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)       { mock.handler = cb }
-func (mock *mockFileOperation) Use(cb fileOperationFunc)     { mock.handler = cb }
+func (mock *mockModifyFile) Use(cb modifyFileFunc)           { mock.handler = cb }
 func (mock *mockCopyFile) Use(cb copyFileFunc)               { mock.handler = cb }
 func (mock *mockGetFile) Use(cb getFileFunc)                 { mock.handler = cb }
 func (mock *mockInspectFile) Use(cb inspectFileFunc)         { mock.handler = cb }
@@ -498,7 +498,7 @@ type mockPFSServer struct {
 	InspectBranch   mockInspectBranch
 	ListBranch      mockListBranch
 	DeleteBranch    mockDeleteBranch
-	FileOperation   mockFileOperation
+	ModifyFile      mockModifyFile
 	CopyFile        mockCopyFile
 	GetFile         mockGetFile
 	InspectFile     mockInspectFile
@@ -608,11 +608,11 @@ func (api *pfsServerAPI) DeleteBranch(ctx context.Context, req *pfs.DeleteBranch
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteBranch")
 }
-func (api *pfsServerAPI) FileOperation(serv pfs.API_FileOperationServer) error {
-	if api.mock.FileOperation.handler != nil {
-		return api.mock.FileOperation.handler(serv)
+func (api *pfsServerAPI) ModifyFile(serv pfs.API_ModifyFileServer) error {
+	if api.mock.ModifyFile.handler != nil {
+		return api.mock.ModifyFile.handler(serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.FileOperation")
+	return errors.Errorf("unhandled pachd mock pfs.ModifyFile")
 }
 func (api *pfsServerAPI) CopyFile(ctx context.Context, req *pfs.CopyFileRequest) (*types.Empty, error) {
 	if api.mock.CopyFile.handler != nil {

@@ -37,10 +37,10 @@ const (
 	defaultNumRetries = 3
 )
 
-// AppendFileClient is the standard interface for a client that implements AppendFile.
-type AppendFileClient interface {
-	// AppendFile puts a tar stream.
-	AppendFile(r io.Reader, overwrite bool, datum ...string) error
+// AppendFileTarClient is the standard interface for a client that implements AppendFileTar.
+type AppendFileTarClient interface {
+	// AppendFileTar puts a tar stream.
+	AppendFileTar(overwrite bool, r io.Reader, datum ...string) error
 }
 
 const defaultDatumsPerSet = 10
@@ -51,7 +51,7 @@ type SetSpec struct {
 }
 
 // CreateSets creates datum sets from the passed in datum iterator.
-func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(AppendFileClient) error) error) error {
+func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(AppendFileTarClient) error) error) error {
 	var metas []*Meta
 	datumsPerSet := defaultDatumsPerSet
 	if setSpec != nil {
@@ -72,8 +72,8 @@ func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(
 	return createSet(metas, storageRoot, upload)
 }
 
-func createSet(metas []*Meta, storageRoot string, upload func(func(AppendFileClient) error) error) error {
-	return upload(func(afc AppendFileClient) error {
+func createSet(metas []*Meta, storageRoot string, upload func(func(AppendFileTarClient) error) error) error {
+	return upload(func(aftc AppendFileTarClient) error {
 		return WithSet(nil, storageRoot, func(s *Set) error {
 			for _, meta := range metas {
 				d := newDatum(s, meta)
@@ -82,7 +82,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(AppendFileCli
 				}
 			}
 			return nil
-		}, WithMetaOutput(afc))
+		}, WithMetaOutput(aftc))
 	})
 }
 
@@ -90,7 +90,7 @@ func createSet(metas []*Meta, storageRoot string, upload func(func(AppendFileCli
 type Set struct {
 	pachClient                        *client.APIClient
 	storageRoot                       string
-	metaOutputClient, pfsOutputClient AppendFileClient
+	metaOutputClient, pfsOutputClient AppendFileTarClient
 	stats                             *Stats
 }
 
@@ -308,7 +308,7 @@ func (d *Datum) uploadOutput() error {
 	return d.uploadMetaOutput()
 }
 
-func (d *Datum) upload(afc AppendFileClient, storageRoot string, cb ...func(*tar.Header) error) error {
+func (d *Datum) upload(aftc AppendFileTarClient, storageRoot string, cb ...func(*tar.Header) error) error {
 	// TODO: Might make more sense to convert to tar on the fly.
 	f, err := os.Create(path.Join(d.set.storageRoot, TmpFileName))
 	if err != nil {
@@ -320,7 +320,7 @@ func (d *Datum) upload(afc AppendFileClient, storageRoot string, cb ...func(*tar
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
-	return afc.AppendFile(f, false, d.ID)
+	return aftc.AppendFileTar(false, f, d.ID)
 }
 
 // TODO: I think these types would be unecessary if the dependencies were shuffled around a bit.
