@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Group, {GroupProps} from './Group';
+import {Group, GroupProps} from './';
 export default {
   title: 'Group',
 };
