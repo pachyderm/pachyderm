@@ -35,17 +35,31 @@ This example illustrates the use of GATK in Pachyderm for Germline variant calli
 This section lists all the examples that you can run with various
 Pachyderm pipelines and special features, such as transactions.
 
-### Joins
+### Inner and Outer Joins Input
 
 A join is a special type of pipeline that enables you to perform
 data operations on files with a specific naming pattern.
 
-[Matching files by name pattern](https://github.com/pachyderm/pachyderm/tree/master/examples/joins)
+[Inner and Outer joins 101 - A simplified retail use case](https://github.com/pachyderm/pachyderm/tree/master/examples/joins)
 
+### Group Input
+
+A group is a special type of pipeline input that enables 
+you to aggregate files that reside in one or separate Pachyderm
+repositories and match a particular naming pattern. 
+
+[Group 101 - An Introductory example](https://github.com/pachyderm/pachyderm/tree/master/examples/group)
 ### Spouts
 
 A spout is a special type of pipeline that you can use to ingest
 streaming data and perform such operations as sorting, filtering, and other.
+
+We have released a new *spouts 2.0* implementation
+in Pachyderm 1.12. Checkout our didactic example.
+
+[Spout 101 - An Introductory example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spou101)
+
+For more extensive examples based on our previous version of spout:
 
 * [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer)
 * [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout)
