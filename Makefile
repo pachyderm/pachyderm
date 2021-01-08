@@ -62,7 +62,6 @@ doc:
 point-release:
 	@./etc/build/make_changelog.sh $(CHLOGFILE)
 	@VERSION_ADDITIONAL= ./etc/build/make_release.sh
-	@make doc
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string

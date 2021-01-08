@@ -347,14 +347,17 @@ func (api *authServerAPI) RestoreAuthToken(ctx context.Context, req *auth.Restor
 
 type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error)
 type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
+type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
+type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
+func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
 
 type enterpriseServerAPI struct {
@@ -362,10 +365,11 @@ type enterpriseServerAPI struct {
 }
 
 type mockEnterpriseServer struct {
-	api        enterpriseServerAPI
-	Activate   mockActivateEnterprise
-	GetState   mockGetState
-	Deactivate mockDeactivateEnterprise
+	api               enterpriseServerAPI
+	Activate          mockActivateEnterprise
+	GetState          mockGetState
+	GetActivationCode mockGetActivationCode
+	Deactivate        mockDeactivateEnterprise
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -379,6 +383,12 @@ func (api *enterpriseServerAPI) GetState(ctx context.Context, req *enterprise.Ge
 		return api.mock.GetState.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.GetState")
+}
+func (api *enterpriseServerAPI) GetActivationCode(ctx context.Context, req *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error) {
+	if api.mock.GetActivationCode.handler != nil {
+		return api.mock.GetActivationCode.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.GetActivationCode")
 }
 func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error) {
 	if api.mock.Deactivate.handler != nil {

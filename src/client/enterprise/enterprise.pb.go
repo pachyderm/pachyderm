@@ -311,12 +311,14 @@ func (m *GetStateRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetStateRequest proto.InternalMessageInfo
 
 type GetStateResponse struct {
-	State                State      `protobuf:"varint,1,opt,name=state,proto3,enum=enterprise.State" json:"state,omitempty"`
-	Info                 *TokenInfo `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
-	ActivationCode       string     `protobuf:"bytes,3,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
+	State State      `protobuf:"varint,1,opt,name=state,proto3,enum=enterprise.State" json:"state,omitempty"`
+	Info  *TokenInfo `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	// activation_code will always be an empty string,
+	// call GetEnterpriseCode to get the activation code
+	ActivationCode       string   `protobuf:"bytes,3,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GetStateResponse) Reset()         { *m = GetStateResponse{} }
@@ -373,6 +375,108 @@ func (m *GetStateResponse) GetActivationCode() string {
 	return ""
 }
 
+type GetActivationCodeRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetActivationCodeRequest) Reset()         { *m = GetActivationCodeRequest{} }
+func (m *GetActivationCodeRequest) String() string { return proto.CompactTextString(m) }
+func (*GetActivationCodeRequest) ProtoMessage()    {}
+func (*GetActivationCodeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_88d07275108cec01, []int{6}
+}
+func (m *GetActivationCodeRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetActivationCodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetActivationCodeRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetActivationCodeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetActivationCodeRequest.Merge(m, src)
+}
+func (m *GetActivationCodeRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetActivationCodeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetActivationCodeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetActivationCodeRequest proto.InternalMessageInfo
+
+type GetActivationCodeResponse struct {
+	State                State      `protobuf:"varint,1,opt,name=state,proto3,enum=enterprise.State" json:"state,omitempty"`
+	Info                 *TokenInfo `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	ActivationCode       string     `protobuf:"bytes,3,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *GetActivationCodeResponse) Reset()         { *m = GetActivationCodeResponse{} }
+func (m *GetActivationCodeResponse) String() string { return proto.CompactTextString(m) }
+func (*GetActivationCodeResponse) ProtoMessage()    {}
+func (*GetActivationCodeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_88d07275108cec01, []int{7}
+}
+func (m *GetActivationCodeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetActivationCodeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetActivationCodeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetActivationCodeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetActivationCodeResponse.Merge(m, src)
+}
+func (m *GetActivationCodeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetActivationCodeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetActivationCodeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetActivationCodeResponse proto.InternalMessageInfo
+
+func (m *GetActivationCodeResponse) GetState() State {
+	if m != nil {
+		return m.State
+	}
+	return State_NONE
+}
+
+func (m *GetActivationCodeResponse) GetInfo() *TokenInfo {
+	if m != nil {
+		return m.Info
+	}
+	return nil
+}
+
+func (m *GetActivationCodeResponse) GetActivationCode() string {
+	if m != nil {
+		return m.ActivationCode
+	}
+	return ""
+}
+
 type DeactivateRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -383,7 +487,7 @@ func (m *DeactivateRequest) Reset()         { *m = DeactivateRequest{} }
 func (m *DeactivateRequest) String() string { return proto.CompactTextString(m) }
 func (*DeactivateRequest) ProtoMessage()    {}
 func (*DeactivateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d07275108cec01, []int{6}
+	return fileDescriptor_88d07275108cec01, []int{8}
 }
 func (m *DeactivateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -422,7 +526,7 @@ func (m *DeactivateResponse) Reset()         { *m = DeactivateResponse{} }
 func (m *DeactivateResponse) String() string { return proto.CompactTextString(m) }
 func (*DeactivateResponse) ProtoMessage()    {}
 func (*DeactivateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_88d07275108cec01, []int{7}
+	return fileDescriptor_88d07275108cec01, []int{9}
 }
 func (m *DeactivateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -459,6 +563,8 @@ func init() {
 	proto.RegisterType((*ActivateResponse)(nil), "enterprise.ActivateResponse")
 	proto.RegisterType((*GetStateRequest)(nil), "enterprise.GetStateRequest")
 	proto.RegisterType((*GetStateResponse)(nil), "enterprise.GetStateResponse")
+	proto.RegisterType((*GetActivationCodeRequest)(nil), "enterprise.GetActivationCodeRequest")
+	proto.RegisterType((*GetActivationCodeResponse)(nil), "enterprise.GetActivationCodeResponse")
 	proto.RegisterType((*DeactivateRequest)(nil), "enterprise.DeactivateRequest")
 	proto.RegisterType((*DeactivateResponse)(nil), "enterprise.DeactivateResponse")
 }
@@ -468,35 +574,37 @@ func init() {
 }
 
 var fileDescriptor_88d07275108cec01 = []byte{
-	// 434 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x93, 0xcd, 0x6e, 0xd3, 0x40,
-	0x14, 0x85, 0x33, 0xe9, 0xff, 0xad, 0xd4, 0x38, 0x03, 0x48, 0x95, 0x01, 0x53, 0xcd, 0xa6, 0xa5,
-	0x0b, 0x5b, 0x0a, 0xdd, 0xb2, 0x70, 0x5b, 0x2b, 0xf2, 0x82, 0x10, 0x99, 0x08, 0x21, 0x36, 0xc8,
-	0xb1, 0x6f, 0x92, 0x11, 0x89, 0xc7, 0xf1, 0x4c, 0x10, 0x3c, 0x05, 0xaf, 0xc5, 0x92, 0x47, 0x40,
-	0x59, 0xf0, 0x1c, 0x28, 0x76, 0x1c, 0x4f, 0x7e, 0x10, 0x6c, 0xba, 0x1b, 0xdd, 0x7b, 0xf4, 0x9d,
-	0x33, 0x67, 0x6c, 0x60, 0xd1, 0x98, 0x63, 0xa2, 0x1c, 0x4c, 0x14, 0x66, 0x69, 0xc6, 0x25, 0x6a,
-	0x47, 0x3b, 0xcd, 0x84, 0x12, 0x14, 0xaa, 0x89, 0xf9, 0x62, 0x28, 0xc4, 0x70, 0x8c, 0x4e, 0xbe,
-	0xe9, 0xcf, 0x06, 0x8e, 0xe2, 0x13, 0x94, 0x2a, 0x9c, 0xa4, 0x85, 0x98, 0x4d, 0xc1, 0xf0, 0x56,
-	0xf2, 0x00, 0x23, 0x91, 0xc5, 0xf4, 0x12, 0x1a, 0x61, 0xa4, 0xf8, 0x97, 0x50, 0x71, 0x91, 0x7c,
-	0x8a, 0x44, 0x8c, 0xe7, 0xe4, 0x82, 0x5c, 0x9d, 0x04, 0x67, 0xd5, 0xf8, 0x4e, 0xc4, 0x48, 0x6f,
-	0xe0, 0x08, 0xbf, 0xa6, 0x3c, 0x43, 0x79, 0x5e, 0xbf, 0x20, 0x57, 0xa7, 0x2d, 0xd3, 0x2e, 0xfc,
-	0xec, 0xd2, 0xcf, 0xee, 0x95, 0x7e, 0x41, 0x29, 0x65, 0x2e, 0x9c, 0xf4, 0xc4, 0x67, 0x4c, 0xfc,
-	0x64, 0x20, 0x74, 0x04, 0xf9, 0x7f, 0x44, 0x0a, 0x0d, 0xb7, 0x88, 0x82, 0x01, 0x4e, 0x67, 0x28,
-	0xd5, 0x43, 0x87, 0x7e, 0x0d, 0x46, 0xe5, 0x28, 0x53, 0x91, 0x48, 0xa4, 0x2f, 0x61, 0x9f, 0x27,
-	0x03, 0xb1, 0x0c, 0xfe, 0xc4, 0xd6, 0x5e, 0x62, 0x75, 0xc1, 0x20, 0x97, 0xb0, 0x26, 0x34, 0xda,
-	0xa8, 0xde, 0xa9, 0x2a, 0x30, 0xfb, 0x4e, 0xc0, 0xa8, 0x66, 0x4b, 0xe4, 0x25, 0x1c, 0xc8, 0xc5,
-	0x20, 0x67, 0x9e, 0xb5, 0x9a, 0x3a, 0xb3, 0x50, 0x16, 0xfb, 0x95, 0x77, 0xfd, 0x9f, 0xde, 0xbb,
-	0x9a, 0xd9, 0xdb, 0xd5, 0x0c, 0x7b, 0x04, 0xcd, 0x7b, 0x0c, 0xd7, 0x7b, 0x65, 0x8f, 0x81, 0xea,
-	0xc3, 0x22, 0xe7, 0xf5, 0x35, 0x1c, 0xe4, 0x71, 0xe8, 0x31, 0xec, 0x77, 0xde, 0x76, 0x3c, 0xa3,
-	0x46, 0x01, 0x0e, 0xdd, 0xbb, 0x9e, 0xff, 0xde, 0x33, 0x08, 0x3d, 0x85, 0x23, 0xef, 0x43, 0xd7,
-	0x0f, 0xbc, 0x7b, 0xa3, 0xde, 0xfa, 0x4d, 0x60, 0xcf, 0xed, 0xfa, 0xb4, 0x0d, 0xc7, 0x65, 0x85,
-	0xf4, 0xa9, 0x1e, 0x78, 0xe3, 0x29, 0xcd, 0x67, 0xbb, 0x97, 0x85, 0x35, 0xab, 0x2d, 0x40, 0x65,
-	0x71, 0xeb, 0xa0, 0x8d, 0x8a, 0xd7, 0x41, 0x9b, 0x5d, 0xb3, 0x1a, 0x7d, 0x03, 0x50, 0xdd, 0x8d,
-	0x3e, 0xd7, 0xd5, 0x5b, 0x45, 0x98, 0xd6, 0xdf, 0xd6, 0x25, 0xee, 0xf6, 0xf6, 0xc7, 0xdc, 0x22,
-	0x3f, 0xe7, 0x16, 0xf9, 0x35, 0xb7, 0xc8, 0xc7, 0x9b, 0x21, 0x57, 0xa3, 0x59, 0xdf, 0x8e, 0xc4,
-	0xc4, 0x49, 0xc3, 0x68, 0xf4, 0x2d, 0xc6, 0x4c, 0x3f, 0xc9, 0x2c, 0x72, 0xb6, 0xfe, 0xe6, 0xfe,
-	0x61, 0xfe, 0x11, 0xbe, 0xfa, 0x13, 0x00, 0x00, 0xff, 0xff, 0x0a, 0x23, 0x9c, 0x3e, 0xe9, 0x03,
-	0x00, 0x00,
+	// 473 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0x4d, 0x6f, 0xd3, 0x40,
+	0x10, 0xcd, 0xa6, 0xdf, 0x53, 0xa9, 0x71, 0x16, 0x90, 0x82, 0x81, 0x50, 0xad, 0x40, 0x2d, 0x3d,
+	0xd8, 0x52, 0xe8, 0x95, 0x83, 0xdb, 0x5a, 0x51, 0x0e, 0x94, 0xca, 0x44, 0x08, 0x71, 0x41, 0x8e,
+	0x33, 0x49, 0x57, 0x34, 0x5e, 0xd7, 0xbb, 0x41, 0xf0, 0x2b, 0xb8, 0xf2, 0x93, 0x10, 0x27, 0x7e,
+	0x02, 0xca, 0x2f, 0x41, 0xb5, 0x6b, 0x7b, 0xed, 0x18, 0x85, 0x0b, 0x52, 0x6f, 0xab, 0x37, 0x6f,
+	0xdf, 0x7b, 0x9e, 0x19, 0x2f, 0xb0, 0xe0, 0x8a, 0x63, 0xa8, 0x6c, 0x0c, 0x15, 0xc6, 0x51, 0xcc,
+	0x25, 0x6a, 0x47, 0x2b, 0x8a, 0x85, 0x12, 0x14, 0x0a, 0xc4, 0x7c, 0x3a, 0x15, 0x62, 0x7a, 0x85,
+	0x76, 0x52, 0x19, 0xcd, 0x27, 0xb6, 0xe2, 0x33, 0x94, 0xca, 0x9f, 0x45, 0x29, 0x99, 0x5d, 0x83,
+	0xe1, 0xe6, 0x74, 0x0f, 0x03, 0x11, 0x8f, 0xe9, 0x01, 0xb4, 0xfc, 0x40, 0xf1, 0xcf, 0xbe, 0xe2,
+	0x22, 0xfc, 0x18, 0x88, 0x31, 0x76, 0xc8, 0x3e, 0x39, 0xdc, 0xf1, 0xf6, 0x0a, 0xf8, 0x54, 0x8c,
+	0x91, 0x1e, 0xc3, 0x16, 0x7e, 0x89, 0x78, 0x8c, 0xb2, 0xd3, 0xdc, 0x27, 0x87, 0xbb, 0x3d, 0xd3,
+	0x4a, 0xfd, 0xac, 0xcc, 0xcf, 0x1a, 0x66, 0x7e, 0x5e, 0x46, 0x65, 0x0e, 0xec, 0x0c, 0xc5, 0x27,
+	0x0c, 0x07, 0xe1, 0x44, 0xe8, 0x12, 0xe4, 0xdf, 0x25, 0x22, 0x68, 0x39, 0x69, 0x14, 0xf4, 0xf0,
+	0x7a, 0x8e, 0x52, 0xfd, 0xef, 0xd0, 0xaf, 0xc0, 0x28, 0x1c, 0x65, 0x24, 0x42, 0x89, 0xf4, 0x05,
+	0xac, 0xf3, 0x70, 0x22, 0x6e, 0x83, 0x3f, 0xb0, 0xb4, 0x49, 0xe4, 0x1f, 0xe8, 0x25, 0x14, 0xd6,
+	0x86, 0x56, 0x1f, 0xd5, 0x5b, 0x55, 0x04, 0x66, 0xdf, 0x08, 0x18, 0x05, 0x76, 0x2b, 0x79, 0x00,
+	0x1b, 0xf2, 0x06, 0x48, 0x34, 0xf7, 0x7a, 0x6d, 0x5d, 0x33, 0x65, 0xa6, 0xf5, 0xdc, 0xbb, 0xb9,
+	0xd2, 0xbb, 0xae, 0x33, 0x6b, 0x75, 0x9d, 0x61, 0x26, 0x74, 0xfa, 0xa8, 0x9c, 0x12, 0x98, 0xa5,
+	0xfd, 0x4e, 0xe0, 0x61, 0x4d, 0xf1, 0x2e, 0xc4, 0xbe, 0x07, 0xed, 0x33, 0xf4, 0xcb, 0xeb, 0xc0,
+	0xee, 0x03, 0xd5, 0xc1, 0x34, 0xe7, 0xd1, 0x11, 0x6c, 0x24, 0x71, 0xe8, 0x36, 0xac, 0x9f, 0xbf,
+	0x39, 0x77, 0x8d, 0x06, 0x05, 0xd8, 0x74, 0x4e, 0x87, 0x83, 0x77, 0xae, 0x41, 0xe8, 0x2e, 0x6c,
+	0xb9, 0xef, 0x2f, 0x06, 0x9e, 0x7b, 0x66, 0x34, 0x7b, 0x3f, 0x9b, 0xb0, 0xe6, 0x5c, 0x0c, 0x68,
+	0x1f, 0xb6, 0xb3, 0xc9, 0xd3, 0x47, 0x7a, 0xe0, 0xca, 0x06, 0x9a, 0x8f, 0xeb, 0x8b, 0xa9, 0x35,
+	0x6b, 0xdc, 0x08, 0x65, 0xf3, 0x2e, 0x0b, 0x55, 0x36, 0xa3, 0x2c, 0x54, 0x5d, 0x11, 0xd6, 0xa0,
+	0x23, 0x68, 0x2f, 0x8d, 0x82, 0x3e, 0xab, 0x5c, 0xaa, 0x1d, 0xa3, 0xf9, 0x7c, 0x05, 0x2b, 0xf7,
+	0x78, 0x0d, 0x50, 0xf4, 0x8f, 0x3e, 0xd1, 0xaf, 0x2d, 0x35, 0xdb, 0xec, 0xfe, 0xad, 0x9c, 0xc9,
+	0x9d, 0x9c, 0xfc, 0x58, 0x74, 0xc9, 0xaf, 0x45, 0x97, 0xfc, 0x5e, 0x74, 0xc9, 0x87, 0xe3, 0x29,
+	0x57, 0x97, 0xf3, 0x91, 0x15, 0x88, 0x99, 0x1d, 0xf9, 0xc1, 0xe5, 0xd7, 0x31, 0xc6, 0xfa, 0x49,
+	0xc6, 0x81, 0xbd, 0xf4, 0xd0, 0x8d, 0x36, 0x93, 0xff, 0xf3, 0xe5, 0x9f, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0x1f, 0x92, 0x92, 0xc4, 0x04, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -515,6 +623,7 @@ type APIClient interface {
 	// features, such as the Pachyderm Dashboard and Auth system
 	Activate(ctx context.Context, in *ActivateRequest, opts ...grpc.CallOption) (*ActivateResponse, error)
 	GetState(ctx context.Context, in *GetStateRequest, opts ...grpc.CallOption) (*GetStateResponse, error)
+	GetActivationCode(ctx context.Context, in *GetActivationCodeRequest, opts ...grpc.CallOption) (*GetActivationCodeResponse, error)
 	// Deactivate is a testing API. It removes a cluster's enterprise activation
 	// token and sets its enterprise state to NONE (normally, once a cluster has
 	// been activated, the only reachable state is EXPIRED).
@@ -551,6 +660,15 @@ func (c *aPIClient) GetState(ctx context.Context, in *GetStateRequest, opts ...g
 	return out, nil
 }
 
+func (c *aPIClient) GetActivationCode(ctx context.Context, in *GetActivationCodeRequest, opts ...grpc.CallOption) (*GetActivationCodeResponse, error) {
+	out := new(GetActivationCodeResponse)
+	err := c.cc.Invoke(ctx, "/enterprise.API/GetActivationCode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aPIClient) Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error) {
 	out := new(DeactivateResponse)
 	err := c.cc.Invoke(ctx, "/enterprise.API/Deactivate", in, out, opts...)
@@ -566,6 +684,7 @@ type APIServer interface {
 	// features, such as the Pachyderm Dashboard and Auth system
 	Activate(context.Context, *ActivateRequest) (*ActivateResponse, error)
 	GetState(context.Context, *GetStateRequest) (*GetStateResponse, error)
+	GetActivationCode(context.Context, *GetActivationCodeRequest) (*GetActivationCodeResponse, error)
 	// Deactivate is a testing API. It removes a cluster's enterprise activation
 	// token and sets its enterprise state to NONE (normally, once a cluster has
 	// been activated, the only reachable state is EXPIRED).
@@ -585,6 +704,9 @@ func (*UnimplementedAPIServer) Activate(ctx context.Context, req *ActivateReques
 }
 func (*UnimplementedAPIServer) GetState(ctx context.Context, req *GetStateRequest) (*GetStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
+}
+func (*UnimplementedAPIServer) GetActivationCode(ctx context.Context, req *GetActivationCodeRequest) (*GetActivationCodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetActivationCode not implemented")
 }
 func (*UnimplementedAPIServer) Deactivate(ctx context.Context, req *DeactivateRequest) (*DeactivateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
@@ -630,6 +752,24 @@ func _API_GetState_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_GetActivationCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetActivationCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetActivationCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/enterprise.API/GetActivationCode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetActivationCode(ctx, req.(*GetActivationCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _API_Deactivate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeactivateRequest)
 	if err := dec(in); err != nil {
@@ -659,6 +799,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetState",
 			Handler:    _API_GetState_Handler,
+		},
+		{
+			MethodName: "GetActivationCode",
+			Handler:    _API_GetActivationCode_Handler,
 		},
 		{
 			MethodName: "Deactivate",
@@ -917,6 +1061,84 @@ func (m *GetStateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *GetActivationCodeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetActivationCodeRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetActivationCodeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetActivationCodeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetActivationCodeResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetActivationCodeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.ActivationCode) > 0 {
+		i -= len(m.ActivationCode)
+		copy(dAtA[i:], m.ActivationCode)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.ActivationCode)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Info != nil {
+		{
+			size, err := m.Info.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnterprise(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.State != 0 {
+		i = encodeVarintEnterprise(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *DeactivateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1067,6 +1289,41 @@ func (m *GetStateRequest) Size() (n int) {
 }
 
 func (m *GetStateResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.State != 0 {
+		n += 1 + sovEnterprise(uint64(m.State))
+	}
+	if m.Info != nil {
+		l = m.Info.Size()
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	l = len(m.ActivationCode)
+	if l > 0 {
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetActivationCodeRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetActivationCodeResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1624,6 +1881,201 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: GetStateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= State(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Info", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Info == nil {
+				m.Info = &TokenInfo{}
+			}
+			if err := m.Info.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActivationCode", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ActivationCode = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetActivationCodeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetActivationCodeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetActivationCodeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetActivationCodeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetActivationCodeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetActivationCodeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
