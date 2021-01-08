@@ -102,11 +102,11 @@ $ pachctl list file purchases@master
 $ pachctl list file returns@master
 ```
 You should see the following files:
-- Stores:
+- Purchases:
 
 ![stores_repository](./img/pachctl_list_file_stores_master.png)
 
-- Purchases:
+- Stores:
 
 ![purchases_repository](./img/pachctl_list_file_purchases_master.png)
 
