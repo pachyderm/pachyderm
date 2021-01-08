@@ -249,6 +249,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	}
 	switch {
 	case commitInfo.Finished != nil:
+		if !ppsutil.IsTerminal(jobInfo.State) {
+			jobInfo.State = pps.JobState_JOB_KILLED
+		}
 		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
 	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
 		jobInfo.State = pps.JobState_JOB_KILLED
