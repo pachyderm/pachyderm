@@ -618,6 +618,7 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
+	t.Skip("not implemented in V2")
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
@@ -632,16 +633,19 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
+	t.Skip("not implemented in V2")
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
+	t.Skip("not implemented in V2")
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
 func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	t.Skip("not implemented in V2")
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	_ = tu.GetAuthenticatedPachClient(t, "unused") // enable auth as a side effect
 
@@ -650,6 +654,7 @@ func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
+//lint:ignore U1000 unreachable in v2
 func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	t.Helper()
 	if testing.Short() {
@@ -758,6 +763,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	return pipeline
 }
 
+//lint:ignore U1000 unreachable in v2
 func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
 	t.Helper()
 
