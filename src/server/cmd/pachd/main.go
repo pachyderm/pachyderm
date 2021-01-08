@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/src/server/identity/server"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -285,7 +286,8 @@ func doFullMode(config interface{}) (retErr error) {
 	kubeNamespace := env.Namespace
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
-	externalServer, err := grpcutil.NewServer(context.Background(), true)
+	authInterceptor := auth.AuthInterceptor{}
+	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.WithChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
 	if err != nil {
 		return err
 	}
