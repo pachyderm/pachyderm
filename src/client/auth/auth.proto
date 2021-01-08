@@ -31,6 +31,7 @@ import "google/protobuf/timestamp.proto";
 // ActivateRequest enables authentication on the cluster. It issues an auth token
 // with no expiration for the irrevocable admin user `pach:root`.
 message ActivateRequest {
+  reserved 1,2;
   // If set, this token is used as the root user login token.
   string root_token = 3;
 }
