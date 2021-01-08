@@ -11079,7 +11079,6 @@ func TestSpoutPachctl(t *testing.T) {
 		}
 
 		// now let's authenticate, and make sure the spout fails due to a lack of authorization
-		tu.ClearPachClientState(t)
 		c = tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 		defer tu.DeleteAll(t)
 

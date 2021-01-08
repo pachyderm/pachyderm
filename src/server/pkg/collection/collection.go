@@ -45,9 +45,8 @@ type collection struct {
 	// tuned when requests fail so it's stored per collection.
 	limit int64
 	// We need this to figure out the concrete type of the objects
-	// that this collection is storing. It's pretty retarded, but
-	// not sure what else we can do since types in Go are not first-class
-	// objects.
+	// that this collection is storing. Not sure ure what else we can do
+	// since types in Go are not first-class objects.
 	// To be clear, this is only necessary because of `Delete`, where we
 	// need to know the type in order to properly remove secondary indexes.
 	template proto.Message
