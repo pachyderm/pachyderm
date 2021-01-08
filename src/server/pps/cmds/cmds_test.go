@@ -26,6 +26,7 @@ package cmds
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"testing"
 
@@ -617,11 +618,8 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
-	pipeline := tu.TestPipelineBuildLifecycle(t, "python", "python", 4)
+	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
 	// intended behavior here
@@ -634,19 +632,144 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
-	tu.TestPipelineBuildLifecycle(t, "python", "python_no_deps", 4)
+	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
-	tu.TestPipelineBuildLifecycle(t, "go", "go", 4)
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	_ = tu.GetAuthenticatedPachClient(t, "unused") // enable auth as a side effect
+
+	defer tu.DeleteAll(t) // make sure to clean up auth
+
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	prefix := "../../../../etc/testing/pipeline-build"
+
+	// reset and create some test input
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo in
+		pachctl put file -r in@master:/ -f {{.prefix}}/input
+	`, "prefix", prefix).Run())
+
+	// give pipeline a unique name to work around
+	// github.com/kubernetes/kubernetes/issues/82130
+	pipeline := tu.UniqueString("test-pipeline-build")
+	spec := fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": %q
+		  },
+		  "transform": {
+		    "build": {
+		      "language": %q
+		    }
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, pipeline, lang)
+
+	// test a barebones pipeline with a build spec and verify results
+	require.NoError(t, tu.BashCmd(`
+		cd {{.prefix}}/{{.dir}}
+		pachctl create pipeline <<EOF
+		{{.spec}}
+		EOF
+		pachctl flush commit in@master
+		`,
+		"dir", dir,
+		"spec", spec,
+		"prefix", prefix,
+	).Run())
+	require.YesError(t, tu.BashCmd(fmt.Sprintf(`
+		pachctl list pipeline --state failure | match %s
+	`, pipeline)).Run())
+	verifyPipelineBuildOutput(t, pipeline, "0")
+
+	// update the barebones pipeline and verify results
+	require.NoError(t, tu.BashCmd(`
+		cd {{.prefix}}/{{.dir}}
+		pachctl update pipeline <<EOF
+		{{.spec}}
+		EOF
+		pachctl flush commit in@master
+		`,
+		"dir", dir,
+		"spec", spec,
+		"prefix", prefix,
+	).Run())
+	verifyPipelineBuildOutput(t, pipeline, "0")
+
+	// update the pipeline with a custom cmd and verify results
+	spec = fmt.Sprintf(`
+		{
+		  "pipeline": {
+		    "name": %q
+		  },
+		  "transform": {
+		    "cmd": [
+		      "sh",
+		      "/pfs/build/run.sh",
+		      "_"
+		    ],
+		    "build": {
+		      "language": %q,
+		      "path": "."
+		    }
+		  },
+		  "input": {
+		    "pfs": {
+		      "repo": "in",
+		      "glob": "/*"
+		    }
+		  }
+		}
+	`, pipeline, lang)
+
+	require.NoError(t, tu.BashCmd(`
+		cd {{.prefix}}/{{.dir}}
+		pachctl update pipeline --reprocess <<EOF
+		{{.spec}}
+		EOF
+		pachctl flush commit in@master
+		`,
+		"dir", dir,
+		"spec", spec,
+		"prefix", prefix,
+	).Run())
+	verifyPipelineBuildOutput(t, pipeline, "_")
+	return pipeline
+}
+
+func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
+	t.Helper()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl flush commit in@master
+		pachctl get file {{.pipeline}}@master:/1.txt | match {{.prefix}}{{.prefix}}{{.prefix}}1
+		pachctl get file {{.pipeline}}@master:/11.txt | match {{.prefix}}{{.prefix}}11
+		pachctl get file {{.pipeline}}@master:/111.txt | match {{.prefix}}111
+		`,
+		"pipeline", pipeline,
+		"prefix", prefix,
+	).Run())
 }
 
 func TestMissingPipeline(t *testing.T) {
