@@ -2084,6 +2084,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 			"previous pipelineInfos == to nil; this is a bug")
 	}
 
+	// make sure we don't touch the pipeline's permissions on its output repo
+	delete(remove, pipelineName)
+	delete(add, pipelineName)
+
 	var eg errgroup.Group
 	// Remove pipeline from old, unused inputs
 	for repo := range remove {
