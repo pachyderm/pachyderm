@@ -54,7 +54,7 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
@@ -90,7 +90,7 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
@@ -120,7 +120,7 @@ func TestSAMLBasic(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 
@@ -202,7 +202,7 @@ func TestGroupsBasic(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	var (
 		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())

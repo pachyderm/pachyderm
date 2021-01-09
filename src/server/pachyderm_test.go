@@ -10388,7 +10388,7 @@ func TestSecretsUnauthenticated(t *testing.T) {
 
 	// Enable auth on the cluster
 	tu.DeleteAll(t)
-	tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	defer tu.DeleteAll(t)
 
 	// Get an unauthenticated client

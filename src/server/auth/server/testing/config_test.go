@@ -49,7 +49,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -85,7 +85,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -161,7 +161,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -233,7 +233,7 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration & read it back
 	conf := &auth.AuthConfig{
@@ -284,7 +284,7 @@ func TestConfigRestartAuth(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -373,7 +373,7 @@ func TestValidateConfigErrNoName(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -405,7 +405,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	for _, name := range []string{"robot", "pipeline"} {
 		conf := &auth.AuthConfig{
@@ -440,7 +440,7 @@ func TestValidateConfigErrNoType(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -471,7 +471,7 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -505,7 +505,7 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -540,7 +540,7 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 
@@ -591,7 +591,7 @@ func TestConfigDeadlock(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	var (
 		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
@@ -672,7 +672,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -720,7 +720,7 @@ func TestConfigBlindWrite(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -768,7 +768,7 @@ func TestInitialConfigConflict(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	resp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
