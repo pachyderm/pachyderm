@@ -357,9 +357,8 @@ func testExtractRestore(t *testing.T, testObjects, testAuth bool) {
 	// If we're restoring a cluster with auth, we need to provide an auth token
 	// in the context where we call Restore.
 	if testAuth {
-		authToken := "restore-new-auth-token"
-		tu.UpdateAuthToken(tu.AdminUser, authToken)
-		c.SetAuthToken(authToken)
+		c.SetAuthToken("restore-auth-token")
+		defer c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 	}
 
 	// Restore metadata and possibly objects
@@ -846,8 +845,7 @@ func TestMigrateAuthFrom1_11(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	c := tu.GetPachClient(t)
-	c.SetAuthToken("known-auth-token")
-	tu.UpdateAuthToken(tu.AdminUser, "known-auth-token")
+	c.SetAuthToken(tu.RootToken)
 
 	// Restore dumped metadata (now that objects are present)
 	md, err := os.Open(path.Join(os.Getenv("GOPATH"),

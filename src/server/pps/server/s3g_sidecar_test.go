@@ -80,7 +80,7 @@ func initPachClient(t testing.TB) (*client.APIClient, string) {
 	require.NoError(t, tu.ActivateEnterprise(t, c))
 
 	activateResp, err := c.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{Subject: "robot:admin"},
+		&auth.ActivateRequest{},
 	)
 	require.NoError(t, err)
 	c.SetAuthToken(activateResp.PachToken)
