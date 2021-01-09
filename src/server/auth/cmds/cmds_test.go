@@ -46,7 +46,7 @@ func activateAuth(t *testing.T) {
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
 	cmd := tu.Cmd("pachctl", "auth", "activate", "--supply-root-token")
-	cmd.Stdin = strings.NewReader("iamroot\n")
+	cmd.Stdin = strings.NewReader(tu.RootToken + "\n")
 	require.NoError(t, cmd.Run())
 }
 
@@ -79,12 +79,11 @@ func TestAuthBasic(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-			echo "{{.alice}}" | pachctl auth login
-			pachctl create repo {{.repo}}
-			pachctl list repo \
-				| match {{.repo}}
-			pachctl inspect repo {{.repo}}
-			`,
+		echo "{{.alice}}" | pachctl auth login
+		pachctl create repo {{.repo}}
+		pachctl list repo | match {{.repo}}
+		pachctl inspect repo {{.repo}}
+	`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
 	).Run())

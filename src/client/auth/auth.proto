@@ -32,7 +32,8 @@ import "google/protobuf/timestamp.proto";
 // with no expiration for the irrevocable admin user `pach:root`.
 message ActivateRequest {
   reserved 1,2;
-  // If set, this token is used as the root user login token.
+  // If set, this token is used as the root user login token. Otherwise the root token
+  // is randomly generated and returned in the response.
   string root_token = 3;
 }
 
