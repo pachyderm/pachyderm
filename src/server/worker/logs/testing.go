@@ -16,7 +16,7 @@ import (
 // you can set the Writer field so that log statements go directly to stdout
 // (or some other location) for debugging purposes.
 type MockLogger struct {
-	// These fields are exposed so that tests can fuck around with them or make assertions
+	// These fields are exposed so that tests can set them or make assertions
 	Writer   io.Writer
 	Job      string
 	Data     []*common.Input
