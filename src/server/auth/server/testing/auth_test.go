@@ -1534,6 +1534,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
+	tu.ActivateAuth(t)
 	anonClient := tu.GetUnauthenticatedPachClient(t)
 
 	// anonClient tries and fails to create a repo
