@@ -93,7 +93,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.GetConfiguration())
 
 	alice := tu.UniqueString("alice")
-	anonClient := tu.GetAuthenticatedPachClient(t, "")
+	anonClient := tu.GetUnauthenticatedPachClient(t)
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	// Alice tries to set the current configuration and fails

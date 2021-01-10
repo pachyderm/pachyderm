@@ -1442,7 +1442,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1534,7 +1534,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	anonClient := tu.GetAuthenticatedPachClient(t, "")
+	anonClient := tu.GetUnauthenticatedPachClient(t)
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
@@ -2527,7 +2527,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -2585,7 +2585,7 @@ func TestGetAuthTokenNoSubject(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with no subject
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
@@ -2607,7 +2607,7 @@ func TestOneTimePasswordNoSubject(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with no subject
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
@@ -2633,7 +2633,7 @@ func TestGetOneTimePassword(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with subject equal to the caller
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
@@ -2679,7 +2679,7 @@ func TestOneTimePasswordExpires(t *testing.T) {
 
 	var authCodeTTL int64 = 10 // seconds
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{
 			TTL: authCodeTTL,

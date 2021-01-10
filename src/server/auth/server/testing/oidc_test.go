@@ -41,7 +41,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetAuthenticatedPachClient(t, "")
+	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetUnauthenticatedPachClient(t)
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
@@ -102,7 +102,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetAuthenticatedPachClient(t, "")
+	adminClient, testClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetUnauthenticatedPachClient(t)
 
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig})
