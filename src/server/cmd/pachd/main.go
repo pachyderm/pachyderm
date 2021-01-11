@@ -286,8 +286,8 @@ func doFullMode(config interface{}) (retErr error) {
 	kubeNamespace := env.Namespace
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
-	authInterceptor := auth.AuthInterceptor{}
-	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.WithChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
+	authInterceptor := auth.NewInterceptor(env)
+	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
 	if err != nil {
 		return err
 	}
