@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
 	"github.com/sirupsen/logrus"
@@ -22,37 +21,37 @@ var authFns = map[string]authFn{
 
 	// Auth API
 	// Activate only has an effect when auth is not enabled
-	"/auth.API/Activate":                unauthenticated,
-	"/auth.API/Deactivate":              adminOnly,
-	"auth.API/GetConfiguration":         adminOnly,
-	"auth.API/SetConfiguration":         adminOnly,
-	"auth.API/GetAdmins":                adminOnly,
-	"auth.API/ModifyAdmins":             adminOnly,
-	"auth.API/GetClusterRoleBindings":   adminOnly,
-	"auth.API/ModifyClusterRoleBinding": adminOnly,
-	"auth.API/Authenticate":             unauthenticated,
-	"auth.API/Authorize":                unauthenticated,
-	"auth.API/WhoAmI":                   adminOnly,
+	"/auth.API/Activate":                 unauthenticated,
+	"/auth.API/Deactivate":               adminOnly,
+	"/auth.API/GetConfiguration":         adminOnly,
+	"/auth.API/SetConfiguration":         adminOnly,
+	"/auth.API/GetAdmins":                adminOnly,
+	"/auth.API/ModifyAdmins":             adminOnly,
+	"/auth.API/GetClusterRoleBindings":   authenticated,
+	"/auth.API/ModifyClusterRoleBinding": adminOnly,
+	"/auth.API/Authenticate":             unauthenticated,
+	"/auth.API/Authorize":                unauthenticated,
+	"/auth.API/WhoAmI":                   unauthenticated,
 	// TOOD: split GetScope for self and others
-	"auth.API/GetScope": authenticated,
-	"auth.API/SetScope": authenticated,
-	"auth.API/GetACL":   authenticated,
-	"auth.API/SetACL":   authenticated,
+	"/auth.API/GetScope": authenticated,
+	"/auth.API/SetScope": authenticated,
+	"/auth.API/GetACL":   authenticated,
+	"/auth.API/SetACL":   authenticated,
 	// GetOIDCLogin is necessary to authenticate
-	"auth.API/GetOIDCLogin": unauthenticated,
+	"/auth.API/GetOIDCLogin": unauthenticated,
 	// TOOD: split GetAuthToken for self and others
-	"auth.API/GetAuthToken":    authenticated,
-	"auth.API/ExtendAuthToken": adminOnly,
+	"/auth.API/GetAuthToken":    authenticated,
+	"/auth.API/ExtendAuthToken": adminOnly,
 	// TODO: split RevokeAuthToken for self and others
-	"auth.API/RevokeAuthToken":  authenticated,
-	"auth.API/SetGroupsForUser": adminOnly,
-	"auth.API/ModifyMembers":    adminOnly,
+	"/auth.API/RevokeAuthToken":  authenticated,
+	"/auth.API/SetGroupsForUser": adminOnly,
+	"/auth.API/ModifyMembers":    adminOnly,
 	// TODO: split GetGroups for self and others
-	"auth.API/GetGroups":          authenticated,
-	"auth.API/GetUsers":           adminOnly,
-	"auth.API/GetOneTimePassword": adminOnly,
-	"auth.API/ExtractAuthTokens":  adminOnly,
-	"auth.API/RestoreAuthToken":   adminOnly,
+	"/auth.API/GetGroups":          authenticated,
+	"/auth.API/GetUsers":           adminOnly,
+	"/auth.API/GetOneTimePassword": adminOnly,
+	"/auth.API/ExtractAuthTokens":  adminOnly,
+	"/auth.API/RestoreAuthToken":   adminOnly,
 
 	// Debug API
 	"/debug.API/Profile": adminOnly,
@@ -69,66 +68,66 @@ var authFns = map[string]authFn{
 	"/health.API/Health": unauthenticated,
 
 	// PFS API
-	"pfs.API/CreateRepo":       authenticated,
-	"pfs.API/InspectRepo":      authenticated,
-	"pfs.API/ListRepo":         authenticated,
-	"pfs.API/DeleteRepo":       authenticated,
-	"pfs.API/StartCommit":      authenticated,
-	"pfs.API/FinishCommit":     authenticated,
-	"pfs.API/InspectCommit":    authenticated,
-	"pfs.API/ListCommit":       authenticated,
-	"pfs.API/ListCommitStream": authenticated,
-	"pfs.API/DeleteCommit":     authenticated,
-	"pfs.API/FlushCommit":      authenticated,
-	"pfs.API/SubscribeCommit":  authenticated,
-	"pfs.API/BuildCommit":      authenticated,
-	"pfs.API/CreateBranch":     authenticated,
-	"pfs.API/InspectBranch":    authenticated,
-	"pfs.API/ListBranch":       authenticated,
-	"pfs.API/DeleteBranch":     authenticated,
-	"pfs.API/PutFile":          authenticated,
-	"pfs.API/CopyFile":         authenticated,
-	"pfs.API/GetFile":          authenticated,
-	"pfs.API/InspectFile":      authenticated,
-	"pfs.API/ListFile":         authenticated,
-	"pfs.API/ListFileStream":   authenticated,
-	"pfs.API/WalkFile":         authenticated,
-	"pfs.API/GlobFile":         authenticated,
-	"pfs.API/GlobFileStream":   authenticated,
-	"pfs.API/DiffFile":         authenticated,
-	"pfs.API/DeleteFile":       authenticated,
-	"pfs.API/DeleteAll":        authenticated,
-	"pfs.API/Fsck":             authenticated,
-	"pfs.API/FileOperationV2":  authenticated,
-	"pfs.API/GetTarV2":         authenticated,
-	"pfs.API/DiffFileV2":       authenticated,
-	"pfs.API/CreateTmpFileSet": authenticated,
-	"pfs.API/RenewTmpFileSet":  authenticated,
-	"pfs.API/ClearCommitV2":    authenticated,
+	"/pfs.API/CreateRepo":       authenticated,
+	"/pfs.API/InspectRepo":      authenticated,
+	"/pfs.API/ListRepo":         authenticated,
+	"/pfs.API/DeleteRepo":       authenticated,
+	"/pfs.API/StartCommit":      authenticated,
+	"/pfs.API/FinishCommit":     authenticated,
+	"/pfs.API/InspectCommit":    authenticated,
+	"/pfs.API/ListCommit":       authenticated,
+	"/pfs.API/ListCommitStream": authenticated,
+	"/pfs.API/DeleteCommit":     authenticated,
+	"/pfs.API/FlushCommit":      authenticated,
+	"/pfs.API/SubscribeCommit":  authenticated,
+	"/pfs.API/BuildCommit":      authenticated,
+	"/pfs.API/CreateBranch":     authenticated,
+	"/pfs.API/InspectBranch":    authenticated,
+	"/pfs.API/ListBranch":       authenticated,
+	"/pfs.API/DeleteBranch":     authenticated,
+	"/pfs.API/PutFile":          authenticated,
+	"/pfs.API/CopyFile":         authenticated,
+	"/pfs.API/GetFile":          authenticated,
+	"/pfs.API/InspectFile":      authenticated,
+	"/pfs.API/ListFile":         authenticated,
+	"/pfs.API/ListFileStream":   authenticated,
+	"/pfs.API/WalkFile":         authenticated,
+	"/pfs.API/GlobFile":         authenticated,
+	"/pfs.API/GlobFileStream":   authenticated,
+	"/pfs.API/DiffFile":         authenticated,
+	"/pfs.API/DeleteFile":       authenticated,
+	"/pfs.API/DeleteAll":        authenticated,
+	"/pfs.API/Fsck":             authenticated,
+	"/pfs.API/FileOperationV2":  authenticated,
+	"/pfs.API/GetTarV2":         authenticated,
+	"/pfs.API/DiffFileV2":       authenticated,
+	"/pfs.API/CreateTmpFileSet": authenticated,
+	"/pfs.API/RenewTmpFileSet":  authenticated,
+	"/pfs.API/ClearCommitV2":    authenticated,
 
 	// Object API - unauthenticated, internal only
-	"pfs.ObjectAPI/PutObject":       unauthenticated,
-	"pfs.ObjectAPI/PutObjectSplit":  unauthenticated,
-	"pfs.ObjectAPI/PutObjects":      unauthenticated,
-	"pfs.ObjectAPI/GetObject":       unauthenticated,
-	"pfs.ObjectAPI/GetObjects":      unauthenticated,
-	"pfs.ObjectAPI/PutBlock":        unauthenticated,
-	"pfs.ObjectAPI/GetBlock":        unauthenticated,
-	"pfs.ObjectAPI/GetBlocks":       unauthenticated,
-	"pfs.ObjectAPI/ListBlock":       unauthenticated,
-	"pfs.ObjectAPI/TagObject":       unauthenticated,
-	"pfs.ObjectAPI/InspectObject":   unauthenticated,
-	"pfs.ObjectAPI/CheckObject":     unauthenticated,
-	"pfs.ObjectAPI/ListObjects":     unauthenticated,
-	"pfs.ObjectAPI/DeleteObjects":   unauthenticated,
-	"pfs.ObjectAPI/GetTag":          unauthenticated,
-	"pfs.ObjectAPI/InspectTag":      unauthenticated,
-	"pfs.ObjectAPI/ListTags":        unauthenticated,
-	"pfs.ObjectAPI/DeleteTags":      unauthenticated,
-	"pfs.ObjectAPI/Compact":         unauthenticated,
-	"pfs.ObjectAPI/PutObjDirect":    unauthenticated,
-	"pfs.ObjectAPI/GetObjDirect":    unauthenticated,
-	"pfs.ObjectAPI/DeleteObjDirect": unauthenticated,
+	"/pfs.ObjectAPI/PutObject":       unauthenticated,
+	"/pfs.ObjectAPI/PutObjectSplit":  unauthenticated,
+	"/pfs.ObjectAPI/PutObjects":      unauthenticated,
+	"/pfs.ObjectAPI/GetObject":       unauthenticated,
+	"/pfs.ObjectAPI/GetObjects":      unauthenticated,
+	"/pfs.ObjectAPI/PutBlock":        unauthenticated,
+	"/pfs.ObjectAPI/GetBlock":        unauthenticated,
+	"/pfs.ObjectAPI/GetBlocks":       unauthenticated,
+	"/pfs.ObjectAPI/ListBlock":       unauthenticated,
+	"/pfs.ObjectAPI/TagObject":       unauthenticated,
+	"/pfs.ObjectAPI/InspectObject":   unauthenticated,
+	"/pfs.ObjectAPI/CheckObject":     unauthenticated,
+	"/pfs.ObjectAPI/ListObjects":     unauthenticated,
+	"/pfs.ObjectAPI/DeleteObjects":   unauthenticated,
+	"/pfs.ObjectAPI/GetTag":          unauthenticated,
+	"/pfs.ObjectAPI/InspectTag":      unauthenticated,
+	"/pfs.ObjectAPI/ListTags":        unauthenticated,
+	"/pfs.ObjectAPI/DeleteTags":      unauthenticated,
+	"/pfs.ObjectAPI/Compact":         unauthenticated,
+	"/pfs.ObjectAPI/PutObjDirect":    unauthenticated,
+	"/pfs.ObjectAPI/GetObjDirect":    unauthenticated,
+	"/pfs.ObjectAPI/DeleteObjDirect": unauthenticated,
 
 	// PPS API
 	// TODO: PPS still checks repo-level auth in the methods themselves
@@ -163,16 +162,16 @@ var authFns = map[string]authFn{
 	"/pps.API/UpdateJobState": authenticated,
 
 	// TransactionAPI
-	"transaction.API/BatchTransaction":   authenticated,
-	"transaction.API/StartTransaction":   authenticated,
-	"transaction.API/InspectTransaction": authenticated,
-	"transaction.API/DeleteTransaction":  authenticated,
-	"transaction.API/ListTransaction":    authenticated,
-	"transaction.API/FinishTransaction":  authenticated,
-	"transaction.API/DeleteAll":          adminOnly,
+	"/transaction.API/BatchTransaction":   authenticated,
+	"/transaction.API/StartTransaction":   authenticated,
+	"/transaction.API/InspectTransaction": authenticated,
+	"/transaction.API/DeleteTransaction":  authenticated,
+	"/transaction.API/ListTransaction":    authenticated,
+	"/transaction.API/FinishTransaction":  authenticated,
+	"/transaction.API/DeleteAll":          adminOnly,
 
 	// Version API
-	"/version.API/GetVersion": authenticated,
+	"/versionpb.API/GetVersion": authenticated,
 }
 
 // unauthenticated allows all RPCs to succeed, even if there is no auth metadata
@@ -193,14 +192,19 @@ func authenticated(i *Interceptor, ctx context.Context, info *grpc.UnaryServerIn
 // adminOnly allows an RPC to succeed only if the user has cluster admin status
 func adminOnly(i *Interceptor, ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error {
 	pachClient := i.env.GetPachClient(ctx)
-	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if err != nil && !auth.IsErrNotActivated(err) {
-		return errors.Wrapf(err, "error during authorization check")
+	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsErrNotActivated(err) {
+			return nil
+		}
+		return err
 	}
 
-	for _, s := range me.ClusterRoles.Roles {
-		if s == auth.ClusterRole_SUPER {
-			return nil
+	if me.ClusterRoles != nil {
+		for _, s := range me.ClusterRoles.Roles {
+			if s == auth.ClusterRole_SUPER {
+				return nil
+			}
 		}
 	}
 

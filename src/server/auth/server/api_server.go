@@ -604,6 +604,13 @@ func (a *apiServer) GetClusterRoleBindings(ctx context.Context, req *auth.GetClu
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	switch a.activationState() {
+	case none:
+		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
+	}
+
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
 	resp = &auth.GetClusterRoleBindingsResponse{

@@ -51,6 +51,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 var mode string
