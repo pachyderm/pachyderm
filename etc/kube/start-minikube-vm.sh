@@ -31,8 +31,6 @@ export -f start_minikube
 
 ## If the caller provided a tag, build and use that
 export PACH_VERSION=local
-KUBE_VERSION=v1.13.0
-MINIKUBE_FLAGS=("--kubernetes-version=${KUBE_VERSION}")
 eval "set -- $( getopt -l "tag:,cpus:,memory:" "--" "${0}" "${@:-}" )"
 while true; do
   case "${1}" in
@@ -123,9 +121,5 @@ set -x
 # Kill pachctl port-forward and kubectl proxy
 killall kubectl || true
 
-if [[ "${DEPLOY_FLAGS}" = "--storage-v2" ]]; then
-	# Port forward to postgres
-	POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
-	export POSTGRES_POD
-	kubectl port-forward "$POSTGRES_POD" 32228:5432 &
-fi
+# Port forward to postgres
+etc/kube/forward_postgres.sh &

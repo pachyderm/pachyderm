@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -20,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -29,7 +28,6 @@ import (
 )
 
 const (
-	testingTreeCacheSize       = 8
 	etcdHost                   = "localhost"
 	etcdPort                   = "32379"
 	localBlockServerCacheBytes = 256 * 1024 * 1024
@@ -52,12 +50,7 @@ func generateRandomString(n int) string {
 
 // runServers starts serving requests for the given apiServer & blockAPIServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(
-	t testing.TB,
-	port int32,
-	apiServer APIServer,
-	blockAPIServer BlockAPIServer,
-) {
+func runServers(t testing.TB, port int32, apiServer APIServer, blockAPIServer BlockAPIServer) {
 	server, err := grpcutil.NewServer(context.Background(), false)
 	require.NoError(t, err)
 
@@ -118,14 +111,11 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 		true /* duplicate--see comment in newObjBlockAPIServer */)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
-	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
-	if err != nil {
-		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
-	}
 
 	txnEnv := &txnenv.TransactionEnv{}
 
-	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+	db := dbutil.NewTestDB(t)
+	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, db)
 	require.NoError(t, err)
 
 	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())

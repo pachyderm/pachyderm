@@ -123,7 +123,7 @@ func (w *worker) advanceCommit(c *client.APIClient) error {
 
 		// Before we finish a commit, we add a file. This assures that there
 		// won't be any empty commits which will later crash jobs
-		if _, err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+		if err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 			return err
 		}
 		if err := c.FinishCommit(commit.Repo.Name, commit.ID); err != nil {
@@ -151,7 +151,7 @@ func (w *worker) putFile(c *client.APIClient) error {
 		return nil
 	}
 	commit := w.started[w.rand.Intn(len(w.started))]
-	if _, err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+	if err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 		return err
 	}
 	return nil

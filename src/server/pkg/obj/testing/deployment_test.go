@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -260,8 +261,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	// Upload some files
 	commit1, err := pachClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = pachClient.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
+	require.NoError(t, pachClient.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
 	require.NoError(t, pachClient.FinishCommit(dataRepo, commit1.ID))
 
 	// Create a pipeline
@@ -292,6 +292,7 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Collect commit infos
+	// TODO: Refactor this into a general purpose utility, this same function is in src/server/pachyderm_test.go.
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
@@ -301,11 +302,16 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 		require.NoError(t, err)
 		commitInfos = append(commitInfos, commitInfo)
 	}
-	require.Equal(t, 1, len(commitInfos))
+	if len(commitInfos) > 0 {
+		sort.Slice(commitInfos, func(i, j int) bool {
+			return len(commitInfos[i].Provenance) < len(commitInfos[j].Provenance)
+		})
+	}
+	require.Equal(t, 2, len(commitInfos))
 
 	// Check the pipeline output
 	var buf bytes.Buffer
-	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.NoError(t, pachClient.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
 

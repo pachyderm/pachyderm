@@ -62,7 +62,7 @@ func (s *postgresStore) Get(ctx context.Context, p string) (*Metadata, error) {
 }
 
 func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) (retErr error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.filesets WHERE path LIKE $1 || '%'`, prefix)
+	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.filesets WHERE path LIKE $1 || '%' ORDER BY path`, prefix)
 	if err != nil {
 		return err
 	}

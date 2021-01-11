@@ -118,7 +118,7 @@ func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Opt
 		}
 	}
 	if len(fss) == 0 {
-		return &emptyReader{}, nil
+		return nil, errors.Errorf("error opening fileset: non-existent fileset: %v", fileSets)
 	}
 	if len(fss) == 1 {
 		return fss[0], nil

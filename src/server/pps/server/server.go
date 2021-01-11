@@ -99,6 +99,7 @@ func NewSidecarAPIServer(
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	// TODO: Make work with V2
+	//go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

@@ -82,3 +82,5 @@ branches:
   - /.*(?i:ci-trigger)$/
   # For all branches uncomment the line below or remove the "branches" section
   #- /.*/
+  # Run for v2 alpha
+  - 2.0.0-alpha

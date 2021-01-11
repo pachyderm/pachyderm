@@ -54,8 +54,6 @@ type PachdSpecificConfiguration struct {
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	Metrics                    bool   `env:"METRICS,default=true"`
 	Init                       bool   `env:"INIT,default=false"`
-	BlockCacheBytes            string `env:"BLOCK_CACHE_BYTES,default=1G"`
-	PFSCacheSize               string `env:"PFS_CACHE_SIZE,default=0"`
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
@@ -110,7 +108,6 @@ type WorkerSpecificConfiguration struct {
 // the workers and their sidecars, this should be done in:
 // src/server/pps/server/worker_rc.go in the workerPodSpec func.
 type FeatureFlags struct {
-	StorageV2                    bool `env:"STORAGE_V2,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
 	LokiLogging                  bool `env:"LOKI_LOGGING,default=false"`
 }

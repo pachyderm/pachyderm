@@ -1,8 +1,8 @@
 package server
 
 import (
+	"github.com/jmoiron/sqlx"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -29,22 +29,12 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(
-	env *serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-	etcdPrefix string,
-	treeCache *hashtree.Cache,
-	storageRoot string,
-	memoryRequest int64,
-) (APIServer, error) {
-	if env.StorageV2 {
-		a, err := newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
-		if err != nil {
-			return nil, err
-		}
-		return newValidatedAPIServer(a, env), nil
+func NewAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (APIServer, error) {
+	a, err := newAPIServer(env, txnEnv, etcdPrefix, db)
+	if err != nil {
+		return nil, err
 	}
-	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	return newValidatedAPIServer(a, env), nil
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
@@ -97,35 +87,38 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 	}
 }
 
-// NewObjClient creates an obj.Client by selecting a construcot from the obj package.
+// NewObjClient creates an obj.Client by selecting a constructor from the obj package.
+// TODO: Not sure if we want to keep the storage root configuration for non-local deployments.
+// If so, we will need to connect it to the object path prefix for chunks.
 func NewObjClient(conf *serviceenv.Configuration) (obj.Client, error) {
-	dir := conf.StorageRoot
 	switch conf.StorageBackend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes
-		if len(dir) > 0 && dir[0] == '/' {
-			dir = dir[1:]
-		}
-		return obj.NewMinioClientFromSecret(dir)
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
+		return obj.NewMinioClientFromSecret("")
 
 	case AmazonBackendEnvVar:
 		// amazon doesn't like leading slashes
-		if len(dir) > 0 && dir[0] == '/' {
-			dir = dir[1:]
-		}
-		return obj.NewAmazonClientFromSecret(dir)
+		// TODO: Readd?
+		//if len(dir) > 0 && dir[0] == '/' {
+		//	dir = dir[1:]
+		//}
+		return obj.NewAmazonClientFromSecret("")
 
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
-		return obj.NewGoogleClientFromSecret(dir)
+		return obj.NewGoogleClientFromSecret("")
 
 	case MicrosoftBackendEnvVar:
-		return obj.NewMicrosoftClientFromSecret(dir)
+		return obj.NewMicrosoftClientFromSecret("")
 
 	case LocalBackendEnvVar:
 		fallthrough
 
 	default:
-		return obj.NewLocalClient(dir)
+		return obj.NewLocalClient(conf.StorageRoot)
 	}
 }

@@ -108,17 +108,6 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(limits)
 }
 
-// GetExpectedNumHashtrees computes the expected number of hashtrees that
-// Pachyderm will create given the HashtreeSpec 'spec'.
-func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
-	if spec == nil || spec.Constant == 0 {
-		return 1, nil
-	} else if spec.Constant > 0 {
-		return int64(spec.Constant), nil
-	}
-	return 0, errors.Errorf("unable to interpret HashtreeSpec %+v", spec)
-}
-
 // GetPipelineInfoAllowIncomplete retrieves and returns a PipelineInfo from PFS,
 // or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
 // (e.g. due to corruption or a missing block). It does the PFS
@@ -126,7 +115,7 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
+	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
 		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
 	} else {
 		if err := result.Unmarshal(buf.Bytes()); err != nil {
@@ -286,7 +275,6 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Pipeline:              pipelineInfo.Pipeline,
 		Transform:             pipelineInfo.Transform,
 		ParallelismSpec:       pipelineInfo.ParallelismSpec,
-		HashtreeSpec:          pipelineInfo.HashtreeSpec,
 		Egress:                pipelineInfo.Egress,
 		OutputBranch:          pipelineInfo.OutputBranch,
 		ResourceRequests:      pipelineInfo.ResourceRequests,
@@ -320,7 +308,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING, pps.JobState_JOB_EGRESSING:
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))

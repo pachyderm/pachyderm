@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -128,8 +127,6 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
-
-	storageV2 bool
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -151,7 +148,6 @@ type clientSettings struct {
 	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
-	storageV2            bool
 	unaryInterceptors    []grpc.UnaryClientInterceptor
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
@@ -167,16 +163,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
-	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		storageV2, err := strconv.ParseBool(storageV2Env)
-		if err != nil {
-			return nil, err
-		}
-		if storageV2 {
-			settings.storageV2 = storageV2
-		}
-	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
@@ -191,7 +177,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
-		storageV2:    settings.storageV2,
 	}
 	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err

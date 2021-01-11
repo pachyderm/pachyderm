@@ -64,7 +64,6 @@ enum JobState {
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
-  JOB_MERGING = 5;
   JOB_EGRESSING = 6;
 }
 
@@ -164,12 +163,6 @@ message ParallelismSpec {
   // reserve half the nodes in your cluster for other tasks, you might set
   // 'coefficient' to 0.5.
   double coefficient = 3;
-}
-
-// HashTreeSpec sets the number of shards into which pps splits a pipeline's
-// output commits (sharded commits are implemented in Pachyderm 1.8+ only)
-message HashtreeSpec {
-  uint64 constant = 1;
 }
 
 message InputFile {
@@ -348,10 +341,6 @@ message Worker {
   WorkerState state = 2;
 }
 
-message JobInfos {
-  repeated JobInfo job_info = 1;
-}
-
 message Pipeline {
   string name = 1;
 }
@@ -414,7 +403,6 @@ message PipelineInfo {
   // Exactly one of 'tf_job' and 'transform' should be set
   TFJob tf_job = 46 [(gogoproto.customname) = "TFJob"];
   ParallelismSpec parallelism_spec = 10;
-  HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -624,30 +612,13 @@ message ListDatumRequest {
   // Only one can be set.
   // Job is the job to list datums from.
   Job job = 1;
-  // Input is the input to list datums from.
-  // The datums listed are the ones that would be run if a pipeline was created
-  // with input.
-  Input input = 4;
-  int64 page_size = 2;
-  int64 page = 3;
-}
-
-message ListDatumResponse {
-  repeated DatumInfo datum_infos = 1;
-  int64 total_pages = 2;
-  int64 page = 3;
-}
-
-// ListDatumStreamResponse is identical to ListDatumResponse, except that only
-// one DatumInfo is present (as these responses are streamed)
-message ListDatumStreamResponse {
-  DatumInfo datum_info = 1;
-  // total_pages is only set in the first response (and set to 0 in all other
-  // responses)
-  int64 total_pages = 2;
-  // page is only set in the first response (and set to 0 in all other
-  // responses)
-  int64 page = 3;
+  // TODO:
+  //// Input is the input to list datums from.
+  //// The datums listed are the ones that would be run if a pipeline was created
+  //// with input.
+  //Input input = 4;
+  //int64 page_size = 2;
+  //int64 page = 3;
 }
 
 // ChunkSpec specifies how a pipeline should chunk its datums.
@@ -676,7 +647,6 @@ message CreatePipelineRequest {
   TFJob tf_job = 35 [(gogoproto.customname) = "TFJob"];
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
-  HashtreeSpec hashtree_spec = 31;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
@@ -743,7 +713,6 @@ message DeletePipelineRequest {
   bool all = 4;
   bool force = 5;
   bool keep_repo = 6;
-  bool split_transaction = 7;
 }
 
 message StartPipelineRequest {
@@ -805,20 +774,14 @@ message ActivateAuthResponse {}
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
-  // ListJob returns information about current and past Pachyderm jobs. This is
-  // deprecated in favor of ListJobStream
-  rpc ListJob(ListJobRequest) returns (JobInfos) {}
-  // ListJobStream returns information about current and past Pachyderm jobs.
-  rpc ListJobStream(ListJobRequest) returns (stream JobInfo) {}
+  // ListJob returns information about current and past Pachyderm jobs.
+  rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
   rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
-  // ListDatum returns information about each datum fed to a Pachyderm job. This
-  // is deprecated in favor of ListDatumStream
-  rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
-  // ListDatumStream returns information about each datum fed to a Pachyderm job
-  rpc ListDatumStream(ListDatumRequest) returns (stream ListDatumStreamResponse) {}
+  // ListDatum returns information about each datum fed to a Pachyderm job
+  rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
@@ -837,10 +800,8 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
-
-  // Garbage collection
-  rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {}
+  // TODO:
+  //rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 
   // An internal call that causes PPS to put itself into an auth-enabled state
   // (all pipeline have tokens, correct permissions, etcd)

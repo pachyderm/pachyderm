@@ -75,7 +75,7 @@ func (f *PipelineFinisher) FinishPipelineCommits(branch *pfs.Branch) error {
 // Run finishes any open commits on output branches of pipelines modified in the preceeding transaction
 func (f *PipelineFinisher) Run() error {
 	for _, branch := range f.branches {
-		if err := f.d.listCommitF(
+		if err := f.d.listCommit(
 			f.txnCtx.Client,
 			branch.Repo,
 			client.NewCommit(branch.Repo.Name, branch.Name), // to
@@ -90,9 +90,6 @@ func (f *PipelineFinisher) Run() error {
 				return f.d.finishCommit(
 					f.txnCtx,
 					client.NewCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID),
-					// empty, no tree
-					nil,
-					true,
 					"",
 				)
 			}); err != nil && !isNotFoundErr(err) {

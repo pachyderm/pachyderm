@@ -146,7 +146,7 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 
 // NewTestTracker returns a tracker scoped to the lifetime of the test
 func NewTestTracker(t testing.TB, db *sqlx.DB) Tracker {
-	db.MustExec("CREATE SCHEMA storage")
+	db.MustExec("CREATE SCHEMA IF NOT EXISTS storage")
 	db.MustExec(schema)
 	return NewPostgresTracker(db)
 }

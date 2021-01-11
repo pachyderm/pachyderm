@@ -70,8 +70,7 @@ func TestPrometheusStats(t *testing.T) {
 		// We want several datums per job so that we have multiple data points
 		// per job time series
 		for j := 0; j < numDatums; j++ {
-			_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar"))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -83,8 +82,7 @@ func TestPrometheusStats(t *testing.T) {
 	// Now write data that'll make the job fail
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)

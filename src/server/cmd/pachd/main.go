@@ -1,7 +1,6 @@
 package main
 
 import (
-	gotls "crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -9,19 +8,15 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
-	"strconv"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	transactionclient "github.com/pachyderm/pachyderm/src/client/transaction"
@@ -32,15 +27,10 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
-	pach_http "github.com/pachyderm/pachyderm/src/server/http"
-	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
-	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
@@ -52,17 +42,10 @@ import (
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-const (
-	defaultTreeCacheSize = 8
 )
 
 var mode string
@@ -132,51 +115,18 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
-	if err != nil {
-		return errors.Wrapf(err, "atoi")
-	}
-	if pfsCacheSize == 0 {
-		pfsCacheSize = defaultTreeCacheSize
-	}
-	treeCache, err := hashtree.NewCache(pfsCacheSize)
-	if err != nil {
-		return errors.Wrapf(err, "lru.New")
-	}
 	server, err := grpcutil.NewServer(context.Background(), false)
 	if err != nil {
 		return err
 	}
 	txnEnv := &txnenv.TransactionEnv{}
-	if !env.StorageV2 {
-		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-		if err != nil {
-			return errors.Wrapf(err, "units.RAMInBytes")
-		}
-		if err := logGRPCServerSetup("Block API", func() error {
-			blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
-			if err != nil {
-				return err
-			}
-			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
-	if err != nil {
-		return err
-	}
 	var pfsAPIServer pfs_server.APIServer
 	if err := logGRPCServerSetup("PFS API", func() error {
 		pfsAPIServer, err = pfs_server.NewAPIServer(
 			env,
 			txnEnv,
 			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-			treeCache,
-			env.StorageRoot,
-			memoryRequestBytes,
+			env.GetDBClient(),
 		)
 		if err != nil {
 			return err
@@ -312,42 +262,12 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
-	etcdClientV2 := getEtcdClient(etcdAddress)
 	ip, err := netutil.ExternalIP()
 	if err != nil {
 		return errors.Wrapf(err, "error getting pachd external ip")
 	}
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
-	sharder := shard.NewSharder(
-		etcdClientV2,
-		env.NumShards,
-		env.Namespace,
-	)
-	go func() {
-		if err := sharder.AssignRoles(address); err != nil {
-			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
-		}
-	}()
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		address,
-	)
-	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
-	if err != nil {
-		return errors.Wrapf(err, "atoi")
-	}
-	if pfsCacheSize == 0 {
-		pfsCacheSize = defaultTreeCacheSize
-	}
-	treeCache, err := hashtree.NewCache(pfsCacheSize)
-	if err != nil {
-		return errors.Wrapf(err, "lru.New")
-	}
 	kubeNamespace := env.Namespace
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
@@ -357,13 +277,9 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
-		if err != nil {
-			return err
-		}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), env.GetDBClient())
 			if err != nil {
 				return err
 			}
@@ -405,26 +321,6 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if !env.StorageV2 {
-			if env.ExposeObjectAPI {
-				if err := logGRPCServerSetup("Block API", func() error {
-					// Generally the object API should not be exposed publicly, but
-					// TestGarbageCollection uses it and it may help with debugging
-					blockAPIServer, err := pfs_server.NewBlockAPIServer(
-						env.StorageRoot,
-						0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-						etcdAddress,
-						true /* duplicate */)
-					if err != nil {
-						return err
-					}
-					pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
-					return nil
-				}); err != nil {
-					return err
-				}
-			}
-		}
 		var authAPIServer authserver.APIServer
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
@@ -464,7 +360,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
 				DeploymentID: env.DeploymentID,
 			}))
@@ -511,48 +407,13 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
-		cacheServer := cache_server.NewCacheServer(router, env.NumShards)
-		go func() {
-			if err := sharder.RegisterFrontends(address, []shard.Frontend{cacheServer}); err != nil {
-				log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
-			}
-		}()
-		go func() {
-			if err := sharder.Register(address, []shard.Server{cacheServer}); err != nil {
-				log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
-			}
-		}()
-		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
-		if !env.StorageV2 {
-			blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
-			if err != nil {
-				return errors.Wrapf(err, "units.RAMInBytes")
-			}
-			if err := logGRPCServerSetup("Block API", func() error {
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(
-					env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
-				if err != nil {
-					return err
-				}
-				pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
-		if err != nil {
-			return err
-		}
 		var pfsAPIServer pfs_server.APIServer
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err = pfs_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-				treeCache,
-				env.StorageRoot,
-				memoryRequestBytes,
+				env.GetDBClient(),
 			)
 			if err != nil {
 				return err
@@ -652,7 +513,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,
 				DeploymentID: env.DeploymentID,
 			}))
@@ -679,65 +540,63 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
-		httpServer, err := pach_http.NewHTTPServer(address)
-		if err != nil {
-			return err
-		}
-		server := http.Server{
-			Addr:    fmt.Sprintf(":%v", env.HTTPPort),
-			Handler: httpServer,
-		}
+	// TODO: Make http server work with V2.
+	//go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
+	//	httpServer, err := pach_http.NewHTTPServer(address)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	server := http.Server{
+	//		Addr:    fmt.Sprintf(":%v", env.HTTPPort),
+	//		Handler: httpServer,
+	//	}
 
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
-			return server.ListenAndServe()
-		}
+	//	certPath, keyPath, err := tls.GetCertPaths()
+	//	if err != nil {
+	//		log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
+	//		return server.ListenAndServe()
+	//	}
 
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
-		}
+	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+	//	err = cLoader.LoadAndStart()
+	//	if err != nil {
+	//		return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
+	//	}
 
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 
-		return server.ListenAndServeTLS(certPath, keyPath)
-	})
+	//	return server.ListenAndServeTLS(certPath, keyPath)
+	//})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
-		})
-		if err != nil {
-			return err
-		}
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return server.ListenAndServe()
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return server.ListenAndServeTLS(certPath, keyPath)
-	})
+	// TODO: Make s3 server work with V2.
+	//go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
+	//	server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+	//		return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
+	//	})
+	//	if err != nil {
+	//		return err
+	//	}
+	//	certPath, keyPath, err := tls.GetCertPaths()
+	//	if err != nil {
+	//		log.Warnf("s3gateway TLS disabled: %v", err)
+	//		return server.ListenAndServe()
+	//	}
+	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+	//	// Read TLS cert and key
+	//	err = cLoader.LoadAndStart()
+	//	if err != nil {
+	//		return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+	//	}
+	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+	//	return server.ListenAndServeTLS(certPath, keyPath)
+	//})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
 		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 	})
 	return <-errChan
-}
-
-func getEtcdClient(etcdAddress string) discovery.Client {
-	return discovery.NewEtcdClient(etcdAddress)
 }
 
 const clusterIDKey = "cluster-id"

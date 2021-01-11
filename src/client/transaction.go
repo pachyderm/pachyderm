@@ -350,11 +350,8 @@ func (c *pfsBuilderClient) ListRepo(ctx context.Context, req *pfs.ListRepoReques
 func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfo, error) {
 	return nil, unsupportedError("InspectCommit")
 }
-func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfos, error) {
+func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
 	return nil, unsupportedError("ListCommit")
-}
-func (c *pfsBuilderClient) ListCommitStream(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitStreamClient, error) {
-	return nil, unsupportedError("ListCommitStream")
 }
 func (c *pfsBuilderClient) FlushCommit(ctx context.Context, req *pfs.FlushCommitRequest, opts ...grpc.CallOption) (pfs.API_FlushCommitClient, error) {
 	return nil, unsupportedError("FlushCommit")
@@ -362,8 +359,8 @@ func (c *pfsBuilderClient) FlushCommit(ctx context.Context, req *pfs.FlushCommit
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
 }
-func (c *pfsBuilderClient) BuildCommit(ctx context.Context, req *pfs.BuildCommitRequest, opts ...grpc.CallOption) (*pfs.Commit, error) {
-	return nil, unsupportedError("BuildCommit")
+func (c *pfsBuilderClient) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCommit")
 }
 func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfo, error) {
 	return nil, unsupportedError("InspectBranch")
@@ -371,8 +368,8 @@ func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBr
 func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfos, error) {
 	return nil, unsupportedError("ListBranch")
 }
-func (c *pfsBuilderClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutFileClient, error) {
-	return nil, unsupportedError("PutFile")
+func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
+	return nil, unsupportedError("ModifyFile")
 }
 func (c *pfsBuilderClient) CopyFile(ctx context.Context, req *pfs.CopyFileRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CopyFile")
@@ -383,26 +380,17 @@ func (c *pfsBuilderClient) GetFile(ctx context.Context, req *pfs.GetFileRequest,
 func (c *pfsBuilderClient) InspectFile(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
 	return nil, unsupportedError("InspectFile")
 }
-func (c *pfsBuilderClient) ListFile(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (*pfs.FileInfos, error) {
+func (c *pfsBuilderClient) ListFile(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileClient, error) {
 	return nil, unsupportedError("ListFile")
-}
-func (c *pfsBuilderClient) ListFileStream(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileStreamClient, error) {
-	return nil, unsupportedError("ListFileStream")
 }
 func (c *pfsBuilderClient) WalkFile(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileClient, error) {
 	return nil, unsupportedError("WalkFile")
 }
-func (c *pfsBuilderClient) GlobFile(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (*pfs.FileInfos, error) {
+func (c *pfsBuilderClient) GlobFile(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileClient, error) {
 	return nil, unsupportedError("GlobFile")
 }
-func (c *pfsBuilderClient) GlobFileStream(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileStreamClient, error) {
-	return nil, unsupportedError("GlobFileStream")
-}
-func (c *pfsBuilderClient) DiffFile(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (*pfs.DiffFileResponse, error) {
+func (c *pfsBuilderClient) DiffFile(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileClient, error) {
 	return nil, unsupportedError("DiffFile")
-}
-func (c *pfsBuilderClient) DeleteFile(ctx context.Context, req *pfs.DeleteFileRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteFile")
 }
 func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
@@ -410,23 +398,11 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
-func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_FileOperationV2Client, error) {
-	return nil, unsupportedError("FileOperationV2")
+func (c *pfsBuilderClient) CreateFileset(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateFilesetClient, error) {
+	return nil, unsupportedError("CreateFileset")
 }
-func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
-	return nil, unsupportedError("GetTarV2")
-}
-func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
-	return nil, unsupportedError("DiffFileV2")
-}
-func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ClearCommitV2")
-}
-func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
-	return nil, unsupportedError("CreateTmpFileSet")
-}
-func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RenewTmpFileSet")
+func (c *pfsBuilderClient) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RenewFileset")
 }
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
@@ -505,11 +481,8 @@ func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequ
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
 }
-func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (*pps.JobInfos, error) {
+func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {
 	return nil, unsupportedError("ListJob")
-}
-func (c *ppsBuilderClient) ListJobStream(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobStreamClient, error) {
-	return nil, unsupportedError("ListJobStream")
 }
 func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobRequest, opts ...grpc.CallOption) (pps.API_FlushJobClient, error) {
 	return nil, unsupportedError("FlushJob")
@@ -523,11 +496,8 @@ func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest,
 func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
-func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (*pps.ListDatumResponse, error) {
+func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumClient, error) {
 	return nil, unsupportedError("ListDatum")
-}
-func (c *ppsBuilderClient) ListDatumStream(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumStreamClient, error) {
-	return nil, unsupportedError("ListDatumStream")
 }
 func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
@@ -555,12 +525,6 @@ func (c *ppsBuilderClient) RunPipeline(ctx context.Context, req *pps.RunPipeline
 }
 func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
-}
-func (c *ppsBuilderClient) GetLogs(ctx context.Context, req *pps.GetLogsRequest, opts ...grpc.CallOption) (pps.API_GetLogsClient, error) {
-	return nil, unsupportedError("GetLogs")
-}
-func (c *ppsBuilderClient) GarbageCollect(ctx context.Context, req *pps.GarbageCollectRequest, opts ...grpc.CallOption) (*pps.GarbageCollectResponse, error) {
-	return nil, unsupportedError("GarbageCollect")
 }
 func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
@@ -677,15 +641,6 @@ func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty,
 	return nil, unsupportedError("GetVersion")
 }
 
-func (c *adminBuilderClient) Extract(ctx context.Context, req *admin.ExtractRequest, opts ...grpc.CallOption) (admin.API_ExtractClient, error) {
-	return nil, unsupportedError("Extract")
-}
-func (c *adminBuilderClient) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest, opts ...grpc.CallOption) (*admin.Op, error) {
-	return nil, unsupportedError("ExtractPipeline")
-}
-func (c *adminBuilderClient) Restore(ctx context.Context, opts ...grpc.CallOption) (admin.API_RestoreClient, error) {
-	return nil, unsupportedError("Restore")
-}
 func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }

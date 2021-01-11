@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -52,7 +53,7 @@ func main() {
 		}
 	}()
 
-	files, err := c.ListFile("images", "master", "/")
+	files, err := c.ListFileAll("images", "master", "/")
 	if err != nil {
 		panic(err)
 	}

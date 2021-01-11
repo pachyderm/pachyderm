@@ -11,11 +11,9 @@ type APIServer interface {
 }
 
 // NewAPIServer returns a new admin.APIServer
-func NewAPIServer(address string, storageRoot string, clusterInfo *admin.ClusterInfo) APIServer {
+func NewAPIServer(clusterInfo *admin.ClusterInfo) APIServer {
 	return &apiServer{
 		Logger:      log.NewLogger("admin.API"),
-		address:     address,
-		storageRoot: storageRoot,
 		clusterInfo: clusterInfo,
 	}
 }
