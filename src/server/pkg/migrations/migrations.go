@@ -12,20 +12,27 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Env contains all the objects that can be manipulated during a migration.
+// The Tx field will be overwritten with the transaction that the migration should be performed in.
 type Env struct {
 	// TODO: etcd
 	ObjectClient obj.Client
 	Tx           *sqlx.Tx
 }
 
+// MakeEnv returns a new Env
+// The only advantage to this contructor is you can be sure all the fields are set.
+// You can also create an Env using a struct literal.
 func MakeEnv(objC obj.Client) Env {
 	return Env{
 		ObjectClient: objC,
 	}
 }
 
+// Func is the type of functions that perform migrations.
 type Func func(ctx context.Context, env Env) error
 
+// State represents a state of the cluster, including all the steps taken to get there.
 type State struct {
 	n      int
 	prev   *State
@@ -33,6 +40,7 @@ type State struct {
 	name   string
 }
 
+// Apply applies a Func to the state and returns a new state.
 func (s State) Apply(name string, fn Func) State {
 	return State{
 		prev:   &s,
@@ -42,14 +50,20 @@ func (s State) Apply(name string, fn Func) State {
 	}
 }
 
+// Name returns the name of the state
 func (s State) Name() string {
 	return s.name
 }
 
+// Number returns the number of changes to be applied before the state can be actualized.
+// The number of the initial state is 0
+// State number n requires n changes from the initial state.
 func (s State) Number() int {
 	return s.n
 }
 
+// InitialState returns a cluster that has no migrations.
+// The initial state contains a change which is just to create the migration table.
 func InitialState() State {
 	return State{
 		name: "init",
@@ -67,12 +81,26 @@ func InitialState() State {
 	}
 }
 
+// ApplyMigrations does the necessary work to actualize state.
+// It will manipulate the objects available in baseEnv, and use the migrations table in db.
 func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
-	if state.prev != nil {
-		if err := ApplyMigrations(ctx, db, baseEnv, *state.prev); err != nil {
+	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
+		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// collectStates does a reverse order traversal of a linked list and adds each item to a slice
+func collectStates(slice []State, s State) []State {
+	if s.prev != nil {
+		slice = collectStates(slice, *s.prev)
+	}
+	return append(slice, s)
+}
+
+func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return err
@@ -117,6 +145,10 @@ func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State)
 	return tx.Commit()
 }
 
+// BlockUntil blocks until state is actualized.
+// It makes no attempt to perform migrations, hopefully another process is working on that
+// by calling ApplyMigrations.
+// If the cluster ever enters a state newer than the state passed to BlockUntil, it errors.
 func BlockUntil(ctx context.Context, db *sqlx.DB, state State) error {
 	const (
 		schemaName = "public"
