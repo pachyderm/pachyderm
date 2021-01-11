@@ -528,22 +528,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return &auth.DeactivateResponse{}, nil
 	}
 
-	// Get calling user. The user must be a cluster admin to disable auth for the cluster
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "DeactivateAuth",
-		}
-	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll()   // watchAdmins() will see the write
@@ -1471,6 +1456,15 @@ func (a *apiServer) GetACLInTransaction(
 	// Validate request
 	if req.Repo == "" {
 		return nil, errors.Errorf("invalid request: must provide name of repo to get that repo's ACL")
+	}
+
+	// Get calling user
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.expiredClusterAdminCheck(txnCtx.ClientContext, callerInfo.Subject); err != nil {
+		return nil, err
 	}
 
 	// Read repo ACL from etcd

@@ -49,7 +49,7 @@ var authFns = map[string]authFn{
 	// TODO: split GetGroups for self and others
 	"/auth.API/GetGroups":          authenticated,
 	"/auth.API/GetUsers":           adminOnly,
-	"/auth.API/GetOneTimePassword": adminOnly,
+	"/auth.API/GetOneTimePassword": authenticated,
 	"/auth.API/ExtractAuthTokens":  adminOnly,
 	"/auth.API/RestoreAuthToken":   adminOnly,
 
