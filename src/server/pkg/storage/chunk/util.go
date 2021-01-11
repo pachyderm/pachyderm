@@ -24,7 +24,7 @@ func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
 	ctx := context.Background()
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS STORAGE`)
-	SetupPostgresStoreV0(ctx, "storage.chunks", tx)
+	require.NoError(t, SetupPostgresStoreV0(ctx, "storage.chunks", tx))
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }

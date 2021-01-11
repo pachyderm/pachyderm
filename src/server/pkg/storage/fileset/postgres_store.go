@@ -108,7 +108,7 @@ func NewTestStore(t testing.TB, db *sqlx.DB) Store {
 	ctx := context.Background()
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
-	SetupPostgresStoreV0(ctx, tx)
+	require.NoError(t, SetupPostgresStoreV0(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }
