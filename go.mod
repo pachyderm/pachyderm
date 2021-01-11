@@ -76,6 +76,7 @@ require (
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -85,7 +86,7 @@ require (
 	golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/grpc v1.27.0
+	google.golang.org/grpc v1.29.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
@@ -101,14 +102,14 @@ require (
 	sigs.k8s.io/yaml v1.1.0
 )
 
-// Wow, the docker library versions are less than ideal, see https://github.com/moby/moby/issues/39302
+// Docker library versioning is not straightforward, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
-
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
 
 replace golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
+
+replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.1-0.20200204133151-f60278fd3dac

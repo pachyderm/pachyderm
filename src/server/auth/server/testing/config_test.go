@@ -335,12 +335,9 @@ func TestConfigRestartAuth(t *testing.T) {
 	require.Matches(t, "activated", err.Error())
 
 	// activate auth
-	activateResp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		Subject: tu.AdminUser,
-	})
+	activateResp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(activateResp.PachToken)
-	tu.UpdateAuthToken(tu.AdminUser, activateResp.PachToken)
 
 	// Wait for auth to be re-activated
 	require.NoError(t, backoff.Retry(func() error {

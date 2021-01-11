@@ -97,7 +97,7 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 			return err
 		}
 
-		// Always overwrite the symlink at this point, in case it's relative or some dumb shit
+		// Always overwrite the symlink at this point, in case it's relative
 		return os.Symlink(filepath.Join(target), filepath.Join(path))
 	})
 }

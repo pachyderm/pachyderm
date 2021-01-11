@@ -524,51 +524,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, errors.Errorf("already activated")
 	}
 
-	// The Pachyderm token that Activate() returns will have the TTL
-	// - 'defaultSessionTTLSecs' if the initial admin is a GitHub user (who can
-	//   get a new token by re-authenticating via GitHub after this token expires)
-	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
-	//   (who has no way to acquire a new token once this token expires)
-	ttlSecs := int64(defaultSessionTTLSecs)
-	// Authenticate the caller (or generate a new auth token if req.Subject is a
-	// robot user)
-	if req.Subject != "" {
-		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// If the request sets the root token, always auth as the root user
-	if req.RootToken != "" {
-		req.Subject = auth.RootUser
-	}
-
-	switch {
-	case req.Subject == "":
-		fallthrough
-	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-		if !a.githubEnabled() {
-			return nil, errors.New("GitHub auth is not enabled on this cluster")
-		}
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-		if err != nil {
-			return nil, err
-		}
-		if req.Subject != "" && req.Subject != username {
-			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
-		}
-		req.Subject = username
-	case strings.HasPrefix(req.Subject, auth.PachPrefix):
-		fallthrough
-	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
-		// req.Subject will be used verbatim, and the resulting code will
-		// authenticate the holder as the robot account therein
-		ttlSecs = 0 // no expiration for robot tokens -- see above
-	default:
-		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
-	}
-
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
@@ -578,6 +533,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	}); err != nil {
 		return nil, err
 	}
+
 	// wait until watchAdmins has updated the local cache (changing the activation
 	// state)
 	b := backoff.NewExponentialBackOff()
@@ -614,16 +570,15 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
-		if err := admins.Put(req.Subject, epsilon); err != nil {
+		if err := admins.Put(auth.RootUser, epsilon); err != nil {
 			return err
 		}
-		return tokens.PutTTL(
+		return tokens.Put(
 			auth.HashToken(pachToken),
 			&auth.TokenInfo{
-				Subject: req.Subject,
+				Subject: auth.RootUser,
 				Source:  auth.TokenInfo_AUTHENTICATE,
 			},
-			ttlSecs,
 		)
 	}); err != nil {
 		return nil, err

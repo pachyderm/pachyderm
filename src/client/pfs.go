@@ -486,8 +486,7 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 
 func (c *commitInfoIterator) Close() {
 	c.cancel()
-	// this is completely retarded, but according to this thread it's
-	// necessary for closing a server-side stream from the client side.
+	// according to this thread it's necessary to drain a server-side stream before closing
 	// https://github.com/grpc/grpc-go/issues/188
 	for {
 		if _, err := c.stream.Recv(); err != nil {
