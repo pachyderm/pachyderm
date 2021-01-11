@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
