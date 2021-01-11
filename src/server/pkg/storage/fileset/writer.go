@@ -233,10 +233,13 @@ func (w *Writer) Close() error {
 	if err := createTrackerObject(w.ctx, w.path, []*index.Index{additiveIdx, deletiveIdx}, w.tracker, w.ttl); err != nil {
 		return err
 	}
-	return w.store.Set(w.ctx, w.path, &Metadata{
+	if err := w.store.Set(w.ctx, w.path, &Metadata{
 		Path:      w.path,
 		Additive:  additiveIdx,
 		Deletive:  deletiveIdx,
 		SizeBytes: w.sizeBytes,
-	})
+	}); err != nil && err != ErrPathExists {
+		return err
+	}
+	return nil
 }

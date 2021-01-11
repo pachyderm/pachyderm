@@ -85,6 +85,9 @@ type driver struct {
 
 	storage         *fileset.Storage
 	compactionQueue *work.TaskQueue
+
+	// TODO: remove this. It prevents flakiness when running on macOS (millisecond resolution timestamps)
+	nonce uint64
 }
 
 func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
