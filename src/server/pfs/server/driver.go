@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -109,10 +110,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		// TODO: set maxFanIn based on downward API.
 	}
-	// Setup Postgres.
-	fileset.SetupPostgresStore(db)
-	chunk.SetupPostgresStore(db)
-	track.SetupPostgresTracker(db)
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(db)
 	chunkStorageOpts, err := env.ChunkStorageOptions()
@@ -126,7 +123,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	go d.compactionWorker()
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -140,7 +136,11 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		return nil, err
 	}
 	// Setup PFS master
-	go d.master(env)
+	go d.master(env, db)
+	go d.compactionWorker()
+	if err := migrations.BlockUntil(context.TODO(), db, desiredClusterState); err != nil {
+		return nil, err
+	}
 	return d, nil
 }
 
