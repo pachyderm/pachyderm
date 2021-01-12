@@ -57,7 +57,8 @@ func (s *memCommitStore) GetFileset(ctx context.Context, commit *pfs.Commit) (*f
 	if id, exists := s.finished[key]; exists {
 		return s.s.Clone(ctx, id, defaultTTL)
 	}
-	return nil, errors.Errorf("commit is not finished")
+	// return nil, errors.Errorf("commit is not finished")
+	return s.s.Compose(ctx, s.staging[key], defaultTTL)
 }
 
 func (s *memCommitStore) UpdateFileset(ctx context.Context, commit *pfs.Commit, fn func(fileset.ID) (*fileset.ID, error)) error {

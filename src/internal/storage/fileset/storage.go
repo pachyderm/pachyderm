@@ -25,10 +25,6 @@ const (
 	// DefaultLevelFactor is the default factor that level sizes increase by in a compacted fileset
 	DefaultLevelFactor = 10
 
-	// Diff is the suffix of a path that points to the diff of the prefix.
-	Diff = "diff"
-	// Compacted is the suffix of a path that points to the compaction of the prefix.
-	Compacted = "compacted"
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
 )

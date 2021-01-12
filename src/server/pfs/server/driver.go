@@ -788,6 +788,7 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 }
 
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
+	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -799,13 +800,26 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-
-	// Run compaction task.
-	ctx := txnCtx.Client.Ctx()
-	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		if err := d.compactCommit(m, commit); err != nil {
+	var parentFSID *fileset.ID
+	if commitInfo.ParentCommit != nil {
+		id, err := d.commitStore.GetFileset(ctx, commitInfo.ParentCommit)
+		if err != nil {
+			panic(err)
 			return err
 		}
+		parentFSID = id
+	}
+	// Run compaction task.
+	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
+		d.commitStore.UpdateFileset(ctx, commit, func(x fileset.ID) (*fileset.ID, error) {
+			var ids []fileset.ID
+			// if the commit has a parent, then include the parents fileset in the compaction
+			if parentFSID != nil {
+				ids = append(ids, *parentFSID)
+			}
+			ids = append(ids, x)
+			return d.compact(m, ids)
+		})
 		// Collect the output size from the file set metadata.
 		id, err := d.commitStore.GetFileset(ctx, commit)
 		if err != nil {

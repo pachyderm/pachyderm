@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -17,19 +16,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (d *driver) compactCommit(master *work.Master, commit *pfs.Commit) error {
-	ctx := master.Ctx()
-	return d.commitStore.UpdateFileset(ctx, commit, func(x fileset.ID) (*fileset.ID, error) {
-		if yes, err := d.storage.IsCompacted(ctx, x); err != nil {
-			return nil, err
-		} else if yes {
-			return &x, nil
-		}
-		return d.compact(master, x)
-	})
-}
-
-func (d *driver) compact(master *work.Master, id fileset.ID) (*fileset.ID, error) {
+func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, error) {
 	// serialize access to RunSubtasks, the compactor may call workerFunc concurrently
 	mu := sync.Mutex{}
 	workerFunc := func(ctx context.Context, task fileset.CompactionTask) (*fileset.ID, error) {
@@ -51,12 +38,10 @@ func (d *driver) compact(master *work.Master, id fileset.ID) (*fileset.ID, error
 			if taskInfo.Result == nil {
 				return errors.Errorf("no result set for compaction work.TaskInfo")
 			}
-			fmt.Println("got result", taskInfo.Result)
 			res, err := deserializeCompactionResult(taskInfo.Result)
 			if err != nil {
 				return err
 			}
-			fmt.Println("res id", res.Id)
 			id := fileset.ID(res.Id)
 			result = &id
 			return nil
@@ -66,7 +51,7 @@ func (d *driver) compact(master *work.Master, id fileset.ID) (*fileset.ID, error
 		return result, nil
 	}
 	dc := fileset.NewDistributedCompactor(d.storage, d.env.StorageCompactionMaxFanIn, workerFunc)
-	return dc.Compact(master.Ctx(), []fileset.ID{id}, defaultTTL)
+	return dc.Compact(master.Ctx(), ids, defaultTTL)
 }
 
 func (d *driver) compactionWorker() {

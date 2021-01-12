@@ -42,7 +42,7 @@ func (d *driver) modifyFile(pachClient *client.APIClient, commit *pfs.Commit, cb
 		}
 		return d.oneOffModifyFile(ctx, repo, branch, cb)
 	}
-	return d.withCommitUnorderedWriter(ctx, commitInfo.Commit, cb)
+	return d.withCommitUnorderedWriter(pachClient, commitInfo.Commit, cb)
 }
 
 // TODO: Cleanup after failure?
@@ -57,18 +57,18 @@ func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb f
 				retErr = d.finishCommit(txnCtx, commit, "")
 			}
 		}()
-		return d.withCommitUnorderedWriter(txnCtx.ClientContext, commit, cb)
+		return d.withCommitUnorderedWriter(txnCtx.Client, commit, cb)
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitUnorderedWriter(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
+func (d *driver) withCommitUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
+	return d.storage.WithRenewer(pachClient.Ctx(), defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
 		if err != nil {
 			return err
 		}
-		return d.addFileset(ctx, commit, *id)
+		return d.addFileset(pachClient, commit, *id)
 	})
 }
 
@@ -119,12 +119,31 @@ func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Comm
 	if err != nil {
 		return err
 	}
-	return d.commitStore.AddFileset(ctx, commit, *id)
+	return d.commitStore.AddFileset(ctx, commitInfo.Commit, *id)
 }
 
 func (d *driver) getDefaultTag() string {
 	// TODO: change this to a constant like "input" or "default"
 	return fmt.Sprint("%012d", time.Now().UnixNano())
+}
+
+func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.Commit, fileset.FileSet, error) {
+	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+		return nil, nil, err
+	}
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_READY)
+	if err != nil {
+		return nil, nil, err
+	}
+	if commitInfo.Finished == nil {
+		return nil, nil, pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	}
+	id, err := d.commitStore.GetFileset(pachClient.Ctx(), commitInfo.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	fs, err := d.storage.Open(pachClient.Ctx(), []fileset.ID{*id}, opts...)
+	return commitInfo.Commit, fs, err
 }
 
 func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
@@ -158,7 +177,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		}
 		return path.Join(dstPath, relPath)
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(srcCommit)}, index.WithPrefix(srcPath))
+	srcCommit, fs, err := d.openCommit(pachClient, srcCommit, index.WithPrefix(srcPath))
 	if err != nil {
 		return err
 	}
@@ -180,20 +199,11 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string, w io.Writer) error {
-	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	commit = commitInfo.Commit
 	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, indexOpt)
+	commit, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
 		return err
 	}
@@ -217,24 +227,16 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 	// 		return th
 	// 	},
 	// }
-	return fileset.WriteTarStream(ctx, w, filter)
+	return fileset.WriteTarStream(pachClient.Ctx(), w, filter)
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
 	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished == nil {
-		return nil, pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	commit := commitInfo.Commit
 	p := cleanPath(file.Path)
 	if p == "/" {
 		p = ""
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(p))
+	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
 	if err != nil {
 		return nil, err
 	}
@@ -259,20 +261,9 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, cb func(*pfs.FileInfo) error) error {
-	if _, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED); err != nil {
-		return err
-	}
 	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	commit := commitInfo.Commit
 	name := cleanPath(file.Path)
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(name))
+	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(name))
 	if err != nil {
 		return err
 	}
@@ -301,19 +292,11 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
 	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	commit := commitInfo.Commit
 	p := cleanPath(file.Path)
 	if p == "/" {
 		p = ""
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, index.WithPrefix(p))
+	commit, fs, err := d.openCommit(pachClient, file.Commit, index.WithPrefix(p))
 	if err != nil {
 		return err
 	}
@@ -330,19 +313,11 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(
 
 func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
 	ctx := pachClient.Ctx()
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
-	if commitInfo.Finished == nil {
-		return pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	commit = commitInfo.Commit
 	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
 		return err
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(commit)}, indexOpt)
+	commit, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
 		return err
 	}
@@ -390,7 +365,6 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 			Path:   newFile.Path,
 		}
 	}
-	ctx := pachClient.Ctx()
 	oldCommit := oldFile.Commit
 	newCommit := newFile.Commit
 	oldName := cleanPath(oldFile.Path)
@@ -403,7 +377,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		fs, err := d.storage.Open(ctx, []string{compactedCommitPath(oldCommit)}, index.WithPrefix(oldName))
+		oldCommit, fs, err := d.openCommit(pachClient, oldCommit, index.WithPrefix(oldName))
 		if err != nil {
 			return err
 		}
@@ -414,7 +388,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 		})
 		old = NewSource(oldCommit, fs, true)
 	}
-	fs, err := d.storage.Open(ctx, []string{compactedCommitPath(newCommit)}, index.WithPrefix(newName))
+	newCommit, fs, err := d.openCommit(pachClient, newCommit, index.WithPrefix(newName))
 	if err != nil {
 		return err
 	}
@@ -458,8 +432,15 @@ func (d *driver) renewFileset(ctx context.Context, id string, ttl time.Duration)
 	return err
 }
 
-func (d *driver) addFileset(ctx context.Context, commit *pfs.Commit, filesetID string) error {
-	return d.commitStore.AddFileset(ctx, commit, filesetID)
+func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, filesetID string) error {
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{commitInfo.Commit}
+	}
+	return d.commitStore.AddFileset(pachClient.Ctx(), commit, filesetID)
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {

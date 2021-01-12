@@ -307,6 +307,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 }
 
 func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
+	pachClient := a.env.GetPachClient(server.Context())
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -315,7 +316,7 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 			return 0, err
 		}
 		var bytesRead int64
-		err := a.driver.withCommitUnorderedWriter(server.Context(), request.Commit, func(uw *fileset.UnorderedWriter) error {
+		err := a.driver.modifyFile(pachClient, request.Commit, func(uw *fileset.UnorderedWriter) error {
 			for {
 				req, err := server.Recv()
 				if err != nil {
@@ -356,7 +357,8 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 }
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
-	if err := a.driver.addFileset(ctx, req.Commit, req.FilesetId); err != nil {
+	pachClient := a.env.GetPachClient(ctx)
+	if err := a.driver.addFileset(pachClient, req.Commit, req.FilesetId); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

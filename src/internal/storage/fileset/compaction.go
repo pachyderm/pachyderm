@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	fmt "fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -89,7 +88,6 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 	}
 	// replace everything from i-1 onward with the merged version
 	ids2 := append(ids[:i], *merged)
-	fmt.Println("compacted", ids, "to", ids2)
 	return s.Compact(ctx, ids2, ttl)
 }
 
