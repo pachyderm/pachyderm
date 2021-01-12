@@ -122,7 +122,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 		}
 	}
 	if len(fss) == 0 {
-		return nil, errors.Errorf("error opening fileset: non-existent fileset: %v", fileSets)
+		return nil, errors.Errorf("error opening fileset: non-existent fileset: %v", ids)
 	}
 	if len(fss) == 1 {
 		return fss[0], nil
@@ -131,7 +131,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 }
 
 // Compose produces a composite fileset from the filesets under ids.
-// It does not perform a merge or check the the filesets at ids in any way
+// It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	c := &Composite{
@@ -155,7 +155,7 @@ func (s *Storage) Clone(ctx context.Context, id ID, ttl time.Duration) (*ID, err
 }
 
 // Flatten takes a list of IDs and replaces references to composite FileSets
-// with references to all their layers inline.
+// with references to all their layers inplace.
 // The returned IDs will only contain ids of Primitive FileSets
 func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 	flattened := make([]ID, 0, len(ids))
@@ -196,16 +196,50 @@ func (s *Storage) Merge(ctx context.Context, ids []string, ttl time.Duration) (*
 	return w.Close()
 }
 
+// Concat is a special case of Merge, where the filesets each contain paths for distinct ranges.
+// The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
+// Concat always returns the ID of a primitive fileset.
+func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	fsw := s.NewWriter(ctx, WithTTL(ttl))
+	for _, id := range ids {
+		fs, err := s.Open(ctx, []ID{id})
+		if err != nil {
+			return nil, err
+		}
+		if err := CopyFiles(ctx, fsw, fs, true); err != nil {
+			return nil, err
+		}
+	}
+	return fsw.Close()
+}
+
 // Drop allows a fileset to be deleted if it is not otherwise referenced.
 func (s *Storage) Drop(ctx context.Context, id ID) error {
 	_, err := s.SetTTL(ctx, id, -1)
 	return err
 }
 
-// SetTTL sets the time-to-live for the prefix p.
+// SetTTL sets the time-to-live for the fileset at id
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
 	oid := filesetObjectID(id)
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
+}
+
+// SizeOf returns the size of the data in the fileset in bytes
+func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
+	ids, err := s.Flatten(ctx, []ID{id})
+	if err != nil {
+		return -1, err
+	}
+	prims, err := s.getPrimitiveBatch(ctx, ids)
+	if err != nil {
+		return -1, err
+	}
+	var total int64
+	for _, prim := range prims {
+		total += prim.SizeBytes
+	}
+	return total, nil
 }
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.

@@ -91,18 +91,18 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 				w := NewWorker(env.EtcdClient, "", "")
 				for {
 					ctx, cancel := context.WithCancel(errCtx)
-					if err := w.Run(ctx, func(_ context.Context, subtask *Task) error {
+					if err := w.Run(ctx, func(_ context.Context, subtask *Task) (*types.Any, error) {
 						if rand.Float64() < workerFailProb {
 							cancel()
-							return nil
+							return nil, nil
 						}
 						if err := processSubtask(t, subtask); err != nil {
-							return err
+							return nil, err
 						}
 						if rand.Float64() < subtaskFailProb {
-							return errSubtaskFailure
+							return nil, errSubtaskFailure
 						}
-						return nil
+						return nil, nil
 					}); err != nil {
 						if errors.Is(workerCtx.Err(), context.Canceled) {
 							return nil

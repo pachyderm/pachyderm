@@ -297,11 +297,8 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
-	if err := d.storage.Store().Walk(txnCtx.ClientContext, repo.Name, func(p string) error {
-		return d.storage.Delete(txnCtx.ClientContext, p)
-	}); err != nil {
-		return err
-	}
+	// TODO: impoement deleteRepo with commitStore
+
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -802,60 +799,20 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitPath := commitKey(commit)
+
 	// Run compaction task.
-	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
-		return d.compactCommit(m, commit)
-		exists := func(p string) (bool, error) {
-			var exists bool
-			if err := d.storage.Store().Walk(m.Ctx(), p, func(_ string) error {
-				exists = true
-				return nil
-			}); err != nil {
-				return false, err
-			}
-			return exists, nil
-		}
-		diffExists, err := exists(path.Join(commitPath, fileset.Diff))
-		if err != nil {
+	ctx := txnCtx.Client.Ctx()
+	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
+		if err := d.compactCommit(m, commit); err != nil {
 			return err
-		}
-		if !diffExists {
-			// Compact the commit changes into a diff file set.
-			if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
-				return err
-			}
-		}
-		compactedExists, err := exists(path.Join(commitPath, fileset.Compacted))
-		if err != nil {
-			return err
-		}
-		if !compactedExists {
-			// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
-			var compactSpec *fileset.CompactSpec
-			if commitInfo.ParentCommit == nil {
-				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
-			} else {
-				parentCommitPath := commitKey(commitInfo.ParentCommit)
-				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
-			}
-			if err != nil {
-				return err
-			}
-			if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
-				return err
-			}
 		}
 		// Collect the output size from the file set metadata.
-		var outputSize int64
-		if err := d.storage.Store().Walk(m.Ctx(), path.Join(commitPath, fileset.Compacted), func(p string) error {
-			md, err := d.storage.Store().Get(m.Ctx(), p)
-			if err != nil {
-				return err
-			}
-			outputSize += md.SizeBytes
-			return nil
-		}); err != nil {
+		id, err := d.commitStore.GetFileset(ctx, commit)
+		if err != nil {
+			return err
+		}
+		outputSize, err := d.storage.SizeOf(ctx, *id)
+		if err != nil {
 			return err
 		}
 		commitInfo.SizeBytes = uint64(outputSize)
@@ -1502,7 +1459,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				return err
 			}
 			// Delete the commit's filesets
-			if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID)); err != nil {
+			if err := d.commitStore.DropFilesets(txnCtx.Client.Ctx(), commit); err != nil {
 				return err
 			}
 			if commit.ID == lower.ID {
@@ -1937,7 +1894,7 @@ func (d *driver) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) e
 	if commitInfo.Finished != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
-	return d.storage.Delete(ctx, commitPath(commit))
+	return d.commitStore.DropFilesets(ctx, commit)
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one

@@ -14,6 +14,7 @@ type commitStore interface {
 	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
 	GetFileset(ctx context.Context, commit *pfs.Commit) (filesetID *fileset.ID, err error)
 	UpdateFileset(ctx context.Context, commit *pfs.Commit, fn func(x fileset.ID) (*fileset.ID, error)) error
+	DropFilesets(ctx context.Context, commit *pfs.Commit) error
 }
 
 type memCommitStore struct {
@@ -81,6 +82,15 @@ func (s *memCommitStore) UpdateFileset(ctx context.Context, commit *pfs.Commit, 
 	}
 	s.finished[key] = *id
 	return s.s.Drop(ctx, x)
+}
+
+func (s *memCommitStore) DropFilesets(ctx context.Context, commit *pfs.Commit) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := commitKey(commit)
+	delete(s.finished, key)
+	delete(s.staging, key)
+	return nil
 }
 
 // TODO

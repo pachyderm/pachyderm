@@ -8,6 +8,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -267,7 +268,7 @@ func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string)
 }
 
 // ProcessFunc is a callback that is used for processing a subtask in a task.
-type ProcessFunc func(context.Context, *Task) error
+type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 
 // Run runs the worker with the given context.
 // The worker will continue to watch the task collection until the context is canceled.
@@ -374,7 +375,12 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 						retErr = err
 					}
 				}()
-				return processFunc(claimCtx, subtask)
+				res, err := processFunc(claimCtx, subtask)
+				if err != nil {
+					return err
+				}
+				subtaskInfo.Result = res
+				return nil
 			})
 		}(); err != nil {
 			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.

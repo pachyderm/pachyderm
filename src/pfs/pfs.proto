@@ -161,14 +161,13 @@ message FileInfo {
   bytes hash = 7;
 }
 
-message Compaction {
-  repeated string input_prefixes = 2;
+message CompactionTask {
+  repeated string inputs = 1;
+  PathRange range = 2;
 }
 
-message Shard {
-  Compaction compaction = 1;
-  PathRange range = 2;
-  string output_path = 3;
+message CompactionResult {
+  string id = 1;
 }
 
 message PathRange {

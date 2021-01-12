@@ -125,9 +125,9 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 			err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
-					func(ctx context.Context, subtask *work.Task) error {
+					func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 						status := &Status{}
-						return Worker(env.driver, env.logger, subtask, status)
+						return nil, Worker(env.driver, env.logger, subtask, status)
 					},
 				)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

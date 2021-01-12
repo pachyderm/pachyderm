@@ -511,7 +511,7 @@ func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
 		return err
 	}
 	return server.SendAndClose(&pfs.CreateFilesetResponse{
-		FilesetId: fsID,
+		FilesetId: *fsID,
 	})
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"golang.org/x/sync/errgroup"
 )
 
 // IsCompacted returns true if the fileset is already in compacted form.
@@ -90,8 +91,78 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 	return s.Compact(ctx, ids2, ttl)
 }
 
-type CompactionWorker func(ctx context.Context, ids []ID) ([]ID, error)
+// CompactionTask contains everything needed to perform the smallest unit of compaction
+type CompactionTask struct {
+	Inputs    []ID
+	PathRange *index.PathRange
+}
 
-func CompactDistributed(ctx context.Context, s *Storage, workerFunc CompactionWorker, maxFanIn int, ids []ID, ttl time.Duration) (ID, error) {
-	panic("not implemented")
+// CompactionWorker can perform CompactionTasks
+type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
+
+// DistributedCompactor performs compaction by fanning out tasks to workers.
+type DistributedCompactor struct {
+	s          *Storage
+	maxFanIn   int
+	workerFunc CompactionWorker
+}
+
+func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionWorker) *DistributedCompactor {
+	return &DistributedCompactor{
+		s:          s,
+		maxFanIn:   maxFanIn,
+		workerFunc: workerFunc,
+	}
+}
+
+func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	if len(ids) <= c.maxFanIn {
+		return c.shardedCompact(ctx, ids, ttl)
+	}
+	childSize := c.maxFanIn
+	for len(ids)/childSize > c.maxFanIn {
+		childSize *= c.maxFanIn
+	}
+	results := []ID{}
+	for start := 0; start < len(ids); start += childSize {
+		end := start + childSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		id, err := c.Compact(ctx, ids[start:end], ttl)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, *id)
+	}
+	return c.Compact(ctx, results, ttl)
+}
+
+func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	var tasks []CompactionTask
+	if err := c.s.Shard(ctx, ids, func(pathRange *index.PathRange) error {
+		tasks = append(tasks, CompactionTask{
+			Inputs:    ids,
+			PathRange: pathRange,
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	results := make([]ID, len(tasks))
+	eg := errgroup.Group{}
+	for i, task := range tasks {
+		eg.Go(func() error {
+			id, err := c.workerFunc(ctx, task)
+			if err != nil {
+				return err
+			}
+			results[i] = *id
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return c.s.Concat(ctx, results, ttl)
 }

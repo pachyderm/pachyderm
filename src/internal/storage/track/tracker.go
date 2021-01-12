@@ -117,7 +117,7 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"DeleteSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				id := "test"
-				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, 0))
+				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, -1))
 				require.Nil(t, tracker.MarkTombstone(ctx, id))
 				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
 				require.Nil(t, tracker.FinishDelete(ctx, id))
@@ -127,14 +127,14 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"ExpireSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				require.Nil(t, tracker.CreateObject(ctx, "keep", []string{}, time.Hour))
-				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, time.Microsecond))
-				time.Sleep(time.Millisecond)
+				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, -1))
 
 				var toExpire []string
-				tracker.IterateDeletable(ctx, func(id string) error {
+				err := tracker.IterateDeletable(ctx, func(id string) error {
 					toExpire = append(toExpire, id)
 					return nil
 				})
+				require.NoError(t, err)
 				require.ElementsEqual(t, []string{"expire"}, toExpire)
 			},
 		},

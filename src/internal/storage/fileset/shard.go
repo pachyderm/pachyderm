@@ -9,7 +9,11 @@ import (
 // Shard shards the file set into path ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
-func (s *Storage) Shard(ctx context.Context, fs FileSet, cb ShardCallback) error {
+func (s *Storage) Shard(ctx context.Context, ids []ID, cb ShardCallback) error {
+	fs, err := s.Open(ctx, ids)
+	if err != nil {
+		return err
+	}
 	return shard(ctx, fs, s.shardThreshold, cb)
 }
 
