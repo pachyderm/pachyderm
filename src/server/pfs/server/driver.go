@@ -1365,6 +1365,7 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
+			destroyHashtree(parentTree)
 			defer destroyHashtree(tree)
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
@@ -1602,6 +1603,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		}
 
 		defer func() {
+			destroyHashtree(parentTree)
 			if finishedTree != nil {
 				destroyHashtree(finishedTree)
 			}
@@ -3722,12 +3724,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 			return err
 		}
 		if commitInfo.Finished != nil {
-			t, err := d.getTreeForCommit(txnCtx, file.Commit)
-			if err != nil {
-				return err
-			}
-
-			result, err = t.Copy()
+			result, err = d.getTreeForCommit(txnCtx, file.Commit)
 			return err
 		}
 

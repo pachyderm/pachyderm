@@ -11,6 +11,7 @@ import (
 	pathlib "path"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -70,6 +71,7 @@ func changed(tx *bolt.Tx) *bolt.Bucket {
 
 type dbHashTree struct {
 	*bolt.DB
+	refs int64
 }
 
 func slashEncode(b []byte) []byte {
@@ -147,7 +149,10 @@ func newDBHashTree(file string) (HashTree, error) {
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &dbHashTree{db}, nil
+	return &dbHashTree{
+		DB:   db,
+		refs: 0,
+	}, nil
 }
 
 func get(tx *bolt.Tx, path string) (*NodeProto, error) {
@@ -646,8 +651,24 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 	return result, nil
 }
 
-// Destroy cleans up the on disk structures for the hashtree.
+// GetRef attempts to increment the reference count for this
+// db but fails if the tree is already being deleted.
+func (h *dbHashTree) GetRef() bool {
+	refs := atomic.AddInt64(&h.refs, 1)
+	if refs == -1 {
+		return false
+	}
+	return true
+}
+
+// Destroy decrements the references to db and destroys it
+// if there are none remaining.
 func (h *dbHashTree) Destroy() error {
+	refs := atomic.AddInt64(&h.refs, -1)
+	if refs > -1 {
+		return nil
+	}
+
 	path := h.Path()
 	if err := h.Close(); err != nil {
 		return errors.EnsureStack(err)
