@@ -625,11 +625,25 @@ func TestCache(t *testing.T) {
 	require.Equal(t, h, h1)
 	require.Equal(t, 1, c.lruCache.Len())
 
+	// Release our reference to h1, it should still be cached
+	h1.Destroy()
+	_, err = h1.ListAll("")
+	require.NoError(t, err)
+
 	// Get the hashtree from the same key
 	h1, err = c.GetOrAdd(1, func() (HashTree, error) { return h, nil })
 	require.NoError(t, err)
 	require.Equal(t, h, h1)
 	require.Equal(t, 1, c.lruCache.Len())
+
+	// Release the new reference to h1, it should still be cached
+	h.Destroy()
+	_, err = h1.ListAll("")
+	require.NoError(t, err)
+
+	// Get one more reference to h1
+	h1, err = c.GetOrAdd(1, func() (HashTree, error) { return h, nil })
+	require.NoError(t, err)
 
 	// Fail to instantiate a hashtree for a new key
 	_, err = c.GetOrAdd(4, func() (HashTree, error) { return nil, errors.Errorf("error") })
@@ -640,6 +654,8 @@ func TestCache(t *testing.T) {
 	h2, err := c.GetOrAdd(2, func() (HashTree, error) { return newHashTree(t), nil })
 	require.NoError(t, err)
 	require.Equal(t, 2, c.lruCache.Len())
+	// Release the reference to h2
+	h2.Destroy()
 	_, err = h.Get("foo")
 	require.NoError(t, err)
 
@@ -647,9 +663,18 @@ func TestCache(t *testing.T) {
 	h3, err := c.GetOrAdd(3, func() (HashTree, error) { return newHashTree(t), nil })
 	require.NoError(t, err)
 	require.Equal(t, 2, c.lruCache.Len())
+	// Release the reference to h3
+	h3.Destroy()
 
+	// h1 has been evicted but it has one remaining reference
+	_, err = h1.ListAll("")
+	require.NoError(t, err)
+
+	// destroy h1, it has been evicted and has no references
+	h1.Destroy()
 	_, err = h1.ListAll("")
 	require.YesError(t, err)
+
 	_, err = h2.ListAll("")
 	require.NoError(t, err)
 	_, err = h3.ListAll("")
