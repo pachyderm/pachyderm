@@ -151,7 +151,7 @@ func newDBHashTree(file string) (HashTree, error) {
 	}
 	return &dbHashTree{
 		DB:   db,
-		refs: 0,
+		refs: 1,
 	}, nil
 }
 
@@ -651,18 +651,26 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 	return result, nil
 }
 
-// GetRef attempts to increment the reference count for this
-// db but fails if the tree is already being deleted.
+// GetRef attempts to increment the reference count for this db,
+// and returns false if the reference count has already fallen to 0
+// (which means the db is in the process of being destroyed)
 func (h *dbHashTree) GetRef() bool {
-	refs := atomic.AddInt64(&h.refs, 1)
-	return refs != -1
+	for {
+		refs := atomic.LoadInt64(&h.refs)
+		if refs > 0 {
+			if atomic.CompareAndSwapInt64(&h.refs, refs, refs+1) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // Destroy decrements the references to db and destroys it
 // if there are none remaining.
 func (h *dbHashTree) Destroy() error {
 	refs := atomic.AddInt64(&h.refs, -1)
-	if refs > -1 {
+	if refs > 0 {
 		return nil
 	}
 

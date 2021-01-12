@@ -102,7 +102,16 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 		if s.err != nil {
 			return nil, s.err
 		} else if value, ok := c.lruCache.Get(key); ok {
-			return castValue(value)
+			db, err := castValue(value)
+			if err != nil {
+				return nil, err
+			}
+
+			// Attempt to get a reference - if the DB is being torn down
+			// this can fail
+			if db.GetRef() {
+				return db, nil
+			}
 		}
 
 		// If we get here, that means the hashtree was evicted between when the

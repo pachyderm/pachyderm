@@ -69,8 +69,10 @@ func IsPermissionError(err error) bool {
 }
 
 func destroyHashtree(tree hashtree.HashTree) {
-	if err := tree.Destroy(); err != nil {
-		log.Infof("failed to destroy hashtree: %v", err)
+	if tree != nil {
+		if err := tree.Destroy(); err != nil {
+			log.Infof("failed to destroy hashtree: %v", err)
+		}
 	}
 }
 
@@ -1361,12 +1363,14 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
+			destroyHashtree(parentTree)
+
 			tree, err := parentTree.Copy()
 			if err != nil {
 				return nil, err
 			}
-			destroyHashtree(parentTree)
 			defer destroyHashtree(tree)
+
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 					return nil, err
@@ -1603,13 +1607,8 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		}
 
 		defer func() {
-			if parentTree != nil {
-				destroyHashtree(parentTree)
-			}
-
-			if finishedTree != nil {
-				destroyHashtree(finishedTree)
-			}
+			destroyHashtree(parentTree)
+			destroyHashtree(finishedTree)
 		}()
 
 		if tree == nil {
@@ -3615,7 +3614,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	return nil
 }
 
-// getTreeForCommmit returns a HashTree that should be destroyed after user
+// getTreeForCommmit returns a HashTree that must be cleaned up after use
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil || commit.ID == "" {
 		return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
@@ -3709,8 +3708,8 @@ func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix
 
 // getTreeForFile is like getTreeForCommit except that it can handle open commits.
 // It takes a file instead of a commit so that it can apply the changes for
-// that path to the tree before it returns it. The returned hash tree is not in
-// the treeCache and must be cleaned up by the caller.
+// that path to the tree before it returns it.
+// The returned hash tree must be cleaned up by the caller.
 func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (hashtree.HashTree, error) {
 	ctx := pachClient.Ctx()
 	if file.Commit == nil {
@@ -3728,6 +3727,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 			return err
 		}
 		if commitInfo.Finished != nil {
+			fmt.Printf("Finished commit\n")
 			result, err = d.getTreeForCommit(txnCtx, file.Commit)
 			return err
 		}
@@ -3736,12 +3736,13 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 		if err != nil {
 			return err
 		}
+
 		defer func() {
-			if parentTree != nil {
-				destroyHashtree(parentTree)
-			}
+			destroyHashtree(parentTree)
 		}()
 		result, err = d.getTreeForOpenCommit(txnCtx.Client, file, parentTree)
+
+		fmt.Printf("parent tree %v -> %v\n", parentTree, result)
 		return err
 	})
 	if err != nil {
