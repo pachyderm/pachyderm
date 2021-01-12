@@ -661,8 +661,9 @@ func (h *dbHashTree) GetRef() bool {
 			if atomic.CompareAndSwapInt64(&h.refs, refs, refs+1) {
 				return true
 			}
+		} else {
+			return false
 		}
-		return false
 	}
 }
 
