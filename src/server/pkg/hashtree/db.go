@@ -655,10 +655,7 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 // db but fails if the tree is already being deleted.
 func (h *dbHashTree) GetRef() bool {
 	refs := atomic.AddInt64(&h.refs, 1)
-	if refs == -1 {
-		return false
-	}
-	return true
+	return refs != -1
 }
 
 // Destroy decrements the references to db and destroys it
