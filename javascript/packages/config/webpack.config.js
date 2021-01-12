@@ -47,6 +47,7 @@ const postcssPlugins = () => [
     },
     stage: 3,
   }),
+  require('postcss-custom-media'),
   postcssNormalize(),
 ];
 

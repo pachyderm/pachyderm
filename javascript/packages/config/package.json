@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/config",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "dependencies": {
     "@babel/core": "^7.12.1",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.12.1",
@@ -47,6 +47,7 @@
     "postcss-normalize": "^8.0.1",
     "postcss-preset-env": "^6.7.0",
     "postcss-safe-parser": "^4.0.1",
+    "postcss-custom-media": "^7.0.8",
     "prettier": "^2.0.5",
     "react-dev-utils": "^10.2.1",
     "react-refresh": "^0.8.3",
