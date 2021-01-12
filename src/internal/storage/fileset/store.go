@@ -46,25 +46,3 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 		require.Equal(t, ErrPathNotExists, err)
 	})
 }
-
-// func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string, tracker track.Tracker, ttl time.Duration) error {
-// 	md, err := src.Get(ctx, srcPath)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	var idxs []*index.Index
-// 	switch x := md.Value.(type) {
-// 	case *Metadata_Primitive:
-// 		idxs = []*index.Index{x.Primitive}
-// 	case *Metadata_Composite:
-// 		idxs = []*index.Index{x.Composite.}
-// 	}
-// 	for _, prim := range comp.Layers {
-// 		idxs = append(idxs, prim.Additive)
-// 		idxs = append(idxs, prim.Deletive)
-// 	}
-// 	if err := createTrackerObject(ctx, dstPath, idxs, tracker, ttl); err != nil {
-// 		return err
-// 	}
-// 	return dst.Set(ctx, dstPath)
-// }
