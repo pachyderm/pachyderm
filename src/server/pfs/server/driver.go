@@ -3615,6 +3615,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	return nil
 }
 
+// getTreeForCommmit returns a HashTree that should be destroyed after user
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil || commit.ID == "" {
 		return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
@@ -3735,6 +3736,11 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if parentTree != nil {
+				destroyHashtree(parentTree)
+			}
+		}()
 		result, err = d.getTreeForOpenCommit(txnCtx.Client, file, parentTree)
 		return err
 	})
