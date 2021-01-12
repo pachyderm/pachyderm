@@ -1599,11 +1599,14 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		}
 		parentTree, err = d.getTreeForCommit(txnCtx, parentCommit) // result is empty if parentCommit == nil
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to get tree for parent")
 		}
 
 		defer func() {
-			destroyHashtree(parentTree)
+			if parentTree != nil {
+				destroyHashtree(parentTree)
+			}
+
 			if finishedTree != nil {
 				destroyHashtree(finishedTree)
 			}
@@ -1613,19 +1616,19 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 			var err error
 			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client, &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to get tree for open commit")
 			}
 			// Put the tree to object storage.
 			treeRef, err := hashtree.PutHashTree(txnCtx.Client, finishedTree)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to put tree to object storage")
 			}
 			commitInfo.Tree = treeRef
 		} else {
 			var err error
 			finishedTree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, tree)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to get finished tree")
 			}
 			commitInfo.Tree = tree
 		}
@@ -1633,18 +1636,18 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	}
 	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to update provenance")
 	}
 	if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to write finished commmit")
 	}
 	triggeredBranches, err := d.triggerCommit(txnCtx, commitInfo.Commit)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to trigger commit")
 	}
 	for _, b := range triggeredBranches {
 		if err := txnCtx.PropagateCommit(b, false); err != nil {
-			return err
+			return errors.Wrapf(err, "failed to propagate branch")
 		}
 	}
 	return nil

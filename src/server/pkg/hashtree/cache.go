@@ -125,6 +125,7 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 
 		return nil, err
 	}
+	newValue.GetRef()
 
 	c.lock.Lock()
 	c.lruCache.Add(key, newValue)
