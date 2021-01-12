@@ -1715,13 +1715,37 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err != nil {
 		return err
 	}
+	// Circular buffer of log messages
+	var msgs []*pps.LogMessage
+	offset := 0
+	if request.Tail != 0 {
+		msgs = make([]*pps.LogMessage, request.Tail)
+	}
+	send := func(msg *pps.LogMessage) error {
+		if msgs != nil {
+			msgs[offset] = msg
+			offset = (offset + 1) % len(msgs)
+			return nil
+		}
+		return apiGetLogsServer.Send(msg)
+	}
+	defer func() {
+		for i := 0; i < len(msgs); i++ {
+			if msg := msgs[(i+offset)%len(msgs)]; msg != nil {
+				if err := apiGetLogsServer.Send(msg); err != nil && retErr == nil {
+					retErr = err
+					break
+				}
+			}
+		}
+	}()
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
 		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
-			return apiGetLogsServer.Send(&pps.LogMessage{
+			return send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
 		})
@@ -1793,7 +1817,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return nil
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
-		return apiGetLogsServer.Send(msg)
+		return send(msg)
 	})
 }
 
