@@ -4283,6 +4283,15 @@ func TestLokiLogs(t *testing.T) {
 	}
 	require.NoError(t, iter.Err())
 	require.Equal(t, numFiles, foundFoos, "didn't receive enough log lines containing foo")
+
+	tail := 5
+	iter = c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, int64(tail))
+	lines := 0
+	for iter.Next() {
+		lines++
+	}
+	require.NoError(t, iter.Err())
+	require.Equal(t, tail, lines, "didn't receive right number of log lines")
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
