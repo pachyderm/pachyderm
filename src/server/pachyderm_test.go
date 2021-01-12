@@ -4776,16 +4776,18 @@ func TestLokiLogs(t *testing.T) {
 	require.NoError(t, err)
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
+	numFiles := 10
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
-				Cmd:   []string{"sh"},
-				Stdin: []string{"echo", "foo"},
+				Cmd: []string{"echo", "foo"},
 			},
 			Input: client.NewPFSInput(dataRepo, "/*"),
 		})
@@ -4793,23 +4795,34 @@ func TestLokiLogs(t *testing.T) {
 	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
-		foundFoo := false
+	// Follow the logs the make sure we get enough foos
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, true, 0)
+		foundFoos := 0
 		for iter.Next() {
 			if strings.Contains(iter.Message().Message, "foo") {
-				foundFoo = true
-				break
+				foundFoos++
+				if foundFoos == numFiles {
+					break
+				}
 			}
 		}
 		if iter.Err() != nil {
 			return iter.Err()
 		}
-		if !foundFoo {
-			return fmt.Errorf("did not recieve a log line containing foo")
-		}
 		return nil
 	})
+
+	iter := c.GetLogsLoki("", jis[0].Job.ID, nil, "", false, false, 0)
+	foundFoos := 0
+	for iter.Next() {
+		if strings.Contains(iter.Message().Message, "foo") {
+			fmt.Println(iter.Message().Message)
+			foundFoos++
+		}
+	}
+	require.NoError(t, iter.Err())
+	require.Equal(t, numFiles, foundFoos, "didn't receive enough log lines containing foo")
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
