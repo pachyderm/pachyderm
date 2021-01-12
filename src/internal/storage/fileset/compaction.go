@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	fmt "fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -51,10 +52,10 @@ func isCompacted(factor int64, layers []*Primitive) bool {
 }
 
 // indexOfCompacted returns the last value of i for which the "compacted relationship"
-// is maintained for all layers[:i]
+// is maintained for all layers[:i+1]
 // the "compacted relationship" is defined as leftSize >= (rightSize * factor)
-// If there is an element at i. It will be the first element which does not satisfy
-// the compacted relationship with i-1.
+// If there is an element at i+1. It will be the first element which does not satisfy
+// the compacted relationship with i.
 func indexOfCompacted(factor int64, inputs []*Primitive) int {
 	l := len(inputs)
 	for i := 0; i < l-1; i++ {
@@ -82,12 +83,13 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 		return s.Compose(ctx, ids, ttl)
 	}
 	// merge everything from i-1 onward into a single layer
-	merged, err := s.Merge(ctx, ids[i-1:], ttl)
+	merged, err := s.Merge(ctx, ids[i:], ttl)
 	if err != nil {
 		return nil, err
 	}
 	// replace everything from i-1 onward with the merged version
-	ids2 := append(ids[:i-1], *merged)
+	ids2 := append(ids[:i], *merged)
+	fmt.Println("compacted", ids, "to", ids2)
 	return s.Compact(ctx, ids2, ttl)
 }
 

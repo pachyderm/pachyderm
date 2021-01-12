@@ -147,11 +147,14 @@ func (s *Storage) Clone(ctx context.Context, id ID, ttl time.Duration) (*ID, err
 	if err != nil {
 		return nil, err
 	}
-	id2 := newID()
-	if err := s.store.Set(ctx, id2, md); err != nil {
-		return nil, err
+	switch x := md.Value.(type) {
+	case *Metadata_Primitive:
+		return s.newPrimitive(ctx, x.Primitive, ttl)
+	case *Metadata_Composite:
+		return s.newComposite(ctx, x.Composite, ttl)
+	default:
+		return nil, errors.Errorf("cannot clone type %T", md.Value)
 	}
-	return &id2, nil
 }
 
 // Flatten takes a list of IDs and replaces references to composite FileSets

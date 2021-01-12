@@ -349,6 +349,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			}
 			return w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
 				subtask := subtaskInfo.Task
+				var result *types.Any
 				defer func() {
 					// If the task context was canceled or the claim was lost, just return with no error.
 					if errors.Is(claimCtx.Err(), context.Canceled) {
@@ -364,9 +365,11 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 							}
 							subtaskInfo.Task = subtask
 							subtaskInfo.State = State_SUCCESS
+							subtaskInfo.Result = result
 							if retErr != nil {
 								subtaskInfo.State = State_FAILURE
 								subtaskInfo.Reason = retErr.Error()
+								subtaskInfo.Result = nil
 								retErr = nil
 							}
 							return nil
@@ -379,7 +382,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 				if err != nil {
 					return err
 				}
-				subtaskInfo.Result = res
+				result = res
 				return nil
 			})
 		}(); err != nil {

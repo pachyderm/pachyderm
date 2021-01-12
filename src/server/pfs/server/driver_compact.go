@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -50,10 +51,12 @@ func (d *driver) compact(master *work.Master, id fileset.ID) (*fileset.ID, error
 			if taskInfo.Result == nil {
 				return errors.Errorf("no result set for compaction work.TaskInfo")
 			}
+			fmt.Println("got result", taskInfo.Result)
 			res, err := deserializeCompactionResult(taskInfo.Result)
 			if err != nil {
 				return err
 			}
+			fmt.Println("res id", res.Id)
 			id := fileset.ID(res.Id)
 			result = &id
 			return nil
