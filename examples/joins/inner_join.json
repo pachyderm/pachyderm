@@ -24,9 +24,7 @@
    ]
  },
  "transform": {
-    "build": { 
-      "language":"python",
-      "path": "./src/inner"
-    }
-  }
+  "cmd": [ "python", "inner/main.py" ],
+  "image": "npepin/pachyderm-joins101:2"
+}
 }
