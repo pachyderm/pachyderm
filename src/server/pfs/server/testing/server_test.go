@@ -6054,9 +6054,6 @@ func (r *SlowReader) Read(p []byte) (n int, err error) {
 
 // TestTrigger tests branch triggers
 func TestTrigger(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
