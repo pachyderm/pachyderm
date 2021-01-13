@@ -4,21 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
-// authFn returns an error if the request is not permitted
-type authFn func(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error
-
-// authFns is a mapping of RPCs to authorization levels required to access them.
+// authHandlers is a mapping of RPCs to authorization levels required to access them.
 // This interceptor fails closed - whenever a new RPC is added, it's disabled
 // until some authentication is added. Some RPCs may do additional auth checks
 // beyond what's required by this interceptor.
-var authFns = map[string]authFn{
+var authHandlers = map[string]authHandlerFn{
 	//
 	// Admin API
 	//
@@ -205,71 +201,45 @@ var authFns = map[string]authFn{
 	"/versionpb.API/GetVersion": authenticated,
 }
 
-// unauthenticated allows all RPCs to succeed, even if there is no auth metadata
-func unauthenticated(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
-	return nil
-}
-
-// authenticated allows all RPCs to succeed as long as the user has a valid auth token
-func authenticated(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
-	pachClient := i.env.GetPachClient(ctx)
-	_, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if err != nil && !auth.IsErrNotActivated(err) {
-		return err
-	}
-	return nil
-}
-
-// adminOnly allows an RPC to succeed only if the user has cluster admin status
-func adminOnly(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
-	pachClient := i.env.GetPachClient(ctx)
-	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if err != nil {
-		if auth.IsErrNotActivated(err) {
-			return nil
-		}
-		return err
-	}
-
-	if me.ClusterRoles != nil {
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				return nil
-			}
-		}
-	}
-
-	return &auth.ErrNotAuthorized{
-		Subject: me.Username,
-		AdminOp: info.FullMethod,
-	}
-}
-
-// Interceptor applies auth rules to incoming RPCs
-type Interceptor struct {
-	env *serviceenv.ServiceEnv
-}
-
-// NewInterceptor instantiates a new authInterceptor
+// NewInterceptor instantiates a new Interceptor
 func NewInterceptor(env *serviceenv.ServiceEnv) *Interceptor {
 	return &Interceptor{
 		env: env,
 	}
 }
 
+// Interceptor checks the authentication metadata in unary and streaming RPCs
+// and prevents unknown or unauthorized calls.
+type Interceptor struct {
+	env *serviceenv.ServiceEnv
+}
+
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	a, ok := authFns[info.FullMethod]
+	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(ctx, i, info, req); err != nil {
+	if err := a(i).unary(ctx, info, req); err != nil {
 		logrus.Errorf("denied unary call %q\n", info.FullMethod)
 		return nil, err
 	}
-
-	logrus.Debugf("allowed unary call %q\n", info.FullMethod)
 	return handler(ctx, req)
+}
+
+// InterceptStream applies authentication rules to streaming RPCs
+func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	a, ok := authHandlers[info.FullMethod]
+	if !ok {
+		logrus.Errorf("no auth function for %q\n", info.FullMethod)
+		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
+	}
+
+	if err := a(i).stream(stream.Context(), info, nil); err != nil {
+		logrus.Errorf("denied streaming call %q\n", info.FullMethod)
+		return err
+	}
+	return handler(srv, stream)
 }

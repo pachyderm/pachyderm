@@ -122,7 +122,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
 	authInterceptor := auth.NewInterceptor(env)
-	server, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
+	server, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func doFullMode(config interface{}) (retErr error) {
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env)
-	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
+	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
+	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}
