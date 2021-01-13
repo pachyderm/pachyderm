@@ -7,10 +7,12 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// The size of an Output in bytes
+// OutputSize is the size of an Output in bytes
 const OutputSize = 32
 
-type Output = [32]byte
+// Output is the output of the hash function.
+// Sum returns an Output
+type Output = [OutputSize]byte
 
 // New creates a new hasher.
 func New() hash.Hash {
