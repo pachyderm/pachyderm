@@ -90,18 +90,18 @@ case "${BUCKET}" in
         make test-vault
     fi
     ;;
- ADMIN)
+  ADMIN)
     make test-admin
     ;;
- EXAMPLES)
+  EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
     ;;
- PFS)
+  PFS)
     make test-pfs-server
     make test-pfs-storage
     ;;
- PPS?)
+  PPS?)
     pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
     popd
@@ -112,17 +112,17 @@ case "${BUCKET}" in
       go test -v -count=1 ./src/server/pps/server -timeout 300s
     fi
     ;;
- AUTH?)
+  AUTH?)
     bucket_num="${BUCKET#AUTH}"
     test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     ;;
- OBJECT)
+  OBJECT)
     make test-object-clients
     ;;
   IDENTITY)
     make test-identity
     ;;
- *)
+  *)
     echo "Unknown bucket"
     exit 1
     ;;
