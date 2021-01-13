@@ -3727,7 +3727,6 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 			return err
 		}
 		if commitInfo.Finished != nil {
-			fmt.Printf("Finished commit\n")
 			result, err = d.getTreeForCommit(txnCtx, file.Commit)
 			return err
 		}
@@ -3742,7 +3741,6 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 		}()
 		result, err = d.getTreeForOpenCommit(txnCtx.Client, file, parentTree)
 
-		fmt.Printf("parent tree %v -> %v\n", parentTree, result)
 		return err
 	})
 	if err != nil {
