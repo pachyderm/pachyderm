@@ -250,6 +250,7 @@ test-pfs-server:
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
 	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.

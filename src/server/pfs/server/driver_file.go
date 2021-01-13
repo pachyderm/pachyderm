@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -77,7 +78,9 @@ func (d *driver) withCommitWriter(ctx context.Context, commit *pfs.Commit, cb fu
 
 func (d *driver) getSubFileset() int64 {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
-	return time.Now().UnixNano()
+	nonce := atomic.AddUint64(&d.nonce, 1)
+	millis := time.Now().UnixNano() / 1e6 // nano -> milli
+	return millis + int64(nonce%1e6)
 }
 
 func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error) (string, error) {
