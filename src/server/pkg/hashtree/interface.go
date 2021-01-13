@@ -174,6 +174,9 @@ type HashTree interface {
 	// Deserialize deserializes a HashTree from r, into the receiver of the function.
 	Deserialize(r io.Reader) error
 
+	// GetRef increments the number of references to this tree
+	GetRef() bool
+
 	// Destroy cleans up the on disk structures for the hashtree. Further
 	// operations on the database will error. Blocks for pending txns.
 	Destroy() error

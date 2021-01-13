@@ -84,15 +84,34 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 
 	// First try to get a tree from the cache
 	if value, ok := c.lruCache.Get(key); ok {
-		return castValue(value)
-	} else if s, ok := c.seedlings[key]; ok {
+		db, err := castValue(value)
+		if err != nil {
+			return nil, err
+		}
+		// Attempt to get a reference - if the DB is being torn down
+		// this can fail
+		if db.GetRef() {
+			return db, nil
+		}
+	}
+
+	if s, ok := c.seedlings[key]; ok {
 		// There is a pending hashtree being generated, wait for it
 		s.cond.Wait()
 
 		if s.err != nil {
 			return nil, s.err
 		} else if value, ok := c.lruCache.Get(key); ok {
-			return castValue(value)
+			db, err := castValue(value)
+			if err != nil {
+				return nil, err
+			}
+
+			// Attempt to get a reference - if the DB is being torn down
+			// this can fail
+			if db.GetRef() {
+				return db, nil
+			}
 		}
 
 		// If we get here, that means the hashtree was evicted between when the
@@ -115,6 +134,7 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 
 		return nil, err
 	}
+	newValue.GetRef()
 
 	c.lock.Lock()
 	c.lruCache.Add(key, newValue)
