@@ -39,20 +39,18 @@ func (a *dexAPI) api() (dex_api.DexServer, error) {
 	if a.server == nil {
 		a.RUnlock()
 		a.Lock()
+		defer a.Unlock()
 		if a.server != nil {
 			server := a.server
-			a.Unlock()
 			return server, nil
 		}
 
 		storage, err := a.storageProvider.GetStorage(a.logger)
 		if err != nil {
-			a.Unlock()
 			return nil, err
 		}
 		a.server = dex_server.NewAPI(storage, nil)
 		server := a.server
-		a.Unlock()
 		return server, nil
 	}
 	server := a.server

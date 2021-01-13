@@ -47,19 +47,17 @@ func (s *LazyPostgresStorage) GetStorage(logger *logrus.Entry) (dex_storage.Stor
 	if storage == nil {
 		s.RUnlock()
 		s.Lock()
+		defer s.Unlock()
 		if s.storage != nil {
 			storage = s.storage
-			s.Unlock()
 			return storage, nil
 		}
 		storage, err := s.storageConfig.Open(logger)
 		if err != nil {
 			logger.WithError(err).Error("dex storage failed to start")
-			s.Unlock()
 			return nil, err
 		}
 		s.storage = storage
-		s.Unlock()
 		return storage, nil
 	}
 

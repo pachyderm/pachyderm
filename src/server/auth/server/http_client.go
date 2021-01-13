@@ -16,7 +16,8 @@ type RewriteRoundTripper struct {
 	Rewrite  *url.URL
 }
 
-// LocalhostRewriteClient returns an http.Client which replaces the host and scheme from `expected` with
+// LocalhostRewriteClient returns an http.Client which replaces the host and scheme
+// from `expected` with `localhostIdentityServer`
 func LocalhostRewriteClient(expected string) (*http.Client, error) {
 	expectedURL, err := url.Parse(expected)
 	if err != nil {
