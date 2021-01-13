@@ -6,14 +6,14 @@
 
 ***Table of Content***
 
-- [1. Getting ready](##1.-getting-ready)
-- [2. Data structure and naming convention](##2.-data-structure-and-naming-convention)
-- [3. Data preparation](##3.-data-preparation)
-- [4. Example 1 : An Inner Join pipeline creation](##4.-example-1-:-an-inner-join-pipeline-creation)
-- [5. Example 2 : Outer Join pipeline creation](##5.-example-2-:-outer-join-pipeline-creation) 
-    - [***Case 1*** Outer join on the Returns repo only](###***case-1***-outer-join-on-the-returns-repo-only)
-    - [***Case 2*** Outer join on the Stores repo only](###***case-2***-outer-join-on-the-stores-repo-only)
-    - [***Case 3*** Outer join on both the Stores and Returns repos](###***case-3***-outer-join-on-both-the-stores-and-returns-repos)
+- [1. Getting ready](#1-getting-ready)
+- [2. Data structure and naming convention](#2-data-structure-and-naming-convention)
+- [3. Data preparation](#3-data-preparation)
+- [4. Example 1 : An Inner Join pipeline creation](#4-example-1--an-inner-join-pipeline-creation)
+- [5. Example 2 : Outer Join pipeline creation](#5-example-2--outer-join-pipeline-creation) 
+    - [***Case 1*** Outer join on the Returns repo only](#case-1-outer-join-on-the-returns-repo-only)
+    - [***Case 2*** Outer join on the Stores repo only](#case-2-outer-join-on-the-stores-repo-only)
+    - [***Case 3*** Outer join on both the Stores and Returns repos](#case-3-outer-join-on-both-the-stores-and-returns-repos)
 
 ***Key concepts***
 
