@@ -121,7 +121,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	server, err := grpcutil.NewServer(context.Background(), false)
+	authInterceptor := auth.NewInterceptor(env)
+	server, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
 	if err != nil {
 		return err
 	}
@@ -445,7 +446,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false)
+	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary))
 	if err != nil {
 		return err
 	}

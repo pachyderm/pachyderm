@@ -12,7 +12,7 @@ import (
 )
 
 // authFn returns an error if the request is not permitted
-type authFn func(i *Interceptor, ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error
+type authFn func(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error
 
 var authFns = map[string]authFn{
 	// Admin API
@@ -175,12 +175,12 @@ var authFns = map[string]authFn{
 }
 
 // unauthenticated allows all RPCs to succeed, even if there is no auth metadata
-func unauthenticated(i *Interceptor, ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error {
+func unauthenticated(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
 	return nil
 }
 
 // authenticated allows all RPCs to succeed as long as the user has a valid auth token
-func authenticated(i *Interceptor, ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error {
+func authenticated(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
 	pachClient := i.env.GetPachClient(ctx)
 	_, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil && !auth.IsErrNotActivated(err) {
@@ -190,7 +190,7 @@ func authenticated(i *Interceptor, ctx context.Context, info *grpc.UnaryServerIn
 }
 
 // adminOnly allows an RPC to succeed only if the user has cluster admin status
-func adminOnly(i *Interceptor, ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error {
+func adminOnly(ctx context.Context, i *Interceptor, info *grpc.UnaryServerInfo, req interface{}) error {
 	pachClient := i.env.GetPachClient(ctx)
 	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
@@ -234,7 +234,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(i, ctx, info, req); err != nil {
+	if err := a(ctx, i, info, req); err != nil {
 		logrus.Errorf("denied unary call %q\n", info.FullMethod)
 		return nil, err
 	}
