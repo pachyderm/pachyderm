@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"context"
-	"crypto/sha512"
 	"database/sql"
 	"encoding/hex"
 	fmt "fmt"
@@ -17,9 +16,8 @@ type ID []byte
 
 // Hash produces an ID by hashing data
 func Hash(data []byte) ID {
-	h := sha512.New()
-	h.Write(data)
-	return h.Sum(nil)[:32]
+	sum := pachhash.Sum(data)
+	return sum[:]
 }
 
 // IDFromHex parses a hex string into an ID

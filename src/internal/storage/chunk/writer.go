@@ -7,7 +7,6 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/hash"
 )
 
 const (
@@ -304,7 +303,7 @@ func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataR
 	if chunkRef.SizeBytes == size {
 		dataRef.Hash = chunkRef.Hash
 	} else {
-		dataRef.Hash = hash.EncodeHash(Hash(chunkBytes[offset : offset+size]))
+		dataRef.Hash = Hash(chunkBytes[offset : offset+size]).HexString()
 	}
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
