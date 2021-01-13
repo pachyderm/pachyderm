@@ -244,11 +244,9 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
-	./etc/testing/start_postgres.sh
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
-	./etc/testing/start_postgres.sh
 	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/migrations/...
 
@@ -318,12 +316,10 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
-	./etc/testing/start_postgres.sh
 	yes | pachctl delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-identity:
-	./etc/testing/start_postgres.sh
 	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
 
 

@@ -27,7 +27,7 @@ func (p *InMemoryStorageProvider) GetStorage(logger *logrus.Entry) (dex_storage.
 // TestLazyStartWebServer tests that the web server returns a 500 and retries starting on each request
 // until it is successful. This is necessary in case postgres hasn't started or no connectors are configured.
 func TestLazyStartWebServer(t *testing.T) {
-	webDir = "../../../../web"
+	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 	sp := &InMemoryStorageProvider{err: errors.New("unable to connect to database")}
 
@@ -66,7 +66,7 @@ func TestLazyStartWebServer(t *testing.T) {
 
 // TestConfigureIssuer tests that the web server is restarted when the issuer is changed.
 func TestConfigureIssuer(t *testing.T) {
-	webDir = "../../../../web"
+	webDir = "../../../../dex-assets"
 	logger := logrus.NewEntry(logrus.New())
 	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
 

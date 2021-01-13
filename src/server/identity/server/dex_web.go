@@ -12,8 +12,8 @@ import (
 )
 
 // webDir is the path to find the static assets for the web server.
-// This is always /web in the docker image, but it can be overriden for testing
-var webDir = "/web"
+// This is always /dex-assets in the docker image, but it can be overriden for testing
+var webDir = "/dex-assets"
 
 // dexWeb wraps a Dex web server and hot reloads it when the
 // issuer is reconfigured.
