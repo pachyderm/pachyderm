@@ -10,15 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromSecret(d.storageRoot)
-	if err != nil {
-		return nil, err
-	}
 	info, err := pachClient.InspectObject(object.Hash)
 	if err != nil {
 		return nil, err
@@ -27,11 +22,11 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
-	offset, size, err := getTreeRange(pachClient.Ctx(), objClient, path, prefix)
+	offset, size, err := getTreeRange(pachClient.Ctx(), d.objClient, path, prefix)
 	if err != nil {
 		return nil, err
 	}
-	objR, err := objClient.Reader(pachClient.Ctx(), path, offset, size)
+	objR, err := d.objClient.Reader(pachClient.Ctx(), path, offset, size)
 	if err != nil {
 		return nil, err
 	}
