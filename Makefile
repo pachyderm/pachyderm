@@ -244,9 +244,11 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
+	./etc/testing/start_postgres.sh
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
+	./etc/testing/start_postgres.sh
 	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/migrations/...
 
