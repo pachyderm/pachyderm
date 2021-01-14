@@ -787,6 +787,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30000 + auth.OidcPort,
 				},
 				{
+					Port:     658,
+					Name:     "identity-port",
+					NodePort: 30658,
+				},
+				{
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
 					NodePort: githook.NodePort(),
@@ -1153,6 +1158,10 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
 	if err := encoder.Encode(EtcdNodePortService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+		return err
+	}
+
+	if err := encoder.Encode(PostgresInitConfigMap(opts)); err != nil {
 		return err
 	}
 

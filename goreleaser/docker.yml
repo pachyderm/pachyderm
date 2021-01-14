@@ -47,12 +47,15 @@ dockers:
       - go.mod
       - go.sum
       - src
+      - dex-assets
   -
     image_templates:
       - pachyderm/pachd
       - pachyderm/pachd:local
     skip_push: false
     dockerfile: etc/pachd/Dockerfile
+    extra_files:
+      - dex-assets
   -
     image_templates:
       - pachyderm/pachctl
