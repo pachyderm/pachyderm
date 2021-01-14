@@ -84,6 +84,12 @@ func ReceiveSpout(
 				return err
 			}
 			return withSpoutCommit(cancelCtx, pachClient, pipelineInfo, logger, f, func(commit *pfs.Commit, tr *tar.Reader) error {
+				putFileClient, err := pachClient.NewPutFileClient()
+				if err != nil {
+					return err
+				}
+				defer putFileClient.Close()
+
 				for {
 					hdr, err := tr.Next()
 					if err != nil {
@@ -104,15 +110,15 @@ func ReceiveSpout(
 								cancel()
 								return errors.New("outdated spout, now shutting down")
 							}
-							_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
+							_, err = putFileClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, hdr.Name, r, 0)
 							// return here to avoid putting the file in the output branch
 							return err
 						}
 						if pipelineInfo.Spout.Overwrite {
-							_, err := pachClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
+							_, err := putFileClient.PutFileOverwrite(repo, commit.ID, hdr.Name, r, 0)
 							return err
 						}
-						_, err := pachClient.PutFile(repo, commit.ID, hdr.Name, r)
+						_, err := putFileClient.PutFile(repo, commit.ID, hdr.Name, r)
 						return err
 					}); err != nil {
 						return err
