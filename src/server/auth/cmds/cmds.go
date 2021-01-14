@@ -19,23 +19,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
-
-func githubLogin() (string, error) {
-	fmt.Println("(1) Please paste this link into a browser:\n\n" +
-		githubAuthLink + "\n\n" +
-		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
-		"login app on GitHub. If you accept, you will be given a token to " +
-		"paste here, which will give you an externally verified account in " +
-		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
-		"from GitHub here:")
-	token, err := cmdutil.ReadPassword("")
-	if err != nil {
-		return "", errors.Wrapf(err, "error reading token")
-	}
-	return strings.TrimSpace(token), nil // drop trailing newline
-}
-
 func requestOIDCLogin(c *client.APIClient) (string, error) {
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
