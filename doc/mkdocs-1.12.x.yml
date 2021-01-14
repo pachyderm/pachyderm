@@ -48,6 +48,8 @@ plugins:
 
 # Customization
 extra:
+    repo_branch: master
+    repo_docs_dir: doc/docs/1.12.x
   social:
     - icon: fontawesome/brands/github
       link: https://pachdm.com/github
@@ -55,6 +57,7 @@ extra:
       link: https://pachdm.com/twitter
     - icon: fontawesome/brands/linkedin
       link: https://pachdm.com/linkedin
+
 
 extra_css:
     - stylesheets/extra.css
