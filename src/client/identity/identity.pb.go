@@ -3546,10 +3546,7 @@ func (m *IdentityServerConfig) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -3636,10 +3633,7 @@ func (m *SetIdentityServerConfigRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -3690,10 +3684,7 @@ func (m *SetIdentityServerConfigResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -3744,10 +3735,7 @@ func (m *GetIdentityServerConfigRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -3834,10 +3822,7 @@ func (m *GetIdentityServerConfigResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4035,10 +4020,7 @@ func (m *IDPConnector) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4125,10 +4107,7 @@ func (m *CreateIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4179,10 +4158,7 @@ func (m *CreateIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4269,10 +4245,7 @@ func (m *UpdateIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4323,10 +4296,7 @@ func (m *UpdateIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4377,10 +4347,7 @@ func (m *ListIDPConnectorsRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4465,10 +4432,7 @@ func (m *ListIDPConnectorsResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4551,10 +4515,7 @@ func (m *GetIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4641,10 +4602,7 @@ func (m *GetIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4727,10 +4685,7 @@ func (m *DeleteIDPConnectorRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4781,10 +4736,7 @@ func (m *DeleteIDPConnectorResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -4995,10 +4947,7 @@ func (m *OIDCClient) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5085,10 +5034,7 @@ func (m *CreateOIDCClientRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5175,10 +5121,7 @@ func (m *CreateOIDCClientResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5261,10 +5204,7 @@ func (m *GetOIDCClientRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5351,10 +5291,7 @@ func (m *GetOIDCClientResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5405,10 +5342,7 @@ func (m *ListOIDCClientsRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5493,10 +5427,7 @@ func (m *ListOIDCClientsResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5583,10 +5514,7 @@ func (m *UpdateOIDCClientRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5637,10 +5565,7 @@ func (m *UpdateOIDCClientResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5723,10 +5648,7 @@ func (m *DeleteOIDCClientRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5777,10 +5699,7 @@ func (m *DeleteOIDCClientResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5831,10 +5750,7 @@ func (m *DeleteAllRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
@@ -5885,10 +5801,7 @@ func (m *DeleteAllResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthIdentity
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthIdentity
 			}
 			if (iNdEx + skippy) > l {
