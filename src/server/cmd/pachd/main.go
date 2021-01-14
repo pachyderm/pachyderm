@@ -277,6 +277,16 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
+
+	identityStorageProvider := identity_server.NewLazyPostgresStorage(
+		env.PostgresServiceHost,
+		env.IdentityServerDatabase,
+		env.IdentityServerUser,
+		env.IdentityServerPassword,
+		env.PostgresServiceSSL,
+		env.PostgresServicePort,
+	)
+
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		var pfsAPIServer pfs_server.APIServer
@@ -324,19 +334,10 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 
-		storageProvider := identity_server.NewLazyPostgresStorage(
-			env.PostgresServiceHost,
-			env.IdentityServerDatabase,
-			env.IdentityServerUser,
-			env.IdentityServerPassword,
-			env.PostgresServiceSSL,
-			env.PostgresServicePort,
-		)
-
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer, err := identity_server.NewIdentityServer(
 				env,
-				storageProvider,
+				identityStorageProvider,
 				true,
 				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
@@ -480,6 +481,21 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer, err := identity_server.NewIdentityServer(
+				env,
+				identityStorageProvider,
+				true,
+				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
 			return err
