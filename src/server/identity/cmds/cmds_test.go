@@ -76,13 +76,13 @@ func TestConnectorCRUD(t *testing.T) {
 		  | match 'type: github' \
 		  | match 'version: 0' \
 		  | match "{}" 
-		echo '{"client_id": "a"}' | pachctl idp update-connector {{.id}} --name 'newname' --config -
+		echo '{"client_id": "a"}' | pachctl idp update-connector {{.id}} --version 1 --name 'newname' --config -
 		pachctl idp get-connector {{.id}} \
 		  | match 'name: newname' \
 		  | match 'type: github' \
 		  | match 'version: 1' \
 		  | match '{"client_id": "a"}'
-		pachctl idp update-connector {{.id}} --name 'newname2'
+		pachctl idp update-connector {{.id}} --version 2 --name 'newname2'
 		pachctl idp get-connector {{.id}} \
 		  | match 'name: newname2' \
 		  | match 'type: github' \

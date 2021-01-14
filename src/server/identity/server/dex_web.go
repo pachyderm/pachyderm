@@ -20,6 +20,10 @@ var webDir = "/dex-assets"
 type dexWeb struct {
 	sync.RWMutex
 
+	// `issuer` must be a well-known URL where all pachds can reach this server.
+	// Dex usually loads it from a config file, but it can be clumsy to find the
+	// exact right value. Instead of requiring the user to change the config
+	// we support updating it via an RPC.
 	issuer       string
 	server       *dex_server.Server
 	serverCancel context.CancelFunc
@@ -90,13 +94,13 @@ func (w *dexWeb) getServer() *dex_server.Server {
 		// If the server is nil, unlock and acquire the write lock
 		w.RUnlock()
 		w.Lock()
+		defer w.Unlock()
 
 		// Once we have the write lock, check that the server hasn't already been started
 		if w.server == nil {
 			w.startWebServer()
 		}
 		server = w.server
-		w.Unlock()
 		return server
 	}
 
