@@ -760,10 +760,7 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthHashtree
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -918,10 +915,7 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthHashtree
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1129,10 +1123,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthHashtree
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1314,7 +1305,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 					if err != nil {
 						return err
 					}
-					if skippy < 0 {
+					if (skippy < 0) || (iNdEx+skippy) < 0 {
 						return ErrInvalidLengthHashtree
 					}
 					if (iNdEx + skippy) > postIndex {
@@ -1331,10 +1322,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthHashtree
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
