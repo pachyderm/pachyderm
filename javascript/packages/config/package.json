@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/config",
-  "version": "0.3.4",
+  "version": "0.4.4",
   "dependencies": {
     "@babel/core": "^7.12.1",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.12.1",
