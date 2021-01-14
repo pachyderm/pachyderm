@@ -574,6 +574,10 @@ message GetLogsRequest {
   // rather than through kubernetes. This behavior can also be achieved by
   // setting the LOKI_LOGGING feature flag.
   bool use_loki_backend = 9;
+
+  // From specifies the time to begin returning logs from. Only logs from after
+  // this time will be returned. It defaults to 24 hours ago.
+  google.protobuf.Timestamp from = 10;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
