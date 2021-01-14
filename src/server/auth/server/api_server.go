@@ -2401,8 +2401,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
-		subject = auth.GitHubPrefix + subject
-		colonIdx = len(auth.GitHubPrefix) - 1
+		return errors.Errorf("subject has no prefix, must be of the form <type>:<name>")
 	}
 	prefix := subject[:colonIdx]
 

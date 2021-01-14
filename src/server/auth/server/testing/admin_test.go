@@ -189,7 +189,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// bob can't update the ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.YesError(t, err)
@@ -198,7 +198,7 @@ func TestSuperAdminRWO(t *testing.T) {
 
 	// 'admin' makes bob a super admin
 	_, err = rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: superClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: superClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
@@ -206,7 +206,7 @@ func TestSuperAdminRWO(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser, robot(bob))(), resp.Bindings,
+			admins(auth.RootUser, bob)(), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -224,17 +224,17 @@ func TestSuperAdminRWO(t *testing.T) {
 	// bob can update the repo's ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	_, err = rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: emptyClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: emptyClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob is not in admin list
@@ -259,14 +259,14 @@ func TestSuperAdminRWO(t *testing.T) {
 	// bob can't update the ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_WRITER,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, aliceClient, repo))
 }
 
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
@@ -314,7 +314,7 @@ func TestFSAdminRWO(t *testing.T) {
 	// bob can't update the ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.YesError(t, err)
@@ -323,7 +323,7 @@ func TestFSAdminRWO(t *testing.T) {
 
 	// 'admin' makes bob an fs admin
 	_, err = rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: fsClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
@@ -331,7 +331,7 @@ func TestFSAdminRWO(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser)(robot(bob)), resp.Bindings,
+			admins(auth.RootUser)(bob), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -349,17 +349,17 @@ func TestFSAdminRWO(t *testing.T) {
 	// bob can update the repo's ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	_, err = rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: emptyClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: emptyClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob is not in admin list
@@ -384,14 +384,14 @@ func TestFSAdminRWO(t *testing.T) {
 	// bob can't update the ACL
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_WRITER,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, aliceClient, repo))
 }
 
 // TestFSAdminFixBrokenRepo tests that an FS admin can modify the ACL of a repo even
@@ -414,7 +414,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 	// 'admin' makes bob an FS admin
 	_, err := rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: fsClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
@@ -422,7 +422,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser)(robot(bob)), resp.Bindings,
+			admins(auth.RootUser)(bob), resp.Bindings,
 		)
 	})
 
@@ -476,24 +476,24 @@ func TestModifyAdmins(t *testing.T) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice cannot make herself an admin
-	_, err := aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{robot(alice)}})
+	_, err := aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{alice}})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// root can make alice an admin
-	_, err = rootClient.ModifyAdmins(rootClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{robot(alice)}})
+	_, err = rootClient.ModifyAdmins(rootClient.Ctx(), &auth.ModifyAdminsRequest{Add: []string{alice}})
 	require.NoError(t, err)
 
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser, robot(alice))(), resp.Bindings,
+			admins(auth.RootUser, alice)(), resp.Bindings,
 		)
 	})
 
 	// alice can remove herself
-	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Remove: []string{robot(alice)}})
+	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(), &auth.ModifyAdminsRequest{Remove: []string{alice}})
 	require.NoError(t, err)
 
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -533,14 +533,14 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 	// root can make alice a cluster administrator
 	_, err = rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
 		&auth.ModifyClusterRoleBindingRequest{
-			Principal: robot(alice),
+			Principal: alice,
 			Roles:     superClusterRole(),
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = rootClient.GetClusterRoleBindings(rootClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
-		return require.EqualOrErr(admins(auth.RootUser, robot(alice))(), resp.Bindings)
+		return require.EqualOrErr(admins(auth.RootUser, alice)(), resp.Bindings)
 	}, backoff.NewTestingBackOff()))
 
 	// Root still cannot remove themselves as a cluster admin
@@ -550,7 +550,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = rootClient.GetClusterRoleBindings(rootClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
-		return require.EqualOrErr(admins(auth.RootUser, robot(alice))(), resp.Bindings)
+		return require.EqualOrErr(admins(auth.RootUser, alice)(), resp.Bindings)
 	}, backoff.NewTestingBackOff()))
 
 	// alice is an admin, and she cannot remove root as an admin
@@ -560,7 +560,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
-		return require.EqualOrErr(admins(auth.RootUser, robot(alice))(), resp.Bindings)
+		return require.EqualOrErr(admins(auth.RootUser, alice)(), resp.Bindings)
 	}, backoff.NewTestingBackOff()))
 }
 
@@ -711,7 +711,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// alice can't update the ACL
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.YesError(t, err)
@@ -742,13 +742,13 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// admin can update the repo's ACL
 	_, err = rootClient.SetScope(rootClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, rootClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, rootClient, repo))
 
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
@@ -795,13 +795,13 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// alice can update the ACL again
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_WRITER,
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "writer"), getACL(t, rootClient, repo))
+		entries(alice, "owner", robot("carol"), "writer"), getACL(t, rootClient, repo))
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -957,7 +957,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		Repo: repo,
 		Entries: []*auth.ACLEntry{
 			{Username: alice, Scope: auth.Scope_OWNER},
-			{Username: "carol", Scope: auth.Scope_READER},
+			{Username: robot("carol"), Scope: auth.Scope_READER},
 		},
 	})
 	require.YesError(t, err)
@@ -974,12 +974,12 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	// admin can call SetScope on repo
 	_, err = rootClient.SetScope(rootClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
-		Username: "carol",
+		Username: robot("carol"),
 		Scope:    auth.Scope_READER,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), getACL(t, rootClient, repo))
+		entries(alice, "owner", robot("carol"), "reader"), getACL(t, rootClient, repo))
 
 	// admin can call GetAcl on repo
 	aclResp, err := rootClient.GetACL(rootClient.Ctx(), &auth.GetACLRequest{
@@ -994,19 +994,19 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		})
 	}
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), aclEntries)
+		entries(alice, "owner", robot("carol"), "reader"), aclEntries)
 
 	// admin can call SetAcl on repo
 	_, err = rootClient.SetACL(rootClient.Ctx(), &auth.SetACLRequest{
 		Repo: repo,
 		Entries: []*auth.ACLEntry{
 			{Username: alice, Scope: auth.Scope_OWNER},
-			{Username: "carol", Scope: auth.Scope_WRITER},
+			{Username: robot("carol"), Scope: auth.Scope_WRITER},
 		},
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "writer"), getACL(t, rootClient, repo))
+		entries(alice, "owner", robot("carol"), "writer"), getACL(t, rootClient, repo))
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the ClusterRoles reflects their admin roles
@@ -1022,7 +1022,7 @@ func TestAdminWhoAmI(t *testing.T) {
 
 	// 'admin' makes bob an FS admin
 	_, err := rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(bob), Roles: fsClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: bob, Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
@@ -1030,14 +1030,14 @@ func TestAdminWhoAmI(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser)(robot(bob)), resp.Bindings,
+			admins(auth.RootUser)(bob), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
 	// alice has no admin roles
 	resp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robot(alice), resp.Username)
+	require.Equal(t, alice, resp.Username)
 	require.Equal(t, 0, len(resp.ClusterRoles.Roles))
 
 	// admin has super admin
@@ -1049,7 +1049,7 @@ func TestAdminWhoAmI(t *testing.T) {
 	// bob has FS admin
 	resp, err = bobClient.WhoAmI(bobClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robot(bob), resp.Username)
+	require.Equal(t, bob, resp.Username)
 	require.Equal(t, fsClusterRole(), resp.ClusterRoles)
 }
 
@@ -1282,8 +1282,8 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	require.Equal(t, 0, len(who.ClusterRoles.Roles))
 }
 
-// TestRobotUserACL tests that a robot user can create a repo, add github users
-// to their repo, and be added to github user's repo.
+// TestRobotUserACL tests that a robot user can create a repo, add users
+// to their repo, and be added to user's repo.
 func TestRobotUserACL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1307,7 +1307,7 @@ func TestRobotUserACL(t *testing.T) {
 	robotClient.SetScope(robotClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
-		Username: auth.GitHubPrefix + alice,
+		Username: alice,
 	})
 	require.ElementsEqual(t,
 		entries(alice, "writer", robotUser, "owner"), getACL(t, robotClient, repo))
@@ -1583,7 +1583,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 
 	// 'admin' makes alice an fs admin
 	_, err := rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(alice), Roles: fsClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: alice, Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in admin list
@@ -1591,7 +1591,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser)(robot(alice)), resp.Bindings,
+			admins(auth.RootUser)(alice), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -2015,7 +2015,7 @@ func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
 
 	// 'admin' makes alice an fs admin
 	_, err := rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: robot(alice), Roles: fsClusterRole()})
+		&auth.ModifyClusterRoleBindingRequest{Principal: alice, Roles: fsClusterRole()})
 	require.NoError(t, err)
 
 	// wait until alice shows up in fs admin list
@@ -2023,7 +2023,7 @@ func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(auth.RootUser)(robot(alice)), resp.Bindings,
+			admins(auth.RootUser)(alice), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
