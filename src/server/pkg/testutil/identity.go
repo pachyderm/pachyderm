@@ -18,7 +18,7 @@ import (
 // Kilgore Trout is a recurring character of Kurt Vonnegut's
 const DexMockConnectorEmail = `kilgore@kilgore.trout`
 
-// OIDCAuthConfig() is an auth config which can be used to connect to the identity service in tests
+// OIDCAuthConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCAuthConfig() *auth.AuthConfig {
 	return &auth.AuthConfig{
 		LiveConfigVersion: 0,
