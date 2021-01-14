@@ -91,7 +91,8 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
-	env *serviceenv.ServiceEnv
+	env       *serviceenv.ServiceEnv
+	objClient obj.Client
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -132,10 +133,22 @@ func newDriver(
 		return nil, errors.Errorf("cannot initialize driver with nil treeCache")
 	}
 	// Initialize driver
+	objClient, err := obj.NewClientFromSecret(storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	if env.StorageDiskCacheSize > 0 {
+		diskCache, err := obj.NewLocalClient(filepath.Join(os.TempDir(), "pfs-cache", uuid.NewWithoutDashes()))
+		if err != nil {
+			return nil, err
+		}
+		objClient = obj.NewCacheClient(objClient, diskCache, env.StorageDiskCacheSize)
+	}
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		env:            env,
 		txnEnv:         txnEnv,
+		objClient:      objClient,
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
 		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
