@@ -24,7 +24,7 @@ const tutorialJobs: Job[] = [
     },
     outputRepo: pachRepos.tutorial[1],
     outputBranchName: pachRepos.tutorial[1].branches[0].name,
-    outputCommit: pachRepos.tutoria[1].branches[0].commits[0],
+    outputCommit: pachRepos.tutorial[1].branches[0].commits[0],
   },
   {
     id: '2',
@@ -42,7 +42,7 @@ const tutorialJobs: Job[] = [
     },
     outputRepo: pachRepos.tutorial[0],
     outputBranchName: pachRepos.tutorial[0].branches[0].name,
-    outputCommit: pachRepos.tutoria[0].branches[0].commits[0],
+    outputCommit: pachRepos.tutorial[0].branches[0].commits[0],
   },
 ];
 
