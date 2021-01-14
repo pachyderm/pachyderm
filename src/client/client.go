@@ -606,6 +606,12 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},

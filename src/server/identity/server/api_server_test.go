@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -19,8 +20,8 @@ func TestAuthNotActivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	DeleteAll(t)
-	defer DeleteAll(t)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
 	client := tu.GetPachClient(t)
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
@@ -81,8 +82,8 @@ func TestUserNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	DeleteAll(t)
-	defer DeleteAll(t)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
@@ -145,10 +146,10 @@ func TestSetConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	DeleteAll(t)
-	defer DeleteAll(t)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Configure an IDP connector, so the web server will start
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -189,10 +190,10 @@ func TestOIDCClientCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	DeleteAll(t)
-	defer DeleteAll(t)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	client := &identity.OIDCClient{
 		Id:           "id",
@@ -236,10 +237,10 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	DeleteAll(t)
-	defer DeleteAll(t)
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	conn := &identity.IDPConnector{
 		Id:         "id",
