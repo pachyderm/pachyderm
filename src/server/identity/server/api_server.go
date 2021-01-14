@@ -9,7 +9,6 @@ import (
 
 	logrus "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -119,35 +118,9 @@ func (a *apiServer) watchConfig() {
 	})
 }
 
-func (a *apiServer) isAdmin(ctx context.Context, op string) error {
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
-
-	// check if the caller is authorized -- they must be an admin
-	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if err != nil {
-		return err
-	}
-
-	for _, s := range me.ClusterRoles.Roles {
-		if s == auth.ClusterRole_SUPER {
-			return nil
-		}
-	}
-
-	return &auth.ErrNotAuthorized{
-		Subject: me.Username,
-		AdminOp: op,
-	}
-}
-
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "SetIdentityServerConfig"); err != nil {
-		return nil, err
-	}
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.config.ReadWrite(stm).Put(configKey, req.Config)
@@ -161,10 +134,6 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "GetIdentityServerConfig"); err != nil {
-		return nil, err
-	}
-
 	// Serve the cached version from the watcher - this ensures the version matches the one being used by the web server
 	a.configCacheMtx.RLock()
 	defer a.configCacheMtx.RUnlock()
@@ -176,10 +145,6 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "CreateIDPConnector"); err != nil {
-		return nil, err
-	}
-
 	if err := a.api.createConnector(req); err != nil {
 		return nil, err
 	}
@@ -189,10 +154,6 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "GetIDPConnector"); err != nil {
-		return nil, err
-	}
 
 	c, err := a.api.getConnector(req.Id)
 	if err != nil {
@@ -208,10 +169,6 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "UpdateIDPConnector"); err != nil {
-		return nil, err
-	}
-
 	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
 	}
@@ -222,10 +179,6 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "ListIDPConnectors"); err != nil {
-		return nil, err
-	}
 
 	connectors, err := a.api.listConnectors()
 	if err != nil {
@@ -239,10 +192,6 @@ func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.Delete
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "DeleteIDPConnector"); err != nil {
-		return nil, err
-	}
-
 	if err := a.api.deleteConnector(req.Id); err != nil {
 		return nil, err
 	}
@@ -253,10 +202,6 @@ func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.Delete
 func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "CreateOIDCClient"); err != nil {
-		return nil, err
-	}
 
 	client, err := a.api.createClient(ctx, req)
 	if err != nil {
@@ -272,10 +217,6 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "UpdateOIDCClient"); err != nil {
-		return nil, err
-	}
-
 	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
 	}
@@ -286,10 +227,6 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "GetOIDCClient"); err != nil {
-		return nil, err
-	}
 
 	client, err := a.api.getClient(req.Id)
 	if err != nil {
@@ -303,10 +240,6 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "ListOIDCClients"); err != nil {
-		return nil, err
-	}
-
 	clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err
@@ -319,10 +252,6 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.isAdmin(ctx, "DeleteOIDCClient"); err != nil {
-		return nil, err
-	}
-
 	if err := a.api.deleteClient(ctx, req.Id); err != nil {
 		return nil, err
 	}
@@ -333,10 +262,6 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.isAdmin(ctx, "DeleteAll"); err != nil {
-		return nil, err
-	}
 
 	clients, err := a.api.listClients()
 	if err != nil {

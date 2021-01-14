@@ -86,6 +86,23 @@ var authHandlers = map[string]authHandlerFn{
 	"/health.API/Health": unauthenticated,
 
 	//
+	// Identity API
+	//
+	"/identity.API/SetIdentityServerConfig": adminOnly,
+	"/identity.API/GetIdentityServerConfig": adminOnly,
+	"/identity.API/CreateIDPConnector":      adminOnly,
+	"/identity.API/UpdateIDPConnector":      adminOnly,
+	"/identity.API/ListIDPConnectors":       adminOnly,
+	"/identity.API/GetIDPConnector":         adminOnly,
+	"/identity.API/DeleteIDPConnector":      adminOnly,
+	"/identity.API/CreateOIDCClient":        adminOnly,
+	"/identity.API/UpdateOIDCClient":        adminOnly,
+	"/identity.API/GetOIDCClient":           adminOnly,
+	"/identity.API/ListOIDCClients":         adminOnly,
+	"/identity.API/DeleteOIDCClient":        adminOnly,
+	"/identity.API/DeleteAll":               adminOnly,
+
+	//
 	// PFS API
 	//
 
