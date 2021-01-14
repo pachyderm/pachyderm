@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"sync"
 	"testing"
@@ -38,8 +37,8 @@ func activateAuth(t *testing.T) {
 	// TODO(msteffen): Make sure client & server have the same version
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
-	cmd := tu.Cmd("pachctl", "auth", "activate")
-	cmd.Stdin = strings.NewReader("admin\n")
+	cmd := tu.Cmd("pachctl", "auth", "activate", "--supply-root-token")
+	cmd.Stdin = strings.NewReader(tu.RootToken + "\n")
 	require.NoError(t, cmd.Run())
 }
 
@@ -49,18 +48,15 @@ func deactivateAuth(t *testing.T) {
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	if err := tu.BashCmd("echo admin | pachctl auth login").Run(); err == nil {
+	if err := tu.BashCmd("pachctl auth whoami").Run(); err == nil {
 		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
 
 	// Wait for auth to finish deactivating
 	time.Sleep(time.Second)
 	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login")
-		cmd.Stdin = strings.NewReader("admin\n")
-		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
-		if cmd.Run() != nil {
-			return nil // cmd errored -- auth is deactivated
+		if err := tu.BashCmd("pachctl auth whoami").Run(); err != nil {
+			return nil
 		}
 		return errors.New("auth not deactivated yet")
 	}, backoff.RetryEvery(time.Second))
@@ -80,13 +76,13 @@ func TestConnectorCRUD(t *testing.T) {
 		  | match 'type: github' \
 		  | match 'version: 0' \
 		  | match "{}" 
-		echo '{"client_id": "a"}' | pachctl idp update connector {{.id}} --version 1 --name 'newname' --config -
+		echo '{"client_id": "a"}' | pachctl idp update-connector {{.id}} --name 'newname' --config -
 		pachctl idp get-connector {{.id}} \
 		  | match 'name: newname' \
 		  | match 'type: github' \
 		  | match 'version: 1' \
 		  | match '{"client_id": "a"}'
-		pachctl idp update-connector {{.id}} --version 2 --name 'newname2'
+		pachctl idp update-connector {{.id}} --name 'newname2'
 		pachctl idp get-connector {{.id}} \
 		  | match 'name: newname2' \
 		  | match 'type: github' \
