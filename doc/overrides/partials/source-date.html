@@ -6,27 +6,32 @@
 {% set label = lang.t("source.revision.date") %}
 <hr />
 <div class="row">
-    <div class="col-xs-12">
-        <p class="">
-            <i class="fa fa-pencil"></i> Found a typo or a hole in the documentation and feel like contributing?<br>
-            {% if page %}  
-            <a href="{{ config.repo_url }}/blob/{{ config.repo_branch }}/{{ config.repo_docs_dir }}/{{ page.file.src_path }}" class="icon icon-github"> Edit on GitHub</a>
-          {% else %}
-            <a href="{{ config.repo_url }}" class="icon icon-github"> Edit on GitHub</a>
+    <div class="column-2">
+      <div class="md-source-date">
+        <small>
+          <!-- mkdocs-git-revision-date-localized-plugin -->
+          {% if page.meta.git_revision_date_localized %}
+            {{ label }}: {{ page.meta.git_revision_date_localized }}
+      
+          <!-- mkdocs-git-revision-date-plugin -->
+          {% elif page.meta.revision_date %}
+            {{ label }}: {{ page.meta.revision_date }}
           {% endif %}
-        </p>
+        </small>
+        </div>
     </div>
-</div>
-<div class="md-source-date">
-  <small>
+    <div class="column-2">
+      <div class="md-source-date"> 
+        <small>Does this page need fixing? 
+          <i class="fa fa-github">
+          {% if page %}  
+            <a href="{{ config.repo_url }}/blob/{{ config.repo_branch }}/{{ config.repo_docs_dir }}/{{ page.file.src_path }}"> Edit me on GitHub</a>
+          {% else %}
+            <a href="{{ config.repo_url }}"> Edit me on GitHub</a>
+          {% endif %}
+          </i>
+        </small>
+      </div>
+    </div>
+  </div>
 
-    <!-- mkdocs-git-revision-date-localized-plugin -->
-    {% if page.meta.git_revision_date_localized %}
-      {{ label }}: {{ page.meta.git_revision_date_localized }}
-
-    <!-- mkdocs-git-revision-date-plugin -->
-    {% elif page.meta.revision_date %}
-      {{ label }}: {{ page.meta.revision_date }}
-    {% endif %}
-  </small>
-</div>
