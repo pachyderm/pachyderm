@@ -123,7 +123,8 @@ func (TokenInfo_TokenSource) EnumDescriptor() ([]byte, []int) {
 // ActivateRequest enables authentication on the cluster. It issues an auth token
 // with no expiration for the irrevocable admin user `pach:root`.
 type ActivateRequest struct {
-	// If set, this token is used as the root user login token.
+	// If set, this token is used as the root user login token. Otherwise the root token
+	// is randomly generated and returned in the response.
 	RootToken            string   `protobuf:"bytes,3,opt,name=root_token,json=rootToken,proto3" json:"root_token,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

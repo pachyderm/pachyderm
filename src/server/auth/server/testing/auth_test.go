@@ -3152,6 +3152,10 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 	}
+	pattern := path.Join("input-repos", dataRepo, "commits")
+	g, err := globlib.Compile(pattern, '/')
+	require.NoError(t, err)
+	expectedFiles[pattern] = g
 	for i := 0; i < 3; i++ {
 		pipeline := tu.UniqueString("TestDebug")
 		require.NoError(t, aliceClient.CreatePipeline(
@@ -3177,10 +3181,12 @@ func TestDebug(t *testing.T) {
 				expectedFiles[pattern] = g
 			}
 		}
-		pattern := path.Join("pipelines", pipeline, "spec")
-		g, err := globlib.Compile(pattern, '/')
-		require.NoError(t, err)
-		expectedFiles[pattern] = g
+		for _, file := range []string{"spec", "commits", "jobs"} {
+			pattern := path.Join("pipelines", pipeline, file)
+			g, err := globlib.Compile(pattern, '/')
+			require.NoError(t, err)
+			expectedFiles[pattern] = g
+		}
 	}
 
 	commit1, err := aliceClient.StartCommit(dataRepo, "master")
@@ -3196,9 +3202,9 @@ func TestDebug(t *testing.T) {
 
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
-	require.YesError(t, aliceClient.Dump(nil, buf))
+	require.YesError(t, aliceClient.Dump(nil, 0, buf))
 	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
-	require.NoError(t, adminClient.Dump(nil, buf))
+	require.NoError(t, adminClient.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
 	defer func() {
