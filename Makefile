@@ -94,8 +94,9 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
-docker-build-pipeline-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
+docker-build-pipeline-build: install
+	VERSION=$$(pachctl version --client-only) DOCKER_BUILDKIT=1 \
+	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -139,9 +140,11 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
-docker-push-pipeline-build:
-	$(SKIP) docker push pachyderm/go-build:$(VERSION)
-	$(SKIP) docker push pachyderm/python-build:$(VERSION)
+docker-push-pipeline-build: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$(pachctl version --client-only)
+
+docker-push-pipeline-build-to-minikube: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$(pachctl version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -228,7 +231,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -247,6 +250,7 @@ test-pfs-server:
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
 	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -262,6 +266,7 @@ test-cmds:
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT)
 
 test-transaction:
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT)
@@ -315,6 +320,10 @@ test-local:
 test-auth:
 	yes | pachctl delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
+
+test-identity:
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
+
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
@@ -380,15 +389,6 @@ launch-loki:
 
 clean-launch-loki:
 	helm uninstall loki
-
-launch-dex:
-	helm repo add stable https://charts.helm.sh/stable
-	helm repo update
-	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
-	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
-
-clean-launch-dex:
-	helm uninstall dex
 
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
@@ -513,6 +513,7 @@ spellcheck:
 	test-fuse \
 	test-local \
 	test-auth \
+	test-identity \
 	test-admin \
 	test-enterprise \
 	test-tls \

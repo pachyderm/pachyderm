@@ -834,29 +834,13 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 		}
 	}
 
-	// We need confirm that there will be at least one SUPER admin after applying
-	// all role bindings. We copy the admin cache to an in-memory collection here
-	// and update it below while applying the role bindings. At the end, we
-	// guarantee that there is at least one super admin by selecting an
-	// existential witness from the in-memory collection and reading their value
-	// inside the txn, so that they're part of the transaction's read set.  If
-	// another conflicting transaction removes that admin, then this txn will
-	// fail.
-	//
-	// This is more restrictive than necessary, as there may be another admin that
-	// is not removed by the conflicting transaction, thus leading to an
-	// unnecessary error, but at least it can't happen that the cluster ends up
-	// without admins
-	adminWitnesses := make(map[string]bool)
-	a.adminMu.Lock()
-	for principal, roles := range a.adminCache {
-		for _, role := range roles.Roles {
-			if role == auth.ClusterRole_SUPER {
-				adminWitnesses[principal] = true
-			}
+	// Don't allow users to modify role bindings for the root user. This ensures the root user always has
+	// super admin status, so they can fix the auth config if things are misconfigured.
+	for principal := range roleBindings {
+		if principal == auth.RootUser {
+			return fmt.Errorf("cluster role bindings for %v cannot be modified", auth.RootUser)
 		}
 	}
-	a.adminMu.Unlock()
 
 	// Update "admins" list (watchAdmins() will update admins cache)
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -885,10 +869,8 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			}
 
 			if grantSuper {
-				adminWitnesses[principal] = true
 				admins.Put(principal, epsilon)
 			} else {
-				delete(adminWitnesses, principal)
 				if err := admins.Delete(principal); err != nil && !col.IsErrNotFound(err) {
 					return err
 				}
@@ -901,21 +883,6 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 			}
 		}
 
-		// select an arbitrary existential witness to guarantee that that there
-		// are still super admins left at the end of this txn. If 'witness' was
-		// added during this txn, they will be in the STM wset. If they're
-		// preexisting they'll be in the stm rset and thus in the txn's cmps.
-		if len(adminWitnesses) == 0 {
-			return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
-		}
-		for witness := range adminWitnesses {
-			var tmp types.BoolValue
-			if err := admins.Get(witness, &tmp); err != nil {
-				// return any error *especially including* not found
-				return errors.Wrapf(err, "could not verify %q as surviving super admin (possible collision with a concurrent admin change)", witness)
-			}
-			break // TODO(msteffen): how to get first element of map?
-		}
 		return nil
 	}); err != nil {
 		return errors.Wrapf(err, "error applying cluster role bindings")

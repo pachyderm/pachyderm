@@ -178,6 +178,34 @@ func (p PipelineTransitionError) Error() string {
 		p.Pipeline, froms.String(), p.Target, p.Current)
 }
 
+// SetPipelineState does a lot of conditional logging, and converts 'from' and
+// 'to' to strings, so the construction of its log message is factored into this
+// helper.
+func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) {
+	var logMsg strings.Builder
+	logMsg.Grow(300) // approx. max length of this log msg if len(from) <= ~2
+	logMsg.WriteString("SetPipelineState attempting to move \"")
+	logMsg.WriteString(pipeline)
+	logMsg.WriteString("\" ")
+	if len(from) > 0 {
+		logMsg.WriteString("from one of {")
+		logMsg.WriteString(from[0].String())
+		for _, s := range from[1:] {
+			logMsg.WriteByte(',')
+			logMsg.WriteString(s.String())
+		}
+		logMsg.WriteString("} ")
+	}
+	logMsg.WriteString("to ")
+	logMsg.WriteString(to.String())
+	if reason != "" {
+		logMsg.WriteString(" (reason: \"")
+		logMsg.WriteString(reason)
+		logMsg.WriteString("\")")
+	}
+	log.Info(logMsg.String())
+}
+
 // SetPipelineState is a helper that moves the state of 'pipeline' from any of
 // the states in 'from' (if not nil) to 'to'. It will annotate any trace in
 // 'ctx' with information about 'pipeline' that it reads.
@@ -185,7 +213,7 @@ func (p PipelineTransitionError) Error() string {
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
-	log.Infof("SetPipelineState attempting to move %s to %s", pipeline, to)
+	logSetPipelineState(pipeline, from, to, reason)
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}

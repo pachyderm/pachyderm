@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
+	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -67,6 +68,9 @@ type ObjectAPIClient pfs.ObjectAPIClient
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
+// IdentityAPIClient is an alias of identity.APIClient
+type IdentityAPIClient identity.APIClient
+
 // VersionAPIClient is an alias of versionpb.APIClient
 type VersionAPIClient versionpb.APIClient
 
@@ -85,6 +89,7 @@ type APIClient struct {
 	PpsAPIClient
 	ObjectAPIClient
 	AuthAPIClient
+	IdentityAPIClient
 	VersionAPIClient
 	AdminAPIClient
 	TransactionAPIClient
@@ -601,6 +606,12 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
@@ -691,6 +702,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
+	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
