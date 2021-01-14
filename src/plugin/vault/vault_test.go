@@ -59,10 +59,6 @@ func TestBadConfig(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
-	c := testutil.GetPachClient(t)
-	resp, err := c.Authenticate(
-		context.Background(),
-		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
 	if err != nil {
 		t.Fatalf(err.Error())

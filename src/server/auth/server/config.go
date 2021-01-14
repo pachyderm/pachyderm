@@ -38,8 +38,6 @@ type canonicalSAMLIDP struct {
 	GroupAttribute string
 }
 
-type canonicalGitHubIDP struct{}
-
 type canonicalOIDCIDP struct {
 	Issuer              string
 	ClientID            string
@@ -54,9 +52,8 @@ type canonicalIDPConfig struct {
 	Name        string
 	Description string
 
-	SAML   *canonicalSAMLIDP
-	GitHub *canonicalGitHubIDP
-	OIDC   *canonicalOIDCIDP
+	SAML *canonicalSAMLIDP
+	OIDC *canonicalOIDCIDP
 }
 
 type canonicalSAMLSvcConfig struct {
@@ -91,14 +88,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 
 	var idpProtos []*auth.IDProvider
 	for _, idp := range c.IDPs {
-		if idp.GitHub != nil {
-			githubIDP := &auth.IDProvider{
-				Name:        idp.Name,
-				Description: idp.Description,
-				GitHub:      &auth.IDProvider_GitHubOptions{},
-			}
-			idpProtos = append(idpProtos, githubIDP)
-		} else if idp.SAML != nil {
+		if idp.SAML != nil {
 			metadataBytes, err := xml.MarshalIndent(idp.SAML.Metadata, "", "  ")
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not marshal ID provider metadata")
@@ -132,7 +122,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 
 			idpProtos = append(idpProtos, oidcIDP)
 		} else {
-			return nil, errors.Errorf("could not marshal non-SAML, non-OIDC, non-GitHub ID provider %q", idp.Name)
+			return nil, errors.Errorf("could not marshal non-SAML, non-OIDC ID provider %q", idp.Name)
 		}
 	}
 
@@ -222,12 +212,12 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 		return nil, errors.Errorf("cannot configure ID provider with reserved prefix %q", auth.PipelinePrefix)
 	}
 
-	// Check if the IDP is a known type (right now the only types of IDPs are SAML, OIDC and GitHub)
+	// Check if the IDP is a known type (right now the only types of IDPs are SAML and OIDC)
 	newIDP := &canonicalIDPConfig{}
 	newIDP.Name = idp.Name
 	newIDP.Description = idp.Description
 	switch {
-	case idp.SAML == nil && idp.GitHub == nil && idp.OIDC == nil:
+	case idp.SAML == nil && idp.OIDC == nil:
 		// render ID provider as json for error message
 		idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 		idpConfigMsg := string(idpConfigAsJSON)
@@ -236,16 +226,8 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 		}
 		return nil, errors.Errorf("ID provider has unrecognized type: %v", idpConfigMsg)
 
-	case idp.SAML != nil && idp.GitHub != nil:
-		return nil, errors.New("cannot configure ID provider for both SAML and GitHub")
 	case idp.SAML != nil && idp.OIDC != nil:
 		return nil, errors.New("cannot configure ID provider for both SAML and OIDC")
-	case idp.OIDC != nil && idp.GitHub != nil:
-		return nil, errors.New("cannot configure ID provider for both OIDC and GitHub")
-
-	case idp.GitHub != nil:
-		newIDP.GitHub = &canonicalGitHubIDP{}
-		return newIDP, nil
 
 	case idp.SAML != nil:
 		return validateIDPSAML(idp, src)

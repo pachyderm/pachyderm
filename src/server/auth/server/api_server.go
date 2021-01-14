@@ -3,9 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"path"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,19 +27,11 @@ import (
 	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/google/go-github/github"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
-	// DisableAuthenticationEnvVar specifies an environment variable that, if set, causes
-	// Pachyderm authentication to ignore github and authmatically generate a
-	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
-	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
-
 	allClusterUsersSubject = "allClusterUsers"
 
 	tokensPrefix           = "/tokens"
@@ -102,24 +92,8 @@ const (
 // DefaultAuthConfig is the default config for the auth API server
 var DefaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
-	IDProviders: []*auth.IDProvider{
-		&auth.IDProvider{
-			Name:        "GitHub",
-			Description: "oauth-based authentication with github.com",
-			GitHub:      &auth.IDProvider_GitHubOptions{},
-		},
-	},
+	IDProviders:       []*auth.IDProvider{},
 }
-
-// githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
-// pachd is deployed with "pachctl deploy local") to guess whether a call to
-// Authenticate or Authorize contains a real GitHub access token.
-//
-// If the field GitHubToken matches this regex, it's assumed to be a GitHub
-// token and pachd retrieves the corresponding user's GitHub username. If not,
-// pachd automatically authenticates the the caller as the GitHub user whose
-// username is the string in "GitHubToken".
-var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
@@ -487,17 +461,6 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
-func (a *apiServer) githubEnabled() bool {
-	githubEnabled := false
-	config := a.getCacheConfig()
-	for _, idp := range config.IDPs {
-		if idp.GitHub != nil {
-			githubEnabled = true
-		}
-	}
-	return githubEnabled
-}
-
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
@@ -683,37 +646,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	return &auth.DeactivateResponse{}, nil
 }
 
-// GitHubTokenToUsername takes a OAuth access token issued by GitHub and uses
-// it discover the username of the user who obtained the code (or verify that
-// the code belongs to githubUsername). This is how Pachyderm currently
-// implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
-	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token "+
-			"will NOT be verified with GitHub; the caller is automatically "+
-			"authenticated as the GitHub user \"%s\"", oauthToken)
-		return auth.GitHubPrefix + oauthToken, nil
-	}
-
-	// Initialize GitHub client with 'oauthToken'
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: oauthToken,
-		},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-	gclient := github.NewClient(tc)
-
-	// Retrieve the caller's GitHub Username (the empty string gets us the
-	// authenticated user)
-	user, _, err := gclient.Users.Get(ctx, "")
-	if err != nil {
-		return "", errors.Wrapf(err, "error getting the authenticated user")
-	}
-	verifiedUsername := user.GetLogin()
-	return auth.GitHubPrefix + verifiedUsername, nil
-}
-
 // GetAdmins implements the protobuf auth.GetAdmins RPC
 func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
@@ -840,6 +772,10 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 		if principal == auth.RootUser {
 			return fmt.Errorf("cluster role bindings for %v cannot be modified", auth.RootUser)
 		}
+
+		if err := a.checkCanonicalSubject(principal); err != nil {
+			return errors.Wrapf(err, "subject %q is invalid", principal)
+		}
 	}
 
 	// Update "admins" list (watchAdmins() will update admins cache)
@@ -849,13 +785,6 @@ func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings m
 
 		// apply each roleBinding
 		for principal, roles := range roleBindings {
-			// Canonicalize GitHub usernames in request (must canonicalize before we can
-			// validate, so we know who is actually being added/removed & can confirm
-			// that not all admins are being removed)
-			principal, err := a.canonicalizeSubject(ctx, principal)
-			if err != nil {
-				return err
-			}
 			// Check if the current modify request contains a SUPER role for this principal
 			var grantSuper bool
 			var grantFS bool
@@ -930,36 +859,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	// Pachyderm token for the user that their credential belongs to
 	var pachToken string
 	switch {
-	case req.GitHubToken != "":
-		if !a.githubEnabled() {
-			return nil, errors.New("GitHub auth is not enabled on this cluster")
-		}
-		// Determine caller's Pachyderm/GitHub username
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-		if err != nil {
-			return nil, err
-		}
-
-		// If the cluster's enterprise token is expired, only admins may log in.
-		// Check if 'username' is an admin
-		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
-			return nil, err
-		}
-
-		// Generate a new Pachyderm token and write it
-		pachToken = uuid.NewWithoutDashes()
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(auth.HashToken(pachToken),
-				&auth.TokenInfo{
-					Subject: username,
-					Source:  auth.TokenInfo_AUTHENTICATE,
-				},
-				defaultSessionTTLSecs)
-		}); err != nil {
-			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
-		}
-
 	case req.OIDCState != "":
 		// confirm OIDC has been configured and get OIDC prefix
 		oidcSP := a.getOIDCSP()
@@ -973,10 +872,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+email)
-		if err != nil {
-			return nil, err
-		}
+		username := oidcSP.Prefix + ":" + email
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -1060,10 +956,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		username, err := a.canonicalizeSubject(ctx, oidcSP.Prefix+":"+claims.Email)
-		if err != nil {
-			return nil, err
-		}
+		username := oidcSP.Prefix + ":" + claims.Email
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -1524,14 +1417,13 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// Scope change is authorized. Make the change
-	principal, err := a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
-	if err != nil {
+	if err := a.checkCanonicalSubject(req.Username); err != nil {
 		return nil, err
 	}
 	if req.Scope != auth.Scope_NONE {
-		acl.Entries[principal] = req.Scope
+		acl.Entries[req.Username] = req.Scope
 	} else {
-		delete(acl.Entries, principal)
+		delete(acl.Entries, req.Username)
 	}
 	if len(acl.Entries) == 0 {
 		err = acls.Delete(req.Repo)
@@ -1623,10 +1515,10 @@ func (a *apiServer) GetScopeInTransaction(
 	targetSubject := callerInfo.Subject
 	mustHaveReadAccess := false
 	if req.Username != "" {
-		targetSubject, err = a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
-		if err != nil {
+		if err := a.checkCanonicalSubject(req.Username); err != nil {
 			return nil, err
 		}
+		targetSubject = req.Username
 		mustHaveReadAccess = true
 	}
 
@@ -1776,8 +1668,6 @@ func (a *apiServer) SetACLInTransaction(
 	// Canonicalize entries in the request (must have canonical request before we
 	// can authorize, as we inspect the ACL contents during authorization in the
 	// case where we're creating a new repo)
-	eg := &errgroup.Group{}
-	var aclMu sync.Mutex
 	newACL := new(auth.ACL)
 	if len(req.Entries) > 0 {
 		newACL.Entries = make(map[string]auth.Scope)
@@ -1787,19 +1677,11 @@ func (a *apiServer) SetACLInTransaction(
 		if user == ppsUser {
 			continue
 		}
-		eg.Go(func() error {
-			principal, err := a.canonicalizeSubject(txnCtx.ClientContext, user)
-			if err != nil {
-				return err
-			}
-			aclMu.Lock()
-			defer aclMu.Unlock()
-			newACL.Entries[principal] = scope
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
+
+		if err := a.checkCanonicalSubject(user); err != nil {
+			return nil, err
+		}
+		newACL.Entries[user] = scope
 	}
 
 	// Read repo ACL from etcd
@@ -1918,9 +1800,7 @@ func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.Toke
 		targetSubject = callerInfo.Subject
 	} else {
 		// [Harder case] explicit req.Subject
-		var err error
-		targetSubject, err = a.canonicalizeSubject(ctx, targetSubject)
-		if err != nil {
+		if err := a.checkCanonicalSubject(targetSubject); err != nil {
 			return "", err
 		}
 
@@ -2249,12 +2129,11 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 		}
 	}
 
-	subject, err := a.canonicalizeSubject(ctx, req.Username)
-	if err != nil {
+	if err := a.checkCanonicalSubject(req.Username); err != nil {
 		return nil, err
 	}
 	// TODO(msteffen): canonicalize group names
-	if err := a.setGroupsForUserInternal(ctx, subject, req.Groups); err != nil {
+	if err := a.setGroupsForUserInternal(ctx, req.Username, req.Groups); err != nil {
 		return nil, err
 	}
 	return &auth.SetGroupsForUserResponse{}, nil
@@ -2284,20 +2163,18 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		}
 	}
 
-	add, err := a.canonicalizeSubjects(ctx, req.Add)
-	if err != nil {
+	if err := a.checkCanonicalSubjects(req.Add); err != nil {
 		return nil, err
 	}
 	// TODO(bryce) Skip canonicalization if the users can be found.
-	remove, err := a.canonicalizeSubjects(ctx, req.Remove)
-	if err != nil {
+	if err := a.checkCanonicalSubjects(req.Remove); err != nil {
 		return nil, err
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 		var groupsProto auth.Groups
-		for _, username := range add {
+		for _, username := range req.Add {
 			if err := members.Upsert(username, &groupsProto, func() error {
 				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
 				return nil
@@ -2305,7 +2182,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 				return err
 			}
 		}
-		for _, username := range remove {
+		for _, username := range req.Remove {
 			if err := members.Upsert(username, &groupsProto, func() error {
 				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
 				return nil
@@ -2317,8 +2194,8 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		groups := a.groups.ReadWrite(stm)
 		var membersProto auth.Users
 		if err := groups.Upsert(req.Group, &membersProto, func() error {
-			membersProto.Usernames = addToSet(membersProto.Usernames, add...)
-			membersProto.Usernames = removeFromSet(membersProto.Usernames, remove...)
+			membersProto.Usernames = addToSet(membersProto.Usernames, req.Add...)
+			membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Remove...)
 			return nil
 		}); err != nil {
 			return err
@@ -2397,10 +2274,10 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 				AdminOp: "GetGroups",
 			}
 		}
-		target, err = a.canonicalizeSubject(ctx, req.Username)
-		if err != nil {
+		if err := a.checkCanonicalSubject(req.Username); err != nil {
 			return nil, err
 		}
+		target = req.Username
 	} else {
 		target = callerInfo.Subject
 	}
@@ -2505,40 +2382,21 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	return &tokenInfo, nil
 }
 
-// canonicalizeSubjects applies canonicalizeSubject to a list
-func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
-	if subjects == nil {
-		return []string{}, nil
+// checkCanonicalSubjects applies checkCanonicalSubject to a list
+func (a *apiServer) checkCanonicalSubjects(subjects []string) error {
+	for _, subject := range subjects {
+		if err := a.checkCanonicalSubject(subject); err != nil {
+			return err
+		}
 	}
-
-	eg := &errgroup.Group{}
-	canonicalizedSubjects := make([]string, len(subjects))
-	for i, subject := range subjects {
-		i, subject := i, subject
-		eg.Go(func() error {
-			subject, err := a.canonicalizeSubject(ctx, subject)
-			if err != nil {
-				return err
-			}
-			canonicalizedSubjects[i] = subject
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-
-	return canonicalizedSubjects, nil
+	return nil
 }
 
-// canonicalizeSubject establishes the type of 'subject' by looking for one of
-// pachyderm's subject prefixes, and then canonicalizes the subject based on
-// that. If 'subject' has no prefix, they are assumed to be a GitHub user.
-// TODO(msteffen): We'd like to require that subjects always have a prefix, but
-// this behavior hasn't been implemented in the dash yet.
-func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+// checkCanonicalSubject returns an error if a subject doesn't have a prefix, or the prefix is
+// not recognized
+func (a *apiServer) checkCanonicalSubject(subject string) error {
 	if subject == allClusterUsersSubject {
-		return subject, nil
+		return nil
 	}
 
 	colonIdx := strings.Index(subject, ":")
@@ -2552,10 +2410,10 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	if config := a.getCacheConfig(); config != nil {
 		for _, idp := range config.IDPs {
 			if prefix == idp.Name {
-				return subject, nil
+				return nil
 			}
 			if prefix == path.Join("group", idp.Name) {
-				return subject, nil // TODO(msteffen): check if this IdP supports groups
+				return nil
 			}
 		}
 	}
@@ -2563,40 +2421,12 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.GitHubPrefix:
-		var err error
-		subject, err = canonicalizeGitHubUsername(ctx, subject[len(auth.GitHubPrefix):])
-		if err != nil {
-			return "", err
-		}
-	case auth.PipelinePrefix, auth.RobotPrefix:
-		break
-	case auth.PachPrefix:
+	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix:
 		break
 	default:
-		return "", errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
+		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	}
-	return subject, nil
-}
-
-// canonicalizeGitHubUsername corrects 'user' for case errors by looking
-// up the corresponding user's GitHub profile and extracting their login ID
-// from that. 'user' should not have any subject prefixes (as they are required
-// to be a GitHub user).
-func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
-	if strings.Contains(user, ":") {
-		return "", errors.Errorf("invalid username has multiple prefixes: %s%s", auth.GitHubPrefix, user)
-	}
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		// authentication is off -- user might not even be real
-		return auth.GitHubPrefix + user, nil
-	}
-	gclient := github.NewClient(http.DefaultClient)
-	u, _, err := gclient.Users.Get(ctx, strings.ToLower(user))
-	if err != nil {
-		return "", errors.Wrapf(err, "error canonicalizing \"%s\"", user)
-	}
-	return auth.GitHubPrefix + u.GetLogin(), nil
+	return nil
 }
 
 // GetConfiguration implements the protobuf auth.GetConfiguration RPC. Other

@@ -178,15 +178,7 @@ func LoginCmd() *cobra.Command {
 						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 				}
 			} else {
-				// Exchange GitHub token for Pachyderm token
-				token, err := githubLogin()
-				if err != nil {
-					return err
-				}
-				fmt.Println("Retrieving Pachyderm token...")
-				resp, authErr = c.Authenticate(
-					c.Ctx(),
-					&auth.AuthenticateRequest{GitHubToken: token})
+				fmt.Println("No authentication providers are configured")
 			}
 
 			// Write new Pachyderm token to config
@@ -202,8 +194,7 @@ func LoginCmd() *cobra.Command {
 		}),
 	}
 	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
-		"If set, authenticate with a Dash-provided One-Time Password, rather than "+
-			"via GitHub")
+		"If set, authenticate with a One-Time Password")
 	return cmdutil.CreateAlias(login, "auth login")
 }
 

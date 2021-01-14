@@ -623,7 +623,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
 		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
-		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{

@@ -18,8 +18,8 @@ import "google/protobuf/timestamp.proto";
  * ListAdmins) will have their own conventions
  *
  * The current user formats are:
- * 1) GitHub usernames:
- *      "github:MyGitHubUsername"
+ * 1) Users synced from an identity provider:
+ *      "<idp>:username"
  * 2) Pachyderm robot users:
  *      "robot:robot_user_1"
  * 3) Pachyderm pipelines:
@@ -50,6 +50,8 @@ message DeactivateResponse {}
 // IDProvider configures a single ID provider that can authenticate Pachyderm
 // users
 message IDProvider {
+  reserved 4;
+
   // Name identifies this authentication backend in Pachyderm.
   string name = 1;
 
@@ -96,11 +98,6 @@ message IDProvider {
      bool localhost_issuer = 7;
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
-
-  // GitHubOptions is an empty protobuf message whose presence in the IDProvider
-  // of an AuthConfig indicates that GitHub auth should be enabled.
-  message GitHubOptions{}
-  GitHubOptions github = 4 [(gogoproto.customname) = "GitHub"];
 }
 
 // Configure Pachyderm's auth system (particularly authentication backends
@@ -224,9 +221,7 @@ message OTPInfo {
 
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
 message TokenInfo {
-  // Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
-  // with "github:" or "robot:" to distinguish the two classes of
-  // Subject in Pachyderm
+  // Subject (i.e. Pachyderm account) that a given token authorizes. 
   string subject = 1;
 
   enum TokenSource {
@@ -240,14 +235,9 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // Exactly one of 'github_token', 'oidc_state', or 'one_time_password' must be set:
+  reserved 1;
+  // Exactly one of 'id_token', 'oidc_state', or 'one_time_password' must be set:
 
-  // This is the token returned by GitHub and used to authenticate the caller.
-  // When Pachyderm is deployed locally, setting this value to a given string
-  // will automatically authenticate the caller as a GitHub user whose username
-  // is that string (unless this "looks like" a GitHub access code, in which
-  // case Pachyderm does retrieve the corresponding GitHub username)
-  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
   // This is the session state that Pachyderm creates in order to keep track of
   // information related to the current OIDC session.
   string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
@@ -290,10 +280,7 @@ enum Scope {
 }
 
 message ACL {
-  // principal -> scope. All principals are the default principal of a Pachyderm
-  // subject (i.e. all keys in this map are strings prefixed with either
-  // "github:" or "robot:", followed by the name of a GitHub user, all of whom
-  // are Pachyderm subjects, or a Pachyderm robot user)
+  // principal -> scope. All principal names are fully-qualified. 
   map<string, Scope> entries = 1;
 }
 
@@ -323,12 +310,6 @@ message AuthorizeResponse {
 }
 
 message GetScopeRequest {
-  // username is the principal (some of which belong to robots rather than
-  // users, but the name is preserved for now to provide compatibility with the
-  // pachyderm dash) whose access level is queried. To query the access level
-  // of a robot user, the caller must prefix username with "robot:". If
-  // 'username' has no prefix (i.e. no ":"), then it's assumed to be a github
-  // user's principal.
   string username = 1;
 
   // repos are the objects to which 'username's access level is being queried
@@ -347,8 +328,7 @@ message SetScopeRequest {
   // users, but the name is preserved for now to provide compatibility with the
   // pachyderm dash) whose access is being granted/revoked. As with
   // GetScopeRequest, to set the access level of a robot user, the caller must
-  // prefix username with "robot:". If 'username' has no prefix (i.e. no ":"),
-  // then it's assumed to be a github user's principal.
+  // prefix username with "robot:". 
   string username = 1;
 
   // repo is the object to which access is being granted/revoked
@@ -367,7 +347,7 @@ message GetACLRequest {
 
 message ACLEntry {
   // username is the principal posessing this level of access to this ACL's
-  // repo (despite the name, this principal may be for a human github user or a
+  // repo (despite the name, this principal may be for a human user or a
   // pachyderm robot)
   string username = 1;
 
