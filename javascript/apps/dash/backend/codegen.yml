@@ -1,10 +1,16 @@
 schema: ./src/schema.graphqls
 generates:
   ./src/generated/types.ts:
+    config:
+      contextType: lib/types#Context
+      useIndexSignature: true
     hooks:
       afterOneFileWrite:
         - eslint --fix
     plugins:
       - typescript
+      - typescript-resolvers
       - add:
-          content: "/* eslint-disable @typescript-eslint/naming-convention */"
+          content: 
+            - "/* eslint-disable @typescript-eslint/naming-convention */"
+            - "/* eslint-disable @typescript-eslint/ban-types */"

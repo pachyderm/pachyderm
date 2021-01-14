@@ -102,8 +102,35 @@ type Job {
   input: Input!
 }
 
+enum NodeType {
+  PIPELINE
+  REPO
+}
+
+type Node {
+  name: String!
+  type: NodeType!
+
+  # TODO: Fledge these two fields out
+  error: Boolean!
+  access: Boolean!
+}
+
+type Link {
+  source: Int!
+  target: Int!
+  error: Boolean
+  active: Boolean
+}
+
+type Dag {
+  nodes: [Node!]!
+  links: [Link!]!
+}
+
 type Query {
   pipelines: [Pipeline!]!
   repos: [Repo!]!
   jobs: [Job!]!
+  dag: Dag!
 }
