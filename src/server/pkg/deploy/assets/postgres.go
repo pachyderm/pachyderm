@@ -2,7 +2,7 @@ package assets
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	apps "k8s.io/api/apps/v1"
@@ -70,7 +70,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 				Name: "postgres-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: filepath.Join(hostPath, "postgres"),
+						Path: path.Join(hostPath, "postgres"),
 					},
 				},
 			},
