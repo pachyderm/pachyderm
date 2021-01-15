@@ -8,6 +8,7 @@ RUN apt-get update
 RUN apt-get install -y mkdocs
 RUN apt-get install -y npm
 RUN npm install netlify-cli -g
+RUN npm i netlify-plugin-checklinks
 
 COPY . /usr/src/app/
 
