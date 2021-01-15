@@ -1352,6 +1352,12 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, 
 		defer stdin.Finish()
 		return putFile(stdin)
 	}
+	// try parsing the filename as a url, if it is one do a PutFileURL
+	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		limiter.Acquire()
+		defer limiter.Release()
+		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
+	}
 	if recursive {
 		var eg errgroup.Group
 		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
