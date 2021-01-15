@@ -14,6 +14,15 @@ type authHandlerFn func(*Interceptor) authHandler
 type authHandler interface {
 	unary(ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error
 	stream(ctx context.Context, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error
+	requireAuthEnabled()
+}
+
+func requireAuthEnabled(f authHandlerFn) authHandlerFn {
+	return func(i *Interceptor) authHandler {
+		h := f(i)
+		h.requireAuthEnabled()
+		return h
+	}
 }
 
 // unauthenticatedHandler allows all RPCs to succeed, even if there is no auth metadata
@@ -31,22 +40,41 @@ func (unauthenticatedHandler) stream(ctx context.Context, info *grpc.StreamServe
 	return nil
 }
 
+func (unauthenticatedHandler) requireAuthEnabled() {}
+
 // authenticatedHandler allows all RPCs to succeed as long as the user has a valid auth token
 type authenticatedHandler struct {
-	i *Interceptor
+	interceptor *Interceptor
+
+	// if checkAuthEnabled is set, fail if auth is not in the active state
+	// this blocks calls when auth is disabled or paritally active
+	checkAuthEnabled bool
 }
 
 func authenticated(i *Interceptor) authHandler {
-	return authenticatedHandler{i}
+	return &authenticatedHandler{
+		interceptor: i,
+	}
 }
 
 func (h authenticatedHandler) isPermitted(ctx context.Context) error {
-	pachClient := h.i.env.GetPachClient(ctx)
-	_, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if err != nil && !auth.IsErrNotActivated(err) {
+	pachClient := h.interceptor.env.GetPachClient(ctx)
+	resp, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsErrNotActivated(err) && !h.checkAuthEnabled {
+			return nil
+		}
 		return err
 	}
+
+	if !resp.FullyActivated && h.checkAuthEnabled {
+		return auth.ErrPartiallyActivated
+	}
 	return nil
+}
+
+func (h *authenticatedHandler) requireAuthEnabled() {
+	h.checkAuthEnabled = true
 }
 
 func (h authenticatedHandler) unary(ctx context.Context, info *grpc.UnaryServerInfo, req interface{}) error {
@@ -58,22 +86,36 @@ func (h authenticatedHandler) stream(ctx context.Context, info *grpc.StreamServe
 }
 
 func adminOnly(i *Interceptor) authHandler {
-	return adminOnlyHandler{i}
+	return &adminOnlyHandler{
+		interceptor: i,
+	}
 }
 
 // adminOnlyHandler allows an RPC to succeed only if the user has cluster admin status
 type adminOnlyHandler struct {
-	i *Interceptor
+	interceptor *Interceptor
+
+	// if checkAuthEnabled is set, fail if auth is not in the active state
+	// this blocks calls when auth is disabled or paritally active
+	checkAuthEnabled bool
+}
+
+func (h *adminOnlyHandler) requireAuthEnabled() {
+	h.checkAuthEnabled = true
 }
 
 func (h adminOnlyHandler) isPermitted(ctx context.Context, fullMethod string) error {
-	pachClient := h.i.env.GetPachClient(ctx)
+	pachClient := h.interceptor.env.GetPachClient(ctx)
 	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
-		if auth.IsErrNotActivated(err) {
+		if auth.IsErrNotActivated(err) && !h.checkAuthEnabled {
 			return nil
 		}
 		return err
+	}
+
+	if !me.FullyActivated && h.checkAuthEnabled {
+		return auth.ErrPartiallyActivated
 	}
 
 	if me.ClusterRoles != nil {

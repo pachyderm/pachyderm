@@ -40,36 +40,38 @@ var authHandlers = map[string]authHandlerFn{
 	// TODO: split GetAuthToken for self and others
 	// TODO: split RevokeAuthToken for self and others
 	// TODO: split GetGroups for self and others
-	"/auth.API/GetClusterRoleBindings": authenticated,
-	"/auth.API/GetScope":               authenticated,
-	"/auth.API/SetScope":               authenticated,
-	"/auth.API/GetACL":                 authenticated,
-	"/auth.API/SetACL":                 authenticated,
-	"/auth.API/GetAuthToken":           authenticated,
-	"/auth.API/RevokeAuthToken":        authenticated,
-	"/auth.API/GetGroups":              authenticated,
-	"/auth.API/GetOneTimePassword":     authenticated,
+	"/auth.API/GetAdmins":              requireAuthEnabled(authenticated),
+	"/auth.API/GetClusterRoleBindings": requireAuthEnabled(authenticated),
+	"/auth.API/GetConfiguration":       requireAuthEnabled(authenticated),
+	"/auth.API/GetScope":               requireAuthEnabled(authenticated),
+	"/auth.API/SetScope":               requireAuthEnabled(authenticated),
+	"/auth.API/GetACL":                 requireAuthEnabled(authenticated),
+	"/auth.API/SetACL":                 requireAuthEnabled(authenticated),
+	"/auth.API/GetAuthToken":           requireAuthEnabled(authenticated),
+	"/auth.API/RevokeAuthToken":        requireAuthEnabled(authenticated),
+	"/auth.API/GetGroups":              requireAuthEnabled(authenticated),
+	"/auth.API/GetOneTimePassword":     requireAuthEnabled(authenticated),
 
+	// Deactivate can be called when the cluster is partially activated,
+	// but the rest of the API is prohibited
 	"/auth.API/Deactivate":               adminOnly,
-	"/auth.API/GetConfiguration":         adminOnly,
-	"/auth.API/SetConfiguration":         adminOnly,
-	"/auth.API/GetAdmins":                adminOnly,
-	"/auth.API/ModifyAdmins":             adminOnly,
-	"/auth.API/ModifyClusterRoleBinding": adminOnly,
-	"/auth.API/ExtendAuthToken":          adminOnly,
-	"/auth.API/SetGroupsForUser":         adminOnly,
-	"/auth.API/ModifyMembers":            adminOnly,
-	"/auth.API/GetUsers":                 adminOnly,
-	"/auth.API/ExtractAuthTokens":        adminOnly,
-	"/auth.API/RestoreAuthToken":         adminOnly,
+	"/auth.API/SetConfiguration":         requireAuthEnabled(adminOnly),
+	"/auth.API/ModifyAdmins":             requireAuthEnabled(adminOnly),
+	"/auth.API/ModifyClusterRoleBinding": requireAuthEnabled(adminOnly),
+	"/auth.API/ExtendAuthToken":          requireAuthEnabled(adminOnly),
+	"/auth.API/SetGroupsForUser":         requireAuthEnabled(adminOnly),
+	"/auth.API/ModifyMembers":            requireAuthEnabled(adminOnly),
+	"/auth.API/GetUsers":                 requireAuthEnabled(adminOnly),
+	"/auth.API/ExtractAuthTokens":        requireAuthEnabled(adminOnly),
+	"/auth.API/RestoreAuthToken":         requireAuthEnabled(adminOnly),
 
 	//
 	// Debug API
 	//
 
-	"/debug.API/Profile": adminOnly,
-	"/debug.API/Binary":  adminOnly,
-	"/debug.API/Dump":    adminOnly,
+	"/debug.Debug/Profile": adminOnly,
+	"/debug.Debug/Binary":  adminOnly,
+	"/debug.Debug/Dump":    adminOnly,
 
 	//
 	// Enterprise API
@@ -88,19 +90,19 @@ var authHandlers = map[string]authHandlerFn{
 	//
 	// Identity API
 	//
-	"/identity.API/SetIdentityServerConfig": adminOnly,
-	"/identity.API/GetIdentityServerConfig": adminOnly,
-	"/identity.API/CreateIDPConnector":      adminOnly,
-	"/identity.API/UpdateIDPConnector":      adminOnly,
-	"/identity.API/ListIDPConnectors":       adminOnly,
-	"/identity.API/GetIDPConnector":         adminOnly,
-	"/identity.API/DeleteIDPConnector":      adminOnly,
-	"/identity.API/CreateOIDCClient":        adminOnly,
-	"/identity.API/UpdateOIDCClient":        adminOnly,
-	"/identity.API/GetOIDCClient":           adminOnly,
-	"/identity.API/ListOIDCClients":         adminOnly,
-	"/identity.API/DeleteOIDCClient":        adminOnly,
-	"/identity.API/DeleteAll":               adminOnly,
+	"/identity.API/SetIdentityServerConfig": requireAuthEnabled(adminOnly),
+	"/identity.API/GetIdentityServerConfig": requireAuthEnabled(adminOnly),
+	"/identity.API/CreateIDPConnector":      requireAuthEnabled(adminOnly),
+	"/identity.API/UpdateIDPConnector":      requireAuthEnabled(adminOnly),
+	"/identity.API/ListIDPConnectors":       requireAuthEnabled(adminOnly),
+	"/identity.API/GetIDPConnector":         requireAuthEnabled(adminOnly),
+	"/identity.API/DeleteIDPConnector":      requireAuthEnabled(adminOnly),
+	"/identity.API/CreateOIDCClient":        requireAuthEnabled(adminOnly),
+	"/identity.API/UpdateOIDCClient":        requireAuthEnabled(adminOnly),
+	"/identity.API/GetOIDCClient":           requireAuthEnabled(adminOnly),
+	"/identity.API/ListOIDCClients":         requireAuthEnabled(adminOnly),
+	"/identity.API/DeleteOIDCClient":        requireAuthEnabled(adminOnly),
+	"/identity.API/DeleteAll":               requireAuthEnabled(adminOnly),
 
 	//
 	// PFS API
