@@ -139,7 +139,7 @@ func RewriteRedirect(t testing.TB, resp *http.Response, host string) string {
 	return RewriteURL(t, resp.Header.Get("Location"), host)
 }
 
-// RewriteURL rewirtes the host and scheme in urlStr
+// RewriteURL rewrites the host and scheme in urlStr
 func RewriteURL(t testing.TB, urlStr, host string) string {
 	redirectURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
