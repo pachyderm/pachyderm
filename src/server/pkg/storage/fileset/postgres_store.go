@@ -7,6 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 var _ Store = &postgresStore{}
@@ -89,8 +90,6 @@ func (s *postgresStore) Delete(ctx context.Context, p string) error {
 }
 
 const schema = `
-	CREATE SCHEMA IF NOT EXISTS storage;
-
 	CREATE TABLE IF NOT EXISTS storage.filesets (
 		path VARCHAR(250) PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
@@ -98,13 +97,18 @@ const schema = `
 	);
 `
 
-// SetupPostgresStore sets up the tables for a Store
-func SetupPostgresStore(db *sqlx.DB) {
-	db.MustExec(schema)
+// SetupPostgresStoreV0 sets up the tables for a Store
+func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, schema)
+	return err
 }
 
 // NewTestStore returns a Store scoped to the lifetime of the test.
 func NewTestStore(t testing.TB, db *sqlx.DB) Store {
-	SetupPostgresStore(db)
+	ctx := context.Background()
+	tx := db.MustBegin()
+	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
+	require.NoError(t, SetupPostgresStoreV0(ctx, tx))
+	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }

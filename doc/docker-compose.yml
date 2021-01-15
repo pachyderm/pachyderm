@@ -15,7 +15,7 @@ services:
     build: 
       context: .. 
       dockerfile: Dockerfile.pachdoc
-    command: ["mkdocs","serve", "-f", "mkdocs-1.11.x.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
+    command: ["mkdocs","serve", "-f", "mkdocs-1.12.x.yml", "--dev-addr", "0.0.0.0:8889", "--dirtyreload"]
     volumes: 
       - .:/usr/src/app/doc
     ports:

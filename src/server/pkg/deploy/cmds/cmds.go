@@ -1257,6 +1257,7 @@ persistent volume was manually provisioned (i.e. if you used the
 				"statefulset",
 				"clusterrole",
 				"clusterrolebinding",
+				"configmap",
 			}
 			if includingMetadata {
 				assets = append(assets, []string{

@@ -164,5 +164,8 @@ func createTrackerObject(ctx context.Context, p string, idxs []*index.Index, tra
 			pointsTo = append(pointsTo, chunk.ObjectID(cid))
 		}
 	}
-	return tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl)
+	if err := tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl); err != nil && err != track.ErrObjectExists {
+		return err
+	}
+	return nil
 }

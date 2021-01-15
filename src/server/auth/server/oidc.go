@@ -85,6 +85,10 @@ type InternalOIDCProvider struct {
 	// This is usually bad but may be necessary for non-conformant providers.
 	IgnoreEmailVerified bool
 
+	// LocalhostIssuer indicates that we're using the embedded identity server, and we
+	// should query it over localhost instead of the provided issuer claim.
+	LocalhostIssuer bool
+
 	// States is an etcd collection containing the state information associated
 	// with every in-progress authentication session. /authorization-code/callback
 	// places users' ID tokens in here when they authenticate successfully, and
@@ -133,7 +137,7 @@ func half(state string) string {
 }
 
 // NewOIDCSP creates a new InternalOIDCProvider object from the given parameters
-func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string, additionalScopes []string, ignoreEmailVerified bool) (*InternalOIDCProvider, error) {
+func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI string, additionalScopes []string, ignoreEmailVerified, localhostIssuer bool) (*InternalOIDCProvider, error) {
 	// "openid" is a required scope for OpenID Connect flows.
 	// "profile" and "email" are necessary for using the email as an identifier
 	scopes := append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
@@ -146,6 +150,7 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		RedirectURI:         redirectURI,
 		Scopes:              scopes,
 		IgnoreEmailVerified: ignoreEmailVerified,
+		LocalhostIssuer:     localhostIssuer,
 		States: col.NewCollection(
 			a.env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
@@ -156,6 +161,15 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		),
 	}
 	var err error
+	ctx := context.Background()
+	if localhostIssuer {
+		client, err := LocalhostRewriteClient(issuer)
+		if err != nil {
+			return nil, err
+		}
+		ctx = oidc.ClientContext(ctx, client)
+	}
+
 	o.Provider, err = oidc.NewProvider(
 		// Due to the implementation of go-oidc, this context is used for RPCs made
 		// during future OIDC authentication sessions (for fetching keys, inside of
@@ -165,7 +179,7 @@ func (a *apiServer) NewOIDCSP(name, issuer, clientID, clientSecret, redirectURI 
 		// place to put that cancel() call and the effect of this omission is
 		// limited to in-flight authentication sessions at the moment that
 		// o.Provider updated, so we're ignoring it.
-		context.Background(),
+		ctx,
 		issuer)
 	if err != nil {
 		return nil, err
@@ -178,16 +192,7 @@ func (o *InternalOIDCProvider) GetOIDCLoginURL(ctx context.Context) (string, str
 	if o == nil {
 		return "", "", errors.WithStack(errNotConfigured)
 	}
-	// TODO(msteffen, adelelopez): We *think* this 'if' block can't run anymore:
-	// (if o != nil, then o.Provider != nil)
-	// remove if no one reports seeing this error in 1.11.0.
-	if o.Provider == nil {
-		var err error
-		o.Provider, err = oidc.NewProvider(context.Background(), o.Issuer)
-		if err != nil {
-			return "", "", fmt.Errorf("provider could not be found: %v", err)
-		}
-	}
+
 	state := CryptoString(30)
 	nonce := CryptoString(30)
 	conf := oauth2.Config{
@@ -411,6 +416,14 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, sp *Internal
 		RedirectURL:  sp.RedirectURI,
 		Scopes:       sp.Scopes,
 		Endpoint:     sp.Provider.Endpoint(),
+	}
+
+	if sp.LocalhostIssuer {
+		client, err := LocalhostRewriteClient(sp.Issuer)
+		if err != nil {
+			return "", "", err
+		}
+		ctx = oidc.ClientContext(ctx, client)
 	}
 
 	// Use the authorization code that is pushed to the redirect

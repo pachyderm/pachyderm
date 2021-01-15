@@ -1442,7 +1442,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1469,7 +1469,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	// globally, so any tests running concurrently will fail
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1534,7 +1534,8 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	anonClient := tu.GetAuthenticatedPachClient(t, "")
+	tu.ActivateAuth(t)
+	anonClient := tu.GetUnauthenticatedPachClient(t)
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
@@ -1607,7 +1608,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	}
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Deactivate auth
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
@@ -1628,7 +1629,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 
 	// Get new pach clients, re-activating auth
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Check that the repo has no ACL
 	require.ElementsEqual(t, entries(), getACL(t, adminClient, repo))
@@ -1708,7 +1709,7 @@ func TestDeleteAll(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1729,7 +1730,7 @@ func TestDeleteAll(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(tu.AdminUser)(gh(alice)), resp.Bindings,
+			admins(auth.RootUser)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -2284,7 +2285,7 @@ func TestModifyMembers(t *testing.T) {
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// This is a sequence dependent list of tests
 	tests := []struct {
@@ -2409,7 +2410,7 @@ func TestSetGroupsForUser(t *testing.T) {
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	groups := []string{organization, engineering}
 	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
@@ -2500,7 +2501,7 @@ func TestGetGroupsEmpty(t *testing.T) {
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
 		Username: alice,
@@ -2527,7 +2528,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -2585,7 +2586,7 @@ func TestGetAuthTokenNoSubject(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with no subject
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
@@ -2607,7 +2608,7 @@ func TestOneTimePasswordNoSubject(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with no subject
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
@@ -2633,7 +2634,7 @@ func TestGetOneTimePassword(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 
 	// Get GetOTP with subject equal to the caller
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
@@ -2679,7 +2680,7 @@ func TestOneTimePasswordExpires(t *testing.T) {
 
 	var authCodeTTL int64 = 10 // seconds
 	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, "")
+	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
 	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{
 			TTL: authCodeTTL,
@@ -2883,7 +2884,7 @@ func TestDisableGitHubAuth(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	// activate auth with initial admin robot:hub
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// confirm config is set to default config
 	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
@@ -2947,7 +2948,7 @@ func TestDisableGitHubAuthFSAdmin(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// confirm config is set to default config
 	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
@@ -2970,7 +2971,7 @@ func TestDisableGitHubAuthFSAdmin(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(tu.AdminUser)(gh(alice)), resp.Bindings,
+			admins(auth.RootUser)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -2991,7 +2992,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// admin makes alice an fs admin
 	_, err := adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
@@ -3003,7 +3004,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			admins(tu.AdminUser)(gh(alice)), resp.Bindings,
+			admins(auth.RootUser)(gh(alice)), resp.Bindings,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -3022,7 +3023,7 @@ func TestExtractAuthToken(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice can't extract auth tokens because she's not an admin
 	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
@@ -3079,7 +3080,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	}
 
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice can't restore auth tokens because she's not an admin
 	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
@@ -3152,6 +3153,10 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 	}
+	pattern := path.Join("input-repos", dataRepo, "commits")
+	g, err := globlib.Compile(pattern, '/')
+	require.NoError(t, err)
+	expectedFiles[pattern] = g
 	for i := 0; i < 3; i++ {
 		pipeline := tu.UniqueString("TestDebug")
 		require.NoError(t, aliceClient.CreatePipeline(
@@ -3177,10 +3182,12 @@ func TestDebug(t *testing.T) {
 				expectedFiles[pattern] = g
 			}
 		}
-		pattern := path.Join("pipelines", pipeline, "spec")
-		g, err := globlib.Compile(pattern, '/')
-		require.NoError(t, err)
-		expectedFiles[pattern] = g
+		for _, file := range []string{"spec", "commits", "jobs"} {
+			pattern := path.Join("pipelines", pipeline, file)
+			g, err := globlib.Compile(pattern, '/')
+			require.NoError(t, err)
+			expectedFiles[pattern] = g
+		}
 	}
 
 	commit1, err := aliceClient.StartCommit(dataRepo, "master")
@@ -3196,9 +3203,9 @@ func TestDebug(t *testing.T) {
 
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
-	require.YesError(t, aliceClient.Dump(nil, buf))
-	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
-	require.NoError(t, adminClient.Dump(nil, buf))
+	require.YesError(t, aliceClient.Dump(nil, 0, buf))
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	require.NoError(t, adminClient.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
 	defer func() {

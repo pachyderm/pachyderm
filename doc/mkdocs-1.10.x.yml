@@ -7,6 +7,8 @@ site_dir: site/1.10.x
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
+repo_branch: master
+repo_docs_dir: doc/docs/1.10.x
 edit_uri: ""
 
 # Copyright
@@ -55,6 +57,10 @@ extra:
       link: https://pachdm.com/twitter
     - icon: fontawesome/brands/linkedin
       link: https://pachdm.com/linkedin
+    - icon: fontawesome/brands/slack
+      link: https://pachdm.com/slack
+    - icon: fontawesome/brands/youtube
+      link: https://pachdm.com/youtube
 
 extra_css:
     - stylesheets/extra.css

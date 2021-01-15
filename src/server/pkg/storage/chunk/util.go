@@ -1,10 +1,12 @@
 package chunk
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
@@ -19,7 +21,11 @@ func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...Storage
 
 // NewTestStore creates a store for testing.
 func NewTestStore(t testing.TB, db *sqlx.DB) MetadataStore {
-	db.MustExec(schema)
+	ctx := context.Background()
+	tx := db.MustBegin()
+	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS STORAGE`)
+	require.NoError(t, SetupPostgresStoreV0(ctx, "storage.chunks", tx))
+	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)
 }
 

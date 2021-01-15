@@ -1,0 +1,37 @@
+
+
+{% import "partials/language.html" as lang with context %}
+
+<!-- Last updated date -->
+{% set label = lang.t("source.revision.date") %}
+<hr />
+<div class="row">
+    <div class="column-2">
+      <div class="md-source-date">
+        <small>
+          <!-- mkdocs-git-revision-date-localized-plugin -->
+          {% if page.meta.git_revision_date_localized %}
+            {{ label }}: {{ page.meta.git_revision_date_localized }}
+      
+          <!-- mkdocs-git-revision-date-plugin -->
+          {% elif page.meta.revision_date %}
+            {{ label }}: {{ page.meta.revision_date }}
+          {% endif %}
+        </small>
+        </div>
+    </div>
+    <div class="column-2">
+      <div class="md-source-date"> 
+        <small>Does this page need fixing? 
+          <i class="fa fa-github">
+          {% if page %}  
+            <a href="{{ config.repo_url }}/blob/{{ config.repo_branch }}/{{ config.repo_docs_dir }}/{{ page.file.src_path }}"> Edit me on GitHub</a>
+          {% else %}
+            <a href="{{ config.repo_url }}"> Edit me on GitHub</a>
+          {% endif %}
+          </i>
+        </small>
+      </div>
+    </div>
+  </div>
+

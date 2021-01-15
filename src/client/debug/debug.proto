@@ -37,6 +37,8 @@ message BinaryRequest {
 
 message DumpRequest {
   Filter filter = 1;
+  // Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.
+  int64 limit = 2;
 }
 
 service Debug {

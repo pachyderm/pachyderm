@@ -208,9 +208,10 @@ func (t *postgresTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error
 	return tx.Commit()
 }
 
-// SetupPostgresTracker sets up the table for the postgres tracker
-func SetupPostgresTracker(db *sqlx.DB) {
-	db.MustExec(schema)
+// SetupPostgresTrackerV0 sets up the table for the postgres tracker
+func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, schema)
+	return err
 }
 
 var schema = `
