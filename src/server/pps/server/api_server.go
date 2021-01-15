@@ -983,7 +983,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 	}
 	// Finish the job's output commit without a tree -- worker/master will mark
 	// the job 'killed'
-	if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: jobPtr.OutputCommit,
 			Empty:  true,

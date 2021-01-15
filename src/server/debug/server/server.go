@@ -327,10 +327,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	if request.Limit == 0 {
 		request.Limit = math.MaxInt64
 	}
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
