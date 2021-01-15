@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"text/template"
 
@@ -127,7 +126,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 }
 
 // PrintDetailedJobInfo pretty-prints detailed job info.
-func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
+func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
@@ -177,11 +176,7 @@ Egress: {{.Egress.URL}} {{end}}
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, jobInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return template.Execute(w, jobInfo)
 }
 
 // PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
