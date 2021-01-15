@@ -1923,6 +1923,13 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	defer func(start time.Time) { a.LogResp(req, nil, retErr, time.Since(start)) }(time.Now())
 	var err error
 
+	switch a.activationState() {
+	case none:
+		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
+	}
+
 	sp := a.getOIDCSP()
 	if sp == nil {
 		return nil, errors.Errorf("OIDC has not been configured or was disabled")

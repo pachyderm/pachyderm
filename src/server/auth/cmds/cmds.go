@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func requestOIDCLogin(c *client.APIClient) (string, error) {
+func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
@@ -34,9 +34,11 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 		authURL + "\n\n" +
 		"")
 
-	err = browser.OpenURL(authURL)
-	if err != nil {
-		return "", err
+	if openBrowser {
+		err = browser.OpenURL(authURL)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return state, nil
@@ -121,7 +123,7 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var useOTP bool
+	var useOTP, noBrowser bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
 		Long: "Login to Pachyderm. Any resources that have been restricted to " +
@@ -147,7 +149,7 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OneTimePassword: code})
-			} else if state, err := requestOIDCLogin(c); err == nil {
+			} else if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
 				// Exchange OIDC token for Pachyderm token
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
@@ -161,7 +163,7 @@ func LoginCmd() *cobra.Command {
 						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 				}
 			} else {
-				fmt.Println("No authentication providers are configured")
+				return fmt.Errorf("No authentication providers are configured")
 			}
 
 			// Write new Pachyderm token to config
@@ -178,6 +180,8 @@ func LoginCmd() *cobra.Command {
 	}
 	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
 		"If set, authenticate with a One-Time Password")
+	login.PersistentFlags().BoolVarP(&noBrowser, "no-browser", "b", false,
+		"If set, don't try to open a web browser")
 	return cmdutil.CreateAlias(login, "auth login")
 }
 

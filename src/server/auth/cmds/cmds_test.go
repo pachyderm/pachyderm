@@ -1,10 +1,12 @@
 package cmds
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,34 @@ func loginAsUser(t *testing.T, user string) {
 	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: user})
 	require.NoError(t, err)
 	config.WritePachTokenToConfig(token.Token)
+}
+
+func TestLogin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// Configure OIDC login
+	tu.ConfigureOIDCProvider(t)
+	defer tu.DeleteAll(t)
+
+	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	for sc.Scan() {
+		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+			tu.DoOAuthExchange(t, sc.Text())
+			break
+		}
+	}
+	cmd.Wait()
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth whoami | match idp:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+	).Run())
 }
 
 func TestWhoAmI(t *testing.T) {
