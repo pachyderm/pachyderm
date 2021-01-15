@@ -342,7 +342,8 @@ func (m *BinaryRequest) GetFilter() *Filter {
 }
 
 type DumpRequest struct {
-	Filter               *Filter  `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	Filter *Filter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	// Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.
 	Limit                int64    `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
