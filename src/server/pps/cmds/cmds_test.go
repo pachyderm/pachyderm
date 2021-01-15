@@ -647,7 +647,7 @@ func TestPipelineBuildLifecycleGo(t *testing.T) {
 func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
 	t.Skip("not implemented in V2")
 	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
-	_ = tu.GetAuthenticatedPachClient(t, "unused") // enable auth as a side effect
+	tu.ActivateAuth(t)
 
 	defer tu.DeleteAll(t) // make sure to clean up auth
 

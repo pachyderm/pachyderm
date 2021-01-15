@@ -2746,7 +2746,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	}
 
 	// generate auth credentials
-	aliceClient := tu.GetAuthenticatedPachClient(t, tu.UniqueString("alice"))
+	aliceClient := tu.GetAuthenticatedPachClient(t, robot(tu.UniqueString("alice")))
 	authResp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
 	require.NoError(t, err)
 	authToken := authResp.Token
