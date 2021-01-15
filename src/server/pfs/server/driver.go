@@ -127,7 +127,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	d.commitStore = newMemCommitStore(d.storage)
+	d.commitStore = newPostgresCommitStore(db, tracker, d.storage)
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -804,28 +804,30 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if commitInfo.ParentCommit != nil {
 		id, err := d.commitStore.GetFileset(ctx, commitInfo.ParentCommit)
 		if err != nil {
-			panic(err)
 			return err
 		}
 		parentFSID = id
 	}
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		d.commitStore.UpdateFileset(ctx, commit, func(x fileset.ID) (*fileset.ID, error) {
-			var ids []fileset.ID
-			// if the commit has a parent, then include the parents fileset in the compaction
-			if parentFSID != nil {
-				ids = append(ids, *parentFSID)
-			}
-			ids = append(ids, x)
-			return d.compact(m, ids)
-		})
-		// Collect the output size from the file set metadata.
 		id, err := d.commitStore.GetFileset(ctx, commit)
 		if err != nil {
 			return err
 		}
-		outputSize, err := d.storage.SizeOf(ctx, *id)
+		var ids []fileset.ID
+		// if the commit has a parent, then include the parents fileset in the compaction
+		if parentFSID != nil {
+			ids = append(ids, *parentFSID)
+		}
+		ids = append(ids, *id)
+		compactedID, err := d.compact(m, ids)
+		if err != nil {
+			return err
+		}
+		if err := d.commitStore.SetFileset(ctx, commit, *compactedID); err != nil {
+			return err
+		}
+		outputSize, err := d.storage.SizeOf(ctx, *compactedID)
 		if err != nil {
 			return err
 		}
