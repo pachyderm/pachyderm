@@ -511,30 +511,9 @@ func (c APIClient) GetLogs(
 	datumID string,
 	master bool,
 	follow bool,
-	tail int64,
+	since time.Duration,
 ) *LogsIter {
-	request := pps.GetLogsRequest{
-		Master: master,
-		Follow: follow,
-		Tail:   tail,
-	}
-	resp := &LogsIter{}
-	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
-	}
-	if jobID != "" {
-		request.Job = NewJob(jobID)
-	}
-	request.DataFilters = data
-	if datumID != "" {
-		request.Datum = &pps.Datum{
-			Job: NewJob(jobID),
-			ID:  datumID,
-		}
-	}
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-	resp.err = grpcutil.ScrubGRPC(resp.err)
-	return resp
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, false)
 }
 
 // GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
@@ -548,15 +527,27 @@ func (c APIClient) GetLogsLoki(
 	datumID string,
 	master bool,
 	follow bool,
-	tail int64,
+	since time.Duration,
+) *LogsIter {
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogs(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+	useLoki bool,
 ) *LogsIter {
 	request := pps.GetLogsRequest{
 		Master:         master,
 		Follow:         follow,
-		Tail:           tail,
-		UseLokiBackend: true,
+		UseLokiBackend: useLoki,
+		Since:          types.DurationProto(since),
 	}
-	resp := &LogsIter{}
 	if pipelineName != "" {
 		request.Pipeline = NewPipeline(pipelineName)
 	}
@@ -570,6 +561,7 @@ func (c APIClient) GetLogsLoki(
 			ID:  datumID,
 		}
 	}
+	resp := &LogsIter{}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	resp.err = grpcutil.ScrubGRPC(resp.err)
 	return resp

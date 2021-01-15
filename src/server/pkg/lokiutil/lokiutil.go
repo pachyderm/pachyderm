@@ -51,32 +51,30 @@ func forEachLine(resp *loghttp.QueryResponse, f func(t time.Time, line string) e
 
 // QueryRange calls QueryRange on the passed loki.Client and calls f with each
 // logline.
-func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, tail int, f func(t time.Time, line string) error) error {
-	if tail == 0 {
-		for {
-			// Unfortunately there's no way to pass ctx to this function.
-			resp, err := c.QueryRange(queryStr, maxLogMessages, from, through, logproto.FORWARD, 0, 0, true)
-			if err != nil {
-				return err
-			}
-			nMsgs := 0
-			if err := forEachLine(resp, func(t time.Time, line string) error {
-				from = t
-				nMsgs++
-				return f(t, line)
-			}); err != nil {
-				return err
-			}
-			if !follow && nMsgs < maxLogMessages {
-				return nil
-			}
-			from = from.Add(time.Nanosecond)
-			// check if the context has been cancelled
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
+func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
+	for {
+		// Unfortunately there's no way to pass ctx to this function.
+		resp, err := c.QueryRange(queryStr, maxLogMessages, from, through, logproto.FORWARD, 0, 0, true)
+		if err != nil {
+			return err
+		}
+		nMsgs := 0
+		if err := forEachLine(resp, func(t time.Time, line string) error {
+			from = t
+			nMsgs++
+			return f(t, line)
+		}); err != nil {
+			return err
+		}
+		if !follow && nMsgs < maxLogMessages {
+			return nil
+		}
+		from = from.Add(time.Nanosecond)
+		// check if the context has been cancelled
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 	}
 }
