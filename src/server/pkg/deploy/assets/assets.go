@@ -185,11 +185,6 @@ type AssetOpts struct {
 	// help much and may cause more instability than it prevents.
 	NoGuaranteed bool
 
-	// DisableAuthentication stops Pachyderm's authentication service
-	// from talking to GitHub, for testing. Instead users can authenticate
-	// simply by providing a username.
-	DisableAuthentication bool
-
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
 	BlockCacheSize string

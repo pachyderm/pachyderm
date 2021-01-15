@@ -163,7 +163,7 @@ func LoginCmd() *cobra.Command {
 						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 				}
 			} else {
-				return fmt.Errorf("No authentication providers are configured")
+				return fmt.Errorf("no authentication providers are configured")
 			}
 
 			// Write new Pachyderm token to config
