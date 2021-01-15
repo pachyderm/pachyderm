@@ -375,7 +375,7 @@ $ {{alias}} test -p XXX`,
 				CommitInfo:     commitInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedCommitInfo(ci)
+			return pretty.PrintDetailedCommitInfo(os.Stdout, ci)
 		}),
 	}
 	inspectCommit.Flags().AddFlagSet(rawFlags)

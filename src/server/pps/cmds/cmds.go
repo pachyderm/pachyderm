@@ -133,7 +133,7 @@ If the job fails, the output commit will not be populated with data.`,
 				JobInfo:        jobInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(ji)
+			return pretty.PrintDetailedJobInfo(os.Stdout, ji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
