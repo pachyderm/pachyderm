@@ -17,7 +17,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,7 +44,6 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
 	}, options...)
 
 	var cLoader *tls.CertLoader

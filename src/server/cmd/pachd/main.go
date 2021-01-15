@@ -122,7 +122,18 @@ func doSidecarMode(config interface{}) (retErr error) {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
 	authInterceptor := auth.NewInterceptor(env)
-	server, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	server, err := grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+		),
+		grpc.ChainStreamInterceptor(
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -287,9 +298,22 @@ func doFullMode(config interface{}) (retErr error) {
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
 	kubeNamespace := env.Namespace
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
+
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env)
-	externalServer, err := grpcutil.NewServer(context.Background(), true, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	externalServer, err := grpcutil.NewServer(
+		context.Background(),
+		true,
+		grpc.ChainUnaryInterceptor(
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+		),
+		grpc.ChainStreamInterceptor(
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+		),
+	)
+
 	if err != nil {
 		return err
 	}
