@@ -142,7 +142,7 @@ You should see the following files in each repo:
 We are going to list all purchases by zip code and understand what datums are created by our `inner join` input in the process. 
 Quick overview of our pipeline:
 
-1. **Pipeline input repositories**: The `purchases` and the `stores` repo are joined (`inner join`) on the STOREID of their file name.
+1. **Pipeline input repositories**: The `purchases` and `stores` repos are joined (`inner join`) on the STOREID of their file name.
 
     | Purchases | Stores |
     |-----------|--------|
@@ -160,7 +160,7 @@ Quick overview of our pipeline:
 
 ***Step 1*** - Let's create our pipeline. 
 
-Because unprocessed data are awaiting in our entry repositories, the pipeline creation will automatically trigger a job.
+Because unprocessed data are awaiting in our input repositories, the pipeline creation will automatically trigger a job.
 In the `examples/joins` directory, run:
 ```shell
 $ pachctl create pipeline -f inner_join.json
@@ -179,7 +179,7 @@ $ pachctl list datum -f inner_join.json
 ```
 ![list_datum_outer_inner](./img/pachctl_list_datum_inner.png)
 
-Note that no purchase was made at the STODEID4; therefore **no datum was created**. See diagram below. This is a characteristic of an `inner join`. We only see the stores in which purchases were made.
+Note that no purchase was made at the STOREID4; therefore **no datum was created**. See diagram below. This is a characteristic of an `inner join`. We only see the stores in which purchases were made.
 
 ![inner_join_list_datum](./img/inner_join_list_datum.png)
 
@@ -206,7 +206,7 @@ The following table lists the expected results for this scenario:
 |Purchase at store: 1 ... ORDER W080521|Purchase at store: 5 ... ORDER W080528| 
 |Purchase at store: 2 ... ORDER W078929 |Purchase at store: 5 ... ORDER W080231| 
 
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). You can create a 2 steps pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
+>![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using joins AND [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). You can create a 2-step pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 ## 5. Example 2 : Outer Join pipeline creation 
 >![pach_logo](./img/pach_logo.svg) You specify an [outer join](#case-1-outer-join-on-the-returns-repo-only) by adding an "outer_join" boolean property to an input repo in the `join` section of your pipeline spec. 
@@ -214,13 +214,13 @@ The following table lists the expected results for this scenario:
 ***Goal***
 
 We are going to list all returns per zipcode while putting the outer-join on:
-1. returns only
-2. stores only
-3. both our repo stores and returns
+1. `returns` only
+2. `stores` only
+3. both our repos `stores` and `returns`
 
 These 3 cases will create 3 different sets of datums that we will explain further. A quick overview of our pipeline: 
 
-1. **Pipeline input repositories**: The `stores` and `returns` repo are joined (See 3 cases of outer join above) on the STOREID of their file name.
+1. **Pipeline input repositories**: The `stores` and `returns` repos are joined (See 3 cases of outer join above) on the STOREID of their file name.
     | Returns | Stores |
     |-----------|--------|
     |![returns_repository](./img/pachctl_list_file_returns_master.png)|![purchases_repository](./img/pachctl_list_file_purchases_master.png)|
@@ -258,15 +258,15 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  },
 ```
 
-- In the `examples/joins` directory, let's create our pipeline by running:
+1. In the `examples/joins` directory, let's create our pipeline by running:
     ```shell
     $ pachctl create pipeline -f outer_join.json
     ```
-- Check the pipeline's status:
+1. Check the pipeline's status:
     ```shell
     $ pachctl list pipeline
     ```
-- To visualize the datums created by our `outer join` pipeline, in the `examples/joins` directory, run:
+1. To visualize the datums created by our `outer join` pipeline, in the `examples/joins` directory, run:
 
     ```shell
     $ pachctl list datum -f outer_join.json
@@ -278,7 +278,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     >![pach_logo](./img/pach_logo.svg) Note that one return was made in a store **not** listed in our repo (STOREID0). There was no match on any STOREID for this specific return file, however; **a datum was created**, containing only the return file. By setting the returns repo as `"outer_join":true`, you are requesting to see ALL of the repo's files reflected in datums, whether there is a match or not.
 
 
-- Let's have a look at our output repo, now that our code has aggregated those datums per zip code:
+1. Let's have a look at our output repo, now that our code has aggregated those datums per zip code:
 
     Check the pipeline's output repository and notice that an UNKNOWN.txt file shows up listing the return without matching store.
 
@@ -287,7 +287,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     ```
     ![](./img/pachctl_list_file_outer_returns.png)
 
-- For visual confirmation of their content, run the following command and validate that your files contain the returns that you are expecting:
+1. For visual confirmation of their content, run the following command and validate that your files contain the returns that you are expecting:
     ```shell
     $ pachctl get file outer_join@master:/02108.txt
     ```
@@ -326,13 +326,13 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  },
 ```
 
-- In the `examples/joins` directory, run:
+1. In the `examples/joins` directory, run:
 
     ```shell
         $ pachctl update pipeline -f outer_join.json --reprocess
     ```
 
-- List all the datums created by the pipeline again: 
+1. List all the datums created by the pipeline again: 
 
     For this, in the `examples/joins` directory, run:
     ```shell
@@ -344,14 +344,14 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     >![pach_logo](./img/pach_logo.svg)Note that **all** of the stores files are showing up in the datums: some are associated with a matched return, some are not, yet, **a datum is created**. Additionally, the return made to STOREID0 did **not** generate a datum since there is no STOREID0.txt in the Stores repo.
 
 
-- Check the output repository of your pipeline and notice that a 94107.txt file now shows up (STOREID4 has a different zip code 94107).
+1. Check the output repository of your pipeline and notice that a 94107.txt file now shows up (STOREID4 has a different zip code 94107).
 
     ```shell
     $ pachctl list file outer_join@master
     ```
     ![](./img/pachctl_list_file_outer_stores.png)
 
-- Visualize their content:
+1. Visualize their content:
 
     ```shell
     $ pachctl get file outer_join@master:/02108.txt
@@ -366,7 +366,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
 
 ### ***Case 3*** Outer join on both the Stores and Returns repos
 
-- Create/update your pipeline then check the datums created: 
+1. Create/update your pipeline then check the datums created: 
 
     ![list_datum_full_outer](./img/pachctl_list_datum_full_outer.png)
  
@@ -374,11 +374,11 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     >![pach_logo](./img/pach_logo.svg) Note that in this last case, the datums contain all of the returns (with or without a matching store) **and** all of the stores (with or without a matching return).
 
 
-- Check the output repository of your pipeline and notice that all the zipcode.txt files now show up,including the UNKNOWN.txt.
+1. Check the output repository of your pipeline and notice that all the zipcode.txt files now show up,including the UNKNOWN.txt.
 
     ![](./img/pachctl_list_file_full_outer.png)
 
-- Expected results for this scenario:
+1. Expected results for this scenario:
 
     |/02108.txt|/90210.txt|/94107.txt|UNKNOWN.txt|
     |----------|----------|------------|-----------|
