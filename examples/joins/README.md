@@ -1,10 +1,12 @@
 # Inner and Outer Join Inputs
 >![pach_logo](./img/pach_logo.svg) The outer join input is available in version **1.12 and higher**.
 
-- In our first example, we created a pipeline whose input datums result from a simple `inner join` between 2 repo.
-- In our second example, we showcased 3 variations of `outer join` pipelines between 2 repo, and outline how they differ from inner join and each other.
+- In our first example, we will create a pipeline whose input datums result from a simple `inner join` between 2 repos.
+- In our second example, we will showcase 3 variations of `outer join` pipelines between 2 repos, and outline how they differ from inner join and each other.
 
-***Table of Content***
+At the end of this page, you will understand the fundamental difference between the datums produced by an inner join and those created by an outer join.
+
+***Table of Contents***
 
 - [1. Getting ready](#1-getting-ready)
 - [2. Data structure and naming convention](#2-data-structure-and-naming-convention)
@@ -23,14 +25,6 @@ For these examples, we recommend to be familiar with the following concepts:
 - [Glob patterns](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) - for "RegEx-like" string matching on file paths and names.
 
 Additionally, you might want to check [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/). 
-
-***In a nutshell***
-
-At the end of this example, you should have understood the fundamental difference between the datums produced by an inner join and those created by an outer join.
-- `inner join` pipelines **only** run your code on the files that match a specific naming pattern  (i.e., ***match your glob pattern***): 
-    - one datum per match
-    - no match = no datum
-- `outer join` input will generate datums even when there is not match.
 
 ## 1. Getting ready
 ***Prerequisite***
