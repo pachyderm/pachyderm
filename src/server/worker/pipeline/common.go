@@ -90,7 +90,7 @@ func ReceiveSpout(
 				}
 				defer func() {
 					if err := putFileClient.Close(); err != nil {
-						if retErr != nil {
+						if retErr == nil {
 							retErr = err
 						}
 					}
