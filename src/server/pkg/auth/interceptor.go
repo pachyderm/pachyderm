@@ -83,7 +83,7 @@ var authHandlers = map[string]authHandlerFn{
 	//
 	// Health API
 	//
-	"/health.API/Health": unauthenticated,
+	"/health.Health/Health": unauthenticated,
 
 	//
 	// Identity API
