@@ -52,27 +52,25 @@ func (d *driver) oneOffModifyFile(ctx context.Context, repo, branch string, cb f
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if retErr == nil {
-				retErr = d.finishCommit(txnCtx, commit, "")
-			}
-		}()
-		return d.withCommitUnorderedWriter(txnCtx.Client, commit, cb)
+		if err := d.withCommitUnorderedWriter(txnCtx.Client, commit, cb); err != nil {
+			return err
+		}
+		return d.finishCommit(txnCtx, commit, "")
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (d *driver) withCommitUnorderedWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) (retErr error) {
 	return d.storage.WithRenewer(pachClient.Ctx(), defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
-		id, err := d.withTmpUnorderedWriter(ctx, renewer, false, cb)
+		id, err := d.withUnorderedWriter(ctx, renewer, false, cb)
 		if err != nil {
 			return err
 		}
-		return d.addFileset(pachClient, commit, *id)
+		return d.commitStore.AddFileset(ctx, commit, *id)
 	})
 }
 
-func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
+func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringSet, compact bool, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
 	opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
 	uw, err := d.storage.NewUnorderedWriter(ctx, d.getDefaultTag(), opts...)
 	if err != nil {
@@ -124,7 +122,7 @@ func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Comm
 
 func (d *driver) getDefaultTag() string {
 	// TODO: change this to a constant like "input" or "default"
-	return fmt.Sprint("%012d", time.Now().UnixNano())
+	return fmt.Sprintf("%012d", time.Now().UnixNano())
 }
 
 func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.Commit, fileset.FileSet, error) {
@@ -143,7 +141,10 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 		return nil, nil, err
 	}
 	fs, err := d.storage.Open(pachClient.Ctx(), []fileset.ID{*id}, opts...)
-	return commitInfo.Commit, fs, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return commitInfo.Commit, fs, nil
 }
 
 func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
@@ -407,7 +408,7 @@ func (d *driver) createFileset(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *renew.StringSet) error {
 		var err error
-		id, err = d.withTmpUnorderedWriter(ctx, renewer, false, cb)
+		id, err = d.withUnorderedWriter(ctx, renewer, false, cb)
 		return err
 	}); err != nil {
 		return nil, err

@@ -29,6 +29,7 @@ const (
 )
 
 // we want to divide the total number of connections we can have up among the
+// concurrently running tests
 var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name

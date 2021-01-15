@@ -27,3 +27,9 @@ type FileSet interface {
 
 var _ FileSet = &MergeReader{}
 var _ FileSet = &Reader{}
+
+type emptyFileSet struct{}
+
+func (efs emptyFileSet) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+	return nil
+}

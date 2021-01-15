@@ -31,4 +31,10 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("license clusters v0", func(ctx context.Context, env migrations.Env) error {
 		return license.CreateClustersTable(ctx, env.Tx)
+	Apply("create pfs schema", func(ctx context.Context, env migrations.Env) error {
+		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
+		return err
+	}).
+	Apply("pfs commit store v0", func(ctx context.Context, env migrations.Env) error {
+		return SetupPostgresCommitStoreV0(ctx, env.Tx)
 	})
