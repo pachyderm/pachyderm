@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -475,6 +476,7 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
+		since       time.Duration
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -536,7 +538,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {

@@ -73,6 +73,10 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+
+	// DefaultLogsFrom is the default duration to return logs from, i.e. by
+	// default we return logs from up to 24 hours ago.
+	DefaultLogsFrom = time.Hour * 24
 )
 
 var (
@@ -1458,6 +1462,10 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+	// Set the default for the `From` field.
+	if request.Since == nil {
+		request.Since = types.DurationProto(DefaultLogsFrom)
+	}
 	if a.env.LokiLogging || request.UseLokiBackend {
 		resp, err := pachClient.Enterprise.GetState(context.Background(),
 			&enterpriseclient.GetStateRequest{})
@@ -1543,6 +1551,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if len(pods) == 0 {
 		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
 	}
+	// Convert request.From to a usable timestamp.
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
+	}
+	sinceSeconds := int64(since.Seconds())
 
 	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
 	// and channels are read into the output server in a stable order.
@@ -1568,9 +1582,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// Get full set of logs from pod i
 				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container: containerName,
-						Follow:    request.Follow,
-						TailLines: tailLines,
+						Container:    containerName,
+						Follow:       request.Follow,
+						TailLines:    tailLines,
+						SinceSeconds: &sinceSeconds,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					return err
@@ -1715,37 +1730,17 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err != nil {
 		return err
 	}
-	// Circular buffer of log messages
-	var msgs []*pps.LogMessage
-	offset := 0
-	if request.Tail != 0 {
-		msgs = make([]*pps.LogMessage, request.Tail)
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
 	}
-	send := func(msg *pps.LogMessage) error {
-		if msgs != nil {
-			msgs[offset] = msg
-			offset = (offset + 1) % len(msgs)
-			return nil
-		}
-		return apiGetLogsServer.Send(msg)
-	}
-	defer func() {
-		for i := 0; i < len(msgs); i++ {
-			if msg := msgs[(i+offset)%len(msgs)]; msg != nil {
-				if err := apiGetLogsServer.Send(msg); err != nil && retErr == nil {
-					retErr = err
-					break
-				}
-			}
-		}
-	}()
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
-			return send(&pps.LogMessage{
+		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
+			return apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
 		})
@@ -1817,7 +1812,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return nil
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
-		return send(msg)
+		return apiGetLogsServer.Send(msg)
 	})
 }
 
