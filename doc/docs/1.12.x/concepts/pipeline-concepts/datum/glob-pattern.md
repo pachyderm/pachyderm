@@ -141,17 +141,17 @@ datum:
 
 ## Test your Datums
 
-The granularity of your datums defines how your data will be distributed across the available workers allocated to a job.
+The number of datums defines how they are distributed across a job's available workers. 
 Pachyderm allows you to check those datums:
 
-  - for a pipeline currently being developed  
+  - before you create a pipeline 
   - for a past job 
 
-### Testing your glob pattern before creating a pipeline
-You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to preview the datums defined by a pipeline given its specification file. 
+### Testing a glob pattern before creating a pipeline
+You can use the `pachctl list datum -f <my_pipeline_spec.json>` command to preview the datums created by a pipeline. 
 
 !!! note "Note"  
-    The pipeline does not need to have been created for the command to return the list of datums. This "dry run" helps you adjust your glob pattern when creating your pipeline.
+    The pipeline does not need to have been created for the command to return the list of datums. This "dry run" helps you adjust your glob pattern when creating your pipeline specification file.
  
 
 !!! example
