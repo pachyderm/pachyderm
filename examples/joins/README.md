@@ -158,20 +158,7 @@ Quick overview of our pipeline:
     ```
     Each should contain 3 purchases.
 
-***Step 1*** - Let's create our pipeline. 
-
-Because unprocessed data are awaiting in our input repositories, the pipeline creation will automatically trigger a job.
-In the `examples/joins` directory, run:
-```shell
-$ pachctl create pipeline -f inner_join.json
-```
-
-Check your pipeline's status:
-```shell
-$ pachctl list pipeline
-```
-
-***Step 2***
+***Step 1***
 
 To visualize the datums created by our `inner join` pipeline, in the `examples/joins` directory, run:
 ```shell
@@ -183,6 +170,18 @@ Note that no purchase was made at the STOREID4; therefore **no datum was created
 
 ![inner_join_list_datum](./img/inner_join_list_datum.png)
 
+***Step 2*** - Let's create our pipeline. 
+
+Because unprocessed data are awaiting in our input repositories, the pipeline creation will automatically trigger a job.
+In the `examples/joins` directory, run:
+```shell
+$ pachctl create pipeline -f inner_join.json
+```
+
+Check your pipeline's status:
+```shell
+$ pachctl list pipeline
+```
 
 ***Step 3*** - Check the output repository of the pipeline, now that our code has aggregated those datums per zip code: 
 
@@ -232,31 +231,31 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
 
 
 ### ***Case 1*** Outer join on the Returns repo only
-
-```shell
-  "input": {
-    "join": [
-      {
+1. In the `examples/joins` directory, edit the pipeline's specification `outer_join.json` and set `"outer_join" :true` on the repo `returns`:
+    ```shell
+    "input": {
+        "join": [
+        {
+            "pfs": {
+            "repo": "stores",
+            "branch": "master",
+            "glob": "/STOREID(*).txt",
+            "join_on": "$1",
+            "outer_join": false
+            }
+        },
+        {
         "pfs": {
-          "repo": "stores",
-          "branch": "master",
-          "glob": "/STOREID(*).txt",
-          "join_on": "$1",
-          "outer_join": false
+            "repo": "returns",
+            "branch": "master",
+            "glob": "/*_STOREID(*).txt",
+            "join_on": "$1",
+            "outer_join": true
         }
-      },
-     {
-       "pfs": {
-         "repo": "returns",
-         "branch": "master",
-         "glob": "/*_STOREID(*).txt",
-         "join_on": "$1",
-         "outer_join": true
-       }
-     }
-   ]
- },
-```
+        }
+    ]
+    },
+    ```
 
 1. In the `examples/joins` directory, let's create our pipeline by running:
     ```shell
@@ -300,31 +299,32 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     | | | |
 
 ### ***Case 2*** Outer join on the Stores repo only
+1. In the `examples/joins` directory, set `"outer_join" :true` on the `stores` repo in `outer_join.json`:
 
-```shell
-  "input": {
-    "join": [
-      {
+    ```shell
+    "input": {
+        "join": [
+        {
+            "pfs": {
+            "repo": "stores",
+            "branch": "master",
+            "glob": "/STOREID(*).txt",
+            "join_on": "$1",
+            "outer_join": true
+            }
+        },
+        {
         "pfs": {
-          "repo": "stores",
-          "branch": "master",
-          "glob": "/STOREID(*).txt",
-          "join_on": "$1",
-          "outer_join": true
+            "repo": "returns",
+            "branch": "master",
+            "glob": "/*_STOREID(*).txt",
+            "join_on": "$1",
+            "outer_join": false
         }
-      },
-     {
-       "pfs": {
-         "repo": "returns",
-         "branch": "master",
-         "glob": "/*_STOREID(*).txt",
-         "join_on": "$1",
-         "outer_join": false
-       }
-     }
-   ]
- },
-```
+        }
+    ]
+    },
+    ```
 
 1. In the `examples/joins` directory, run:
 
@@ -365,7 +365,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     | |Return at store: 5 ... ORDER W080528| |
 
 ### ***Case 3*** Outer join on both the Stores and Returns repos
-
+1. Set `"outer_join" :true` on both repos `returns` and `stores` in `outer_join.json`.
 1. Create/update your pipeline then check the datums created: 
 
     ![list_datum_full_outer](./img/pachctl_list_datum_full_outer.png)
