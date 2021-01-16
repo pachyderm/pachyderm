@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.1
+- [Security] Adds required authentication for various API calls (#5582) (#5577) (#5575)
+- Fixes a bug that prevented the creation of build pipeline when auth is enabled (#5594)
+- Changes to improve the performance for repos with a large number of files (#5600)
+- Changes to improve the performance of reading output repo metadata (#5609)
+- Changes to improve the performance of file upload in spout pipelines (#5613)
+- Added support to capture commit and job info in debug dump (#5619)
+
 ## 1.12.0
 - Fixed a race condition that updated a job state after it is finished (#5099)
 - Fixes a bug that would prevent successful initialization (#5128)
