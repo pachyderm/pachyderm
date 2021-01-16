@@ -4585,20 +4585,6 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			return err
 		}
 
-		// Get logs from pipeline, using pipeline (tailing the last two log lines)
-		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
-		numLogs = 0
-		for iter.Next() {
-			numLogs++
-			require.True(t, iter.Message().Message != "")
-		}
-		if numLogs < 2 {
-			return fmt.Errorf("didn't get enough log lines")
-		}
-		if err := iter.Err(); err != nil {
-			return err
-		}
-
 		// Get logs from pipeline, using job
 		// (1) Get job ID, from pipeline that just ran
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
@@ -4707,8 +4693,24 @@ func testGetLogs(t *testing.T, enableStats bool) {
 				break
 			}
 		}
+		if err := iter.Err(); err != nil {
+			return err
+		}
 
-		return iter.Err()
+		time.Sleep(time.Second * 30)
+
+		numLogs = 0
+		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 15*time.Second)
+		for iter.Next() {
+			numLogs++
+		}
+		if err := iter.Err(); err != nil {
+			return err
+		}
+		if numLogs != 0 {
+			return errors.Errorf("shouldn't return logs due to since time")
+		}
+		return nil
 	}, backoff.NewTestingBackOff()))
 }
 

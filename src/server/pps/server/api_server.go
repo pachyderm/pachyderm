@@ -1462,8 +1462,8 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
-	// Set the default for the `From` field.
-	if request.Since == nil {
+	// Set the default for the `Since` field.
+	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
@@ -1666,6 +1666,11 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	limiter := limit.New(20)
 	var eg errgroup.Group
 	var mu sync.Mutex
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert since to duration")
+	}
+	from := time.Now().Add(-since)
 	for {
 		fileInfo, err := fs.Recv()
 		if errors.Is(err, io.EOF) {
@@ -1702,6 +1707,13 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 					continue
 				}
 				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+					continue
+				}
+				t, err := types.TimestampFromProto(msg.Ts)
+				if err != nil {
+					return errors.Wrapf(err, "failed to convert msg.Ts to Time")
+				}
+				if !t.After(from) {
 					continue
 				}
 
