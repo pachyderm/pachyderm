@@ -148,7 +148,7 @@ Quick overview of our pipeline:
     |-----------|--------|
     | ![stores_repository](./img/pachctl_list_file_stores_master.png)|![purchases_repository](./img/pachctl_list_file_purchases_master.png)|
 
-2. **Pipeline**: [inner_join.json](./inner_join.json). Our pipeline executes some Python code reading the `zipcode` in the STOREIDx.txt file and appending the matching purchase to a text file named after the zip code. 
+2. **Pipeline**: The [inner_join.json](./inner_join.json) pipeline will first create input datums following its `glob` pattern and `"join_on": "$1"` values, then execute some Python code reading the `zipcode` in their STOREIDx.txt file. 
 3. **Pipeline output repository**: The output repo `inner_join` will contain a list of text files named after the stores' zip codes. Each will list all purchases made in a specific zip code. 
 
     We will expect the 2 following files in the output repository of our `inner_join` pipeline: 
@@ -158,9 +158,8 @@ Quick overview of our pipeline:
     ```
     Each should contain 3 purchases.
 
-***Step 1***
+***Step 1*** - Before we create our `inner join` pipeline, we can preview what our datums will look like by running the following command in the `examples/joins` directory:
 
-To visualize the datums created by our `inner join` pipeline, in the `examples/joins` directory, run:
 ```shell
 $ pachctl list datum -f inner_join.json
 ```
@@ -170,7 +169,7 @@ Note that no purchase was made at the STOREID4; therefore **no datum was created
 
 ![inner_join_list_datum](./img/inner_join_list_datum.png)
 
-***Step 2*** - Let's create our pipeline. 
+***Step 2*** - Let's now create our pipeline and see it in action. 
 
 Because unprocessed data are awaiting in our input repositories, the pipeline creation will automatically trigger a job.
 In the `examples/joins` directory, run:
@@ -212,7 +211,8 @@ The following table lists the expected results for this scenario:
 
 ***Goal***
 
-We are going to list all returns per zipcode while putting the outer-join on:
+We are going to list all returns by zip code and understand the datums created by our  `outer join` when setting the `"outer_join": true` on:
+
 1. `returns` only
 2. `stores` only
 3. both our repos `stores` and `returns`
@@ -223,8 +223,9 @@ These 3 cases will create 3 different sets of datums that we will explain furthe
     | Returns | Stores |
     |-----------|--------|
     |![returns_repository](./img/pachctl_list_file_returns_master.png)|![purchases_repository](./img/pachctl_list_file_purchases_master.png)|
-2. **Pipeline**: [outer_join.json](./outer_join.json). Our pipeline executes some Python code that processes stores and matched returns (if any) then aggregates by zip code.
-3. **Pipeline output repository**: The output repo `outer_join` will contain a list of text files named after the stores' zip code. The detail of each will depend on where the outer join was put.
+2. **Pipeline**: Our [outer_join.json](./outer_join.json) pipeline will first create input datums following its `glob` pattern, `"join_on": "$1"`, and `"outer_join"` values, then execute some Python code that processes each store and matched return (if any).
+
+3. **Pipeline output repository**: The output repo `outer_join` will contain a list of text files named after the stores' zip code. The detail of each will depend on where the 'outer join' was put.
 
 We have listed all the possible outcomes in the following cheat sheet. Each particular case will be further explained:
 ![outer_join_list_datum](./img/outer_joins_list_datum.png)
@@ -256,16 +257,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     ]
     },
     ```
-
-1. In the `examples/joins` directory, let's create our pipeline by running:
-    ```shell
-    $ pachctl create pipeline -f outer_join.json
-    ```
-1. Check the pipeline's status:
-    ```shell
-    $ pachctl list pipeline
-    ```
-1. To visualize the datums created by our `outer join` pipeline, in the `examples/joins` directory, run:
+1. Before we create our `outer join` pipeline, let's preview the datums that will be created. In the `examples/joins` directory, run:
 
     ```shell
     $ pachctl list datum -f outer_join.json
@@ -275,18 +267,27 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  
     What you are noticing is that all your 4 returns are showing in a datum. 
     >![pach_logo](./img/pach_logo.svg) Note that one return was made in a store **not** listed in our repo (STOREID0). There was no match on any STOREID for this specific return file, however; **a datum was created**, containing only the return file. By setting the returns repo as `"outer_join":true`, you are requesting to see ALL of the repo's files reflected in datums, whether there is a match or not.
+1. In the `examples/joins` directory, let's now create our pipeline by running:
+    ```shell
+    $ pachctl create pipeline -f outer_join.json
+    ```
+1. Check the pipeline's status:
+    ```shell
+    $ pachctl list pipeline
+    ```
 
 
-1. Let's have a look at our output repo, now that our code has aggregated those datums per zip code:
 
-    Check the pipeline's output repository and notice that an UNKNOWN.txt file shows up listing the return without matching store.
+1. Have a look at our output repo, now that our code has aggregated those datums per zip code:
+
+    Notice that an UNKNOWN.txt file shows up listing the return without matching store.
 
     ```shell
     $ pachctl list file outer_join@master
     ```
     ![](./img/pachctl_list_file_outer_returns.png)
 
-1. For visual confirmation of their content, run the following command and validate that your files contain the returns that you are expecting:
+1. Visual confirmation: run the following command and validate that your files contain the returns that you are expecting:
     ```shell
     $ pachctl get file outer_join@master:/02108.txt
     ```
@@ -325,16 +326,9 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     ]
     },
     ```
+1. Preview all the datums created by the pipeline again: 
 
-1. In the `examples/joins` directory, run:
-
-    ```shell
-        $ pachctl update pipeline -f outer_join.json --reprocess
-    ```
-
-1. List all the datums created by the pipeline again: 
-
-    For this, in the `examples/joins` directory, run:
+    In the `examples/joins` directory, run:
     ```shell
     $ pachctl list datum -f outer_join.json
     ```
@@ -343,6 +337,11 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  
     >![pach_logo](./img/pach_logo.svg)Note that **all** of the stores files are showing up in the datums: some are associated with a matched return, some are not, yet, **a datum is created**. Additionally, the return made to STOREID0 did **not** generate a datum since there is no STOREID0.txt in the Stores repo.
 
+1. In the `examples/joins` directory, run:
+
+    ```shell
+    $ pachctl update pipeline -f outer_join.json --reprocess
+    ```
 
 1. Check the output repository of your pipeline and notice that a 94107.txt file now shows up (STOREID4 has a different zip code 94107).
 
@@ -366,7 +365,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
 
 ### ***Case 3*** Outer join on both the Stores and Returns repos
 1. Set `"outer_join" :true` on both repos `returns` and `stores` in `outer_join.json`.
-1. Create/update your pipeline then check the datums created: 
+1. Preview your datums then create/update your pipeline: 
 
     ![list_datum_full_outer](./img/pachctl_list_datum_full_outer.png)
  
@@ -374,7 +373,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     >![pach_logo](./img/pach_logo.svg) Note that in this last case, the datums contain all of the returns (with or without a matching store) **and** all of the stores (with or without a matching return).
 
 
-1. Check the output repository of your pipeline and notice that all the zipcode.txt files now show up,including the UNKNOWN.txt.
+1. Check the output repository of your pipeline and notice that all the zipcode.txt files now show up, including the UNKNOWN.txt.
 
     ![](./img/pachctl_list_file_full_outer.png)
 
@@ -387,6 +386,18 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     | |Return at store: 5 ... ORDER W080528| | |
 
 
-    >![pach_logo](./img/pach_logo.svg) **Side note**: We could also aggregate the files by STOREID using a [group input](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). In that case, one single datum, containing  ALL matches, would be created by STOREID. See our [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group).
+>![pach_logo](./img/pach_logo.svg) **Side note**: We could also aggregate the files by STOREID using a [group input](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/). In that case, the datums produced would be bigger. Each datum would contain one STOREIDx.txt file and ALL of the matching files for this given storeID in the grouped repos. The choice between group and join is an architectural choice to optimize your pipelines' parallelization and processing time.
+       
+We encourage you to run our [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group) to understand more of the differences between join and group. Look for the `retail_group.json` pipeline.
+
+You can also follow the quick following steps:
+```shell
+$ cd ../group
+$ pachctl list datum -f retail_group.json
+```
+
+In this pipeline, we have grouped `purchases`, `returns` and `stores` repos on STOREID. Look at the datums created.
+
+![pach_logo](./img/pachctl_list_datum_retail_group.png)
 
 
