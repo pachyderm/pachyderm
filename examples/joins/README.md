@@ -326,7 +326,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
     ]
     },
     ```
-1. Preview all the datums created by the pipeline again: 
+1. Preview all the datums again: 
 
     In the `examples/joins` directory, run:
     ```shell
@@ -337,7 +337,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  
     >![pach_logo](./img/pach_logo.svg)Note that **all** of the stores files are showing up in the datums: some are associated with a matched return, some are not, yet, **a datum is created**. Additionally, the return made to STOREID0 did **not** generate a datum since there is no STOREID0.txt in the Stores repo.
 
-1. In the `examples/joins` directory, run:
+1. Update your pipeline. In the `examples/joins` directory, run:
 
     ```shell
     $ pachctl update pipeline -f outer_join.json --reprocess
