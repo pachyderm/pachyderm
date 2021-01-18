@@ -1112,6 +1112,10 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	if !a.isActive() {
+		return nil, auth.ErrNotActivated
+	}
+
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err

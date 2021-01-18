@@ -216,7 +216,7 @@ var authHandlers = map[string]authHandler{
 	// Version API
 	//
 
-	"/versionpb.API/GetVersion": authDisabledOr(authenticated),
+	"/versionpb.API/GetVersion": unauthenticated,
 }
 
 // NewInterceptor instantiates a new Interceptor
