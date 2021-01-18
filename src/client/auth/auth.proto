@@ -180,11 +180,6 @@ message WhoAmIResponse {
   bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
   ClusterRoles cluster_roles = 4;
-
-  // fully_activated is set if authentication is fully activated on the cluster
-  // WhoAmI will succeed if auth is partially activated, but most auth APIs
-  // are not enabled
-  bool fully_activated = 5;
 }
 
 //// Authorization data structures

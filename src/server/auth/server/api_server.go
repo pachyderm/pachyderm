@@ -1147,11 +1147,10 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 	// return final result
 	return &auth.WhoAmIResponse{
-		Username:       callerInfo.Subject,
-		TTL:            ttl,
-		IsAdmin:        isAdmin,
-		ClusterRoles:   &adminRoles,
-		FullyActivated: activationState == full,
+		Username:     callerInfo.Subject,
+		TTL:          ttl,
+		IsAdmin:      isAdmin,
+		ClusterRoles: &adminRoles,
 	}, nil
 }
 
