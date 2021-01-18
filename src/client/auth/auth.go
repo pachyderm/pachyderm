@@ -62,10 +62,9 @@ var (
 	// it also needs to be updated in the UI code
 	ErrNotActivated = status.Error(codes.Unimplemented, "the auth service is not activated")
 
-	// ErrPartiallyActivated is returned by the auth API to indicated that it's
-	// in an intermediate state (in this state, users can retry Activate() or
-	// revert with Deactivate(), but not much else)
-	ErrPartiallyActivated = status.Error(codes.Unavailable, "the auth service is only partially activated")
+	// ErrAlreadyActivated is returned by Activate if the Auth service
+	// is already activated.
+	ErrAlreadyActivated = status.Error(codes.Unimplemented, "the auth service is already activated")
 
 	// ErrNotSignedIn indicates that the caller isn't signed in
 	//
@@ -86,6 +85,14 @@ var (
 	ErrExpiredToken = status.Error(codes.Internal, "token expiration is in the past")
 )
 
+// IsErrAlreadyActivated checks if an error is a ErrAlreadyActivated
+func IsErrAlreadyActivated(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), status.Convert(ErrAlreadyActivated).Message())
+}
+
 // IsErrNotActivated checks if an error is a ErrNotActivated
 func IsErrNotActivated(err error) bool {
 	if err == nil {
@@ -94,16 +101,6 @@ func IsErrNotActivated(err error) bool {
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
 	return strings.Contains(err.Error(), status.Convert(ErrNotActivated).Message())
-}
-
-// IsErrPartiallyActivated checks if an error is a ErrPartiallyActivated
-func IsErrPartiallyActivated(err error) bool {
-	if err == nil {
-		return false
-	}
-	// TODO(msteffen) This is unstructured because we have no way to propagate
-	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), status.Convert(ErrPartiallyActivated).Message())
 }
 
 // IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
