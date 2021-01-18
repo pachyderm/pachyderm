@@ -29,12 +29,15 @@ var authHandlers = map[string]authHandler{
 	// Activate only has an effect when auth is not enabled
 	// Authenticate, Authorize and WhoAmI check auth status themselves
 	// GetOIDCLogin is necessary to authenticate
+	// GetAuthToken and Deactivate are necessary in the partial activation state
+	// and have their own auth logic
 	"/auth.API/Activate":     unauthenticated,
 	"/auth.API/Authenticate": unauthenticated,
 	"/auth.API/Authorize":    unauthenticated,
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
 	"/auth.API/GetAuthToken": unauthenticated,
+	"/auth.API/Deactivate":   unauthenticated,
 
 	// TODO: restrict GetClusterRoleBindings to cluster admins?
 	// TODO: split GetScope for self and others
@@ -54,7 +57,6 @@ var authHandlers = map[string]authHandler{
 
 	// Deactivate can be called when the cluster is partially activated,
 	// but the rest of the API is prohibited
-	"/auth.API/Deactivate":               authDisabledOr(authPartialAnd(admin)),
 	"/auth.API/SetConfiguration":         admin,
 	"/auth.API/ModifyAdmins":             admin,
 	"/auth.API/ModifyClusterRoleBinding": admin,
