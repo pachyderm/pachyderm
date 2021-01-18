@@ -8,7 +8,7 @@ import (
 type authHandler func(*client.APIClient, string) error
 
 // authDisabledOr wraps an authHandler and permits the RPC if authHandler succeeds or
-// if auth is disabled enabled on the cluster
+// if auth is disabled on the cluster
 func authDisabledOr(h authHandler) authHandler {
 	return func(pachClient *client.APIClient, fullMethod string) error {
 		err := h(pachClient, fullMethod)
@@ -19,9 +19,10 @@ func authDisabledOr(h authHandler) authHandler {
 	}
 }
 
-// authPartialOr wraps an authHandler and permits the RPC if authHandler succeeds or
-// if auth is partially enabled on the cluster
-func authPartialOr(h authHandler) authHandler {
+// authPartialAnd wraps an authHandler and permits the RPC if authHandler succeeds or
+// if auth is partially enabled on the cluster. Handlers only report partial activation
+// if they would otherwise succeed, so this
+func authPartialAnd(h authHandler) authHandler {
 	return func(pachClient *client.APIClient, fullMethod string) error {
 		err := h(pachClient, fullMethod)
 		if auth.IsErrPartiallyActivated(err) {
@@ -60,6 +61,7 @@ func admin(pachClient *client.APIClient, fullMethod string) error {
 				if !me.FullyActivated {
 					return auth.ErrPartiallyActivated
 				}
+				return nil
 			}
 		}
 	}
