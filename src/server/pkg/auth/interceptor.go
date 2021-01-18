@@ -14,7 +14,7 @@ import (
 // This interceptor fails closed - whenever a new RPC is added, it's disabled
 // until some authentication is added. Some RPCs may do additional auth checks
 // beyond what's required by this interceptor.
-var authHandlers = map[string]authHandlerFn{
+var authHandlers = map[string]authHandler{
 	//
 	// Admin API
 	//
@@ -41,37 +41,37 @@ var authHandlers = map[string]authHandlerFn{
 	// TODO: split GetAuthToken for self and others
 	// TODO: split RevokeAuthToken for self and others
 	// TODO: split GetGroups for self and others
-	"/auth.API/GetAdmins":              requireAuthEnabled(authenticated),
-	"/auth.API/GetClusterRoleBindings": requireAuthEnabled(authenticated),
-	"/auth.API/GetConfiguration":       requireAuthEnabled(authenticated),
-	"/auth.API/GetScope":               requireAuthEnabled(authenticated),
-	"/auth.API/SetScope":               requireAuthEnabled(authenticated),
-	"/auth.API/GetACL":                 requireAuthEnabled(authenticated),
-	"/auth.API/SetACL":                 requireAuthEnabled(authenticated),
-	"/auth.API/RevokeAuthToken":        requireAuthEnabled(authenticated),
-	"/auth.API/GetGroups":              requireAuthEnabled(authenticated),
-	"/auth.API/GetOneTimePassword":     requireAuthEnabled(authenticated),
+	"/auth.API/GetAdmins":              authenticated,
+	"/auth.API/GetClusterRoleBindings": authenticated,
+	"/auth.API/GetConfiguration":       authenticated,
+	"/auth.API/GetScope":               authenticated,
+	"/auth.API/SetScope":               authenticated,
+	"/auth.API/GetACL":                 authenticated,
+	"/auth.API/SetACL":                 authenticated,
+	"/auth.API/RevokeAuthToken":        authenticated,
+	"/auth.API/GetGroups":              authenticated,
+	"/auth.API/GetOneTimePassword":     authenticated,
 
 	// Deactivate can be called when the cluster is partially activated,
 	// but the rest of the API is prohibited
-	"/auth.API/Deactivate":               adminOnly,
-	"/auth.API/SetConfiguration":         requireAuthEnabled(adminOnly),
-	"/auth.API/ModifyAdmins":             requireAuthEnabled(adminOnly),
-	"/auth.API/ModifyClusterRoleBinding": requireAuthEnabled(adminOnly),
-	"/auth.API/ExtendAuthToken":          requireAuthEnabled(adminOnly),
-	"/auth.API/SetGroupsForUser":         requireAuthEnabled(adminOnly),
-	"/auth.API/ModifyMembers":            requireAuthEnabled(adminOnly),
-	"/auth.API/GetUsers":                 requireAuthEnabled(adminOnly),
-	"/auth.API/ExtractAuthTokens":        requireAuthEnabled(adminOnly),
-	"/auth.API/RestoreAuthToken":         requireAuthEnabled(adminOnly),
+	"/auth.API/Deactivate":               authPartialOr(admin),
+	"/auth.API/SetConfiguration":         admin,
+	"/auth.API/ModifyAdmins":             admin,
+	"/auth.API/ModifyClusterRoleBinding": admin,
+	"/auth.API/ExtendAuthToken":          admin,
+	"/auth.API/SetGroupsForUser":         admin,
+	"/auth.API/ModifyMembers":            admin,
+	"/auth.API/GetUsers":                 admin,
+	"/auth.API/ExtractAuthTokens":        admin,
+	"/auth.API/RestoreAuthToken":         admin,
 
 	//
 	// Debug API
 	//
 
-	"/debug.Debug/Profile": adminOnly,
-	"/debug.Debug/Binary":  adminOnly,
-	"/debug.Debug/Dump":    adminOnly,
+	"/debug.Debug/Profile": authDisabledOr(admin),
+	"/debug.Debug/Binary":  authDisabledOr(admin),
+	"/debug.Debug/Dump":    authDisabledOr(admin),
 
 	//
 	// Enterprise API
@@ -79,8 +79,8 @@ var authHandlers = map[string]authHandlerFn{
 
 	"/enterprise.API/Activate":          unauthenticated,
 	"/enterprise.API/GetState":          unauthenticated,
-	"/enterprise.API/GetActivationCode": adminOnly,
-	"/enterprise.API/Deactivate":        adminOnly,
+	"/enterprise.API/GetActivationCode": authDisabledOr(admin),
+	"/enterprise.API/Deactivate":        authDisabledOr(admin),
 
 	//
 	// Health API
@@ -90,53 +90,53 @@ var authHandlers = map[string]authHandlerFn{
 	//
 	// Identity API
 	//
-	"/identity.API/SetIdentityServerConfig": requireAuthEnabled(adminOnly),
-	"/identity.API/GetIdentityServerConfig": requireAuthEnabled(adminOnly),
-	"/identity.API/CreateIDPConnector":      requireAuthEnabled(adminOnly),
-	"/identity.API/UpdateIDPConnector":      requireAuthEnabled(adminOnly),
-	"/identity.API/ListIDPConnectors":       requireAuthEnabled(adminOnly),
-	"/identity.API/GetIDPConnector":         requireAuthEnabled(adminOnly),
-	"/identity.API/DeleteIDPConnector":      requireAuthEnabled(adminOnly),
-	"/identity.API/CreateOIDCClient":        requireAuthEnabled(adminOnly),
-	"/identity.API/UpdateOIDCClient":        requireAuthEnabled(adminOnly),
-	"/identity.API/GetOIDCClient":           requireAuthEnabled(adminOnly),
-	"/identity.API/ListOIDCClients":         requireAuthEnabled(adminOnly),
-	"/identity.API/DeleteOIDCClient":        requireAuthEnabled(adminOnly),
-	"/identity.API/DeleteAll":               requireAuthEnabled(adminOnly),
+	"/identity.API/SetIdentityServerConfig": admin,
+	"/identity.API/GetIdentityServerConfig": admin,
+	"/identity.API/CreateIDPConnector":      admin,
+	"/identity.API/UpdateIDPConnector":      admin,
+	"/identity.API/ListIDPConnectors":       admin,
+	"/identity.API/GetIDPConnector":         admin,
+	"/identity.API/DeleteIDPConnector":      admin,
+	"/identity.API/CreateOIDCClient":        admin,
+	"/identity.API/UpdateOIDCClient":        admin,
+	"/identity.API/GetOIDCClient":           admin,
+	"/identity.API/ListOIDCClients":         admin,
+	"/identity.API/DeleteOIDCClient":        admin,
+	"/identity.API/DeleteAll":               admin,
 
 	//
 	// PFS API
 	//
 
 	// TODO: Add methods to handle repo permissions
-	"/pfs.API/CreateRepo":      authenticated,
-	"/pfs.API/InspectRepo":     authenticated,
-	"/pfs.API/ListRepo":        authenticated,
-	"/pfs.API/DeleteRepo":      authenticated,
-	"/pfs.API/StartCommit":     authenticated,
-	"/pfs.API/FinishCommit":    authenticated,
-	"/pfs.API/InspectCommit":   authenticated,
-	"/pfs.API/ListCommit":      authenticated,
-	"/pfs.API/DeleteCommit":    authenticated,
-	"/pfs.API/FlushCommit":     authenticated,
-	"/pfs.API/SubscribeCommit": authenticated,
-	"/pfs.API/ClearCommit":     authenticated,
-	"/pfs.API/CreateBranch":    authenticated,
-	"/pfs.API/InspectBranch":   authenticated,
-	"/pfs.API/ListBranch":      authenticated,
-	"/pfs.API/DeleteBranch":    authenticated,
-	"/pfs.API/ModifyFile":      authenticated,
-	"/pfs.API/CopyFile":        authenticated,
-	"/pfs.API/GetFile":         authenticated,
-	"/pfs.API/InspectFile":     authenticated,
-	"/pfs.API/ListFile":        authenticated,
-	"/pfs.API/WalkFile":        authenticated,
-	"/pfs.API/GlobFile":        authenticated,
-	"/pfs.API/DiffFile":        authenticated,
-	"/pfs.API/DeleteAll":       authenticated,
-	"/pfs.API/Fsck":            authenticated,
-	"/pfs.API/CreateFileset":   authenticated,
-	"/pfs.API/RenewFileset":    authenticated,
+	"/pfs.API/CreateRepo":      authDisabledOr(authenticated),
+	"/pfs.API/InspectRepo":     authDisabledOr(authenticated),
+	"/pfs.API/ListRepo":        authDisabledOr(authenticated),
+	"/pfs.API/DeleteRepo":      authDisabledOr(authenticated),
+	"/pfs.API/StartCommit":     authDisabledOr(authenticated),
+	"/pfs.API/FinishCommit":    authDisabledOr(authenticated),
+	"/pfs.API/InspectCommit":   authDisabledOr(authenticated),
+	"/pfs.API/ListCommit":      authDisabledOr(authenticated),
+	"/pfs.API/DeleteCommit":    authDisabledOr(authenticated),
+	"/pfs.API/FlushCommit":     authDisabledOr(authenticated),
+	"/pfs.API/SubscribeCommit": authDisabledOr(authenticated),
+	"/pfs.API/ClearCommit":     authDisabledOr(authenticated),
+	"/pfs.API/CreateBranch":    authDisabledOr(authenticated),
+	"/pfs.API/InspectBranch":   authDisabledOr(authenticated),
+	"/pfs.API/ListBranch":      authDisabledOr(authenticated),
+	"/pfs.API/DeleteBranch":    authDisabledOr(authenticated),
+	"/pfs.API/ModifyFile":      authDisabledOr(authenticated),
+	"/pfs.API/CopyFile":        authDisabledOr(authenticated),
+	"/pfs.API/GetFile":         authDisabledOr(authenticated),
+	"/pfs.API/InspectFile":     authDisabledOr(authenticated),
+	"/pfs.API/ListFile":        authDisabledOr(authenticated),
+	"/pfs.API/WalkFile":        authDisabledOr(authenticated),
+	"/pfs.API/GlobFile":        authDisabledOr(authenticated),
+	"/pfs.API/DiffFile":        authDisabledOr(authenticated),
+	"/pfs.API/DeleteAll":       authDisabledOr(authenticated),
+	"/pfs.API/Fsck":            authDisabledOr(authenticated),
+	"/pfs.API/CreateFileset":   authDisabledOr(authenticated),
+	"/pfs.API/RenewFileset":    authDisabledOr(authenticated),
 
 	//
 	// Object API
@@ -172,52 +172,52 @@ var authHandlers = map[string]authHandlerFn{
 
 	// TODO: Add per-repo permissions checks for these
 	// TODO: split GetLogs into master and not-master and add check for pipeline permissions
-	"/pps.API/CreateJob":       authenticated,
-	"/pps.API/InspectJob":      authenticated,
-	"/pps.API/ListJob":         authenticated,
-	"/pps.API/ListJobStream":   authenticated,
-	"/pps.API/FlushJob":        authenticated,
-	"/pps.API/DeleteJob":       authenticated,
-	"/pps.API/StopJob":         authenticated,
-	"/pps.API/InspectDatum":    authenticated,
-	"/pps.API/ListDatum":       authenticated,
-	"/pps.API/ListDatumStream": authenticated,
-	"/pps.API/RestartDatum":    authenticated,
-	"/pps.API/CreatePipeline":  authenticated,
-	"/pps.API/InspectPipeline": authenticated,
-	"/pps.API/ListPipeline":    authenticated,
-	"/pps.API/DeletePipeline":  authenticated,
-	"/pps.API/StartPipeline":   authenticated,
-	"/pps.API/StopPipeline":    authenticated,
-	"/pps.API/RunPipeline":     authenticated,
-	"/pps.API/RunCron":         authenticated,
-	"/pps.API/CreateSecret":    authenticated,
-	"/pps.API/DeleteSecret":    authenticated,
-	"/pps.API/ListSecret":      authenticated,
-	"/pps.API/InspectSecret":   authenticated,
-	"/pps.API/GetLogs":         authenticated,
-	"/pps.API/GarbageCollect":  authenticated,
-	"/pps.API/ActivateAuth":    authenticated,
-	"/pps.API/UpdateJobState":  authenticated,
-	"/pps.API/DeleteAll":       adminOnly,
+	"/pps.API/CreateJob":       authDisabledOr(authenticated),
+	"/pps.API/InspectJob":      authDisabledOr(authenticated),
+	"/pps.API/ListJob":         authDisabledOr(authenticated),
+	"/pps.API/ListJobStream":   authDisabledOr(authenticated),
+	"/pps.API/FlushJob":        authDisabledOr(authenticated),
+	"/pps.API/DeleteJob":       authDisabledOr(authenticated),
+	"/pps.API/StopJob":         authDisabledOr(authenticated),
+	"/pps.API/InspectDatum":    authDisabledOr(authenticated),
+	"/pps.API/ListDatum":       authDisabledOr(authenticated),
+	"/pps.API/ListDatumStream": authDisabledOr(authenticated),
+	"/pps.API/RestartDatum":    authDisabledOr(authenticated),
+	"/pps.API/CreatePipeline":  authDisabledOr(authenticated),
+	"/pps.API/InspectPipeline": authDisabledOr(authenticated),
+	"/pps.API/ListPipeline":    authDisabledOr(authenticated),
+	"/pps.API/DeletePipeline":  authDisabledOr(authenticated),
+	"/pps.API/StartPipeline":   authDisabledOr(authenticated),
+	"/pps.API/StopPipeline":    authDisabledOr(authenticated),
+	"/pps.API/RunPipeline":     authDisabledOr(authenticated),
+	"/pps.API/RunCron":         authDisabledOr(authenticated),
+	"/pps.API/CreateSecret":    authDisabledOr(authenticated),
+	"/pps.API/DeleteSecret":    authDisabledOr(authenticated),
+	"/pps.API/ListSecret":      authDisabledOr(authenticated),
+	"/pps.API/InspectSecret":   authDisabledOr(authenticated),
+	"/pps.API/GetLogs":         authDisabledOr(authenticated),
+	"/pps.API/GarbageCollect":  authDisabledOr(authenticated),
+	"/pps.API/UpdateJobState":  authDisabledOr(authenticated),
+	"/pps.API/ActivateAuth":    authPartialOr(authenticated),
+	"/pps.API/DeleteAll":       authDisabledOr(admin),
 
 	//
 	// TransactionAPI
 	//
 
-	"/transaction.API/BatchTransaction":   authenticated,
-	"/transaction.API/StartTransaction":   authenticated,
-	"/transaction.API/InspectTransaction": authenticated,
-	"/transaction.API/DeleteTransaction":  authenticated,
-	"/transaction.API/ListTransaction":    authenticated,
-	"/transaction.API/FinishTransaction":  authenticated,
-	"/transaction.API/DeleteAll":          adminOnly,
+	"/transaction.API/BatchTransaction":   authDisabledOr(authenticated),
+	"/transaction.API/StartTransaction":   authDisabledOr(authenticated),
+	"/transaction.API/InspectTransaction": authDisabledOr(authenticated),
+	"/transaction.API/DeleteTransaction":  authDisabledOr(authenticated),
+	"/transaction.API/ListTransaction":    authDisabledOr(authenticated),
+	"/transaction.API/FinishTransaction":  authDisabledOr(authenticated),
+	"/transaction.API/DeleteAll":          authDisabledOr(admin),
 
 	//
 	// Version API
 	//
 
-	"/versionpb.API/GetVersion": authenticated,
+	"/versionpb.API/GetVersion": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor
@@ -235,13 +235,14 @@ type Interceptor struct {
 
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	pachClient := i.env.GetPachClient(ctx)
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(i).unary(ctx, info, req); err != nil {
+	if err := a(pachClient, info.FullMethod); err != nil {
 		logrus.Errorf("denied unary call %q\n", info.FullMethod)
 		return nil, err
 	}
@@ -250,13 +251,14 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 
 // InterceptStream applies authentication rules to streaming RPCs
 func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	pachClient := i.env.GetPachClient(stream.Context())
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
 		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	if err := a(i).stream(stream.Context(), info, nil); err != nil {
+	if err := a(pachClient, info.FullMethod); err != nil {
 		logrus.Errorf("denied streaming call %q\n", info.FullMethod)
 		return err
 	}
