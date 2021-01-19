@@ -55,12 +55,71 @@ func (State) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_33f079c38c86fe97, []int{0}
 }
 
-// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
-// token that has been provided to a Pachyderm cluster
-type EnterpriseRecord struct {
-	ActivationCode string `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
-	// expires is a timestamp indicating when this activation code will expire.
+// LicenseRecord is the record we store in etcd for a Pachyderm enterprise
+// token that has been provided to a Pachyderm license server
+type LicenseRecord struct {
+	ActivationCode       string           `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
 	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires,proto3" json:"expires,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *LicenseRecord) Reset()         { *m = LicenseRecord{} }
+func (m *LicenseRecord) String() string { return proto.CompactTextString(m) }
+func (*LicenseRecord) ProtoMessage()    {}
+func (*LicenseRecord) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{0}
+}
+func (m *LicenseRecord) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LicenseRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LicenseRecord.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LicenseRecord) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LicenseRecord.Merge(m, src)
+}
+func (m *LicenseRecord) XXX_Size() int {
+	return m.Size()
+}
+func (m *LicenseRecord) XXX_DiscardUnknown() {
+	xxx_messageInfo_LicenseRecord.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LicenseRecord proto.InternalMessageInfo
+
+func (m *LicenseRecord) GetActivationCode() string {
+	if m != nil {
+		return m.ActivationCode
+	}
+	return ""
+}
+
+func (m *LicenseRecord) GetExpires() *types.Timestamp {
+	if m != nil {
+		return m.Expires
+	}
+	return nil
+}
+
+// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
+// that is registered with a license server
+type EnterpriseRecord struct {
+	LicenseServer        string           `protobuf:"bytes,1,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
+	Id                   string           `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Secret               string           `protobuf:"bytes,3,opt,name=secret,proto3" json:"secret,omitempty"`
+	LastHeartbeat        *types.Timestamp `protobuf:"bytes,4,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"`
+	License              *LicenseRecord   `protobuf:"bytes,5,opt,name=license,proto3" json:"license,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -70,7 +129,7 @@ func (m *EnterpriseRecord) Reset()         { *m = EnterpriseRecord{} }
 func (m *EnterpriseRecord) String() string { return proto.CompactTextString(m) }
 func (*EnterpriseRecord) ProtoMessage()    {}
 func (*EnterpriseRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{0}
+	return fileDescriptor_33f079c38c86fe97, []int{1}
 }
 func (m *EnterpriseRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -99,16 +158,37 @@ func (m *EnterpriseRecord) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EnterpriseRecord proto.InternalMessageInfo
 
-func (m *EnterpriseRecord) GetActivationCode() string {
+func (m *EnterpriseRecord) GetLicenseServer() string {
 	if m != nil {
-		return m.ActivationCode
+		return m.LicenseServer
 	}
 	return ""
 }
 
-func (m *EnterpriseRecord) GetExpires() *types.Timestamp {
+func (m *EnterpriseRecord) GetId() string {
 	if m != nil {
-		return m.Expires
+		return m.Id
+	}
+	return ""
+}
+
+func (m *EnterpriseRecord) GetSecret() string {
+	if m != nil {
+		return m.Secret
+	}
+	return ""
+}
+
+func (m *EnterpriseRecord) GetLastHeartbeat() *types.Timestamp {
+	if m != nil {
+		return m.LastHeartbeat
+	}
+	return nil
+}
+
+func (m *EnterpriseRecord) GetLicense() *LicenseRecord {
+	if m != nil {
+		return m.License
 	}
 	return nil
 }
@@ -127,7 +207,7 @@ func (m *TokenInfo) Reset()         { *m = TokenInfo{} }
 func (m *TokenInfo) String() string { return proto.CompactTextString(m) }
 func (*TokenInfo) ProtoMessage()    {}
 func (*TokenInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{1}
+	return fileDescriptor_33f079c38c86fe97, []int{2}
 }
 func (m *TokenInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -164,24 +244,19 @@ func (m *TokenInfo) GetExpires() *types.Timestamp {
 }
 
 type ActivateRequest struct {
-	// activation_code is a Pachyderm enterprise activation code. New users can
-	// obtain trial activation codes
-	ActivationCode string `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
-	// expires is a timestamp indicating when this activation code will expire.
-	// This should not generally be set (it's primarily used for testing), and is
-	// only applied if it's earlier than the signed expiration time in
-	// 'activation_code'.
-	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires,proto3" json:"expires,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	LicenseServer        string   `protobuf:"bytes,3,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
+	Id                   string   `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
+	Secret               string   `protobuf:"bytes,5,opt,name=secret,proto3" json:"secret,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ActivateRequest) Reset()         { *m = ActivateRequest{} }
 func (m *ActivateRequest) String() string { return proto.CompactTextString(m) }
 func (*ActivateRequest) ProtoMessage()    {}
 func (*ActivateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{2}
+	return fileDescriptor_33f079c38c86fe97, []int{3}
 }
 func (m *ActivateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -210,32 +285,38 @@ func (m *ActivateRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActivateRequest proto.InternalMessageInfo
 
-func (m *ActivateRequest) GetActivationCode() string {
+func (m *ActivateRequest) GetLicenseServer() string {
 	if m != nil {
-		return m.ActivationCode
+		return m.LicenseServer
 	}
 	return ""
 }
 
-func (m *ActivateRequest) GetExpires() *types.Timestamp {
+func (m *ActivateRequest) GetId() string {
 	if m != nil {
-		return m.Expires
+		return m.Id
 	}
-	return nil
+	return ""
+}
+
+func (m *ActivateRequest) GetSecret() string {
+	if m != nil {
+		return m.Secret
+	}
+	return ""
 }
 
 type ActivateResponse struct {
-	Info                 *TokenInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ActivateResponse) Reset()         { *m = ActivateResponse{} }
 func (m *ActivateResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateResponse) ProtoMessage()    {}
 func (*ActivateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{3}
+	return fileDescriptor_33f079c38c86fe97, []int{4}
 }
 func (m *ActivateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -264,13 +345,6 @@ func (m *ActivateResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActivateResponse proto.InternalMessageInfo
 
-func (m *ActivateResponse) GetInfo() *TokenInfo {
-	if m != nil {
-		return m.Info
-	}
-	return nil
-}
-
 type GetStateRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -281,7 +355,7 @@ func (m *GetStateRequest) Reset()         { *m = GetStateRequest{} }
 func (m *GetStateRequest) String() string { return proto.CompactTextString(m) }
 func (*GetStateRequest) ProtoMessage()    {}
 func (*GetStateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{4}
+	return fileDescriptor_33f079c38c86fe97, []int{5}
 }
 func (m *GetStateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -325,7 +399,7 @@ func (m *GetStateResponse) Reset()         { *m = GetStateResponse{} }
 func (m *GetStateResponse) String() string { return proto.CompactTextString(m) }
 func (*GetStateResponse) ProtoMessage()    {}
 func (*GetStateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{5}
+	return fileDescriptor_33f079c38c86fe97, []int{6}
 }
 func (m *GetStateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -385,7 +459,7 @@ func (m *GetActivationCodeRequest) Reset()         { *m = GetActivationCodeReque
 func (m *GetActivationCodeRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActivationCodeRequest) ProtoMessage()    {}
 func (*GetActivationCodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{6}
+	return fileDescriptor_33f079c38c86fe97, []int{7}
 }
 func (m *GetActivationCodeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -427,7 +501,7 @@ func (m *GetActivationCodeResponse) Reset()         { *m = GetActivationCodeResp
 func (m *GetActivationCodeResponse) String() string { return proto.CompactTextString(m) }
 func (*GetActivationCodeResponse) ProtoMessage()    {}
 func (*GetActivationCodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{7}
+	return fileDescriptor_33f079c38c86fe97, []int{8}
 }
 func (m *GetActivationCodeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -487,7 +561,7 @@ func (m *DeactivateRequest) Reset()         { *m = DeactivateRequest{} }
 func (m *DeactivateRequest) String() string { return proto.CompactTextString(m) }
 func (*DeactivateRequest) ProtoMessage()    {}
 func (*DeactivateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{8}
+	return fileDescriptor_33f079c38c86fe97, []int{9}
 }
 func (m *DeactivateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -526,7 +600,7 @@ func (m *DeactivateResponse) Reset()         { *m = DeactivateResponse{} }
 func (m *DeactivateResponse) String() string { return proto.CompactTextString(m) }
 func (*DeactivateResponse) ProtoMessage()    {}
 func (*DeactivateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{9}
+	return fileDescriptor_33f079c38c86fe97, []int{10}
 }
 func (m *DeactivateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -557,6 +631,7 @@ var xxx_messageInfo_DeactivateResponse proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterEnum("enterprise.State", State_name, State_value)
+	proto.RegisterType((*LicenseRecord)(nil), "enterprise.LicenseRecord")
 	proto.RegisterType((*EnterpriseRecord)(nil), "enterprise.EnterpriseRecord")
 	proto.RegisterType((*TokenInfo)(nil), "enterprise.TokenInfo")
 	proto.RegisterType((*ActivateRequest)(nil), "enterprise.ActivateRequest")
@@ -572,37 +647,43 @@ func init() {
 func init() { proto.RegisterFile("enterprise/enterprise.proto", fileDescriptor_33f079c38c86fe97) }
 
 var fileDescriptor_33f079c38c86fe97 = []byte{
-	// 470 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0xcd, 0xa6, 0xdf, 0x53, 0xa9, 0x71, 0x16, 0x90, 0x82, 0x0b, 0xa1, 0x5a, 0x81, 0x5a, 0x7a,
-	0xb0, 0x51, 0xe0, 0x0a, 0x92, 0x69, 0xad, 0xc8, 0x07, 0x4a, 0x65, 0x22, 0x84, 0xb8, 0x20, 0x7f,
-	0x4c, 0x52, 0x0b, 0xe2, 0x75, 0xbd, 0x9b, 0x0a, 0x7e, 0x05, 0x57, 0x7e, 0x12, 0xe2, 0xc4, 0x4f,
-	0x40, 0xf9, 0x25, 0xa8, 0x76, 0x6d, 0xaf, 0x5d, 0xa3, 0x72, 0x41, 0xe2, 0xb6, 0x7a, 0xf3, 0xf6,
-	0xbd, 0xe7, 0x99, 0xf1, 0xc2, 0x2e, 0xc6, 0x12, 0xd3, 0x24, 0x8d, 0x04, 0x9a, 0xd5, 0xd1, 0x48,
-	0x52, 0x2e, 0x39, 0x85, 0x0a, 0xd1, 0x1f, 0xcc, 0x38, 0x9f, 0x7d, 0x42, 0x33, 0xab, 0xf8, 0x8b,
-	0xa9, 0x29, 0xa3, 0x39, 0x0a, 0xe9, 0xcd, 0x93, 0x9c, 0xcc, 0xce, 0x41, 0xb3, 0x4b, 0xba, 0x8b,
-	0x01, 0x4f, 0x43, 0xba, 0x0f, 0x3d, 0x2f, 0x90, 0xd1, 0x85, 0x27, 0x23, 0x1e, 0x7f, 0x08, 0x78,
-	0x88, 0x03, 0xb2, 0x47, 0x0e, 0xb6, 0xdc, 0x9d, 0x0a, 0x3e, 0xe2, 0x21, 0xd2, 0x67, 0xb0, 0x81,
-	0x9f, 0x93, 0x28, 0x45, 0x31, 0xe8, 0xee, 0x91, 0x83, 0xed, 0x91, 0x6e, 0xe4, 0x7e, 0x46, 0xe1,
-	0x67, 0x4c, 0x0a, 0x3f, 0xb7, 0xa0, 0x32, 0x0b, 0xb6, 0x26, 0xfc, 0x23, 0xc6, 0x4e, 0x3c, 0xe5,
-	0xaa, 0x04, 0xf9, 0x7b, 0x89, 0x04, 0x7a, 0x56, 0x1e, 0x05, 0x5d, 0x3c, 0x5f, 0xa0, 0x90, 0xff,
-	0x3a, 0xf4, 0x73, 0xd0, 0x2a, 0x47, 0x91, 0xf0, 0x58, 0x20, 0x7d, 0x0c, 0xab, 0x51, 0x3c, 0xe5,
-	0x57, 0xc1, 0xef, 0x18, 0xca, 0x24, 0xca, 0x0f, 0x74, 0x33, 0x0a, 0xeb, 0x43, 0x6f, 0x8c, 0xf2,
-	0x8d, 0xac, 0x02, 0xb3, 0xaf, 0x04, 0xb4, 0x0a, 0xbb, 0x92, 0xdc, 0x87, 0x35, 0x71, 0x09, 0x64,
-	0x9a, 0x3b, 0xa3, 0xbe, 0xaa, 0x99, 0x33, 0xf3, 0x7a, 0xe9, 0xdd, 0xbd, 0xd1, 0xbb, 0xad, 0x33,
-	0x2b, 0x6d, 0x9d, 0x61, 0x3a, 0x0c, 0xc6, 0x28, 0xad, 0x1a, 0x58, 0xa4, 0xfd, 0x46, 0xe0, 0x6e,
-	0x4b, 0xf1, 0x7f, 0x88, 0x7d, 0x0b, 0xfa, 0xc7, 0xe8, 0xd5, 0xd7, 0x81, 0xdd, 0x06, 0xaa, 0x82,
-	0x79, 0xce, 0xc3, 0x43, 0x58, 0xcb, 0xe2, 0xd0, 0x4d, 0x58, 0x3d, 0x79, 0x7d, 0x62, 0x6b, 0x1d,
-	0x0a, 0xb0, 0x6e, 0x1d, 0x4d, 0x9c, 0xb7, 0xb6, 0x46, 0xe8, 0x36, 0x6c, 0xd8, 0xef, 0x4e, 0x1d,
-	0xd7, 0x3e, 0xd6, 0xba, 0xa3, 0x1f, 0x5d, 0x58, 0xb1, 0x4e, 0x1d, 0x3a, 0x86, 0xcd, 0x62, 0xf2,
-	0x74, 0x57, 0x0d, 0xdc, 0xd8, 0x40, 0xfd, 0x5e, 0x7b, 0x31, 0xb7, 0x66, 0x9d, 0x4b, 0xa1, 0x62,
-	0xde, 0x75, 0xa1, 0xc6, 0x66, 0xd4, 0x85, 0x9a, 0x2b, 0xc2, 0x3a, 0xd4, 0x87, 0xfe, 0xb5, 0x51,
-	0xd0, 0x87, 0x8d, 0x4b, 0xad, 0x63, 0xd4, 0x1f, 0xdd, 0xc0, 0x2a, 0x3d, 0x5e, 0x01, 0x54, 0xfd,
-	0xa3, 0xf7, 0xd5, 0x6b, 0xd7, 0x9a, 0xad, 0x0f, 0xff, 0x54, 0x2e, 0xe4, 0x5e, 0xbe, 0xf8, 0xbe,
-	0x1c, 0x92, 0x9f, 0xcb, 0x21, 0xf9, 0xb5, 0x1c, 0x92, 0xf7, 0x4f, 0x66, 0x91, 0x3c, 0x5b, 0xf8,
-	0x46, 0xc0, 0xe7, 0x66, 0xe2, 0x05, 0x67, 0x5f, 0x42, 0x4c, 0xd5, 0xd3, 0xc5, 0xc8, 0x14, 0x69,
-	0xa0, 0xbc, 0x6c, 0xfe, 0x7a, 0xf6, 0x6f, 0x3e, 0xfd, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x4c, 0xff,
-	0x7a, 0xbf, 0xf9, 0x04, 0x00, 0x00,
+	// 576 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0xdf, 0x6f, 0xd2, 0x60,
+	0x14, 0xdd, 0x57, 0xca, 0x06, 0x77, 0x01, 0xca, 0xe7, 0x8f, 0x74, 0x9d, 0xe2, 0xd2, 0xb8, 0x6c,
+	0xee, 0xa1, 0x18, 0xe6, 0xb3, 0x49, 0xdd, 0x08, 0xb2, 0xe8, 0x5c, 0x3a, 0x62, 0x8c, 0x2f, 0xa4,
+	0xb4, 0x17, 0x68, 0x84, 0x7e, 0xb5, 0xfd, 0x20, 0xfa, 0x57, 0xf8, 0xea, 0x9f, 0x64, 0x7c, 0xf2,
+	0xd5, 0x37, 0xc3, 0x5f, 0x62, 0xe8, 0x0f, 0x5a, 0x58, 0x97, 0xf9, 0xe8, 0x5b, 0x39, 0xf7, 0xdc,
+	0x7b, 0x4e, 0xcf, 0xbd, 0x14, 0xf6, 0xd1, 0xe5, 0xe8, 0x7b, 0xbe, 0x13, 0x60, 0x33, 0x7d, 0xd4,
+	0x3c, 0x9f, 0x71, 0x46, 0x21, 0x45, 0x94, 0x27, 0x23, 0xc6, 0x46, 0x13, 0x6c, 0x86, 0x95, 0xc1,
+	0x6c, 0xd8, 0xe4, 0xce, 0x14, 0x03, 0x6e, 0x4e, 0xbd, 0x88, 0xac, 0xba, 0x50, 0x79, 0xe3, 0x58,
+	0xe8, 0x06, 0x68, 0xa0, 0xc5, 0x7c, 0x9b, 0x1e, 0x41, 0xcd, 0xb4, 0xb8, 0x33, 0x37, 0xb9, 0xc3,
+	0xdc, 0xbe, 0xc5, 0x6c, 0x94, 0xc9, 0x01, 0x39, 0x2e, 0x1b, 0xd5, 0x14, 0x3e, 0x63, 0x36, 0xd2,
+	0x17, 0xb0, 0x83, 0x5f, 0x3c, 0xc7, 0xc7, 0x40, 0x16, 0x0e, 0xc8, 0xf1, 0x6e, 0x4b, 0xd1, 0x22,
+	0x31, 0x2d, 0x11, 0xd3, 0x7a, 0x89, 0x98, 0x91, 0x50, 0xd5, 0xdf, 0x04, 0xa4, 0xf6, 0xca, 0x5f,
+	0xac, 0x79, 0x08, 0xd5, 0x49, 0x64, 0xa2, 0x1f, 0xa0, 0x3f, 0x47, 0x3f, 0x96, 0xac, 0xc4, 0xe8,
+	0x75, 0x08, 0xd2, 0x2a, 0x08, 0x8e, 0x1d, 0x8a, 0x95, 0x0d, 0xc1, 0xb1, 0xe9, 0x43, 0xd8, 0x0e,
+	0xd0, 0xf2, 0x91, 0xcb, 0x85, 0x10, 0x8b, 0x7f, 0x51, 0x1d, 0xaa, 0x13, 0x33, 0xe0, 0xfd, 0x31,
+	0x9a, 0x3e, 0x1f, 0xa0, 0xc9, 0x65, 0xf1, 0x4e, 0x83, 0x95, 0x65, 0xc7, 0xeb, 0xa4, 0x81, 0x9e,
+	0xc2, 0x4e, 0xac, 0x2d, 0x17, 0xc3, 0xde, 0x3d, 0x2d, 0x93, 0xf3, 0x5a, 0x62, 0x46, 0xc2, 0x54,
+	0x75, 0x28, 0xf7, 0xd8, 0x27, 0x74, 0xbb, 0xee, 0x90, 0x65, 0xe3, 0x21, 0xff, 0x1e, 0xcf, 0x04,
+	0x6a, 0x7a, 0x14, 0x33, 0x1a, 0xf8, 0x79, 0x86, 0x01, 0xcf, 0x09, 0xa7, 0x70, 0x7b, 0x38, 0x62,
+	0x4e, 0x38, 0xc5, 0x6c, 0x38, 0x17, 0x62, 0x89, 0x48, 0xc2, 0x85, 0x58, 0x12, 0xa4, 0x82, 0x4a,
+	0x41, 0x4a, 0xd5, 0x02, 0x8f, 0x2d, 0x5f, 0xa2, 0x0e, 0xb5, 0x0e, 0xf2, 0x6b, 0x9e, 0x3a, 0x50,
+	0xbf, 0x11, 0x90, 0x52, 0x2c, 0xe2, 0xd1, 0x23, 0x28, 0x06, 0x4b, 0x20, 0x7c, 0xbb, 0x6a, 0xab,
+	0x9e, 0xcd, 0x27, 0x62, 0x46, 0x75, 0xfa, 0x0c, 0x44, 0xc7, 0x1d, 0xb2, 0xf8, 0x48, 0x1e, 0x64,
+	0x79, 0xab, 0xb4, 0x8c, 0x90, 0x92, 0x77, 0x7b, 0x85, 0xbc, 0xdb, 0x53, 0x15, 0x90, 0x3b, 0xc8,
+	0xf5, 0x35, 0x30, 0x71, 0xfb, 0x9d, 0xc0, 0x5e, 0x4e, 0xf1, 0x7f, 0xb0, 0x7d, 0x0f, 0xea, 0xe7,
+	0x68, 0xae, 0xef, 0x57, 0xbd, 0x0f, 0x34, 0x0b, 0x46, 0x3e, 0x4f, 0x4e, 0xa0, 0x18, 0xda, 0xa1,
+	0x25, 0x10, 0x2f, 0xdf, 0x5d, 0xb6, 0xa5, 0x2d, 0x0a, 0xb0, 0xad, 0x9f, 0xf5, 0xba, 0xef, 0xdb,
+	0x12, 0xa1, 0xbb, 0xb0, 0xd3, 0xfe, 0x70, 0xd5, 0x35, 0xda, 0xe7, 0x92, 0xd0, 0xfa, 0x29, 0x40,
+	0x41, 0xbf, 0xea, 0xd2, 0x0e, 0x94, 0x92, 0x75, 0xd2, 0xfd, 0xac, 0xe1, 0x8d, 0x93, 0x52, 0x1e,
+	0xe5, 0x17, 0xe3, 0x0b, 0xd8, 0x5a, 0x0e, 0x4a, 0xf6, 0xbd, 0x3e, 0x68, 0xe3, 0x32, 0xd6, 0x07,
+	0x6d, 0x9e, 0x88, 0xba, 0x45, 0x07, 0x50, 0xbf, 0xb1, 0x0a, 0xfa, 0x74, 0xa3, 0x29, 0x77, 0x8d,
+	0xca, 0xe1, 0x1d, 0xac, 0x95, 0xc6, 0x5b, 0x80, 0x34, 0x3f, 0xfa, 0x38, 0xdb, 0x76, 0x23, 0x6c,
+	0xa5, 0x71, 0x5b, 0x39, 0x19, 0xf7, 0xea, 0xe5, 0x8f, 0x45, 0x83, 0xfc, 0x5a, 0x34, 0xc8, 0x9f,
+	0x45, 0x83, 0x7c, 0x7c, 0x3e, 0x72, 0xf8, 0x78, 0x36, 0xd0, 0x2c, 0x36, 0x6d, 0x7a, 0xa6, 0x35,
+	0xfe, 0x6a, 0xa3, 0x9f, 0x7d, 0x9a, 0xb7, 0x9a, 0x81, 0x6f, 0x65, 0xbe, 0xc1, 0x83, 0xed, 0xf0,
+	0xef, 0x7d, 0xfa, 0x37, 0x00, 0x00, 0xff, 0xff, 0xc6, 0xd8, 0xf1, 0x51, 0xa3, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -622,13 +703,8 @@ type APIClient interface {
 	Activate(ctx context.Context, in *ActivateRequest, opts ...grpc.CallOption) (*ActivateResponse, error)
 	GetState(ctx context.Context, in *GetStateRequest, opts ...grpc.CallOption) (*GetStateResponse, error)
 	GetActivationCode(ctx context.Context, in *GetActivationCodeRequest, opts ...grpc.CallOption) (*GetActivationCodeResponse, error)
-	// Deactivate is a testing API. It removes a cluster's enterprise activation
-	// token and sets its enterprise state to NONE (normally, once a cluster has
-	// been activated, the only reachable state is EXPIRED).
-	//
-	// NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
-	// its cluster). This is to avoid dealing with invalid, intermediate states
-	// (e.g. auth is activated but enterprise state is NONE)
+	// Deactivate removes a cluster's enterprise activation
+	// token and sets its enterprise state to NONE.
 	Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error)
 }
 
@@ -683,13 +759,8 @@ type APIServer interface {
 	Activate(context.Context, *ActivateRequest) (*ActivateResponse, error)
 	GetState(context.Context, *GetStateRequest) (*GetStateResponse, error)
 	GetActivationCode(context.Context, *GetActivationCodeRequest) (*GetActivationCodeResponse, error)
-	// Deactivate is a testing API. It removes a cluster's enterprise activation
-	// token and sets its enterprise state to NONE (normally, once a cluster has
-	// been activated, the only reachable state is EXPIRED).
-	//
-	// NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
-	// its cluster). This is to avoid dealing with invalid, intermediate states
-	// (e.g. auth is activated but enterprise state is NONE)
+	// Deactivate removes a cluster's enterprise activation
+	// token and sets its enterprise state to NONE.
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
 }
 
@@ -811,7 +882,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	Metadata: "enterprise/enterprise.proto",
 }
 
-func (m *EnterpriseRecord) Marshal() (dAtA []byte, err error) {
+func (m *LicenseRecord) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -821,12 +892,12 @@ func (m *EnterpriseRecord) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *EnterpriseRecord) MarshalTo(dAtA []byte) (int, error) {
+func (m *LicenseRecord) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *EnterpriseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LicenseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -851,6 +922,78 @@ func (m *EnterpriseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.ActivationCode)
 		copy(dAtA[i:], m.ActivationCode)
 		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.ActivationCode)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EnterpriseRecord) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnterpriseRecord) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnterpriseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.License != nil {
+		{
+			size, err := m.License.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnterprise(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.LastHeartbeat != nil {
+		{
+			size, err := m.LastHeartbeat.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnterprise(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Secret) > 0 {
+		i -= len(m.Secret)
+		copy(dAtA[i:], m.Secret)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Secret)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.LicenseServer) > 0 {
+		i -= len(m.LicenseServer)
+		copy(dAtA[i:], m.LicenseServer)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.LicenseServer)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -920,24 +1063,26 @@ func (m *ActivateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Expires != nil {
-		{
-			size, err := m.Expires.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintEnterprise(dAtA, i, uint64(size))
-		}
+	if len(m.Secret) > 0 {
+		i -= len(m.Secret)
+		copy(dAtA[i:], m.Secret)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Secret)))
 		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0x2a
 	}
-	if len(m.ActivationCode) > 0 {
-		i -= len(m.ActivationCode)
-		copy(dAtA[i:], m.ActivationCode)
-		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.ActivationCode)))
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Id)))
 		i--
-		dAtA[i] = 0xa
+		dAtA[i] = 0x22
+	}
+	if len(m.LicenseServer) > 0 {
+		i -= len(m.LicenseServer)
+		copy(dAtA[i:], m.LicenseServer)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.LicenseServer)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	return len(dAtA) - i, nil
 }
@@ -965,18 +1110,6 @@ func (m *ActivateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Info != nil {
-		{
-			size, err := m.Info.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintEnterprise(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -1202,7 +1335,7 @@ func encodeVarintEnterprise(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *EnterpriseRecord) Size() (n int) {
+func (m *LicenseRecord) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1214,6 +1347,38 @@ func (m *EnterpriseRecord) Size() (n int) {
 	}
 	if m.Expires != nil {
 		l = m.Expires.Size()
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EnterpriseRecord) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.LicenseServer)
+	if l > 0 {
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	l = len(m.Secret)
+	if l > 0 {
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	if m.LastHeartbeat != nil {
+		l = m.LastHeartbeat.Size()
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	if m.License != nil {
+		l = m.License.Size()
 		n += 1 + l + sovEnterprise(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -1244,12 +1409,16 @@ func (m *ActivateRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	l = len(m.ActivationCode)
+	l = len(m.LicenseServer)
 	if l > 0 {
 		n += 1 + l + sovEnterprise(uint64(l))
 	}
-	if m.Expires != nil {
-		l = m.Expires.Size()
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	l = len(m.Secret)
+	if l > 0 {
 		n += 1 + l + sovEnterprise(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -1264,10 +1433,6 @@ func (m *ActivateResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Info != nil {
-		l = m.Info.Size()
-		n += 1 + l + sovEnterprise(uint64(l))
-	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1374,7 +1539,7 @@ func sovEnterprise(x uint64) (n int) {
 func sozEnterprise(x uint64) (n int) {
 	return sovEnterprise(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
+func (m *LicenseRecord) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1397,10 +1562,10 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: EnterpriseRecord: wiretype end group for non-group")
+			return fmt.Errorf("proto: LicenseRecord: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: EnterpriseRecord: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: LicenseRecord: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1468,6 +1633,225 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				m.Expires = &types.Timestamp{}
 			}
 			if err := m.Expires.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EnterpriseRecord: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EnterpriseRecord: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LicenseServer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LicenseServer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Secret", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Secret = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastHeartbeat", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LastHeartbeat == nil {
+				m.LastHeartbeat = &types.Timestamp{}
+			}
+			if err := m.LastHeartbeat.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field License", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.License == nil {
+				m.License = &LicenseRecord{}
+			}
+			if err := m.License.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1609,9 +1993,9 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: ActivateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
+		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ActivationCode", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field LicenseServer", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1639,13 +2023,13 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ActivationCode = string(dAtA[iNdEx:postIndex])
+			m.LicenseServer = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 2:
+		case 4:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Expires", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
 			}
-			var msglen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowEnterprise
@@ -1655,27 +2039,55 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if msglen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return ErrInvalidLengthEnterprise
 			}
-			postIndex := iNdEx + msglen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Expires == nil {
-				m.Expires = &types.Timestamp{}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Secret", wireType)
 			}
-			if err := m.Expires.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
 			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Secret = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1728,42 +2140,6 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: ActivateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Info", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowEnterprise
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthEnterprise
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthEnterprise
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Info == nil {
-				m.Info = &TokenInfo{}
-			}
-			if err := m.Info.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipEnterprise(dAtA[iNdEx:])

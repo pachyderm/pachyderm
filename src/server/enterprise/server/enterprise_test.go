@@ -26,12 +26,12 @@ func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
 	client := testutil.GetPachClient(t)
 
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
-	require.NoError(t, err)
+	testutil.ActivateEnterprise(t, client)
+
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
@@ -62,11 +62,22 @@ func TestGetState(t *testing.T) {
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
 	require.NoError(t, err)
-	_, err = client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{
+
+	_, err = client.License.Activate(context.Background(),
+		&lc.ActivateRequest{
 			ActivationCode: testutil.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
 		})
+	require.NoError(t, err)
+
+	_, err = client.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{
+			Id:            "localhost",
+			Secret:        "localhost",
+			LicenseServer: "localhost:650",
+		})
+	require.NoError(t, err)
+
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
@@ -99,12 +110,12 @@ func TestGetActivationCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
 	client := testutil.GetPachClient(t)
 
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
-	require.NoError(t, err)
+	testutil.ActivateEnterprise(t, client)
+
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetActivationCode(context.Background(),
 			&enterprise.GetActivationCodeRequest{})
@@ -131,12 +142,20 @@ func TestGetActivationCode(t *testing.T) {
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
 	require.NoError(t, err)
-	_, err = client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{
+	_, err = client.License.Activate(context.Background(),
+		&lc.ActivateRequest{
 			ActivationCode: testutil.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
 		})
 	require.NoError(t, err)
+	_, err = client.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{
+			Id:            "localhost",
+			Secret:        "localhost",
+			LicenseServer: "localhost:650",
+		})
+	require.NoError(t, err)
+
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetActivationCode(context.Background(),
 			&enterprise.GetActivationCodeRequest{})
@@ -177,12 +196,14 @@ func TestDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
 	client := testutil.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	_, err := client.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode(t)})
-	require.NoError(t, err)
+	testutil.ActivateEnterprise(t, client)
+
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
@@ -196,7 +217,7 @@ func TestDeactivate(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Deactivate cluster and make sure its state is NONE
-	_, err = client.Enterprise.Deactivate(context.Background(),
+	_, err := client.Enterprise.Deactivate(context.Background(),
 		&enterprise.DeactivateRequest{})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -219,6 +240,9 @@ func TestDoubleDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
 	client := testutil.GetPachClient(t)
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be

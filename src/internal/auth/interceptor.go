@@ -103,6 +103,20 @@ var authHandlers = map[string]authHandler{
 	"/identity.API/DeleteAll":               admin,
 
 	//
+	// License API
+	//
+	"/license.API/Activate":          authDisabledOr(admin),
+	"/license.API/GetActivationCode": authDisabledOr(admin),
+	"/license.API/Deactivate":        authDisabledOr(admin),
+	"/license.API/AddCluster":        authDisabledOr(admin),
+	"/license.API/UpdateCluster":     authDisabledOr(admin),
+	"/license.API/DeleteCluster":     authDisabledOr(admin),
+	"/license.API/ListClusters":      authDisabledOr(admin),
+	"/license.API/DeleteAll":         authDisabledOr(admin),
+	// Heartbeat relies on the shared secret generated at cluster registration-time
+	"/license.API/Heartbeat": unauthenticated,
+
+	//
 	// PFS API
 	//
 

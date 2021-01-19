@@ -46,7 +46,9 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	if err != nil {
 		return nil, err
 	}
-	defaultEnterpriseRecord := &ec.EnterpriseRecord{Expires: defaultExpires}
+	defaultEnterpriseRecord := &ec.EnterpriseRecord{
+		License: &ec.LicenseRecord{Expires: defaultExpires},
+	}
 	enterpriseToken := col.NewCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
@@ -66,35 +68,55 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	return s, nil
 }
 
+func (a *apiServer) heartbeat(ctx context.Context, licenseServer, id, secret string) error {
+	localClient := a.env.GetPachClient(ctx)
+	versionResp, err := localClient.Version()
+	if err != nil {
+		return err
+	}
+
+	authEnabled, err := localClient.IsAuthActive()
+	if err != nil {
+		return err
+	}
+
+	pachClient, err := client.NewFromAddress(licenseServer)
+	if err != nil {
+		return err
+	}
+
+	resp, err := pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
+		Id:          id,
+		Secret:      secret,
+		Version:     versionResp,
+		AuthEnabled: authEnabled,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		e := a.enterpriseToken.ReadWrite(stm)
+		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+			LicenseServer: licenseServer,
+			Id:            id,
+			Secret:        secret,
+			LastHeartbeat: types.TimestampNow(),
+			License:       resp.License,
+		})
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	// Validate the activation code
-	expiration, err := license.Validate(req.ActivationCode)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error validating activation code")
-	}
-	// Allow request to override expiration in the activation code, for testing
-	if req.Expires != nil {
-		customExpiration, err := types.TimestampFromProto(req.Expires)
-		if err == nil && expiration.After(customExpiration) {
-			expiration = customExpiration
-		}
-	}
-	expirationProto, err := types.TimestampProto(expiration)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not convert expiration time \"%s\" to proto", expiration.String())
-	}
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		e := a.enterpriseToken.ReadWrite(stm)
-		// blind write
-		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
-			ActivationCode: req.ActivationCode,
-			Expires:        expirationProto,
-		})
-	}); err != nil {
+	if err := a.heartbeat(ctx, req.LicenseServer, req.Id, req.Secret); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +126,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		if !ok {
 			return errors.Errorf("could not retrieve enterprise expiration time")
 		}
-		expiration, err := types.TimestampFromProto(record.Expires)
+		expiration, err := types.TimestampFromProto(record.License.Expires)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse expiration timestamp")
 		}
@@ -115,13 +137,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}, backoff.RetryEvery(time.Second)); err != nil {
 		return nil, err
 	}
-	time.Sleep(time.Second) // give other pachd nodes time to observe the write
 
-	return &ec.ActivateResponse{
-		Info: &ec.TokenInfo{
-			Expires: expirationProto,
-		},
-	}, nil
+	return &ec.ActivateResponse{}, nil
 }
 
 // GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), without the activation code
@@ -166,7 +183,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 	if !ok {
 		return nil, errors.Errorf("could not retrieve enterprise expiration time")
 	}
-	expiration, err := types.TimestampFromProto(record.Expires)
+	expiration, err := types.TimestampFromProto(record.License.Expires)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse expiration timestamp")
 	}
@@ -175,9 +192,9 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 	}
 	resp := &ec.GetActivationCodeResponse{
 		Info: &ec.TokenInfo{
-			Expires: record.Expires,
+			Expires: record.License.Expires,
 		},
-		ActivationCode: record.ActivationCode,
+		ActivationCode: record.License.ActivationCode,
 	}
 	if time.Now().After(expiration) {
 		resp.State = ec.State_EXPIRED
@@ -188,17 +205,10 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 }
 
 // Deactivate deletes the current cluster's enterprise token, and puts the
-// cluster in the "NONE" enterprise state. It also deletes all data in the
-// cluster, to avoid invalid cluster states. This call only makes sense for
-// testing
+// cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	pachClient := a.env.GetPachClient(ctx)
-	if err := pachClient.DeleteAll(); err != nil {
-		return nil, errors.Wrapf(err, "could not delete all pachyderm data")
-	}
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		err := a.enterpriseToken.ReadWrite(stm).Delete(enterpriseTokenKey)
@@ -216,7 +226,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		if !ok {
 			return errors.Errorf("could not retrieve enterprise expiration time")
 		}
-		expiration, err := types.TimestampFromProto(record.Expires)
+		expiration, err := types.TimestampFromProto(record.License.Expires)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse expiration timestamp")
 		}
@@ -227,7 +237,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}, backoff.RetryEvery(time.Second)); err != nil {
 		return nil, err
 	}
-	time.Sleep(time.Second) // give other pachd nodes time to observe the write
 
 	return &ec.DeactivateResponse{}, nil
 }

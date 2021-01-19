@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -95,6 +96,7 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
+	License    license.APIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
@@ -704,6 +706,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.License = license.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)

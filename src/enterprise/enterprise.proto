@@ -7,16 +7,30 @@ import "google/protobuf/timestamp.proto";
 
 // Enterprise data structures
 
-// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
-// token that has been provided to a Pachyderm cluster
-message EnterpriseRecord {
+// LicenseRecord is the record we store in etcd for a Pachyderm enterprise
+// token that has been provided to a Pachyderm license server
+message LicenseRecord {
   string activation_code = 1;
 
-  // expires is a timestamp indicating when this activation code will expire.
   google.protobuf.Timestamp expires = 2;
 }
 
-//// Enterprise Activation API
+// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
+// that is registered with a license server
+message EnterpriseRecord {
+  string license_server = 1;
+  string id = 2;
+  string secret = 3;
+
+  google.protobuf.Timestamp last_heartbeat = 4;
+  LicenseRecord license = 5;
+}
+
+enum State {
+  NONE = 0;
+  ACTIVE = 1;
+  EXPIRED = 2;
+}
 
 // TokenInfo contains information about the currently active enterprise token
 message TokenInfo {
@@ -25,28 +39,18 @@ message TokenInfo {
   google.protobuf.Timestamp expires = 1;
 }
 
-message ActivateRequest {
-  // activation_code is a Pachyderm enterprise activation code. New users can
-  // obtain trial activation codes
-  string activation_code = 1;
+//// Enterprise Activation API
 
-  // expires is a timestamp indicating when this activation code will expire.
-  // This should not generally be set (it's primarily used for testing), and is
-  // only applied if it's earlier than the signed expiration time in
-  // 'activation_code'.
-  google.protobuf.Timestamp expires = 2;
+message ActivateRequest {
+  reserved 1,2;
+
+  string license_server = 3;
+  string id = 4;
+  string secret = 5;
 }
-message ActivateResponse {
-  TokenInfo info = 1;
-}
+message ActivateResponse {}
 
 message GetStateRequest {}
-
-enum State {
-  NONE = 0;
-  ACTIVE = 1;
-  EXPIRED = 2;
-}
 
 message GetStateResponse {
   State state = 1;
@@ -75,13 +79,8 @@ service API {
   rpc GetState(GetStateRequest) returns (GetStateResponse) {}
   rpc GetActivationCode(GetActivationCodeRequest) returns (GetActivationCodeResponse) {}
 
-  // Deactivate is a testing API. It removes a cluster's enterprise activation
-  // token and sets its enterprise state to NONE (normally, once a cluster has
-  // been activated, the only reachable state is EXPIRED).
-  //
-  // NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
-  // its cluster). This is to avoid dealing with invalid, intermediate states
-  // (e.g. auth is activated but enterprise state is NONE)
+  // Deactivate removes a cluster's enterprise activation
+  // token and sets its enterprise state to NONE.
   rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
 }
 

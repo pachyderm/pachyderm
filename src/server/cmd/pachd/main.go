@@ -428,6 +428,17 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
 				ID:           clusterID,

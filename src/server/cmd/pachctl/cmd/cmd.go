@@ -832,6 +832,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, deploycmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, licensecmds.Cmds()...)
 	subcommands = append(subcommands, identitycmds.Cmds()...)
 	subcommands = append(subcommands, admincmds.Cmds()...)
 	subcommands = append(subcommands, debugcmds.Cmds()...)
