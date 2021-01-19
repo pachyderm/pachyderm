@@ -11,4 +11,4 @@ The redirect URL that an OIDC provider uses to forward connections
 back to Pachyderm is `http://<ip>:30657/authorization-code/callback`.
 
 !!! note "See Also"
-    - [Manage Authentication Configuration](../../auth-config/) 
+    - [Manage Authentication Configuration](../auth-config/) 
