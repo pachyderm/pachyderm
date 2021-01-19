@@ -184,7 +184,7 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Getting Started with Pachyderm Hub: pachub/pachub_getting_started.md
+            - Getting Started with Pachyderm Hub: pachhub/pachhub_getting_started.md
             - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
             - Deploy on AWS:
                 - Overview: deploy-manage/deploy/amazon_web_services/index.md

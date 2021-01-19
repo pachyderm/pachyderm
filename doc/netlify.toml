@@ -461,8 +461,8 @@
   force = true
 
 [[redirects]]
-  from = "/en/latest/pachub/pachub_getting_started.html"
-  to = "https://docs.pachyderm.com/latest/pachub/pachub_getting_started/"
+  from = "/en/latest/pachhub/pachhub_getting_started.html"
+  to = "https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/"
   status = 301
   force = true
 
@@ -2095,8 +2095,8 @@
   force = true
 
 [[redirects]]
-  from = "/pachub/pachub_getting_started/"
-  to = "/latest/pachub/pachub_getting_started/"
+  from = "/pachhub/pachhub_getting_started/"
+  to = "/latest/pachhub/pachhub_getting_started/"
   status = 301
   force = true
 
