@@ -19,7 +19,7 @@
   # You can mark some check as skipped, which will block checklinks
   # from ever attempting to execute them.
   # skipPatterns is an array of strings you can match against failing reports
-  skipPatterns = []
+  skipPatterns = ["404.html"]
  
   # You can mark some check as todo, which will execute the check, but allow failures.
   # todoPatterns is an array of strings you can match against failing reports
