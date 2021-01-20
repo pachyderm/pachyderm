@@ -47,9 +47,9 @@ func TestSetGetConfigBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -74,7 +74,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
@@ -83,9 +83,9 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -93,8 +93,8 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.GetConfiguration())
 
 	alice := tu.UniqueString("alice")
-	anonClient := getPachClient(t, "")
-	aliceClient := getPachClient(t, alice)
+	anonClient := tu.GetAuthenticatedPachClient(t, "")
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.AuthConfig{
@@ -150,7 +150,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestRMWConfigConflict does two conflicting R+M+W operation on a config
@@ -159,9 +159,9 @@ func TestRMWConfigConflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -220,7 +220,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	require.NoError(t, err)
 	mod2.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, mod2, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestSetGetEmptyConfig is like TestSetNilConfig, but it passes a non-nil but
@@ -231,9 +231,9 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration & read it back
 	conf := &auth.AuthConfig{
@@ -273,7 +273,7 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	requireConfigsEqual(t, &expected, configResp.Configuration)
 
 	// TODO Make sure SAML has been deactivated
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestConfigRestartAuth sets a config, then Deactivates+Reactivates auth, then
@@ -282,9 +282,9 @@ func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -336,11 +336,11 @@ func TestConfigRestartAuth(t *testing.T) {
 
 	// activate auth
 	activateResp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		Subject: admin,
+		Subject: tu.AdminUser,
 	})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(activateResp.PachToken)
-	tokenMap[admin] = activateResp.PachToken
+	tu.UpdateAuthToken(tu.AdminUser, activateResp.PachToken)
 
 	// Wait for auth to be re-activated
 	require.NoError(t, backoff.Retry(func() error {
@@ -366,7 +366,7 @@ func TestConfigRestartAuth(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrNoName tests that SetConfig rejects configs with unnamed
@@ -375,8 +375,8 @@ func TestValidateConfigErrNoName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -398,7 +398,7 @@ func TestValidateConfigErrNoName(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrReservedName tests that SetConfig rejects configs that
@@ -407,8 +407,8 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	for _, name := range []string{"robot", "pipeline"} {
 		conf := &auth.AuthConfig{
@@ -433,7 +433,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrNoType tests that SetConfig rejects configs that
@@ -442,8 +442,8 @@ func TestValidateConfigErrNoType(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -464,7 +464,7 @@ func TestValidateConfigErrNoType(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -473,8 +473,8 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -498,7 +498,7 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -507,8 +507,8 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	conf := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -532,7 +532,7 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestValidateConfigErrRedundantIDPMetadata tests that SetConfig rejects
@@ -542,8 +542,8 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 	_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 
@@ -584,7 +584,7 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestConfigDeadlock tests that Pachyderm's SAML endpoint releases Pachyderm's
@@ -593,8 +593,8 @@ func TestConfigDeadlock(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
-	adminClient := getPachClient(t, admin)
+	tu.DeleteAll(t)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	var (
 		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
@@ -630,7 +630,7 @@ func TestConfigDeadlock(t *testing.T) {
 
 	// Send a SAMLResponse to Pachyderm
 	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
-	aliceClient := getPachClientConfigAgnostic(t, "") // empty string b/c want anon client
+	aliceClient := tu.GetPachClient(t) // get an unauthenticated client
 	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
 	who, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -664,7 +664,7 @@ func TestConfigDeadlock(t *testing.T) {
 		})
 		return err
 	})
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
@@ -673,9 +673,9 @@ func TestSetGetNilConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -712,7 +712,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	conf = proto.Clone(&authserver.DefaultAuthConfig).(*auth.AuthConfig)
 	conf.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestConfigBlindWrite tests blind-writing a config by not setting
@@ -721,9 +721,9 @@ func TestConfigBlindWrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
@@ -759,7 +759,7 @@ func TestConfigBlindWrite(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 3 // increment version (*past* previously-read cfg)
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	deleteAll(t)
+	tu.DeleteAll(t)
 }
 
 // TestInitialConfigConflict tests that a R+M+W even of pachyderm's initial
@@ -769,9 +769,9 @@ func TestInitialConfigConflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	deleteAll(t)
+	tu.DeleteAll(t)
 
-	adminClient := getPachClient(t, admin)
+	adminClient := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
 	resp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
@@ -812,5 +812,5 @@ func TestInitialConfigConflict(t *testing.T) {
 		&auth.SetConfigurationRequest{Configuration: initialConfig})
 	require.YesError(t, err)
 	require.Matches(t, "config version", err.Error())
-	deleteAll(t)
+	tu.DeleteAll(t)
 }

@@ -122,9 +122,9 @@ If you apply changes to that datum, Pachyderm does not detect which
 particular part of the datum has changed and processes the whole datum.
 In the diagram below, you have the following datums:
 
-- `datum 1` has one file and results in files `1` and `2`.
+- `datum 1` has one file and results in files `1` and `3`.
 - `datum 2` has one file and results in files `2` and `3`.
-- `datum 3` has one file and results in files `1` and `3`.
+- `datum 3` has one file and results in files `2` and `1`.
 
 ![One to many](../../../assets/images/d_datum_processing_one_to_many.svg)
 
@@ -136,7 +136,7 @@ different output datums with the same file path into single files. For
 example, `datum 1` produces `pfs/out/1` and `datum 3` produces `pfs/out/1`.
 Pachyderm merges these two files by appending them one to another
 without any particular order. Therefore, the file `1` in the final
-commit has parts from `datum1` and `datum2`.
+commit has parts from `datum1` and `datum3`.
 
 If you decide to create a new commit and overwrite the file in `datum 2`,
 Pachyderm detects three datums. Because `datum 1` and `datum 3` are

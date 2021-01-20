@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -15,9 +16,8 @@ var _ Client = &cacheClient{}
 type cacheClient struct {
 	slow, fast Client
 
-	mu           sync.Mutex
-	cache        *simplelru.LRU
-	populateOnce sync.Once
+	mu    sync.Mutex
+	cache *simplelru.LRU
 }
 
 // NewCacheClient returns slow wrapped in an LRU write-through cache using fast for storing
@@ -40,17 +40,44 @@ func NewCacheClient(slow, fast Client, size int) Client {
 }
 
 func (c *cacheClient) Reader(ctx context.Context, p string, offset, size uint64) (io.ReadCloser, error) {
-	c.doPopulateOnce(ctx)
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, exists := c.cache.Get(p); exists {
-		return c.fast.Reader(ctx, p, offset, size)
+	cacheP := cachePath(p, offset, size)
+	if _, exists := c.cache.Get(cacheP); exists {
+		return c.fast.Reader(ctx, cacheP, 0, 0)
 	}
-	if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
+	if err := copyToCache(ctx, c.slow, c.fast, p, offset, size); err != nil {
 		return nil, err
 	}
-	c.cache.Add(p, struct{}{})
-	return c.fast.Reader(ctx, p, offset, size)
+	c.cache.Add(cacheP, struct{}{})
+	return c.fast.Reader(ctx, cacheP, 0, 0)
+}
+
+func cachePath(p string, offset, size uint64) string {
+	return fmt.Sprintf("%v-%v-%v", p, offset, size)
+}
+
+func copyToCache(ctx context.Context, src, dst Client, p string, offset, size uint64) (retErr error) {
+	rc, err := src.Reader(ctx, p, offset, size)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := rc.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	wc, err := dst.Writer(ctx, cachePath(p, offset, size))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := wc.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = io.Copy(wc, rc)
+	return err
 }
 
 func (c *cacheClient) Writer(ctx context.Context, p string) (io.WriteCloser, error) {
@@ -58,10 +85,7 @@ func (c *cacheClient) Writer(ctx context.Context, p string) (io.WriteCloser, err
 }
 
 func (c *cacheClient) Delete(ctx context.Context, p string) error {
-	if err := c.slow.Delete(ctx, p); err != nil {
-		return err
-	}
-	return c.deleteFromCache(ctx, p)
+	return c.slow.Delete(ctx, p)
 }
 
 func (c *cacheClient) Exists(ctx context.Context, p string) bool {
@@ -84,19 +108,6 @@ func (c *cacheClient) IsRetryable(err error) bool {
 	return c.fast.IsRetryable(err) || c.slow.IsRetryable(err)
 }
 
-func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.cache.Contains(p) {
-		return nil
-	}
-	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
-		return err
-	}
-	c.cache.Remove(p)
-	return nil
-}
-
 // onEvicted is called by the cache implementation.
 // the gorountine executing onEvicted will have c.mu
 func (c *cacheClient) onEvicted(key, value interface{}) {
@@ -104,23 +115,6 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := c.fast.Delete(ctx, p); err != nil && !c.fast.IsNotExist(err) {
-		log.Error("could not delete from cache's fast store: %v", err)
+		log.Errorf("could not delete from cache's fast store: %v", err)
 	}
-}
-
-func (c *cacheClient) populate(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.fast.Walk(ctx, "", func(p string) error {
-		c.cache.Add(p, struct{}{})
-		return nil
-	})
-}
-
-func (c *cacheClient) doPopulateOnce(ctx context.Context) {
-	c.populateOnce.Do(func() {
-		if err := c.populate(ctx); err != nil {
-			log.Warnf("could not populate cache: %v", err)
-		}
-	})
 }

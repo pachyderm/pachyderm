@@ -11,6 +11,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -97,7 +99,27 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
+
+	// Check whether the user is an admin at beginning of the call.
+	// Many of these APIs also require admin status, but the block API does not.
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsErrNotActivated(err) {
+			request.NoAuth = true
+		} else {
+			return err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "Extract",
+			}
+		}
+	}
+
 	writeOp := extractServer.Send
+
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
 		if err != nil {
@@ -131,6 +153,20 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 	}
+
+	// If auth is enabled on the cluster and the user has requested to extract auth info, the first op
+	// should verify the client doing the restore has provided a valid auth token to use in Activate.
+	// This ensures we don't fail to restore half-way through.
+	if !request.NoAuth {
+		if _, err := pachClient.GetConfiguration(pachClient.Ctx(), &auth.GetConfigurationRequest{}); err != nil {
+			return err
+		}
+
+		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{CheckAuthToken: &admin.CheckAuthToken{}}}); err != nil {
+			return err
+		}
+	}
+
 	if !request.NoObjects {
 		if err := pachClient.ListBlock(func(block *pfs.Block) error {
 			w := &extractBlockWriter{f: writeOp, block: block}
@@ -160,8 +196,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 	}
+
+	var ris []*pfs.RepoInfo
 	if !request.NoRepos {
-		ris, err := pachClient.ListRepo()
+		ris, err = pachClient.ListRepo()
 		if err != nil {
 			return err
 		}
@@ -257,6 +295,87 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}
 		}
 	}
+	if !request.NoEnterprise {
+		state, err := pachClient.Enterprise.GetActivationCode(pachClient.Ctx(), &enterprise.GetActivationCodeRequest{})
+		if err != nil {
+			return err
+		}
+		// Don't write out expired or missing enterprise keys
+		if state.State == enterprise.State_ACTIVE {
+			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{ActivateEnterprise: &enterprise.ActivateRequest{ActivationCode: state.ActivationCode}}}); err != nil {
+				return err
+			}
+		} else {
+			logrus.Warnf("Enterprise license state: %v, not extracting", state.State)
+		}
+	}
+
+	// Once all the repos and pipelines have been restored, then try to enable auth. Our auth checks block creating a pipeline if the output repo already exists,
+	// so we need to wait until everything is restored to turn auth back on.
+	if !request.NoAuth {
+		config, err := pachClient.GetConfiguration(pachClient.Ctx(), &auth.GetConfigurationRequest{})
+		if err != nil {
+			return err
+		}
+
+		// Activate auth using the token provided by the user. This will make `pach:root` the sole admin
+		// and allow the user to authenticate with the token (which they know from the extract process).
+		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{ActivateAuth: &auth.ActivateRequest{RootToken: ""}}}); err != nil {
+			return err
+		}
+
+		// Extract all robot tokens. This includes the backup root token created by pachctl, which can be used to recover the cluster if the IDP configuration is wrong.
+		robotTokens, err := pachClient.ExtractAuthTokens(pachClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+		if err != nil {
+			return err
+		}
+
+		for _, t := range robotTokens.Tokens {
+			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{RestoreAuthToken: &auth.RestoreAuthTokenRequest{Token: t}}}); err != nil {
+				if !auth.IsErrExpiredToken(err) {
+					return err
+				}
+				logrus.Warnf("Auth token for user %q was not restored, expired", t.TokenInfo.Subject)
+			}
+		}
+
+		// Extract all the existing cluster role bindings for super and fs admins.
+		admins, err := pachClient.GetClusterRoleBindings(pachClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
+		if err != nil {
+			return err
+		}
+		for principal, roles := range admins.Bindings {
+			if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{SetClusterRoleBinding: &auth.ModifyClusterRoleBindingRequest{
+				Principal: principal,
+				Roles:     roles,
+			}}}); err != nil {
+				return err
+			}
+		}
+
+		// Restore the auth configuration.
+		config.Configuration.LiveConfigVersion = 0
+		if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{SetAuthConfig: &auth.SetConfigurationRequest{Configuration: config.Configuration}}}); err != nil {
+			return err
+		}
+
+		// If repos are being extracted, restore the ACLs once the repos have been created.
+		if !request.NoRepos {
+			for _, ri := range ris {
+				acl, err := pachClient.GetACL(pachClient.Ctx(), &auth.GetACLRequest{Repo: ri.Repo.Name})
+				if err != nil {
+					return err
+				}
+				if err := writeOp(&admin.Op{Op1_12: &admin.Op1_12{SetAcl: &auth.SetACLRequest{
+					Repo:    ri.Repo.Name,
+					Entries: acl.Entries,
+				}}}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -309,13 +428,30 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			retErr = err
 		}
 	}()
+	pachClient := a.getPachClient().WithCtx(restoreServer.Context())
+
+	// Check whether the user is an admin at beginning of the call. If the cluster
+	// already has auth enabled we shouldn't allow non-admin users to restore at all.
+	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return err
+		}
+	} else {
+		if !whoAmI.IsAdmin {
+			return &auth.ErrNotAuthorized{
+				Subject: whoAmI.Username,
+				AdminOp: "Restore",
+			}
+		}
+	}
 
 	// Determine if we're restoring from a URL or not
 	r := &restoreCtx{
 		a:             a,
 		restoreServer: restoreServer,
 		// TODO(msteffen): refactor admin apiServer to use serviceenv
-		pachClient: a.getPachClient().WithCtx(restoreServer.Context()),
+		pachClient: pachClient,
 	}
 	req, err := restoreServer.Recv()
 	if err != nil {
@@ -689,6 +825,44 @@ func (r *restoreCtx) applyOp(op *admin.Op1_12) error {
 		if _, err := c.PpsAPIClient.CreateJob(ctx, op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating job")
 		}
+	case op.SetAcl != nil:
+		if _, err := c.SetACL(ctx, op.SetAcl); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error setting ACL for repo")
+		}
+	case op.SetClusterRoleBinding != nil:
+		if _, err := c.ModifyClusterRoleBinding(ctx, op.SetClusterRoleBinding); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error setting cluster role bindings")
+		}
+	case op.SetAuthConfig != nil:
+		if _, err := c.SetConfiguration(ctx, op.SetAuthConfig); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error setting authorization config")
+		}
+	case op.ActivateAuth != nil:
+		// ActivateAuth by setting the root token to the current context's auth token. This guarantees the
+		// user will have access to the cluster afterwards.
+		authToken, err := auth.GetAuthToken(ctx)
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get auth token from incoming context")
+		}
+
+		if _, err := c.AuthAPIClient.Activate(ctx, &auth.ActivateRequest{RootToken: authToken}); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating authentication")
+		}
+	case op.RestoreAuthToken != nil:
+		if _, err := c.RestoreAuthToken(ctx, op.RestoreAuthToken); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error restoring auth token")
+		}
+	case op.ActivateEnterprise != nil:
+		if _, err := c.Enterprise.Activate(ctx, op.ActivateEnterprise); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating enterprise license")
+		}
+	case op.CheckAuthToken != nil:
+		// CheckAuthToken is inserted at the beginning of an extract that contains an ActivateAuth call
+		// The goal is just to check that the calling context includes a non-empty token we can use
+		// to activate the cluster.
+		if _, err := auth.GetAuthToken(ctx); err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get auth token from incoming context")
+		}
 	}
 	return nil
 }
@@ -886,6 +1060,16 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 				return 0, errors.Errorf("expected a block, but got: %v", op)
 			}
 			value = op.Op1_9.Block.Value
+		} else if r.version == v1_10 {
+			if op.Op1_10.Block == nil {
+				return 0, errors.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_10.Block.Value
+		} else if r.version == v1_11 {
+			if op.Op1_11.Block == nil {
+				return 0, errors.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_11.Block.Value
 		} else {
 			if op.Op1_12.Block == nil {
 				return 0, errors.Errorf("expected a block, but got: %v", op)

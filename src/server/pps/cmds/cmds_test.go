@@ -620,10 +620,7 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
@@ -637,16 +634,21 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	_ = tu.GetAuthenticatedPachClient(t, "unused") // enable auth as a side effect
+
+	defer tu.DeleteAll(t) // make sure to clean up auth
+
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
@@ -656,12 +658,13 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	prefix := "../../../../etc/testing/pipeline-build"
+
 	// reset and create some test input
 	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
 		pachctl create repo in
-		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
-	`).Run())
+		pachctl put file -r in@master:/ -f {{.prefix}}/input
+	`, "prefix", prefix).Run())
 
 	// give pipeline a unique name to work around
 	// github.com/kubernetes/kubernetes/issues/82130
@@ -687,7 +690,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 
 	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl create pipeline <<EOF
 		{{.spec}}
 		EOF
@@ -695,6 +698,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	require.YesError(t, tu.BashCmd(fmt.Sprintf(`
 		pachctl list pipeline --state failure | match %s
@@ -703,7 +707,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 
 	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl update pipeline <<EOF
 		{{.spec}}
 		EOF
@@ -711,6 +715,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	verifyPipelineBuildOutput(t, pipeline, "0")
 
@@ -741,7 +746,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	`, pipeline, lang)
 
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl update pipeline --reprocess <<EOF
 		{{.spec}}
 		EOF
@@ -749,6 +754,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	verifyPipelineBuildOutput(t, pipeline, "_")
 	return pipeline

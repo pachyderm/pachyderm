@@ -40,18 +40,20 @@ Each version comes with its own configuration (navigation) file:
 ```
 
 ## 2- Run the Documentation locally
-### 2.0- Pre-requisite
+### 2.0- Prerequisite
 [Docker install](https://docs.docker.com/get-docker/)
+
 ### 2.1- Run a *given version* of the documentation locally with hot-reload
 This is especially useful in DEV mode (i.e., you are actively writing or editing content on a given version). 
 You do not need to understand the inner workings of mkdocs or Netlify. 
-You will be able to edit your version of the documentation AND immediately check out the outcome on your local browser. 
+You will be able to edit your version of the documentation and immediately check out the outcome on your local browser. 
 
 Follow those 4 steps:
 
-1. Choose the .yml of the doc version you want to consider (Default to version 1.11.x - mkdocs-1.11.x.yml) in `doc/docker-compose.yml` (in 'command' section).
+1. Choose the .yml of the doc version you want to consider (Default to mkdocs-1.11.x.yml) and update `doc/docker-compose.yml` accordingly (in 'command' section).
+
 2. Build your Docker image (~10 min). In the `doc` directory, run:
-    ```
+    ```shell
         DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build mkdocs-serve
     ```
 3. Then, run: 
@@ -68,7 +70,7 @@ Your source code is now visible from the container allowing a hot reload.
 Especially useful if you want to have a last look at your final product before committing your work. It will be as close as the production as can be.
 1. Build your Docker image (~10 min). In the `doc` directory, run:
     ```shell
-        DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build build netlify-dev
+        DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker-compose build netlify-dev
     ```
 2. In the doc directory, run: 
     ```shell

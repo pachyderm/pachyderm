@@ -59,22 +59,6 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 	return state, nil
 }
 
-func writePachTokenToCfg(token string) error {
-	cfg, err := config.Read(false)
-	if err != nil {
-		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
-	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return errors.Wrapf(err, "error getting the active context")
-	}
-	context.SessionToken = token
-	if err := cfg.Write(); err != nil {
-		return errors.Wrapf(err, "error writing pachyderm config")
-	}
-	return nil
-}
-
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var initialAdmin string
@@ -112,7 +96,7 @@ first cluster admin`[1:],
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
 
-			if err := writePachTokenToCfg(resp.PachToken); err != nil {
+			if err := config.WritePachTokenToConfig(resp.PachToken); err != nil {
 				return err
 			}
 			if strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
@@ -228,7 +212,7 @@ func LoginCmd() *cobra.Command {
 			} else if authErr != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
 			}
-			return writePachTokenToCfg(resp.PachToken)
+			return config.WritePachTokenToConfig(resp.PachToken)
 		}),
 	}
 	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
@@ -248,7 +232,7 @@ func LogoutCmd() *cobra.Command {
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
 		Run: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 			}
@@ -539,7 +523,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "error reading token")
 			}
-			writePachTokenToCfg(strings.TrimSpace(token)) // drop trailing newline
+			config.WritePachTokenToConfig(strings.TrimSpace(token)) // drop trailing newline
 			return nil
 		}),
 	}

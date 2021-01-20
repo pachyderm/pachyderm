@@ -3,10 +3,12 @@ package fileset
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
 )
 
 var (
@@ -21,38 +23,55 @@ var (
 // Store stores filesets. A fileset is a path -> index relationship
 // All filesets exist in the same keyspace and can be merged by prefix
 type Store interface {
-	PutIndex(ctx context.Context, p string, idx *index.Index) error
-	GetIndex(ctx context.Context, p string) (*index.Index, error)
+	Set(ctx context.Context, p string, md *Metadata) error
+	Get(ctx context.Context, p string) (*Metadata, error)
 	Delete(ctx context.Context, p string) error
 	Walk(ctx context.Context, prefix string, cb func(string) error) error
 }
 
-// StoreTestSuite runs tests to ensure Stores returned from newStore correctly implement Store.
+// StoreTestSuite is a suite of tests for a Store.
 func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 	ctx := context.Background()
-	t.Run("PutGet", func(t *testing.T) {
+	t.Run("SetGet", func(t *testing.T) {
 		x := newStore(t)
-		idx := &index.Index{}
-		require.NoError(t, x.PutIndex(ctx, "test", idx))
-		actual, err := x.GetIndex(ctx, "test")
+		md := &Metadata{}
+		require.NoError(t, x.Set(ctx, "test", md))
+		actual, err := x.Get(ctx, "test")
 		require.NoError(t, err)
-		require.Equal(t, idx, actual)
+		require.Equal(t, md, actual)
 	})
 	t.Run("Delete", func(t *testing.T) {
 		x := newStore(t)
 		require.NoError(t, x.Delete(ctx, "keys that don't exist should not cause delete to error"))
-		idx := &index.Index{}
-		require.NoError(t, x.PutIndex(ctx, "test", idx))
+		md := &Metadata{}
+		require.NoError(t, x.Set(ctx, "test", md))
 		require.NoError(t, x.Delete(ctx, "test"))
-		_, err := x.GetIndex(ctx, "test")
+		_, err := x.Get(ctx, "test")
 		require.Equal(t, ErrPathNotExists, err)
+	})
+	t.Run("Walk", func(t *testing.T) {
+		x := newStore(t)
+		md := &Metadata{}
+		ps := []string{"test/1", "test/2", "test/3"}
+		for _, p := range ps {
+			require.NoError(t, x.Set(ctx, p, md))
+		}
+		require.NoError(t, x.Walk(ctx, "test", func(p string) error {
+			require.Equal(t, ps[0], p)
+			ps = ps[1:]
+			return nil
+		}))
+		require.Equal(t, 0, len(ps))
 	})
 }
 
-func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string) error {
-	idx, err := src.GetIndex(ctx, srcPath)
+func copyPath(ctx context.Context, src, dst Store, srcPath, dstPath string, tracker track.Tracker, ttl time.Duration) error {
+	md, err := src.Get(ctx, srcPath)
 	if err != nil {
 		return err
 	}
-	return dst.PutIndex(ctx, dstPath, idx)
+	if err := createTrackerObject(ctx, dstPath, []*index.Index{md.Additive, md.Deletive}, tracker, ttl); err != nil {
+		return err
+	}
+	return dst.Set(ctx, dstPath, md)
 }

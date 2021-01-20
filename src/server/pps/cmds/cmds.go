@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
@@ -133,7 +134,7 @@ If the job fails, the output commit will not be populated with data.`,
 				JobInfo:        jobInfo,
 				FullTimestamps: fullTimestamps,
 			}
-			return pretty.PrintDetailedJobInfo(ji)
+			return pretty.PrintDetailedJobInfo(os.Stdout, ji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -816,13 +817,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request.Update = true
 			request.Reprocess = reprocess
-			if _, err := client.PpsAPIClient.CreatePipeline(
-				client.Ctx(),
-				request,
-			); err != nil {
+			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
+				_, err := txClient.PpsAPIClient.CreatePipeline(
+					txClient.Ctx(),
+					request,
+				)
 				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
+			})
 		}),
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
@@ -1259,12 +1260,14 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry, usern
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n")
 			}
 		}
-
-		if _, err := pc.PpsAPIClient.CreatePipeline(
-			pc.Ctx(),
-			request,
-		); err != nil {
+		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
+			_, err := txClient.PpsAPIClient.CreatePipeline(
+				txClient.Ctx(),
+				request,
+			)
 			return grpcutil.ScrubGRPC(err)
+		}); err != nil {
+			return err
 		}
 	}
 
@@ -1393,7 +1396,7 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		buildPath = filepath.Join(pipelineParentPath, buildPath)
 	}
 	if _, err := os.Stat(buildPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("build path %q does not exist", buildPath)
 		}
 		return errors.Wrapf(err, "could not stat build path %q", buildPath)
@@ -1427,17 +1430,18 @@ func buildHelper(pc *pachdclient.APIClient, request *ppsclient.CreatePipelineReq
 		return errors.Wrapf(err, "failed to create repo for build step-enabled pipeline")
 	}
 
-	// create the build pipeline
-	if err := pc.CreatePipeline(
-		buildPipelineName,
-		image,
-		[]string{"sh", "./build.sh"},
-		[]string{},
-		&ppsclient.ParallelismSpec{Constant: 1},
-		createBuildPipelineInput("source"),
-		"build",
-		update,
-	); err != nil {
+	if err := txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
+		return txClient.CreatePipeline(
+			buildPipelineName,
+			image,
+			[]string{"sh", "./build.sh"},
+			[]string{},
+			&ppsclient.ParallelismSpec{Constant: 1},
+			createBuildPipelineInput("source"),
+			"build",
+			update,
+		)
+	}); err != nil {
 		return errors.Wrapf(err, "failed to create build pipeline for build step-enabled pipeline")
 	}
 

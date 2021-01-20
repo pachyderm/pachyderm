@@ -35,11 +35,14 @@ func (c APIClient) Binary(filter *debug.Filter, w io.Writer) (retErr error) {
 }
 
 // Dump collects a standard set of debugging information.
-func (c APIClient) Dump(filter *debug.Filter, w io.Writer) (retErr error) {
+func (c APIClient) Dump(filter *debug.Filter, limit int64, w io.Writer) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	dumpC, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{Filter: filter})
+	dumpC, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{
+		Filter: filter,
+		Limit:  limit,
+	})
 	if err != nil {
 		return err
 	}

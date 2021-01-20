@@ -81,7 +81,7 @@ func (a *apiServer) master() {
 				Watch: true,
 			})
 		if err != nil {
-			log.Errorf("failed to watch kuburnetes pods: %v", err)
+			log.Errorf("failed to watch kubernetes pods: %v", err)
 		} else {
 			watchChan = kubePipelineWatch.ResultChan()
 			defer kubePipelineWatch.Stop()
@@ -126,7 +126,7 @@ func (a *apiServer) master() {
 							Watch: true,
 						})
 					if err != nil {
-						log.Errorf("failed to watch kuburnetes pods: %v", err)
+						log.Errorf("failed to watch kubernetes pods: %v", err)
 						watchChan = nil
 					} else {
 						watchChan = kubePipelineWatch.ResultChan()
@@ -220,6 +220,18 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
+			}
+		}
+	}
+	// delete any secrets associated with the pipeline
+	secrets, err := kubeClient.CoreV1().Secrets(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return errors.Wrapf(err, "could not list secrets")
+	}
+	for _, secret := range secrets.Items {
+		if err := kubeClient.CoreV1().Secrets(a.namespace).Delete(secret.Name, opts); err != nil {
+			if !isNotFoundErr(err) {
+				return errors.Wrapf(err, "could not delete secret %q", secret.Name)
 			}
 		}
 	}

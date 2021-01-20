@@ -14,7 +14,8 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export LD_FLAGS = github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME ?= pachyderm
@@ -24,7 +25,7 @@ CLUSTER_SIZE ?= 4
 MINIKUBE_MEM = 8192 # MB of memory allocated to minikube
 MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
-CHLOGFILE = /tmp/pachyderm/release/changelog.diff
+CHLOGFILE = ${PWD}/../changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
@@ -42,7 +43,7 @@ endif
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	go install -ldflags "-X $(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -61,7 +62,6 @@ doc:
 point-release:
 	@./etc/build/make_changelog.sh $(CHLOGFILE)
 	@VERSION_ADDITIONAL= ./etc/build/make_release.sh
-	@make doc
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
@@ -70,7 +70,7 @@ release-candidate:
 
 custom-release:
 	echo "" > $(CHLOGFILE)
-	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh
+	@VERSION_ADDITIONAL=$(VERSION_ADDITIONAL) ./etc/build/make_release.sh "Custom"
 	# Need to check for homebrew updates from release-pachctl-custom
 
 # This is getting called from etc/build/make_release.sh
@@ -149,6 +149,10 @@ check-kubectl:
 		echo "error: kubectl not found"; \
 		exit 1; \
 	}
+	@if expr match $(shell kubectl config current-context) gke_pachub > /dev/null; then \
+		echo "ERROR: The active kubectl context is pointing to a pachub GKE cluster"; \
+		exit 1; \
+	fi
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
@@ -265,6 +269,11 @@ test-transaction:
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)
 
+test-object-clients:
+	# The parallelism is lowered here because these tests run several pachd
+	# deployments in kubernetes which may contest resources.
+	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
+
 test-libs:
 	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
 	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
@@ -309,7 +318,7 @@ test-auth:
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
 
 test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
@@ -374,7 +383,7 @@ clean-launch-loki:
 	helm uninstall loki
 
 launch-dex:
-	helm repo add --force-update stable https://charts.helm.sh/stable
+	helm repo add stable https://charts.helm.sh/stable
 	helm repo update
 	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
 	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done

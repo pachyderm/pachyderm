@@ -19,7 +19,7 @@ require (
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
-	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
+	github.com/crewjam/saml v0.4.4-0.20201214083806-0dd2422c212e
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -29,7 +29,6 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsouza/go-dockerclient v1.4.1
-	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1
@@ -51,12 +50,13 @@ require (
 	github.com/itchyny/gojq v0.11.2
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
-	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/minio/minio-go/v6 v6.0.55
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
@@ -70,12 +70,10 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
 	github.com/robfig/cron v1.2.0
-	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
-	github.com/segmentio/kafka-go v0.2.4
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
@@ -85,14 +83,17 @@ require (
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
+	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20201116194326-cc9327a14d48
 	golang.org/x/tools v0.0.0-20201117152513-9036a0f9af11 // indirect
 	google.golang.org/api v0.14.0
+	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+	golang.org/x/tools v0.0.0-20210114065538-d78b04bdf963 // indirect
+	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
@@ -100,7 +101,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	helm.sh/helm/v3 v3.1.2
-	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
+	honnef.co/go/tools v0.1.0 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/cli-runtime v0.17.4

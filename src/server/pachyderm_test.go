@@ -58,10 +58,8 @@ import (
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom_model "github.com/prometheus/common/model"
-	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
@@ -513,8 +511,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false),
-			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false),
+			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -591,8 +589,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -644,8 +642,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -794,8 +792,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -844,8 +842,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -935,8 +933,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -969,7 +967,7 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewUnionInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 				client.NewPFSInput(pipeline, "/*"),
 			),
 			"",
@@ -1037,8 +1035,8 @@ func TestRunPipeline(t *testing.T) {
 			},
 			nil,
 			client.NewCrossInput(
-				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
-				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false),
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -1174,7 +1172,7 @@ func TestRunPipeline(t *testing.T) {
 			[]string{"bash"},
 			[]string{"false"},
 			nil,
-			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false),
+			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
 			"",
 			false,
 		))
@@ -1233,7 +1231,7 @@ func TestRunPipeline(t *testing.T) {
 					},
 				},
 				EnableStats: true,
-				Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false),
+				Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 			})
 		require.NoError(t, err)
 
@@ -1519,7 +1517,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true),
+		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -1532,7 +1530,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true),
+		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -2817,7 +2815,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
 	for _, commitInfo := range commitInfos {
-		require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
+		require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
 	}
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "file")
 	require.NoError(t, err)
@@ -2828,7 +2826,7 @@ func TestPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -5655,8 +5653,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false),
-			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false),
+			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
+			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5723,8 +5721,8 @@ func TestOuterJoin(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/(*)", "$1", "", true, false),
-			client.NewPFSInputOpts("", repos[1], "", "/(*)", "$1", "", false, false),
+			client.NewPFSInputOpts("", repos[0], "", "/(*)", "$1", "", true, false, nil),
+			client.NewPFSInputOpts("", repos[1], "", "/(*)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5769,7 +5767,7 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false),
+				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
 			),
 			"",
 			false,
@@ -5844,8 +5842,8 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false),
-				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false),
+				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
 			),
 			"",
 			false,
@@ -5939,8 +5937,8 @@ func TestGroupInput(t *testing.T) {
 			},
 			client.NewGroupInput(
 				client.NewJoinInput(
-					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false),
-					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false),
+					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
+					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
 				),
 			),
 			"",
@@ -5966,6 +5964,77 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1001",
 				"/file-1.1011"}}
 		actual := make([][]string, 0, 2)
+		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+		require.NoError(t, err)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+		})
+		for _, di := range resp.DatumInfos {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
+	t.Run("Symlink", func(t *testing.T) {
+		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/tree/example-groupby/examples/group
+		repo := tu.UniqueString("TestGroupInputSymlink")
+		require.NoError(t, c.CreateRepo(repo))
+
+		_, err := c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader(""))
+		require.NoError(t, err)
+
+		pipeline := "group-pipeline-symlink"
+		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
+						fmt.Sprintf("FILES=/pfs/%v/*", repo),
+						"for f in $FILES",
+						"do",
+						"[[ $(basename $f) =~ $PATTERN ]]",
+						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
+						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
+						"done"},
+				},
+				Input: client.NewGroupInput(
+					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+				),
+				EnableStats: true,
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+			})
+		require.NoError(t, err)
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
+
+		expected := [][]string{
+			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
+			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
+			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
+			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
+		actual := make([][]string, 0, 3)
 		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
@@ -6024,8 +6093,8 @@ func TestUnionRegression4688(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewUnionInput(
-			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false),
-			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false),
+			client.NewPFSInputOpts("in", repoA, "", "/*", "", "", false, false, nil),
+			client.NewPFSInputOpts("in", repoB, "", "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -6261,10 +6330,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false),
-				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false),
+				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -6297,12 +6366,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6320,12 +6389,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewCrossInput(
-					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6361,12 +6430,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -6384,12 +6453,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in1", repos[0], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in1", repos[1], "", "/*", "", "", false, false, nil),
 				),
 				client.NewUnionInput(
-					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false),
-					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false),
+					client.NewPFSInputOpts("in2", repos[2], "", "/*", "", "", false, false, nil),
+					client.NewPFSInputOpts("in2", repos[3], "", "/*", "", "", false, false, nil),
 				),
 			),
 			"",
@@ -9437,7 +9506,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test putting a message in FinishCommit
 	commit, err = c.StartCommit(dataRepo, "master")
@@ -9449,7 +9518,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
@@ -9465,7 +9534,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
 }
 
 func TestGetFileWithEmptyCommits(t *testing.T) {
@@ -10729,9 +10798,6 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 }
 
 func TestSpoutPipe(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10921,19 +10987,177 @@ time.Sleep(5)
 		require.NoError(t, c.DeleteAll())
 	})
 }
+
 func TestSpoutPachctl(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
+	// helper functions for SpoutPachctl
+	putFileCommand := func(branch, flags, file string) string {
+		return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)
+	}
+	basicPutFile := func(file string) string {
+		return putFileCommand("master", "", file)
+	}
+
+	t.Run("SpoutAuth", func(t *testing.T) {
+		tu.DeleteAll(t)
+		defer tu.DeleteAll(t)
+		c := tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+
+		dataRepo := tu.UniqueString("TestSpoutAuth_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutauth")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						basicPutFile("./date*"),
+						"done"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		var prevLength uint64
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
+		require.NoError(t, err)
+
+		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+			if resp.Error != "" {
+				return errors.New(resp.Error)
+			}
+			return nil
+		}))
+	})
+	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
+		tu.DeleteAll(t)
+		c := tu.GetPachClient(t)
+
+		dataRepo := tu.UniqueString("TestSpoutAuthEnabledAfter_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 0.1",
+						"pachctl auth whoami &> whoami",
+						basicPutFile("./whoami*"),
+						"done"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+		}
+
+		// now let's authenticate, and make sure the spout fails due to a lack of authorization
+		tu.ClearPachClientState(t)
+		c = tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+		defer tu.DeleteAll(t)
+
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
+		require.NoError(t, err)
+
+		// now let's update the pipeline and make sure it works again
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						basicPutFile("./date*"),
+						"done"},
+				},
+				Update:    true,
+				Reprocess: true,         // to ensure subscribe commit will only read commits since the update
+				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits
+		iter, err = c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+		}
+
+		// finally, let's make sure that the provenance is in a consistent state after running the spout test
+		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+			if resp.Error != "" {
+				return errors.New(resp.Error)
+			}
+			return nil
+		}))
+	})
+
 	testSpout(t, true)
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
 	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
 
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {
@@ -11591,8 +11815,8 @@ func TestDeferredCross(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false),
-					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false),
+					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false, nil),
+					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false, nil),
 				),
 				client.NewPFSInput(dataSet, "/"),
 			),
@@ -11897,7 +12121,7 @@ func TestMissingPipelineSpec(t *testing.T) {
 			GracePeriodSeconds: new(int64),
 		}))
 	}
-	waitForReadiness(t)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 
 	// The old client is no longer valid
 	c = getUsablePachClient(t)
@@ -12459,6 +12683,51 @@ func TestSecrets(t *testing.T) {
 	require.YesError(t, err)
 }
 
+// Test that an unauthenticated user can't call secrets APIS
+func TestSecretsUnauthenticated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// Enable auth on the cluster
+	tu.DeleteAll(t)
+	tu.GetAuthenticatedPachClient(t, tu.AdminUser)
+	defer tu.DeleteAll(t)
+
+	// Get an unauthenticated client
+	c := tu.GetPachClient(t)
+	c.SetAuthToken("")
+
+	b := []byte(
+		`{
+			"kind": "Secret",
+			"apiVersion": "v1",
+			"metadata": {
+				"name": "test-secret",
+				"creationTimestamp": null
+			},
+			"data": {
+				"mykey": "bXktdmFsdWU="
+			}
+		}`)
+
+	err := c.CreateSecret(b)
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.InspectSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.ListSecret()
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	err = c.DeleteSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+}
+
 // TestPFSPanicOnNilArgs tests for a regression where pachd would panic
 // if passed nil args on some PFS endpoints. See
 // https://github.com/pachyderm/pachyderm/issues/4279.
@@ -12947,10 +13216,6 @@ func TestTrigger(t *testing.T) {
 
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	require.NoError(t, c.CreateBranchTrigger(dataRepo, "trigger", "", &pfs.Trigger{
-		Branch: "master",
-		Size_:  "1K",
-	}))
 	pipeline1 := tu.UniqueString("TestTrigger1")
 	pipeline2 := tu.UniqueString("TestTrigger2")
 	require.NoError(t, c.CreatePipeline(
@@ -12963,7 +13228,10 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false),
+		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+			Branch: "master",
+			Size_:  "1K",
+		}),
 		"",
 		false,
 	))
@@ -12977,14 +13245,12 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "trigger", "/*", "", "", false, false),
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+			Size_: "2K",
+		}),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreateBranchTrigger(pipeline1, "trigger", "", &pfs.Trigger{
-		Branch: "master",
-		Size_:  "2K",
-	}))
 	// 10 100 byte files = 1K, so the last file should trigger pipeline1, but
 	// not pipeline2.
 	numFiles := 10
@@ -13027,6 +13293,47 @@ func TestTrigger(t *testing.T) {
 	cis, err = c.ListCommit(pipeline2, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cis))
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+			Size_: "3K",
+		}),
+		"",
+		true,
+	))
+
+	// Make sure that updating the pipeline reuses the previous branch name
+	// rather than creating a new one.
+	bis, err := c.ListBranch(pipeline1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
+	for i := 2 * numFiles; i < 5*numFiles; i++ {
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)))
+		require.NoError(t, err)
+	}
+
+	cis, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+
+	cis, err = c.ListCommit(pipeline2, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
 }
 
 func TestListDatum(t *testing.T) {
@@ -13083,6 +13390,10 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 	}
+	pattern := path.Join("input-repos", dataRepo, "commits")
+	g, err := globlib.Compile(pattern, '/')
+	require.NoError(t, err)
+	expectedFiles[pattern] = g
 	for i := 0; i < 3; i++ {
 		pipeline := tu.UniqueString("TestDebug")
 		require.NoError(t, c.CreatePipeline(
@@ -13108,10 +13419,12 @@ func TestDebug(t *testing.T) {
 				expectedFiles[pattern] = g
 			}
 		}
-		pattern := path.Join("pipelines", pipeline, "spec")
-		g, err := globlib.Compile(pattern, '/')
-		require.NoError(t, err)
-		expectedFiles[pattern] = g
+		for _, file := range []string{"spec", "commits", "jobs"} {
+			pattern := path.Join("pipelines", pipeline, file)
+			g, err := globlib.Compile(pattern, '/')
+			require.NoError(t, err)
+			expectedFiles[pattern] = g
+		}
 	}
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -13126,7 +13439,7 @@ func TestDebug(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	buf := &bytes.Buffer{}
-	require.NoError(t, c.Dump(nil, buf))
+	require.NoError(t, c.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
 	defer func() {
@@ -13150,6 +13463,150 @@ func TestDebug(t *testing.T) {
 		}
 	}
 	require.Equal(t, 0, len(expectedFiles))
+}
+
+func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	input := tu.UniqueString("in")
+	pipelineA := tu.UniqueString("A")
+	pipelineB := tu.UniqueString("B")
+
+	createPipeline := func(c *client.APIClient, input, pipeline string, update bool) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(input))
+	_, err := c.PutFile(input, "master", "foo", strings.NewReader("bar"))
+	require.NoError(t, err)
+
+	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, false))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, false))
+		return nil
+	})
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input, "master")}, []*pfs.Repo{client.NewRepo(pipelineB)})
+	require.NoError(t, err)
+
+	// now update both
+	_, err = c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		require.NoError(t, createPipeline(txnClient, input, pipelineA, true))
+		require.NoError(t, createPipeline(txnClient, pipelineA, pipelineB, true))
+		return nil
+	})
+	require.NoError(t, err)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input, "master")}, []*pfs.Repo{client.NewRepo(pipelineB)})
+	require.NoError(t, err)
+	commits, err := c.ListCommitByRepo(pipelineB)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	jobInfos, err := c.ListJob(pipelineB, nil, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+}
+
+func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	inputA := tu.UniqueString("A")
+	inputB := tu.UniqueString("B")
+	inputC := tu.UniqueString("C")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient, input string, update bool) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(inputA))
+	require.NoError(t, c.CreateRepo(inputB))
+	require.NoError(t, c.CreateRepo(inputC))
+	require.NoError(t, createPipeline(c, inputA, false))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	require.NoError(t, createPipeline(c.WithTransaction(txn), inputB, true))
+	require.NoError(t, createPipeline(c, inputC, true))
+
+	_, err = c.FinishTransaction(txn)
+	require.YesError(t, err)
+	require.Matches(t, "outside of transaction", err.Error())
+}
+
+func TestPipelineSpecCommitCleanup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	input := tu.UniqueString("in")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient) error {
+		return c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			false,
+		)
+	}
+	require.NoError(t, c.CreateRepo(input))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+	require.NoError(t, createPipeline(c.WithTransaction(txn)))
+	require.NoError(t, c.DeleteTransaction(txn))
+
+	commits, err := c.ListCommitByRepo(ppsconsts.SpecRepo)
+	require.NoError(t, err)
+	require.Equal(t, len(commits), 0)
+
+	require.NoError(t, createPipeline(c))
+	// creating again should error
+	require.YesError(t, createPipeline(c))
+	// resulting in any temporary spec commit being deleted
+	commits, err = c.ListCommitByRepo(ppsconsts.SpecRepo)
+	require.NoError(t, err)
+	require.Equal(t, len(commits), 1)
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
@@ -13198,7 +13655,7 @@ func restartAll(t *testing.T) {
 			GracePeriodSeconds: new(int64),
 		}))
 	}
-	waitForReadiness(t)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
 
 //lint:ignore U1000 false positive from staticcheck
@@ -13213,7 +13670,7 @@ func restartOne(t *testing.T) {
 	require.NoError(t, podsInterface.Delete(
 		podList.Items[rand.Intn(len(podList.Items))].Name,
 		&metav1.DeleteOptions{GracePeriodSeconds: new(int64)}))
-	waitForReadiness(t)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 }
 
 // getUsablePachClient is like tu.GetPachClient except it blocks until it gets a
@@ -13229,50 +13686,6 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 		return err
 	}, backoff.NewTestingBackOff()), "failed to reconnect to pachyderm")
 	return c
-}
-
-func podRunningAndReady(e watch.Event) (bool, error) {
-	if e.Type == watch.Deleted {
-		return false, errors.New("received DELETE while watching pods")
-	}
-	pod, ok := e.Object.(*v1.Pod)
-	if !ok {
-		return false, errors.Errorf("unexpected object type in watch.Event")
-	}
-	return pod.Status.Phase == v1.PodRunning, nil
-}
-
-func waitForReadiness(t testing.TB) {
-	k := tu.GetKubeClient(t)
-	deployment := pachdDeployment(t)
-	for {
-		newDeployment, err := k.AppsV1().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
-			break
-		}
-		time.Sleep(time.Second * 5)
-	}
-	watch, err := k.CoreV1().Pods(v1.NamespaceDefault).Watch(metav1.ListOptions{
-		LabelSelector: "app=pachd",
-	})
-	defer watch.Stop()
-	require.NoError(t, err)
-	readyPods := make(map[string]bool)
-	for event := range watch.ResultChan() {
-		ready, err := podRunningAndReady(event)
-		require.NoError(t, err)
-		if ready {
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				t.Fatal("event.Object should be an object")
-			}
-			readyPods[pod.Name] = true
-			if len(readyPods) == int(*deployment.Spec.Replicas) {
-				break
-			}
-		}
-	}
 }
 
 func simulateGitPush(t *testing.T, pathToPayload string) {
@@ -13297,18 +13710,11 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 	require.Equal(t, 200, resp.StatusCode)
 }
 
-func pachdDeployment(t testing.TB) *apps.Deployment {
-	k := tu.GetKubeClient(t)
-	result, err := k.AppsV1().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
-	require.NoError(t, err)
-	return result
-}
-
 // scalePachd scales the number of pachd nodes up or down.
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
 func scalePachdRandom(t testing.TB, up bool) {
-	pachdRc := pachdDeployment(t)
+	pachdRc := tu.PachdDeployment(t, v1.NamespaceDefault)
 	originalReplicas := *pachdRc.Spec.Replicas
 	for {
 		if up {
@@ -13329,12 +13735,12 @@ func scalePachdN(t testing.TB, n int) {
 	k := tu.GetKubeClient(t)
 	// Modify the type metadata of the Deployment spec we read from k8s, so that
 	// k8s will accept it if we're talking to a 1.7 cluster
-	pachdDeployment := pachdDeployment(t)
+	pachdDeployment := tu.PachdDeployment(t, v1.NamespaceDefault)
 	*pachdDeployment.Spec.Replicas = int32(n)
 	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
 	_, err := k.AppsV1().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
-	waitForReadiness(t)
+	tu.WaitForPachdReady(t, v1.NamespaceDefault)
 	// Unfortunately, even when all pods are ready, the cluster membership
 	// protocol might still be running, thus PFS API calls might fail.  So
 	// we wait a little bit for membership to stablize.

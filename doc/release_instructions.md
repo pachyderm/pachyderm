@@ -50,11 +50,11 @@ below.
 
 ### Prerequisites
 
-1) Make sure the HEAD commit (that you're about to release) has a passing
+1. Make sure the HEAD commit (that you're about to release) has a passing
    build on travis.
-2) Make sure that you have no uncommitted files in the current branch.
+2. Make sure that you have no uncommitted files in the current branch.
 
-### Update client version
+### Update client version [apply step only when running point-release target]
 
 Update `src/client/version/client.go` version values.
 
@@ -73,13 +73,13 @@ git add src/client/version/client.go
 git commit -m"Increment version for $(pachctl version --client-only) release"
 ```
 
-### Update dash, IDE versions
+### Update dash, IDE versions [apply step only when running point-release target]
 
 If you want to update the version of the Pachyderm dash or IDE associated with
 this release, change `defaultDashVersion` or `defaultIDEVersion` respectively in
 `./src/server/pkg/deploy/cmds/cmds.go`.
 
-### Update compatibility versions
+### Update compatibility versions [apply step only when running point-release target]
 
 Commit these changes locally (you will push to GitHub in a later step):
 
@@ -95,47 +95,53 @@ Major/Minor/Point releases. In order to test a new version of dash with
 RC/Alpha/Beta/Custom release, modify the deployment manifest to test it
 manually.
 
-### Rebuild docs
-
-After running make doc. Make sure you add any newly created (untracked) doc files, in
-addition to docs that have been updated (`git commit -a` might not get
-everything):
+### Regenerate golden deployment manifests [apply step only when running point-release target]
 
 ```shell
-make doc
-git add doc
-git commit -m"Run make doc for $(pachctl version --client-only)"
+make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
+git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
 ```
 
-### Regenerate golden deployment manifests
+### Update the changelog [apply step only when running point-release target]
+
+Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 
 ```shell
-make regenerate-test-deploy-manifests
-git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only)"
+git commit -am "Upadate change log for $(pachctl version --client-onlt) release"
 ```
 
-### Update the changelog
-
-Update the changelog in the branch and commit it locally.
-
-### Push changes
+### Push changes [apply step only when running point-release target]
 
 ```shell
 git push
 ```
 
-### Release!
+### Release! [apply step only when running point-release or release-candidate target]
 
-* To release a major, minor, or patch version, run `make point-release`
-* To release an alpha version, run e.g.
-  `make VERSION_ADDITIONAL=-alpha1 release-candidate`
-* To release a beta version, run e.g.
-  `make VERSION_ADDITIONAL=-beta1 release-candidate`
-* To release an rc, run e.g. `make VERSION_ADDITIONAL=-rc1 release-candidate`
+* To release a major, minor, or patch version, run
+```shell
+make point-release
+```
+* To release an alpha/beta/RC version, specify the additional text to appear in the release version and run
+```shell
+make VERSION_ADDITIONAL=-alpha1 release-candidate
+OR
+make VERSION_ADDITIONAL=-beta1 release-candidate
+OR
+make VERSION_ADDITIONAL=-rc1 release-candidate
+ ```
 
-Then update the
-[release's notes](https://github.com/pachyderm/pachyderm/releases), and post
-the update on the #users channel.
+### Release notes [apply step only when running point-release target]
+* [Release notes](https://github.com/pachyderm/pachyderm/releases) are automatically
+updated in GitHub. These are pulled from `CHANGELOG.md`. Check to make sure the notes
+are correct. Edit the release on GitHub to manually update any changes.
+
+* Post update in the #users channel with the following template
+```shell
+@here Hi All,
+    We’ve just released Pachyderm <X.Y.Z> — check it out!
+    * RELEASE NOTES with links to PRs
+```
 
 ### New major or minor releases
 
@@ -155,15 +161,15 @@ matter of running `make custom-release`. This will create a release like
 `v1.2.3-2342345aefda9879e87ad`, which can be installed like:
 
 ```shell
-curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.11.0/pachctl_1.11.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.2.3-2342345aefda9879e87ad/pachctl_1.2.3-2342345aefda9879e87ad_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
 
 ```shell
-# Where 1.7 is the major.minor version of the release you just did,
+# Where 1.2 is the major.minor version of the release you just did,
 # and you use the right commit SHA as well in the URL
-brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
+brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.2.3-2342345aefda9879e87ad/pachctl@1.2.rb
 ```
 
 ## If the release failed

@@ -123,6 +123,8 @@ type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.
 type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
 type getOneTimePasswordFunc func(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error)
+type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
+type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -148,6 +150,8 @@ type mockModifyMembers struct{ handler modifyMembersFunc }
 type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
 type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
+type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
+type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 
 func (mock *mockActivateAuth) Use(cb activateAuthFunc)                         { mock.handler = cb }
 func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                     { mock.handler = cb }
@@ -173,6 +177,8 @@ func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                       {
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                               { mock.handler = cb }
 func (mock *mockGetUsers) Use(cb getUsersFunc)                                 { mock.handler = cb }
 func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc)             { mock.handler = cb }
+func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)               { mock.handler = cb }
+func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                 { mock.handler = cb }
 
 type authServerAPI struct {
 	mock *mockAuthServer
@@ -204,6 +210,8 @@ type mockAuthServer struct {
 	GetGroups                mockGetGroups
 	GetUsers                 mockGetUsers
 	GetOneTimePassword       mockGetOneTimePassword
+	ExtractAuthTokens        mockExtractAuthTokens
+	RestoreAuthToken         mockRestoreAuthToken
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -351,18 +359,35 @@ func (api *authServerAPI) GetOneTimePassword(ctx context.Context, req *auth.GetO
 	return nil, errors.Errorf("unhandled pachd mock auth.GetOneTimePassword")
 }
 
+func (api *authServerAPI) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error) {
+	if api.mock.ExtractAuthTokens.handler != nil {
+		return api.mock.ExtractAuthTokens.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.ExtractAuthTokens")
+}
+
+func (api *authServerAPI) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error) {
+	if api.mock.RestoreAuthToken.handler != nil {
+		return api.mock.RestoreAuthToken.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.RestoreAuthToken")
+}
+
 /* Enterprise Server Mocks */
 
 type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error)
 type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
+type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
+type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
+func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
 
 type enterpriseServerAPI struct {
@@ -370,10 +395,11 @@ type enterpriseServerAPI struct {
 }
 
 type mockEnterpriseServer struct {
-	api        enterpriseServerAPI
-	Activate   mockActivateEnterprise
-	GetState   mockGetState
-	Deactivate mockDeactivateEnterprise
+	api               enterpriseServerAPI
+	Activate          mockActivateEnterprise
+	GetState          mockGetState
+	GetActivationCode mockGetActivationCode
+	Deactivate        mockDeactivateEnterprise
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -387,6 +413,12 @@ func (api *enterpriseServerAPI) GetState(ctx context.Context, req *enterprise.Ge
 		return api.mock.GetState.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.GetState")
+}
+func (api *enterpriseServerAPI) GetActivationCode(ctx context.Context, req *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error) {
+	if api.mock.GetActivationCode.handler != nil {
+		return api.mock.GetActivationCode.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.GetActivationCode")
 }
 func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error) {
 	if api.mock.Deactivate.handler != nil {

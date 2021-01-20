@@ -34,19 +34,19 @@ HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
 IRISMODEL := .input.pfs.repo="iris-training"|.input.pfs.name="training"|.pipeline.name="iris-model"
 IRISINFERENCENAME := .pipeline.name="iris-inference"
 IRISINFERENCEINPUT0 := .input.cross[0].pfs.repo="iris-attributes"|.input.cross[0].pfs.name="attributes"
-IRISINFERENCEINPUT1 := .input.cross[1].pfs.repo="iris-model"|.input.cross[0].pfs.name="model"
+IRISINFERENCEINPUT1 := .input.cross[1].pfs.repo="iris-model"|.input.cross[1].pfs.name="model"
 
 iris-testing-base:
 	$(PACHCTL) create repo iris-training
 	$(PACHCTL) create repo iris-attributes
-	jq "$(IRISMODEL)" ml/iris/$(IRIS_FLAVOR)_train.json  | $(PACHCTL) create pipeline -f -
-	jq "$(IRISINFERENCENAME)|$(IRISINFERENCEINPUT0)|$(IRISINFERENCEINPUT1)" ml/iris/$(IRIS_FLAVOR)_infer.json | \
+	jq '$(IRISMODEL)' ml/iris/$(IRIS_FLAVOR)_train.json  | $(PACHCTL) create pipeline -f -
+	jq '$(IRISINFERENCENAME)|$(IRISINFERENCEINPUT0)|$(IRISINFERENCEINPUT1)' ml/iris/$(IRIS_FLAVOR)_infer.json | \
            $(PACHCTL) create pipeline -f -
 
 opencv-testing:
 	$(PACHCTL) create repo images
-	jq "$(STATS)" opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
-	jq "$(STATS)" opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)' opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)' opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
 	$(PACHCTL) start transaction
 	$(PACHCTL) start commit images@master
 	$(PACHCTL) finish transaction
@@ -187,6 +187,7 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 	$(PACHCTL) finish transaction
 	$(PACHCTL) put file iris-training@master:iris.csv -f ml/iris/data/iris.csv
 	$(PACHCTL) finish commit iris-training@master
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done training iris model."
 	$(PACHCTL) put file iris-attributes@master:1.csv  -f ml/iris/data/test/1.csv
 	$(PACHCTL) finish commit iris-attributes@master
 	$(PACHCTL) put file iris-attributes@master:2.csv  -f ml/iris/data/test/2.csv

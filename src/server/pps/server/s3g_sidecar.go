@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -60,12 +61,11 @@ func (a *apiServer) ServeSidecarS3G() {
 		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
 		if err := a.sudo(s.pachClient.WithCtx(retryCtx), func(superUserClient *client.APIClient) error {
-			s.pipelineInfo.Reset()
 			buf := bytes.Buffer{}
 			if err := superUserClient.GetFile(ppsconsts.SpecRepo, specCommit, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
-			if err := s.pipelineInfo.Unmarshal(buf.Bytes()); err != nil {
+			if err := proto.Unmarshal(buf.Bytes(), s.pipelineInfo); err != nil {
 				return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 			}
 			return nil
@@ -141,7 +141,6 @@ func (s *sidecarS3G) createK8sServices() {
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
 				s.pipelineInfo.Salt))
-		//lint:ignore SA4006 'env' is passed to 'Unlock' below
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock

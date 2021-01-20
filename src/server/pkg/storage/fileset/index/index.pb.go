@@ -23,42 +23,11 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// TODO: Overwrite op is technically unecessary, but it might be better to be explicit.
-type Op int32
-
-const (
-	Op_APPEND    Op = 0
-	Op_DELETE    Op = 1
-	Op_OVERWRITE Op = 2
-)
-
-var Op_name = map[int32]string{
-	0: "APPEND",
-	1: "DELETE",
-	2: "OVERWRITE",
-}
-
-var Op_value = map[string]int32{
-	"APPEND":    0,
-	"DELETE":    1,
-	"OVERWRITE": 2,
-}
-
-func (x Op) String() string {
-	return proto.EnumName(Op_name, int32(x))
-}
-
-func (Op) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_5610f63adbdd53a8, []int{0}
-}
-
 // Index stores an index to and metadata about a file.
 type Index struct {
-	Path   string  `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Range  *Range  `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
-	FileOp *FileOp `protobuf:"bytes,3,opt,name=file_op,json=fileOp,proto3" json:"file_op,omitempty"`
-	// Size of the content being indexed (does not include headers or padding).
-	SizeBytes            int64    `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Range                *Range   `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	File                 *File    `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -111,18 +80,11 @@ func (m *Index) GetRange() *Range {
 	return nil
 }
 
-func (m *Index) GetFileOp() *FileOp {
+func (m *Index) GetFile() *File {
 	if m != nil {
-		return m.FileOp
+		return m.File
 	}
 	return nil
-}
-
-func (m *Index) GetSizeBytes() int64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 type Range struct {
@@ -188,27 +150,26 @@ func (m *Range) GetChunkRef() *chunk.DataRef {
 	return nil
 }
 
-type FileOp struct {
-	Op                   Op               `protobuf:"varint,1,opt,name=op,proto3,enum=index.Op" json:"op,omitempty"`
-	DataOps              []*DataOp        `protobuf:"bytes,2,rep,name=data_ops,json=dataOps,proto3" json:"data_ops,omitempty"`
-	DataRefs             []*chunk.DataRef `protobuf:"bytes,3,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
+type File struct {
+	Parts                []*Part          `protobuf:"bytes,1,rep,name=parts,proto3" json:"parts,omitempty"`
+	DataRefs             []*chunk.DataRef `protobuf:"bytes,2,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *FileOp) Reset()         { *m = FileOp{} }
-func (m *FileOp) String() string { return proto.CompactTextString(m) }
-func (*FileOp) ProtoMessage()    {}
-func (*FileOp) Descriptor() ([]byte, []int) {
+func (m *File) Reset()         { *m = File{} }
+func (m *File) String() string { return proto.CompactTextString(m) }
+func (*File) ProtoMessage()    {}
+func (*File) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5610f63adbdd53a8, []int{2}
 }
-func (m *FileOp) XXX_Unmarshal(b []byte) error {
+func (m *File) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *FileOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *File) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_FileOp.Marshal(b, m, deterministic)
+		return xxx_messageInfo_File.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -218,61 +179,53 @@ func (m *FileOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *FileOp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FileOp.Merge(m, src)
+func (m *File) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_File.Merge(m, src)
 }
-func (m *FileOp) XXX_Size() int {
+func (m *File) XXX_Size() int {
 	return m.Size()
 }
-func (m *FileOp) XXX_DiscardUnknown() {
-	xxx_messageInfo_FileOp.DiscardUnknown(m)
+func (m *File) XXX_DiscardUnknown() {
+	xxx_messageInfo_File.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FileOp proto.InternalMessageInfo
+var xxx_messageInfo_File proto.InternalMessageInfo
 
-func (m *FileOp) GetOp() Op {
+func (m *File) GetParts() []*Part {
 	if m != nil {
-		return m.Op
-	}
-	return Op_APPEND
-}
-
-func (m *FileOp) GetDataOps() []*DataOp {
-	if m != nil {
-		return m.DataOps
+		return m.Parts
 	}
 	return nil
 }
 
-func (m *FileOp) GetDataRefs() []*chunk.DataRef {
+func (m *File) GetDataRefs() []*chunk.DataRef {
 	if m != nil {
 		return m.DataRefs
 	}
 	return nil
 }
 
-type DataOp struct {
-	Op                   Op               `protobuf:"varint,1,opt,name=op,proto3,enum=index.Op" json:"op,omitempty"`
-	Tag                  string           `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	SizeBytes            int64            `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	DataRefs             []*chunk.DataRef `protobuf:"bytes,4,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
+type Part struct {
+	Tag                  string           `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	SizeBytes            int64            `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	DataRefs             []*chunk.DataRef `protobuf:"bytes,3,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *DataOp) Reset()         { *m = DataOp{} }
-func (m *DataOp) String() string { return proto.CompactTextString(m) }
-func (*DataOp) ProtoMessage()    {}
-func (*DataOp) Descriptor() ([]byte, []int) {
+func (m *Part) Reset()         { *m = Part{} }
+func (m *Part) String() string { return proto.CompactTextString(m) }
+func (*Part) ProtoMessage()    {}
+func (*Part) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5610f63adbdd53a8, []int{3}
 }
-func (m *DataOp) XXX_Unmarshal(b []byte) error {
+func (m *Part) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DataOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Part) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DataOp.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Part.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -282,40 +235,33 @@ func (m *DataOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *DataOp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DataOp.Merge(m, src)
+func (m *Part) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Part.Merge(m, src)
 }
-func (m *DataOp) XXX_Size() int {
+func (m *Part) XXX_Size() int {
 	return m.Size()
 }
-func (m *DataOp) XXX_DiscardUnknown() {
-	xxx_messageInfo_DataOp.DiscardUnknown(m)
+func (m *Part) XXX_DiscardUnknown() {
+	xxx_messageInfo_Part.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DataOp proto.InternalMessageInfo
+var xxx_messageInfo_Part proto.InternalMessageInfo
 
-func (m *DataOp) GetOp() Op {
-	if m != nil {
-		return m.Op
-	}
-	return Op_APPEND
-}
-
-func (m *DataOp) GetTag() string {
+func (m *Part) GetTag() string {
 	if m != nil {
 		return m.Tag
 	}
 	return ""
 }
 
-func (m *DataOp) GetSizeBytes() int64 {
+func (m *Part) GetSizeBytes() int64 {
 	if m != nil {
 		return m.SizeBytes
 	}
 	return 0
 }
 
-func (m *DataOp) GetDataRefs() []*chunk.DataRef {
+func (m *Part) GetDataRefs() []*chunk.DataRef {
 	if m != nil {
 		return m.DataRefs
 	}
@@ -323,11 +269,10 @@ func (m *DataOp) GetDataRefs() []*chunk.DataRef {
 }
 
 func init() {
-	proto.RegisterEnum("index.Op", Op_name, Op_value)
 	proto.RegisterType((*Index)(nil), "index.Index")
 	proto.RegisterType((*Range)(nil), "index.Range")
-	proto.RegisterType((*FileOp)(nil), "index.FileOp")
-	proto.RegisterType((*DataOp)(nil), "index.DataOp")
+	proto.RegisterType((*File)(nil), "index.File")
+	proto.RegisterType((*Part)(nil), "index.Part")
 }
 
 func init() {
@@ -335,34 +280,29 @@ func init() {
 }
 
 var fileDescriptor_5610f63adbdd53a8 = []byte{
-	// 430 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xdf, 0x8a, 0x13, 0x31,
-	0x14, 0xc6, 0xcd, 0x4c, 0x3b, 0xdb, 0x39, 0xba, 0x4b, 0xc9, 0x85, 0x8c, 0x8a, 0xa5, 0x0c, 0x22,
-	0xc5, 0x95, 0x0e, 0xac, 0x4f, 0xe0, 0xda, 0x11, 0x16, 0xc4, 0xa9, 0x61, 0x51, 0xf0, 0x66, 0x48,
-	0x3b, 0x67, 0xfe, 0xb0, 0xb5, 0x09, 0x49, 0x56, 0xdc, 0xbd, 0xf3, 0xc6, 0x67, 0xf3, 0xd2, 0x47,
-	0x90, 0x3e, 0x89, 0x24, 0x99, 0x8b, 0x75, 0x95, 0xee, 0x4d, 0xf2, 0xe5, 0xcc, 0x37, 0xe7, 0xfb,
-	0x9d, 0x10, 0x78, 0xa9, 0x51, 0x7d, 0x45, 0x95, 0xc9, 0x8b, 0x26, 0xd3, 0x46, 0x28, 0xde, 0x60,
-	0x56, 0x77, 0x1b, 0xd4, 0x68, 0xb2, 0x6e, 0x5b, 0xe1, 0x37, 0xbf, 0xce, 0xa5, 0x12, 0x46, 0xd0,
-	0xa1, 0x3b, 0x3c, 0x7e, 0xf6, 0x9f, 0x9f, 0xd6, 0xed, 0xe5, 0xf6, 0xc2, 0xaf, 0xde, 0x9c, 0xfe,
-	0x20, 0x30, 0x3c, 0xb3, 0x7e, 0x4a, 0x61, 0x20, 0xb9, 0x69, 0x13, 0x32, 0x25, 0xb3, 0x98, 0x39,
-	0x4d, 0x53, 0x18, 0x2a, 0xbe, 0x6d, 0x30, 0x09, 0xa6, 0x64, 0x76, 0xff, 0xe4, 0xc1, 0xdc, 0xe7,
-	0x30, 0x5b, 0x63, 0xfe, 0x13, 0x7d, 0x0e, 0x07, 0x96, 0xa5, 0x14, 0x32, 0x09, 0x9d, 0xeb, 0xb0,
-	0x77, 0xbd, 0xed, 0x36, 0x58, 0x48, 0x16, 0xd5, 0x6e, 0xa7, 0x4f, 0x01, 0x74, 0x77, 0x8d, 0xe5,
-	0xea, 0xca, 0xa0, 0x4e, 0x06, 0x53, 0x32, 0x0b, 0x59, 0x6c, 0x2b, 0xa7, 0xb6, 0x90, 0x76, 0x30,
-	0x74, 0x6d, 0xe9, 0x43, 0x88, 0x44, 0x5d, 0x6b, 0x34, 0x8e, 0x24, 0x64, 0xfd, 0x89, 0x3e, 0x81,
-	0x78, 0xc3, 0xb5, 0x29, 0x1d, 0x64, 0xe0, 0x20, 0x47, 0xb6, 0xb0, 0xb4, 0xa0, 0xc7, 0x10, 0xbb,
-	0xa9, 0x4a, 0x85, 0x75, 0x8f, 0x71, 0x34, 0xf7, 0x73, 0x2e, 0xb8, 0xe1, 0x0c, 0x6b, 0x36, 0x72,
-	0x47, 0x86, 0x75, 0x7a, 0x0d, 0x91, 0x67, 0xa3, 0x8f, 0x20, 0x10, 0xd2, 0xe5, 0x1c, 0x9d, 0xc4,
-	0x3d, 0x76, 0x21, 0x59, 0x20, 0x24, 0x9d, 0xc1, 0xa8, 0xe2, 0x86, 0x97, 0x42, 0xea, 0x24, 0x98,
-	0x86, 0x37, 0xe6, 0xb2, 0x0d, 0x0b, 0xc9, 0x0e, 0x2a, 0xb7, 0x6b, 0x9b, 0xed, 0x9c, 0x0a, 0x6b,
-	0x9d, 0x84, 0xce, 0xfa, 0x4f, 0x76, 0xe5, 0x85, 0x4e, 0xbf, 0x13, 0x88, 0x7c, 0x83, 0x7d, 0xe1,
-	0x63, 0x08, 0x0d, 0x6f, 0xfa, 0x29, 0xad, 0xbc, 0x75, 0x7b, 0xe1, 0xad, 0xdb, 0xfb, 0x9b, 0x61,
-	0xb0, 0x9f, 0xe1, 0xc5, 0x31, 0x04, 0x85, 0xa4, 0x00, 0xd1, 0xeb, 0xe5, 0x32, 0x7f, 0xbf, 0x18,
-	0xdf, 0xb3, 0x7a, 0x91, 0xbf, 0xcb, 0xcf, 0xf3, 0x31, 0xa1, 0x87, 0x10, 0x17, 0x1f, 0x73, 0xf6,
-	0x89, 0x9d, 0x9d, 0xe7, 0xe3, 0xe0, 0xf4, 0xc3, 0xcf, 0xdd, 0x84, 0xfc, 0xda, 0x4d, 0xc8, 0xef,
-	0xdd, 0x84, 0x7c, 0x7e, 0xd3, 0x74, 0xa6, 0xbd, 0x5c, 0xcd, 0xd7, 0xe2, 0x4b, 0x26, 0xf9, 0xba,
-	0xbd, 0xaa, 0x50, 0xdd, 0x54, 0x5a, 0xad, 0xb3, 0xbb, 0x1e, 0xeb, 0x2a, 0x72, 0x4f, 0xef, 0xd5,
-	0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbe, 0xa6, 0x3e, 0xeb, 0xd7, 0x02, 0x00, 0x00,
+	// 349 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xcd, 0x4a, 0xeb, 0x40,
+	0x14, 0xc7, 0x99, 0x26, 0x29, 0xcd, 0xe9, 0xe5, 0x72, 0x99, 0xc5, 0x25, 0xdc, 0x8b, 0xb5, 0x06,
+	0x17, 0x05, 0x25, 0x01, 0x7d, 0x83, 0x2a, 0x82, 0xbb, 0x3a, 0x0b, 0x17, 0x6e, 0xea, 0x34, 0x39,
+	0xf9, 0xa0, 0xb5, 0x09, 0x33, 0x53, 0xb1, 0x3e, 0xa1, 0x4b, 0x1f, 0x41, 0xfa, 0x24, 0x32, 0x67,
+	0xb2, 0xa8, 0x28, 0xba, 0x39, 0x9c, 0x8f, 0xff, 0x39, 0xbf, 0x7f, 0x3e, 0xe0, 0x54, 0xa3, 0x7a,
+	0x44, 0x95, 0xb6, 0xcb, 0x32, 0xd5, 0xa6, 0x51, 0xb2, 0xc4, 0xb4, 0xa8, 0x57, 0xa8, 0xd1, 0xa4,
+	0xf5, 0x3a, 0xc7, 0x27, 0x17, 0x93, 0x56, 0x35, 0xa6, 0xe1, 0x01, 0x15, 0xff, 0x8e, 0xbf, 0x58,
+	0xca, 0xaa, 0xcd, 0x7a, 0xe9, 0xa2, 0x13, 0xc7, 0xf7, 0x10, 0x5c, 0x5b, 0x39, 0xe7, 0xe0, 0xb7,
+	0xd2, 0x54, 0x11, 0x1b, 0xb3, 0x49, 0x28, 0x28, 0xe7, 0x31, 0x04, 0x4a, 0xae, 0x4b, 0x8c, 0x7a,
+	0x63, 0x36, 0x19, 0x9e, 0xfd, 0x4a, 0x1c, 0x46, 0xd8, 0x9e, 0x70, 0x23, 0x7e, 0x08, 0xbe, 0xb5,
+	0x12, 0x79, 0x24, 0x19, 0x76, 0x92, 0xab, 0x7a, 0x85, 0x82, 0x06, 0x71, 0x0d, 0x01, 0x2d, 0xf0,
+	0xbf, 0xd0, 0x6f, 0x8a, 0x42, 0xa3, 0x21, 0x86, 0x27, 0xba, 0x8a, 0xff, 0x87, 0x70, 0x25, 0xb5,
+	0x99, 0x13, 0xbe, 0x47, 0xf8, 0x81, 0x6d, 0xcc, 0xac, 0x85, 0x13, 0x08, 0xc9, 0xee, 0x5c, 0x61,
+	0xd1, 0x31, 0x7e, 0x27, 0xee, 0x01, 0x2e, 0xa5, 0x91, 0x02, 0x0b, 0x31, 0xa0, 0x52, 0x60, 0x11,
+	0xdf, 0x82, 0x6f, 0xc1, 0xfc, 0x08, 0x82, 0x56, 0x2a, 0xa3, 0x23, 0x36, 0xf6, 0xf6, 0x4c, 0xcd,
+	0xa4, 0x32, 0xc2, 0x4d, 0xec, 0xdd, 0x5c, 0x1a, 0x69, 0xcf, 0xea, 0xa8, 0x47, 0xb2, 0x4f, 0x77,
+	0x73, 0x97, 0xe8, 0x38, 0x07, 0xdf, 0xee, 0xf2, 0x3f, 0xe0, 0x19, 0x59, 0x76, 0xaf, 0xc8, 0xa6,
+	0xfc, 0x00, 0x40, 0xd7, 0xcf, 0x38, 0x5f, 0x6c, 0x0d, 0x6a, 0x32, 0xef, 0x89, 0xd0, 0x76, 0xa6,
+	0xb6, 0xf1, 0x91, 0xe2, 0x7d, 0x4f, 0x99, 0xde, 0xbc, 0xec, 0x46, 0xec, 0x75, 0x37, 0x62, 0x6f,
+	0xbb, 0x11, 0xbb, 0xbb, 0x28, 0x6b, 0x53, 0x6d, 0x16, 0x49, 0xd6, 0x3c, 0xa4, 0xad, 0xcc, 0xaa,
+	0x6d, 0x8e, 0x6a, 0x3f, 0xd3, 0x2a, 0x4b, 0x7f, 0xfa, 0x2d, 0x16, 0x7d, 0xfa, 0xc8, 0xe7, 0xef,
+	0x01, 0x00, 0x00, 0xff, 0xff, 0x7a, 0x32, 0x95, 0x53, 0x41, 0x02, 0x00, 0x00,
 }
 
 func (m *Index) Marshal() (dAtA []byte, err error) {
@@ -389,14 +329,9 @@ func (m *Index) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.SizeBytes != 0 {
-		i = encodeVarintIndex(dAtA, i, uint64(m.SizeBytes))
-		i--
-		dAtA[i] = 0x20
-	}
-	if m.FileOp != nil {
+	if m.File != nil {
 		{
-			size, err := m.FileOp.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.File.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -479,7 +414,7 @@ func (m *Range) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *FileOp) Marshal() (dAtA []byte, err error) {
+func (m *File) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -489,12 +424,67 @@ func (m *FileOp) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *FileOp) MarshalTo(dAtA []byte) (int, error) {
+func (m *File) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *FileOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *File) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.DataRefs) > 0 {
+		for iNdEx := len(m.DataRefs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DataRefs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintIndex(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Parts) > 0 {
+		for iNdEx := len(m.Parts) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Parts[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintIndex(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Part) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Part) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Part) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -517,82 +507,17 @@ func (m *FileOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0x1a
 		}
 	}
-	if len(m.DataOps) > 0 {
-		for iNdEx := len(m.DataOps) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.DataOps[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintIndex(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x12
-		}
-	}
-	if m.Op != 0 {
-		i = encodeVarintIndex(dAtA, i, uint64(m.Op))
-		i--
-		dAtA[i] = 0x8
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *DataOp) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *DataOp) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *DataOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.DataRefs) > 0 {
-		for iNdEx := len(m.DataRefs) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.DataRefs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintIndex(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x22
-		}
-	}
 	if m.SizeBytes != 0 {
 		i = encodeVarintIndex(dAtA, i, uint64(m.SizeBytes))
 		i--
-		dAtA[i] = 0x18
+		dAtA[i] = 0x10
 	}
 	if len(m.Tag) > 0 {
 		i -= len(m.Tag)
 		copy(dAtA[i:], m.Tag)
 		i = encodeVarintIndex(dAtA, i, uint64(len(m.Tag)))
 		i--
-		dAtA[i] = 0x12
-	}
-	if m.Op != 0 {
-		i = encodeVarintIndex(dAtA, i, uint64(m.Op))
-		i--
-		dAtA[i] = 0x8
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -622,12 +547,9 @@ func (m *Index) Size() (n int) {
 		l = m.Range.Size()
 		n += 1 + l + sovIndex(uint64(l))
 	}
-	if m.FileOp != nil {
-		l = m.FileOp.Size()
+	if m.File != nil {
+		l = m.File.Size()
 		n += 1 + l + sovIndex(uint64(l))
-	}
-	if m.SizeBytes != 0 {
-		n += 1 + sovIndex(uint64(m.SizeBytes))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -658,17 +580,14 @@ func (m *Range) Size() (n int) {
 	return n
 }
 
-func (m *FileOp) Size() (n int) {
+func (m *File) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Op != 0 {
-		n += 1 + sovIndex(uint64(m.Op))
-	}
-	if len(m.DataOps) > 0 {
-		for _, e := range m.DataOps {
+	if len(m.Parts) > 0 {
+		for _, e := range m.Parts {
 			l = e.Size()
 			n += 1 + l + sovIndex(uint64(l))
 		}
@@ -685,15 +604,12 @@ func (m *FileOp) Size() (n int) {
 	return n
 }
 
-func (m *DataOp) Size() (n int) {
+func (m *Part) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Op != 0 {
-		n += 1 + sovIndex(uint64(m.Op))
-	}
 	l = len(m.Tag)
 	if l > 0 {
 		n += 1 + l + sovIndex(uint64(l))
@@ -818,7 +734,7 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileOp", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field File", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -845,32 +761,13 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.FileOp == nil {
-				m.FileOp = &FileOp{}
+			if m.File == nil {
+				m.File = &File{}
 			}
-			if err := m.FileOp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
-			}
-			m.SizeBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SizeBytes |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipIndex(dAtA[iNdEx:])
@@ -1031,7 +928,7 @@ func (m *Range) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *FileOp) Unmarshal(dAtA []byte) error {
+func (m *File) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1054,34 +951,15 @@ func (m *FileOp) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: FileOp: wiretype end group for non-group")
+			return fmt.Errorf("proto: File: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: FileOp: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: File: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Op", wireType)
-			}
-			m.Op = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Op |= Op(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DataOps", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Parts", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1108,12 +986,12 @@ func (m *FileOp) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DataOps = append(m.DataOps, &DataOp{})
-			if err := m.DataOps[len(m.DataOps)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Parts = append(m.Parts, &Part{})
+			if err := m.Parts[len(m.Parts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
-		case 3:
+		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DataRefs", wireType)
 			}
@@ -1169,7 +1047,7 @@ func (m *FileOp) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *DataOp) Unmarshal(dAtA []byte) error {
+func (m *Part) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1192,32 +1070,13 @@ func (m *DataOp) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DataOp: wiretype end group for non-group")
+			return fmt.Errorf("proto: Part: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DataOp: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Part: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Op", wireType)
-			}
-			m.Op = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Op |= Op(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Tag", wireType)
 			}
@@ -1249,7 +1108,7 @@ func (m *DataOp) Unmarshal(dAtA []byte) error {
 			}
 			m.Tag = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 3:
+		case 2:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
 			}
@@ -1268,7 +1127,7 @@ func (m *DataOp) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 4:
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DataRefs", wireType)
 			}

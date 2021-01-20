@@ -35,6 +35,30 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	return c.WithCtx(ctx)
 }
 
+// WithoutTransaction returns a new APIClient which will run all future operations
+// outside of any active transaction
+// Removing from both incoming and outgoing metadata is necessary because Ctx() merges them
+func (c APIClient) WithoutTransaction() *APIClient {
+	ctx := c.Ctx()
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	newIn := make(metadata.MD)
+	newOut := make(metadata.MD)
+	for k, v := range incomingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newIn[k] = v
+	}
+	for k, v := range outgoingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newOut[k] = v
+	}
+	return c.WithCtx(metadata.NewIncomingContext(metadata.NewOutgoingContext(ctx, newOut), newIn))
+}
+
 // GetTransaction (should be run from the server-side) loads the active
 // transaction from the grpc metadata and returns the associated transaction
 // object - or `nil` if no transaction is set.
@@ -629,12 +653,21 @@ func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequ
 func (c *authBuilderClient) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest, opts ...grpc.CallOption) (*auth.GetOneTimePasswordResponse, error) {
 	return nil, unsupportedError("GetOneTimePassword")
 }
+func (c *authBuilderClient) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest, opts ...grpc.CallOption) (*auth.ExtractAuthTokensResponse, error) {
+	return nil, unsupportedError("ExtractAuthTokens")
+}
+func (c *authBuilderClient) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest, opts ...grpc.CallOption) (*auth.RestoreAuthTokenResponse, error) {
+	return nil, unsupportedError("RestoreAuthToken")
+}
 
 func (c *enterpriseBuilderClient) Activate(ctx context.Context, req *enterprise.ActivateRequest, opts ...grpc.CallOption) (*enterprise.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")
 }
 func (c *enterpriseBuilderClient) GetState(ctx context.Context, req *enterprise.GetStateRequest, opts ...grpc.CallOption) (*enterprise.GetStateResponse, error) {
 	return nil, unsupportedError("GetState")
+}
+func (c *enterpriseBuilderClient) GetActivationCode(ctx context.Context, req *enterprise.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise.GetActivationCodeResponse, error) {
+	return nil, unsupportedError("GetActivationCode")
 }
 func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest, opts ...grpc.CallOption) (*enterprise.DeactivateResponse, error) {
 	return nil, unsupportedError("Deactivate")

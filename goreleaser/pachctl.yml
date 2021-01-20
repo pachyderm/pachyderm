@@ -14,7 +14,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - -X {{ .Env.LD_FLAGS }}
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }}
     gcflags:
       - all=-trimpath={{ .Env.PWD }}
     env:
@@ -67,23 +67,3 @@ release:
   name_template: "{{ .Env.VERSION }}"
   prerelease: auto
   disable: false
-
-brews:
-  -
-    name: pachctl@{{.Major}}.{{.Minor}}
-    ids:
-      - pachctl-archives
-    homepage: "https://www.pachyderm.com/"
-    description: "Reproducible data science"
-    tap:
-      owner: pachyderm
-      name: homebrew-tap
-    url_template: "https://github.com/pachyderm/pachyderm/releases/download/v{{ .Env.VERSION }}/{{ .ArtifactName }}"
-    commit_author:
-      name: pachyderm
-      email: pachydermbuildbot@pachyderm.com
-    test: |
-      system "#{bin}/pachctl version"
-    install: |
-      bin.install buildpath/"pachctl"
-    skip_upload: false

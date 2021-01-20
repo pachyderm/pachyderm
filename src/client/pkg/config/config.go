@@ -14,11 +14,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const configEnvVar = "PACH_CONFIG"
-const contextEnvVar = "PACH_CONTEXT"
+const (
+	configEnvVar  = "PACH_CONFIG"
+	contextEnvVar = "PACH_CONTEXT"
+)
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
+var pachctlConfigPath = filepath.Join("/pachctl", "config.json")
 
 var configMu sync.Mutex
 var value *Config
@@ -26,6 +29,9 @@ var value *Config
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
 		return env
+	}
+	if _, err := os.Stat(pachctlConfigPath); err == nil {
+		return pachctlConfigPath
 	}
 	return defaultConfigPath
 }
@@ -66,7 +72,7 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
-func Read(ignoreCache bool) (*Config, error) {
+func Read(ignoreCache, readOnly bool) (*Config, error) {
 	configMu.Lock()
 	defer configMu.Unlock()
 
@@ -78,7 +84,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
-		} else if os.IsNotExist(err) {
+		} else if errors.Is(err, os.ErrNotExist) {
 			// File doesn't exist, so create a new config
 			log.Debugf("No config detected at %q. Generating new config...", p)
 			value = &Config{}
@@ -98,7 +104,7 @@ func Read(ignoreCache bool) (*Config, error) {
 		if value.V2 == nil {
 			updated = true
 			log.Debugln("No config V2 present in config - generating a new one.")
-			if err := value.initV2(); err != nil {
+			if err := value.InitV2(); err != nil {
 				return nil, err
 			}
 		}
@@ -118,7 +124,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			}
 		}
 
-		if updated {
+		if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
 			if err := value.Write(); err != nil {
@@ -137,7 +143,8 @@ func Read(ignoreCache bool) (*Config, error) {
 	return cloned, nil
 }
 
-func (c *Config) initV2() error {
+// InitV2 initializes the V2 object of the config
+func (c *Config) InitV2() error {
 	c.V2 = &ConfigV2{
 		ActiveContext: "default",
 		Contexts:      map[string]*Context{},
@@ -219,5 +226,23 @@ func (c *Config) Write() error {
 
 	// essentially short-cuts reading the new config back from disk
 	value = proto.Clone(c).(*Config)
+	return nil
+}
+
+// WritePachTokenToConfig sets the auth token for the current pachctl config.
+// Used during tests to ensure we don't lose access to a cluster if a test fails.
+func WritePachTokenToConfig(token string) error {
+	cfg, err := Read(false, false)
+	if err != nil {
+		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return errors.Wrapf(err, "error getting the active context")
+	}
+	context.SessionToken = token
+	if err := cfg.Write(); err != nil {
+		return errors.Wrapf(err, "error writing pachyderm config")
+	}
 	return nil
 }
