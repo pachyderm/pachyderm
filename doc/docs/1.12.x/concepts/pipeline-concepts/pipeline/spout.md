@@ -46,8 +46,8 @@ To write into the output repo,
 you will need to use the `put file` API call
 via any of the following:
     - the CLI (`pachctl put file`)
-    - one of the Pachyderm's SDKs (for [golang](../../reference/clients/#go-client) or [Python](../../reference/clients/#python-client) )
-    - or [your own API client](../../reference/clients/#other-languages).
+    - one of the Pachyderm's SDKs (for [golang](../../../../reference/clients/#go-client) or [Python](../../../../reference/clients/#python-client) )
+    - or [your own API client](../../../../reference/clients/#other-languages).
 - Pachyderm CLI (`pachctl`) is packaged
 in the base image of your spout
 as well as your authentication information.

@@ -34,7 +34,7 @@ the following steps:
 1. Deploy a Pachyderm cluster to a cloud provider of your choice as
 described in [Deploy Pachyderm](../../deploy/).
 For production deployments, deploy with the `--tls` flag.
-1. Enable authentication as described in [Configure Access Controls](../../../enterprise/auth/auth/).
+1. Enable authentication as described in [Configure Access Controls](../../../enterprise/auth/enable-auth/).
 1. Deploy the Traefik ingress controlleri as described in the [Traefik Documentation](https://docs.traefik.io/v1.7/user-guide/kubernetes/):
 
    **Note:** The commands below deploy an example Traefik ingress.
