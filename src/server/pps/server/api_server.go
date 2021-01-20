@@ -1142,9 +1142,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 		if resp.State == enterpriseclient.State_ACTIVE {
 			return a.getLogsLoki(request, apiGetLogsServer)
-		} else {
-			return errors.Errorf("enterprise must be enabled to use loki logging")
 		}
+		return errors.Errorf("enterprise must be enabled to use loki logging")
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
