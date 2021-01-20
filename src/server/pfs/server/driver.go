@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -141,9 +140,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	// Setup PFS master
 	go d.master(env, db)
 	go d.compactionWorker()
-	if err := migrations.BlockUntil(context.TODO(), db, desiredClusterState); err != nil {
-		return nil, err
-	}
 	return d, nil
 }
 
