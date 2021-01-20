@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create pipeline](../pachctl/pachctl_create_pipeline.md) section.
+create pipeline](./pachctl/pachctl_create_pipeline.md) section.
 
 ## JSON Manifest Format
 

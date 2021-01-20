@@ -420,9 +420,9 @@ repositories using a `cross` pattern. This `cross` pattern creates a
 single pairing of our input images with our edge detected images. There
 are several interesting ways to combine data in Pachyderm, which are
 discussed
-[here](../../reference/pipeline_spec/#input-required)
+[here](../reference/pipeline_spec/#input-required)
 and
-[here](../../concepts/pipeline-concepts/datum/join/).
+[here](../concepts/pipeline-concepts/datum/join/).
 
 We create the `montage` pipeline as before, with `pachctl`:
 
