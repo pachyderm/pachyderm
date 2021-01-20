@@ -14,7 +14,8 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
     '\\.(css)$': 'identity-obj-proxy',
-    '\\.(gif|jpg|png|svg)$': '@pachyderm/config/jest.file.mock.js'
+    '\\.(gif|jpg|png)$': '@pachyderm/config/jest.file.mock.js',
+    '\\.svg': '@pachyderm/config/jest.svg.mock.js'
   },
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
