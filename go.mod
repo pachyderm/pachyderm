@@ -111,6 +111,4 @@ replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+inc
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
 
-replace golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
-
 replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v1.0.1-0.20200204133151-f60278fd3dac
