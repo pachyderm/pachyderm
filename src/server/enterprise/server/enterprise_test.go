@@ -11,13 +11,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/license"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 const year = 365 * 24 * time.Hour
 
 func TestValidateActivationCode(t *testing.T) {
-	_, err := validateActivationCode(testutil.GetTestEnterpriseCode(t))
+	_, err := license.Validate(testutil.GetTestEnterpriseCode(t))
 	require.NoError(t, err)
 }
 
@@ -47,7 +48,7 @@ func TestGetState(t *testing.T) {
 		if time.Until(expires) <= year {
 			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
-		activationCode, err := unmarshalActivationCode(resp.ActivationCode)
+		activationCode, err := license.Unmarshal(resp.ActivationCode)
 		if err != nil {
 			return err
 		}
@@ -83,7 +84,7 @@ func TestGetState(t *testing.T) {
 		if expires.Unix() != respExpires.Unix() {
 			return errors.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
 		}
-		activationCode, err := unmarshalActivationCode(resp.ActivationCode)
+		activationCode, err := license.Unmarshal(resp.ActivationCode)
 		if err != nil {
 			return err
 		}
@@ -166,7 +167,7 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 
 	testutil.DeleteAll(t)
 	defer testutil.DeleteAll(t)
-	aliceClient := testutil.GetAuthenticatedPachClient(t, "alice")
+	aliceClient := testutil.GetAuthenticatedPachClient(t, "robot:alice")
 	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())

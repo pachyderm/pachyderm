@@ -19,24 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
-
-func githubLogin() (string, error) {
-	fmt.Println("(1) Please paste this link into a browser:\n\n" +
-		githubAuthLink + "\n\n" +
-		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
-		"login app on GitHub. If you accept, you will be given a token to " +
-		"paste here, which will give you an externally verified account in " +
-		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
-		"from GitHub here:")
-	token, err := cmdutil.ReadPassword("")
-	if err != nil {
-		return "", errors.Wrapf(err, "error reading token")
-	}
-	return strings.TrimSpace(token), nil // drop trailing newline
-}
-
-func requestOIDCLogin(c *client.APIClient) (string, error) {
+func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
 	if err != nil {
@@ -51,9 +34,11 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 		authURL + "\n\n" +
 		"")
 
-	err = browser.OpenURL(authURL)
-	if err != nil {
-		return "", err
+	if openBrowser {
+		err = browser.OpenURL(authURL)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return state, nil
@@ -138,7 +123,7 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var useOTP bool
+	var useOTP, noBrowser bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
 		Long: "Login to Pachyderm. Any resources that have been restricted to " +
@@ -164,7 +149,7 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OneTimePassword: code})
-			} else if state, err := requestOIDCLogin(c); err == nil {
+			} else if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
 				// Exchange OIDC token for Pachyderm token
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
@@ -178,15 +163,7 @@ func LoginCmd() *cobra.Command {
 						fmt.Sprintf("%s.../%d", state[:len(state)/2], len(state)))
 				}
 			} else {
-				// Exchange GitHub token for Pachyderm token
-				token, err := githubLogin()
-				if err != nil {
-					return err
-				}
-				fmt.Println("Retrieving Pachyderm token...")
-				resp, authErr = c.Authenticate(
-					c.Ctx(),
-					&auth.AuthenticateRequest{GitHubToken: token})
+				return fmt.Errorf("no authentication providers are configured")
 			}
 
 			// Write new Pachyderm token to config
@@ -202,8 +179,9 @@ func LoginCmd() *cobra.Command {
 		}),
 	}
 	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
-		"If set, authenticate with a Dash-provided One-Time Password, rather than "+
-			"via GitHub")
+		"If set, authenticate with a One-Time Password")
+	login.PersistentFlags().BoolVarP(&noBrowser, "no-browser", "b", false,
+		"If set, don't try to open a web browser")
 	return cmdutil.CreateAlias(login, "auth login")
 }
 

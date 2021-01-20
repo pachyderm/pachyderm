@@ -92,7 +92,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.GetConfiguration())
 
-	alice := tu.UniqueString("alice")
+	alice := robot(tu.UniqueString("alice"))
 	anonClient := tu.GetUnauthenticatedPachClient(t)
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
