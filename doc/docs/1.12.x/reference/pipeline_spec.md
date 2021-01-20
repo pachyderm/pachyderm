@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create pipeline](pachctl/pachctl_create_pipeline.md) section.
+create pipeline](../pachctl/pachctl_create_pipeline.md) section.
 
 ## JSON Manifest Format
 
@@ -880,7 +880,7 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-For more information, see [Exporting Data by using egress](../../how-tos/export-data-out-pachyderm/#export-your-data-with-egress)
+For more information, see [Exporting Data by using egress](../how-tos/export-data-out-pachyderm/export-data-egress.md)
 
 ### Standby (optional)
 
