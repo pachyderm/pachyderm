@@ -9,7 +9,7 @@ through an Ingress resource. To do so, you need to deploy an ingress
 controller and ingress resource object on the Kubernetes cluster that
 runs your Pachyderm cluster. While Kubernetes supports multiple ingress
 controllers, not all of them might work seamlessly with Pachyderm.
-See [Pachyderm Ingress Requirements](./configure-external-access/#pachyderm-ingress-requirements/) for more information.
+See [Pachyderm Ingress Requirements](../configure-external-access/#pachyderm-ingress-requirements/) for more information.
 
 In addition, follow these recommendations:
 

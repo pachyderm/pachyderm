@@ -12,7 +12,7 @@ Pachyderm needs a few things to install and run successfully in IBM Cloud OpenSh
 ##### Binaries for CLI
 
 - [oc](https://cloud.ibm.com/docs/openshift?topic=openshift-openshift-cli#cli_oc)
-- [pachctl](../../getting_started/local_installation/#install-pachctl)
+- [pachctl](../../../getting_started/local_installation/#install-pachctl)
 
 1. Since this is a stateful set based deployment, it uses either Persistent Volume Provisioning or pre-provisioned PV's using a defined storage class.
 1. An object store, used by Pachyderm's `pachd` for storing all your data.

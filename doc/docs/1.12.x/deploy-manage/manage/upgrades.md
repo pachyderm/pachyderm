@@ -14,7 +14,7 @@ procedure is simple and requires little to no downtime.
 
 To upgrade Pachyderm to a minor version, complete the following steps:
 
-1. Back up your cluster as described in the [Backup and Restore](./backup_restore/#backup-your-cluster)
+1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
 section.
 
 1. Destroy your Pachyderm cluster:

@@ -49,7 +49,7 @@ It's important that bandwidth to your storage deployment meet the guidelines of 
 ### Software you will need 
     
 1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-2. [pachctl](../../../../../getting_started/local_installation/#install-pachctl)
+2. [pachctl](../../../getting_started/local_installation/#install-pachctl)
 
 ## Setting up to deploy on-premises
 
