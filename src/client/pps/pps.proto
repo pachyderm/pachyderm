@@ -800,8 +800,7 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // TODO:
-  //rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
+  rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 
   // An internal call that causes PPS to put itself into an auth-enabled state
   // (all pipeline have tokens, correct permissions, etcd)
