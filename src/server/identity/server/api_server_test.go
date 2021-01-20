@@ -85,60 +85,60 @@ func TestUserNotAdmin(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("alice")
+	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call SetIdentityServerConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call SetIdentityServerConfig", alice), err.Error())
 
 	_, err = aliceClient.GetIdentityServerConfig(aliceClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call GetIdentityServerConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call GetIdentityServerConfig", alice), err.Error())
 
 	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call CreateIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call CreateIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.GetIDPConnector(aliceClient.Ctx(), &identity.GetIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call GetIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call GetIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{})
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call UpdateIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call UpdateIDPConnector", alice), err.Error())
 	require.YesError(t, err)
 
 	_, err = aliceClient.ListIDPConnectors(aliceClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call ListIDPConnectors", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call ListIDPConnectors", alice), err.Error())
 
 	_, err = aliceClient.DeleteIDPConnector(aliceClient.Ctx(), &identity.DeleteIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call DeleteIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call DeleteIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{})
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call CreateOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call CreateOIDCClient", alice), err.Error())
 	require.YesError(t, err)
 
 	_, err = aliceClient.GetOIDCClient(aliceClient.Ctx(), &identity.GetOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call GetOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call GetOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call UpdateOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call UpdateOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.ListOIDCClients(aliceClient.Ctx(), &identity.ListOIDCClientsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call ListOIDCClients", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call ListOIDCClients", alice), err.Error())
 
 	_, err = aliceClient.DeleteOIDCClient(aliceClient.Ctx(), &identity.DeleteOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call DeleteOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call DeleteOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.IdentityAPIClient.DeleteAll(aliceClient.Ctx(), &identity.DeleteAllRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = github:%v is not authorized to perform this operation; must be an admin to call DeleteAll", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call DeleteAll", alice), err.Error())
 }
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated

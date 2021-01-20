@@ -534,9 +534,6 @@ func standardDeployCmds() []*cobra.Command {
 				// is set by deploy.PersistentPreRun, below.
 				opts.Metrics = false
 
-				// Disable authentication, for tests
-				opts.DisableAuthentication = true
-
 				// Serve the Pachyderm object/block API locally, as this is needed by
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true

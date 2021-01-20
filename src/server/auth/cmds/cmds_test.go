@@ -1,91 +1,57 @@
 package cmds
 
-// Tests to add:
-// basic login test
-// login with no auth service deployed
-
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-var activateMut sync.Mutex
-
-// activateEnterprise checks if Pachyderm Enterprise is active and if not,
-// activates it
-func activateEnterprise(t *testing.T) {
-	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
-	out, err := cmd.Output()
+// loginAsUser sets the auth token in the pachctl config to a token for `user`
+func loginAsUser(t *testing.T, user string) {
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: user})
 	require.NoError(t, err)
-	if !strings.Contains(string(out), "ACTIVE") {
-		// Enterprise not active in the cluster. Activate it.
-		cmd := tu.Cmd("pachctl", "enterprise", "activate")
-		cmd.Stdin = strings.NewReader(fmt.Sprintf("%s\n", tu.GetTestEnterpriseCode(t)))
-		require.NoError(t, cmd.Run())
-	}
+	config.WritePachTokenToConfig(token.Token)
 }
 
-func activateAuth(t *testing.T) {
-	t.Helper()
-	activateMut.Lock()
-	defer activateMut.Unlock()
-	activateEnterprise(t)
-	// TODO(msteffen): Make sure client & server have the same version
-	// Logout (to clear any expired tokens) and activate Pachyderm auth
-	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
-	cmd := tu.Cmd("pachctl", "auth", "activate", "--supply-root-token")
-	cmd.Stdin = strings.NewReader(tu.RootToken + "\n")
-	require.NoError(t, cmd.Run())
-}
-
-func deactivateAuth(t *testing.T) {
-	t.Helper()
-	activateMut.Lock()
-	defer activateMut.Unlock()
-
-	// Check if Pachyderm Auth is active -- if so, deactivate it
-	if err := tu.BashCmd("echo iamroot | pachctl auth use-auth-token").Run(); err == nil {
-		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
-	}
-
-	// Wait for auth to finish deactivating
-	time.Sleep(time.Second)
-	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "whoami")
-		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
-		if cmd.Run() != nil {
-			return nil // cmd errored -- auth is deactivated
-		}
-		return errors.New("auth not deactivated yet")
-	}, backoff.RetryEvery(time.Second))
-}
-
-func TestAuthBasic(t *testing.T) {
+func TestLogin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	// Configure OIDC login
+	tu.ConfigureOIDCProvider(t)
+	defer tu.DeleteAll(t)
+
+	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
+	out, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	sc := bufio.NewScanner(out)
+	for sc.Scan() {
+		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+			tu.DoOAuthExchange(t, sc.Text())
+			break
+		}
+	}
+	cmd.Wait()
+
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
-		pachctl create repo {{.repo}}
-		pachctl list repo | match {{.repo}}
-		pachctl inspect repo {{.repo}}
-	`,
-		"alice", tu.UniqueString("alice"),
-		"repo", tu.UniqueString("TestAuthBasic-repo"),
+		pachctl auth whoami | match idp:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
 	).Run())
 }
 
@@ -93,13 +59,12 @@ func TestWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	alice := tu.UniqueString("robot:alice")
+	loginAsUser(t, alice)
+	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
-		pachctl auth whoami | match {{.alice}}
-		`,
-		"alice", tu.UniqueString("alice"),
+		pachctl auth whoami | match {{.alice}}`,
+		"alice", alice,
 	).Run())
 }
 
@@ -107,11 +72,13 @@ func TestCheckGetSet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
+
+	loginAsUser(t, alice)
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
 		pachctl create repo {{.repo}}
 		pachctl auth check owner {{.repo}}
 		pachctl auth get {{.repo}} \
@@ -119,21 +86,19 @@ func TestCheckGetSet(t *testing.T) {
 		pachctl auth get {{.bob}} {{.repo}} \
 			| match NONE
 		`,
-		"alice", tu.UniqueString("alice"),
-		"bob", tu.UniqueString("bob"),
+		"alice", alice,
+		"bob", bob,
 		"repo", tu.UniqueString("TestGet-repo"),
 	).Run())
 
 	// Test 'pachctl auth set'
-	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
-		pachctl create repo {{.repo}}
+	require.NoError(t, tu.BashCmd(`pachctl create repo {{.repo}}
 		pachctl auth set {{.bob}} reader {{.repo}}
 		pachctl auth get {{.bob}} {{.repo}} \
 			| match READER
 		`,
-		"alice", tu.UniqueString("alice"),
-		"bob", tu.UniqueString("bob"),
+		"alice", alice,
+		"bob", bob,
 		"repo", tu.UniqueString("TestGet-repo"),
 	).Run())
 }
@@ -142,52 +107,50 @@ func TestAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
 
 	// Modify the list of admins to add 'admin2'
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
 			| match "pach:root"
-		pachctl auth modify-admins --add admin,admin2
+		pachctl auth modify-admins --add robot:admin,robot:admin2
 		pachctl auth list-admins \
-			| match "^github:admin2$" \
-			| match "^github:admin$" 
-		pachctl auth modify-admins --remove admin
+			| match "^robot:admin2$" \
+			| match "^robot:admin$" 
+		pachctl auth modify-admins --remove robot:admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
 		pachctl auth list-admins \
-			| match -v "^github:admin$" \
-			| match "^github:admin2$"
+			| match -v "^robot:admin$" \
+			| match "^robot:admin2$"
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
-	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login").Run())
+	loginAsUser(t, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth modify-admins --add admin --remove admin2
+		pachctl auth modify-admins --add robot:admin --remove robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {
 		return tu.BashCmd(`pachctl auth list-admins \
-			| match -v "admin2" \
-			| match "admin"
+			| match -v "robot:admin2" \
+			| match "robot:admin"
 		`).Run()
 	}, backoff.NewTestingBackOff()))
-
 }
 
 func TestGetAndUseAuthToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
 
 	// Test both get-auth-token and use-auth-token; make sure that they work
 	// together with -q
-	require.NoError(t, tu.BashCmd(`
-	pachctl auth get-auth-token -q robot:marvin \
+	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q robot:marvin \
 	  | pachctl auth use-auth-token
 	pachctl auth whoami \
 	  | match 'robot:marvin'
@@ -201,8 +164,8 @@ func TestConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
 
 	idpMetadata := base64.StdEncoding.EncodeToString([]byte(`<EntityDescriptor
 		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
@@ -225,11 +188,7 @@ func TestConfig(t *testing.T) {
 		pachctl auth set-config <<EOF
 		{
 		  "live_config_version": 1,
-		  "id_providers": [{
-			"name": "github",
-			"description": "oauth-based authentication with github.com",
-			"github":{}
-		  },
+		  "id_providers": [
 		  {
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
@@ -250,6 +209,12 @@ func TestConfig(t *testing.T) {
 		  | match '"metadata_url": "http://www.example.com"' \
 		  | match '}'
 		`).Run())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl auth get-config -o yaml \
+		  | match 'live_config_version: 2' \
+		  | match 'id_providers:' \
+		`).Run())
 }
 
 // TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
@@ -259,14 +224,15 @@ func TestGetAuthTokenNoSubject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
-	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
-		pachctl auth get-auth-token -q | pachctl auth use-auth-token
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := tu.UniqueString("robot:alice")
+	loginAsUser(t, alice)
+	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q | pachctl auth use-auth-token
 		pachctl auth whoami | match {{.alice}}
 		`,
-		"alice", tu.UniqueString("alice"),
+		"alice", alice,
 	).Run())
 }
 
@@ -276,13 +242,11 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("alice")
-	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login `,
-		"alice", alice,
-	).Run())
+	alice := tu.UniqueString("robot:alice")
+	loginAsUser(t, alice)
 
 	var tokenBuf bytes.Buffer
 	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
@@ -292,8 +256,7 @@ func TestGetAuthTokenTTL(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 	var errMsg bytes.Buffer
-	login := tu.BashCmd(`
-		echo {{.token}} | pachctl auth use-auth-token
+	login := tu.BashCmd(`echo {{.token}} | pachctl auth use-auth-token
 		pachctl auth whoami
 	`, "token", token)
 	login.Stderr = &errMsg
@@ -308,15 +271,18 @@ func TestGetOneTimePasswordNoSubject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := tu.UniqueString("robot:alice")
+	loginAsUser(t, alice)
+
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login
 		otp="$(pachctl auth get-otp)"
 		echo "${otp}" | pachctl auth login --one-time-password
 		pachctl auth whoami | match {{.alice}}
 		`,
-		"alice", tu.UniqueString("alice"),
+		"alice", alice,
 	).Run())
 }
 
@@ -326,13 +292,11 @@ func TestGetOneTimePasswordTTL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	activateAuth(t)
-	defer deactivateAuth(t)
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
 
-	alice := tu.UniqueString("alice")
-	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login`,
-		"alice", alice,
-	).Run())
+	alice := tu.UniqueString("robot:alice")
+	loginAsUser(t, alice)
 
 	var otpBuf bytes.Buffer
 	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
@@ -349,23 +313,6 @@ func TestGetOneTimePasswordTTL(t *testing.T) {
 	login.Stderr = &errMsg
 	require.YesError(t, login.Run())
 	require.Matches(t, "otp is invalid or has expired", errMsg.String())
-}
-
-func TestYAMLConfig(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	activateAuth(t)
-	defer deactivateAuth(t)
-
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth get-config -o yaml \
-		  | match 'live_config_version: 1' \
-		  | match 'id_providers:' \
-		  | match 'name: GitHub' \
-		  | match 'description: oauth-based authentication with github.com' \
-		  | match 'github: {}'
-		`).Run())
 }
 
 func TestMain(m *testing.M) {

@@ -59,14 +59,8 @@ func TestBadConfig(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
-	c := testutil.GetPachClient(t)
-	resp, err := c.Authenticate(
-		context.Background(),
-		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	c := testutil.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// make sure we get an error for missing admin_token
 	err = configurePluginHelper(v, "", "", "")
@@ -75,19 +69,19 @@ func TestBadConfig(t *testing.T) {
 	}
 
 	// make sure we get an error for missing pachd_address (not set in configurePluginHelper)
-	err = configurePluginHelper(v, resp.PachToken, "", "")
+	err = configurePluginHelper(v, testutil.RootToken, "", "")
 	if err == nil {
 		t.Fatalf("expected missing address in config to error")
 	}
 
 	// make sure that missing TTL is OK
-	err = configurePluginHelper(v, resp.PachToken, c.GetAddress(), "")
+	err = configurePluginHelper(v, testutil.RootToken, c.GetAddress(), "")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// make sure that malformed TTL is not OK
-	err = configurePluginHelper(v, resp.PachToken, c.GetAddress(), "234....^^^")
+	err = configurePluginHelper(v, testutil.RootToken, c.GetAddress(), "234....^^^")
 	if err == nil {
 		t.Fatalf("expected bad ttl in config to error")
 	}

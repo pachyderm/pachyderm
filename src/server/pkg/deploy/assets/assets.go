@@ -185,11 +185,6 @@ type AssetOpts struct {
 	// help much and may cause more instability than it prevents.
 	NoGuaranteed bool
 
-	// DisableAuthentication stops Pachyderm's authentication service
-	// from talking to GitHub, for testing. Instead users can authenticate
-	// simply by providing a username.
-	DisableAuthentication bool
-
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
 	BlockCacheSize string
@@ -623,7 +618,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
 		{Name: "IAM_ROLE", Value: opts.IAMRole},
 		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
-		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
 		{
 			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
