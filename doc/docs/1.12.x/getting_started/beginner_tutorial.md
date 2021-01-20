@@ -422,7 +422,7 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed in
 [our pipeline specification page](../../reference/pipeline_spec/#pfs-input)
 and
-[pipelines' concepts](../../concepts/pipeline-concepts/datum/index.md).
+[pipelines' concepts](../../concepts/pipeline-concepts/datum/).
 
 We create the `montage` pipeline as before, with `pachctl`:
 

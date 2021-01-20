@@ -289,7 +289,6 @@ nav:
             - reference/pachctl/pachctl_debug.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
-            - reference/pachctl/pachctl_debug_pprof.md
             - reference/pachctl/pachctl_debug_profile.md
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md

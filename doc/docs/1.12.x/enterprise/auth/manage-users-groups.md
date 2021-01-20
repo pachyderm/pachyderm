@@ -148,4 +148,4 @@ To configure groups in OIDC providers, you need to add the `groups` scope to
 
 
 !!! note "See also"
-    [Configure a SAML User](../saml/)
+    [Configure a SAML User](../saml/saml.md)
