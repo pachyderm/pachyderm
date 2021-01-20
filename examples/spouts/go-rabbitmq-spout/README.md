@@ -60,6 +60,7 @@ or you may simply make the image with `docker-image`.
 | `SWITCH_BRANCH` | The branch to switch to periodically | master |
 | `COMMIT_BRANCH` | The branch to commit to | staging |
 Furthermore, the following command line arguments are available for the rabbitmq spout:
+
 | Flag  | Description |
 |-------|-------------|
 | -topic | The name of the messaging topic to read from |
