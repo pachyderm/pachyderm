@@ -8,11 +8,11 @@ import "google/protobuf/timestamp.proto";
 
 /* A note on users
  *
- * Internally, in Pachyderm, usernames are structured strings. This makes both
+ * In Pachyderm, usernames are structured strings. This makes both
  * our API and our data model more flexible (at the loss of some type safety).
- * Basically, anywhere that Pachyderm internally stores a subject (i.e.
- * TokenInfo) or principal (ACL, the 'admins' collection), that username will
- * have some structured prefix.
+ * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or 
+ * principal (ACL, the 'admins' collection), that username will have some 
+ * structured prefix.
  *
  * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
  * ListAdmins) will have their own conventions
@@ -221,7 +221,8 @@ message OTPInfo {
 
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
 message TokenInfo {
-  // Subject (i.e. Pachyderm account) that a given token authorizes. 
+  // Subject (i.e. Pachyderm account) that a given token authorizes.
+  // See the note at the top of the doc for an explanation of subject structure.
   string subject = 1;
 
   enum TokenSource {
@@ -280,7 +281,7 @@ enum Scope {
 }
 
 message ACL {
-  // principal -> scope. All principal names are fully-qualified. 
+  // principal -> scope. All principal names include the structured prefix indicating their type.
   map<string, Scope> entries = 1;
 }
 

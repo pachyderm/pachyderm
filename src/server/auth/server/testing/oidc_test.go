@@ -19,6 +19,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	tu.DeleteAll(t)
 	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)
 
@@ -47,6 +48,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	tu.DeleteAll(t)
 	tu.ConfigureOIDCProvider(t)
 	defer tu.DeleteAll(t)
 	testClient := tu.GetUnauthenticatedPachClient(t)

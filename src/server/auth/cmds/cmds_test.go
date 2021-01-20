@@ -127,7 +127,7 @@ func TestAdmins(t *testing.T) {
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
-	// (so that detu.ActivateAuth() runs), and call 'list-admin' (to make sure it
+	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
 	loginAsUser(t, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
