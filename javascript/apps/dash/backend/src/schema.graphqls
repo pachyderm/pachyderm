@@ -128,9 +128,13 @@ type Dag {
   links: [Link!]!
 }
 
+input DagQueryArgs {
+  projectId: ID!
+}
+
 type Query {
   pipelines: [Pipeline!]!
   repos: [Repo!]!
   jobs: [Job!]!
-  dag: Dag!
+  dag(args: DagQueryArgs!): Dag!
 }

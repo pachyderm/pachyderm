@@ -5,6 +5,10 @@ import {GraphQLResolveInfo} from 'graphql';
 import {Context} from 'lib/types';
 export type Maybe<T> = T | null;
 export type Exact<T extends {[key: string]: unknown}> = {[K in keyof T]: T[K]};
+export type RequireFields<T, K extends keyof T> = {
+  [X in Exclude<keyof T, K>]?: T[X];
+} &
+  {[P in K]-?: NonNullable<T[P]>};
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: string;
@@ -151,12 +155,20 @@ export type Dag = {
   links: Array<Link>;
 };
 
+export type DagQueryArgs = {
+  projectId: Scalars['ID'];
+};
+
 export type Query = {
   __typename?: 'Query';
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
   jobs: Array<Job>;
   dag: Dag;
+};
+
+export type QueryDagArgs = {
+  args: DagQueryArgs;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -298,6 +310,7 @@ export type ResolversTypes = ResolversObject<{
   Node: ResolverTypeWrapper<Node>;
   Link: ResolverTypeWrapper<Link>;
   Dag: ResolverTypeWrapper<Dag>;
+  DagQueryArgs: DagQueryArgs;
   Query: ResolverTypeWrapper<{}>;
 }>;
 
@@ -319,6 +332,7 @@ export type ResolversParentTypes = ResolversObject<{
   Node: Node;
   Link: Link;
   Dag: Dag;
+  DagQueryArgs: DagQueryArgs;
   Query: {};
 }>;
 
@@ -527,7 +541,12 @@ export type QueryResolvers<
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
-  dag?: Resolver<ResolversTypes['Dag'], ParentType, ContextType>;
+  dag?: Resolver<
+    ResolversTypes['Dag'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDagArgs, 'args'>
+  >;
 }>;
 
 export type Resolvers<ContextType = Context> = ResolversObject<{

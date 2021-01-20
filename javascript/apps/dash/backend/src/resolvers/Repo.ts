@@ -1,5 +1,5 @@
 import {QueryResolvers} from 'generated/types';
-import pfs from 'grpc/pfs';
+import client from 'grpc/client';
 
 interface RepoResolver {
   Query: {
@@ -9,11 +9,8 @@ interface RepoResolver {
 
 const repoResolver: RepoResolver = {
   Query: {
-    repos: async (_parent, _args, context) => {
-      const repos = await pfs(
-        context.pachdAddress || '',
-        context.authToken || '',
-      ).listRepo();
+    repos: async (_parent, _args, {pachdAddress = '', authToken = ''}) => {
+      const repos = await client(pachdAddress, authToken).pfs().listRepo();
 
       return repos.map((repo) => ({
         createdAt: repo.created?.seconds || 0,

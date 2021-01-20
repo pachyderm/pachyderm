@@ -7,7 +7,9 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "start": "NODE_PATH=dist/ node dist/index.js"
+    "start": "NODE_PATH=dist/ node dist/index.js",
+    "start:mock": "NODE_PATH=dist/ node dist/mock/index.js",
+    "mock-and-start": "concurrently \"NODE_ENV=test npm start\" \"npm run start:mock\""
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
@@ -23,6 +25,7 @@
     "@graphql-codegen/typescript-resolvers": "1.18.1",
     "@pachyderm/config": "0.4.4",
     "@types/lodash": "4.14.167",
+    "concurrently": "5.3.0",
     "eslint": "6.8.0",
     "typescript": "4.1.2"
   }

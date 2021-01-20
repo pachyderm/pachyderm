@@ -4,8 +4,7 @@ import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 
 import {NodeType, QueryResolvers} from 'generated/types';
-import pfs from 'grpc/pfs';
-import pps from 'grpc/pps';
+import client from 'grpc/client';
 import {LinkInputData} from 'lib/types';
 
 interface DagResolver {
@@ -34,11 +33,17 @@ const flattenPipelineInput = (input: Input.AsObject): string[] => {
 
 const dagResolver: DagResolver = {
   Query: {
-    dag: async (_field, _args, {pachdAddress = '', authToken = ''}) => {
+    dag: async (
+      _field,
+      {args: {projectId}},
+      {pachdAddress = '', authToken = ''},
+    ) => {
+      const pachClient = client(pachdAddress, authToken);
+
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
-        pfs(pachdAddress, authToken).listRepo(),
-        pps(pachdAddress, authToken).listPipeline(),
+        pachClient.pfs().listRepo(projectId),
+        pachClient.pps().listPipeline(projectId),
       ]);
 
       const pipelineMap = keyBy(pipelines, (p) => p.pipeline?.name);
