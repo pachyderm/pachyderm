@@ -1155,6 +1155,10 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		return err
 	}
 
+	if err := encoder.Encode(PostgresInitConfigMap(opts)); err != nil {
+		return err
+	}
+
 	// In the dynamic route, we create a storage class which dynamically
 	// provisions volumes, and run postgres as a stateful set.
 	// In the static route, we create a single volume, a single volume
