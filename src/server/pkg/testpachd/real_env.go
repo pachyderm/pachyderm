@@ -1,6 +1,7 @@
 package testpachd
 
 import (
+	"context"
 	"net"
 	"net/url"
 	"path"
@@ -10,6 +11,8 @@ import (
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
+	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
@@ -54,6 +57,13 @@ func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*servicee
 		config.EtcdPort = etcdClientURL.Port()
 		config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
 		servEnv := serviceenv.InitServiceEnv(config)
+
+		if err := migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+			return err
+		}
+		if err := migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState); err != nil {
+			return err
+		}
 
 		realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
 		config.StorageRoot = realEnv.LocalStorageDirectory

@@ -30,11 +30,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/src/server/identity/server"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -245,6 +247,7 @@ func doFullMode(config interface{}) (retErr error) {
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
 		log.SetLevel(log.InfoLevel)
 	}
+
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
 		log.Printf("connecting to Jaeger at %q", endpoint)
@@ -256,6 +259,15 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}
+
+	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
+	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
+
 	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return errors.Wrapf(err, "getClusterID")
