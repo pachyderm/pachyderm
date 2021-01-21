@@ -68,7 +68,15 @@ func InitialState() State {
 	return State{
 		name: "init",
 		change: func(ctx context.Context, env Env) error {
-			return nil
+			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS migrations (
+				id BIGINT PRIMARY KEY,
+				NAME VARCHAR(250) NOT NULL,
+				start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				end_time TIMESTAMP
+			);
+			INSERT INTO migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
+			`)
+			return err
 		},
 	}
 }
@@ -76,36 +84,12 @@ func InitialState() State {
 // ApplyMigrations does the necessary work to actualize state.
 // It will manipulate the objects available in baseEnv, and use the migrations table in db.
 func ApplyMigrations(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return err
-	}
-
-	env := baseEnv
-	env.Tx = tx
-
-	if _, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS migrations (
-				id BIGINT PRIMARY KEY,
-				NAME VARCHAR(250) NOT NULL,
-				start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				end_time TIMESTAMP
-			);`); err != nil {
-		return err
-	}
-
-	logrus.Infof("waiting to acquire lock on migrations table")
-	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
-		return err
-	}
-	logrus.Infof("acquired lock on migrations table")
-
 	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
-		if err := applyMigration(ctx, tx, env, state); err != nil {
-			logrus.Error(err)
-			return tx.Rollback()
+		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
+			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // collectStates does a reverse order traversal of a linked list and adds each item to a slice
@@ -116,26 +100,49 @@ func collectStates(slice []State, s State) []State {
 	return append(slice, s)
 }
 
-func applyMigration(ctx context.Context, tx *sqlx.Tx, env Env, state State) error {
-	if finished, err := isFinished(ctx, tx, state); err != nil {
+func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) error {
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
 		return err
-	} else if finished {
-		// skip migration
-		logrus.Infof("migration %d already applied", state.n)
+	}
+	env := baseEnv
+	env.Tx = tx
+	if err := func() error {
+		if state.n == 0 {
+			if err := state.change(ctx, env); err != nil {
+				panic(err)
+			}
+		}
+		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
+		if err != nil {
+			return err
+		}
+		if finished, err := isFinished(ctx, tx, state); err != nil {
+			return err
+		} else if finished {
+			// skip migration
+			logrus.Infof("migration %d already applied", state.n)
+			return nil
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
+			return err
+		}
+		logrus.Infof("applying migration %d %s", state.n, state.name)
+		if err := state.change(ctx, env); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
+			return err
+		}
+		logrus.Infof("successfully applied migration %d", state.n)
 		return nil
-	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
+	}(); err != nil {
+		if err := tx.Rollback(); err != nil {
+			logrus.Error(err)
+		}
 		return err
 	}
-	logrus.Infof("applying migration %d %s", state.n, state.name)
-	if err := state.change(ctx, env); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
-		return err
-	}
-	logrus.Infof("successfully applied migration %d", state.n)
-	return nil
+	return tx.Commit()
 }
 
 // BlockUntil blocks until state is actualized.
