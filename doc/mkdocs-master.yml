@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/
+site_url: https://docs.pachyderm.com/master/
 docs_dir: docs/master/
 site_dir: site/master/
 
@@ -33,9 +33,7 @@ theme:
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
-  font:
-    text: Robotol
-    code: Roboto Mono
+  font: false
   favicon: assets/images/favicon-32x32.png
   icon:
     logo: material/school
