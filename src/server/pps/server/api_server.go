@@ -44,7 +44,6 @@ import (
 	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
-	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
@@ -1278,7 +1277,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+						if !common.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1400,7 +1399,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if request.Master != msg.Master {
 			return nil
 		}
-		if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+		if !common.MatchDatum(request.DataFilters, msg.Data) {
 			return nil
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
