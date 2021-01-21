@@ -90,8 +90,8 @@ deployment options and related topics:
            Deploy On-Premises With Non-Cloud Object Stores
            </a>
            </li>
-           <li><a href="deploy-pachyderm-jupyterhub/" class="md-typeset md-link">
-           Deploy Pachyderm with JupyterHub
+           <li><a href="deploy-pachyderm-ide/" class="md-typeset md-link">
+           Deploy Pachyderm with IDE
            </a>
            </li>
            <li><a href="rbac/" class="md-typeset md-link">

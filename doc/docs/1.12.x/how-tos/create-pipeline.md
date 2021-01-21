@@ -48,7 +48,7 @@ see [Pipeline Specification](../../reference/pipeline_spec/).
 To create a pipeline, complete the following steps:
 
 1. Create a pipeline specification. For more information, see
-[Pipeline Specification](../../../reference/pipeline_spec/).
+[Pipeline Specification](../../reference/pipeline_spec/).
 
 1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 

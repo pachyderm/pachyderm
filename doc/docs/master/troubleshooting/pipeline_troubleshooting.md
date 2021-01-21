@@ -17,7 +17,7 @@ In this document, we'll describe what you'll see, how Pachyderm will respond, an
 At the bottom of the document, we'll provide specific troubleshooting steps for [specific scenarios](#specific-scenarios).
 
 - [Pipeline exists but never runs](#pipeline-exists-but-never-runs) 
-- [All your pods or jobs get evicted](#all-your-pods-or-jobs-get-evicted)
+- [All your pods or jobs get evicted](#all-pods-or-jobs-get-evicted)
 
 ### Determining the kind of failure
 

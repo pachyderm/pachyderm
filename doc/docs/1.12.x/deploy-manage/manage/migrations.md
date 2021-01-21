@@ -300,7 +300,7 @@ To restore your cluster, complete the following steps:
 
 1. Configure any external data loading systems to point at the new,
 upgraded Pachyderm cluster and play back transactions from the checkpoint
-established at [Pause External Data Operations](./backup-migrations/#pause-external-data-loading-operations).
+established at [Pause External Data Operations](../backup_restore/#pause-external-data-loading-operations).
 Perform any reconfiguration to data loading or unloading operations.
 Confirm that the data output is as expected and the new cluster is operating as expected.
 

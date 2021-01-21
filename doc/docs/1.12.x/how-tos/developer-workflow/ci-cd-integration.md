@@ -72,7 +72,7 @@ The CI workflow includes the following steps:
 
 
 ## GitHub Actions
-[GitHub actions](github.com/features/actions) are a convenient way to kick off workflows and perform integration. These can be used to:
+[GitHub actions](https://github.com/features/actions) are a convenient way to kick off workflows and perform integration. These can be used to:
 
 * Manually trigger a pipeline build, or
 * Automatically build a pipeline from a commit or pull request.

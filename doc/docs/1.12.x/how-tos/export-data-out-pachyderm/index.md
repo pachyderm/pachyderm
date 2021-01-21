@@ -26,7 +26,7 @@ data exporting methods in a Pachyderm pipeline:
   * A service. A Pachyderm service exposes the results of the
   pipeline processing on a specific port in the form of a dashboard
   or similar endpoint.<br>
-  See [Service](../../../concepts/pipeline-concepts/pipeline/service/).<br>
+  See [Service](../../concepts/pipeline-concepts/pipeline/service/).<br>
 
   * Configure your code to connect to an external data source.
   Because a pipeline is a Docker container that runs your code,
@@ -37,7 +37,7 @@ data exporting methods in a Pachyderm pipeline:
 * By using the S3 gateway. Pachyderm Enterprise users can reuse
   their existing tools and libraries that work with object store
   to export their data with the S3 gateway.<br>
-  See [Using the S3 Gateway](../../../deploy-manage/manage/s3gateway/).
+  See [Using the S3 Gateway](../../deploy-manage/manage/s3gateway/).
 
 * By mounting your data to a local filesystem with `pachctl mount`.
   See [Mount a Repo to a Local Computer](mount-repo-to-local-computer/)

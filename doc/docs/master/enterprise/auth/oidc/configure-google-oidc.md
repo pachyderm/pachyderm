@@ -62,7 +62,7 @@ in the following format:
 
 ## Configure Pachyderm
 
-After you have completed the steps in [Configure Google OAuth 2.0](#configure-google-oauth-2.0),
+After you have completed the steps in [Configure Google OAuth 2.0](#configure-google-oauth-20),
 you need to create a Pachyderm authentication config and login as a Google user
 to your Pachyderm cluster.
 
