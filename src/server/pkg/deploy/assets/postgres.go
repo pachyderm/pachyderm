@@ -23,8 +23,6 @@ var (
 	postgresHeadlessServiceName     = "postgres-headless"
 	postgresName                    = "postgres"
 	postgresVolumeName              = "postgres-volume"
-	postgresInitVolumeName          = "postgres-init"
-	postgresInitConfigMapName       = "postgres-init-cm"
 	postgresVolumeClaimName         = "postgres-storage"
 	defaultPostgresStorageClassName = "postgres-storage-class"
 )
@@ -76,14 +74,6 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			},
 		}
 	}
-	volumes = append(volumes, v1.Volume{
-		Name: postgresInitVolumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{Name: postgresInitConfigMapName},
-			},
-		},
-	})
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    cpu,
@@ -129,10 +119,6 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 								{
 									Name:      "postgres-storage",
 									MountPath: "/var/lib/postgresql/data",
-								},
-								{
-									Name:      postgresInitVolumeName,
-									MountPath: "/docker-entrypoint-initdb.d",
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
@@ -285,10 +271,6 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 									"name":      postgresVolumeClaimName,
 									"mountPath": "/var/lib/postgresql/data",
 								},
-								map[string]interface{}{
-									"name":      postgresInitVolumeName,
-									"mountPath": "/docker-entrypoint-initdb.d",
-								},
 							},
 							"imagePullPolicy": "IfNotPresent",
 							"resources": map[string]interface{}{
@@ -344,29 +326,6 @@ func PostgresService(local bool, opts *AssetOpts) *v1.Service {
 					NodePort: clientNodePort,
 				},
 			},
-		},
-	}
-}
-
-// PostgresInitConfigMap generates a configmap which can be mounted into
-// the postgres container to initialize the database.
-func PostgresInitConfigMap(opts *AssetOpts) *v1.ConfigMap {
-	return &v1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta(postgresInitConfigMapName, labels(postgresName), nil, opts.Namespace),
-		Data: map[string]string{
-			"init-db.sh": `
-#!/bin/bash
-set -e
-
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE DATABASE dex;
-    GRANT ALL PRIVILEGES ON DATABASE dex TO postgres;
-EOSQL
-`,
 		},
 	}
 }

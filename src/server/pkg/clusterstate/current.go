@@ -23,4 +23,8 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
 		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
+	}).
+	Apply("create dex identity", func(ctx context.Context, env migrations.Env) error {
+		_, err := env.Tx.ExecContext(ctx, `CREATE USER dex`)
+		return err
 	})

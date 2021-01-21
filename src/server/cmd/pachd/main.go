@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -292,7 +293,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 	identityStorageProvider := identity_server.NewLazyPostgresStorage(
 		env.PostgresServiceHost,
-		env.IdentityServerDatabase,
+		dbutil.DefaultDBName,
 		env.IdentityServerUser,
 		env.IdentityServerPassword,
 		env.PostgresServiceSSL,

@@ -74,8 +74,7 @@ type PachdSpecificConfiguration struct {
 	PostgresServicePort int    `env:"POSTGRES_SERVICE_PORT"`
 	PostgresServiceSSL  string `env:"POSTGRES_SERVICE_SSL,default=disable"`
 
-	IdentityServerDatabase string `env:"IDENTITY_SERVER_DATABASE,default=dex"`
-	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=postgres"`
+	IdentityServerUser     string `env:"IDENTITY_SERVER_USER,default=dex"`
 	IdentityServerPassword string `env:"IDENTITY_SERVER_PASSWORD"`
 }
 
