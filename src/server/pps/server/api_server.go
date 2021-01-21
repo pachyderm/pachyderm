@@ -1127,7 +1127,6 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	})
 }
 
-// TODO: Figure out logs for V2.
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	// Set the default for the `Since` field.
