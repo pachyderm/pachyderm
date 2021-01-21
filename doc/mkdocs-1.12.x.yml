@@ -33,6 +33,7 @@ theme:
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
+  font: false
   favicon: assets/images/favicon-32x32.png
   icon:
     logo: material/school
