@@ -28,3 +28,12 @@ services:
     command: ["netlify","dev"]
     ports:
       - "8888:8888"
+
+  netlify-build:
+    build: 
+      context: .. 
+      dockerfile: Dockerfile.pachdoc
+    #command: ["netlify","build", "--dry", "--context", "deploy-preview"]
+    command: ["bash"]
+    ports:
+      - "8888:8888"

@@ -7,7 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
+
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -26,9 +26,6 @@ func (d *driver) master(env *serviceenv.ServiceEnv, db *sqlx.DB) {
 			return err
 		}
 		defer masterLock.Unlock(masterCtx)
-		if err := migrations.ApplyMigrations(masterCtx, db, migrations.Env{}, desiredClusterState); err != nil {
-			return err
-		}
 		return d.storage.GC(masterCtx)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Errorf("error in pfs master: %v", err)

@@ -77,7 +77,7 @@ custom-release:
 # Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
 release:
 	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
-	$(SKIP) @git push origin v$(VERSION)
+	$(SKIP) @git push -f origin v$(VERSION)
 	@make release-helper
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"

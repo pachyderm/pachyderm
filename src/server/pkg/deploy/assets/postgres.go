@@ -177,6 +177,16 @@ func PostgresHeadlessService(opts *AssetOpts) *v1.Service {
 func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interface{} {
 	mem := resource.MustParse(opts.PostgresOpts.MemRequest)
 	cpu := resource.MustParse(opts.PostgresOpts.CPURequest)
+	volumes := []v1.Volume{
+		v1.Volume{
+			Name: postgresInitVolumeName,
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{Name: postgresInitConfigMapName},
+				},
+			},
+		},
+	}
 	var pvcTemplates []interface{}
 	switch backend {
 	case GoogleBackend, AmazonBackend:
@@ -299,6 +309,7 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 							},
 						},
 					},
+					"volumes": volumes,
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,

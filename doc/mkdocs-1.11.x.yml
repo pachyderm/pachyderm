@@ -34,9 +34,7 @@ theme:
   palette:
     primary: #4B2A5C
     accent: #4B2A5C
-  font:
-    text: Roboto
-    code: Roboto Mono
+  font: false
   favicon: assets/images/favicon-32x32.png
   icon:
     logo: material/school
@@ -184,7 +182,7 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Getting Started with Pachyderm Hub: pachub/pachub_getting_started.md
+            - Getting Started with Pachyderm Hub: pachhub/pachhub_getting_started.md
             - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
             - Deploy on AWS:
                 - Overview: deploy-manage/deploy/amazon_web_services/index.md
@@ -289,7 +287,6 @@ nav:
             - reference/pachctl/pachctl_debug.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
-            - reference/pachctl/pachctl_debug_pprof.md
             - reference/pachctl/pachctl_debug_profile.md
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md

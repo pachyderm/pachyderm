@@ -103,7 +103,7 @@ filling out the required fields. Otherwise, proceed to the next step.
 
       ![Keycloak Client](../../../assets/images/s_keycloak_client.png)
 
-1. Proceed to [Configure Pachyderm](#confgiure-pachyderm).
+1. Proceed to [Configure Pachyderm](#configure-pachyderm).
 
 ## Configure Pachyderm
 

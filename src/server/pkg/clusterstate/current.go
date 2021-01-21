@@ -1,4 +1,4 @@
-package server
+package clusterstate
 
 import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
@@ -8,7 +8,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-var desiredClusterState migrations.State = migrations.InitialState().
+// DesiredClusterState is the set of migrations to apply to run pachd at the current version.
+// New migrations should be appended to the end.
+var DesiredClusterState migrations.State = migrations.InitialState().
 	Apply("create storage schema", func(ctx context.Context, env migrations.Env) error {
 		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA storage`)
 		return err

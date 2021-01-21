@@ -9,5 +9,5 @@ static persistent volumes, StatefulSets, and StatefulSets with StorageClasses.
 Also, it explains the meanings of the variables, such as  `PVC_STORAGE_SIZE`
 and `OS_ENDPOINT` that are used in the examples below.
 1. Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/).
-1. Install [pachctl](../../../../../getting_started/local_installation/#install-pachctl).
-1. Proceed to [Pachyderm Deployment Manifest](./deploy_custom_pachyderm_deployment_manifest.md).
+1. Install [pachctl](../../../../getting_started/local_installation/#install-pachctl).
+1. Proceed to [Pachyderm Deployment Manifest](../deploy_custom_pachyderm_deployment_manifest/).
