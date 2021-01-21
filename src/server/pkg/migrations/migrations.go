@@ -113,7 +113,7 @@ func applyMigration(ctx context.Context, db *sqlx.DB, baseEnv Env, state State) 
 				panic(err)
 			}
 		}
-		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE NOWAIT`)
+		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
 		if err != nil {
 			return err
 		}
