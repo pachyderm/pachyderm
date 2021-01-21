@@ -19,7 +19,7 @@ import "google/protobuf/timestamp.proto";
  *
  * The current user formats are:
  * 1) Users synced from an identity provider:
- *      "<idp>:username"
+ *      "user:username"
  * 2) Pachyderm robot users:
  *      "robot:robot_user_1"
  * 3) Pachyderm pipelines:
@@ -48,7 +48,7 @@ message DeactivateRequest {}
 message DeactivateResponse {}
 
 
-// Configure Pachyderm's auth system (particularly authentication backends
+// Configure Pachyderm's auth system with an OIDC provider 
 message AuthConfig {
   string issuer = 1;
   string client_id = 2 [(gogoproto.customname) = "ClientID"];

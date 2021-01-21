@@ -704,11 +704,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 									Name:          "api-git-port",
 								},
 								{
-									ContainerPort: auth.SamlPort,
-									Protocol:      "TCP",
-									Name:          "saml-port",
-								},
-								{
 									ContainerPort: auth.OidcPort,
 									Protocol:      "TCP",
 									Name:          "oidc-port",
@@ -769,11 +764,6 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     652, // also set in cmd/pachd/main.go
 					Name:     "api-http-port",
 					NodePort: 30652,
-				},
-				{
-					Port:     auth.SamlPort,
-					Name:     "saml-port",
-					NodePort: 30000 + auth.SamlPort,
 				},
 				{
 					Port:     auth.OidcPort,
