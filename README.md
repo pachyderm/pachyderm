@@ -77,3 +77,4 @@ We remain committed to the culture of open source, developing our product transp
 Under the Pachyderm Community License, you can access the source code and modify or redistribute it; there is only one thing you cannot do, and that is use it to make a competing offering. 
 
 Check out our [License FAQ Page](https://pachyderm.com/about/pachyderm-community-license-faq/) for more information.
+.
