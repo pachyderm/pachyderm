@@ -89,7 +89,7 @@ func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.
 func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
 	f, err := iter.Next()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
 		}
 		return nil, err
@@ -106,7 +106,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 	for {
 		f2, err := iter.Peek()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

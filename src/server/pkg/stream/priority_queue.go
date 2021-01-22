@@ -2,6 +2,8 @@ package stream
 
 import (
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Stream is the standard interface for a sorted stream that can be used in a PriorityQueue.
@@ -31,7 +33,7 @@ func (pq *PriorityQueue) Iterate(cb func([]Stream, ...string) error) error {
 	for {
 		ss, err := pq.Next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -55,7 +57,7 @@ func (pq *PriorityQueue) empty() bool {
 func (pq *PriorityQueue) insert(s Stream) error {
 	// Get next in stream and insert it.
 	if err := s.Next(); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err

@@ -46,7 +46,9 @@ func newCheckedReadCloser(size uint64, rc io.ReadCloser) io.ReadCloser {
 
 func (crc *checkedReadCloser) Read(p []byte) (_ int, retErr error) {
 	defer func() {
-		retErr = errors.WithStack(retErr)
+		if retErr != io.EOF {
+			retErr = errors.WithStack(retErr)
+		}
 	}()
 	if crc.size == 0 {
 		return crc.ReadCloser.Read(p)
