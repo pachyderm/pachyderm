@@ -4132,7 +4132,13 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 
 	// Handle commits that use the old hashtree format.
 	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
-		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+		parentTree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+		if err != nil {
+			return err
+		}
+		defer destroyHashtree(parentTree)
+
+		tree, err := parentTree.Copy()
 		if err != nil {
 			return err
 		}
