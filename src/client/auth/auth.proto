@@ -49,7 +49,7 @@ message DeactivateResponse {}
 
 
 // Configure Pachyderm's auth system with an OIDC provider 
-message AuthConfig {
+message OIDCConfig{
   string issuer = 1;
   string client_id = 2 [(gogoproto.customname) = "ClientID"];
   string client_secret = 3;
@@ -65,10 +65,10 @@ message AuthConfig {
 
 message GetConfigurationRequest {}
 message GetConfigurationResponse {
-  AuthConfig configuration = 1;
+  OIDCConfig configuration = 1;
 }
 message SetConfigurationRequest {
-  AuthConfig configuration = 1;
+  OIDCConfig configuration = 1;
 }
 message SetConfigurationResponse {}
 

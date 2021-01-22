@@ -64,13 +64,12 @@ func CryptoString(n int) string {
 }
 
 // validateOIDC validates an OIDC configuration before it's stored in etcd.
-func validateOIDCConfig(config *auth.AuthConfig) error {
+func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 	if _, err := url.Parse(config.Issuer); err != nil {
 		return errors.Wrapf(err, "OIDC issuer must be a valid URL")
 	}
 
 	// this does a request to <issuer>/.well-known/openid-configuration to see if it works
-	ctx := context.Background()
 	_, err := oidcProvider(ctx, config)
 
 	if err != nil {
@@ -107,9 +106,9 @@ func half(state string) string {
 }
 
 // oidcProvider creates a short-lived oidc.Provider tied to a request context.
-// TOOD: we should cache and reuse the provider as long as the config hasn't changed.
+// TODO: we should cache and reuse the provider as long as the config hasn't changed.
 // When we start caching it, we'll need to use a separate context.
-func oidcProvider(ctx context.Context, c *auth.AuthConfig) (*oidc.Provider, error) {
+func oidcProvider(ctx context.Context, c *auth.OIDCConfig) (*oidc.Provider, error) {
 	if c.LocalhostIssuer {
 		client, err := LocalhostRewriteClient(c.Issuer)
 		if err != nil {
@@ -121,8 +120,8 @@ func oidcProvider(ctx context.Context, c *auth.AuthConfig) (*oidc.Provider, erro
 	return oidc.NewProvider(ctx, c.Issuer)
 }
 
-func (a *apiServer) getOIDCConfig() (*auth.AuthConfig, error) {
-	config, ok := a.configCache.Load().(*auth.AuthConfig)
+func (a *apiServer) getOIDCConfig() (*auth.OIDCConfig, error) {
+	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
 		return nil, errors.New("unable to load cached OIDC configuration")
 	}

@@ -82,8 +82,8 @@ const (
 	OidcPort = 657
 )
 
-// DefaultAuthConfig is the default config for the auth API server
-var DefaultAuthConfig = auth.AuthConfig{}
+// DefaultOIDCConfig is the default config for the auth API server
+var DefaultOIDCConfig = auth.OIDCConfig{}
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
@@ -180,7 +180,7 @@ func NewAuthServer(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, configKey),
 		nil,
-		&auth.AuthConfig{},
+		&auth.OIDCConfig{},
 		nil,
 		nil,
 	)
@@ -254,7 +254,7 @@ func NewAuthServer(
 			nil,
 		),
 		authConfig:  authConfig,
-		configCache: keycache.NewCache(authConfig, configKey, &DefaultAuthConfig),
+		configCache: keycache.NewCache(authConfig, configKey, &DefaultOIDCConfig),
 		public:      public,
 	}
 	go s.retrieveOrGeneratePPSToken()
@@ -2407,7 +2407,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 		return nil, err
 	}
 
-	config, ok := a.configCache.Load().(*auth.AuthConfig)
+	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
 		return nil, errors.New("cached auth config had unexpected type")
 	}
@@ -2444,15 +2444,15 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		}
 	}
 
-	var configToStore *auth.AuthConfig
+	var configToStore *auth.OIDCConfig
 	if req.Configuration != nil {
 		// Validate new config
-		if err := validateOIDCConfig(req.Configuration); err != nil {
+		if err := validateOIDCConfig(ctx, req.Configuration); err != nil {
 			return nil, err
 		}
 		configToStore = req.Configuration
 	} else {
-		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
+		configToStore = proto.Clone(&DefaultOIDCConfig).(*auth.OIDCConfig)
 	}
 
 	// set the new config
@@ -2464,7 +2464,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 
 	// block until the watcher observes the write
 	if err := backoff.Retry(func() error {
-		record, ok := a.configCache.Load().(*auth.AuthConfig)
+		record, ok := a.configCache.Load().(*auth.OIDCConfig)
 		if !ok {
 			return errors.Errorf("could not retrieve auth config from cache")
 		}
