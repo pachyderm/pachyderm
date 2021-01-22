@@ -19,7 +19,7 @@ import "google/protobuf/timestamp.proto";
  *
  * The current user formats are:
  * 1) Users synced from an identity provider:
- *      "<idp>:username"
+ *      "user:username"
  * 2) Pachyderm robot users:
  *      "robot:robot_user_1"
  * 3) Pachyderm pipelines:
@@ -47,114 +47,28 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
-// IDProvider configures a single ID provider that can authenticate Pachyderm
-// users
-message IDProvider {
-  reserved 4;
 
-  // Name identifies this authentication backend in Pachyderm.
-  string name = 1;
+// Configure Pachyderm's auth system with an OIDC provider 
+message OIDCConfig{
+  string issuer = 1;
+  string client_id = 2 [(gogoproto.customname) = "ClientID"];
+  string client_secret = 3;
+  string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
+  repeated string additional_scopes = 5;
+  bool ignore_email_verified = 6;
 
-  // Description is a human-readable description of this authentication
-  // backend. It's ignored by Pachyderm, but exists for the benefit of users
-  // configuring Pachyderm's auth system.
-  string description = 2;
-
-  // SAMLOptions describes a SAML-based identity provider
-  message SAMLOptions {
-    // metadata_url is the URL of the SAML ID provider's metadata service
-    // (which Pachd can query to get more info about the SAML ID provider)
-    string metadata_url = 1 [(gogoproto.customname) = "MetadataURL"];
-
-    // metadata_xml is a direct reproduction of the ID provider's metadata.
-    // Users can set this field in the argument to SetConfig if the ID provider
-    // can't be reached from pachd (e.g. because it's on a separate network to
-    // which Pachyderm users also have access) or for testing.  Exactly one of
-    // metadata_url and metadata_xml should be set in calls to SetConfig, but
-    // internally, if metadata_url is set, the result of scraping the metadata
-    // URL will be placed here in the result from GetConfig().
-    bytes metadata_xml = 2 [(gogoproto.customname) = "MetadataXML"];
-
-    // If this ID provider supports sending group memberships via attribute,
-    // then users can set group_attribute to the SAML attribute that indicates
-    // group mmbership, and Pachyderm will update users' group memberships when
-    // they authenticate.
-    string group_attribute = 3;
-  }
-  SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
-
-   // OIDCOptions describes a OIDC-based identity provider
-   message OIDCOptions {
-     string issuer = 1;
-     string client_id = 2 [(gogoproto.customname) = "ClientID"];
-     string client_secret = 3;
-     string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
-     repeated string additional_scopes = 5;
-     bool ignore_email_verified = 6;
-
-     // localhost_issuer ignores the contents of the issuer claim and makes all
-     // OIDC requests to the embedded OIDC provider. This is necessary to support
-     // some network configurations like Minikube. 
-     bool localhost_issuer = 7;
-  }
-  OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
-}
-
-// Configure Pachyderm's auth system (particularly authentication backends
-message AuthConfig {
-  // live_config_version identifies the version of a given pachyderm cluster's
-  // current auth configuration; if a user tries to write an auth configuration
-  // where live_config_version doesn't match the version of the cluster's
-  // current config, the write will fail. This allows for safe
-  // read+modify+write config changes.
-  int64 live_config_version = 1;
-
-  // id_providers describes external ID providers that can authenticate
-  // Pachyderm users (e.g. GitHub, Okta, etc)
-  repeated IDProvider id_providers = 2 [(gogoproto.customname) = "IDProviders"];
-
-  // saml_svc_options configures the SAML services (Assertion Consumer Service
-  // and Metadata Service) that Pachd can export.
-  message SAMLServiceOptions {
-    // acs is the URL of Pachd's Assertion Consumer Service (i.e. where SAML ID
-    // providers can send SAMLResponses to Pachd). If Pachyderm is running in a
-    // private cluster, the cluster admin would be responsible for setting up a
-    // domain name/proxy to resolve to pachd:654/acs
-    string acs_url = 1 [(gogoproto.customname) = "ACSURL"];
-
-    // metadata_url is the public URL of Pachd's SAML metadata service (some
-    // SAML ID providers will query this for information about Pachyderm's SAML
-    // implementation and use it to idenfity Pachyderm as a service provider).
-    // If Pachyderm is running in a private cluster, the cluster admin would be
-    // responsible for creating this URL (which must resolve to
-    // pachd:654/saml/metadata)
-    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
-
-    // dash_url is the public address of this cluster's Pachyderm
-    // dashboard, if one exists; this option determines where users will be
-    // redirected after successfully authenticating
-    string dash_url = 3 [(gogoproto.customname) = "DashURL"];
-
-    // session_duration determines the duration of SAML-IdP-authenticated user
-    // sessions (specified as a Golang time duration, e.g. "24h" or "600m"). If
-    // unset, user sessions last 24 hours (a short default, as SAML assertions
-    // may contain group memberships that need to be refreshed)
-    string session_duration = 4;
-
-    // debug_logging determines whether pachd emits verbose logs (including
-    // SAML credentials) as it receives them, which may be helpful for
-    // debugging. This will probably not be present in any official releases.
-    bool debug_logging = 5;
-  }
-  SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
+ // localhost_issuer ignores the contents of the issuer claim and makes all
+ // OIDC requests to the embedded OIDC provider. This is necessary to support
+ // some network configurations like Minikube. 
+ bool localhost_issuer = 7;
 }
 
 message GetConfigurationRequest {}
 message GetConfigurationResponse {
-  AuthConfig configuration = 1;
+  OIDCConfig configuration = 1;
 }
 message SetConfigurationRequest {
-  AuthConfig configuration = 1;
+  OIDCConfig configuration = 1;
 }
 message SetConfigurationResponse {}
 

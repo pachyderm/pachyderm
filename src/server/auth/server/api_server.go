@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/keycache"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -24,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
-	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
@@ -50,11 +50,7 @@ const (
 	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
 	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
-	// defaultSAMLTTLSecs is the default session TTL for SAML-authenticated tokens
-	// This is shorter than defaultSessionTTLSecs because group membership
-	// information is passed during SAML authentication, so a short TTL ensures
-	// that group membership information is updated somewhat regularly.
-	defaultSAMLTTLSecs = 24 * 60 * 60 // 24 hours
+
 	// minSessionTTL is the shortest session TTL that Authenticate() will attach
 	// to a new token. This avoids confusing behavior with stale OTPs and such.
 	minSessionTTL = 10 * time.Second // 30 days
@@ -79,9 +75,6 @@ const (
 	// implemenation details of our config library, we can't use an empty key)
 	configKey = "config"
 
-	// SamlPort is the port where SAML ID Providers can send auth assertions
-	SamlPort = 654
-
 	// GitHookPort is 655
 	// Prometheus uses 656
 
@@ -89,11 +82,8 @@ const (
 	OidcPort = 657
 )
 
-// DefaultAuthConfig is the default config for the auth API server
-var DefaultAuthConfig = auth.AuthConfig{
-	LiveConfigVersion: 1,
-	IDProviders:       []*auth.IDProvider{},
-}
+// DefaultOIDCConfig is the default config for the auth API server
+var DefaultOIDCConfig = auth.OIDCConfig{}
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
@@ -116,20 +106,7 @@ type apiServer struct {
 	adminCache map[string]auth.ClusterRoles // cache of current cluster admins
 	adminMu    sync.Mutex                   // guard 'adminCache'
 
-	// configCache should not be read/written directly--use setCacheConfig and
-	// getCacheConfig
-	configCache *canonicalConfig // cache of auth config in etcd
-	configMu    sync.Mutex       // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
-
-	// samlSP should not be read/written directly--use setCacheConfig and
-	// getSAMLSP
-	samlSP   *saml.ServiceProvider // object for parsing saml responses
-	samlSPMu sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
-
-	// oidcSP should not be read/written directly--use setCacheConfig and
-	// getOIDCSP
-	oidcSP   *InternalOIDCProvider // object representing the OIDC provider
-	oidcSPMu sync.Mutex            // guard 'oidcSP'. Always lock after 'configMu' (if using both)
+	configCache *keycache.Cache
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -152,6 +129,8 @@ type apiServer struct {
 	groups col.Collection
 	// collection containing the auth config (under the key configKey)
 	authConfig col.Collection
+	// oidcStates  contains the set of OIDC nonces for requests that are in progress
+	oidcStates col.Collection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -196,6 +175,15 @@ func NewAuthServer(
 	public bool,
 	requireNoncriticalServers bool,
 ) (APIServer, error) {
+
+	authConfig := col.NewCollection(
+		env.GetEtcdClient(),
+		path.Join(etcdPrefix, configKey),
+		nil,
+		&auth.OIDCConfig{},
+		nil,
+		nil,
+	)
 	s := &apiServer{
 		env:        env,
 		txnEnv:     txnEnv,
@@ -257,28 +245,28 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		authConfig: col.NewCollection(
+		oidcStates: col.NewCollection(
 			env.GetEtcdClient(),
-			path.Join(etcdPrefix, configKey),
+			path.Join(oidcAuthnPrefix),
 			nil,
-			&auth.AuthConfig{},
+			&auth.SessionInfo{},
 			nil,
 			nil,
 		),
-		public: public,
+		authConfig:  authConfig,
+		configCache: keycache.NewCache(authConfig, configKey, &DefaultOIDCConfig),
+		public:      public,
 	}
 	go s.retrieveOrGeneratePPSToken()
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix), path.Join(etcdPrefix, fsAdminsPrefix))
 
 	if public {
-		// start SAML and OIDC services
-		// (won't respond to anything until config is set)
-		go waitForError("SAML HTTP Server", requireNoncriticalServers, s.serveSAML)
+		// start OIDC service (won't respond to anything until config is set)
 		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
 	// Watch for new auth config options
-	go s.watchConfig()
+	go s.configCache.Watch()
 	return s, nil
 }
 
@@ -626,9 +614,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return nil, err
 	}
 
-	// clear the cache
-	a.configCache = nil
-
 	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
 	// likely to race with subsequent calls that expect auth to be deactivated.
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
@@ -860,19 +845,13 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	var pachToken string
 	switch {
 	case req.OIDCState != "":
-		// confirm OIDC has been configured and get OIDC prefix
-		oidcSP := a.getOIDCSP()
-		if oidcSP == nil {
-			return nil, errors.Errorf("error authorizing OIDC state token: no OIDC ID provider is configured")
-		}
-
 		// Determine caller's Pachyderm/OIDC user info (email)
-		email, err := oidcSP.OIDCStateToEmail(ctx, req.OIDCState)
+		email, err := a.OIDCStateToEmail(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
 
-		username := oidcSP.Prefix + ":" + email
+		username := auth.UserPrefix + email
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -944,19 +923,13 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 	case req.IdToken != "":
-		// confirm OIDC has been configured and get OIDC prefix
-		oidcSP := a.getOIDCSP()
-		if oidcSP == nil {
-			return nil, errors.Errorf("error authorizing OIDC id token: no OIDC ID provider is configured")
-		}
-
 		// Determine caller's Pachyderm/OIDC user info (email)
-		token, claims, err := oidcSP.validateIDToken(ctx, req.IdToken)
+		token, claims, err := a.validateIDToken(ctx, req.IdToken)
 		if err != nil {
 			return nil, err
 		}
 
-		username := oidcSP.Prefix + ":" + claims.Email
+		username := auth.UserPrefix + claims.Email
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -965,7 +938,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 		// Sync the user's group membership from the groups claim
-		if err := oidcSP.syncGroupMembership(ctx, claims); err != nil {
+		if err := a.syncGroupMembership(ctx, claims); err != nil {
 			return nil, err
 		}
 
@@ -1930,12 +1903,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 		return nil, auth.ErrPartiallyActivated
 	}
 
-	sp := a.getOIDCSP()
-	if sp == nil {
-		return nil, errors.Errorf("OIDC has not been configured or was disabled")
-	}
-
-	authURL, state, err := sp.GetOIDCLoginURL(ctx)
+	authURL, state, err := a.GetOIDCLoginURL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2412,22 +2380,10 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 	}
 	prefix := subject[:colonIdx]
 
-	// check prefix against config cache
-	if config := a.getCacheConfig(); config != nil {
-		for _, idp := range config.IDPs {
-			if prefix == idp.Name {
-				return nil
-			}
-			if prefix == path.Join("group", idp.Name) {
-				return nil
-			}
-		}
-	}
-
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix:
+	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix:
 		break
 	default:
 		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
@@ -2435,9 +2391,7 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 	return nil
 }
 
-// GetConfiguration implements the protobuf auth.GetConfiguration RPC. Other
-// users of the config in auth should get getCacheConfig and getSAMLSP rather
-// than calling this handler (which will read from etcd)
+// GetConfiguration implements the protobuf auth.GetConfiguration RPC.
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2453,36 +2407,13 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 		return nil, err
 	}
 
-	// Retrieve & return configuration
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	authConfigRO := a.authConfig.ReadOnly(ctx)
-
-	var currentCfg auth.AuthConfig
-	if err := authConfigRO.Get(configKey, &currentCfg); err != nil && !col.IsErrNotFound(err) {
-		return nil, err
-	} else if col.IsErrNotFound(err) {
-		currentCfg = DefaultAuthConfig
-	} else {
-		cacheCfg := a.getCacheConfig()
-		if cacheCfg == nil || cacheCfg.Version < currentCfg.LiveConfigVersion {
-			var cacheVersion int64
-			if cacheCfg != nil {
-				cacheVersion = cacheCfg.Version
-			}
-			logrus.Printf("current config (v.%d) is newer than cache (v.%d); attempting to update cache",
-				currentCfg.LiveConfigVersion, cacheVersion)
-			// possible race--config could be updated between getCacheConfig() and
-			// here, but setCacheConfig validates the write.
-			if err := a.setCacheConfig(&currentCfg); err != nil {
-				logrus.Warnf("could not update SAML service with new config: %v", err)
-			}
-		} else if cacheCfg.Version > currentCfg.LiveConfigVersion {
-			logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
-		}
+	config, ok := a.configCache.Load().(*auth.OIDCConfig)
+	if !ok {
+		return nil, errors.New("cached auth config had unexpected type")
 	}
+
 	return &auth.GetConfigurationResponse{
-		Configuration: &currentCfg,
+		Configuration: config,
 	}, nil
 }
 
@@ -2513,46 +2444,38 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		}
 	}
 
-	var reqConfigVersion int64
-	var configToStore *auth.AuthConfig
+	var configToStore *auth.OIDCConfig
 	if req.Configuration != nil {
-		reqConfigVersion = req.Configuration.LiveConfigVersion
 		// Validate new config
-		canonicalConfig, err := validateConfig(req.Configuration, external)
-		if err != nil {
+		if err := validateOIDCConfig(ctx, req.Configuration); err != nil {
 			return nil, err
 		}
-		configToStore, err = canonicalConfig.ToProto()
-		if err != nil {
-			return nil, err
-		}
+		configToStore = req.Configuration
 	} else {
-		// Explicitly store default auth config so that config version is retained &
-		// continues increasing monotonically. Don't set reqConfigVersion, though--
-		// setting an empty config is a blind write (req.Configuration.Version == 0)
-		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
+		configToStore = proto.Clone(&DefaultOIDCConfig).(*auth.OIDCConfig)
 	}
 
-	// upsert new config
+	// set the new config
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		var liveConfig auth.AuthConfig
-		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
-			if liveConfig.LiveConfigVersion == 0 {
-				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
-			}
-			liveConfigVersion := liveConfig.LiveConfigVersion
-			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return errors.Errorf("expected live config version %d, but new live config has version %d",
-					liveConfigVersion, req.Configuration.LiveConfigVersion)
-			}
-			liveConfig.Reset()
-			liveConfig = *configToStore
-			liveConfig.LiveConfigVersion = liveConfigVersion + 1
-			return nil
-		})
+		return a.authConfig.ReadWrite(stm).Put(configKey, configToStore)
 	}); err != nil {
 		return nil, err
 	}
+
+	// block until the watcher observes the write
+	if err := backoff.Retry(func() error {
+		record, ok := a.configCache.Load().(*auth.OIDCConfig)
+		if !ok {
+			return errors.Errorf("could not retrieve auth config from cache")
+		}
+		if !proto.Equal(record, configToStore) {
+			return errors.Errorf("config in cache was not updated")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second)); err != nil {
+		return nil, err
+	}
+
 	return &auth.SetConfigurationResponse{}, nil
 }
 

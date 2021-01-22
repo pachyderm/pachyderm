@@ -1,7 +1,7 @@
 # IBM Cloud OpenShift 3.1
 
 [OpenShift](https://www.openshift.com/products/openshift-ibm-cloud/) is a popular enterprise Kubernetes distribution.
-Pachyderm can run on IBM Cloud OpenShift with a few small tweaks in the [OpenShift deployment process](openshift.md), the most important being the StatefulSets deployment.
+Pachyderm can run on IBM Cloud OpenShift with a few small tweaks in the [OpenShift deployment process](./openshift.md), the most important being the StatefulSets deployment.
 
 Please see [known issues](#known-issues) below for currently issues with OpenShift deployments.
 
@@ -12,7 +12,7 @@ Pachyderm needs a few things to install and run successfully in IBM Cloud OpenSh
 ##### Binaries for CLI
 
 - [oc](https://cloud.ibm.com/docs/openshift?topic=openshift-openshift-cli#cli_oc)
-- [pachctl](#install-pachctl)
+- [pachctl](../../../getting_started/local_installation/#install-pachctl)
 
 1. Since this is a stateful set based deployment, it uses either Persistent Volume Provisioning or pre-provisioned PV's using a defined storage class.
 1. An object store, used by Pachyderm's `pachd` for storing all your data.

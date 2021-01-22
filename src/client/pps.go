@@ -467,114 +467,105 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 	return datumInfo, nil
 }
 
-// TODO: Implement logs with V2.
-//// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
-//// be fetched with 'Next()'. The log message received can be examined with
-//// 'Message()', and any errors can be examined with 'Err()'.
-//type LogsIter struct {
-//	logsClient pps.API_GetLogsClient
-//	msg        *pps.LogMessage
-//	err        error
-//}
-//
-//// Next retrieves the next relevant log message from pachd
-//func (l *LogsIter) Next() bool {
-//	if l.err != nil {
-//		l.msg = nil
-//		return false
-//	}
-//	l.msg, l.err = l.logsClient.Recv()
-//	return l.err == nil
-//}
-//
-//// Message returns the most recently retrieve log message (as an annotated log
-//// line, in the form of a pps.LogMessage)
-//func (l *LogsIter) Message() *pps.LogMessage {
-//	return l.msg
-//}
-//
-//// Err retrieves any errors encountered in the course of calling 'Next()'.
-//func (l *LogsIter) Err() error {
-//	if errors.Is(l.err, io.EOF) {
-//		return nil
-//	}
-//	return grpcutil.ScrubGRPC(l.err)
-//}
-//
-//// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-//// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-//// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-//// must be set. Responses are written to 'messages'
-//func (c APIClient) GetLogs(
-//	pipelineName string,
-//	jobID string,
-//	data []string,
-//	datumID string,
-//	master bool,
-//	follow bool,
-//	tail int64,
-//) *LogsIter {
-//	request := pps.GetLogsRequest{
-//		Master: master,
-//		Follow: follow,
-//		Tail:   tail,
-//	}
-//	resp := &LogsIter{}
-//	if pipelineName != "" {
-//		request.Pipeline = NewPipeline(pipelineName)
-//	}
-//	if jobID != "" {
-//		request.Job = NewJob(jobID)
-//	}
-//	request.DataFilters = data
-//	if datumID != "" {
-//		request.Datum = &pps.Datum{
-//			Job: NewJob(jobID),
-//			ID:  datumID,
-//		}
-//	}
-//	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-//	resp.err = grpcutil.ScrubGRPC(resp.err)
-//	return resp
-//}
-//
-//// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-//// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-//// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-//// must be set. Responses are written to 'messages'
-//func (c APIClient) GetLogsLoki(
-//	pipelineName string,
-//	jobID string,
-//	data []string,
-//	datumID string,
-//	master bool,
-//	follow bool,
-//	tail int64,
-//) *LogsIter {
-//	request := pps.GetLogsRequest{
-//		Master:         master,
-//		Follow:         follow,
-//		Tail:           tail,
-//		UseLokiBackend: true,
-//	}
-//	resp := &LogsIter{}
-//	if pipelineName != "" {
-//		request.Pipeline = NewPipeline(pipelineName)
-//	}
-//	if jobID != "" {
-//		request.Job = NewJob(jobID)
-//	}
-//	request.DataFilters = data
-//	if datumID != "" {
-//		request.Datum = &pps.Datum{
-//			Job: NewJob(jobID),
-//			ID:  datumID,
-//		}
-//	}
-//	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
-//	resp.err = grpcutil.ScrubGRPC(resp.err)
-//	return resp
-//}
+// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
+// be fetched with 'Next()'. The log message received can be examined with
+// 'Message()', and any errors can be examined with 'Err()'.
+type LogsIter struct {
+	logsClient pps.API_GetLogsClient
+	msg        *pps.LogMessage
+	err        error
+}
+
+// Next retrieves the next relevant log message from pachd
+func (l *LogsIter) Next() bool {
+	if l.err != nil {
+		l.msg = nil
+		return false
+	}
+	l.msg, l.err = l.logsClient.Recv()
+	return l.err == nil
+}
+
+// Message returns the most recently retrieve log message (as an annotated log
+// line, in the form of a pps.LogMessage)
+func (l *LogsIter) Message() *pps.LogMessage {
+	return l.msg
+}
+
+// Err retrieves any errors encountered in the course of calling 'Next()'.
+func (l *LogsIter) Err() error {
+	if errors.Is(l.err, io.EOF) {
+		return nil
+	}
+	return grpcutil.ScrubGRPC(l.err)
+}
+
+// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
+func (c APIClient) GetLogs(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+) *LogsIter {
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, false)
+}
+
+// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
+func (c APIClient) GetLogsLoki(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+) *LogsIter {
+	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogs(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+	useLoki bool,
+) *LogsIter {
+	request := pps.GetLogsRequest{
+		Master:         master,
+		Follow:         follow,
+		UseLokiBackend: useLoki,
+		Since:          types.DurationProto(since),
+	}
+	if pipelineName != "" {
+		request.Pipeline = NewPipeline(pipelineName)
+	}
+	if jobID != "" {
+		request.Job = NewJob(jobID)
+	}
+	request.DataFilters = data
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: NewJob(jobID),
+			ID:  datumID,
+		}
+	}
+	resp := &LogsIter{}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
+	return resp
+}
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an

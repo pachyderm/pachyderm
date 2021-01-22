@@ -2,6 +2,8 @@ package cmds
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,7 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -438,126 +442,134 @@ each datum.`,
 	inspectDatum.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
-	//	var (
-	//		jobID       string
-	//		datumID     string
-	//		commaInputs string // comma-separated list of input files of interest
-	//		master      bool
-	//		worker      bool
-	//		follow      bool
-	//		tail        int64
-	//	)
-	//
-	//	// prettyLogsPrinter helps to print the logs recieved in different colours
-	//	prettyLogsPrinter := func(message string) {
-	//		informationArray := strings.Split(message, " ")
-	//		if len(informationArray) > 1 {
-	//			debugString := informationArray[1]
-	//			debugLevel := strings.ToLower(debugString)
-	//			var debugLevelColoredString string
-	//			if debugLevel == "info" {
-	//				debugLevelColoredString = color.New(color.FgGreen).Sprint(debugString)
-	//			} else if debugLevel == "warning" {
-	//				debugLevelColoredString = color.New(color.FgYellow).Sprint(debugString)
-	//			} else if debugLevel == "error" {
-	//				debugLevelColoredString = color.New(color.FgRed).Sprint(debugString)
-	//			} else {
-	//				debugLevelColoredString = debugString
-	//			}
-	//			informationArray[1] = debugLevelColoredString
-	//			coloredMessage := strings.Join(informationArray, " ")
-	//			fmt.Println(coloredMessage)
-	//		} else {
-	//			fmt.Println(message)
-	//		}
-	//
-	//	}
-	//
-	// TODO: Make logs work with V2.
-	//	getLogs := &cobra.Command{
-	//		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]",
-	//		Short: "Return logs from a job.",
-	//		Long:  "Return logs from a job.",
-	//		Example: `
-	//# Return logs emitted by recent jobs in the "filter" pipeline
-	//$ {{alias}} --pipeline=filter
-	//
-	//# Return logs emitted by the job aedfa12aedf
-	//$ {{alias}} --job=aedfa12aedf
-	//
-	//# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-	//$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
-	//		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-	//			client, err := pachdclient.NewOnUserMachine("user")
-	//			if err != nil {
-	//				return errors.Wrapf(err, "error connecting to pachd")
-	//			}
-	//			defer client.Close()
-	//
-	//			// Break up comma-separated input paths, and filter out empty entries
-	//			data := strings.Split(commaInputs, ",")
-	//			for i := 0; i < len(data); {
-	//				if len(data[i]) == 0 {
-	//					if i+1 < len(data) {
-	//						copy(data[i:], data[i+1:])
-	//					}
-	//					data = data[:len(data)-1]
-	//				} else {
-	//					i++
-	//				}
-	//			}
-	//
-	//			// Issue RPC
-	//			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
-	//			var buf bytes.Buffer
-	//			encoder := json.NewEncoder(&buf)
-	//			for iter.Next() {
-	//				if raw {
-	//					buf.Reset()
-	//					if err := encoder.Encode(iter.Message()); err != nil {
-	//						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
-	//					}
-	//					fmt.Println(buf.String())
-	//				} else if iter.Message().User && !master && !worker {
-	//					prettyLogsPrinter(iter.Message().Message)
-	//				} else if iter.Message().Master && master {
-	//					prettyLogsPrinter(iter.Message().Message)
-	//				} else if !iter.Message().User && !iter.Message().Master && worker {
-	//					prettyLogsPrinter(iter.Message().Message)
-	//				} else if pipelineName == "" && jobID == "" {
-	//					prettyLogsPrinter(iter.Message().Message)
-	//				}
-	//			}
-	//			return iter.Err()
-	//		}),
-	//	}
-	//	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
-	//		"for lines from this pipeline (accepts pipeline name)")
-	//	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	//	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
-	//		"this job (accepts job ID)")
-	//	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
-	//	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
-	//	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
-	//		"generated while processing these files (accepts PFS paths or file hashes)")
-	//	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
-	//	getLogs.Flags().BoolVar(&worker, "worker", false, "Return log messages from the worker process.")
-	//	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
-	//	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
-	//	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	//	shell.RegisterCompletionFunc(getLogs,
-	//		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-	//			if flag == "--pipeline" || flag == "-p" {
-	//				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
-	//				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-	//			}
-	//			if flag == "--job" || flag == "-j" {
-	//				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
-	//				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-	//			}
-	//			return nil, shell.SameFlag(flag)
-	//		})
-	//	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
+	var (
+		jobID       string
+		datumID     string
+		commaInputs string // comma-separated list of input files of interest
+		master      bool
+		worker      bool
+		follow      bool
+		tail        int64
+		since       string
+	)
+
+	// prettyLogsPrinter helps to print the logs recieved in different colours
+	prettyLogsPrinter := func(message string) {
+		informationArray := strings.Split(message, " ")
+		if len(informationArray) > 1 {
+			debugString := informationArray[1]
+			debugLevel := strings.ToLower(debugString)
+			var debugLevelColoredString string
+			if debugLevel == "info" {
+				debugLevelColoredString = color.New(color.FgGreen).Sprint(debugString)
+			} else if debugLevel == "warning" {
+				debugLevelColoredString = color.New(color.FgYellow).Sprint(debugString)
+			} else if debugLevel == "error" {
+				debugLevelColoredString = color.New(color.FgRed).Sprint(debugString)
+			} else {
+				debugLevelColoredString = debugString
+			}
+			informationArray[1] = debugLevelColoredString
+			coloredMessage := strings.Join(informationArray, " ")
+			fmt.Println(coloredMessage)
+		} else {
+			fmt.Println(message)
+		}
+
+	}
+
+	getLogs := &cobra.Command{
+		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]",
+		Short: "Return logs from a job.",
+		Long:  "Return logs from a job.",
+		Example: `
+	# Return logs emitted by recent jobs in the "filter" pipeline
+	$ {{alias}} --pipeline=filter
+	
+	# Return logs emitted by the job aedfa12aedf
+	$ {{alias}} --job=aedfa12aedf
+	
+	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "error connecting to pachd")
+			}
+			defer client.Close()
+
+			// Break up comma-separated input paths, and filter out empty entries
+			data := strings.Split(commaInputs, ",")
+			for i := 0; i < len(data); {
+				if len(data[i]) == 0 {
+					if i+1 < len(data) {
+						copy(data[i:], data[i+1:])
+					}
+					data = data[:len(data)-1]
+				} else {
+					i++
+				}
+			}
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "error parsing since(%q)", since)
+			}
+			if tail != 0 {
+				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
+			}
+
+			// Issue RPC
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
+			var buf bytes.Buffer
+			encoder := json.NewEncoder(&buf)
+			for iter.Next() {
+				if raw {
+					buf.Reset()
+					if err := encoder.Encode(iter.Message()); err != nil {
+						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
+					}
+					fmt.Println(buf.String())
+				} else if iter.Message().User && !master && !worker {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if iter.Message().Master && master {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if !iter.Message().User && !iter.Message().Master && worker {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if pipelineName == "" && jobID == "" {
+					prettyLogsPrinter(iter.Message().Message)
+				}
+			}
+			return iter.Err()
+		}),
+	}
+	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
+		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
+	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
+		"this job (accepts job ID)")
+	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
+	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
+	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
+		"generated while processing these files (accepts PFS paths or file hashes)")
+	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
+	getLogs.Flags().BoolVar(&worker, "worker", false, "Return log messages from the worker process.")
+	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
+	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
+	shell.RegisterCompletionFunc(getLogs,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "--pipeline" || flag == "-p" {
+				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			if flag == "--job" || flag == "-j" {
+				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			return nil, shell.SameFlag(flag)
+		})
+	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
 	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",
@@ -606,7 +618,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
-	var jobID string
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [<repo>@[<branch>|<commit>|<branch>=<commit>]...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",

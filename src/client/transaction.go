@@ -526,6 +526,9 @@ func (c *ppsBuilderClient) RunPipeline(ctx context.Context, req *pps.RunPipeline
 func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
 }
+func (c *ppsBuilderClient) GetLogs(ctx context.Context, req *pps.GetLogsRequest, opts ...grpc.CallOption) (pps.API_GetLogsClient, error) {
+	return nil, unsupportedError("GetLogs")
+}
 func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
 }

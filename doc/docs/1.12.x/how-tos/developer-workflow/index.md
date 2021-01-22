@@ -15,7 +15,7 @@ Adding data to Pachyderm is the first step towards building data-driven pipeline
 
 * By using the `pachctl put file` command
 * By using a special type of pipeline, such as a [spout](../../concepts/pipeline-concepts/pipeline/spout/) or [cron](../../concepts/pipeline-concepts/pipeline/cron/) 
-* By using one of the Pachyderm's [language clients](../../../reference/clients/)
+* By using one of the Pachyderm's [language clients](../../reference/clients/)
 * By using a compatible S3 client
 
 For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).

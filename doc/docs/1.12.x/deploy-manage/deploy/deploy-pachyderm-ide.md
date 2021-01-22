@@ -45,7 +45,7 @@ on a supported Kubernetes platforms:
 * Register your Enterprise token as described in
 [Activate Pachyderm Enterprise Edition](../../../enterprise/deployment/#activate-pachyderm-enterprise-edition).
 
-* Enable [Pachyderm Access Controls](../../../enterprise/auth/auth/).
+* Enable [Pachyderm Access Controls](../../../enterprise/auth/enable-auth/).
 
 ## Deploy Pachyderm IDE
 

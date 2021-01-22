@@ -18,9 +18,12 @@ const (
 	ContextTokenKey = "authn-token"
 
 	// The following constants are Subject prefixes. These are prepended to
-	// Subjects in the 'tokens' collection, and Principals in 'admins' and on ACLs
+	// subject names in ACLs, group membership, and any other references to subjects
 	// to indicate what type of Subject or Principal they are (every Pachyderm
 	// Subject has a logical Principal with the same name).
+
+	// UserPrefix indicates that this Subject is a Pachyderm user synced from an IDP.
+	UserPrefix = "user:"
 
 	// RobotPrefix indicates that this Subject is a Pachyderm robot user. Any
 	// string (with this prefix) is a logical Pachyderm robot user.
