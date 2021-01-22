@@ -60,6 +60,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
 					inputs := meta.Inputs
+					logger = logger.WithData(inputs)
 					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
 					var opts []datum.Option
 					if driver.PipelineInfo().DatumTimeout != nil {

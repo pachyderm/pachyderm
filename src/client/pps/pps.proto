@@ -574,6 +574,9 @@ message GetLogsRequest {
   // rather than through kubernetes. This behavior can also be achieved by
   // setting the LOKI_LOGGING feature flag.
   bool use_loki_backend = 9;
+
+  // Since specifies how far in the past to return logs from. It defaults to 24 hours.
+  google.protobuf.Duration since = 10;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -800,8 +803,7 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // TODO:
-  //rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
+  rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 
   // An internal call that causes PPS to put itself into an auth-enabled state
   // (all pipeline have tokens, correct permissions, etcd)

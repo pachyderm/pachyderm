@@ -716,6 +716,7 @@ type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*types.Em
 type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
 type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
+type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockCreateJob struct{ handler createJobFunc }
@@ -741,6 +742,7 @@ type mockDeleteSecret struct{ handler deleteSecretFunc }
 type mockInspectSecret struct{ handler inspectSecretFunc }
 type mockListSecret struct{ handler listSecretFunc }
 type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
+type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 
 func (mock *mockCreateJob) Use(cb createJobFunc)             { mock.handler = cb }
@@ -766,6 +768,7 @@ func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)       { mock.handler = cb
 func (mock *mockInspectSecret) Use(cb inspectSecretFunc)     { mock.handler = cb }
 func (mock *mockListSecret) Use(cb listSecretFunc)           { mock.handler = cb }
 func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
+func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
@@ -797,6 +800,7 @@ type mockPPSServer struct {
 	InspectSecret   mockInspectSecret
 	ListSecret      mockListSecret
 	DeleteAll       mockDeleteAllPPS
+	GetLogs         mockGetLogs
 	ActivateAuth    mockActivateAuthPPS
 }
 
@@ -937,6 +941,12 @@ func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*type
 		return api.mock.DeleteAll.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.DeleteAll")
+}
+func (api *ppsServerAPI) GetLogs(req *pps.GetLogsRequest, serv pps.API_GetLogsServer) error {
+	if api.mock.GetLogs.handler != nil {
+		return api.mock.GetLogs.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.GetLogs")
 }
 func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	if api.mock.ActivateAuth.handler != nil {
