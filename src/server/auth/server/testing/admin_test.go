@@ -74,8 +74,8 @@ func admins(super ...string) func(fs ...string) map[string]*auth.ClusterRoles {
 	}
 }
 
-func idp(email string) string {
-	return "idp:" + email
+func user(email string) string {
+	return auth.UserPrefix + email
 }
 
 func pl(pipeline string) string {
@@ -662,7 +662,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// Configure OIDC so alice is a real IDP user
 	tu.ConfigureOIDCProvider(t)
-	alice := idp(tu.DexMockConnectorEmail)
+	alice := user(tu.DexMockConnectorEmail)
 	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// alice creates a repo

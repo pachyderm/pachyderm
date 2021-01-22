@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -50,7 +49,7 @@ func TestLogin(t *testing.T) {
 	cmd.Wait()
 
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match idp:{{.user}}`,
+		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
 	).Run())
 }
@@ -167,53 +166,29 @@ func TestConfig(t *testing.T) {
 	tu.ActivateAuth(t)
 	defer tu.DeleteAll(t)
 
-	idpMetadata := base64.StdEncoding.EncodeToString([]byte(`<EntityDescriptor
-		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
-		  validUntil="` + time.Now().Format(time.RFC3339) + `"
-		  entityID="metadata">
-      <SPSSODescriptor
-		    xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
-		    validUntil="` + time.Now().Format(time.RFC3339) + `"
-		    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
-		    AuthnRequestsSigned="false"
-		    WantAssertionsSigned="true">
-        <AssertionConsumerService
-		      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-		      Location="acs"
-		      index="1">
-		    </AssertionConsumerService>
-      </SPSSODescriptor>
-    </EntityDescriptor>`))
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth set-config <<EOF
 		{
-		  "live_config_version": 1,
-		  "id_providers": [
-		  {
-		    "name": "idp",
-		    "description": "fake ID provider for testing",
-		    "saml": {
-		      "metadata_xml": "`+idpMetadata+`"
-		    }
-		  }],
-		  "saml_svc_options": {
-		    "acs_url": "http://www.example.com",
-		    "metadata_url": "http://www.example.com"
-		  }
+		   "issuer": "http://localhost:658",
+                   "localhost_issuer": true,
+                   "client_id": localhost,
+                   "redirect_uri": "http://localhost:650"
 		}
 		EOF
 		pachctl auth get-config \
-		  | match '"live_config_version": 2,' \
-		  | match '"saml_svc_options": {' \
-		  | match '"acs_url": "http://www.example.com",' \
-		  | match '"metadata_url": "http://www.example.com"' \
+		  | match '"issuer": "localhost:658"' \
+		  | match '"localhost_issuer": true,' \
+		  | match '"client_id": "localhost"' \
+		  | match '"redirect_uri": "http://localhost:650"' \
 		  | match '}'
 		`).Run())
 
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth get-config -o yaml \
-		  | match 'live_config_version: 2' \
-		  | match 'id_providers:' \
+                  | match 'issuer: "localhost:658"' \
+		  | match 'localhost_issuer: true,' \
+		  | match 'client_id: localhost' \
+		  | match 'redirect_uri: "http://localhost:650"' \
 		`).Run())
 }
 

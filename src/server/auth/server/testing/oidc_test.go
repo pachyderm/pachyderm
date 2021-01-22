@@ -37,7 +37,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, idp(tu.DexMockConnectorEmail), whoAmIResp.Username)
+	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
 	require.False(t, whoAmIResp.IsAdmin)
 
 	tu.DeleteAll(t)
@@ -111,7 +111,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, idp(tu.DexMockConnectorEmail), whoAmIResp.Username)
+	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
 	// idp:admin is an admin of the IDP but not Pachyderm
 	require.False(t, whoAmIResp.IsAdmin)
 

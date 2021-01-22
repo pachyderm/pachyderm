@@ -18,21 +18,14 @@ import (
 // Kilgore Trout is a recurring character of Kurt Vonnegut's
 const DexMockConnectorEmail = `kilgore@kilgore.trout`
 
-// OIDCAuthConfig is an auth config which can be used to connect to the identity service in tests
-func OIDCAuthConfig() *auth.AuthConfig {
-	return &auth.AuthConfig{
-		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{&auth.IDProvider{
-			Name:        "idp",
-			Description: "fake IdP for testing",
-			OIDC: &auth.IDProvider_OIDCOptions{
-				Issuer:          "http://localhost:30658/",
-				ClientID:        "pachyderm",
-				ClientSecret:    "notsecret",
-				RedirectURI:     "http://pachd:657/authorization-code/callback",
-				LocalhostIssuer: true,
-			},
-		}},
+// OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
+func OIDCOIDCConfig() *auth.OIDCConfig {
+	return &auth.OIDCConfig{
+		Issuer:          "http://localhost:30658/",
+		ClientID:        "pachyderm",
+		ClientSecret:    "notsecret",
+		RedirectURI:     "http://pachd:657/authorization-code/callback",
+		LocalhostIssuer: true,
 	}
 }
 
@@ -92,7 +85,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 	require.NoError(t, err)
 
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
-		&auth.SetConfigurationRequest{Configuration: OIDCAuthConfig()})
+		&auth.SetConfigurationRequest{Configuration: OIDCOIDCConfig()})
 	require.NoError(t, err)
 
 	return nil
