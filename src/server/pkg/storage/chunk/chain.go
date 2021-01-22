@@ -32,7 +32,7 @@ func NewTaskChain(ctx context.Context) *TaskChain {
 func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error) error) error {
 	select {
 	case <-c.ctx.Done():
-		return c.ctx.Err()
+		return c.eg.Wait()
 	default:
 	}
 	scb := c.serialCallback()
@@ -46,7 +46,7 @@ func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error
 func (c *TaskChain) Wait() error {
 	select {
 	case <-c.ctx.Done():
-		return c.ctx.Err()
+		return c.eg.Wait()
 	case <-c.prevChan:
 		return nil
 	}
