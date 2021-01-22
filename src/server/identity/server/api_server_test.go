@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"robot.com/pachyderm/pachyderm/src/client"
-	"robot.com/pachyderm/pachyderm/src/client/auth"
-	"robot.com/pachyderm/pachyderm/src/client/identity"
-	"robot.com/pachyderm/pachyderm/src/client/pkg/require"
-	"robot.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	tu "robot.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 // TestAuthNotActivated checks that no RPCs can be made when the auth service is disabled
@@ -90,55 +90,55 @@ func TestUserNotAdmin(t *testing.T) {
 
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/SetIdentityServerConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/SetIdentityServerConfig", alice), err.Error())
 
 	_, err = aliceClient.GetIdentityServerConfig(aliceClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/GetIdentityServerConfig", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/GetIdentityServerConfig", alice), err.Error())
 
 	_, err = aliceClient.CreateIDPConnector(aliceClient.Ctx(), &identity.CreateIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/CreateIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/CreateIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.GetIDPConnector(aliceClient.Ctx(), &identity.GetIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/GetIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/GetIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.UpdateIDPConnector(aliceClient.Ctx(), &identity.UpdateIDPConnectorRequest{})
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/UpdateIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/UpdateIDPConnector", alice), err.Error())
 	require.YesError(t, err)
 
 	_, err = aliceClient.ListIDPConnectors(aliceClient.Ctx(), &identity.ListIDPConnectorsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/ListIDPConnectors", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/ListIDPConnectors", alice), err.Error())
 
 	_, err = aliceClient.DeleteIDPConnector(aliceClient.Ctx(), &identity.DeleteIDPConnectorRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteIDPConnector", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteIDPConnector", alice), err.Error())
 
 	_, err = aliceClient.CreateOIDCClient(aliceClient.Ctx(), &identity.CreateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/CreateOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/CreateOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.GetOIDCClient(aliceClient.Ctx(), &identity.GetOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/GetOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/GetOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.UpdateOIDCClient(aliceClient.Ctx(), &identity.UpdateOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/UpdateOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/UpdateOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.ListOIDCClients(aliceClient.Ctx(), &identity.ListOIDCClientsRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/ListOIDCClients", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/ListOIDCClients", alice), err.Error())
 
 	_, err = aliceClient.DeleteOIDCClient(aliceClient.Ctx(), &identity.DeleteOIDCClientRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteOIDCClient", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteOIDCClient", alice), err.Error())
 
 	_, err = aliceClient.IdentityAPIClient.DeleteAll(aliceClient.Ctx(), &identity.DeleteAllRequest{})
 	require.YesError(t, err)
-	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = robot:%v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteAll", alice), err.Error())
+	require.Equal(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation; must be an admin to call /identity.API/DeleteAll", alice), err.Error())
 }
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated
