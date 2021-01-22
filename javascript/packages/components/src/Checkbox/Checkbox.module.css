@@ -1,0 +1,43 @@
+.base {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+
+  /* Match the sizing from the SVG */
+  width: 14px;
+  height: 14px;
+
+  /* adjusting for line-height, flex stretch */
+  top: 7px;
+
+  cursor: pointer;
+}
+
+.checkboxContainer {
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.checkbox > path {
+  transition: fill .2s;
+}
+
+.input:focus + .checkbox > path,
+.input:hover + .checkbox > path {
+  fill: var(--pachyderm-green);
+}
+
+.label {
+  font-size: var(--font-size-body-large);
+  margin-left: 0.416rem;
+}
+
+.small > .label {
+  font-size: var(--font-size-body-medium);
+}

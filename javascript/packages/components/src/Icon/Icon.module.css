@@ -1,0 +1,32 @@
+.base {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  line-height: 0.5;
+  --icon-shadow: #000000;
+}
+
+.white {
+  --icon-color: var(--background-grey);
+  fill: var(--background-grey);
+}
+
+.black {
+  --icon-color: var(--pachyderm-black);
+  fill: var(--pachyderm-black);
+}
+
+.purple {
+  --icon-color: var(--pachyderm-plum);
+  fill: var(--pachyderm-plum);
+}
+
+.silver {
+  --icon-color: var(--placeholder-grey);
+  fill: var(--placeholder-grey);
+}
+
+.small {
+  width: 12px;
+  height: 12px;
+}

@@ -1,0 +1,25 @@
+.base {
+  composes: base from '../../../Input/Input.module.css';
+  display: flex;
+  align-items: center;
+}
+
+.base:hover {
+  cursor: pointer;
+}
+
+.open.base {
+  border-radius: 3px 3px 0 0;
+}
+
+.icon {
+  margin-left: auto;
+  transition: transform .2s;
+  width: 0.875rem;
+  margin-right: 1rem;
+}
+
+.open .icon {
+  transform: rotate(180deg);
+  transform-origin: center center;
+}

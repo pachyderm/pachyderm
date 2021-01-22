@@ -1,0 +1,8 @@
+.base {
+  display: flex;
+  font-size: var(--font-size-body-medium);
+  font-weight: 600;
+  margin-bottom: 0.625rem;
+  padding-left: 1rem;
+  align-items: center;
+}

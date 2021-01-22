@@ -1,0 +1,79 @@
+.base {
+  background-color: var(--white);
+  border: 1px solid;
+  border-color: var(--border-grey);
+  border-radius: 3px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  padding: 0 0.625rem 0.40625rem 0.625rem;
+  max-height: 10rem;
+  overflow-x: hidden;
+}
+
+.focused {
+  border-color: var(--pachyderm-green);
+}
+
+.input {
+  border-color: transparent;
+  flex: 1;
+  margin-top: 0.40625rem;
+  margin-left: -0.5rem;
+  min-width: 2rem;
+  outline: none;
+  padding: 0.375rem 0.625rem;
+  width: 100%;
+}
+
+.tag {
+  background-color: rgba(68,215,182,0.1);
+  border-radius: 3px;
+  margin-top: 0.40625rem;
+  margin-right: 0.5rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.tagError {
+  background-color: var(--background-pink);
+  color: var(--error-red)
+}
+
+.tagError .close {
+  fill: var(--error-red);
+}
+
+.close {
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+
+.inline {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.inlineError {
+  flex: 1;
+}
+
+.clearButton {
+  border: none;
+  color: var(--pachyderm-plum);
+  font-size: var(--font-size-body-medium);
+  background-color: transparent;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.base::-webkit-scrollbar {
+  width: 10px;
+}
+
+.base::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
+}

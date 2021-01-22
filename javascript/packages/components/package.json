@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -21,7 +21,7 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@pachyderm/config": "^0.3.2",
+    "@pachyderm/config": "^0.4.5",
     "@storybook/addon-actions": "^6.1.1",
     "@storybook/addon-essentials": "^6.1.1",
     "@storybook/addon-links": "^6.1.1",
@@ -52,13 +52,16 @@
     "react-dev-utils": "^10.2.1",
     "react-dom": "^17.0.1",
     "react-router-dom": "^5.2.0",
-    "splitting": "^1.0.6",
     "style-loader": "^0.23.1",
     "stylelint": "^13.8.0",
     "typescript": "^4.1.2"
   },
   "dependencies": {
-    "classnames": "^2.2.6"
+    "@types/lodash": "^4.14.167",
+    "classnames": "^2.2.6",
+    "lodash": "^4.17.20",
+    "react-hook-form": "^6.14.1",
+    "splitting": "^1.0.6"
   },
   "peerDependencies": {
     "react": ">=17.0.0",

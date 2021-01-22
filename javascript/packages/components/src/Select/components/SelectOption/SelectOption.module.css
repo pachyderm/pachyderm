@@ -1,0 +1,17 @@
+.base {
+  padding-left: 0.9375rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  font-size: var(--font-size-body-large);
+}
+
+.base[aria-selected="true"] {
+  font-weight: 500;
+  color: var(--pachyderm-green);
+}
+
+.base:hover,
+.base.active {
+  cursor: pointer;
+  background-color: var(--hover-grey);
+}

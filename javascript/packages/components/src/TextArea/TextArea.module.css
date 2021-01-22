@@ -1,0 +1,26 @@
+.base {
+  composes: base from '../Input/Input.module.css';
+  padding: 0.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  display: block;
+}
+
+.base.clearable {
+  padding-right: 2.5rem;
+}
+
+.autoExpand {
+  resize: none;
+  overflow: hidden;
+}
+
+.button {
+  composes: button from '../Input/Input.module.css';
+  top: auto;
+  bottom: calc((2.85rem - var(--button-size)) / 2);
+}
+
+.wrapper {
+  position: relative;
+}

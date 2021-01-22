@@ -1,0 +1,63 @@
+.base {
+  composes: base from '../Checkbox/Checkbox.module.css';
+}
+
+.radioButtonContainer {
+  composes: checkboxContainer from '../Checkbox/Checkbox.module.css';
+
+  align-self: center;
+}
+
+.input {
+  composes: input from '../Checkbox/Checkbox.module.css';
+
+  top: 4px;
+}
+
+.label {
+  composes: label from '../Checkbox/Checkbox.module.css';
+}
+
+.radio {
+  position: relative;
+  width: 0.875rem;
+  height: 0.875rem;
+  background-color: var(--white);
+  border-radius: 50%;
+  border: 1px solid var(--pachyderm-black);
+  transition: background-color .2s, border-color .2s;
+}
+
+.input:focus + .radio,
+.input:hover + .radio,
+.input:checked + .radio {
+  border-color: var(--pachyderm-green);
+}
+
+.input:focus + .radio {
+  outline-width: 2px;
+  outline-style: solid;
+  outline-color: var(--pachyderm-green);
+}
+
+.input:checked + .radio {
+  background-color: var(--pachyderm-green);
+}
+
+.input + .radio::after {
+  content: '';
+  opacity: 0;
+  position: absolute;
+  width: 0.25rem;
+  height: 0.25rem;
+  background-color: var(--white);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity .2s;
+}
+
+.input:checked + .radio::after {
+  opacity: 1;
+}

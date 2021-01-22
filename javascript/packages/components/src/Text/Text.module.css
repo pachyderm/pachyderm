@@ -1,0 +1,55 @@
+@keyframes slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bodyText,
+.bodyErrorText {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: var(--font-size-body-medium);
+}
+
+.bodyErrorText {
+  font-style: normal;
+  color: var(--error-red);
+}
+
+.fieldError {
+  margin-left: 1.25rem;
+}
+
+.bodyMonoText {
+  font-family: var(--font-family-mono);
+  color: var(--pachyderm-black);
+  font-size: var(--font-size-body-medium);
+  background-color: var(--background-blue-light);
+}
+
+.bodyMonoBlock {
+  font-family: var(--font-family-mono);
+  background-color: var(--background-blue-light);
+  white-space: nowrap;
+  overflow-x: scroll;
+  padding: 1rem 1.25rem;
+}
+
+.headingText {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: var(--font-size-header);
+}
+
+.slideIn [class$="word"] {
+  opacity: 0;
+  animation: slide-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation-delay: calc(0.1s * var(--line-index) + 1.5s);
+  animation-fill-mode: forwards;
+}

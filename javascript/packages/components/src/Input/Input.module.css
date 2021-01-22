@@ -1,0 +1,58 @@
+.base {
+  border: 1px solid;
+  border-color: var(--border-grey);
+  border-radius: 3px;
+  transition: border-color .2s;
+  padding-left: 1rem;
+  background-color: var(--white);
+  font-size: var(--font-size-body-large);
+  width: 100%; 
+  height: 2.875rem;
+}
+
+.base:not(.disabled):focus,
+.base:not(.disabled):active,
+.base:not(.disabled)[class$=":focus"] {
+  outline: none;
+  border-color: var(--pachyderm-green);
+}
+
+.base:disabled,
+.base:read-only,
+.base::placeholder {
+  color: var(--placeholder-grey);
+}
+
+.base.clearable {
+  padding-right: 2.5rem;
+}
+
+.wrapper {
+  position: relative;
+} 
+
+.button {
+  --button-size: 26px;
+  border: none;
+  background: none;
+  position: absolute;
+  height:var(--button-size);
+  right: 0.5rem;
+  top: calc((2.85rem - var(--button-size)) / 2);
+}
+
+.button > svg {
+  vertical-align: baseline;
+}
+
+.button > svg > path {
+  transform: scale(0.65);
+}
+
+.button:hover > svg > path {
+  fill: var(--pachyderm-black)
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}

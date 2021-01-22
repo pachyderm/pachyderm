@@ -1,0 +1,7 @@
+.base {
+  composes: label from '../../../Checkbox/Checkbox.module.css';
+}
+
+.base.small {
+  font-size: var(--font-size-body-medium);
+}
