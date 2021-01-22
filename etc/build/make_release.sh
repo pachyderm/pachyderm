@@ -2,6 +2,8 @@
 
 set -e
 
+GOPATH=$(go env GOPATH)
+
 make VERSION_ADDITIONAL="$VERSION_ADDITIONAL" install-clean
 version="$("$GOPATH/bin/pachctl" version --client-only)"
 

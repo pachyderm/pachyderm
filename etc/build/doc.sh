@@ -2,6 +2,8 @@
 
 set -e
 
+GOPATH=$(go env GOPATH)
+
 version="$("$GOPATH/bin/pachctl" version --client-only)"
 major_minor=$(echo "$version" | cut -f -2 -d ".")
 echo "--- Updating docs for version: $version"

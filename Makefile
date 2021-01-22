@@ -30,6 +30,8 @@ export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
+GOPATH = $(shell go env GOPATH)
+GOBIN = $(GOPATH)/bin
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -47,7 +49,7 @@ install:
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
-	@rm -f $(GOPATH)/bin/pachctl
+	@rm -f $(GOBIN)/pachctl
 	@make install
 
 install-doc:
@@ -77,7 +79,7 @@ custom-release:
 # Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
 release:
 	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
-	$(SKIP) @git push origin v$(VERSION)
+	$(SKIP) @git push -f origin v$(VERSION)
 	@make release-helper
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
@@ -191,23 +193,23 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	$(GOBIN)/pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	$(GOBIN)/pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
-	yes | pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | pachctl undeploy
+	yes | $(GOBIN)pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -398,7 +400,7 @@ follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
 
 google-cluster-manifest:
-	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -416,7 +418,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -440,7 +442,7 @@ amazon-clean:
         fi;done;
 
 microsoft-cluster-manifest:
-	@pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
