@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
 	minio "github.com/minio/minio-go/v6"
@@ -173,7 +174,10 @@ func (c *minioClient) IsIgnorable(err error) bool {
 var sentinelErrResp = minio.ErrorResponse{}
 
 func (c *minioClient) IsNotExist(err error) bool {
-	errResp := minio.ToErrorResponse(err)
+	errResp := minio.ErrorResponse{}
+	if !errors.As(err, &errResp) {
+		return false
+	}
 	if errResp.Code == sentinelErrResp.Code {
 		return false
 	}
