@@ -128,7 +128,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "postgres-storage",
-									MountPath: "/var/lib/postgresql/data",
+									MountPath: "/var/lib/postgresql",
 								},
 								{
 									Name:      postgresInitVolumeName,
@@ -293,7 +293,7 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 							"volumeMounts": []interface{}{
 								map[string]interface{}{
 									"name":      postgresVolumeClaimName,
-									"mountPath": "/var/lib/postgresql/data",
+									"mountPath": "/var/lib/postgresql",
 								},
 								map[string]interface{}{
 									"name":      postgresInitVolumeName,

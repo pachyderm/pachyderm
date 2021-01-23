@@ -501,7 +501,7 @@ func doFullMode(config interface{}) (retErr error) {
 			idAPIServer, err := identity_server.NewIdentityServer(
 				env,
 				identityStorageProvider,
-				true,
+				false,
 				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
 			)
 			if err != nil {
