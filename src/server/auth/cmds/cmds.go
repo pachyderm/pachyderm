@@ -89,7 +89,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			}
 
 			if _, err := c.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configured auth for existing PPS pipelines - run this command again")
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
 			}
 			return nil
 		}),
