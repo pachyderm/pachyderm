@@ -1,35 +1,9 @@
-export type LinkDatum = {
-  source: Coordinate;
-  target: Coordinate;
-  error?: boolean;
-  active?: boolean;
-};
+import {SimulationLinkDatum, SimulationNodeDatum} from 'd3';
 
-export type NodeDatum = {
-  name: string | number | boolean;
-  error?: boolean;
-  type?: string;
-  success?: boolean;
-  access?: boolean;
-  x?: number;
-  y?: number;
-  fx?: number;
-  fy?: number;
-};
+import {Node, Link} from '@graphqlTypes';
 
-export type Coordinate = {
-  x: number;
-  y: number;
-};
+export interface NodeDatum extends Node, SimulationNodeDatum {}
 
-export type LinkInputData = {
-  source: number;
-  target: number;
-  error?: boolean;
-  active?: boolean;
-};
-
-export type DataProps = {
-  links: LinkInputData[];
-  nodes: NodeDatum[];
-};
+export interface LinkDatum
+  extends Omit<Link, 'source' | 'target'>,
+    SimulationLinkDatum<NodeDatum> {}

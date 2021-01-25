@@ -11,7 +11,6 @@
     "cypress:open": "NODE_ENV=test dotenv-flow -- cypress open",
     "e2e:open": "start-server-and-test start http://localhost:4000 cypress:headless",
     "e2e": "start-server-and-test start http://localhost:4000 cypress:headless",
-    "generate-types": "graphql-codegen",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "npx eslint '{src,cypress}/**/*.{ts,tsx}'",
     "lint:css": "npx stylelint 'src/**/*.module.css'",
@@ -87,6 +86,7 @@
     "start-server-and-test": "1.11.0",
     "ts-node": "9.0.0",
     "tsconfig-paths": "3.9.0",
+    "tsconfig-paths-webpack-plugin": "^3.3.0",
     "typescript": "4.1.2"
   },
   "browserslist": {

@@ -10,7 +10,7 @@ import express, {Express} from 'express';
 import reduce from 'lodash/reduce';
 import destroyable from 'server-destroy';
 
-import {Pach} from 'lib/graphqlTypes';
+import {Pach} from '@graphqlTypes';
 
 import {PachFixtures, pachs} from './fixtures/pach';
 import {PachJobFixtures, pachJobs} from './fixtures/pachJob';

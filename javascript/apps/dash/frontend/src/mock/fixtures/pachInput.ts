@@ -1,4 +1,4 @@
-import {Input, InputType} from 'lib/graphqlTypes';
+import {Input, InputType} from '@graphqlTypes';
 
 import {pachRepos} from './pachRepo';
 

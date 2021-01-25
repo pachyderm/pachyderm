@@ -1,4 +1,4 @@
-import {Pach} from 'lib/graphqlTypes';
+import {Pach} from '@graphqlTypes';
 
 export type PachFixtures = {
   [key: string]: Pach;

@@ -1,5 +1,6 @@
-import {Job, JobState} from 'lib/graphqlTypes';
+import {Job, JobState} from '@graphqlTypes';
 
+import {pachInputs} from './pachInput';
 import {pachPipelines} from './pachPipeline';
 import {pachRepos} from './pachRepo';
 
@@ -16,15 +17,8 @@ const tutorialJobs: Job[] = [
     finishedAt: 1606844888,
     state: JobState.Success,
     reason: 'Job completed',
-    input: {
-      name: '0-0',
-      repo: pachRepos.tutorial[2],
-      commit: pachRepos.tutorial[2].branches[0].commits[0],
-      branchName: pachRepos.tutorial[2].branches[0].name,
-    },
     outputRepo: pachRepos.tutorial[1],
-    outputBranchName: pachRepos.tutorial[1].branches[0].name,
-    outputCommit: pachRepos.tutorial[1].branches[0].commits[0],
+    input: pachInputs.tutorial[0],
   },
   {
     id: '2',
@@ -34,15 +28,8 @@ const tutorialJobs: Job[] = [
     finishedAt: 1606844888,
     state: JobState.Success,
     reason: null,
-    input: {
-      name: '2-0',
-      repo: pachRepos.tutorial[2],
-      commit: pachRepos.tutorial[2].branches[0].commits[0],
-      branchName: pachRepos.tutorial[2].branches[0].name,
-    },
     outputRepo: pachRepos.tutorial[0],
-    outputBranchName: pachRepos.tutorial[0].branches[0].name,
-    outputCommit: pachRepos.tutorial[0].branches[0].commits[0],
+    input: pachInputs.tutorial[0],
   },
 ];
 
@@ -54,14 +41,9 @@ tutorialJobs.push({
   finishedAt: null,
   state: JobState.Running,
   reason: null,
-  input: {
-    name: '1-0',
-    repo: pachRepos.tutorial[1],
-    commit: pachRepos.tutorial[1].branches[0].commits[0],
-    branchName: pachRepos.tutorial[1].branches[0].name,
-  },
   outputRepo: pachRepos.tutorial[0],
-  outputBranchName: pachRepos.tutorial[0].branches[0].name,
+
+  input: pachInputs.tutorial[1],
 });
 
 export const pachJobs: PachJobFixtures = {

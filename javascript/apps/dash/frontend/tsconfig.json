@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "paths": {
+      "@graphqlTypes": [ "../../backend/src/generated/types.ts" ],
+    }
   },
   "extends": "@pachyderm/config/ts.config.json",
   "include": [

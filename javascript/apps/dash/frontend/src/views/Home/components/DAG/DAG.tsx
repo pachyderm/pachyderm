@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 
-import {DataProps} from 'lib/DAGTypes';
+import {Dag} from '@graphqlTypes';
 
 import styles from './DAG.module.css';
 import useDAG from './hooks/useDAG';
@@ -9,7 +9,7 @@ type DagProps = {
   id: string;
   nodeWidth: number;
   nodeHeight: number;
-  data: DataProps;
+  data: Dag;
 };
 
 const DAG: React.FC<DagProps> = ({data, id, nodeWidth, nodeHeight}) => {
