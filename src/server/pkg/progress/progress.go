@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"io"
 	"os"
 	"sync"
 
@@ -32,6 +33,22 @@ func start(prefix string, bar *pb.ProgressBar) {
 	bar.Set("prefix", prefix)
 	bar.Set(pb.Bytes, true)
 	bar.Start()
+}
+
+// Create is identical to os.Create except that file is wrapped in a progress
+// bar that updates as you write to it.
+func Create(path string, size int) (*File, error) {
+	mu.Lock()
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	bar := Template.New(size)
+	start(path, bar)
+	return &File{
+		File: file,
+		bar:  bar,
+	}, nil
 }
 
 // Open is identical to os.Open except that file is wrapped in a progress bar
@@ -72,11 +89,42 @@ type File struct {
 	bar *pb.ProgressBar
 }
 
-// Read reads bytes from wrapped file and adds amount of bytes to progress bar
+// Read reads bytes from wrapped file and adds amount of bytes read to the
+// progress bar
 func (f *File) Read(p []byte) (int, error) {
 	n, err := f.File.Read(p)
 	if err == nil {
 		f.bar.Add(n)
+	}
+	return n, err
+}
+
+// Write writes bytes to the wrapped file and adds amount of bytes written to
+// the progress bar
+func (f *File) Write(p []byte) (int, error) {
+	n, err := f.File.Write(p)
+	if err == nil {
+		f.bar.Add(n)
+	}
+	return n, err
+}
+
+// WriteAt writes to the wrapped file at the given offset and adds amount of
+// bytes written to the progress bar
+func (f *File) WriteAt(b []byte, offset int64) (int, error) {
+	n, err := f.File.WriteAt(b, offset)
+	if err == nil {
+		f.bar.SetCurrent(offset + int64(n))
+	}
+	return n, err
+}
+
+// ReadFrom writes the contents of r to f and adds the amount of bytes written
+// to the progress bar
+func (f *File) ReadFrom(r io.Reader) (int64, error) {
+	n, err := f.File.ReadFrom(r)
+	if err == nil {
+		f.bar.Add(int(n))
 	}
 	return n, err
 }

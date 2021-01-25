@@ -999,7 +999,11 @@ $ {{alias}} foo@master^2:XXX`,
 			if outputPath == "" {
 				w = os.Stdout
 			} else {
-				f, err := os.Create(outputPath)
+				fi, err := c.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+				if err != nil {
+					return err
+				}
+				f, err := progress.Create(outputPath, int(fi.SizeBytes))
 				if err != nil {
 					return err
 				}
