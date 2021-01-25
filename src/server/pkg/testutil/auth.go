@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
@@ -42,6 +43,12 @@ func ActivateAuth(tb testing.TB) {
 		}
 		return errors.Errorf("auth not active yet")
 	}, backoff.NewTestingBackOff()))
+
+	// Activate auth for PPS
+	client = client.WithCtx(context.Background())
+	client.SetAuthToken(RootToken)
+	_, err = client.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
+	require.NoError(tb, err)
 }
 
 // GetAuthenticatedPachClient activates auth, if it is not activated, and returns

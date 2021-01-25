@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pkg/browser"
 
@@ -69,17 +70,27 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{
 				RootToken: strings.TrimSpace(rootToken),
 			})
-			if err != nil {
+			if err != nil && !auth.IsErrAlreadyActivated(err) {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
 
-			if err := config.WritePachTokenToConfig(resp.PachToken); err != nil {
-				return err
+			// If auth is already activated we won't get back a root token,
+			// retry activating auth in PPS with the currently configured token
+			if !auth.IsErrAlreadyActivated(err) {
+				if err := config.WritePachTokenToConfig(resp.PachToken); err != nil {
+					return err
+				}
+
+				fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
+					"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
+				fmt.Printf("Pachyderm root token:\n%s\n", resp.PachToken)
+
+				c.SetAuthToken(resp.PachToken)
 			}
 
-			fmt.Println("WARNING: DO NOT LOSE THE AUTH TOKEN BELOW. STORE IT SECURELY FOR THE LIFE OF THE CLUSTER." +
-				"THIS TOKEN WILL ALWAYS HAVE ADMIN ACCESS TO FIX THE CLUSTER CONFIGURATION.")
-			fmt.Printf("Pachyderm root token:\n%s\n", resp.PachToken)
+			if _, err := c.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
+			}
 			return nil
 		}),
 	}
@@ -155,7 +166,7 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OIDCState: state})
-				if authErr != nil && !auth.IsErrPartiallyActivated(authErr) {
+				if authErr != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(authErr),
 						"authorization failed (OIDC state token: %q; Pachyderm logs may "+
 							"contain more information)",
@@ -167,12 +178,7 @@ func LoginCmd() *cobra.Command {
 			}
 
 			// Write new Pachyderm token to config
-			if auth.IsErrPartiallyActivated(authErr) {
-				return errors.Wrapf(authErr, "Pachyderm auth is partially activated "+
-					"(if pachyderm is stuck in this state, you can revert by running "+
-					"'pachctl auth deactivate' or retry by running 'pachctl auth "+
-					"activate' again)")
-			} else if authErr != nil {
+			if authErr != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
 			}
 			return config.WritePachTokenToConfig(resp.PachToken)
@@ -405,11 +411,6 @@ func ModifyAdminsCmd() *cobra.Command {
 				Add:    add,
 				Remove: remove,
 			})
-			if auth.IsErrPartiallyActivated(err) {
-				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
-					"can revert by running 'pachctl auth deactivate' or retry by "+
-					"running 'pachctl auth activate' again")
-			}
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}

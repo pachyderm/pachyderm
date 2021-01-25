@@ -19,10 +19,10 @@ func TestIsErrNotActivated(t *testing.T) {
 	require.True(t, IsErrNotActivated(grpcify(ErrNotActivated)))
 }
 
-func TestIsErrPartiallyActivated(t *testing.T) {
-	require.False(t, IsErrPartiallyActivated(nil))
-	require.True(t, IsErrPartiallyActivated(ErrPartiallyActivated))
-	require.True(t, IsErrPartiallyActivated(grpcify(ErrPartiallyActivated)))
+func TestIsErrAlreadyActivated(t *testing.T) {
+	require.False(t, IsErrAlreadyActivated(nil))
+	require.True(t, IsErrAlreadyActivated(ErrAlreadyActivated))
+	require.True(t, IsErrAlreadyActivated(grpcify(ErrAlreadyActivated)))
 }
 
 func TestIsErrNotSignedIn(t *testing.T) {

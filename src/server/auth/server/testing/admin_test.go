@@ -624,6 +624,10 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	rootClient.SetAuthToken(resp.PachToken)
 
+	// activate auth in PPS
+	_, err = rootClient.ActivateAuth(rootClient.Ctx(), &pps.ActivateAuthRequest{})
+	require.NoError(t, err)
+
 	// re-authenticate, as old tokens were deleted
 	aliceClient = tu.GetAuthenticatedPachClient(t, alice)
 
