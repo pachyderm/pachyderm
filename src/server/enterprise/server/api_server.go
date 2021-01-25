@@ -8,7 +8,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -159,22 +158,6 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 func (a *apiServer) GetActivationCode(ctx context.Context, req *ec.GetActivationCodeRequest) (resp *ec.GetActivationCodeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	pachClient := a.env.GetPachClient(ctx)
-	whoAmI, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if err != nil {
-		if !auth.IsErrNotActivated(err) {
-			return nil, err
-		}
-	} else {
-		if !whoAmI.IsAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: whoAmI.Username,
-				AdminOp: "GetActivationCode",
-			}
-		}
-	}
-
 	return a.getEnterpriseRecord()
 }
 

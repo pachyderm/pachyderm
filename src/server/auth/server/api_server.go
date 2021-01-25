@@ -543,6 +543,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 			AdminOp: "DeactivateAuth",
 		}
 	}
+
 	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
@@ -603,18 +604,6 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 func (a *apiServer) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest) (resp *auth.GetClusterRoleBindingsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	// Get calling user. There is no auth check to see the list of cluster
-	// admins, other than that the user must log in. Otherwise how will users
-	// know who to ask for admin privileges? Requiring the user to be logged in
-	// mitigates phishing
-	_, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
@@ -668,26 +657,6 @@ func (a *apiServer) ModifyClusterRoleBinding(ctx context.Context, req *auth.Modi
 
 func (a *apiServer) applyClusterRoleBindings(ctx context.Context, roleBindings map[string][]auth.ClusterRole) error {
 	// Check user is authenticated as a super admin for both ModifyClusterRoleBinding and ModifyAdmins
-	if !a.isActive() {
-		return auth.ErrNotActivated
-	}
-
-	// Get calling user. The user must be an admin to change the list of admins
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return err
-	}
-	if !isAdmin {
-		return &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "ModifyClusterRoleBinding",
-		}
-	}
-
 	// Don't allow users to modify role bindings for the root user. This ensures the root user always has
 	// super admin status, so they can fix the auth config if things are misconfigured.
 	for principal := range roleBindings {
@@ -925,10 +894,6 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
-	// Make sure auth is activated
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
 	if req.Subject == ppsUser {
 		return nil, errors.Errorf("GetOneTimePassword.Subject is invalid")
 	}
@@ -1146,6 +1111,7 @@ func (a *apiServer) Authorize(
 func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
 	a.pachLogger.LogAtLevelFromDepth(req, nil, nil, 0, logrus.DebugLevel, 2)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
 	if !a.isActive() {
 		return nil, auth.ErrNotActivated
 	}
@@ -1505,7 +1471,7 @@ func (a *apiServer) GetACLInTransaction(
 
 	// Read repo ACL from etcd
 	acl := &auth.ACL{}
-	if err = a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	if err := a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
 	response := &auth.GetACLResponse{
@@ -1517,8 +1483,6 @@ func (a *apiServer) GetACLInTransaction(
 			Scope:    scope,
 		})
 	}
-	// For now, no access is require to read a repo's ACL
-	// https://github.com/pachyderm/pachyderm/issues/2353
 	return response, nil
 }
 
@@ -1835,27 +1799,9 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
+
 	if req.TTL == 0 {
 		return nil, errors.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
-	}
-
-	// Only admins can extend auth tokens (for now)
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "ExtendAuthToken",
-		}
 	}
 
 	// Only let people extend tokens by up to 30 days (the equivalent of logging
@@ -2002,25 +1948,6 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (resp *auth.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "SetGroupsForUser",
-		}
-	}
 
 	if err := a.checkCanonicalSubject(req.Username); err != nil {
 		return nil, err
@@ -2036,25 +1963,6 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (resp *auth.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "ModifyMembers",
-		}
-	}
 
 	if err := a.checkCanonicalSubjects(req.Add); err != nil {
 		return nil, err
@@ -2141,9 +2049,6 @@ func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, er
 func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (resp *auth.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -2186,25 +2091,6 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (resp *auth.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "GetUsers",
-		}
-	}
 
 	// Filter by group
 	if req.Group != "" {
@@ -2313,14 +2199,6 @@ func (a *apiServer) checkCanonicalSubject(subject string) error {
 func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (resp *auth.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	// Get calling user. The user must be logged in to get the cluster config
-	if _, err := a.getAuthenticatedUser(ctx); err != nil {
-		return nil, err
-	}
 
 	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
@@ -2336,25 +2214,6 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	// Get calling user. The user must be an admin to set the cluster config
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "SetConfiguration",
-		}
-	}
 
 	var configToStore *auth.OIDCConfig
 	if req.Configuration != nil {
@@ -2400,22 +2259,6 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 		return nil, auth.ErrNotActivated
 	}
 
-	// Get calling user. The user must be an admin to extract auth tokens.
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "ExtractAuthTokens",
-		}
-	}
-
 	extracted := make([]*auth.HashedAuthToken, 0)
 
 	tokens := a.tokens.ReadOnly(ctx)
@@ -2455,30 +2298,9 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 }
 
 func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthTokenRequest) (resp *auth.RestoreAuthTokenResponse, retErr error) {
-	a.LogReq(req)
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-
-	if !a.isActive() {
-		return nil, auth.ErrNotActivated
-	}
-
-	// Get calling user. The user must be an admin to restore an auth token
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-	if !isAdmin {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "RestoreAuthToken",
-		}
-	}
 
 	var ttl int64
 	if req.Token.Expiration != nil {

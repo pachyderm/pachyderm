@@ -17,7 +17,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -36,8 +35,8 @@ type Server struct {
 // corresponding private key in 'TLSVolumePath', this will serve GRPC traffic
 // over TLS. If either are missing this will serve GRPC traffic over
 // unencrypted HTTP,
-func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) {
-	opts := []grpc.ServerOption{
+func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.ServerOption) (*Server, error) {
+	opts := append([]grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxRecvMsgSize(MaxMsgSize),
 		grpc.MaxSendMsgSize(MaxMsgSize),
@@ -45,9 +44,7 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
-		grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
-	}
+	}, options...)
 
 	var cLoader *tls.CertLoader
 	if publicPortTLSAllowed {

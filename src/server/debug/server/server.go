@@ -13,7 +13,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -52,30 +51,6 @@ func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *clie
 		sidecarClient: sidecarClient,
 		marshaller:    &jsonpb.Marshaler{Indent: "  "},
 	}
-}
-
-func (s *debugServer) pachClient(ctx context.Context) (*client.APIClient, error) {
-	pachClient := s.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx()
-	// check if the caller is authorized -- they must be an admin
-	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
-		var isAdmin bool
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				isAdmin = true
-				break
-			}
-		}
-		if !isAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: me.Username,
-				AdminOp: "Debug",
-			}
-		}
-	} else if !auth.IsErrNotActivated(err) {
-		return nil, errors.Wrapf(err, "error during authorization check")
-	}
-	return pachClient, nil
 }
 
 type collectPipelineFunc func(*tar.Writer, *pps.PipelineInfo, ...string) error
@@ -246,10 +221,7 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
@@ -312,10 +284,7 @@ func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFu
 }
 
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) error {
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
@@ -358,10 +327,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	if request.Limit == 0 {
 		request.Limit = math.MaxInt64
 	}
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),

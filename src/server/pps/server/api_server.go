@@ -388,15 +388,6 @@ func (a *apiServer) validateKube() {
 	}
 }
 
-func checkLoggedIn(pachClient *client.APIClient) (context.Context, error) {
-	ctx := pachClient.Ctx() // pachClient propagates auth info
-	_, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if err != nil && !auth.IsErrNotActivated(err) {
-		return nil, err
-	}
-	return ctx, nil
-}
-
 // authorizing a pipeline operation varies slightly depending on whether the
 // pipeline is being created, updated, or deleted
 type pipelineOperation uint8
@@ -566,17 +557,12 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
 	if request.Stats == nil {
 		request.Stats = &pps.ProcessStats{}
 	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
 			OutputCommit:  request.OutputCommit,
@@ -605,10 +591,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
 	}
@@ -930,10 +912,6 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.env.GetPachClient(resp.Context())
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return err
-	}
 	var toRepos []*pfs.Repo
 	for _, pipeline := range request.ToPipelines {
 		toRepos = append(toRepos, client.NewRepo(pipeline.Name))
@@ -961,7 +939,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		ji, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
+		ji, err := a.InspectJob(pachClient.Ctx(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
 		if err != nil {
 			return err
 		}
@@ -974,14 +952,10 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
 		return nil, err
 	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
 	if err != nil {
@@ -995,10 +969,6 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
 		return nil, err
 	}
@@ -1013,7 +983,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 	}
 	// Finish the job's output commit without a tree -- worker/master will mark
 	// the job 'killed'
-	if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: jobPtr.OutputCommit,
 			Empty:  true,
@@ -1029,12 +999,6 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
-
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -1153,12 +1117,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
-		}
-
-		// Users must be authenticated to access logs from master, but permissions don't matter
-		_, err := checkLoggedIn(pachClient)
-		if err != nil {
-			return err
 		}
 		containerName, rcName = "pachd", "pachd"
 	} else {
@@ -2490,9 +2448,6 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 }
 
 func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionContext, name string) (*pps.PipelineInfo, error) {
-	if _, err := checkLoggedIn(txnCtx.Client); err != nil {
-		return nil, err
-	}
 	kubeClient := a.env.GetKubeClient()
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {
@@ -2578,10 +2533,6 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	_, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	pipelineInfos := &pps.PipelineInfos{}
 	if err := a.listPipeline(pachClient, request, func(pi *pps.PipelineInfo) error {
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
@@ -2695,10 +2646,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 
 	// Possibly list pipelines in etcd (skip PFS read--don't need it) and delete them
 	if request.All {
@@ -3200,11 +3147,6 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	if _, err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
-	}
-
 	var s v1.Secret
 	if err := json.Unmarshal(request.GetFile(), &s); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal secret")
@@ -3234,11 +3176,6 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	if _, err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
-	}
-
 	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
 	}
@@ -3251,11 +3188,6 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	pachClient := a.env.GetPachClient(ctx)
-	if _, err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
-	}
 
 	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
 	if err != nil {
@@ -3283,11 +3215,6 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	pachClient := a.env.GetPachClient(ctx)
-	if _, err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
-	}
 
 	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
 		LabelSelector: "secret-source=pachyderm-user",
@@ -3325,26 +3252,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
-	// check if the caller is authorized -- they must be an admin
-	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
-		var isAdmin bool
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				isAdmin = true
-				break
-			}
-		}
-
-		if !isAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: me.Username,
-				AdminOp: "DeleteAll",
-			}
-		}
-	} else if !auth.IsErrNotActivated(err) {
-		return nil, errors.Wrapf(err, "error during authorization check")
-	}
-
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
@@ -3377,10 +3284,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive

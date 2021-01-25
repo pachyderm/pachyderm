@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/src/server/identity/server"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -50,6 +51,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 var mode string
@@ -119,7 +121,19 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-	server, err := grpcutil.NewServer(context.Background(), false)
+	authInterceptor := auth.NewInterceptor(env)
+	server, err := grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+		),
+		grpc.ChainStreamInterceptor(
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -284,8 +298,22 @@ func doFullMode(config interface{}) (retErr error) {
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
 	kubeNamespace := env.Namespace
 	requireNoncriticalServers := !env.RequireCriticalServersOnly
+
 	// Setup External Pachd GRPC Server.
-	externalServer, err := grpcutil.NewServer(context.Background(), true)
+	authInterceptor := auth.NewInterceptor(env)
+	externalServer, err := grpcutil.NewServer(
+		context.Background(),
+		true,
+		grpc.ChainUnaryInterceptor(
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+		),
+		grpc.ChainStreamInterceptor(
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+		),
+	)
+
 	if err != nil {
 		return err
 	}
@@ -442,7 +470,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false)
+	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}
