@@ -165,9 +165,14 @@ export type Query = {
   repos: Array<Repo>;
   jobs: Array<Job>;
   dag: Dag;
+  dags: Array<Dag>;
 };
 
 export type QueryDagArgs = {
+  args: DagQueryArgs;
+};
+
+export type QueryDagsArgs = {
   args: DagQueryArgs;
 };
 
@@ -546,6 +551,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryDagArgs, 'args'>
+  >;
+  dags?: Resolver<
+    Array<ResolversTypes['Dag']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryDagsArgs, 'args'>
   >;
 }>;
 

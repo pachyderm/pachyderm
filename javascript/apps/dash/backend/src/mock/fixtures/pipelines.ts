@@ -20,6 +20,29 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
       .setPipeline(new Pipeline().setName('edges'))
       .setInput(new Input().setPfs(new PFSInput().setRepo('images'))),
   ],
+  customerTeam: [
+    new PipelineInfo()
+      .setPipeline(new Pipeline().setName('likelihoods'))
+      .setInput(
+        new Input().setCrossList([
+          new Input().setPfs(new PFSInput().setRepo('samples')),
+          new Input().setPfs(new PFSInput().setRepo('reference')),
+        ]),
+      ),
+
+    new PipelineInfo()
+      .setPipeline(new Pipeline().setName('models'))
+      .setInput(new Input().setPfs(new PFSInput().setRepo('training'))),
+
+    new PipelineInfo()
+      .setPipeline(new Pipeline().setName('joint_call'))
+      .setInput(
+        new Input().setCrossList([
+          new Input().setPfs(new PFSInput().setRepo('reference')),
+          new Input().setPfs(new PFSInput().setRepo('likelihoods')),
+        ]),
+      ),
+  ],
 };
 
 export default pipelines;
