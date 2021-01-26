@@ -1,16 +1,12 @@
 package server
 
 import (
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -21,24 +17,6 @@ func globLiteralPrefix(glob string) string {
 		return glob
 	}
 	return glob[:idx[0]]
-}
-
-func parseGlob(glob string) (index.Option, func(string) bool, error) {
-	glob = cleanPath(glob)
-	opt := index.WithPrefix(globLiteralPrefix(glob))
-	g, err := globlib.Compile(glob, '/')
-	if err != nil {
-		return nil, nil, err
-	}
-	mf := func(path string) bool {
-		// TODO: This does not seem like a good approach for this edge case.
-		if path == "/" && glob == "/" {
-			return true
-		}
-		path = strings.TrimRight(path, "/")
-		return g.Match(path)
-	}
-	return opt, mf, nil
 }
 
 // pathIsChild determines if the path child is an immediate child of the path parent
@@ -64,10 +42,6 @@ func cleanPath(x string) string {
 
 func commitPath(commit *pfs.Commit) string {
 	return commitKey(commit)
-}
-
-func compactedCommitPath(commit *pfs.Commit) string {
-	return path.Join(commitPath(commit), fileset.Compacted)
 }
 
 func checkFilePath(path string) error {
