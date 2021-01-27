@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 
 	dex_server "github.com/dexidp/dex/server"
 	logrus "github.com/sirupsen/logrus"

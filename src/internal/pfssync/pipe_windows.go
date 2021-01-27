@@ -5,7 +5,7 @@ package pfssync
 import (
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func (p *Puller) makePipe(path string, f func(io.Writer) error) error {

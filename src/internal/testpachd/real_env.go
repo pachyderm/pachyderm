@@ -8,14 +8,14 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 )
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It

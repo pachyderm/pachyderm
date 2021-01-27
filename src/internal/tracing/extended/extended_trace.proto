@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package extended;
-option go_package = "github.com/pachyderm/pachyderm/src/internal/tracing/extended";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended";
 
 // TraceProto contains information identifying a Jaeger trace. It's used to
 // propagate traces that follow the lifetime of a long operation (e.g. creating

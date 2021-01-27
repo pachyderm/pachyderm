@@ -1,11 +1,11 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/client"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // Propagater is an object that is used to propagate PFS branches at the end of

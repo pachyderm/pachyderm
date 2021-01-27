@@ -9,7 +9,7 @@ import (
 	"regexp"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // ID uniquely identifies a chunk. It is the hash of its content

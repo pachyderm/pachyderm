@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"gopkg.in/src-d/go-git.v4"
 )
 

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // Cache is a simple unbounded disk cache and is safe for concurrency.

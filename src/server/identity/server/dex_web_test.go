@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/identity"
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	logrus "github.com/sirupsen/logrus"
 
 	dex_storage "github.com/dexidp/dex/storage"

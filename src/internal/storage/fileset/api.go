@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 // File represents a file.

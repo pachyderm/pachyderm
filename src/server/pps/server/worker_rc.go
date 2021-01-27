@@ -9,18 +9,18 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/pachyderm/pachyderm/src/auth"
-	client "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/internal/config"
-	"github.com/pachyderm/pachyderm/src/internal/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
-	"github.com/pachyderm/pachyderm/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	client "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -241,7 +241,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		userVolumeMounts = append(userVolumeMounts, storageMount)
 	} else {
 		// `pach-dir-volume` is needed for openshift, see:
-		// https://github.com/pachyderm/pachyderm/issues/3404
+		// https://github.com/pachyderm/pachyderm/v2/issues/3404
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "pach-dir-volume",
 			VolumeSource: v1.VolumeSource{

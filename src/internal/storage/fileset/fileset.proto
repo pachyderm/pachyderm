@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package fileset;
-option go_package = "github.com/pachyderm/pachyderm/src/internal/storage/fileset";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset";
 
 import "internal/storage/fileset/index/index.proto";
 

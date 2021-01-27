@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package datum;
-option go_package = "github.com/pachyderm/pachyderm/src/server/worker/datum";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/datum";
 
 import "gogoproto/gogo.proto";
 

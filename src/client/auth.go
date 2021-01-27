@@ -3,8 +3,8 @@ package client
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // IsAuthActive returns whether auth is activated on the cluster

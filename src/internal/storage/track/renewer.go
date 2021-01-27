@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/storage/renew"
-	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // TmpTrackerPrefix is the tracker prefix for temporary objects.

@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 )
 
 type authHandler func(*client.APIClient, string) error
