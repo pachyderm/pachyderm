@@ -112,15 +112,12 @@ case "${BUCKET}" in
       go test -v -count=1 ./src/server/pps/server -timeout 300s
     fi
     ;;
-  AUTH?)
-    bucket_num="${BUCKET#AUTH}"
-    test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
+  AUTH)
+    make test-auth
+    make test-identity
     ;;
   OBJECT)
     make test-object-clients
-    ;;
-  IDENTITY)
-    make test-identity
     ;;
   *)
     echo "Unknown bucket"
