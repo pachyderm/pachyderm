@@ -25,7 +25,7 @@ describe('Dag resolver', () => {
           nodes {
             name
             type
-            error
+            state
             access
           }
           links {
@@ -63,7 +63,7 @@ describe('Dag resolver', () => {
           nodes {
             name
             type
-            error
+            state
             access
           }
           links {

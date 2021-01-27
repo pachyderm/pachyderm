@@ -2,6 +2,9 @@ schema: ./src/schema.graphqls
 generates:
   ./src/generated/types.ts:
     config:
+      enumValues: 
+        PipelineState: \@pachyderm/proto/pb/client/pps/pps_pb#PipelineState
+        JobState: \@pachyderm/proto/pb/client/pps/pps_pb#JobState
       contextType: lib/types#Context
       useIndexSignature: true
     hooks:

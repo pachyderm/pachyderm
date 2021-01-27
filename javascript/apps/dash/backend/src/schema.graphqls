@@ -32,24 +32,25 @@ type Input {
   gitInput: GitInput
 }
 
+#
 enum PipelineState {
-  STARTING
-  RUNNING
-  RESTARTING
-  FAILURE
-  PAUSED
-  STANDBY
-  CRASHING
+  PIPELINE_STARTING
+  PIPELINE_RUNNING
+  PIPELINE_RESTARTING
+  PIPELINE_FAILURE
+  PIPELINE_PAUSED
+  PIPELINE_STANDBY
+  PIPELINE_CRASHING
 }
 
 enum JobState {
-  STARTING
-  RUNNING
-  FAILURE
-  SUCCESS
-  KILLED
-  MERGING
-  EGRESSING
+  JOB_STARTING
+  JOB_RUNNING
+  JOB_FAILURE
+  JOB_SUCCESS
+  JOB_KILLED
+  JOB_MERGING
+  JOB_EGRESSING
 }
 
 type Pipeline {
@@ -112,7 +113,7 @@ type Node {
   type: NodeType!
 
   # TODO: Fledge these two fields out
-  error: Boolean!
+  state: PipelineState
   access: Boolean!
 }
 

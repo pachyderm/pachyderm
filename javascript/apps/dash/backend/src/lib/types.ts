@@ -1,4 +1,4 @@
-import {NodeType} from 'generated/types';
+import {Node} from 'generated/types';
 
 export interface Context {
   authToken?: string;
@@ -12,8 +12,6 @@ export type LinkInputData = {
   active?: boolean;
 };
 
-export interface Vertex {
-  name: string;
-  type: NodeType;
+export interface Vertex extends Node {
   parents: string[];
 }

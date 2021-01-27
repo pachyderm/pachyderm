@@ -1,10 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/ban-types */
+import {PipelineState} from '@pachyderm/proto/pb/client/pps/pps_pb';
+import {JobState} from '@pachyderm/proto/pb/client/pps/pps_pb';
 import {GraphQLResolveInfo} from 'graphql';
 
 import {Context} from 'lib/types';
 export type Maybe<T> = T | null;
 export type Exact<T extends {[key: string]: unknown}> = {[K in keyof T]: T[K]};
+export type EnumResolverSignature<T, AllowedValues = any> = {
+  [key in keyof T]?: AllowedValues;
+};
 export type RequireFields<T, K extends keyof T> = {
   [X in Exclude<keyof T, K>]?: T[X];
 } &
@@ -55,25 +60,9 @@ export type Input = {
   gitInput?: Maybe<GitInput>;
 };
 
-export enum PipelineState {
-  Starting = 'STARTING',
-  Running = 'RUNNING',
-  Restarting = 'RESTARTING',
-  Failure = 'FAILURE',
-  Paused = 'PAUSED',
-  Standby = 'STANDBY',
-  Crashing = 'CRASHING',
-}
+export {PipelineState};
 
-export enum JobState {
-  Starting = 'STARTING',
-  Running = 'RUNNING',
-  Failure = 'FAILURE',
-  Success = 'SUCCESS',
-  Killed = 'KILLED',
-  Merging = 'MERGING',
-  Egressing = 'EGRESSING',
-}
+export {JobState};
 
 export type Pipeline = {
   __typename?: 'Pipeline';
@@ -137,7 +126,7 @@ export type Node = {
   __typename?: 'Node';
   name: Scalars['String'];
   type: NodeType;
-  error: Scalars['Boolean'];
+  state?: Maybe<PipelineState>;
   access: Scalars['Boolean'];
 };
 
@@ -412,6 +401,32 @@ export type InputResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PipelineStateResolvers = EnumResolverSignature<
+  {
+    PIPELINE_STARTING?: any;
+    PIPELINE_RUNNING?: any;
+    PIPELINE_RESTARTING?: any;
+    PIPELINE_FAILURE?: any;
+    PIPELINE_PAUSED?: any;
+    PIPELINE_STANDBY?: any;
+    PIPELINE_CRASHING?: any;
+  },
+  ResolversTypes['PipelineState']
+>;
+
+export type JobStateResolvers = EnumResolverSignature<
+  {
+    JOB_STARTING?: any;
+    JOB_RUNNING?: any;
+    JOB_FAILURE?: any;
+    JOB_SUCCESS?: any;
+    JOB_KILLED?: any;
+    JOB_MERGING?: any;
+    JOB_EGRESSING?: any;
+  },
+  ResolversTypes['JobState']
+>;
+
 export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline']
@@ -510,7 +525,11 @@ export type NodeResolvers<
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
-  error?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  state?: Resolver<
+    Maybe<ResolversTypes['PipelineState']>,
+    ParentType,
+    ContextType
+  >;
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -565,6 +584,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   CronInput?: CronInputResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
+  PipelineState?: PipelineStateResolvers;
+  JobState?: JobStateResolvers;
   Pipeline?: PipelineResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;

@@ -43,6 +43,8 @@ const deriveVertices = (
   const repoNodes = repos.map((r) => ({
     name: `${r.repo?.name}_repo`,
     type: NodeType.Repo,
+    state: null,
+    access: true,
     // detect out output repos as those name matching a pipeline
     parents: r.repo && pipelineMap[r.repo.name] ? [r.repo.name] : [],
   }));
@@ -50,6 +52,8 @@ const deriveVertices = (
   const pipelineNodes = pipelines.map((p) => ({
     name: p.pipeline?.name || '',
     type: NodeType.Pipeline,
+    state: p.state,
+    access: true,
     parents: p.input ? flattenPipelineInput(p.input) : [],
   }));
 
@@ -91,7 +95,7 @@ const normalizeDAGData = (vertices: Vertex[]) => {
   const dataNodes = vertices.map((node) => ({
     name: node.name,
     type: node.type,
-    error: false,
+    state: node.state,
     access: true,
   }));
 

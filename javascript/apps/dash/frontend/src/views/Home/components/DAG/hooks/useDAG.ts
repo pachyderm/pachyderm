@@ -1,8 +1,9 @@
 import * as d3 from 'd3';
 import {useEffect} from 'react';
 
-import {Dag, NodeType} from '@graphqlTypes';
+import {Dag, NodeType, PipelineState} from '@graphqlTypes';
 import {LinkDatum, NodeDatum} from 'lib/DAGTypes';
+import nodeStateAsPipelineState from 'lib/nodeStateAsPipelineState';
 
 import checkmark from '../images/checkmark.svg';
 import error from '../images/error.svg';
@@ -23,10 +24,10 @@ const transformArrow = (d: LinkDatum, nodeRadius: number, invert?: boolean) => {
   // is used to determine the length of the hypotenuse of a right triangle formed by
   // the angle of the link line and the square width.
 
-  // Type assertion to NodeDatum for the link source and target are used here 
-  // because during initialization the source and target properties for 
-  // SimulationNodeDatum can be a string or number but once we apply the force 
-  // d3 reassigns those values with a reference to the actual node so the type 
+  // Type assertion to NodeDatum for the link source and target are used here
+  // because during initialization the source and target properties for
+  // SimulationNodeDatum can be a string or number but once we apply the force
+  // d3 reassigns those values with a reference to the actual node so the type
   // is string | number | NodeDatum.
   // The type for SimulationNodeDatum can be found here:
   // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/d3-force/index.d.ts#L72
@@ -152,7 +153,16 @@ const generateNodeGroups = (
         .append<SVGTextElement>('text')
         .attr('class', 'label')
         .attr('text-anchor', 'middle')
-        .attr('fill', (d) => (d.access && d.error ? '#E02020' : '#020408'))
+        .attr('fill', (d) => {
+          const state = nodeStateAsPipelineState(d.state);
+          if (
+            d.access &&
+            (state === PipelineState.PIPELINE_CRASHING ||
+              state === PipelineState.PIPELINE_FAILURE)
+          )
+            return '#E02020';
+          return '#020408';
+        })
         .text((d) => (d.access ? d.name : 'No Access'))
         .attr('y', nodeHeight * 0.2 + (nodeHeight * 0.95) / 2 + 15)
         .attr('x', nodeWidth / 2);
@@ -172,8 +182,15 @@ const generateNodeGroups = (
         .append<SVGUseElement>('use')
         .attr('xlink:href', (d) => {
           if (d.access) {
-            if (!d.error) return '#nodeIconSuccess';
-            if (d.error) return '#nodeIconError';
+            const state = nodeStateAsPipelineState(d.state);
+            if (state === PipelineState.PIPELINE_RUNNING)
+              // is running considered success?
+              return '#nodeIconSuccess';
+            if (
+              state === PipelineState.PIPELINE_CRASHING ||
+              state === PipelineState.PIPELINE_FAILURE
+            )
+              return '#nodeIconError';
           }
           return null;
         })

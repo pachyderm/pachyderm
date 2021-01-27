@@ -6,8 +6,8 @@ export const GET_DAG_QUERY = gql`
       nodes {
         name
         type
-        error
         access
+        state
       }
       links {
         source
