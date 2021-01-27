@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	"golang.org/x/sync/errgroup"
 )
 

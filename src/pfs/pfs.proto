@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package pfs;
-option go_package = "github.com/pachyderm/pachyderm/src/client/pfs";
+option go_package = "github.com/pachyderm/pachyderm/src/pfs";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

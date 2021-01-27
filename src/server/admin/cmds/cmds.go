@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 
 	"github.com/spf13/cobra"
 )

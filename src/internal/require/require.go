@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // Matches checks that a string matches a regular-expression.

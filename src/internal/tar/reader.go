@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // Reader provides sequential access to the contents of a tar archive.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
+	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/src/internal/storage/track"
 )
 
 const (

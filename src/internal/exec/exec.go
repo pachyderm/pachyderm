@@ -33,7 +33,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // Error records the name of a binary that failed to be executed

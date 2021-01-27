@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
+	"github.com/pachyderm/pachyderm/src/internal/testetcd"
 )
 
 // MockEnv contains the basic setup for running end-to-end pachyderm tests

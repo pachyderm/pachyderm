@@ -11,10 +11,10 @@ import (
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/clusterstate"
-	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 

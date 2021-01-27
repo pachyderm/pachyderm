@@ -3,8 +3,8 @@ package server
 import (
 	"bytes"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )

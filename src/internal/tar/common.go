@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // BUG: Use of the Uid and Gid fields in Header could overflow on 32-bit

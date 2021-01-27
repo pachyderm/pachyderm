@@ -1,8 +1,8 @@
 package helm
 
 import (
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/config"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 
 	"helm.sh/helm/v3/pkg/action"
 )

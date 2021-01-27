@@ -8,7 +8,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 var (

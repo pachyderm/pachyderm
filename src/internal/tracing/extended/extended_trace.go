@@ -5,12 +5,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 )

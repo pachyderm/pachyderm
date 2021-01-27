@@ -13,12 +13,12 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	ppath "github.com/pachyderm/pachyderm/src/internal/path"
+	"github.com/pachyderm/pachyderm/src/internal/uuid"
 
 	"github.com/OneOfOne/xxhash"
 	bolt "github.com/coreos/bbolt"

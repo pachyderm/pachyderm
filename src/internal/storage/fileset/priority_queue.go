@@ -3,7 +3,7 @@ package fileset
 import (
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // TODO: Change the code that depends on this to use the stream package priority queue.

@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
 )
 
 type dirInserter struct {

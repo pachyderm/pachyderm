@@ -7,8 +7,8 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/transaction"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
 )
 
 const (

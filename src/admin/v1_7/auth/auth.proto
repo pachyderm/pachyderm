@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package auth_1_7;
-option go_package = "github.com/pachyderm/pachyderm/src/client/admin/v1_7/auth";
+option go_package = "github.com/pachyderm/pachyderm/src/admin/v1_7/auth";
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/timestamp.proto";

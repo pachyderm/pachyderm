@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errutil"
 )
 
 // Reader reads data from chunk storage.

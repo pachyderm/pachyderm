@@ -8,7 +8,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 )
 
 // NewTestClient creates a Client which is cleaned up after the test exists

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/enterprise"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 )
 
 // GetTestEnterpriseCode Pulls the enterprise code out of the env var stored in travis

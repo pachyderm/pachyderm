@@ -10,7 +10,7 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 type etcdClient struct {

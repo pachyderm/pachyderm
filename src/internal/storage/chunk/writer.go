@@ -6,7 +6,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
+	"github.com/pachyderm/pachyderm/src/internal/storage/hash"
 )
 
 const (

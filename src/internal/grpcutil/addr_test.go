@@ -3,8 +3,8 @@ package grpcutil
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 )
 
 func TestParsePachdAddress(t *testing.T) {

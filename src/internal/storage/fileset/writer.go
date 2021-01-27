@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/src/internal/uuid"
 )
 
 // TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.

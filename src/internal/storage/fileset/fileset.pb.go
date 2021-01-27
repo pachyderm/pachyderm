@@ -6,7 +6,7 @@ package fileset
 import (
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	index "github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	index "github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
 	io "io"
 	math "math"
 	math_bits "math/bits"

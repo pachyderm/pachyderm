@@ -3,7 +3,7 @@ package grpcutil
 import (
 	"google.golang.org/grpc/status"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // ScrubGRPC removes GRPC error code information from 'err' if it came from

@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 
 	minio "github.com/minio/minio-go/v6"
 )

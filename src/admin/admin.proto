@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package admin;
-option go_package = "github.com/pachyderm/pachyderm/src/client/admin";
+option go_package = "github.com/pachyderm/pachyderm/src/admin";
 
 import "google/protobuf/empty.proto";
 import "gogoproto/gogo.proto";

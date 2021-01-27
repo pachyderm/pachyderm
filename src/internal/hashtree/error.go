@@ -3,7 +3,7 @@ package hashtree
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // hashTreeError is a custom error type, returned by HashTree's methods

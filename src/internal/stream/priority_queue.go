@@ -3,7 +3,7 @@ package stream
 import (
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // Stream is the standard interface for a sorted stream that can be used in a PriorityQueue.

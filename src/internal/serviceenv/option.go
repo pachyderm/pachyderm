@@ -4,10 +4,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/internal/uuid"
 )
 
 // ChunkStorageOptions returns the chunk storage options for the service environment.

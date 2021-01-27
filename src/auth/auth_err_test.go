@@ -3,8 +3,8 @@ package auth
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 )
 
 // grpcify returns an error e such that e.Error() is similar to what grpc

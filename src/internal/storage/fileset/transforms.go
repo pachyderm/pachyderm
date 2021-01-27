@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
 )
 
 var _ FileSet = &indexFilter{}

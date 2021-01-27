@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/internal/uuid"
 )
 
 var (

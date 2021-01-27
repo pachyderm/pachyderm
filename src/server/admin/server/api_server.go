@@ -2,8 +2,8 @@ package server
 
 import (
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/admin"
+	"github.com/pachyderm/pachyderm/src/internal/log"
 
 	"golang.org/x/net/context"
 )

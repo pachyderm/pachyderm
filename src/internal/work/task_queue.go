@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 
 	"github.com/cevaris/ordered_map"
 )

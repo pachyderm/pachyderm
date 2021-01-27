@@ -1,10 +1,10 @@
 package clusterstate
 
 import (
-	"github.com/pachyderm/pachyderm/src/server/pkg/migrations"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/track"
+	"github.com/pachyderm/pachyderm/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/internal/storage/track"
 	"golang.org/x/net/context"
 )
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/server/pkg/dbutil"
+	"github.com/pachyderm/pachyderm/src/internal/dbutil"
 )
 
 func TestPostgresTracker(t *testing.T) {

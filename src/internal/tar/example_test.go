@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 func Example_minimal() {

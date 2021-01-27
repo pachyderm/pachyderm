@@ -5,13 +5,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make

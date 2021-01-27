@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 func run(t *testing.T, cmd string) error {

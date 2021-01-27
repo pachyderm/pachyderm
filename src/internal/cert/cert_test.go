@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 )
 
 // TestBasic generates an x509 cert and then uses it to verify itself

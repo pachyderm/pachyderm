@@ -7,9 +7,9 @@ import (
 	"time"
 
 	pb "github.com/golang/groupcache/groupcachepb"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/internal/shard"
+	"github.com/pachyderm/pachyderm/src/internal/cache/groupcachepb"
+	"github.com/pachyderm/pachyderm/src/internal/log"
 
 	"github.com/golang/groupcache"
 	"golang.org/x/net/context"

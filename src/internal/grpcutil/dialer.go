@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"google.golang.org/grpc"
 )
 

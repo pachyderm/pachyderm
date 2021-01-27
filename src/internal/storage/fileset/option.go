@@ -3,8 +3,8 @@ package fileset
 import (
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/internal/storage/renew"
 	"golang.org/x/sync/semaphore"
 )
 

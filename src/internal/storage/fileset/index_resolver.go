@@ -3,8 +3,8 @@ package fileset
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
 )
 
 // NewIndexResolver creates a file set that resolves index entries.
