@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package admin;
+option go_package = "github.com/pachyderm/pachyderm/src/admin";
+
+import "google/protobuf/empty.proto";
+import "gogoproto/gogo.proto";
+
+message ClusterInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  string deployment_id = 2 [(gogoproto.customname) = "DeploymentID"];
+}
+
+service API {
+  rpc InspectCluster(google.protobuf.Empty) returns (ClusterInfo) {}
+}

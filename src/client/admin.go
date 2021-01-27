@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/admin"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 )
 
 // InspectCluster retrieves cluster state

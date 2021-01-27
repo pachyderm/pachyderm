@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"google.golang.org/grpc"
 )
 

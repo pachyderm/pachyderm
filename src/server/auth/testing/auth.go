@@ -3,8 +3,8 @@ package testing
 import (
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/auth"
+	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the

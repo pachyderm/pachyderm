@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 func TestCommit(t *testing.T) {

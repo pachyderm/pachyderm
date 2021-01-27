@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	logrus "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/identity"
 )
 
 // dexAPI wraps an api.DexServer and extends it with CRUD operations

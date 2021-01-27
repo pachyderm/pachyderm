@@ -8,14 +8,14 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/keycache"
-	"github.com/pachyderm/pachyderm/src/server/pkg/license"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	ec "github.com/pachyderm/pachyderm/src/enterprise"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/keycache"
+	"github.com/pachyderm/pachyderm/src/internal/license"
+	"github.com/pachyderm/pachyderm/src/internal/log"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
 )
 
 const (

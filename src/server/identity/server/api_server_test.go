@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/identity"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/identity"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 
 // TestAuthNotActivated checks that no RPCs can be made when the auth service is disabled

@@ -5,10 +5,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/renew"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 // AppendFile appends a file.

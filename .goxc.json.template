@@ -7,7 +7,7 @@
 	],
 	"BuildConstraints": "linux,amd64 darwin,amd64",
     "BuildSettings" : {
-        "LdFlags": "-X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=%%VERSION_ADDITIONAL%%"
+        "LdFlags": "-X github.com/pachyderm/pachyderm/src/version.AdditionalVersion=%%VERSION_ADDITIONAL%%"
     },
 	"TaskSettings": {
 		"publish-github": {

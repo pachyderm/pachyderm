@@ -9,8 +9,8 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/internal/config"
+	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 )
 

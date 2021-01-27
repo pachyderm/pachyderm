@@ -1,12 +1,12 @@
 package server
 
 import (
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/internal/log"
+	"github.com/pachyderm/pachyderm/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
+	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 )
 
 // APIServer represents a PPS API server
