@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
@@ -16,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/version"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"

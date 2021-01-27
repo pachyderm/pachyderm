@@ -8,7 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/identity"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/require"
 )

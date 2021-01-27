@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/identity"
 	"github.com/pachyderm/pachyderm/src/internal/require"
 	logrus "github.com/sirupsen/logrus"
 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/fatih/color"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
@@ -31,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	"github.com/pachyderm/pachyderm/src/version"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"

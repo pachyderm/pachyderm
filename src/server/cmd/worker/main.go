@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	debugclient "github.com/pachyderm/pachyderm/src/debug"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
@@ -22,6 +20,8 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/src/version"
+	"github.com/pachyderm/pachyderm/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"

@@ -11,7 +11,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/pachyderm/pachyderm/src/auth"
 	client "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/deploy/assets"
@@ -21,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/src/version"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"

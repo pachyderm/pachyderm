@@ -26,12 +26,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/admin"
 	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/client/identity"
 	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/debug"
 	"github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/health"
+	"github.com/pachyderm/pachyderm/src/identity"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
@@ -40,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/transaction"
+	"github.com/pachyderm/pachyderm/src/version/versionpb"
 )
 
 const (

@@ -11,8 +11,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
@@ -23,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
+	"github.com/pachyderm/pachyderm/src/version"
+	"github.com/pachyderm/pachyderm/src/version/versionpb"
 
 	"golang.org/x/net/context"
 )

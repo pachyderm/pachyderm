@@ -14,8 +14,6 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	deploycmds "github.com/pachyderm/pachyderm/src/internal/deploy/cmds"
@@ -33,6 +31,8 @@ import (
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	"github.com/pachyderm/pachyderm/src/version"
+	"github.com/pachyderm/pachyderm/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"

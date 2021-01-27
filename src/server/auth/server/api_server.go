@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/version"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"

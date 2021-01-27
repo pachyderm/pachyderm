@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package identity;
-option go_package = "github.com/pachyderm/pachyderm/src/client/identity";
+option go_package = "github.com/pachyderm/pachyderm/src/identity";
 
 // IdentityServerConfig is the configuration for the identity web server.
 // When the configuration is changed the web server is reloaded automatically.

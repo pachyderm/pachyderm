@@ -15,7 +15,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
@@ -23,6 +22,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/version"
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"

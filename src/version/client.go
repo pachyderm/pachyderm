@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	pb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	pb "github.com/pachyderm/pachyderm/src/version/versionpb"
 )
 
 const (

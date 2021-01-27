@@ -11,12 +11,10 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/src/admin"
 	authclient "github.com/pachyderm/pachyderm/src/auth"
-	identityclient "github.com/pachyderm/pachyderm/src/client/identity"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	debugclient "github.com/pachyderm/pachyderm/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/src/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/health"
+	identityclient "github.com/pachyderm/pachyderm/src/identity"
 	"github.com/pachyderm/pachyderm/src/internal/auth"
 	"github.com/pachyderm/pachyderm/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
@@ -45,6 +43,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 	transactionclient "github.com/pachyderm/pachyderm/src/transaction"
+	"github.com/pachyderm/pachyderm/src/version"
+	"github.com/pachyderm/pachyderm/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

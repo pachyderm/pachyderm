@@ -20,7 +20,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/config"
@@ -33,6 +32,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/src/internal/obj"
 	"github.com/pachyderm/pachyderm/src/internal/serde"
+	"github.com/pachyderm/pachyderm/src/version"
 	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
 	docker "github.com/fsouza/go-dockerclient"

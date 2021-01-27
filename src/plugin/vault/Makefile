@@ -1,5 +1,5 @@
 VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-LD_FLAGS = -X github.com/pachyderm/pachyderm/src/plugin/vault/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/plugin/vault/vendor/github.com/pachyderm/pachyderm/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 plugin:
 	go install -ldflags "$(LD_FLAGS)" ./pachyderm-plugin
