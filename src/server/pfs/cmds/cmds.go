@@ -968,7 +968,7 @@ $ {{alias}} foo@master^2:XXX`,
 				if err != nil {
 					return err
 				}
-				f, err := progress.Create(outputPath, int(fi.SizeBytes))
+				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
 				if err != nil {
 					return err
 				}
