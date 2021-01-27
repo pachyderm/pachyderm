@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -20,11 +21,12 @@ import (
 var (
 	containerInit sync.Once
 	container     *mpb.Progress
+	refreshRate   = 100 * time.Millisecond
 )
 
 func initContainer() {
 	containerInit.Do(func() {
-		container = mpb.New()
+		container = mpb.New(mpb.WithRefreshRate(refreshRate))
 	})
 }
 
@@ -94,11 +96,33 @@ func (f *File) updateT() {
 // progress bar
 func (f *File) Read(p []byte) (int, error) {
 	n, err := f.File.Read(p)
-	if err == nil {
+	if err == nil || errors.Is(err, io.EOF) {
 		f.bar.IncrBy(n)
 		f.updateT()
 	}
 	return n, err
+}
+
+func (f *File) setProgress() error {
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	f.bar.SetCurrent(fi.Size())
+	f.updateT()
+	return nil
+}
+
+func (f *File) monitorProgress(stop chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			f.setProgress()
+			return
+		case <-time.After(refreshRate):
+			f.setProgress()
+		}
+	}
 }
 
 // Write writes bytes to the wrapped file and adds amount of bytes written to
@@ -126,12 +150,10 @@ func (f *File) WriteAt(b []byte, offset int64) (int, error) {
 // ReadFrom writes the contents of r to f and adds the amount of bytes written
 // to the progress bar
 func (f *File) ReadFrom(r io.Reader) (int64, error) {
-	n, err := f.File.ReadFrom(r)
-	if err == nil {
-		f.bar.IncrBy(int(n))
-		f.updateT()
-	}
-	return n, err
+	stop := make(chan struct{})
+	go f.monitorProgress(stop)
+	defer close(stop)
+	return f.File.ReadFrom(r)
 }
 
 // Seek seeks the wrapped file and updates the progress bar.
