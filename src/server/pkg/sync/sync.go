@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -24,6 +25,8 @@ import (
 // Puller as a struct for managing a Pull operation.
 type Puller struct {
 	sync.Mutex
+	// Progress causes the puller to print out progress bars as it pulls
+	Progress bool
 	// errCh contains an error from the pipe goros
 	errCh chan error
 	// pipes is a set containing all pipes that are currently blocking
@@ -56,11 +59,17 @@ func (s *sizeWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
+func (p *Puller) makeFile(path string, size int64, f func(io.Writer) error) (retErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	file, err := os.Create(path)
+	var file io.WriteCloser
+	var err error
+	if p.Progress {
+		file, err = progress.Create(path, size)
+	} else {
+		file, err = os.Create(path)
+	}
 	if err != nil {
 		return err
 	}
@@ -122,12 +131,12 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			})
 		}
 		if emptyFiles {
-			return p.makeFile(path, func(w io.Writer) error { return nil })
+			return p.makeFile(path, 0, func(w io.Writer) error { return nil })
 		}
 		eg.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			return p.makeFile(path, func(w io.Writer) error {
+			return p.makeFile(path, int64(fileInfo.SizeBytes), func(w io.Writer) error {
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
 			})
 		})
@@ -175,7 +184,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 				return err
 			}
 		} else if emptyFiles {
-			if err := p.makeFile(path, func(w io.Writer) error { return nil }); err != nil {
+			if err := p.makeFile(path, 0, func(w io.Writer) error { return nil }); err != nil {
 				return err
 			}
 		} else {
@@ -183,7 +192,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return p.makeFile(path, func(w io.Writer) error {
+				return p.makeFile(path, int64(newFile.SizeBytes), func(w io.Writer) error {
 					return client.GetFile(newFile.File.Commit.Repo.Name, newFile.File.Commit.ID, newFile.File.Path, 0, 0, w)
 				})
 			})
@@ -213,7 +222,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 				limiter.Acquire()
 				eg.Go(func() error {
 					defer limiter.Release()
-					return p.makeFile(path, func(w io.Writer) error {
+					return p.makeFile(path, int64(oldFile.SizeBytes), func(w io.Writer) error {
 						return client.GetFile(oldFile.File.Commit.Repo.Name, oldFile.File.Commit.ID, oldFile.File.Path, 0, 0, w)
 					})
 				})
@@ -242,7 +251,7 @@ func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtr
 			limiter.Acquire()
 			eg.Go(func() (retErr error) {
 				defer limiter.Release()
-				return p.makeFile(path, func(w io.Writer) error {
+				return p.makeFile(path, node.SubtreeSize, func(w io.Writer) error {
 					return client.GetObjects(hashes, 0, 0, uint64(node.SubtreeSize), w)
 				})
 			})

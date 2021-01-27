@@ -992,6 +992,7 @@ $ {{alias}} foo@master^2:XXX`,
 					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
+				puller.Progress = true
 				return puller.Pull(c, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
 			}
 			var w io.Writer
