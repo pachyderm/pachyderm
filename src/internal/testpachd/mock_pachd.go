@@ -9,13 +9,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/admin"
 	"github.com/pachyderm/pachyderm/src/auth"
+	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/transaction"
-	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
 // linkServers can be used to default a mock server to make calls to a real api

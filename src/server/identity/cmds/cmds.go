@@ -8,9 +8,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 
 	"github.com/spf13/cobra"
 )

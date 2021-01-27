@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/transaction"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/transaction"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"

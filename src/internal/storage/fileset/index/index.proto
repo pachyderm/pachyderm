@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 package index;
-option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index";
+option go_package = "github.com/pachyderm/pachyderm/src/internal/storage/fileset/index";
 
-import "server/pkg/storage/chunk/chunk.proto";
+import "internal/storage/chunk/chunk.proto";
 
 // Index stores an index to and metadata about a file.
 message Index {

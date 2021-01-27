@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 package fileset;
-option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset";
+option go_package = "github.com/pachyderm/pachyderm/src/internal/storage/fileset";
 
-import "server/pkg/storage/fileset/index/index.proto";
+import "internal/storage/fileset/index/index.proto";
 
 message Metadata {
   string path = 1;

@@ -6,11 +6,11 @@ import (
 	"io"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 // NewRepo creates a pfs.Repo.

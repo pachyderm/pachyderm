@@ -14,7 +14,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/src/internal/log"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/internal/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/src/pfs"
 
 	"golang.org/x/net/context"
 )

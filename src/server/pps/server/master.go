@@ -11,12 +11,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/dlock"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/src/pps"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/src/internal/watch"

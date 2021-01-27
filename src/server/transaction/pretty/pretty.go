@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/transaction"
-	"github.com/pachyderm/pachyderm/src/internal/pretty"
 )
 
 const (

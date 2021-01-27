@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"

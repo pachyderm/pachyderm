@@ -11,10 +11,10 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
 
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	prom_api "github.com/prometheus/client_golang/api"

@@ -8,8 +8,8 @@ import "google/protobuf/timestamp.proto";
 
 import "gogoproto/gogo.proto";
 
-import "client/pfs/pfs.proto";
-import "client/pps/pps.proto";
+import "pfs/pfs.proto";
+import "pps/pps.proto";
 
 message DeleteAllRequest {
 }

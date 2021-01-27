@@ -9,9 +9,9 @@ import (
 	"golang.org/x/net/context"
 
 	ec "github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/src/internal/license"
 	"github.com/pachyderm/pachyderm/src/internal/log"

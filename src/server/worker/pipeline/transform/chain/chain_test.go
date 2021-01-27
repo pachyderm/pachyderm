@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )

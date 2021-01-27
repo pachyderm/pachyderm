@@ -8,9 +8,9 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
 )
 

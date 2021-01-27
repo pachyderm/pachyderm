@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package chunk;
-option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk";
+option go_package = "github.com/pachyderm/pachyderm/src/internal/storage/chunk";
 
 // DataRef is a reference to data within a chunk.
 message DataRef {

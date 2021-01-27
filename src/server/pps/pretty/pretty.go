@@ -13,10 +13,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/pretty"
+	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 )
 
 const (

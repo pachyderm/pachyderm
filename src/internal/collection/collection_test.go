@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"

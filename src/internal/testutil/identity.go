@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/identity"
-	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 )
 
 // DexMockConnectorEmail is the identity returned for all requests to the mock Dex connector

@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 
 	log "github.com/sirupsen/logrus"

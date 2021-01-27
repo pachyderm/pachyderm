@@ -5,13 +5,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/client"
+	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/transaction"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
 )
 
 // PfsWrites is an interface providing a wrapper for each operation that

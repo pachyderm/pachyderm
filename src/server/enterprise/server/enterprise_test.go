@@ -8,10 +8,10 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/license"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 

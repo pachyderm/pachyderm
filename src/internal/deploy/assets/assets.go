@@ -9,12 +9,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tls"
-	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
-	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/internal/obj"
 	"github.com/pachyderm/pachyderm/src/internal/serde"
+	"github.com/pachyderm/pachyderm/src/internal/tls"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
+	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	apps "k8s.io/api/apps/v1"

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/storage/track"
 )
 

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )
 

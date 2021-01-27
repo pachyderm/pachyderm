@@ -9,7 +9,7 @@ import "google/protobuf/duration.proto";
 
 import "gogoproto/gogo.proto";
 
-import "client/admin/v1_7/pfs/pfs.proto";
+import "admin/v1_7/pfs/pfs.proto";
 
 message Secret {
   // Name must be the name of the secret in kubernetes.

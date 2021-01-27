@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/enterprise"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/src/pps"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"

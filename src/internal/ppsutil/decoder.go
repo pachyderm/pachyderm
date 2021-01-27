@@ -11,8 +11,8 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/serde"
+	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 )
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON.

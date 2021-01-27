@@ -17,10 +17,10 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 type fileState int32

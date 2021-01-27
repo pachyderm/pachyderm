@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
 	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
 	prompt "github.com/c-bata/go-prompt"

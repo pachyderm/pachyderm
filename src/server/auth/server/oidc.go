@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
 
 	oidc "github.com/coreos/go-oidc"

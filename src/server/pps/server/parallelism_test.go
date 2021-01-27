@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/pps"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/src/pps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 )
 
 // Version returns the version of pachd as a string.

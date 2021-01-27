@@ -5,6 +5,9 @@ set -ve
 find ./src -name '*.go' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/server/pkg/#github.com/pachyderm/pachyderm/src/internal/#g' {} \;
 find ./src -name '*.go' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/pkg/#github.com/pachyderm/pachyderm/src/internal/#g' {} \;
 
+find ./src -name '*.proto' -type f -exec sed -i '' 's#src/server/pkg/#src/internal/#g' {} \;
+find ./src -name '*.proto' -type f -exec sed -i '' 's#src/client/pkg/#src/internal/#g' {} \;
+
 find ./src -name '*.go' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/pfs#github.com/pachyderm/pachyderm/src/pfs#g' {} \;
 find ./src -name '*.go' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/pps#github.com/pachyderm/pachyderm/src/pps#g' {} \;
 find ./src -name '*.go' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/auth#github.com/pachyderm/pachyderm/src/auth#g' {} \;
@@ -22,3 +25,5 @@ find ./src -name '*.proto' -type f -exec sed -i '' 's#github.com/pachyderm/pachy
 find ./src -name '*.proto' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/enterprise#github.com/pachyderm/pachyderm/src/enterprise#g' {} \;
 find ./src -name '*.proto' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/health#github.com/pachyderm/pachyderm/src/health#g' {} \;
 find ./src -name '*.proto' -type f -exec sed -i '' 's#github.com/pachyderm/pachyderm/src/client/transaction#github.com/pachyderm/pachyderm/src/transaction#g' {} \;
+
+find ./src -name '*.proto' -type f -exec sed -i '' 's#import "client/#import "#g' {} \;

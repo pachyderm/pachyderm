@@ -4,8 +4,8 @@ import (
 	"archive/tar"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 // Pull pulls a file from PFS and stores it in the local filesystem.

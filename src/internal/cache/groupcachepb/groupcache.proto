@@ -17,7 +17,7 @@ limitations under the License.
 syntax = "proto2";
 
 package groupcachepb;
-option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb";
+option go_package = "github.com/pachyderm/pachyderm/src/internal/cache/groupcachepb";
 
 message GetRequest {
   required string group = 1;

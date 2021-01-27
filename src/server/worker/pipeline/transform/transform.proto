@@ -5,7 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/worker/pipeline/t
 
 import "gogoproto/gogo.proto";
 
-import "client/pfs/pfs.proto";
+import "pfs/pfs.proto";
 import "server/worker/datum/datum.proto";
 
 message DatumSet {

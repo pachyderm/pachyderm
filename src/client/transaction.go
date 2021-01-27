@@ -5,13 +5,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/admin"
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/debug"
 	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/transaction"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
 	types "github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/internal/errors"

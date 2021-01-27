@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package shard;
-option go_package = "github.com/pachyderm/pachyderm/src/client/pkg/shard";
+option go_package = "github.com/pachyderm/pachyderm/src/internal/shard";
 
 message ServerState {
     string address = 1;

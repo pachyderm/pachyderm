@@ -15,11 +15,11 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/pps"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/src/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"

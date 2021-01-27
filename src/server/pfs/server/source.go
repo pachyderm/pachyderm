@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"golang.org/x/net/context"
 )
 

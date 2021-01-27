@@ -9,7 +9,7 @@ import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
-import "client/admin/v1_11/auth/auth.proto";
+import "admin/v1_11/auth/auth.proto";
 
 ////  PFS Data structures (stored in etcd)
 

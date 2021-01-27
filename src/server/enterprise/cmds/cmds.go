@@ -6,8 +6,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/enterprise"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"

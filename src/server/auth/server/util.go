@@ -1,12 +1,12 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 // CheckIsAuthorizedInTransaction is identicalto CheckIsAuthorized except that

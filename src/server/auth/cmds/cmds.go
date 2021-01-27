@@ -8,13 +8,13 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/internal/cmdutil"
 	"github.com/pkg/browser"
 
 	"github.com/spf13/cobra"

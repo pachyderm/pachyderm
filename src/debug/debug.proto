@@ -6,7 +6,7 @@ option go_package = "github.com/pachyderm/pachyderm/src/debug";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 
-import "client/pps/pps.proto";
+import "pps/pps.proto";
 
 message ProfileRequest {
   Profile profile = 1;

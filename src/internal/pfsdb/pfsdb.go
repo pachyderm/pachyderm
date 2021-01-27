@@ -5,10 +5,10 @@ import (
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 const (

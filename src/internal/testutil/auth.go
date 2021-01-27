@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/config"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
 )
 
 const (

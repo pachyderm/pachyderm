@@ -16,15 +16,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
-	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/log"
 	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
+	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"

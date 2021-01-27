@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
 
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

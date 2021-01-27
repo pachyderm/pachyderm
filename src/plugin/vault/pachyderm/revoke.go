@@ -6,8 +6,8 @@ import (
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/auth"
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 

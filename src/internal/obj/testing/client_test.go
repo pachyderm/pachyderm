@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/testetcd"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 

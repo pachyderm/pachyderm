@@ -7,11 +7,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/auth"
 	"github.com/pachyderm/pachyderm/src/client/identity"
+	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/require"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/internal/backoff"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 )
 
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make

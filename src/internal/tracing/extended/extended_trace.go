@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
 	col "github.com/pachyderm/pachyderm/src/internal/collection"
+	"github.com/pachyderm/pachyderm/src/internal/tracing"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"

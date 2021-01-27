@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/src/internal/require"
 	"github.com/pachyderm/pachyderm/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
 )

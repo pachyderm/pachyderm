@@ -10,10 +10,10 @@ import (
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 	"github.com/pachyderm/pachyderm/src/internal/watch"
+	"github.com/pachyderm/pachyderm/src/pps"
 )
 
 const pollBackoffTime = 2 * time.Second
