@@ -22,12 +22,34 @@ var (
 	containerInit sync.Once
 	container     *mpb.Progress
 	refreshRate   = 100 * time.Millisecond
+	enabled       = true
 )
 
+// Disable turns off printing of progress bars.
+func Disable() {
+	enabled = false
+}
+
+// Enable turns on printing of progress bars.
+func Enable() {
+	enabled = true
+}
+
 func initContainer() {
-	containerInit.Do(func() {
-		container = mpb.New(mpb.WithRefreshRate(refreshRate))
-	})
+	if enabled {
+		containerInit.Do(func() {
+			container = mpb.New(mpb.WithRefreshRate(refreshRate))
+		})
+	}
+}
+
+// Wait for all progress bars to complete, should be called when using progress
+// to avoid the program exiting before the final progress update can be drawn.
+func Wait() {
+	if enabled {
+		initContainer()
+		container.Wait()
+	}
 }
 
 func addBar(path string, size int64) *mpb.Bar {
@@ -79,14 +101,66 @@ type File struct {
 
 func newFile(f *os.File, path string, size int64) *File {
 	initContainer()
+	var bar *mpb.Bar
+	if container != nil {
+		bar = addBar(path, size)
+	}
 	return &File{
 		File: f,
-		bar:  addBar(path, size),
+		bar:  bar,
 		t:    time.Now(),
 	}
 }
 
+// functions for updating the progress bar, use these instead of accessing it
+// directly because they do nil checks.
+func (f *File) add(n int) {
+	if f.bar == nil {
+		return
+	}
+	f.bar.IncrBy(n)
+	f.updateT()
+}
+
+func (f *File) setProgress(n int) {
+	if f.bar == nil {
+		return
+	}
+	f.bar.SetCurrent(int64(n))
+	f.updateT()
+}
+
+func (f *File) checkProgress() error {
+	if f.bar == nil {
+		return nil
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	f.setProgress(int(fi.Size()))
+	return nil
+}
+
+func (f *File) monitorProgress(stop chan struct{}) {
+	if f.bar == nil {
+		return
+	}
+	for {
+		select {
+		case <-stop:
+			f.checkProgress()
+			return
+		case <-time.After(refreshRate):
+			f.checkProgress()
+		}
+	}
+}
+
 func (f *File) updateT() {
+	if f.bar == nil {
+		return
+	}
 	now := time.Now()
 	f.bar.DecoratorEwmaUpdate(now.Sub(f.t))
 	f.t = now
@@ -97,32 +171,9 @@ func (f *File) updateT() {
 func (f *File) Read(p []byte) (int, error) {
 	n, err := f.File.Read(p)
 	if err == nil || errors.Is(err, io.EOF) {
-		f.bar.IncrBy(n)
-		f.updateT()
+		f.add(n)
 	}
 	return n, err
-}
-
-func (f *File) setProgress() error {
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	f.bar.SetCurrent(fi.Size())
-	f.updateT()
-	return nil
-}
-
-func (f *File) monitorProgress(stop chan struct{}) {
-	for {
-		select {
-		case <-stop:
-			f.setProgress()
-			return
-		case <-time.After(refreshRate):
-			f.setProgress()
-		}
-	}
 }
 
 // Write writes bytes to the wrapped file and adds amount of bytes written to
@@ -130,8 +181,7 @@ func (f *File) monitorProgress(stop chan struct{}) {
 func (f *File) Write(p []byte) (int, error) {
 	n, err := f.File.Write(p)
 	if err == nil {
-		f.bar.IncrBy(n)
-		f.updateT()
+		f.add(n)
 	}
 	return n, err
 }
@@ -141,8 +191,7 @@ func (f *File) Write(p []byte) (int, error) {
 func (f *File) WriteAt(b []byte, offset int64) (int, error) {
 	n, err := f.File.WriteAt(b, offset)
 	if err == nil {
-		f.bar.SetCurrent(offset + int64(n))
-		f.updateT()
+		f.setProgress(int(offset) + n)
 	}
 	return n, err
 }
@@ -160,8 +209,7 @@ func (f *File) ReadFrom(r io.Reader) (int64, error) {
 func (f *File) Seek(offset int64, whence int) (int64, error) {
 	offset, err := f.File.Seek(offset, whence)
 	if err == nil {
-		f.bar.SetCurrent(offset)
-		f.updateT()
+		f.setProgress(int(offset))
 	}
 	return offset, err
 }
@@ -176,5 +224,7 @@ func (f *File) Close() error {
 // should be used if the wrapped file is something you don't want to close (for
 // example stdin), but you don't want future reads to be printed as progress.
 func (f *File) Finish() {
-	f.bar.SetTotal(0, true)
+	if f.bar != nil {
+		f.bar.SetTotal(0, true)
+	}
 }
