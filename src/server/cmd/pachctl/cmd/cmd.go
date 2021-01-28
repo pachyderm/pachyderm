@@ -28,6 +28,7 @@ import (
 	debugcmds "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"

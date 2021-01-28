@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package license;
-option go_package = "github.com/pachyderm/pachyderm/src/client/license";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/license";
 
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";

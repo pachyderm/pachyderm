@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
 const year = 365 * 24 * time.Hour

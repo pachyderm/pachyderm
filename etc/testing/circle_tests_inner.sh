@@ -112,8 +112,8 @@ case "${BUCKET}" in
     fi
     ;;
   AUTH)
-    make test-auth
     make test-identity
+    make test-auth
     ;;
   OBJECT)
     make test-object-clients
