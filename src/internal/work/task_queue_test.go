@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 type testTask struct {

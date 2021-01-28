@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
-	"github.com/pachyderm/pachyderm/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 )
 
 // StorageOption configures a storage.

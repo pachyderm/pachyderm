@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/config"
-	"github.com/pachyderm/pachyderm/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/spf13/cobra"

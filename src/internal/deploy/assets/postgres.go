@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

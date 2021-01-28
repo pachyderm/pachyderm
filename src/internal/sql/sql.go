@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // PGDumpReader parses a pgdump file into a header, rows, and a footer

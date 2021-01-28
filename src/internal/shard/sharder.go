@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/internal/discovery"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/discovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"

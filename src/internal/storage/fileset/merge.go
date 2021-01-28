@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 // MergeReader is an abstraction for reading merged filesets.

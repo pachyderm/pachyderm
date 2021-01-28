@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
@@ -77,7 +77,7 @@ func (c *googleClient) IsRetryable(err error) (ret bool) {
 	if !errors.As(err, &googleErr) {
 		return false
 	}
-	// https://github.com/pachyderm/pachyderm/issues/912
+	// https://github.com/pachyderm/pachyderm/v2/issues/912
 	return googleErr.Code >= 500 || strings.Contains(err.Error(), "Parse Error")
 }
 

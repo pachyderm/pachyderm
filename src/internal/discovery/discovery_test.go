@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestEtcdClient(t *testing.T) {

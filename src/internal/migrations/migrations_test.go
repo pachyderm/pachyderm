@@ -6,8 +6,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )

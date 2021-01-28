@@ -6,8 +6,8 @@ import (
 	mathrand "math/rand"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	"github.com/pachyderm/pachyderm/src/internal/storage/hash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/hash"
 )
 
 func maxValue(f *BloomFilter) int {

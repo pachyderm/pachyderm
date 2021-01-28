@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"

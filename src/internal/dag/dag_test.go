@@ -3,7 +3,7 @@ package dag
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestLine(t *testing.T) {

@@ -3,7 +3,7 @@ package fileset
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 )
 
 func TestPostgresStore(t *testing.T) {

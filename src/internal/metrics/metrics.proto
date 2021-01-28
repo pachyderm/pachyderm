@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package metrics;
-option go_package = "github.com/pachyderm/pachyderm/src/internal/metrics";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/metrics";
 
 import "gogoproto/gogo.proto";
 

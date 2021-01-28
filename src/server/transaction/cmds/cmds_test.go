@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestTransaction runs a straightforward end-to-end test of starting, adding

@@ -2,10 +2,10 @@ package server
 
 import (
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/internal/obj"
-	"github.com/pachyderm/pachyderm/src/internal/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/internal/transactionenv"
-	pfsclient "github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // Valid object storage backends

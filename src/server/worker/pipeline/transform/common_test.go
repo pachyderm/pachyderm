@@ -7,16 +7,16 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/src/client"
-	col "github.com/pachyderm/pachyderm/src/internal/collection"
-	"github.com/pachyderm/pachyderm/src/internal/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/src/internal/work"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
-	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
 func defaultPipelineInfo() *pps.PipelineInfo {

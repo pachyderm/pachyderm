@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/internal/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // MockLogger is an implementation of the TaggedLogger interface for use in

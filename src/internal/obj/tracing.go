@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
 func prettyProvider(provider string) string {

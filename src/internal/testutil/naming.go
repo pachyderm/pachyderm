@@ -1,6 +1,6 @@
 package testutil
 
-import "github.com/pachyderm/pachyderm/src/internal/uuid"
+import "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 // UniqueString adds a UUID suffix to 'prefix'. This helps avoid name conflicts
 // between tests that share the same Pachyderm cluster
