@@ -18,7 +18,10 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
   skip_paths+=( -o -path "${file%/}" )
 done
 
-go get -u golang.org/x/lint/golint
+if [ -z "$(find "$(which golint)" -mtime -1)" ]; then
+  go get -u golang.org/x/lint/golint
+fi
+
 find "./src" \
   \( -path "*.pb.go" -o -path "*internal/tar*" "${skip_paths[@]}" \) -prune -o -name '*.go' -print \
 | while read -r file; do
@@ -32,7 +35,9 @@ if [[ -n "${files}" ]]; then
     exit 1
 fi
 
-go get honnef.co/go/tools/cmd/staticcheck
+if [ -z "$(find "$(which staticcheck)" -mtime -1)" ]; then
+  go get honnef.co/go/tools/cmd/staticcheck
+fi
 staticcheck "${GIT_REPO_DIR}/..."
 
 # shellcheck disable=SC2046
