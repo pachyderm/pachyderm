@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	io "io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"golang.org/x/crypto/chacha20"
 )
 

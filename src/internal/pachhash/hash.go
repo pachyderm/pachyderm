@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"hash"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -26,6 +27,19 @@ func New() hash.Hash {
 // Sum computes a hash sum for a set of bytes.
 func Sum(data []byte) Output {
 	return blake2b.Sum256(data)
+}
+
+// ParseHex parses a hex string into output.
+func ParseHex(x []byte) (*Output, error) {
+	o := Output{}
+	n, err := hex.Decode(o[:], x)
+	if err != nil {
+		return nil, err
+	}
+	if n < OutputSize {
+		return nil, errors.Errorf("hex string too short to be Output")
+	}
+	return &o, nil
 }
 
 // EncodeHash encodes a hash into a string representation.
