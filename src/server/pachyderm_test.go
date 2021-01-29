@@ -1366,8 +1366,6 @@ func TestEgressFailure(t *testing.T) {
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
-	// TODO: Implement lazy files.
-	t.Skip("Lazy files not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1426,8 +1424,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 }
 
 func TestLazyPipeline(t *testing.T) {
-	// TODO: Implement lazy files.
-	t.Skip("Lazy files not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1471,15 +1467,16 @@ func TestLazyPipeline(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
 
 func TestEmptyFiles(t *testing.T) {
-	// TODO: Implement empty files.
-	t.Skip("Empty files not implemented in V2")
+	// TODO: Implement symlinks.
+	// Make work with V2.
+	t.Skip("Symlinks not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1536,8 +1533,10 @@ func TestEmptyFiles(t *testing.T) {
 // We've updated the code such that we are able to detect if the files we
 // are uploading are pipes, and make the job fail in that case.
 func TestLazyPipelineCPPipes(t *testing.T) {
-	// TODO: Implement lazy files.
-	t.Skip("Lazy files not implemented in V2")
+	// TODO: This seems like a weird thing to account for in Pachyderm. We either need to inform
+	// users that lazy files are pipes or not implement them with pipes to avoid this.
+	// Make work with V2?
+	t.Skip("Not clear how this should be handled in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

@@ -235,6 +235,12 @@ func Export(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) erro
 			if hdr.Typeflag == tar.TypeDir {
 				return nil
 			}
+			// TODO: Not sure if this is the best way to skip the upload of named pipes.
+			// This is needed for uploading the inputs when lazy files is enabled, since the inputs
+			// will be closed named pipes.
+			if fi.Mode()&os.ModeNamedPipe != 0 {
+				return nil
+			}
 			f, err := os.Open(file)
 			if err != nil {
 				return err
