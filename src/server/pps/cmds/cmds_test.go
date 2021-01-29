@@ -30,8 +30,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 const badJSON1 = `
@@ -516,7 +516,7 @@ func TestTFJobBasic(t *testing.T) {
 }
 
 // TestYAMLSecret tests creating a YAML pipeline with a secret (i.e. the fix for
-// https://github.com/pachyderm/pachyderm/issues/4119)
+// https://github.com/pachyderm/pachyderm/v2/issues/4119)
 func TestYAMLSecret(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -555,7 +555,7 @@ func TestYAMLSecret(t *testing.T) {
 }
 
 // TestYAMLTimestamp tests creating a YAML pipeline with a timestamp (i.e. the
-// fix for https://github.com/pachyderm/pachyderm/issues/4209)
+// fix for https://github.com/pachyderm/pachyderm/v2/issues/4209)
 func TestYAMLTimestamp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

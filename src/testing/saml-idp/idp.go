@@ -9,8 +9,8 @@ import (
 	"net/url"
 
 	"github.com/crewjam/saml"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type appEnv struct {

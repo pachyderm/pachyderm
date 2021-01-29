@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-const deployCmdsFile = "./src/server/pkg/deploy/cmds/cmds.go"
+const deployCmdsFile = "./src/internal/deploy/cmds/cmds.go"
 
 func main() {
 	if len(os.Args) <= 1 {

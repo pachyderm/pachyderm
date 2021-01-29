@@ -1,9 +1,9 @@
 package transform
 
 import (
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
-	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
 // Run will run a transform pipeline until the driver is canceled.

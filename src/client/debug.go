@@ -3,8 +3,8 @@ package client
 import (
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // Profile collects a set of pprof profiles.

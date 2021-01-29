@@ -4,8 +4,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 )
 
 // WorkerInterface is an interface for getting or canceling the

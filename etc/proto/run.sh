@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
@@ -38,5 +38,8 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
 ":${GOPATH}/src" \
     "${i}" >/dev/stderr
 done
+
+# TODO (brendon): figure out how to configure protoc
+cd v2
 
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -

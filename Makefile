@@ -14,7 +14,7 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
@@ -251,8 +251,8 @@ test-pfs-server:
 
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
-	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/migrations/...
+	go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -262,7 +262,7 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
@@ -279,13 +279,13 @@ test-client:
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
+	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2
 
 test-libs:
-	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	go test -count=1 ./src/server/pkg/cert -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/work -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off
+	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/identity"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 
 	dex_memory "github.com/dexidp/dex/storage/memory"
 	logrus "github.com/sirupsen/logrus"

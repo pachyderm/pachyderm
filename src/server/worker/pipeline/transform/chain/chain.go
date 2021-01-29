@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
 // TODO: More documentation.

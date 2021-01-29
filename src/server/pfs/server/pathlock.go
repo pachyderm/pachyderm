@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // pathlock is used to prevent two PutFile calls that affect the same path (e.g.

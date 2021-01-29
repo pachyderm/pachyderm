@@ -20,7 +20,7 @@ done
 
 go get -u golang.org/x/lint/golint
 find "./src" \
-  \( -path "*.pb.go" -o -path "*pkg/tar*" "${skip_paths[@]}" \) -prune -o -name '*.go' -print \
+  \( -path "*.pb.go" -o -path "*internal/tar*" "${skip_paths[@]}" \) -prune -o -name '*.go' -print \
 | while read -r file; do
     golint -set_exit_status "$file";
 done;

@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // IsDone returns true if the given context has been canceled, or false otherwise

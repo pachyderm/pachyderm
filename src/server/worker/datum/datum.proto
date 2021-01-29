@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 package datum;
-option go_package = "github.com/pachyderm/pachyderm/src/server/worker/datum";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/datum";
 
 import "gogoproto/gogo.proto";
 
-import "client/pps/pps.proto";
+import "pps/pps.proto";
 import "server/worker/common/common.proto";
 
 enum State {

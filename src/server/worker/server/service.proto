@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 package server;
-option go_package = "github.com/pachyderm/pachyderm/src/server/worker/server";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/server";
 
-import "client/pps/pps.proto";
+import "pps/pps.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
 

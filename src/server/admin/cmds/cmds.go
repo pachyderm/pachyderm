@@ -3,8 +3,8 @@ package cmds
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 
 	"github.com/spf13/cobra"
 )
