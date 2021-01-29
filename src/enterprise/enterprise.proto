@@ -15,16 +15,30 @@ message LicenseRecord {
   google.protobuf.Timestamp expires = 2;
 }
 
-// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
-// that is registered with a license server
-message EnterpriseRecord {
+// EnterpriseConfig is the configuration we store for heartbeating
+// to the license server.
+message EnterpriseConfig {
   string license_server = 1;
   string id = 2;
   string secret = 3;
+}
 
-  google.protobuf.Timestamp last_heartbeat = 4;
-  LicenseRecord license = 5;
-  bool heartbeat_failed = 6;
+// EnterpriseRecord is a protobuf we cache in etcd to store the 
+// enterprise status.
+message EnterpriseRecord {
+  // license is the cached LicenseRecord retrieved from the most recent 
+  // heartbeat to the license server.
+  LicenseRecord license = 1;
+
+  // last_heartbeat is the timestamp of the last successful heartbeat
+  // to the license server
+  google.protobuf.Timestamp last_heartbeat = 2;
+
+  // heartbeat_failed is set if the license is still valid, but
+  // the pachd is no longer registered with an enterprise server.
+  // This is the same as the expired state, where auth is locked
+  // but not disabled.
+  bool heartbeat_failed = 3;
 }
 
 enum State {

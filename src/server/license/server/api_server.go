@@ -109,7 +109,7 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 			return errors.Wrapf(err, "did not see updated token")
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second)); err != nil {
+	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
 		return nil, err
 	}
 
@@ -286,7 +286,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 			return errors.Errorf("enterprise still activated")
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second)); err != nil {
+	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
 		return nil, err
 	}
 

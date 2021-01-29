@@ -25,7 +25,8 @@ const (
 	// enterpriseTokenKey is the constant key we use that maps to an Enterprise
 	// token that a user has given us. This is what we check to know if a
 	// Pachyderm cluster supports enterprise features
-	enterpriseTokenKey = "token"
+	enterpriseTokenKey  = "token"
+	enterpriseConfigKey = "config"
 
 	heartbeatFrequency = time.Hour
 	heartbeatTimeout   = time.Minute
@@ -37,9 +38,8 @@ type apiServer struct {
 
 	enterpriseTokenCache *keycache.Cache
 
-	// enterpriseToken is a collection containing at most one Pachyderm enterprise
-	// token
-	enterpriseToken col.Collection
+	// enterpriseCol is a collection containing the config and state
+	enterpriseCol col.Collection
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -55,7 +55,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{
 		License: &ec.LicenseRecord{Expires: defaultExpires},
 	}
-	enterpriseToken := col.NewCollection(
+	enterpriseCol := col.NewCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,
@@ -67,8 +67,8 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 	s := &apiServer{
 		pachLogger:           log.NewLogger("enterprise.API"),
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(enterpriseToken, enterpriseTokenKey, defaultEnterpriseRecord),
-		enterpriseToken:      enterpriseToken,
+		enterpriseTokenCache: keycache.NewCache(enterpriseCol, enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseCol:        enterpriseCol,
 	}
 	go s.enterpriseTokenCache.Watch()
 	go s.heartbeatRoutine()
@@ -79,12 +79,12 @@ func (a *apiServer) heartbeatRoutine() {
 	ticker := time.NewTicker(heartbeatFrequency)
 	for {
 		// If we can't get the license server address, skip heartbeating
-		record, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
-		if ok && record.LicenseServer != "" {
+		var config ec.EnterpriseConfig
+		if err := a.enterpriseCol.Get(enterpriseConfigKey, &config); err == nil {
 			if err := func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
 				defer cancel()
-				if err := a.heartbeat(ctx, record.LicenseServer, record.Id, record.Secret); err != nil {
+				if err := a.heartbeat(ctx, config.LicenseServer, config.Id, config.Secret); err != nil {
 					// If we can't reach the license server, we assume our license is still valid.
 					// However, if we reach the license server and the cluster ID has been deleted then we should
 					// deactivate the license on this server.
@@ -92,7 +92,7 @@ func (a *apiServer) heartbeatRoutine() {
 						logrus.WithError(err).Error("enteprise license heartbeat had invalid id or secret, disabling enterprise")
 						record.HeartbeatFailed = true
 						if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-							e := a.enterpriseToken.ReadWrite(stm)
+							e := a.enterpriseCol.ReadWrite(stm)
 							return e.Put(enterpriseTokenKey, record)
 						}); err != nil {
 							return err
@@ -102,6 +102,10 @@ func (a *apiServer) heartbeatRoutine() {
 				return nil
 			}(); err != nil {
 				logrus.WithError(err).Error("enterprise license heartbeat process failed")
+			}
+		} else {
+			if !col.IsErrNotFound(err) {
+				logrus.WithError(err).Error("could not fetch enterprise service config record")
 			}
 		}
 		<-ticker.C
@@ -141,11 +145,23 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	// Try to heartbeat before persisting the configuration
 	if err := a.heartbeat(ctx, req.LicenseServer, req.Id, req.Secret); err != nil {
 		return nil, err
 	}
 
-	// Wait until watcher observes the write
+	// Write the config to etcd
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		return e.Put(enterpriseConfigKey, &ec.EnterpriseConfig{
+			LicenseServer: req.LicenseServer,
+			Id:            req.Id,
+			Secret:        req.Secret,
+		})
+	}); err != nil {
+		return err
+	}
+
+	// Wait until watcher observes the write to the state key
 	if err := backoff.Retry(func() error {
 		record, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
 		if !ok {
@@ -159,7 +175,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			return errors.Errorf("enterprise not activated")
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second)); err != nil {
+	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
 		return nil, err
 	}
 

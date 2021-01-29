@@ -115,25 +115,95 @@ func (m *LicenseRecord) GetExpires() *types.Timestamp {
 	return nil
 }
 
-// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
-// that is registered with a license server
+// EnterpriseConfig is the configuration we store for heartbeating
+// to the license server.
+type EnterpriseConfig struct {
+	LicenseServer        string   `protobuf:"bytes,1,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
+	Id                   string   `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Secret               string   `protobuf:"bytes,3,opt,name=secret,proto3" json:"secret,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EnterpriseConfig) Reset()         { *m = EnterpriseConfig{} }
+func (m *EnterpriseConfig) String() string { return proto.CompactTextString(m) }
+func (*EnterpriseConfig) ProtoMessage()    {}
+func (*EnterpriseConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{1}
+}
+func (m *EnterpriseConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EnterpriseConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EnterpriseConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EnterpriseConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnterpriseConfig.Merge(m, src)
+}
+func (m *EnterpriseConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *EnterpriseConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnterpriseConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnterpriseConfig proto.InternalMessageInfo
+
+func (m *EnterpriseConfig) GetLicenseServer() string {
+	if m != nil {
+		return m.LicenseServer
+	}
+	return ""
+}
+
+func (m *EnterpriseConfig) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *EnterpriseConfig) GetSecret() string {
+	if m != nil {
+		return m.Secret
+	}
+	return ""
+}
+
+// EnterpriseRecord is a protobuf we cache in etcd to store the
+// enterprise status.
 type EnterpriseRecord struct {
-	LicenseServer        string           `protobuf:"bytes,1,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
-	Id                   string           `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
-	Secret               string           `protobuf:"bytes,3,opt,name=secret,proto3" json:"secret,omitempty"`
-	LastHeartbeat        *types.Timestamp `protobuf:"bytes,4,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"`
-	License              *LicenseRecord   `protobuf:"bytes,5,opt,name=license,proto3" json:"license,omitempty"`
-	HeartbeatFailed      bool             `protobuf:"varint,6,opt,name=heartbeat_failed,json=heartbeatFailed,proto3" json:"heartbeat_failed,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	// license is the cached LicenseRecord retrieved from the most recent
+	// heartbeat to the license server.
+	License *LicenseRecord `protobuf:"bytes,1,opt,name=license,proto3" json:"license,omitempty"`
+	// last_heartbeat is the timestamp of the last successful heartbeat
+	// to the license server
+	LastHeartbeat *types.Timestamp `protobuf:"bytes,2,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"`
+	// heartbeat_failed is set if the license is still valid, but
+	// the pachd is no longer registered with an enterprise server.
+	// This is the same as the expired state, where auth is locked
+	// but not disabled.
+	HeartbeatFailed      bool     `protobuf:"varint,3,opt,name=heartbeat_failed,json=heartbeatFailed,proto3" json:"heartbeat_failed,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *EnterpriseRecord) Reset()         { *m = EnterpriseRecord{} }
 func (m *EnterpriseRecord) String() string { return proto.CompactTextString(m) }
 func (*EnterpriseRecord) ProtoMessage()    {}
 func (*EnterpriseRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{1}
+	return fileDescriptor_33f079c38c86fe97, []int{2}
 }
 func (m *EnterpriseRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -162,37 +232,16 @@ func (m *EnterpriseRecord) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EnterpriseRecord proto.InternalMessageInfo
 
-func (m *EnterpriseRecord) GetLicenseServer() string {
+func (m *EnterpriseRecord) GetLicense() *LicenseRecord {
 	if m != nil {
-		return m.LicenseServer
+		return m.License
 	}
-	return ""
-}
-
-func (m *EnterpriseRecord) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
-}
-
-func (m *EnterpriseRecord) GetSecret() string {
-	if m != nil {
-		return m.Secret
-	}
-	return ""
+	return nil
 }
 
 func (m *EnterpriseRecord) GetLastHeartbeat() *types.Timestamp {
 	if m != nil {
 		return m.LastHeartbeat
-	}
-	return nil
-}
-
-func (m *EnterpriseRecord) GetLicense() *LicenseRecord {
-	if m != nil {
-		return m.License
 	}
 	return nil
 }
@@ -218,7 +267,7 @@ func (m *TokenInfo) Reset()         { *m = TokenInfo{} }
 func (m *TokenInfo) String() string { return proto.CompactTextString(m) }
 func (*TokenInfo) ProtoMessage()    {}
 func (*TokenInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{2}
+	return fileDescriptor_33f079c38c86fe97, []int{3}
 }
 func (m *TokenInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -267,7 +316,7 @@ func (m *ActivateRequest) Reset()         { *m = ActivateRequest{} }
 func (m *ActivateRequest) String() string { return proto.CompactTextString(m) }
 func (*ActivateRequest) ProtoMessage()    {}
 func (*ActivateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{3}
+	return fileDescriptor_33f079c38c86fe97, []int{4}
 }
 func (m *ActivateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -327,7 +376,7 @@ func (m *ActivateResponse) Reset()         { *m = ActivateResponse{} }
 func (m *ActivateResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateResponse) ProtoMessage()    {}
 func (*ActivateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{4}
+	return fileDescriptor_33f079c38c86fe97, []int{5}
 }
 func (m *ActivateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -366,7 +415,7 @@ func (m *GetStateRequest) Reset()         { *m = GetStateRequest{} }
 func (m *GetStateRequest) String() string { return proto.CompactTextString(m) }
 func (*GetStateRequest) ProtoMessage()    {}
 func (*GetStateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{5}
+	return fileDescriptor_33f079c38c86fe97, []int{6}
 }
 func (m *GetStateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -410,7 +459,7 @@ func (m *GetStateResponse) Reset()         { *m = GetStateResponse{} }
 func (m *GetStateResponse) String() string { return proto.CompactTextString(m) }
 func (*GetStateResponse) ProtoMessage()    {}
 func (*GetStateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{6}
+	return fileDescriptor_33f079c38c86fe97, []int{7}
 }
 func (m *GetStateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -470,7 +519,7 @@ func (m *GetActivationCodeRequest) Reset()         { *m = GetActivationCodeReque
 func (m *GetActivationCodeRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActivationCodeRequest) ProtoMessage()    {}
 func (*GetActivationCodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{7}
+	return fileDescriptor_33f079c38c86fe97, []int{8}
 }
 func (m *GetActivationCodeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -512,7 +561,7 @@ func (m *GetActivationCodeResponse) Reset()         { *m = GetActivationCodeResp
 func (m *GetActivationCodeResponse) String() string { return proto.CompactTextString(m) }
 func (*GetActivationCodeResponse) ProtoMessage()    {}
 func (*GetActivationCodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{8}
+	return fileDescriptor_33f079c38c86fe97, []int{9}
 }
 func (m *GetActivationCodeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -572,7 +621,7 @@ func (m *DeactivateRequest) Reset()         { *m = DeactivateRequest{} }
 func (m *DeactivateRequest) String() string { return proto.CompactTextString(m) }
 func (*DeactivateRequest) ProtoMessage()    {}
 func (*DeactivateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{9}
+	return fileDescriptor_33f079c38c86fe97, []int{10}
 }
 func (m *DeactivateRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -611,7 +660,7 @@ func (m *DeactivateResponse) Reset()         { *m = DeactivateResponse{} }
 func (m *DeactivateResponse) String() string { return proto.CompactTextString(m) }
 func (*DeactivateResponse) ProtoMessage()    {}
 func (*DeactivateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33f079c38c86fe97, []int{10}
+	return fileDescriptor_33f079c38c86fe97, []int{11}
 }
 func (m *DeactivateResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -643,6 +692,7 @@ var xxx_messageInfo_DeactivateResponse proto.InternalMessageInfo
 func init() {
 	proto.RegisterEnum("enterprise.State", State_name, State_value)
 	proto.RegisterType((*LicenseRecord)(nil), "enterprise.LicenseRecord")
+	proto.RegisterType((*EnterpriseConfig)(nil), "enterprise.EnterpriseConfig")
 	proto.RegisterType((*EnterpriseRecord)(nil), "enterprise.EnterpriseRecord")
 	proto.RegisterType((*TokenInfo)(nil), "enterprise.TokenInfo")
 	proto.RegisterType((*ActivateRequest)(nil), "enterprise.ActivateRequest")
@@ -658,46 +708,47 @@ func init() {
 func init() { proto.RegisterFile("enterprise/enterprise.proto", fileDescriptor_33f079c38c86fe97) }
 
 var fileDescriptor_33f079c38c86fe97 = []byte{
-	// 618 bytes of a gzipped FileDescriptorProto
+	// 625 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0xcd, 0x4e, 0xdb, 0x4c,
-	0x14, 0x65, 0x1c, 0x27, 0x84, 0x8b, 0x48, 0x9c, 0xf9, 0xf8, 0x2a, 0x63, 0xda, 0x14, 0x59, 0x45,
-	0x40, 0x17, 0x4e, 0x15, 0xba, 0xae, 0x6a, 0xc0, 0x40, 0x10, 0xa5, 0xc8, 0x44, 0x55, 0xd5, 0x4d,
-	0xe4, 0xd8, 0x37, 0x60, 0x35, 0x78, 0x5c, 0xcf, 0x80, 0xda, 0x7d, 0xf7, 0xdd, 0xf6, 0x91, 0xaa,
-	0xae, 0xfa, 0x08, 0x15, 0x4f, 0x52, 0xe1, 0x9f, 0xd8, 0x09, 0x46, 0x74, 0xd9, 0x9d, 0x73, 0xee,
-	0xcf, 0x39, 0x3e, 0xf7, 0xc4, 0xb0, 0x8a, 0x81, 0xc0, 0x28, 0x8c, 0x7c, 0x8e, 0x9d, 0xfc, 0xd1,
-	0x08, 0x23, 0x26, 0x18, 0x85, 0x1c, 0xd1, 0x9e, 0x9e, 0x33, 0x76, 0x3e, 0xc6, 0x4e, 0x5c, 0x19,
-	0x5e, 0x8d, 0x3a, 0xc2, 0xbf, 0x44, 0x2e, 0x9c, 0xcb, 0x30, 0x69, 0xd6, 0x03, 0x58, 0x3a, 0xf6,
-	0x5d, 0x0c, 0x38, 0xda, 0xe8, 0xb2, 0xc8, 0xa3, 0x1b, 0xd0, 0x74, 0x5c, 0xe1, 0x5f, 0x3b, 0xc2,
-	0x67, 0xc1, 0xc0, 0x65, 0x1e, 0xaa, 0x64, 0x8d, 0x6c, 0x2e, 0xd8, 0x8d, 0x1c, 0xde, 0x65, 0x1e,
-	0xd2, 0x97, 0x30, 0x8f, 0x9f, 0x43, 0x3f, 0x42, 0xae, 0x4a, 0x6b, 0x64, 0x73, 0xb1, 0xab, 0x19,
-	0x09, 0x99, 0x91, 0x91, 0x19, 0xfd, 0x8c, 0xcc, 0xce, 0x5a, 0xf5, 0xaf, 0x12, 0x28, 0xd6, 0x44,
-	0x5f, 0xca, 0xb9, 0x0e, 0x8d, 0x71, 0x22, 0x62, 0xc0, 0x31, 0xba, 0xc6, 0x28, 0xa5, 0x5c, 0x4a,
-	0xd1, 0xb3, 0x18, 0xa4, 0x0d, 0x90, 0x7c, 0x2f, 0x26, 0x5b, 0xb0, 0x25, 0xdf, 0xa3, 0x8f, 0xa0,
-	0xc6, 0xd1, 0x8d, 0x50, 0xa8, 0x95, 0x18, 0x4b, 0x7f, 0x51, 0x13, 0x1a, 0x63, 0x87, 0x8b, 0xc1,
-	0x05, 0x3a, 0x91, 0x18, 0xa2, 0x23, 0x54, 0xf9, 0x41, 0x81, 0x4b, 0xb7, 0x13, 0x87, 0xd9, 0x00,
-	0xdd, 0x86, 0xf9, 0x94, 0x5b, 0xad, 0xc6, 0xb3, 0x2b, 0x46, 0xc1, 0xe7, 0x29, 0xc7, 0xec, 0xac,
-	0x93, 0x6e, 0x81, 0x32, 0xa1, 0x1c, 0x8c, 0x1c, 0x7f, 0x8c, 0x9e, 0x5a, 0x5b, 0x23, 0x9b, 0x75,
-	0xbb, 0x39, 0xc1, 0xf7, 0x63, 0x58, 0x37, 0x61, 0xa1, 0xcf, 0x3e, 0x62, 0xd0, 0x0b, 0x46, 0xac,
-	0xe8, 0x24, 0xf9, 0x7b, 0x27, 0xc7, 0xd0, 0x34, 0x93, 0x8b, 0xa0, 0x8d, 0x9f, 0xae, 0x90, 0x8b,
-	0x12, 0x1f, 0x2b, 0xf7, 0xfb, 0x28, 0x97, 0xf8, 0x58, 0x2d, 0xfa, 0x78, 0x24, 0xd7, 0x89, 0x22,
-	0x1d, 0xc9, 0x75, 0x49, 0xa9, 0xe8, 0x14, 0x94, 0x9c, 0x8d, 0x87, 0x2c, 0xe0, 0xa8, 0xb7, 0xa0,
-	0x79, 0x80, 0xe2, 0x4c, 0xe4, 0x0a, 0xf4, 0x6f, 0x04, 0x94, 0x1c, 0x4b, 0xfa, 0xe8, 0x06, 0x54,
-	0xf9, 0x2d, 0x10, 0xbf, 0x5d, 0xa3, 0xdb, 0x2a, 0x5a, 0x99, 0x74, 0x26, 0x75, 0xba, 0x05, 0xb2,
-	0x1f, 0x8c, 0x58, 0x9a, 0xa7, 0xff, 0x8b, 0x7d, 0x13, 0xb7, 0xec, 0xb8, 0xa5, 0x2c, 0xa6, 0x95,
-	0xb2, 0x98, 0xea, 0x1a, 0xa8, 0x07, 0x28, 0xcc, 0x29, 0x30, 0x53, 0xfb, 0x9d, 0xc0, 0x4a, 0x49,
-	0xf1, 0x5f, 0x90, 0xfd, 0x1f, 0xb4, 0xf6, 0xd0, 0x99, 0xbe, 0xaf, 0xbe, 0x0c, 0xb4, 0x08, 0x26,
-	0x3a, 0x9f, 0xbf, 0x86, 0x6a, 0x2c, 0x87, 0xd6, 0x41, 0x3e, 0x79, 0x7b, 0x62, 0x29, 0x73, 0x14,
-	0xa0, 0x66, 0xee, 0xf6, 0x7b, 0xef, 0x2c, 0x85, 0xd0, 0x45, 0x98, 0xb7, 0xde, 0x9f, 0xf6, 0x6c,
-	0x6b, 0x4f, 0x91, 0xe8, 0x32, 0x28, 0x87, 0x96, 0x69, 0xf7, 0x77, 0x2c, 0xb3, 0x3f, 0xd8, 0x37,
-	0x7b, 0xc7, 0xd6, 0x9e, 0x52, 0xe9, 0xfe, 0x94, 0xa0, 0x62, 0x9e, 0xf6, 0xe8, 0x01, 0xd4, 0xb3,
-	0x23, 0xd3, 0xd5, 0xe2, 0x6b, 0xcc, 0x04, 0x4d, 0x7b, 0x5c, 0x5e, 0x4c, 0x73, 0x31, 0x77, 0xbb,
-	0x28, 0x4b, 0xc1, 0xf4, 0xa2, 0x99, 0xbc, 0x4c, 0x2f, 0x9a, 0x0d, 0x8e, 0x3e, 0x47, 0x87, 0xd0,
-	0xba, 0x73, 0x20, 0xfa, 0x6c, 0x66, 0xa8, 0xf4, 0xb8, 0xda, 0xfa, 0x03, 0x5d, 0x13, 0x8e, 0x37,
-	0x00, 0xb9, 0xab, 0xf4, 0x49, 0x71, 0xec, 0xce, 0x09, 0xb4, 0xf6, 0x7d, 0xe5, 0x6c, 0xdd, 0xce,
-	0xab, 0x1f, 0x37, 0x6d, 0xf2, 0xeb, 0xa6, 0x4d, 0x7e, 0xdf, 0xb4, 0xc9, 0x87, 0x17, 0xe7, 0xbe,
-	0xb8, 0xb8, 0x1a, 0x1a, 0x2e, 0xbb, 0xec, 0x84, 0x8e, 0x7b, 0xf1, 0xc5, 0xc3, 0xa8, 0xf8, 0x74,
-	0xdd, 0xed, 0xf0, 0xc8, 0x2d, 0x7c, 0xc4, 0x87, 0xb5, 0xf8, 0x4f, 0xbf, 0xfd, 0x27, 0x00, 0x00,
-	0xff, 0xff, 0x0a, 0x7b, 0xc9, 0x96, 0xe4, 0x05, 0x00, 0x00,
+	0x14, 0x65, 0x9c, 0x00, 0xe1, 0x22, 0x12, 0x67, 0x3e, 0xbe, 0x2a, 0x98, 0x36, 0x45, 0x56, 0x11,
+	0xd0, 0x85, 0x53, 0x85, 0xae, 0xab, 0x1a, 0x30, 0x10, 0x44, 0x29, 0x32, 0x51, 0x55, 0x75, 0x13,
+	0x39, 0xf6, 0x4d, 0x18, 0x35, 0x78, 0x5c, 0xcf, 0x80, 0xda, 0xa7, 0xe8, 0xb6, 0x2f, 0xd2, 0x77,
+	0xa8, 0xba, 0xea, 0x23, 0x54, 0x3c, 0x49, 0x15, 0xff, 0xc4, 0x4e, 0x30, 0x2a, 0xcb, 0xee, 0x26,
+	0xe7, 0xfe, 0x9c, 0x73, 0xcf, 0xbd, 0x31, 0xac, 0xa3, 0x2f, 0x31, 0x0c, 0x42, 0x26, 0xb0, 0x95,
+	0x3d, 0x8d, 0x20, 0xe4, 0x92, 0x53, 0xc8, 0x10, 0xed, 0xe9, 0x90, 0xf3, 0xe1, 0x08, 0x5b, 0x51,
+	0xa4, 0x7f, 0x3d, 0x68, 0x49, 0x76, 0x85, 0x42, 0x3a, 0x57, 0x41, 0x9c, 0xac, 0xfb, 0xb0, 0x72,
+	0xca, 0x5c, 0xf4, 0x05, 0xda, 0xe8, 0xf2, 0xd0, 0xa3, 0x5b, 0x50, 0x73, 0x5c, 0xc9, 0x6e, 0x1c,
+	0xc9, 0xb8, 0xdf, 0x73, 0xb9, 0x87, 0x0d, 0xb2, 0x41, 0xb6, 0x97, 0xec, 0x6a, 0x06, 0xef, 0x73,
+	0x0f, 0xe9, 0x4b, 0x58, 0xc4, 0xcf, 0x01, 0x0b, 0x51, 0x34, 0x94, 0x0d, 0xb2, 0xbd, 0xdc, 0xd6,
+	0x8c, 0x98, 0xcc, 0x48, 0xc9, 0x8c, 0x6e, 0x4a, 0x66, 0xa7, 0xa9, 0xba, 0x03, 0xaa, 0x35, 0x91,
+	0xb7, 0xcf, 0xfd, 0x01, 0x1b, 0xd2, 0x4d, 0xa8, 0x8e, 0x62, 0x0d, 0x3d, 0x81, 0xe1, 0x0d, 0x86,
+	0x09, 0xe3, 0x4a, 0x82, 0x5e, 0x44, 0x20, 0xad, 0x82, 0xc2, 0xbc, 0x88, 0x6b, 0xc9, 0x56, 0x98,
+	0x47, 0x1f, 0xc1, 0x82, 0x40, 0x37, 0x44, 0xd9, 0x28, 0x45, 0x58, 0xf2, 0x4b, 0xff, 0x4e, 0xf2,
+	0x1c, 0xc9, 0x58, 0xbb, 0xb0, 0x98, 0x74, 0x8b, 0x9a, 0x2f, 0xb7, 0xd7, 0x8c, 0x9c, 0x71, 0x53,
+	0x16, 0xd8, 0x69, 0x26, 0x35, 0xa1, 0x3a, 0x72, 0x84, 0xec, 0x5d, 0xa2, 0x13, 0xca, 0x3e, 0x3a,
+	0xf2, 0x01, 0x93, 0xae, 0x8c, 0x2b, 0x8e, 0xd3, 0x02, 0xba, 0x03, 0xea, 0xa4, 0xba, 0x37, 0x70,
+	0xd8, 0x08, 0xbd, 0x48, 0x6e, 0xc5, 0xae, 0x4d, 0xf0, 0xc3, 0x08, 0xd6, 0x4d, 0x58, 0xea, 0xf2,
+	0x8f, 0xe8, 0x77, 0xfc, 0x01, 0xcf, 0xbb, 0x4b, 0x1e, 0xee, 0xee, 0x08, 0x6a, 0x66, 0xbc, 0x25,
+	0xb4, 0xf1, 0xd3, 0x35, 0x0a, 0x59, 0x60, 0x6e, 0xe9, 0x7e, 0x73, 0xcb, 0x05, 0xe6, 0xce, 0xe7,
+	0xcd, 0x3d, 0x29, 0x57, 0x88, 0xaa, 0x9c, 0x94, 0x2b, 0x8a, 0x5a, 0xd2, 0x29, 0xa8, 0x19, 0x9b,
+	0x08, 0xb8, 0x2f, 0x50, 0xaf, 0x43, 0xed, 0x08, 0xe5, 0x85, 0xcc, 0x14, 0xe8, 0x5f, 0x09, 0xa8,
+	0x19, 0x16, 0xe7, 0xd1, 0x2d, 0x98, 0x17, 0x63, 0x20, 0x9a, 0xae, 0xda, 0xae, 0xe7, 0xb7, 0x11,
+	0x67, 0xc6, 0x71, 0xba, 0x03, 0x65, 0xe6, 0x0f, 0x78, 0xe2, 0xfc, 0xff, 0xf9, 0xbc, 0x89, 0x5b,
+	0x76, 0x94, 0x52, 0x74, 0xba, 0xa5, 0xa2, 0xd3, 0xd5, 0x35, 0x68, 0x1c, 0xa1, 0x34, 0xa7, 0xc0,
+	0x54, 0xed, 0x37, 0x02, 0x6b, 0x05, 0xc1, 0x7f, 0x41, 0xf6, 0x7f, 0x50, 0x3f, 0x40, 0x67, 0x7a,
+	0xbf, 0xfa, 0x2a, 0xd0, 0x3c, 0x18, 0xeb, 0x7c, 0xfe, 0x1a, 0xe6, 0x23, 0x39, 0xb4, 0x02, 0xe5,
+	0xb3, 0xb7, 0x67, 0x96, 0x3a, 0x47, 0x01, 0x16, 0xcc, 0xfd, 0x6e, 0xe7, 0x9d, 0xa5, 0x12, 0xba,
+	0x0c, 0x8b, 0xd6, 0xfb, 0xf3, 0x8e, 0x6d, 0x1d, 0xa8, 0x0a, 0x5d, 0x05, 0xf5, 0xd8, 0x32, 0xed,
+	0xee, 0x9e, 0x65, 0x76, 0x7b, 0x87, 0x66, 0xe7, 0xd4, 0x3a, 0x50, 0x4b, 0xed, 0x9f, 0x0a, 0x94,
+	0xcc, 0xf3, 0x0e, 0x3d, 0x82, 0x4a, 0xba, 0x64, 0xba, 0x9e, 0x1f, 0x63, 0xe6, 0xd0, 0xb4, 0xc7,
+	0xc5, 0xc1, 0xe4, 0x2e, 0xe6, 0xc6, 0x8d, 0xd2, 0x2b, 0x98, 0x6e, 0x34, 0x73, 0x2f, 0xd3, 0x8d,
+	0x66, 0x0f, 0x47, 0x9f, 0xa3, 0x7d, 0xa8, 0xdf, 0x59, 0x10, 0x7d, 0x36, 0x53, 0x54, 0xb8, 0x5c,
+	0x6d, 0xf3, 0x2f, 0x59, 0x13, 0x8e, 0x37, 0x00, 0x99, 0xab, 0xf4, 0x49, 0xbe, 0xec, 0xce, 0x0a,
+	0xb4, 0xe6, 0x7d, 0xe1, 0xb4, 0xdd, 0xde, 0xab, 0x1f, 0xb7, 0x4d, 0xf2, 0xeb, 0xb6, 0x49, 0x7e,
+	0xdf, 0x36, 0xc9, 0x87, 0x17, 0x43, 0x26, 0x2f, 0xaf, 0xfb, 0x86, 0xcb, 0xaf, 0x5a, 0x81, 0xe3,
+	0x5e, 0x7e, 0xf1, 0x30, 0xcc, 0xbf, 0x6e, 0xda, 0x2d, 0x11, 0xba, 0xb9, 0x0f, 0x7b, 0x7f, 0x21,
+	0xfa, 0xd3, 0xef, 0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0x36, 0x34, 0xc6, 0x94, 0xf8, 0x05, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -942,6 +993,54 @@ func (m *LicenseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *EnterpriseConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EnterpriseConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnterpriseConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Secret) > 0 {
+		i -= len(m.Secret)
+		copy(dAtA[i:], m.Secret)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Secret)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.LicenseServer) > 0 {
+		i -= len(m.LicenseServer)
+		copy(dAtA[i:], m.LicenseServer)
+		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.LicenseServer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *EnterpriseRecord) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -974,19 +1073,7 @@ func (m *EnterpriseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x30
-	}
-	if m.License != nil {
-		{
-			size, err := m.License.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintEnterprise(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x18
 	}
 	if m.LastHeartbeat != nil {
 		{
@@ -998,26 +1085,17 @@ func (m *EnterpriseRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintEnterprise(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x22
-	}
-	if len(m.Secret) > 0 {
-		i -= len(m.Secret)
-		copy(dAtA[i:], m.Secret)
-		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Secret)))
-		i--
-		dAtA[i] = 0x1a
-	}
-	if len(m.Id) > 0 {
-		i -= len(m.Id)
-		copy(dAtA[i:], m.Id)
-		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.Id)))
-		i--
 		dAtA[i] = 0x12
 	}
-	if len(m.LicenseServer) > 0 {
-		i -= len(m.LicenseServer)
-		copy(dAtA[i:], m.LicenseServer)
-		i = encodeVarintEnterprise(dAtA, i, uint64(len(m.LicenseServer)))
+	if m.License != nil {
+		{
+			size, err := m.License.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintEnterprise(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1379,7 +1457,7 @@ func (m *LicenseRecord) Size() (n int) {
 	return n
 }
 
-func (m *EnterpriseRecord) Size() (n int) {
+func (m *EnterpriseConfig) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1397,12 +1475,24 @@ func (m *EnterpriseRecord) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovEnterprise(uint64(l))
 	}
-	if m.LastHeartbeat != nil {
-		l = m.LastHeartbeat.Size()
-		n += 1 + l + sovEnterprise(uint64(l))
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
+	return n
+}
+
+func (m *EnterpriseRecord) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.License != nil {
 		l = m.License.Size()
+		n += 1 + l + sovEnterprise(uint64(l))
+	}
+	if m.LastHeartbeat != nil {
+		l = m.LastHeartbeat.Size()
 		n += 1 + l + sovEnterprise(uint64(l))
 	}
 	if m.HeartbeatFailed {
@@ -1685,7 +1775,7 @@ func (m *LicenseRecord) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
+func (m *EnterpriseConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1708,10 +1798,10 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: EnterpriseRecord: wiretype end group for non-group")
+			return fmt.Errorf("proto: EnterpriseConfig: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: EnterpriseRecord: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: EnterpriseConfig: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1810,43 +1900,58 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 			}
 			m.Secret = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LastHeartbeat", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowEnterprise
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthEnterprise
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthEnterprise
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.LastHeartbeat == nil {
-				m.LastHeartbeat = &types.Timestamp{}
-			}
-			if err := m.LastHeartbeat.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
 				return err
 			}
-			iNdEx = postIndex
-		case 5:
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EnterpriseRecord: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EnterpriseRecord: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field License", wireType)
 			}
@@ -1882,7 +1987,43 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 6:
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastHeartbeat", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LastHeartbeat == nil {
+				m.LastHeartbeat = &types.Timestamp{}
+			}
+			if err := m.LastHeartbeat.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field HeartbeatFailed", wireType)
 			}
