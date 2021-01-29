@@ -239,7 +239,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 	}
 
 	if count != 1 {
-		return nil, errors.New("invalid cluster id or secret")
+		return nil, lc.ErrInvalidIDOrSecret
 	}
 
 	if _, err := a.env.GetDBClient().ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, last_heartbeat=NOW() WHERE id=$3`, req.Version, req.AuthEnabled, req.Id); err != nil {

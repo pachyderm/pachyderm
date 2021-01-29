@@ -24,12 +24,14 @@ message EnterpriseRecord {
 
   google.protobuf.Timestamp last_heartbeat = 4;
   LicenseRecord license = 5;
+  bool heartbeat_failed = 6;
 }
 
 enum State {
   NONE = 0;
   ACTIVE = 1;
   EXPIRED = 2;
+  HEARTBEAT_FAILED = 3;
 }
 
 // TokenInfo contains information about the currently active enterprise token

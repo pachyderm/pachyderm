@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -25,6 +26,9 @@ const (
 	// token that a user has given us. This is what we check to know if a
 	// Pachyderm cluster supports enterprise features
 	enterpriseTokenKey = "token"
+
+	heartbeatFrequency = time.Hour
+	heartbeatTimeout   = time.Minute
 )
 
 type apiServer struct {
@@ -67,7 +71,41 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 		enterpriseToken:      enterpriseToken,
 	}
 	go s.enterpriseTokenCache.Watch()
+	go s.heartbeatRoutine()
 	return s, nil
+}
+
+func (a *apiServer) heartbeatRoutine() {
+	ticker := time.NewTicker(heartbeatFrequency)
+	for {
+		// If we can't get the license server address, skip heartbeating
+		record, ok := a.enterpriseTokenCache.Load().(*ec.EnterpriseRecord)
+		if ok && record.LicenseServer != "" {
+			if err := func() error {
+				ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
+				defer cancel()
+				if err := a.heartbeat(ctx, record.LicenseServer, record.Id, record.Secret); err != nil {
+					// If we can't reach the license server, we assume our license is still valid.
+					// However, if we reach the license server and the cluster ID has been deleted then we should
+					// deactivate the license on this server.
+					if lc.IsErrInvalidIDOrSecret(err) {
+						logrus.WithError(err).Error("enteprise license heartbeat had invalid id or secret, disabling enterprise")
+						record.HeartbeatFailed = true
+						if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+							e := a.enterpriseToken.ReadWrite(stm)
+							return e.Put(enterpriseTokenKey, record)
+						}); err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			}(); err != nil {
+				logrus.WithError(err).Error("enterprise license heartbeat process failed")
+			}
+		}
+		<-ticker.C
+	}
 }
 
 func (a *apiServer) heartbeat(ctx context.Context, licenseServer, id, secret string) error {
@@ -87,26 +125,11 @@ func (a *apiServer) heartbeat(ctx context.Context, licenseServer, id, secret str
 		return err
 	}
 
-	resp, err := pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
+	if _, err := pachClient.License.Heartbeat(ctx, &lc.HeartbeatRequest{
 		Id:          id,
 		Secret:      secret,
 		Version:     versionResp,
 		AuthEnabled: authEnabled,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		e := a.enterpriseToken.ReadWrite(stm)
-		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
-			LicenseServer: licenseServer,
-			Id:            id,
-			Secret:        secret,
-			LastHeartbeat: types.TimestampNow(),
-			License:       resp.License,
-		})
 	}); err != nil {
 		return err
 	}
