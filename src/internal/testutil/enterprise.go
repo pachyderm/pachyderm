@@ -25,15 +25,7 @@ func GetTestEnterpriseCode(t testing.TB) string {
 func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 	code := GetTestEnterpriseCode(t)
 
-	resp, err := c.Enterprise.GetState(context.Background(),
-		&enterprise.GetStateRequest{})
-	require.NoError(t, err)
-
-	if resp.State == enterprise.State_ACTIVE {
-		return
-	}
-
-	_, err = c.License.Activate(context.Background(),
+	_, err := c.License.Activate(context.Background(),
 		&license.ActivateRequest{
 			ActivationCode: code,
 		})

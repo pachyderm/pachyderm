@@ -49,7 +49,7 @@ func ActivateCmd() *cobra.Command {
 
 // AddClusterCmd returns a cobra.Command to register a cluster with the license server
 func AddClusterCmd() *cobra.Command {
-	var id, address string
+	var id, address, secret string
 	addCluster := &cobra.Command{
 		Short: "Register a new cluster with the license server.",
 		Long:  "Register a new cluster with the license server.",
@@ -62,6 +62,7 @@ func AddClusterCmd() *cobra.Command {
 			resp, err := c.License.AddCluster(c.Ctx(), &license.AddClusterRequest{
 				Id:      id,
 				Address: address,
+				Secret:  secret,
 			})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -74,6 +75,7 @@ func AddClusterCmd() *cobra.Command {
 	}
 	addCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to register`)
 	addCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached`)
+	addCluster.PersistentFlags().StringVar(&secret, "secret", "", `The shared secret to use to authenticate this cluster`)
 	return cmdutil.CreateAlias(addCluster, "license add-cluster")
 }
 

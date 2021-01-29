@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -119,7 +120,7 @@ func RegisterCmd() *cobra.Command {
 			_, err = c.Enterprise.Activate(c.Ctx(),
 				&enterprise.ActivateRequest{
 					Id:            id,
-					Secret:        secret,
+					Secret:        strings.TrimSpace(secret),
 					LicenseServer: server,
 				})
 			if err != nil {

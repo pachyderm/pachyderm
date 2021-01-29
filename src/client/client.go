@@ -620,6 +620,12 @@ func (c APIClient) DeleteAll() error {
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
