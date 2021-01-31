@@ -1,0 +1,17 @@
+{
+    "pipeline": {
+      "name": "notebook"
+    },
+    "spout": {
+        "service": {
+            "external_port": 30888,
+            "internal_port": 8888
+        }
+    },
+    "description": "A spout pipeline that runs a notebook service.",
+    
+    "transform": {
+        "cmd": [ "start-notebook.sh" ],
+        "image": "pachyderm-notebook:2"
+      }
+  }
