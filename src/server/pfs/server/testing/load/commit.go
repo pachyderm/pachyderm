@@ -1,6 +1,6 @@
 package load
 
-import "github.com/pachyderm/pachyderm/src/client"
+import "github.com/pachyderm/pachyderm/v2/src/client"
 
 type CommitsSpec struct {
 	Count           int               `yaml:"count,omitempty"`

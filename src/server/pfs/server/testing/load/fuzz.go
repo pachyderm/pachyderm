@@ -3,8 +3,8 @@ package load
 import (
 	"math/rand"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
 
 type FuzzOperationSpec struct {

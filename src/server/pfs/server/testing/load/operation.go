@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"modernc.org/mathutil"
 )
 
@@ -25,20 +25,20 @@ func Operations(c *client.APIClient, repo, commit string, spec *OperationsSpec, 
 
 // TODO: Add different types of operations.
 type OperationSpec struct {
-	PutTarSpec *PutTarSpec `yaml:"putTar,omitempty"`
+	AppendFileTarSpec *AppendFileTarSpec `yaml:"appendFileTar,omitempty"`
 }
 
 func Operation(c *client.APIClient, repo, commit string, spec *OperationSpec, validator ...*Validator) error {
-	return PutTar(c, repo, commit, spec.PutTarSpec, validator...)
+	return AppendFileTar(c, repo, commit, spec.AppendFileTarSpec, validator...)
 }
 
-type PutTarSpec struct {
+type AppendFileTarSpec struct {
 	FilesSpec      *FilesSpec      `yaml:"files,omitempty"`
 	ThroughputSpec *ThroughputSpec `yaml:"throughput,omitempty"`
 	CancelSpec     *CancelSpec     `yaml:"cancel,omitempty"`
 }
 
-func PutTar(c *client.APIClient, repo, commit string, spec *PutTarSpec, validator ...*Validator) error {
+func AppendFileTar(c *client.APIClient, repo, commit string, spec *AppendFileTarSpec, validator ...*Validator) error {
 	files, err := Files(spec.FilesSpec)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func PutTar(c *client.APIClient, repo, commit string, spec *PutTarSpec, validato
 	if spec.CancelSpec != nil && shouldExecute(spec.CancelSpec.Prob) {
 		c = newCancelClient(c, spec.CancelSpec)
 	}
-	if err := c.PutTarV2(repo, commit, r, false); err != nil {
+	if err := c.AppendFileTar(repo, commit, false, r); err != nil {
 		if c.Ctx().Err() == context.Canceled {
 			return nil
 		}
@@ -65,16 +65,16 @@ func PutTar(c *client.APIClient, repo, commit string, spec *PutTarSpec, validato
 	return nil
 }
 
-type GetTarSpec struct {
+type GetTarFileSpec struct {
 	ThroughputSpec *ThroughputSpec `yaml:"throughput,omitempty"`
 	CancelSpec     *CancelSpec     `yaml:"cancel,omitempty"`
 }
 
-func GetTar(c *client.APIClient, repo, commit string, spec *GetTarSpec) (io.Reader, error) {
+func GetTarFile(c *client.APIClient, repo, commit string, spec *GetTarFileSpec) (io.Reader, error) {
 	if spec.CancelSpec != nil && shouldExecute(spec.CancelSpec.Prob) {
 		c = newCancelClient(c, spec.CancelSpec)
 	}
-	r, err := c.GetTarV2(repo, commit, "**")
+	r, err := c.GetTarFile(repo, commit, "**")
 	if err != nil {
 		return nil, err
 	}

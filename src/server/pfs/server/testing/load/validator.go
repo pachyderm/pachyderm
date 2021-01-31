@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 type ValidatorSpec struct{}
@@ -52,7 +52,7 @@ func (v *Validator) Validate(c *client.APIClient, repo, commit string) (retErr e
 			}
 		}
 	}()
-	r, err := GetTar(c, repo, commit, &GetTarSpec{})
+	r, err := GetTarFile(c, repo, commit, &GetTarFileSpec{})
 	if err != nil {
 		return err
 	}

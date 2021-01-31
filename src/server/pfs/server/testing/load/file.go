@@ -3,9 +3,9 @@ package load
 import (
 	"math/rand"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/tarutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 type FilesSpec struct {

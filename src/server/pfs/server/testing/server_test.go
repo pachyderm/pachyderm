@@ -34,8 +34,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/testing/load"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
@@ -6561,4 +6563,24 @@ func getRand() *rand.Rand {
 
 func randomReader(n int) io.Reader {
 	return io.LimitReader(getRand(), int64(n))
+}
+
+func TestLoad(t *testing.T) {
+	t.Parallel()
+	db := dbutil.NewTestDB(t)
+	msg := random.SeedRand()
+	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
+		loadSpec := load.DefaultCommitsSpec()
+		loadYAML, err := yaml.Marshal(loadSpec)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(loadYAML))
+		c := env.PachClient
+		repo := "test"
+		if err := c.CreateRepo(repo); err != nil {
+			return err
+		}
+		return load.Commits(c, repo, "master", loadSpec)
+	}, testpachd.NewDefaultConfig()), msg)
 }
