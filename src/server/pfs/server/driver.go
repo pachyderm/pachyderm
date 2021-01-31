@@ -433,7 +433,6 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, paren
 //   from 'parent.Repo' and 'branch'.
 // - If both 'parent.ID' and 'branch' are set, 'parent.ID' determines the parent
 //   commit, but 'branch' is still moved to point at the new commit
-//   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
 // - If only 'parent.ID' is set, and it contains a branch, then the new commit's
