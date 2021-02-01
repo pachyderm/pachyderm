@@ -1,0 +1,1 @@
+{"storeid":"4", "name":"mariposa st.","address":{"zipcode":"94107","country":"US"}}

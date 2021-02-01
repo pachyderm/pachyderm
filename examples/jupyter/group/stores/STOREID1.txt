@@ -1,0 +1,1 @@
+{"storeid":"1", "name":"washington st.","address":{"zipcode":"02108","country":"US"}}
