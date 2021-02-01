@@ -56,7 +56,7 @@ func addBar(path string, size int64) *mpb.Bar {
 	return container.AddBar(size,
 		mpb.PrependDecorators(decor.Name(path),
 			decor.Name(" "),
-			decor.CountersKiloByte(" % .2f / % .2f")),
+			decor.CountersKiloByte("% .2f / % .2f")),
 		mpb.AppendDecorators(decor.EwmaETA(decor.ET_STYLE_GO, 90),
 			decor.Name(" "),
 			decor.EwmaSpeed(decor.UnitKB, "% .2f", 60)))
