@@ -38,6 +38,8 @@ func NewClient(store kv.Store, mdstore MetadataStore, tr track.Tracker, name str
 	return c
 }
 
+// Create creates a new chunk from metadata and chunkData.
+// It returns the ID for the chunk
 func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
 	chunkID := Hash(chunkData)
 	var pointsTo []string

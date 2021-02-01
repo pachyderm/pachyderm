@@ -14,6 +14,8 @@ type objectAdapter struct {
 	bufPool sync.Pool
 }
 
+// NewFromObjectClient converts an object client into a key value store.
+// This can provide more natural interface for small values, but it will read the entire object into memory
 func NewFromObjectClient(objC obj.Client) Store {
 	return &objectAdapter{
 		objC: objC,

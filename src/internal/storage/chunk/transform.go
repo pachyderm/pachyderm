@@ -15,22 +15,23 @@ import (
 	"golang.org/x/crypto/chacha20"
 )
 
+// CreateOptions affect how chunks are created.
 type CreateOptions struct {
 	Secret      []byte
 	Compression CompressionAlgo
 }
 
-func Create(ctx context.Context, opts CreateOptions, data []byte, createFunc func(ctx context.Context, data []byte) (ID, error)) (*Ref, error) {
-	buf := make([]byte, len(data))
-	// compression
-	compressAlgo, n, err := compress(opts.Compression, buf, data)
+// Create calls createFunc to create a new chunk, but first compresses, and encrypts ptext.
+// ptext will not be modified.
+func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc func(ctx context.Context, data []byte) (ID, error)) (*Ref, error) {
+	buf := make([]byte, len(ptext))
+	compressAlgo, n, err := compress(opts.Compression, buf, ptext)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[:n]
-	// encryption
+	// encrypt in place; compress will always make a copy of the data.
 	dek := encrypt(opts.Secret, buf, buf)
-	// upload
 	id, err := createFunc(ctx, buf)
 	if err != nil {
 		return nil, err
@@ -43,6 +44,8 @@ func Create(ctx context.Context, opts CreateOptions, data []byte, createFunc fun
 	}, nil
 }
 
+// Get calls getfunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
+// Uncompressed plaintext is written to w.
 func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
 	if err := getFromCache(ctx, cache, ref, w); err == nil {
 		return nil
@@ -82,11 +85,16 @@ func compress(algo CompressionAlgo, dst, src []byte) (CompressionAlgo, int, erro
 		return CompressionAlgo_NONE, len(src), nil
 	case CompressionAlgo_GZIP_BEST_SPEED:
 		lw := newLimitWriter(dst)
-		err := func() error {
+		err := func() (retErr error) {
 			gw, err := gzip.NewWriterLevel(lw, gzip.BestSpeed)
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := gw.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
 			_, err = gw.Write(src)
 			if err != nil {
 				return err
@@ -184,6 +192,7 @@ func verifyData(id ID, x []byte) error {
 	return nil
 }
 
+// Key returns a unique key for the Ref suitable for use in hash tables
 func (r *Ref) Key() pachhash.Output {
 	data, err := r.Marshal()
 	if err != nil {
