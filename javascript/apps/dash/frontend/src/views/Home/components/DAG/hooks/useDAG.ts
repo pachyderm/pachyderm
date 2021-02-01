@@ -1,8 +1,9 @@
 import * as d3 from 'd3';
 import {useEffect} from 'react';
 
-import {Dag, NodeType, PipelineState} from '@graphqlTypes';
+import {Dag, JobState, NodeType, PipelineState} from '@graphqlTypes';
 import {LinkDatum, NodeDatum} from 'lib/DAGTypes';
+import linkStateAsJobState from 'lib/linkStateAsJobState';
 import nodeStateAsPipelineState from 'lib/nodeStateAsPipelineState';
 
 import checkmark from '../images/checkmark.svg';
@@ -13,8 +14,10 @@ import repo from '../images/repo.svg';
 
 const getLinkStyles = (d: LinkDatum) => {
   let className = 'link';
-  if (d.active) className = className.concat(' transferring');
-  if (d.error) className = className.concat(' error');
+  if (linkStateAsJobState(d.state) === JobState.JOB_RUNNING)
+    className = className.concat(' transferring');
+  if (linkStateAsJobState(d.state) === JobState.JOB_FAILURE)
+    className = className.concat(' error');
   return className;
 };
 
@@ -68,7 +71,11 @@ const generateLinks = (
   // circle animates along path
   svgParent
     .selectAll<SVGCircleElement, LinkDatum>('.circle')
-    .data(links.filter((d) => d.active))
+    .data(
+      links.filter(
+        (d) => linkStateAsJobState(d.state) === JobState.JOB_RUNNING,
+      ),
+    )
     .join<SVGCircleElement>('circle')
     .attr('r', 6)
     .attr('class', 'circle')

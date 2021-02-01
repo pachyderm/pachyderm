@@ -54,6 +54,7 @@ const deriveVertices = (
     type: NodeType.Pipeline,
     state: p.state,
     access: true,
+    jobState: p.lastJobState,
     parents: p.input ? flattenPipelineInput(p.input) : [],
   }));
 
@@ -83,8 +84,7 @@ const normalizeDAGData = (vertices: Vertex[]) => {
           {
             source: source,
             target: correspondingIndex[node.name],
-            error: false,
-            active: false,
+            state: vertices[source].jobState,
           },
         ];
       }

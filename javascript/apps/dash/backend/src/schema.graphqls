@@ -120,8 +120,7 @@ type Node {
 type Link {
   source: Int!
   target: Int!
-  error: Boolean
-  active: Boolean
+  state: JobState
 }
 
 type Dag {

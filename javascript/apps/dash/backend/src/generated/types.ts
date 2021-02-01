@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable import/no-duplicates */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {PipelineState} from '@pachyderm/proto/pb/client/pps/pps_pb';
 import {JobState} from '@pachyderm/proto/pb/client/pps/pps_pb';
 import {GraphQLResolveInfo} from 'graphql';
@@ -134,8 +137,7 @@ export type Link = {
   __typename?: 'Link';
   source: Scalars['Int'];
   target: Scalars['Int'];
-  error?: Maybe<Scalars['Boolean']>;
-  active?: Maybe<Scalars['Boolean']>;
+  state?: Maybe<JobState>;
 };
 
 export type Dag = {
@@ -540,8 +542,7 @@ export type LinkResolvers<
 > = ResolversObject<{
   source?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   target?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  error?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
-  active?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  state?: Resolver<Maybe<ResolversTypes['JobState']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

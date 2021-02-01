@@ -31,8 +31,7 @@ describe('Dag resolver', () => {
           links {
             source
             target
-            error
-            active
+            state
           }
         }
       }
@@ -69,8 +68,7 @@ describe('Dag resolver', () => {
           links {
             source
             target
-            error
-            active
+            state
           }
         }
       }

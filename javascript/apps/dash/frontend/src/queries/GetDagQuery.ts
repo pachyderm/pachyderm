@@ -12,8 +12,7 @@ export const GET_DAG_QUERY = gql`
       links {
         source
         target
-        error
-        active
+        state
       }
     }
   }

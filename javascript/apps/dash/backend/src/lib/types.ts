@@ -1,4 +1,4 @@
-import {Node} from 'generated/types';
+import {Node, JobState} from 'generated/types';
 
 export interface Context {
   authToken?: string;
@@ -14,4 +14,5 @@ export type LinkInputData = {
 
 export interface Vertex extends Node {
   parents: string[];
+  jobState?: JobState;
 }
