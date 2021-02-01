@@ -6,6 +6,7 @@ import (
 	mathrand "math/rand"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 

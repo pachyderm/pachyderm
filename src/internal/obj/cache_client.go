@@ -3,7 +3,6 @@ package obj
 import (
 	"context"
 	"io"
-	"os"
 	"sync"
 	"time"
 
@@ -118,52 +117,4 @@ func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 			log.Warnf("could not populate cache: %v", err)
 		}
 	})
-}
-
-type voidClient struct{}
-
-// NewVoid create a client which retains no objects. It can be used with the cache client
-func NewVoid() Client {
-	return &memClient{}
-}
-
-func (c *voidClient) Writer(ctx context.Context, p string) (io.WriteCloser, error) {
-	return voidWriter{}, nil
-}
-
-func (c *voidClient) Reader(ctx context.Context, p string, offset, size uint64) (io.ReadCloser, error) {
-	return nil, os.ErrNotExist
-}
-
-func (c *voidClient) Exists(ctx context.Context, p string) bool {
-	return false
-}
-
-func (c *voidClient) Delete(ctx context.Context, p string) error {
-	return nil
-}
-
-func (c *voidClient) IsIgnorable(error) bool {
-	return false
-}
-
-func (c *voidClient) IsNotExist(err error) bool {
-	return true
-}
-
-func (c *voidClient) IsRetryable(error) bool {
-	return false
-}
-
-func (c *voidClient) Walk(ctx context.Context, prefix string, cb func(p string) error) error {
-	return nil
-}
-
-type voidWriter struct{}
-
-func (voidWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-func (voidWriter) Close() error {
-	return nil
 }

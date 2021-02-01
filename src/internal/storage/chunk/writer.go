@@ -6,7 +6,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
 const (
@@ -51,7 +51,7 @@ type chunkSize struct {
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
 	client     *Client
-	memObjs    obj.Client
+	memCache   kv.GetPut
 	cb         WriterCallback
 	chunkSize  *chunkSize
 	splitMask  uint64
@@ -71,12 +71,12 @@ type Writer struct {
 	first, last             bool
 }
 
-func newWriter(ctx context.Context, client *Client, memObjs obj.Client, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, client *Client, memCache kv.GetPut, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	w := &Writer{
 		cb:         cb,
 		client:     client,
-		memObjs:    memObjs,
+		memCache:   memCache,
 		createOpts: createOpts,
 		ctx:        cancelCtx,
 		cancel:     cancel,
@@ -392,7 +392,7 @@ func (w *Writer) flushBuffer() error {
 
 func (w *Writer) flushDataRef(dataRef *DataRef) error {
 	buf := &bytes.Buffer{}
-	r := newDataReader(w.ctx, w.client, w.memObjs, dataRef, nil)
+	r := newDataReader(w.ctx, w.client, w.memCache, dataRef, nil)
 	if err := r.Get(buf); err != nil {
 		return err
 	}

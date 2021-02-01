@@ -18,12 +18,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -119,8 +119,8 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	memObj := obj.NewCacheClient(obj.NewVoid(), obj.NewMem(), 10)
-	chunkStorage := chunk.NewStorage(objClient, memObj,chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	memCache := kv.NewMemCache(10)
+	chunkStorage := chunk.NewStorage(objClient, memCache, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)

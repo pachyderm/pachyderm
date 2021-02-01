@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
@@ -16,7 +17,7 @@ import (
 func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
 	mdstore := NewTestStore(t, db)
 	objC := obj.NewTestClient(t)
-	return objC, NewStorage(objC, obj.NewVoid(), mdstore, tr, opts...)
+	return objC, NewStorage(objC, kv.NewMemCache(10), mdstore, tr, opts...)
 }
 
 // NewTestStore creates a store for testing.

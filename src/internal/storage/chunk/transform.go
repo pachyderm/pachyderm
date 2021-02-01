@@ -5,11 +5,13 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/cipher"
-	"encoding/hex"
 	io "io"
+	"io/ioutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/chacha20"
 )
 
@@ -41,36 +43,32 @@ func Create(ctx context.Context, opts CreateOptions, data []byte, createFunc fun
 	}, nil
 }
 
-func Get(ctx context.Context, memCache obj.Client, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, w io.Writer) error) error {
-	// check cache
-	if err := getFromCache(ctx, memCache, ref, w); err == nil {
+func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
+	if err := getFromCache(ctx, cache, ref, w); err == nil {
 		return nil
 	}
-	buf := &bytes.Buffer{}
-	if err := getFunc(ctx, ref.Id, buf); err != nil {
+	return getFunc(ctx, ref.Id, func(ctext []byte) error {
+		if err := verifyData(ref.Id, ctext); err != nil {
+			return err
+		}
+		var r io.Reader = bytes.NewReader(ctext)
+		var err error
+		if r, err = decrypt(ref.Dek, r); err != nil {
+			return err
+		}
+		if r, err = decompress(ref.CompressionAlgo, r); err != nil {
+			return err
+		}
+		rawData, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		if err := putInCache(ctx, cache, ref, rawData); err != nil {
+			logrus.Error(err)
+		}
+		_, err = w.Write(rawData)
 		return err
-	}
-	// validation
-	actualHash := Hash(buf.Bytes())
-	if !bytes.Equal(actualHash, ref.Id) {
-		return errors.Errorf("bad chunk. HAVE: %x WANT: %x", actualHash, ref.Id)
-	}
-	// decryption
-	var r io.Reader = buf
-	var err error
-	if r, err = decrypt(ref.Dek, r); err != nil {
-		return err
-	}
-	// decompression
-	if r, err = decompress(ref.CompressionAlgo, r); err != nil {
-		return err
-	}
-	// write to cache
-	if cw, err := cacheWriter(ctx, memCache, ref); err == nil {
-		w = io.MultiWriter(w, cw)
-	}
-	_, err = io.Copy(w, r)
-	return err
+	})
 }
 
 // compress attempts to compress src using algo. If the compressed data is bigger
@@ -178,24 +176,31 @@ func cryptoXOR(key, dst, src []byte) {
 	ciph.XORKeyStream(dst, src)
 }
 
-func (r *Ref) Key() string {
+func verifyData(id ID, x []byte) error {
+	actualHash := Hash(x)
+	if !bytes.Equal(actualHash[:], id) {
+		return errors.Errorf("bad chunk. HAVE: %x WANT: %x", actualHash, id)
+	}
+	return nil
+}
+
+func (r *Ref) Key() pachhash.Output {
 	data, err := r.Marshal()
 	if err != nil {
 		panic(err)
 	}
-	return hex.EncodeToString(Hash(data)[:16])
+	return pachhash.Sum(data)
 }
 
-func getFromCache(ctx context.Context, objs obj.Client, ref *Ref, w io.Writer) error {
-	rc, err := objs.Reader(ctx, ref.Key(), 0, 0)
-	if err != nil {
+func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer) error {
+	key := ref.Key()
+	return cache.GetF(ctx, key[:], func(value []byte) error {
+		_, err := w.Write(value)
 		return err
-	}
-	defer rc.Close()
-	_, err = io.Copy(w, rc)
-	return err
+	})
 }
 
-func cacheWriter(ctx context.Context, objs obj.Client, ref *Ref) (io.WriteCloser, error) {
-	return objs.Writer(ctx, ref.Key())
+func putInCache(ctx context.Context, cache kv.GetPut, ref *Ref, data []byte) error {
+	key := ref.Key()
+	return cache.Put(ctx, key[:], data)
 }
