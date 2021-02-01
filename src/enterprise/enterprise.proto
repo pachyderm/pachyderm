@@ -85,6 +85,9 @@ message GetActivationCodeResponse {
   string activation_code = 3;
 }
 
+message HeartbeatRequest{}
+message HeartbeatResponse{}
+
 message DeactivateRequest{}
 message DeactivateResponse{}
 
@@ -94,6 +97,10 @@ service API {
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}
   rpc GetState(GetStateRequest) returns (GetStateResponse) {}
   rpc GetActivationCode(GetActivationCodeRequest) returns (GetActivationCodeResponse) {}
+
+  // Heartbeat is used in testing to trigger a heartbeat on demand. Normally this happens
+  // on a timer.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
 
   // Deactivate removes a cluster's enterprise activation
   // token and sets its enterprise state to NONE.

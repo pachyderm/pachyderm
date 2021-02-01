@@ -79,6 +79,7 @@ var authHandlers = map[string]authHandler{
 	"/enterprise.API/GetState":          unauthenticated,
 	"/enterprise.API/GetActivationCode": authDisabledOr(admin),
 	"/enterprise.API/Deactivate":        authDisabledOr(admin),
+	"/enterprise.API/Heartbeat":         authDisabledOr(admin),
 
 	//
 	// Health API
