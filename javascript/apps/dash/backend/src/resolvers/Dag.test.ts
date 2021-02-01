@@ -76,7 +76,7 @@ describe('Dag resolver', () => {
       }
     `;
 
-    expect(dags.length).toBe(2);
+    expect(dags.length).toBe(3);
 
     expect(dags[0].links.length).toBe(6);
     expect(
@@ -122,6 +122,50 @@ describe('Dag resolver', () => {
     ).toBe(true);
     expect(
       doesLinkExistInDag({source: 'models', target: 'models_repo'}, dags[1]),
+    ).toBe(true);
+
+    expect(dags[2].links.length).toBe(14);
+    expect(
+      doesLinkExistInDag({source: 'raw_data_repo', target: 'split'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'split', target: 'split_repo'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'split_repo', target: 'model'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'model', target: 'model_repo'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'parameters_repo', target: 'model'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'model_repo', target: 'test'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'split_repo', target: 'test'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'test', target: 'test_repo'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'test_repo', target: 'select'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'model_repo', target: 'select'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'select', target: 'select_repo'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'model_repo', target: 'detect'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'images_repo', target: 'detect'}, dags[2]),
+    ).toBe(true);
+    expect(
+      doesLinkExistInDag({source: 'detect', target: 'detect_repo'}, dags[2]),
     ).toBe(true);
   });
 });

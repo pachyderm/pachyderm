@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": "./",
+    "target": "es5",
+    "lib": ["es2015", "dom"],
+    "noEmit": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@graphqlTypes": [ "../backend/src/generated/types.ts" ],
+      "@queries/*": ["../frontend/src/queries/*"],
+    }
+  },
+  "include": ["**/*.ts"]
+}

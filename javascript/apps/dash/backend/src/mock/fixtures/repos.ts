@@ -13,6 +13,14 @@ const repos: {[projectId: string]: RepoInfo[]} = {
     new RepoInfo().setRepo(new Repo().setName('training')),
     new RepoInfo().setRepo(new Repo().setName('models')),
     new RepoInfo().setRepo(new Repo().setName('joint_call')),
+    new RepoInfo().setRepo(new Repo().setName('raw_data')),
+    new RepoInfo().setRepo(new Repo().setName('split')),
+    new RepoInfo().setRepo(new Repo().setName('parameters')),
+    new RepoInfo().setRepo(new Repo().setName('model')),
+    new RepoInfo().setRepo(new Repo().setName('test')),
+    new RepoInfo().setRepo(new Repo().setName('select')),
+    new RepoInfo().setRepo(new Repo().setName('detect')),
+    new RepoInfo().setRepo(new Repo().setName('images')),
   ],
 };
 
