@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -214,25 +215,40 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = err
 		}
 	}()
-	// Download input files.
-	// TODO: Move to copy file for inputs to datum file set.
-	if err := d.downloadData(); err != nil {
-		return err
-	}
-	return cb()
+	return pfssync.WithDownloader(d.set.pachClient, func(downloader pfssync.Downloader) error {
+		// TODO: Move to copy file for inputs to datum file set.
+		if err := d.downloadData(downloader); err != nil {
+			return err
+		}
+		return cb()
+	})
 }
 
-func (d *Datum) downloadData() error {
+func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	start := time.Now()
-	d.meta.Stats.DownloadBytes = 0
 	defer func() {
 		d.meta.Stats.DownloadTime = types.DurationProto(time.Since(start))
 	}()
+	d.meta.Stats.DownloadBytes = 0
+	var mu sync.Mutex
 	for _, input := range d.meta.Inputs {
-		if err := pfssync.Pull(d.set.pachClient, input.FileInfo.File, path.Join(d.PFSStorageRoot(), input.Name), func(hdr *tar.Header) error {
-			d.meta.Stats.DownloadBytes += uint64(hdr.Size)
-			return nil
-		}); err != nil {
+		// TODO: Need some validation to catch lazy & empty since they are incompatible.
+		// Probably should catch this at the input validation during pipeline creation?
+		opts := []pfssync.DownloadOption{
+			pfssync.WithHeaderCallback(func(hdr *tar.Header) error {
+				mu.Lock()
+				defer mu.Unlock()
+				d.meta.Stats.DownloadBytes += uint64(hdr.Size)
+				return nil
+			}),
+		}
+		if input.Lazy {
+			opts = append(opts, pfssync.WithLazy())
+		}
+		if input.EmptyFiles {
+			opts = append(opts, pfssync.WithEmpty())
+		}
+		if err := downloader.Download(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
 			return err
 		}
 	}

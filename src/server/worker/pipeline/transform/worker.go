@@ -21,7 +21,6 @@ import (
 // spouts.
 // joins.
 // capture datum logs.
-// file download features (empty / lazy files). Need to check over the pipe logic.
 // git inputs.
 // handle custom user set for execution.
 // Taking advantage of symlinks during upload?
