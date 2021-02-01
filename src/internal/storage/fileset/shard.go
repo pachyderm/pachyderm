@@ -3,7 +3,7 @@ package fileset
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 // Shard shards the file set into path ranges.

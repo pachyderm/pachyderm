@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -107,6 +107,8 @@ type DistributedCompactor struct {
 	workerFunc CompactionWorker
 }
 
+// NewDistributedCompactor returns a DistributedCompactor which will compact by fanning out
+// work to workerFunc, while respecting maxFanIn
 func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionWorker) *DistributedCompactor {
 	return &DistributedCompactor{
 		s:          s,
@@ -115,6 +117,7 @@ func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionWork
 	}
 }
 
+// Compact runs a compaction on the ids
 func (c *DistributedCompactor) Compact(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	if len(ids) <= c.maxFanIn {
 		return c.shardedCompact(ctx, ids, ttl)

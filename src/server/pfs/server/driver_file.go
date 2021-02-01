@@ -178,7 +178,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		}
 		return path.Join(dstPath, relPath)
 	}
-	srcCommit, fs, err := d.openCommit(pachClient, srcCommit, index.WithPrefix(srcPath))
+	_, fs, err := d.openCommit(pachClient, srcCommit, index.WithPrefix(srcPath))
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 	if err != nil {
 		return err
 	}
-	commit, fs, err := d.openCommit(pachClient, commit, indexOpt)
+	_, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
 		return err
 	}

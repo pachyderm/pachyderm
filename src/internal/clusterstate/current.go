@@ -1,12 +1,14 @@
 package clusterstate
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
-	"golang.org/x/net/context"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server/"
 )
 
 // DesiredClusterState is the set of migrations to apply to run pachd at the current version.
@@ -36,5 +38,5 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 		return err
 	}).
 	Apply("pfs commit store v0", func(ctx context.Context, env migrations.Env) error {
-		return SetupPostgresCommitStoreV0(ctx, env.Tx)
+		return pfsserver.SetupPostgresCommitStoreV0(ctx, env.Tx)
 	})
