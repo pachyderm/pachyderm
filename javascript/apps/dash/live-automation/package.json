@@ -1,0 +1,19 @@
+{
+  "name": "dash-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "open": "NODE_ENV=test cypress open",
+    "test-production": "NODE_ENV=test CYPRESS_BASE_URL=https://hub.pachyderm.com cypress run --browser chrome --headless"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@testing-library/cypress": "^7.0.3",
+    "cypress": "^6.3.0",
+    "typescript": "^4.1.3"
+  }
+}
