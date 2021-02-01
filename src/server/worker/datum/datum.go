@@ -215,16 +215,16 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = err
 		}
 	}()
-	return pfssync.WithImporter(d.set.pachClient, func(importer pfssync.Importer) error {
+	return pfssync.WithDownloader(d.set.pachClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
-		if err := d.downloadData(importer); err != nil {
+		if err := d.downloadData(downloader); err != nil {
 			return err
 		}
 		return cb()
 	})
 }
 
-func (d *Datum) downloadData(importer pfssync.Importer) error {
+func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	start := time.Now()
 	defer func() {
 		d.meta.Stats.DownloadTime = types.DurationProto(time.Since(start))
@@ -234,7 +234,7 @@ func (d *Datum) downloadData(importer pfssync.Importer) error {
 	for _, input := range d.meta.Inputs {
 		// TODO: Need some validation to catch lazy & empty since they are incompatible.
 		// Probably should catch this at the input validation during pipeline creation?
-		opts := []pfssync.ImportOption{
+		opts := []pfssync.DownloadOption{
 			pfssync.WithHeaderCallback(func(hdr *tar.Header) error {
 				mu.Lock()
 				defer mu.Unlock()
@@ -248,7 +248,7 @@ func (d *Datum) downloadData(importer pfssync.Importer) error {
 		if input.EmptyFiles {
 			opts = append(opts, pfssync.WithEmpty())
 		}
-		if err := importer.Import(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
+		if err := downloader.Download(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
 			return err
 		}
 	}

@@ -14,36 +14,36 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Importer is the standard interface for a PFS importer.
-type Importer interface {
-	// Import a PFS file to a location on the local filesystem.
-	Import(storageRoot string, file *pfs.File, opts ...ImportOption) error
+// Downloader is the standard interface for a PFS downloader.
+type Downloader interface {
+	// Download a PFS file to a location on the local filesystem.
+	Download(storageRoot string, file *pfs.File, opts ...DownloadOption) error
 }
 
-type importer struct {
+type downloader struct {
 	pachClient *client.APIClient
 	pipes      map[string]struct{}
 	eg         *errgroup.Group
 	done       bool
 }
 
-// WithImporter provides a scoped environment for an Importer.
-func WithImporter(pachClient *client.APIClient, cb func(Importer) error) (retErr error) {
-	i := &importer{
+// WithDownloader provides a scoped environment for a Downloader.
+func WithDownloader(pachClient *client.APIClient, cb func(Downloader) error) (retErr error) {
+	d := &downloader{
 		pachClient: pachClient,
 		pipes:      make(map[string]struct{}),
 		eg:         &errgroup.Group{},
 	}
 	defer func() {
-		i.done = true
-		if err := i.closePipes(); retErr == nil {
+		d.done = true
+		if err := d.closePipes(); retErr == nil {
 			retErr = err
 		}
 	}()
-	return cb(i)
+	return cb(d)
 }
 
-func (i *importer) closePipes() (retErr error) {
+func (d *downloader) closePipes() (retErr error) {
 	pipes := make(map[string]io.Closer)
 	defer func() {
 		for path, pipe := range pipes {
@@ -56,47 +56,47 @@ func (i *importer) closePipes() (retErr error) {
 		}
 	}()
 	// Open all the pipes to unblock the goroutines.
-	for path := range i.pipes {
+	for path := range d.pipes {
 		f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
 		if err != nil {
 			return err
 		}
 		pipes[path] = f
 	}
-	return i.eg.Wait()
+	return d.eg.Wait()
 }
 
-type importConfig struct {
+type downloadConfig struct {
 	lazy, empty    bool
 	headerCallback func(*tar.Header) error
 }
 
-// Import a PFS file to a location on the local filesystem.
-func (i *importer) Import(storageRoot string, file *pfs.File, opts ...ImportOption) error {
+// Download a PFS file to a location on the local filesystem.
+func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...DownloadOption) error {
 	if err := os.MkdirAll(storageRoot, 0700); err != nil {
 		return err
 	}
-	c := &importConfig{}
+	dc := &downloadConfig{}
 	for _, opt := range opts {
-		opt(c)
+		opt(dc)
 	}
-	if c.lazy || c.empty {
-		return i.importInfo(storageRoot, file, c)
+	if dc.lazy || dc.empty {
+		return d.downloadInfo(storageRoot, file, dc)
 	}
-	r, err := i.pachClient.GetTarFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+	r, err := d.pachClient.GetTarFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	if err != nil {
 		return err
 	}
-	if c.headerCallback != nil {
-		return tarutil.Import(storageRoot, r, c.headerCallback)
+	if dc.headerCallback != nil {
+		return tarutil.Import(storageRoot, r, dc.headerCallback)
 	}
 	return tarutil.Import(storageRoot, r)
 }
 
-func (i *importer) importInfo(storageRoot string, file *pfs.File, config *importConfig) (retErr error) {
+func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) (retErr error) {
 	repo := file.Commit.Repo.Name
 	commit := file.Commit.ID
-	return i.pachClient.WalkFile(repo, commit, file.Path, func(fi *pfs.FileInfo) error {
+	return d.pachClient.WalkFile(repo, commit, file.Path, func(fi *pfs.FileInfo) error {
 		basePath, err := filepath.Rel(path.Dir(file.Path), fi.File.Path)
 		if err != nil {
 			return err
@@ -106,8 +106,8 @@ func (i *importer) importInfo(storageRoot string, file *pfs.File, config *import
 			return os.MkdirAll(fullPath, 0700)
 		}
 		if config.lazy {
-			return i.makePipe(fullPath, func(w io.Writer) error {
-				r, err := i.pachClient.GetTarFile(repo, commit, fi.File.Path)
+			return d.makePipe(fullPath, func(w io.Writer) error {
+				r, err := d.pachClient.GetTarFile(repo, commit, fi.File.Path)
 				if err != nil {
 					return err
 				}

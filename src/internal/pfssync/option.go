@@ -2,26 +2,26 @@ package pfssync
 
 import "archive/tar"
 
-// ImportOption configures an import call.
-type ImportOption func(i *importConfig)
+// DownloadOption configures a download call.
+type DownloadOption func(*downloadConfig)
 
-// WithLazy configures the import call to lazily import files.
-func WithLazy() ImportOption {
-	return func(i *importConfig) {
-		i.lazy = true
+// WithLazy configures the download call to lazily download files.
+func WithLazy() DownloadOption {
+	return func(dc *downloadConfig) {
+		dc.lazy = true
 	}
 }
 
-// WithEmpty configures the import call to just import the file info.
-func WithEmpty() ImportOption {
-	return func(i *importConfig) {
-		i.empty = true
+// WithEmpty configures the download call to just download the file info.
+func WithEmpty() DownloadOption {
+	return func(dc *downloadConfig) {
+		dc.empty = true
 	}
 }
 
-// WithHeaderCallback configures the import call to execute the callback for each tar file imported.
-func WithHeaderCallback(cb func(*tar.Header) error) ImportOption {
-	return func(i *importConfig) {
-		i.headerCallback = cb
+// WithHeaderCallback configures the download call to execute the callback for each tar file downloaded.
+func WithHeaderCallback(cb func(*tar.Header) error) DownloadOption {
+	return func(dc *downloadConfig) {
+		dc.headerCallback = cb
 	}
 }
