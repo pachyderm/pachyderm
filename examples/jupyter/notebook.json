@@ -12,6 +12,6 @@
     
     "transform": {
         "cmd": [ "start-notebook.sh" ],
-        "image": "pachyderm-notebook:2"
+        "image": "pachyderm-notebook:4"
       }
   }
