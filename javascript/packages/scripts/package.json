@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/scripts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -9,7 +9,9 @@
     "react-dev-utils": "^10.2.1",
     "webpack": "^4.43.0",
     "webpack-cli": "^4.1.0",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^3.11.0",
+    "mochawesome": "^6.2.1",
+    "node-fetch": "^2.6.1"
   },
   "license": "SEE LICENSE IN LICENSE"
 }
