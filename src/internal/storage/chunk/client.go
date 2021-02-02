@@ -71,10 +71,10 @@ func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ I
 	return chunkID, nil
 }
 
-// GetF writes data for a chunk with ID chunkID to w.
-func (c *Client) GetF(ctx context.Context, chunkID ID, cb kv.ValueCallback) (retErr error) {
+// Get writes data for a chunk with ID chunkID to w.
+func (c *Client) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback) (retErr error) {
 	key := chunkKey(chunkID)
-	return c.store.GetF(ctx, key, cb)
+	return c.store.Get(ctx, key, cb)
 }
 
 // Close closes the client, stopping the background renewal of created objects

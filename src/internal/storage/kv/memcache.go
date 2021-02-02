@@ -16,7 +16,7 @@ type memoryCache struct {
 func NewMemCache(size int) GetPut {
 	mc := &memoryCache{}
 	var err error
-	mc.cache, err = simplelru.NewLRU(size, mc.onEvict)
+	mc.cache, err = simplelru.NewLRU(size, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +32,7 @@ func (mc *memoryCache) Put(ctx context.Context, key, value []byte) error {
 	return nil
 }
 
-func (mc *memoryCache) GetF(ctx context.Context, key []byte, cb ValueCallback) error {
+func (mc *memoryCache) Get(ctx context.Context, key []byte, cb ValueCallback) error {
 	v := mc.get(key)
 	if v == nil {
 		return ErrKeyNotFound
@@ -60,7 +60,4 @@ func (mc *memoryCache) get(key []byte) []byte {
 		return nil
 	}
 	return v.([]byte)
-}
-
-func (mc *memoryCache) onEvict(key, value interface{}) {
 }

@@ -44,7 +44,7 @@ func Create(ctx context.Context, opts CreateOptions, ptext []byte, createFunc fu
 	}, nil
 }
 
-// Get calls getfunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
+// Get calls getFunc to retrieve a chunk, then verifies, decrypts, and decompresses the data.
 // Uncompressed plaintext is written to w.
 func Get(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer, getFunc func(ctx context.Context, id ID, cb kv.ValueCallback) error) error {
 	if err := getFromCache(ctx, cache, ref, w); err == nil {
@@ -203,7 +203,7 @@ func (r *Ref) Key() pachhash.Output {
 
 func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, w io.Writer) error {
 	key := ref.Key()
-	return cache.GetF(ctx, key[:], func(value []byte) error {
+	return cache.Get(ctx, key[:], func(value []byte) error {
 		_, err := w.Write(value)
 		return err
 	})

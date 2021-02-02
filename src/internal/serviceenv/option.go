@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -42,4 +43,13 @@ func (env *ServiceEnv) FileSetStorageOptions() []fileset.StorageOption {
 		opts = append(opts, fileset.WithLevelSizeBase(env.StorageLevelSizeBase))
 	}
 	return opts
+}
+
+// ChunkMemoryCache returns the in memory cache for chunks, pre-configured to the desired size
+func (env *ServiceEnv) ChunkMemoryCache() kv.GetPut {
+	size := env.StorageMemoryCacheSize
+	if size < 1 {
+		size = 1
+	}
+	return kv.NewMemCache(size)
 }

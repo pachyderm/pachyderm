@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -119,7 +118,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	memCache := kv.NewMemCache(10)
+	memCache := env.ChunkMemoryCache()
 	chunkStorage := chunk.NewStorage(objClient, memCache, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	// Setup compaction queue and worker.

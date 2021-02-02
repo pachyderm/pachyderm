@@ -43,7 +43,7 @@ func (s *objectAdapter) Put(ctx context.Context, key, value []byte) (retErr erro
 	return nil
 }
 
-func (s *objectAdapter) GetF(ctx context.Context, key []byte, cb ValueCallback) (retErr error) {
+func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) (retErr error) {
 	rc, err := s.objC.Reader(ctx, string(key), 0, 0)
 	if err != nil {
 		if s.objC.IsNotExist(err) {
