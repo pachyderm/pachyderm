@@ -102,6 +102,24 @@ make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
 git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
 ```
 
+### Update testfaster commit hash [apply step only when running point-release target]
+
+When changing the version number, we have to update the version that Testfaster caches. Find the latest commit hash:
+
+```shell
+git log --pretty=format:%H | head -n 1
+```
+
+Edit `.testfaster.yml` and edit the line that looks like [this](https://github.com/pachyderm/pachyderm/blob/442f8e119c75c3f183f228dd0fcfb7f67b6c0798/.testfaster.yml#L63) which specifies the commit hash that is included in the base image for the test VMs.
+
+In particular, update the line which includes `git checkout`.
+
+Update the hash to the one above, and make a new commit:
+
+```shell
+git commit -am "Update testfaster hash to refer to bumped version number"
+```
+
 ### Update the changelog [apply step only when running point-release target]
 
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
