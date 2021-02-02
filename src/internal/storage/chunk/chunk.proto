@@ -15,10 +15,16 @@ message DataRef {
   int64 size_bytes = 4;
 }
 
+enum CompressionAlgo {
+  NONE = 0;
+  GZIP_BEST_SPEED = 1;  
+}
+
 message Ref {
   bytes id = 1;
   int64 size_bytes = 2;
   bool edge = 3;
 
-  // TODO: compression, encryption
+  bytes dek = 4;
+  CompressionAlgo compression_algo = 5;
 }

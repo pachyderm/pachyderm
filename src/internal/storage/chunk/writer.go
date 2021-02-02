@@ -6,7 +6,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/hash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
 const (
@@ -50,11 +50,13 @@ type chunkSize struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	client    *Client
-	cb        WriterCallback
-	chunkSize *chunkSize
-	splitMask uint64
-	noUpload  bool
+	client     *Client
+	memCache   kv.GetPut
+	cb         WriterCallback
+	chunkSize  *chunkSize
+	splitMask  uint64
+	noUpload   bool
+	createOpts CreateOptions
 
 	ctx                     context.Context
 	cancel                  context.CancelFunc
@@ -69,13 +71,15 @@ type Writer struct {
 	first, last             bool
 }
 
-func newWriter(ctx context.Context, client *Client, cb WriterCallback, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, client *Client, memCache kv.GetPut, createOpts CreateOptions, cb WriterCallback, opts ...WriterOption) *Writer {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	w := &Writer{
-		cb:     cb,
-		client: client,
-		ctx:    cancelCtx,
-		cancel: cancel,
+		cb:         cb,
+		client:     client,
+		memCache:   memCache,
+		createOpts: createOpts,
+		ctx:        cancelCtx,
+		cancel:     cancel,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
@@ -252,22 +256,18 @@ func (w *Writer) maybeUpload(ctx context.Context, chunkBytes []byte, pointsTo []
 		PointsTo: pointsTo,
 		Size:     len(chunkBytes),
 	}
-	var chunkID ID
-	var err error
 	// Skip the upload if no upload is configured.
-	if !w.noUpload {
-		chunkID, err = w.client.Create(ctx, md, bytes.NewReader(chunkBytes))
-		if err != nil {
-			return nil, err
+	var createFunc func(context.Context, []byte) (ID, error)
+	if w.noUpload {
+		createFunc = func(ctx context.Context, data []byte) (ID, error) {
+			return Hash(data), nil // this will be of the ciphertext
 		}
 	} else {
-		// TODO: this has to also deal with compression and encryption
-		chunkID = Hash(chunkBytes)
+		createFunc = func(ctx context.Context, data []byte) (ID, error) {
+			return w.client.Create(ctx, md, data)
+		}
 	}
-	return &Ref{
-		Id:        chunkID,
-		SizeBytes: int64(len(chunkBytes)),
-	}, nil
+	return Create(ctx, CreateOptions{}, chunkBytes, createFunc)
 }
 
 func (w *Writer) getPointsTo(annotations []*Annotation) (pointsTo []ID) {
@@ -293,10 +293,6 @@ func (w *Writer) processAnnotations(ctx context.Context, chunkDataRef *DataRef, 
 		}
 		a.NextDataRef = newDataRef(chunkDataRef, chunkBytes, offset, a.size)
 		offset += a.size
-		// Skip references if no upload is configured.
-		if w.noUpload {
-			continue
-		}
 	}
 	return nil
 }
@@ -307,7 +303,7 @@ func newDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataR
 	if chunkRef.SizeBytes == size {
 		dataRef.Hash = chunkRef.Hash
 	} else {
-		dataRef.Hash = hash.EncodeHash(Hash(chunkBytes[offset : offset+size]))
+		dataRef.Hash = Hash(chunkBytes[offset : offset+size]).HexString()
 	}
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
@@ -371,8 +367,7 @@ func (w *Writer) getPrevDataRef() *DataRef {
 			return w.annotations[i].NextDataRef
 		}
 	}
-	// TODO: Reaching here would be a bug, maybe panic?
-	return nil
+	panic("no previous data ref")
 }
 
 func (w *Writer) flushBuffer() error {
@@ -397,7 +392,7 @@ func (w *Writer) flushBuffer() error {
 
 func (w *Writer) flushDataRef(dataRef *DataRef) error {
 	buf := &bytes.Buffer{}
-	r := newDataReader(w.ctx, w.client, dataRef, nil)
+	r := newDataReader(w.ctx, w.client, w.memCache, dataRef, nil)
 	if err := r.Get(buf); err != nil {
 		return err
 	}

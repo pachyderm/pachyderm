@@ -92,6 +92,7 @@ type StorageConfiguration struct {
 	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=50"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
 	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
+	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=10"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

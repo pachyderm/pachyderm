@@ -8,19 +8,22 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
 	client   *Client
+	memCache kv.GetPut
 	dataRefs []*DataRef
 }
 
-func newReader(ctx context.Context, client *Client, dataRefs []*DataRef) *Reader {
+func newReader(ctx context.Context, client *Client, memCache kv.GetPut, dataRefs []*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		client:   client,
+		memCache: memCache,
 		dataRefs: dataRefs,
 	}
 }
@@ -29,7 +32,7 @@ func newReader(ctx context.Context, client *Client, dataRefs []*DataRef) *Reader
 func (r *Reader) Iterate(cb func(*DataReader) error) error {
 	var seed *DataReader
 	for _, dataRef := range r.dataRefs {
-		dr := newDataReader(r.ctx, r.client, dataRef, seed)
+		dr := newDataReader(r.ctx, r.client, r.memCache, dataRef, seed)
 		if err := cb(dr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -54,6 +57,7 @@ func (r *Reader) Get(w io.Writer) error {
 // TODO: Probably don't need seed with caching.
 type DataReader struct {
 	ctx        context.Context
+	memCache   kv.GetPut
 	client     *Client
 	dataRef    *DataRef
 	seed       *DataReader
@@ -61,12 +65,13 @@ type DataReader struct {
 	chunk      []byte
 }
 
-func newDataReader(ctx context.Context, client *Client, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client *Client, memCache kv.GetPut, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
-		ctx:     ctx,
-		client:  client,
-		dataRef: dataRef,
-		seed:    seed,
+		ctx:      ctx,
+		client:   client,
+		memCache: memCache,
+		dataRef:  dataRef,
+		seed:     seed,
 	}
 }
 
@@ -101,8 +106,9 @@ func (dr *DataReader) getChunk() error {
 	}
 	// Get chunk from object storage.
 	buf := &bytes.Buffer{}
-	chunkID := dr.dataRef.Ref.Id
-	if err := dr.client.Get(dr.ctx, chunkID, buf); err != nil {
+	if err := Get(dr.ctx, dr.memCache, dr.dataRef.Ref, buf, func(ctx context.Context, id ID, cb kv.ValueCallback) error {
+		return dr.client.Get(ctx, id, cb)
+	}); err != nil {
 		return err
 	}
 	dr.chunk = buf.Bytes()

@@ -4092,7 +4092,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		base64Hash := "Znxf6gEk157029EB5U/iYF/Uj/gkYUeUcRN1WS96+NlHo1OuzI52FcwWTtiEiaH7ZreMekbl8UoVs2DLzgpHzw=="
+		base64Hash := "dzh7KGu+C0o1a4et0lR0FedzYO/udIdm6ZXTSLtJb5DZivQib9TfeWizDuLBfFfOVJ3EwoI34vk3NOB7qVUwWQ=="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
@@ -4278,7 +4278,6 @@ func TestLokiLogs(t *testing.T) {
 	foundFoos := 0
 	for iter.Next() {
 		if strings.Contains(iter.Message().Message, "foo") {
-			fmt.Println(iter.Message().Message)
 			foundFoos++
 		}
 	}
