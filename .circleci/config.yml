@@ -57,6 +57,9 @@ jobs:
           name: Run tests
           command: |
             etc/testing/circle_tests.sh 2>&1 |ts
+      
+      - store_test_results:
+          path: ~/junit/
 
       - run:
           name: Dump debugging info in case of failure
