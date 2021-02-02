@@ -61,6 +61,9 @@ jobs:
       - store_test_results:
           path: ~/junit/
 
+      - store_artifacts:
+          path: ~/junit/
+
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
