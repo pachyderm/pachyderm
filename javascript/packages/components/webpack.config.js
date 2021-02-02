@@ -104,6 +104,7 @@ const config = {
     react: 'react',
     'react-dom': 'react-dom',
     'react-router-dom': 'react-router-dom',
+    'react-hook-form': 'react-hook-form',
   },
   plugins: [
     new MiniCssExtractPlugin({
