@@ -50,3 +50,7 @@ echo "Starting test $BUCKET."
 time ./etc/testing/testctl-ssh.sh "${TESTCTL_OPTIONS[@]}" \
     -- ./project/pachyderm/etc/testing/circle_tests_inner.sh "$@"
 echo "Finished test $BUCKET."
+
+go get -u github.com/jstemmer/go-junit-report
+mkdir -p ~/junit
+./etc/testing/testctl-ssh.sh -- "cat test.out" | go-junit-report > ~/junit/report.xml
