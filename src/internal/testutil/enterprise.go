@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -25,13 +24,13 @@ func GetTestEnterpriseCode(t testing.TB) string {
 func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 	code := GetTestEnterpriseCode(t)
 
-	_, err := c.License.Activate(context.Background(),
+	_, err := c.License.Activate(c.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: code,
 		})
 	require.NoError(t, err)
 
-	_, err = c.License.AddCluster(context.Background(),
+	_, err = c.License.AddCluster(c.Ctx(),
 		&license.AddClusterRequest{
 			Id:      "localhost",
 			Secret:  "localhost",
@@ -41,7 +40,7 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient) {
 		require.NoError(t, err)
 	}
 
-	_, err = c.Enterprise.Activate(context.Background(),
+	_, err = c.Enterprise.Activate(c.Ctx(),
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",

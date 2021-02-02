@@ -23,6 +23,7 @@ const (
 func ActivateAuth(tb testing.TB) {
 	tb.Helper()
 	client := GetPachClient(tb)
+	client.SetAuthToken(RootToken)
 
 	ActivateEnterprise(tb, client)
 
