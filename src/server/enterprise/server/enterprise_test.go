@@ -38,7 +38,7 @@ func TestGetState(t *testing.T) {
 
 	expires, err := types.TimestampFromProto(resp.Info.Expires)
 	require.NoError(t, err)
-	require.True(t, time.Until(expires) <= year)
+	require.True(t, time.Until(expires) >= year)
 
 	activationCode, err := license.Unmarshal(resp.ActivationCode)
 	require.NoError(t, err)
