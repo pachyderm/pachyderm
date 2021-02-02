@@ -4939,13 +4939,8 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, env.PachClient.GetFileURL(repo, commit.ID, path, url))
 			}
 			for _, path := range paths {
-				r, err := objC.Reader(context.Background(), path, 0, 0)
-				require.NoError(t, err)
-				defer func() {
-					require.NoError(t, r.Close())
-				}()
 				buf := &bytes.Buffer{}
-				_, err = io.Copy(buf, r)
+				err := objC.Get(context.Background(), path, buf)
 				require.NoError(t, err)
 				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
 			}

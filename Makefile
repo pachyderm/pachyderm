@@ -286,7 +286,8 @@ test-client:
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
+	go test -count=1 ./src/internal/obj/integrationtests -timeout $(TIMEOUT) -parallel=2 $(TESTFLAGS)
+	go test -count=1 ./src/internal/obj -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-libs:
 	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT) $(TESTFLAGS)

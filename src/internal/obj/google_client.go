@@ -3,9 +3,11 @@ package obj
 import (
 	"io"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -14,7 +16,8 @@ import (
 )
 
 type googleClient struct {
-	bucket *storage.BucketHandle
+	bucketName string
+	bucket     *storage.BucketHandle
 }
 
 func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, error) {
@@ -23,20 +26,35 @@ func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, 
 	if err != nil {
 		return nil, err
 	}
-	return &googleClient{client.Bucket(bucket)}, nil
+	return &googleClient{bucketName: bucket, bucket: client.Bucket(bucket)}, nil
 }
 
-func (c *googleClient) Exists(ctx context.Context, name string) bool {
+func (c *googleClient) Exists(ctx context.Context, name string) (bool, error) {
 	_, err := c.bucket.Object(name).Attrs(ctx)
+	if err != nil {
+		err = c.transformError(err, name)
+		if pacherr.IsNotExist(err) {
+			err = nil
+		}
+		return false, err
+	}
 	tracing.TagAnySpan(ctx, "err", err)
-	return err == nil
+	return true, nil
 }
 
-func (c *googleClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	return newBackoffWriteCloser(ctx, c, c.bucket.Object(name).NewWriter(ctx)), nil
+func (c *googleClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	ctx, cf := context.WithCancel(ctx)
+	defer cf() // this aborts the write if the writer is not already closed
+	wc := c.bucket.Object(name).NewWriter(ctx)
+	if _, err := io.Copy(wc, r); err != nil {
+		return err
+	}
+	return wc.Close()
 }
 
-func (c *googleClient) Walk(ctx context.Context, name string, fn func(name string) error) error {
+func (c *googleClient) Walk(ctx context.Context, name string, fn func(name string) error) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	objectIter := c.bucket.Objects(ctx, &storage.Query{Prefix: name})
 	for {
 		objectAttrs, err := objectIter.Next()
@@ -53,42 +71,51 @@ func (c *googleClient) Walk(ctx context.Context, name string, fn func(name strin
 	return nil
 }
 
-func (c *googleClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	var reader io.ReadCloser
-	var err error
-	if size == 0 {
-		// a negative length will cause the object to be read till the end
-		reader, err = c.bucket.Object(name).NewRangeReader(ctx, int64(offset), -1)
-	} else {
-		reader, err = c.bucket.Object(name).NewRangeReader(ctx, int64(offset), int64(size))
-	}
+func (c *googleClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
+	reader, err := c.bucket.Object(name).NewReader(ctx)
+	defer func() {
+		if err := reader.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return newBackoffReadCloser(ctx, c, reader), nil
+	_, err = io.Copy(w, reader)
+	return err
 }
 
-func (c *googleClient) Delete(ctx context.Context, name string) error {
+func (c *googleClient) Delete(ctx context.Context, name string) (retErr error) {
+	defer func() { retErr = c.transformError(retErr, name) }()
 	return c.bucket.Object(name).Delete(ctx)
 }
 
-func (c *googleClient) IsRetryable(err error) (ret bool) {
-	googleErr := &googleapi.Error{}
-	if !errors.As(err, &googleErr) {
-		return false
+func (c *googleClient) transformError(err error, objectPath string) error {
+	const minWait = 250 * time.Millisecond
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		return pacherr.NewNotExist(c.bucketName, objectPath)
 	}
 	// https://github.com/pachyderm/pachyderm/v2/issues/912
-	return googleErr.Code >= 500 || strings.Contains(err.Error(), "Parse Error")
-}
-
-func (c *googleClient) IsNotExist(err error) (result bool) {
-	return errors.Is(err, storage.ErrObjectNotExist)
-}
-
-func (c *googleClient) IsIgnorable(err error) bool {
-	googleErr := &googleapi.Error{}
-	if !errors.As(err, &googleErr) {
-		return false
+	if strings.Contains(err.Error(), "ParseError") {
+		return err
 	}
-	return googleErr.Code == 429
+
+	var googleErr googleapi.Error
+	if !errors.As(err, &googleErr) {
+		return err
+	}
+	switch googleErr.Code {
+	case 429:
+		return pacherr.WrapTransient(err, minWait)
+
+	// https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+	case 500, 502, 503, 504:
+		return pacherr.WrapTransient(err, minWait)
+
+	}
+	return err
 }

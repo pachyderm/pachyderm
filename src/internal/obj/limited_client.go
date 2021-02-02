@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+const limitClientSemCost = 1
+
 var _ Client = &limitedClient{}
 
 // limitedClient is a Client which limits the number of objects open at a time
@@ -36,44 +38,18 @@ func NewLimitedClient(client Client, maxReaders, maxWriters int) Client {
 	}
 }
 
-func (loc *limitedClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	if err := loc.writersSem.Acquire(ctx, 1); err != nil {
-		return nil, err
+func (loc *limitedClient) Put(ctx context.Context, name string, r io.Reader) error {
+	if err := loc.writersSem.Acquire(ctx, limitClientSemCost); err != nil {
+		return err
 	}
-	w, err := loc.Client.Writer(ctx, name)
-	if err != nil {
-		return nil, err
+	defer loc.writersSem.Release(limitClientSemCost)
+	return loc.Client.Put(ctx, name, r)
+}
+
+func (loc *limitedClient) Get(ctx context.Context, name string, w io.Writer) error {
+	if err := loc.readersSem.Acquire(ctx, limitClientSemCost); err != nil {
+		return err
 	}
-	return releaseWriteCloser{w, loc.writersSem}, nil
-}
-
-func (loc *limitedClient) Reader(ctx context.Context, name string, offset, size uint64) (io.ReadCloser, error) {
-	if err := loc.readersSem.Acquire(ctx, 1); err != nil {
-		return nil, err
-	}
-	r, err := loc.Client.Reader(ctx, name, offset, size)
-	if err != nil {
-		return nil, err
-	}
-	return releaseReadCloser{r, loc.readersSem}, nil
-}
-
-type releaseWriteCloser struct {
-	io.WriteCloser
-	sem *semaphore.Weighted
-}
-
-func (rwc releaseWriteCloser) Close() error {
-	rwc.sem.Release(1)
-	return rwc.WriteCloser.Close()
-}
-
-type releaseReadCloser struct {
-	io.ReadCloser
-	sem *semaphore.Weighted
-}
-
-func (rrc releaseReadCloser) Close() error {
-	rrc.sem.Release(1)
-	return rrc.ReadCloser.Close()
+	defer loc.readersSem.Release(limitClientSemCost)
+	return loc.Client.Get(ctx, name, w)
 }

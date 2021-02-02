@@ -5,8 +5,10 @@ import (
 	"io"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
 	enabled    bool
 	localRand  *rand.Rand
 	failProb   float64
-	errMsg     = errors.Errorf("object storage slipped on a banana")
+	errMsg     = pacherr.WrapTransient(errors.Errorf("object storage slipped on a banana"), 200*time.Millisecond)
 )
 
 // InitMonkeyTest sets up this package for monkey testing.
@@ -41,64 +43,24 @@ func IsMonkeyError(err error) bool {
 	return strings.Contains(err.Error(), errMsg.Error())
 }
 
-type monkeyReadWriteCloser struct {
-	rc io.ReadCloser
-	wc io.WriteCloser
-}
-
-// Read wraps the read operation.
-func (rwc *monkeyReadWriteCloser) Read(data []byte) (int, error) {
-	if enabled && localRand.Float64() < failProb {
-		return 0, errMsg
-	}
-	return rwc.rc.Read(data)
-}
-
-// Write wraps the write operation.
-func (rwc *monkeyReadWriteCloser) Write(data []byte) (int, error) {
-	if enabled && localRand.Float64() < failProb {
-		return 0, errMsg
-	}
-	return rwc.wc.Write(data)
-}
-
-// Close wraps the close operation.
-func (rwc *monkeyReadWriteCloser) Close() error {
-	if enabled && localRand.Float64() < failProb {
-		return errMsg
-	}
-	if rwc.wc != nil {
-		return rwc.wc.Close()
-	}
-	return rwc.rc.Close()
-}
-
 type monkeyClient struct {
 	c Client
 }
 
-// Reader wraps the reader operation.
-func (c *monkeyClient) Reader(ctx context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
+// Get wraps the get operation.
+func (c *monkeyClient) Get(ctx context.Context, path string, w io.Writer) error {
 	if enabled && localRand.Float64() < failProb {
-		return nil, errMsg
+		return errMsg
 	}
-	rc, err := c.c.Reader(ctx, path, offset, size)
-	if err != nil {
-		return nil, err
-	}
-	return &monkeyReadWriteCloser{rc: rc}, nil
+	return c.c.Get(ctx, path, w)
 }
 
-// Writer wraps the writer operation.
-func (c *monkeyClient) Writer(ctx context.Context, path string) (io.WriteCloser, error) {
+// Put wraps the put operation.
+func (c *monkeyClient) Put(ctx context.Context, path string, r io.Reader) error {
 	if enabled && localRand.Float64() < failProb {
-		return nil, errMsg
+		return errMsg
 	}
-	wc, err := c.c.Writer(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	return &monkeyReadWriteCloser{wc: wc}, nil
+	return c.c.Put(ctx, path, r)
 }
 
 // Delete wraps the delete operation.
@@ -118,21 +80,9 @@ func (c *monkeyClient) Walk(ctx context.Context, dir string, walkFn func(name st
 }
 
 // Exists wraps the existance check.
-func (c *monkeyClient) Exists(ctx context.Context, path string) bool {
+func (c *monkeyClient) Exists(ctx context.Context, path string) (bool, error) {
+	if enabled && localRand.Float64() < failProb {
+		return false, errMsg
+	}
 	return c.c.Exists(ctx, path)
-}
-
-// IsRetryable wraps the is retryable check.
-func (c *monkeyClient) IsRetryable(err error) bool {
-	return c.c.IsRetryable(err)
-}
-
-// IsNotExist wraps the does not exist check.
-func (c *monkeyClient) IsNotExist(err error) bool {
-	return c.c.IsNotExist(err)
-}
-
-// IsIgnorable wraps the is ignorable check.
-func (c *monkeyClient) IsIgnorable(err error) bool {
-	return c.c.IsIgnorable(err)
 }

@@ -579,19 +579,12 @@ func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
-		w, err := objClient.Writer(ctx, filepath.Join(parsedURL.Object, fi.File.Path))
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := w.Close(); retErr == nil {
-				retErr = err
-			}
-			if retErr == nil {
-				bytesWritten += int64(fi.SizeBytes)
-			}
-		}()
-		return file.Content(w)
+		return obj.WithPipe(
+			func(w io.Writer) error {
+				return file.Content(w)
+			}, func(r io.Reader) error {
+				return objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r)
+			})
 	})
 	return bytesWritten, err
 }
@@ -767,4 +760,178 @@ func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetReque
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.UnorderedWriter) (int64, error) {
+	var bytesRead int64
+	for {
+		req, err := server.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return bytesRead, nil
+			}
+			return bytesRead, err
+		}
+
+		// TODO Validation.
+		switch mod := req.Modification.(type) {
+		case *pfs.ModifyFileRequest_PutFile:
+			var err error
+			var n int64
+			switch mod.PutFile.Source.(type) {
+			case *pfs.PutFile_RawFileSource:
+				n, err = putFileRaw(uw, server, mod.PutFile)
+			case *pfs.PutFile_TarFileSource:
+				n, err = putFileTar(uw, server, mod.PutFile)
+			case *pfs.PutFile_UrlFileSource:
+				n, err = putFileURL(ctx, uw, mod.PutFile)
+			}
+			if err != nil {
+				return bytesRead, err
+			}
+			bytesRead += n
+		case *pfs.ModifyFileRequest_DeleteFile:
+			if err := deleteFile(uw, mod.DeleteFile); err != nil {
+				return bytesRead, err
+			}
+		}
+	}
+}
+
+func putFileTar(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.PutFile) (int64, error) {
+	src := req.Source.(*pfs.PutFile_TarFileSource).TarFileSource
+	tfsr := &tarFileSourceReader{
+		server: server,
+		r:      bytes.NewReader(src.Data),
+	}
+	tr := tar.NewReader(tfsr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return tfsr.bytesRead, nil
+			}
+			return tfsr.bytesRead, err
+		}
+		if hdr.Typeflag == tar.TypeDir {
+			continue
+		}
+		if err := uw.Put(hdr.Name, req.Append, tr, req.Tag); err != nil {
+			return tfsr.bytesRead, err
+		}
+	}
+}
+
+type tarFileSourceReader struct {
+	server    modifyFileSource
+	r         *bytes.Reader
+	bytesRead int64
+}
+
+func (tfsr *tarFileSourceReader) Read(data []byte) (int, error) {
+	for tfsr.r.Len() == 0 {
+		req, err := tfsr.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		mod := req.Modification.(*pfs.ModifyFileRequest_PutFile).PutFile
+		src := mod.Source.(*pfs.PutFile_TarFileSource).TarFileSource
+		tfsr.r = bytes.NewReader(src.Data)
+	}
+	n, err := tfsr.r.Read(data)
+	tfsr.bytesRead += int64(n)
+	return n, err
+}
+
+// TODO: Collect and return bytes read and figure out parallel download (task chain in chunk package might be helpful).
+func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, req *pfs.PutFile) (_ int64, retErr error) {
+	src := req.Source.(*pfs.PutFile_UrlFileSource).UrlFileSource
+	url, err := url.Parse(src.URL)
+	if err != nil {
+		return 0, err
+	}
+	switch url.Scheme {
+	case "http":
+		fallthrough
+	case "https":
+		resp, err := http.Get(src.URL)
+		if err != nil {
+			return 0, err
+		} else if resp.StatusCode >= 400 {
+			return 0, errors.Errorf("error retrieving content from %q: %s", src.URL, resp.Status)
+		}
+		defer func() {
+			if err := resp.Body.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		return 0, uw.Put(src.Path, req.Append, resp.Body, req.Tag)
+	default:
+		url, err := obj.ParseURL(src.URL)
+		if err != nil {
+			return 0, errors.Wrapf(err, "error parsing url %v", src.URL)
+		}
+		objClient, err := obj.NewClientFromURLAndSecret(url, false)
+		if err != nil {
+			return 0, err
+		}
+		if src.Recursive {
+			path := strings.TrimPrefix(url.Object, "/")
+			return 0, objClient.Walk(ctx, path, func(name string) error {
+				return obj.WithPipe(func(w io.Writer) error {
+					return objClient.Get(ctx, name, w)
+				}, func(r io.Reader) error {
+					return uw.Put(filepath.Join(src.Path, strings.TrimPrefix(name, path)), req.Append, r, req.Tag)
+				})
+			})
+		}
+		err = obj.WithPipe(func(w io.Writer) error {
+			return objClient.Get(ctx, url.Object, w)
+		}, func(r io.Reader) error {
+			return uw.Put(src.Path, req.Append, r, req.Tag)
+		})
+		return 0, err
+	}
+}
+
+type modifyFileSource interface {
+	Recv() (*pfs.ModifyFileRequest, error)
+}
+
+func putFileRaw(uw *fileset.UnorderedWriter, server modifyFileSource, req *pfs.PutFile) (int64, error) {
+	src := req.Source.(*pfs.PutFile_RawFileSource).RawFileSource
+	rfsr := &rawFileSourceReader{
+		server: server,
+		r:      bytes.NewReader(src.Data),
+	}
+	err := uw.Put(src.Path, req.Append, rfsr, req.Tag)
+	return rfsr.bytesRead, err
+}
+
+type rawFileSourceReader struct {
+	server    modifyFileSource
+	r         *bytes.Reader
+	bytesRead int64
+	done      bool
+}
+
+func (rfsr *rawFileSourceReader) Read(data []byte) (int, error) {
+	for !rfsr.done && rfsr.r.Len() == 0 {
+		req, err := rfsr.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		mod := req.Modification.(*pfs.ModifyFileRequest_PutFile).PutFile
+		src := mod.Source.(*pfs.PutFile_RawFileSource).RawFileSource
+		rfsr.r = bytes.NewReader(src.Data)
+		rfsr.done = src.EOF
+	}
+	n, err := rfsr.r.Read(data)
+	rfsr.bytesRead += int64(n)
+	return n, err
+}
+
+func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
+	uw.Delete(request.File, request.Tag)
+	return nil
 }

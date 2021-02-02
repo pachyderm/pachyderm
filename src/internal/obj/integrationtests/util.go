@@ -1,4 +1,4 @@
-package testing
+package integrationtests
 
 import (
 	"os"
