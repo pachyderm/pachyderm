@@ -8,5 +8,7 @@ export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
 export PATH
 
+cat test.out
+
 go get -u github.com/jstemmer/go-junit-report
 go-junit-report < test.out 
