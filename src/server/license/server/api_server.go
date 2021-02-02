@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -66,8 +67,8 @@ func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(nil)
+	defer func(start time.Time) { a.pachLogger.Log(nil, resp, retErr, time.Since(start)) }(time.Now())
 
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
@@ -106,7 +107,7 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 			return errors.Errorf("could not retrieve enterprise token")
 		}
 		if !proto.Equal(record, newRecord) {
-			return errors.Wrapf(err, "did not see updated token")
+			return errors.Errorf("did not see updated token")
 		}
 		return nil
 	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
@@ -162,7 +163,7 @@ func (a *apiServer) checkLicenseState() error {
 		return err
 	}
 	if record.State != ec.State_ACTIVE {
-		return errors.New("enterprise license is not valid")
+		return fmt.Errorf("enterprise license is not valid - %v", record.State)
 	}
 	return nil
 }
