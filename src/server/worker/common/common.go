@@ -22,8 +22,12 @@ func IsDone(ctx context.Context) bool {
 }
 
 // DatumID computes the ID of a datum.
-// TODO: This needs more discussion.
 func DatumID(inputs []*Input) string {
+	// TODO: This is a stopgap solution that needs to be addressed before 2.0 GA.
+	// Datum IDs need more design work.
+	if inputs[0].GroupBy != "" {
+		return inputs[0].GroupBy
+	}
 	var files []string
 	for _, input := range inputs {
 		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
