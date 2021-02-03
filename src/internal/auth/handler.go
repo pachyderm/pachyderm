@@ -32,20 +32,22 @@ func authenticated(pachClient *client.APIClient, fullMethod string) error {
 
 // admin permits an RPC if auth is fully enabled and the user is a cluster admin
 func admin(pachClient *client.APIClient, fullMethod string) error {
-	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_CLUSTER_ADMIN,
+		},
+	})
 	if err != nil {
 		return err
 	}
-	if me.ClusterRoles != nil {
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				return nil
-			}
-		}
+
+	if resp.Authorized {
+		return nil
 	}
 
 	return &auth.ErrNotAuthorized{
-		Subject: me.Username,
-		AdminOp: fullMethod,
+		Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
+		Required: auth.Permission_CLUSTER_ADMIN,
 	}
 }
