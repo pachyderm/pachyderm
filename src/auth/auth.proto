@@ -72,50 +72,6 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-enum ClusterRole {
-    UNDEFINED = 0;
-
-    // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
-    SUPER = 1;
-
-    // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
-    FS = 2;
-  }
-
-// ClusterRoles reflects any cluster-wide permissions a principal has.
-// A principal can have multiple cluster roles.
-message ClusterRoles {
-  repeated ClusterRole roles = 1;
-}
-
-// Get the current set of principals and roles for the cluster
-message GetClusterRoleBindingsRequest{}
-message GetClusterRoleBindingsResponse{
-  // bindings contains a mapping of principals to cluster roles
-  map<string, ClusterRoles> bindings = 1;
-}
-
-// Set cluster roles for the specified principal. Setting an empty list of roles
-// revokes any roles the principal has.
-message ModifyClusterRoleBindingRequest {
-  string principal = 1;
-  ClusterRoles roles = 2;
-}
-message ModifyClusterRoleBindingResponse {}
-
-// Deprecated. Get the list of cluster super admins.
-message GetAdminsRequest{}
-message GetAdminsResponse{
-  repeated string admins = 1;
-}
-
-// Deprecated. Add and remove users from the set of cluster super admins.
-message ModifyAdminsRequest {
-  repeated string add = 1;
-  repeated string remove = 2;
-}
-message ModifyAdminsResponse {}
-
 //// Authentication data structures
 
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
@@ -157,26 +113,45 @@ message WhoAmIRequest {}
 
 message WhoAmIResponse {
   string username = 1;
-  bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
-  ClusterRoles cluster_roles = 4;
 }
 
 //// Authorization data structures
 
-// Scope (actually a "role" in canonical security nomenclature) represents a
-// rough level of access that a principal has to a repo
-enum Scope {
-  // To remove a user's scope from a repo, set their scope to NONE
-  NONE = 0;
-  READER = 1;
-  WRITER = 2;
-  OWNER = 3;
+// Roles represents the set of roles a principal has
+message Roles {
+  map<string, bool> roles = 1;
 }
 
-message ACL {
-  // principal -> scope. All principal names include the structured prefix indicating their type.
-  map<string, Scope> entries = 1;
+// RoleBinding represents the set of roles principals have on a given Resource
+message RoleBinding {
+  // principal -> roles. All principal names include the structured prefix indicating their type.
+  map<string, Roles> entries = 1;
+}
+
+// Permission represents the ability to perform a given operation on a Resource 
+enum Permission {
+  UNKNOWN = 0;
+
+  // CLUSTER_ADMIN encompasses all "admin" APIs, which are generally cluster configuration
+  CLUSTER_ADMIN        = 100;
+
+  REPO_READ            = 200;
+  REPO_WRITE           = 201;
+  REPO_MODIFY_BINDINGS = 202;
+}
+
+// ResourceType represents the type of a Resource
+enum ResourceType {
+  RESOURCE_TYPE_UNKNOWN = 0;
+  CLUSTER = 1;
+  REPO    = 2;
+}
+
+// Resource represents any resource that has role-bindings in the system
+message Resource {
+  ResourceType type = 1; 
+  string name = 2;
 }
 
 message Users {
@@ -190,91 +165,60 @@ message Groups {
 //// Authorization API
 
 message AuthorizeRequest {
-  // repo is the object that the caller wants to access
-  string repo = 1;
+  Resource resource = 1;
 
-  // scope is the access level that the caller needs to perform an action
-  Scope scope = 2;
+  // permissions are the operations the caller is attempting to perform 
+  repeated Permission permissions = 2;
 }
 
 message AuthorizeResponse {
-  // authorized is true if the caller has at least
-  // 'AuthorizeRequest.scope'-level access to 'AuthorizeRequest.repo', and false
-  // otherwise
+  // authorized is true if the caller has the require permissions
   bool authorized = 1;
 }
 
-message GetScopeRequest {
-  string username = 1;
+message GetRolesRequest {
+  string principal = 1;
 
-  // repos are the objects to which 'username's access level is being queried
-  repeated string repos = 2;
+  // resources are the resources the principal's roles are being retrieved for 
+  repeated Resource resources = 2;
 }
 
-message GetScopeResponse {
-  // scopes (actually a "role"--see "Scope") are the access level that
-  // 'GetScopeRequest.username' has to each repo in 'GetScopeRequest.repos', in
-  // the same order that repos appeared in 'repos'.
-  repeated Scope scopes = 1;
+message GetRolesResponse {
+  // roles is the set of roles the principal has on the resource
+  repeated string roles = 1;
 }
 
-message SetScopeRequest {
-  // username is the principal (some of which belong to robots rather than
-  // users, but the name is preserved for now to provide compatibility with the
-  // pachyderm dash) whose access is being granted/revoked. As with
-  // GetScopeRequest, to set the access level of a robot user, the caller must
-  // prefix username with "robot:". 
-  string username = 1;
-
-  // repo is the object to which access is being granted/revoked
-  string repo = 2;
-
-  // scope (actually a "role"--see "Scope") is the access level that the owner
-  // of 'principal' will now have
-  Scope scope = 3;
+message CreateRoleBindingRequest {
+  Resource resource = 1;
+  string principal = 2;
+  repeated string roles =3;
 }
 
-message SetScopeResponse {}
+message CreateRoleBindingResponse {}
 
-message GetACLRequest {
-  string repo = 1;
+message ModifyRolesRequest {
+  // resource is the resource to modify the role bindings on 
+  Resource resource = 1;
+
+  // principal is the principal to modify the roles binding for
+  string principal = 2;
+
+  // to_add are the roles to add for principal on resource 
+  repeated string to_add = 3;
+
+  // to_remove are the roles to remove for principal on resource 
+  repeated string to_remove = 4;
 }
 
-message ACLEntry {
-  // username is the principal posessing this level of access to this ACL's
-  // repo (despite the name, this principal may be for a human user or a
-  // pachyderm robot)
-  string username = 1;
+message ModifyRolesResponse {}
 
-  // scope is the level of access that the owner of 'principal' has to this
-  // ACL's repo (actually a role in typical security terminology)
-  Scope scope = 2;
+message GetRoleBindingsRequest {
+  Resource resource = 1; 
 }
 
-// GetACLReponse contains the list of entries on a Pachyderm ACL.
-//
-// To avoid migration pain with the Pachyderm dash the list of user principal
-// entries and robot principal entries are separate. This way, no prefix or
-// other disambiguating device is needed in 'entries' to separate user
-// principals from robot principals (which would confuse the dash). Instead,
-// the dash can simply ignore robot principals.
-message GetACLResponse {
-  // entries contains all [user principal] -> [role] mappings. This is separate
-  // from robot_entries to avoid migration pain the Pachyderm dashboard
-  repeated ACLEntry entries = 1;
-
-  // robot_entries contains all [robot principal] -> [role] mappings. This is
-  // separate from entries to be unambiguous (all keys are robot principals, but
-  // have no prefixes) while avoiding migration pain in the Pachyderm dashboard.
-  repeated ACLEntry robot_entries = 2;
+message GetRoleBindingsResponse {
+  RoleBinding binding = 1; 
 }
-
-message SetACLRequest {
-  string repo = 1;
-  repeated ACLEntry entries = 2;
-}
-
-message SetACLResponse {}
 
 //////////////////////////////
 //// OIDC Data Structures ////
@@ -421,24 +365,14 @@ service API {
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
   rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
 
-  // Deprecated. GetAdmins returns the current list of cluster super admins
-  rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
-  // Deprecated. ModifyAdmins adds or removes super admins from the cluster
-  rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
-
-  // GetClusterRoleBindings returns the current set of cluster role bindings
-  rpc GetClusterRoleBindings(GetClusterRoleBindingsRequest) returns (GetClusterRoleBindingsResponse) {}
-  // ModifyAdmin sets the list of admin roles for a principal
-  rpc ModifyClusterRoleBinding(ModifyClusterRoleBindingRequest) returns (ModifyClusterRoleBindingResponse) {}
-
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
-  rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
-  rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
-  rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
-  rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
+  rpc CreateRoleBinding(CreateRoleBindingRequest) returns (CreateRoleBindingResponse) {}
+  rpc GetRoles(GetRolesRequest) returns (GetRolesResponse) {}
+  rpc ModifyRoles(ModifyRolesRequest) returns (ModifyRolesResponse) {}
+  rpc GetRoleBindings(GetRoleBindingsRequest) returns (GetRoleBindingsResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 

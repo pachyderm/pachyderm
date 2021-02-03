@@ -9,7 +9,9 @@ import (
 
 // IsAuthActive returns whether auth is activated on the cluster
 func (c APIClient) IsAuthActive() (bool, error) {
-	_, err := c.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
+	_, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
 	switch {
 	case auth.IsErrNotSignedIn(err):
 		return true, nil

@@ -560,17 +560,17 @@ func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetC
 func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
 	return nil, unsupportedError("SetConfiguration")
 }
-func (c *authBuilderClient) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest, opts ...grpc.CallOption) (*auth.GetAdminsResponse, error) {
-	return nil, unsupportedError("GetAdmins")
+func (c *authBuilderClient) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleBindingRequest, opts ...grpc.CallOption) (*auth.CreateRoleBindingResponse, error) {
+	return nil, unsupportedError("CreateRoleBinding")
 }
-func (c *authBuilderClient) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetClusterRoleBindingsResponse, error) {
-	return nil, unsupportedError("GetClusterRoleBindings")
+func (c *authBuilderClient) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingsResponse, error) {
+	return nil, unsupportedError("GetRoleBindings")
 }
-func (c *authBuilderClient) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest, opts ...grpc.CallOption) (*auth.ModifyAdminsResponse, error) {
-	return nil, unsupportedError("ModifyAdmins")
+func (c *authBuilderClient) GetRoles(ctx context.Context, req *auth.GetRolesRequest, opts ...grpc.CallOption) (*auth.GetRolesResponse, error) {
+	return nil, unsupportedError("GetRoles")
 }
-func (c *authBuilderClient) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyClusterRoleBindingResponse, error) {
-	return nil, unsupportedError("ModifyClusterRoleBinding")
+func (c *authBuilderClient) ModifyRoles(ctx context.Context, req *auth.ModifyRolesRequest, opts ...grpc.CallOption) (*auth.ModifyRolesResponse, error) {
+	return nil, unsupportedError("ModifyRoles")
 }
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
@@ -580,18 +580,6 @@ func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRe
 }
 func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest, opts ...grpc.CallOption) (*auth.WhoAmIResponse, error) {
 	return nil, unsupportedError("WhoAmI")
-}
-func (c *authBuilderClient) GetScope(ctx context.Context, req *auth.GetScopeRequest, opts ...grpc.CallOption) (*auth.GetScopeResponse, error) {
-	return nil, unsupportedError("GetScope")
-}
-func (c *authBuilderClient) SetScope(ctx context.Context, req *auth.SetScopeRequest, opts ...grpc.CallOption) (*auth.SetScopeResponse, error) {
-	return nil, unsupportedError("SetScope")
-}
-func (c *authBuilderClient) GetACL(ctx context.Context, req *auth.GetACLRequest, opts ...grpc.CallOption) (*auth.GetACLResponse, error) {
-	return nil, unsupportedError("GetACL")
-}
-func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest, opts ...grpc.CallOption) (*auth.SetACLResponse, error) {
-	return nil, unsupportedError("SetACL")
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")

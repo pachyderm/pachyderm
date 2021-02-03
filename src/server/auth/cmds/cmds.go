@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -226,187 +225,10 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.IsAdmin {
-				fmt.Println("You are an administrator of this Pachyderm cluster")
-			}
 			return nil
 		}),
 	}
 	return cmdutil.CreateAlias(whoami, "auth whoami")
-}
-
-// CheckCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
-// determine whether the specified user has access to the specified repo.
-func CheckCmd() *cobra.Command {
-	check := &cobra.Command{
-		Use:   "{{alias}} (none|reader|writer|owner) <repo>",
-		Short: "Check whether you have reader/writer/etc-level access to 'repo'",
-		Long: "Check whether you have reader/writer/etc-level access to 'repo'. " +
-			"For example, 'pachctl auth check reader private-data' prints \"true\" " +
-			"if the you have at least \"reader\" access to the repo " +
-			"\"private-data\" (you could be a reader, writer, or owner). Unlike " +
-			"`pachctl auth get`, you do not need to have access to 'repo' to " +
-			"discover your own access level.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			scope, err := auth.ParseScope(args[0])
-			if err != nil {
-				return err
-			}
-			repo := args[1]
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
-				Repo:  repo,
-				Scope: scope,
-			})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			fmt.Printf("%t\n", resp.Authorized)
-			return nil
-		}),
-	}
-	return cmdutil.CreateAlias(check, "auth check")
-}
-
-// GetCmd returns a cobra command that gets either the ACL for a Pachyderm
-// repo or another user's scope of access to that repo
-func GetCmd() *cobra.Command {
-	get := &cobra.Command{
-		Use:   "{{alias}} [<username>] <repo>",
-		Short: "Get the ACL for 'repo' or the access that 'username' has to 'repo'",
-		Long: "Get the ACL for 'repo' or the access that 'username' has to " +
-			"'repo'. For example, 'pachctl auth get github-alice private-data' " +
-			"prints \"reader\", \"writer\", \"owner\", or \"none\", depending on " +
-			"the privileges that \"github-alice\" has in \"repo\". Currently all " +
-			"Pachyderm authentication uses GitHub OAuth, so 'username' must be a " +
-			"GitHub username",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			if len(args) == 1 {
-				// Get ACL for a repo
-				repo := args[0]
-				resp, err := c.GetACL(c.Ctx(), &auth.GetACLRequest{
-					Repo: repo,
-				})
-				if err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-				t := template.Must(template.New("ACLEntries").Parse(
-					"{{range .}}{{.Username }}: {{.Scope}}\n{{end}}"))
-				return t.Execute(os.Stdout, resp.Entries)
-			}
-			// Get User's scope on an acl
-			username, repo := args[0], args[1]
-			resp, err := c.GetScope(c.Ctx(), &auth.GetScopeRequest{
-				Repos:    []string{repo},
-				Username: username,
-			})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			fmt.Println(resp.Scopes[0].String())
-			return nil
-		}),
-	}
-	return cmdutil.CreateAlias(get, "auth get")
-}
-
-// SetScopeCmd returns a cobra command that lets a user set the level of access
-// that another user has to a repo
-func SetScopeCmd() *cobra.Command {
-	setScope := &cobra.Command{
-		Use:   "{{alias}} <username> (none|reader|writer|owner) <repo>",
-		Short: "Set the scope of access that 'username' has to 'repo'",
-		Long: "Set the scope of access that 'username' has to 'repo'. For " +
-			"example, 'pachctl auth set github-alice none private-data' prevents " +
-			"\"github-alice\" from interacting with the \"private-data\" repo in any " +
-			"way (the default). Similarly, 'pachctl auth set github-alice reader " +
-			"private-data' would let \"github-alice\" read from \"private-data\" but " +
-			"not create commits (writer) or modify the repo's access permissions " +
-			"(owner). Currently all Pachyderm authentication uses GitHub OAuth, so " +
-			"'username' must be a GitHub username",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			scope, err := auth.ParseScope(args[1])
-			if err != nil {
-				return err
-			}
-			username, repo := args[0], args[2]
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
-				Repo:     repo,
-				Scope:    scope,
-				Username: username,
-			})
-			return grpcutil.ScrubGRPC(err)
-		}),
-	}
-	return cmdutil.CreateAlias(setScope, "auth set")
-}
-
-// ListAdminsCmd returns a cobra command that lists the current cluster admins
-func ListAdminsCmd() *cobra.Command {
-	listAdmins := &cobra.Command{
-		Short: "List the current cluster admins",
-		Long:  "List the current cluster admins",
-		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			for _, user := range resp.Admins {
-				fmt.Println(user)
-			}
-			return nil
-		}),
-	}
-	return cmdutil.CreateAlias(listAdmins, "auth list-admins")
-}
-
-// ModifyAdminsCmd returns a cobra command that modifies the set of current
-// cluster admins
-func ModifyAdminsCmd() *cobra.Command {
-	var add []string
-	var remove []string
-	modifyAdmins := &cobra.Command{
-		Short: "Modify the current cluster admins",
-		Long: "Modify the current cluster admins. --add accepts a comma-" +
-			"separated list of users to grant admin status, and --remove accepts a " +
-			"comma-separated list of users to revoke admin status",
-		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
-				Add:    add,
-				Remove: remove,
-			})
-			return grpcutil.ScrubGRPC(err)
-		}),
-	}
-	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
-		"Comma-separated list of users to grant admin status")
-	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
-		"Comma-separated list of users revoke admin status")
-	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }
 
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
@@ -499,11 +321,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, LoginCmd())
 	commands = append(commands, LogoutCmd())
 	commands = append(commands, WhoamiCmd())
-	commands = append(commands, CheckCmd())
-	commands = append(commands, SetScopeCmd())
-	commands = append(commands, GetCmd())
-	commands = append(commands, ListAdminsCmd())
-	commands = append(commands, ModifyAdminsCmd())
 	commands = append(commands, GetAuthTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())

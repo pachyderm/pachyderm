@@ -45,24 +45,19 @@ func (mats *MockAuthTransactionServer) AuthorizeInTransaction(*TransactionContex
 	return nil, unimplementedError("AuthTransactionServer.AuthorizeInTransaction")
 }
 
-// GetScopeInTransaction always errors
-func (mats *MockAuthTransactionServer) GetScopeInTransaction(*TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetScopeInTransaction")
+// GetRolesInTransaction always errors
+func (mats *MockAuthTransactionServer) GetRolesInTransaction(*TransactionContext, *auth.GetRolesRequest) (*auth.GetRolesResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.GetRolesInTransaction")
 }
 
-// SetScopeInTransaction always errors
-func (mats *MockAuthTransactionServer) SetScopeInTransaction(*TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.SetScopeInTransaction")
+// ModifyRolesInTransaction always errors
+func (mats *MockAuthTransactionServer) ModifyRolesInTransaction(*TransactionContext, *auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.ModifyRolesInTransaction")
 }
 
-// GetACLInTransaction always errors
-func (mats *MockAuthTransactionServer) GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetACLInTransaction")
-}
-
-// SetACLInTransaction always errors
-func (mats *MockAuthTransactionServer) SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.SetACLInTransaction")
+// GetRoleBindingsInTransaction always errors
+func (mats *MockAuthTransactionServer) GetRoleBindingsInTransaction(*TransactionContext, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.GetRoleBindingsInTransaction")
 }
 
 // MockPfsTransactionServer is a simple mock that can be used to satisfy the
