@@ -12,7 +12,6 @@ require (
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
-	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
@@ -55,6 +54,8 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
+	github.com/mattn/go-isatty v0.0.12
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
 	github.com/minio/minio-go/v6 v6.0.55
 	github.com/onsi/gomega v1.8.1 // indirect
@@ -79,6 +80,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
+	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
