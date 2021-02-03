@@ -54,6 +54,8 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.3.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
+	github.com/mattn/go-isatty v0.0.12
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
 	github.com/minio/minio-go/v6 v6.0.55
 	github.com/onsi/gomega v1.8.1 // indirect
