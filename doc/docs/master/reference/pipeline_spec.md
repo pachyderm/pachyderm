@@ -842,7 +842,10 @@ you want to join with other data.
 * `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
 * `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
 
-#### Git Input (alpha feature)
+#### Git Input
+
+!!! warning
+  Git Inputs are an [unstable feature](../contributing/supported-releases.md).
 
 Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
 
@@ -928,7 +931,10 @@ exists, the storage space used by the stats cannot be released.
     snapshots of the `/pfs` directory that are the largest stored assets
     do not require extra space.
 
-### Service (alpha feature, optional)
+### Service (optional)
+
+!!! warning
+  Service Pipelines are an [unstable feature](../contributing/supported-releases.md).
 
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is

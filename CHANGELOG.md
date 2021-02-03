@@ -311,7 +311,7 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 ## 1.8.6
 
 - The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs-archive.pachyderm.com/en/v1.8.6/reference/pipeline_spec.html#cron-input) for more info. (#3509)
-- 1.8.6 contains alpha support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
+- 1.8.6 contains unstable support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
 - New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
 - The performance of `list-job` has been greatly improved. (#3557)
 - `pachctl undeploy` now asks for confirmation in all cases. (#3535)
@@ -665,7 +665,7 @@ New Features:
 
 ### New features
 
-* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
+* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently unstable; expect bugs and significant changes.   
 * You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
 * You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 
