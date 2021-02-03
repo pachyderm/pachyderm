@@ -79,7 +79,7 @@ A release under development may undergo several pre-release stages before becomi
 
 ### End of Life (EOL) Features
 
-`End of Life` or `EOL` inidicates that a feature is no longer supported.
+`End of Life` or `EOL` indicates that a feature is no longer supported.
 
 - Documentation will be archived.
 - Support is no longer available for End of Life (EOL) features. Support can assist upgrading to a newer version.
