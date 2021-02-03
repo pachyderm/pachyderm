@@ -125,15 +125,15 @@ In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end 
 leveraging our data lineage capabilities, 
 with Seldon-Core's deployment platform of ML models.
 
-* In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
-expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/), and serve this model in production using Seldon-core. 
+1. In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
+expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/), and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb
 
-    > *Highlights*: 
-    You can trace the model artifact's lineage right back to the version of the data that it was trained on.  
+    !!! Highlights
+        You can trace the model artifact's lineage right back to the version of the data that it was trained on.  
 
-    https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb
-
-* CD for an ML process: In this example, we automate the provisioning of a Seldon deployment using Pachyderm pipelines when new training data enters a Pachyderm repository. 
+1. CD for an ML process: In this example, we automate the provisioning of a Seldon deployment using Pachyderm pipelines when new training data enters a Pachyderm repository. 
 https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-cd4ml/index.ipynb
 
-    > *Highlights*: **Provenance** - The traceability of the model artifact's lineage all the way to the data provides the ability to do post-analysis on models performing poorly.  **Automation** -  A new deployment in production is triggered when new model artifacts are exposed to Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/).
+    !!! Highlights 
+        - **Provenance** - The traceability of the model artifact's lineage all the way to the data provides the ability to do post-analysis on models performing poorly.  
+        - **Automation** -  A new deployment in production is triggered when new model artifacts are exposed to Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/).
