@@ -8,47 +8,13 @@ Pachyderm supports the latest Generally Available (GA) release and the previous 
 
 ## Release Status by Version
 
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Version</th>
-<th>Release Status</th>
-<th>Support</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>2.0.0</td>
-<td>beta</td>
-<td>No</td>
-</tr>
-<tr class="even">
-<td>1.12.1</td>
-<td>GA</td>
-<td>Yes</td>
-</tr>
-<tr class="odd">
-<td>1.11.9</td>
-<td>GA</td>
-<td>Yes</td>
-</tr>
-<tr class="even">
-<td>1.10.5</td>
-<td>GA</td>
-<td>Yes</td>
-</tr>
-<tr class="odd">
-<td> < 1.9.11</td>
-<td>EOL</td>
-<td>No</td>
-</tr>
-</tbody>
-</table>
+| Version  | Release Status | Support |
+| -------- | -------------- | ------- |
+| 2.0.0    | beta           | No      |
+| 1.12.1   | GA             | Yes     |
+| 1.11.9   | GA             | Yes     |
+| 1.10.5   | GA             | Yes     |
+| < 1.9.11 | EOL            | No      |
 
 ## Releases Under Development
 
@@ -121,90 +87,21 @@ A release under development may undergo several pre-release stages before becomi
 
 ## Unstable Features
 
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Feature</th>
-<th>Version</th>
-<th>Date</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Build Pipelines</td>
-<td>1.11.0</td>
-<td>2019-01-05</td>
-</tr>
-<tr class="even">
-<td>Service Pipelines</td>
-<td>1.9.9</td>
-<td>2019-11-06</td>
-</tr>
-<tr class="odd">
-<td>Git Inputs</td>
-<td>1.4.0</td>
-<td>2017-03-27</td>
-</tr>
-</tbody>
-</table>
+| Feature           | Version | Date       |
+| ----------------- | --------| ---------- |
+| Build Pipelines   | 1.11.0  | 2019-01-05 |
+| Service Pipelines | 1.9.9   | 2019-11-06 |
+| Git Inputs        | 1.4.0   | 2017-03-27 |
 
 ## Deprecated Features
 
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Feature</th>
-<th>Deprecated Version</th>
-<th>EOL Date</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Spouts using named pipes</td>
-<td>1.12.0</td>
-<td>2021-07-05</td>
-</tr>
-</tbody>
-</table>
+| Feature             | Version | EOL Date   |
+| ------------------- | --------| ---------- |
+| Spouts: Named Pipes | 1.12.0  | 2021-07-05 |
 
 ## End of Life (EOL) Features
 
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Feature</th>
-<th>EOL Version</th>
-<th>EOL Date</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>S3V2 signatures</td>
-<td>1.12.0</td>
-<td>2021-01-05</td>
-</tr>
-<tr class="even">
-<td>atom inputs</td>
-<td>1.9.0</td>
-<td>2019-06-12</td>
-</tr>
-</tbody>
-</table>
+| Feature           | Version | EOL Date   |
+| ----------------- | --------| ---------- |
+| S3v2 signatures   | 1.12.0  | 2021-01-05 |
+| atom inputs       | 1.9.0   | 2019-06-12 |
