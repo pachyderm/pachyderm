@@ -44,17 +44,18 @@ Cypress.Commands.add('login', () => {
 Cypress.Commands.add('openDash', (workspaceName) => {
   cy.findByLabelText(`Workspace ${workspaceName} actions`).click();
   cy.findAllByText('Dash').filter(':visible').click();
-
-  return cy.window().its('open').should('be.called');
+  cy.window().its('open').should('be.called').then(() => {
+    cy.writeFile('/tmp/dashUrl.txt', dashUrl);
+  });
 });
 
 Cypress.Commands.add('visitDash', () => {
-  cy.visit(dashUrl);
-
-  cy.get('input').should('have.attr', 'placeholder', 'Search Pachyderm');
-
-  // return to hub so we can logout
-  return cy.visit('/');
+  cy.readFile('/tmp/dashUrl.txt').then((url) => {
+    // This guarantees that cypress will retry visiting the url 4 times
+    cy.visit(url, { retryOnStatusCodeFailure: true });
+  
+    cy.get('input').should('have.attr', 'placeholder', 'Search Pachyderm');
+  });
 });
 
 Cypress.Commands.add('createWorkspace', (workspaceName) => {
