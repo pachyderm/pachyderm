@@ -1437,15 +1437,6 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	if request.S3Out {
 		return nil, errors.Errorf("S3Out not implemented")
 	}
-	var err error
-	pps.VisitInput(request.Input, func(input *pps.Input) {
-		if input.Join != nil {
-			err = errors.Errorf("Join input not implemented")
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
 	if request.CacheSize != "" {
 		return nil, errors.Errorf("CacheSize not implemented")
 	}

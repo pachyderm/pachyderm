@@ -5011,8 +5011,6 @@ func TestPipelineLargeOutput(t *testing.T) {
 }
 
 func TestJoinInput(t *testing.T) {
-	// TODO: Implement join inputs.
-	t.Skip("Join inputs not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5059,7 +5057,7 @@ func TestJoinInput(t *testing.T) {
 
 	commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	outCommit := commitInfos[0].Commit
 	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
 	require.NoError(t, err)
@@ -5071,319 +5069,312 @@ func TestJoinInput(t *testing.T) {
 	}
 }
 
-// TODO: Make work with V2.
-//func TestGroupInput(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//
-//	c := tu.GetPachClient(t)
-//	require.NoError(t, c.DeleteAll())
-//
-//	t.Run("Basic", func(t *testing.T) {
-//		repo := tu.UniqueString("TestGroupInput")
-//		require.NoError(t, c.CreateRepo(repo))
-//		numFiles := 16
-//		for i := 0; i < numFiles; i++ {
-//			require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file.%4b", i), strings.NewReader(fmt.Sprintf("%d\n", i))))
-//			require.NoError(t, err)
-//		}
-//
-//		pipeline := "group-pipeline"
-//		require.NoError(t, c.CreatePipeline(
-//			pipeline,
-//			"",
-//			[]string{"bash"},
-//			[]string{},
-//			&pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			client.NewGroupInput(
-//				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
-//			),
-//			"",
-//			false,
-//		))
-//
-//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobs))
-//
-//		// We're grouping by the third digit in the filename
-//		// for 0 and 1, this is just a space
-//		// then we should see the 8 files with a one there, and the 6 files with a zero there
-//		expected := [][]string{
-//			{"/file.   0",
-//				"/file.   1"},
-//
-//			{"/file.  10",
-//				"/file.  11",
-//				"/file. 110",
-//				"/file. 111",
-//				"/file.1010",
-//				"/file.1011",
-//				"/file.1110",
-//				"/file.1111"},
-//
-//			{"/file. 100",
-//				"/file. 101",
-//				"/file.1000",
-//				"/file.1001",
-//				"/file.1100",
-//				"/file.1101"}}
-//		actual := make([][]string, 0, 3)
-//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-//		require.NoError(t, err)
-//		// these don't come in a consistent order because group inputs use maps
-//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
-//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
-//		})
-//		for _, di := range resp.DatumInfos {
-//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
-//			datumFiles := make([]string, 0)
-//			for _, fi := range di.Data {
-//				datumFiles = append(datumFiles, fi.File.Path)
-//			}
-//			actual = append(actual, datumFiles)
-//		}
-//		require.Equal(t, expected, actual)
-//	})
-//
-//	t.Run("MultiInput", func(t *testing.T) {
-//		var repos []string
-//		for i := 0; i < 2; i++ {
-//			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
-//			require.NoError(t, c.CreateRepo(repos[i]))
-//		}
-//
-//		numFiles := 16
-//		for r, repo := range repos {
-//			for i := 0; i < numFiles; i++ {
-//				require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i))))
-//				require.NoError(t, err)
-//			}
-//		}
-//
-//		pipeline := "group-pipeline-multi-input"
-//		require.NoError(t, c.CreatePipeline(
-//			pipeline,
-//			"",
-//			[]string{"bash"},
-//			[]string{},
-//			&pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			client.NewGroupInput(
-//				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
-//				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
-//			),
-//			"",
-//			false,
-//		))
-//
-//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobs))
-//
-//		// this time, we are grouping by the third digit in the 0 repo, and the second digit in the 1 repo
-//		// so the first group should have all the things from the 0 repo with a space in the third digit
-//		// and all the things from the 1 repo with a space in the second digit
-//		//
-//		// similarly for the second and third groups
-//		expected := [][]string{
-//			{"/file-0.   0",
-//				"/file-0.   1",
-//				"/file-1.   0",
-//				"/file-1.   1",
-//				"/file-1.  10",
-//				"/file-1.  11"},
-//
-//			{"/file-0.  10",
-//				"/file-0.  11",
-//				"/file-0. 110",
-//				"/file-0. 111",
-//				"/file-0.1010",
-//				"/file-0.1011",
-//				"/file-0.1110",
-//				"/file-0.1111",
-//				"/file-1. 100",
-//				"/file-1. 101",
-//				"/file-1. 110",
-//				"/file-1. 111",
-//				"/file-1.1100",
-//				"/file-1.1101",
-//				"/file-1.1110",
-//				"/file-1.1111"},
-//
-//			{"/file-0. 100",
-//				"/file-0. 101",
-//				"/file-0.1000",
-//				"/file-0.1001",
-//				"/file-0.1100",
-//				"/file-0.1101",
-//				"/file-1.1000",
-//				"/file-1.1001",
-//				"/file-1.1010",
-//				"/file-1.1011"}}
-//		actual := make([][]string, 0, 3)
-//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-//		require.NoError(t, err)
-//		// these don't come in a consistent order because group inputs use maps
-//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
-//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
-//		})
-//		for _, di := range resp.DatumInfos {
-//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
-//			datumFiles := make([]string, 0)
-//			for _, fi := range di.Data {
-//				datumFiles = append(datumFiles, fi.File.Path)
-//			}
-//			actual = append(actual, datumFiles)
-//		}
-//		require.Equal(t, expected, actual)
-//	})
-//
-//	t.Run("GroupJoinCombo", func(t *testing.T) {
-//		var repos []string
-//		for i := 0; i < 2; i++ {
-//			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
-//			require.NoError(t, c.CreateRepo(repos[i]))
-//		}
-//
-//		numFiles := 16
-//		for r, repo := range repos {
-//			for i := 0; i < numFiles; i++ {
-//				require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i))))
-//				require.NoError(t, err)
-//			}
-//		}
-//
-//		pipeline := "group-join-pipeline"
-//		require.NoError(t, c.CreatePipeline(
-//			pipeline,
-//			"",
-//			[]string{"bash"},
-//			[]string{},
-//			&pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			client.NewGroupInput(
-//				client.NewJoinInput(
-//					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
-//					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
-//				),
-//			),
-//			"",
-//			false,
-//		))
-//
-//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobs))
-//
-//		// here, we're first doing a join to get pairs of files (one from each repo) that have the reverse numbers
-//		// we should see four pairs
-//		// then, we're grouping the files in these pairs by the third digit/second digit as before
-//		// this should regroup things into two groups of four
-//		expected := [][]string{
-//			{"/file-0.1011",
-//				"/file-0.1111",
-//				"/file-1.1101",
-//				"/file-1.1111"},
-//
-//			{"/file-0.1001",
-//				"/file-0.1101",
-//				"/file-1.1001",
-//				"/file-1.1011"}}
-//		actual := make([][]string, 0, 2)
-//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-//		require.NoError(t, err)
-//		// these don't come in a consistent order because group inputs use maps
-//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
-//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
-//		})
-//		for _, di := range resp.DatumInfos {
-//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
-//			datumFiles := make([]string, 0)
-//			for _, fi := range di.Data {
-//				datumFiles = append(datumFiles, fi.File.Path)
-//			}
-//			actual = append(actual, datumFiles)
-//		}
-//		require.Equal(t, expected, actual)
-//	})
-//	t.Run("Symlink", func(t *testing.T) {
-//		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/v2/tree/example-groupby/examples/group
-//		repo := tu.UniqueString("TestGroupInputSymlink")
-//		require.NoError(t, c.CreateRepo(repo))
-//
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//		require.NoError(t, c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader("")))
-//		require.NoError(t, err)
-//
-//		pipeline := "group-pipeline-symlink"
-//		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-//			&pps.CreatePipelineRequest{
-//				Pipeline: client.NewPipeline(pipeline),
-//				Transform: &pps.Transform{
-//					Cmd: []string{"bash"},
-//					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
-//						fmt.Sprintf("FILES=/pfs/%v/*", repo),
-//						"for f in $FILES",
-//						"do",
-//						"[[ $(basename $f) =~ $PATTERN ]]",
-//						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
-//						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
-//						"done"},
-//				},
-//				Input: client.NewGroupInput(
-//					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
-//				),
-//				EnableStats: true,
-//				ParallelismSpec: &pps.ParallelismSpec{
-//					Constant: 1,
-//				},
-//			})
-//		require.NoError(t, err)
-//
-//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
-//		require.NoError(t, err)
-//		require.Equal(t, 1, len(jobs))
-//
-//		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
-//
-//		expected := [][]string{
-//			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
-//			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
-//			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
-//			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
-//		actual := make([][]string, 0, 3)
-//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-//		require.NoError(t, err)
-//		// these don't come in a consistent order because group inputs use maps
-//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
-//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
-//		})
-//		for _, di := range resp.DatumInfos {
-//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
-//			datumFiles := make([]string, 0)
-//			for _, fi := range di.Data {
-//				datumFiles = append(datumFiles, fi.File.Path)
-//			}
-//			actual = append(actual, datumFiles)
-//		}
-//		require.Equal(t, expected, actual)
-//	})
-//}
+func TestGroupInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	t.Run("Basic", func(t *testing.T) {
+		repo := tu.UniqueString("TestGroupInput")
+		require.NoError(t, c.CreateRepo(repo))
+		numFiles := 16
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file.%4b", i), strings.NewReader(fmt.Sprintf("%d\n", i))))
+		}
+
+		pipeline := "group-pipeline"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
+			),
+			"",
+			false,
+		))
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		// We're grouping by the third digit in the filename
+		// for 0 and 1, this is just a space
+		// then we should see the 8 files with a one there, and the 6 files with a zero there
+		expected := [][]string{
+			{"/file.   0",
+				"/file.   1"},
+
+			{"/file.  10",
+				"/file.  11",
+				"/file. 110",
+				"/file. 111",
+				"/file.1010",
+				"/file.1011",
+				"/file.1110",
+				"/file.1111"},
+
+			{"/file. 100",
+				"/file. 101",
+				"/file.1000",
+				"/file.1001",
+				"/file.1100",
+				"/file.1101"}}
+		actual := make([][]string, 0, 3)
+		dis, err := c.ListDatumAll(jobs[0].Job.ID)
+		require.NoError(t, err)
+		sort.Slice(dis, func(i, j int) bool {
+			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
+		})
+		for _, di := range dis {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
+
+	t.Run("MultiInput", func(t *testing.T) {
+		var repos []string
+		for i := 0; i < 2; i++ {
+			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+			require.NoError(t, c.CreateRepo(repos[i]))
+		}
+
+		numFiles := 16
+		for r, repo := range repos {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i))))
+			}
+		}
+
+		pipeline := "group-pipeline-multi-input"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
+			),
+			"",
+			false,
+		))
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		// this time, we are grouping by the third digit in the 0 repo, and the second digit in the 1 repo
+		// so the first group should have all the things from the 0 repo with a space in the third digit
+		// and all the things from the 1 repo with a space in the second digit
+		//
+		// similarly for the second and third groups
+		expected := [][]string{
+			{"/file-0.   0",
+				"/file-0.   1",
+				"/file-1.   0",
+				"/file-1.   1",
+				"/file-1.  10",
+				"/file-1.  11"},
+
+			{"/file-0.  10",
+				"/file-0.  11",
+				"/file-0. 110",
+				"/file-0. 111",
+				"/file-0.1010",
+				"/file-0.1011",
+				"/file-0.1110",
+				"/file-0.1111",
+				"/file-1. 100",
+				"/file-1. 101",
+				"/file-1. 110",
+				"/file-1. 111",
+				"/file-1.1100",
+				"/file-1.1101",
+				"/file-1.1110",
+				"/file-1.1111"},
+
+			{"/file-0. 100",
+				"/file-0. 101",
+				"/file-0.1000",
+				"/file-0.1001",
+				"/file-0.1100",
+				"/file-0.1101",
+				"/file-1.1000",
+				"/file-1.1001",
+				"/file-1.1010",
+				"/file-1.1011"}}
+		actual := make([][]string, 0, 3)
+		dis, err := c.ListDatumAll(jobs[0].Job.ID)
+		require.NoError(t, err)
+		sort.Slice(dis, func(i, j int) bool {
+			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
+		})
+		for _, di := range dis {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
+
+	t.Run("GroupJoinCombo", func(t *testing.T) {
+		var repos []string
+		for i := 0; i < 2; i++ {
+			repos = append(repos, tu.UniqueString(fmt.Sprintf("TestGroupInput%v", i)))
+			require.NoError(t, c.CreateRepo(repos[i]))
+		}
+
+		numFiles := 16
+		for r, repo := range repos {
+			for i := 0; i < numFiles; i++ {
+				require.NoError(t, c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i))))
+			}
+		}
+
+		pipeline := "group-join-pipeline"
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewGroupInput(
+				client.NewJoinInput(
+					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
+					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
+				),
+			),
+			"",
+			false,
+		))
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repos[0], "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		// here, we're first doing a join to get pairs of files (one from each repo) that have the reverse numbers
+		// we should see four pairs
+		// then, we're grouping the files in these pairs by the third digit/second digit as before
+		// this should regroup things into two groups of four
+		expected := [][]string{
+			{"/file-0.1001",
+				"/file-0.1101",
+				"/file-1.1001",
+				"/file-1.1011"},
+			{"/file-0.1011",
+				"/file-0.1111",
+				"/file-1.1101",
+				"/file-1.1111"}}
+		actual := make([][]string, 0, 2)
+		dis, err := c.ListDatumAll(jobs[0].Job.ID)
+		require.NoError(t, err)
+		sort.Slice(dis, func(i, j int) bool {
+			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
+		})
+		for _, di := range dis {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
+	// TODO: Make work with V2?
+	//	t.Run("Symlink", func(t *testing.T) {
+	//		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/v2/tree/example-groupby/examples/group
+	//		repo := tu.UniqueString("TestGroupInputSymlink")
+	//		require.NoError(t, c.CreateRepo(repo))
+	//
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader("")))
+	//		require.NoError(t, err)
+	//
+	//		pipeline := "group-pipeline-symlink"
+	//		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+	//			&pps.CreatePipelineRequest{
+	//				Pipeline: client.NewPipeline(pipeline),
+	//				Transform: &pps.Transform{
+	//					Cmd: []string{"bash"},
+	//					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
+	//						fmt.Sprintf("FILES=/pfs/%v/*", repo),
+	//						"for f in $FILES",
+	//						"do",
+	//						"[[ $(basename $f) =~ $PATTERN ]]",
+	//						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
+	//						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
+	//						"done"},
+	//				},
+	//				Input: client.NewGroupInput(
+	//					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+	//				),
+	//				EnableStats: true,
+	//				ParallelismSpec: &pps.ParallelismSpec{
+	//					Constant: 1,
+	//				},
+	//			})
+	//		require.NoError(t, err)
+	//
+	//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	//		require.NoError(t, err)
+	//		require.Equal(t, 1, len(jobs))
+	//
+	//		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
+	//
+	//		expected := [][]string{
+	//			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
+	//			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
+	//			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
+	//			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
+	//		actual := make([][]string, 0, 3)
+	//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	//		require.NoError(t, err)
+	//		// these don't come in a consistent order because group inputs use maps
+	//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
+	//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
+	//		})
+	//		for _, di := range resp.DatumInfos {
+	//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+	//			datumFiles := make([]string, 0)
+	//			for _, fi := range di.Data {
+	//				datumFiles = append(datumFiles, fi.File.Path)
+	//			}
+	//			actual = append(actual, datumFiles)
+	//		}
+	//		require.Equal(t, expected, actual)
+	//	})
+}
 
 // TODO: Make work with V2?
 // Need to decide how we want to handle duplicate datum ids.
