@@ -58,6 +58,9 @@ install-doc:
 doc-custom: install-doc install-clean
 	./etc/build/doc.sh
 
+doc-reference-refresh: install-doc install-clean
+	./etc/build/reference_refresh.sh
+
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
