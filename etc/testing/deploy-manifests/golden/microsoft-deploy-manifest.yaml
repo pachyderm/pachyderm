@@ -277,6 +277,11 @@ spec:
     nodePort: 30600
     port: 600
     targetPort: 0
+  - name: prometheus-metrics
+    nodePort: 30656
+    port: 656
+    protocol: TCP
+    targetPort: 656
   selector:
     app: pachd
   type: NodePort

@@ -402,6 +402,13 @@
         "port": 600,
         "targetPort": 0,
         "nodePort": 30600
+      },
+      {
+        "name": "prometheus-metrics",
+        "protocol": "TCP",
+        "port": 656,
+        "targetPort": 656,
+        "nodePort": 30656
       }
     ],
     "selector": {

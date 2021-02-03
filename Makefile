@@ -96,8 +96,9 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
-docker-build-pipeline-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
+docker-build-pipeline-build: install
+	VERSION=$$(pachctl version --client-only) DOCKER_BUILDKIT=1 \
+	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -141,9 +142,11 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
-docker-push-pipeline-build:
-	$(SKIP) docker push pachyderm/go-build:$(VERSION)
-	$(SKIP) docker push pachyderm/python-build:$(VERSION)
+docker-push-pipeline-build: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$(pachctl version --client-only)
+
+docker-push-pipeline-build-to-minikube: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$(pachctl version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
