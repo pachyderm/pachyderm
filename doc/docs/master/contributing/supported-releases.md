@@ -146,6 +146,11 @@ A release under development may undergo several pre-release stages before becomi
 <td>1.9.9</td>
 <td>2019-11-06</td>
 </tr>
+<tr class="odd">
+<td>Git Inputs</td>
+<td>1.4.0</td>
+<td>2017-03-27</td>
+</tr>
 </tbody>
 </table>
 
