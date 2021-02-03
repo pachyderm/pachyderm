@@ -860,6 +860,13 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Name:     "s3gateway-port",
 					NodePort: 30600,
 				},
+				{
+					Port:       656,
+					Name:       "prometheus-metrics",
+					NodePort:   30656,
+					Protocol:   v1.ProtocolTCP,
+					TargetPort: intstr.FromInt(656),
+				},
 			},
 		},
 	}
