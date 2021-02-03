@@ -74,7 +74,6 @@ A release under development may undergo several pre-release stages before becomi
 
 `deprecated` indicates that a feature is no longer developed. Users of deprecated features are encouraged to upgrade or migrate to newer versions or compatible features. `deprecated` features become `End of Life` (EOL) features after 6 months.
 
-- Releases are only provided for critical defects or security vulnerabilities.
 - Users continuing to use deprecated features should contact support to migrate to features.
 - Support is available from Pachyderm. 
 
