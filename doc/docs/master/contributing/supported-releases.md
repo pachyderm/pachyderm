@@ -62,9 +62,9 @@ A release under development may undergo several pre-release stages before becomi
 - The Pachyderm team believes there is a sufficient amount of testing, including automated tests, community testing, and user production environments.
 - Support is available from Pachyderm.
 
-### Unstable
+### Experimental
 
-`unstable` indicates that a feature has not met the Pachyderm team's critera for production use. Therefore, these features should be used with caution in production environments. `unstable` features are likely to change, have outstanding defects, and/or missing documentation. Users considering using `unstable` features should contact Pachyderm for guidance.
+`experimental` indicates that a feature has not met the Pachyderm team's criteria for production use. Therefore, these features should be used with caution in production environments. `experimental` features are likely to change, have outstanding defects, and/or missing documentation. Users considering using `experimental` features should contact Pachyderm for guidance.
 
 - Production use is not recommended without guidance from Pachyderm.
 - These features may have missing documentation, lack of examples, and lack of content.
@@ -84,7 +84,7 @@ A release under development may undergo several pre-release stages before becomi
 - Documentation will be archived.
 - Support is no longer available for End of Life (EOL) features. Support can assist upgrading to a newer version.
 
-## Unstable Features
+## Experimental Features
 
 | Feature           | Version | Date       |
 | ----------------- | --------| ---------- |
