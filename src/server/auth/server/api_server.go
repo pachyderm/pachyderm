@@ -70,11 +70,6 @@ const (
 // DefaultOIDCConfig is the default config for the auth API server
 var DefaultOIDCConfig = auth.OIDCConfig{}
 
-// epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
-// library can't distinguish between empty values and missing values, even
-// though empty values are still stored in etcd)
-var epsilon = &types.BoolValue{Value: true}
-
 // APIServer represents an auth api server
 type APIServer interface {
 	auth.APIServer
@@ -499,18 +494,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	}, nil
 }
 
-func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
-	token, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return 0, err
-	}
-	ttl, err := a.tokens.ReadOnly(ctx).TTL(auth.HashToken(token)) // lookup token TTL
-	if err != nil {
-		return 0, errors.Wrapf(err, "error looking up TTL for token")
-	}
-	return ttl, nil
-}
-
 func resourceKey(r *auth.Resource) string {
 	if r.Type == auth.ResourceType_CLUSTER {
 		return clusterRoleBindingKey
@@ -560,7 +543,11 @@ func (a *apiServer) AuthorizeInTransaction(
 	// retrieve the resource bindings. If the resource in question is the whole
 	// cluster we should also exit early
 	if request.satisfied() || req.Resource.Type == auth.ResourceType_CLUSTER {
-		return &auth.AuthorizeResponse{Authorized: request.satisfied()}, nil
+		return &auth.AuthorizeResponse{
+			Authorized: request.satisfied(),
+			Missing:    request.missing(),
+			Satisfied:  request.satisfiedPermissions,
+		}, nil
 	}
 
 	// Get the role bindings for the resource to check
@@ -574,6 +561,8 @@ func (a *apiServer) AuthorizeInTransaction(
 
 	return &auth.AuthorizeResponse{
 		Authorized: request.satisfied(),
+		Missing:    request.missing(),
+		Satisfied:  request.satisfiedPermissions,
 	}, nil
 }
 
@@ -808,39 +797,6 @@ func (a *apiServer) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindin
 		return nil, err
 	}
 	return response, nil
-}
-
-// authorizeNewToken is a helper for GetAuthToken and GetOTP that checks if
-// the caller ('callerInfo') is authorized to get a Pachyderm token or OTP for
-// 'targetUser', or for themselves if 'targetUser' is empty (a convention use by
-// both API endpoints). It returns a canonicalized version of 'targetSubject'
-// (or the caller if 'targetSubject' is empty) xor an error, e.g. if the caller
-// isn't authorized.
-//
-// The code isn't too long or complex, but centralizing it keeps the two API
-// endpoints syncronized
-func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.TokenInfo, isAdmin bool, targetSubject string) (string, error) {
-	if targetSubject == "" {
-		// [Simple case] caller wants an implicit OTP for themselves
-		// Canonicalization: callerInfo.Subject is already canonical.
-		// Authorization: Getting a token/OTP for yourself is always authorized.
-		// NOTE: After this point, req.Subject is permitted to be ppsUser (even
-		// though we reject ppsUser when set explicitly.)
-		targetSubject = callerInfo.Subject
-	} else {
-		// [Harder case] explicit req.Subject
-		if err := a.checkCanonicalSubject(targetSubject); err != nil {
-			return "", err
-		}
-
-		// Authorization: caller must be admin to get OTP for another user
-		if !isAdmin && targetSubject != callerInfo.Subject {
-			return "", &auth.ErrNotAuthorized{
-				Subject: callerInfo.Subject,
-			}
-		}
-	}
-	return targetSubject, nil
 }
 
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
