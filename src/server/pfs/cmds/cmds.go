@@ -15,6 +15,7 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/mattn/go-isatty"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -745,6 +746,7 @@ from commits with 'get file'.`,
 	var parallelism int
 	var overwrite bool
 	var compress bool
+	var enableProgress bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -789,6 +791,9 @@ $ {{alias}} repo@branch -i file
 # files into your Pachyderm cluster.
 $ {{alias}} repo@branch -i http://host/path`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			if !enableProgress {
+				progress.Disable()
+			}
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -802,6 +807,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
+			defer progress.Wait()
 
 			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
@@ -890,6 +896,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -950,6 +957,9 @@ $ {{alias}} foo@master^:XXX
 # in repo "foo"
 $ {{alias}} foo@master^2:XXX`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			if !enableProgress {
+				progress.Disable()
+			}
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -959,12 +969,17 @@ $ {{alias}} foo@master^2:XXX`,
 				return err
 			}
 			defer c.Close()
+			defer progress.Wait()
 			var w io.Writer
 			// If an output path is given, print the output to stdout
 			if outputPath == "" {
 				w = os.Stdout
 			} else {
-				f, err := os.Create(outputPath)
+				fi, err := c.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+				if err != nil {
+					return err
+				}
+				f, err := progress.Create(outputPath, int64(fi.SizeBytes))
 				if err != nil {
 					return err
 				}
@@ -975,6 +990,7 @@ $ {{alias}} foo@master^2:XXX`,
 		}),
 	}
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
+	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Don't print progress bars.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
