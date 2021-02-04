@@ -21,3 +21,49 @@ func (c APIClient) IsAuthActive() (bool, error) {
 		return false, grpcutil.ScrubGRPC(err)
 	}
 }
+
+func (c APIClient) GetClusterRoleBindings() (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Binding, nil
+}
+
+func (c APIClient) ModifyClusterRoleBinding(principal string, toAdd []string, toRemove []string) error {
+	_, err := c.ModifyRoleBinding(context.Background(), &auth.ModifyRoleBindingRequest{
+		Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+		Principal: principal,
+		ToAdd:     toAdd,
+		ToRemove:  toRemove,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c APIClient) GetRepoRoleBindings(repo string) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Binding, nil
+}
+
+func (c APIClient) ModifyRepoRoleBinding(repo, principal string, toAdd []string, toRemove []string) error {
+	_, err := c.ModifyRoleBinding(context.Background(), &auth.ModifyRoleBindingRequest{
+		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Principal: principal,
+		ToAdd:     toAdd,
+		ToRemove:  toRemove,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}

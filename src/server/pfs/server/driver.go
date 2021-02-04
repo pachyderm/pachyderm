@@ -228,41 +228,34 @@ func (d *driver) inspectRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, 
 		return nil, err
 	}
 	if includeAuth {
-		accessLevel, err := d.getAccessLevel(txnCtx.Client, repo)
+		permissions, err := d.getPermissions(txnCtx.Client, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repo.Name)
 		}
-		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+		result.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions}
 	}
 	return result, nil
 }
 
-func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (auth.Scope, error) {
+func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([]auth.Permission, error) {
 	ctx := pachClient.Ctx()
-	who, err := pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+
+	resp, err := pachClient.AuthAPIClient.Authorize(ctx, &auth.AuthorizeRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+		Permissions: []auth.Permission{
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_MODIFY_BINDINGS,
+		},
+	})
 	if err != nil {
-		return auth.Scope_NONE, err
+		return nil, err
 	}
 
-	if who.ClusterRoles != nil {
-		for _, s := range who.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER || s == auth.ClusterRole_FS {
-				return auth.Scope_OWNER, nil
-			}
-		}
-	}
-
-	resp, err := pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{Repos: []string{repo.Name}})
-	if err != nil {
-		return auth.Scope_NONE, err
-	}
-	if len(resp.Scopes) != 1 {
-		return auth.Scope_NONE, errors.Errorf("too many results from GetScope: %#v", resp)
-	}
-	return resp.Scopes[0], nil
+	return resp.Satisfied, nil
 }
 
 func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -276,9 +269,9 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			return nil
 		}
 		if includeAuth && authSeemsActive {
-			accessLevel, err := d.getAccessLevel(pachClient, repoInfo.Repo)
+			permissions, err := d.getPermissions(pachClient, repoInfo.Repo)
 			if err == nil {
-				repoInfo.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions}
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {

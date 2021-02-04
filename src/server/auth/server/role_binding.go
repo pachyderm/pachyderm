@@ -10,14 +10,15 @@ import (
 type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
 
 type authorizeRequest struct {
-	subject          string
-	permissions      map[auth.Permission]interface{}
-	groupsForSubject groupLookupFn
-	groups           []string
+	subject              string
+	permissions          map[auth.Permission]bool
+	satisfiedPermissions []auth.Permission
+	groupsForSubject     groupLookupFn
+	groups               []string
 }
 
 func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsForSubject groupLookupFn) *authorizeRequest {
-	permissionMap := make(map[auth.Permission]interface{})
+	permissionMap := make(map[auth.Permission]bool)
 	for _, p := range permissions {
 		permissionMap[p] = true
 	}
@@ -32,6 +33,14 @@ func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsFo
 // satisfied returns true if no permissions remain
 func (r *authorizeRequest) satisfied() bool {
 	return len(r.permissions) == 0
+}
+
+func (r *authorizeRequest) missing() []auth.Permission {
+	missing := make([]auth.Permission, 0, len(r.permissions))
+	for p := range r.permissions {
+		missing = append(missing, p)
+	}
+	return missing
 }
 
 // evaluateRoleBinding removes permissions that are satisfied by the role binding from the
@@ -75,7 +84,10 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 			}
 
 			for _, permission := range permissions {
-				delete(r.permissions, permission)
+				if _, ok := r.permissions[permission]; ok {
+					r.satisfiedPermissions = append(r.satisfiedPermissions, permission)
+					delete(r.permissions, permission)
+				}
 			}
 		}
 	}
