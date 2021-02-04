@@ -55,9 +55,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 
 	// Strip / from prefix to normalize: "/" means "all objects" and "/foo"
 	// means the same as "foo"
-	if strings.HasPrefix(prefix, "/") {
-		prefix = prefix[1:]
-	}
+	prefix = strings.TrimPrefix(prefix, "/")
 
 	pc, err := c.requestClient(r)
 	if err != nil {
