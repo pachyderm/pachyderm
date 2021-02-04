@@ -144,8 +144,8 @@ func IsErrExpiredToken(err error) bool {
 type ErrNotAuthorized struct {
 	Subject string // subject trying to perform blocked operation -- always set
 
-	Resource Resource   // Resource that the user is attempting to access
-	Required Permission // Caller needs 'Required'-level access to 'Resource'
+	Resource Resource     // Resource that the user is attempting to access
+	Required []Permission // Caller needs 'Required'-level access to 'Resource'
 }
 
 // This error message string is matched in the UI. If edited,
@@ -153,7 +153,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	return fmt.Sprintf("%v is %v - needs %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

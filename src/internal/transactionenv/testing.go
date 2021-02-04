@@ -45,14 +45,9 @@ func (mats *MockAuthTransactionServer) AuthorizeInTransaction(*TransactionContex
 	return nil, unimplementedError("AuthTransactionServer.AuthorizeInTransaction")
 }
 
-// GetRolesInTransaction always errors
-func (mats *MockAuthTransactionServer) GetRolesInTransaction(*TransactionContext, *auth.GetRolesRequest) (*auth.GetRolesResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetRolesInTransaction")
-}
-
-// ModifyRolesInTransaction always errors
-func (mats *MockAuthTransactionServer) ModifyRolesInTransaction(*TransactionContext, *auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.ModifyRolesInTransaction")
+// ModifyRoleBindingInTransaction always errors
+func (mats *MockAuthTransactionServer) ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.ModifyRoleBindingInTransaction")
 }
 
 // GetRoleBindingsInTransaction always errors

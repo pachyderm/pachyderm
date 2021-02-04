@@ -45,7 +45,8 @@ type PpsWrites interface {
 // transaction, depending on if there is an active transaction in the client
 // context.
 type AuthWrites interface {
-	ModifyRoles(*auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error)
+	CreateRoleBinding(*auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error)
+	ModifyRoleBinding(*auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at
@@ -137,9 +138,8 @@ type TransactionServer interface {
 type AuthTransactionServer interface {
 	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 
-	GetRolesInTransaction(*TransactionContext, *auth.GetRolesRequest) (*auth.GetRolesResponse, error)
-	ModifyRolesInTransaction(*TransactionContext, *auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error)
-
+	CreateRoleBindingInTransaction(*TransactionContext, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error)
+	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 	GetRoleBindingsInTransaction(*TransactionContext, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error)
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
@@ -267,9 +267,14 @@ func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) 
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) ModifyRoles(original *auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error) {
-	req := proto.Clone(original).(*auth.ModifyRolesRequest)
-	return t.txnCtx.txnEnv.authServer.ModifyRolesInTransaction(t.txnCtx, req)
+func (t *directTransaction) CreateRoleBinding(original *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
+	req := proto.Clone(original).(*auth.CreateRoleBindingRequest)
+	return t.txnCtx.txnEnv.authServer.CreateRoleBindingInTransaction(t.txnCtx, req)
+}
+
+func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
+	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
@@ -339,8 +344,12 @@ func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **p
 	return err
 }
 
-func (t *appendTransaction) ModifyRoles(original *auth.ModifyRolesRequest) (*auth.ModifyRolesResponse, error) {
-	panic("ModifyRoles not yet implemented in transactions")
+func (t *appendTransaction) CreateRoleBinding(original *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
+	panic("CreateRoleBinding not yet implemented in transactions")
+}
+
+func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	panic("ModifyRoleBinding not yet implemented in transactions")
 }
 
 // WithTransaction will call the given callback with a txnenv.Transaction
