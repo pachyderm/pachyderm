@@ -105,32 +105,27 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix             string
-	env                    *serviceenv.ServiceEnv
-	txnEnv                 *txnenv.TransactionEnv
-	namespace              string
-	workerImage            string
-	workerSidecarImage     string
-	workerImagePullPolicy  string
-	storageRoot            string
-	storageBackend         string
-	storageHostPath        string
-	cacheRoot              string
-	iamRole                string
-	imagePullSecret        string
-	noExposeDockerSocket   bool
-	reporter               *metrics.Reporter
-	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func() // protected by monitorCancelsMu
-	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
-	pollPipelinesMu        sync.Mutex
-	pollCancel             func() // protected by pollPipelinesMu
-	workerUsesRoot         bool
-	workerGrpcPort         uint16
-	port                   uint16
-	httpPort               uint16
-	peerPort               uint16
-	gcPercent              int
+	etcdPrefix            string
+	env                   *serviceenv.ServiceEnv
+	txnEnv                *txnenv.TransactionEnv
+	namespace             string
+	workerImage           string
+	workerSidecarImage    string
+	workerImagePullPolicy string
+	storageRoot           string
+	storageBackend        string
+	storageHostPath       string
+	cacheRoot             string
+	iamRole               string
+	imagePullSecret       string
+	noExposeDockerSocket  bool
+	reporter              *metrics.Reporter
+	workerUsesRoot        bool
+	workerGrpcPort        uint16
+	port                  uint16
+	httpPort              uint16
+	peerPort              uint16
+	gcPercent             int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -3119,7 +3114,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Get current pipeline info from:
 	// - etcdPipelineInfo
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
-	//   pipeline's spec branch_
+	//   pipeline's spec branch)
 	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
@@ -3157,11 +3152,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		}
 	}
 
-	// Delete pipeline's workers
-	if err := a.deletePipelineResources(ctx, request.Pipeline.Name); err != nil {
-		return nil, errors.Wrapf(err, "error deleting workers")
-	}
-
 	// If necessary, revoke the pipeline's auth token and remove it from its
 	// inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
@@ -3185,6 +3175,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
+	// TODO(msteffen): a job may be created by the worker master after this step
+	// but before the pipeline RC is deleted. Check for orphaned jobs in
+	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
@@ -3211,15 +3204,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
 		})
 	})
-	// Delete EtcdPipelineInfo
-	eg.Go(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
-		}
-		return nil
-	})
 	// Delete cron input repos
 	if !request.KeepRepo {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -3230,6 +3214,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		})
 	}
+	// Delete EtcdPipelineInfo
+	eg.Go(func() error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+		}); err != nil {
+			return errors.Wrapf(err, "collection.Delete")
+		}
+		return nil
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
