@@ -176,18 +176,6 @@ message AuthorizeResponse {
   bool authorized = 1;
 }
 
-message GetRolesRequest {
-  string principal = 1;
-
-  // resources are the resources the principal's roles are being retrieved for 
-  repeated Resource resources = 2;
-}
-
-message GetRolesResponse {
-  // roles is the set of roles the principal has on the resource
-  repeated string roles = 1;
-}
-
 message CreateRoleBindingRequest {
   Resource resource = 1;
   string principal = 2;
@@ -196,7 +184,7 @@ message CreateRoleBindingRequest {
 
 message CreateRoleBindingResponse {}
 
-message ModifyRolesRequest {
+message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on 
   Resource resource = 1;
 
@@ -210,7 +198,7 @@ message ModifyRolesRequest {
   repeated string to_remove = 4;
 }
 
-message ModifyRolesResponse {}
+message ModifyRoleBindingResponse {}
 
 message GetRoleBindingsRequest {
   Resource resource = 1; 
@@ -370,8 +358,7 @@ service API {
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
   rpc CreateRoleBinding(CreateRoleBindingRequest) returns (CreateRoleBindingResponse) {}
-  rpc GetRoles(GetRolesRequest) returns (GetRolesResponse) {}
-  rpc ModifyRoles(ModifyRolesRequest) returns (ModifyRolesResponse) {}
+  rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
   rpc GetRoleBindings(GetRoleBindingsRequest) returns (GetRoleBindingsResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
