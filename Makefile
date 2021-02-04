@@ -14,7 +14,7 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
