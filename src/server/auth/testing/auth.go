@@ -23,23 +23,13 @@ func (a *InactiveAPIServer) Deactivate(context.Context, *auth.DeactivateRequest)
 	return nil, auth.ErrNotActivated
 }
 
-// GetAdmins implements the GetAdmins RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error) {
+// GetRoleBindings implements the GetRoleBindings RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRoleBindings(context.Context, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
-// GetClusterRoleBindings implements the GetClusterRoleBindings RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetClusterRoleBindings(context.Context, *auth.GetClusterRoleBindingsRequest) (*auth.GetClusterRoleBindingsResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// ModifyClusterRoleBinding implements the ModifyClusterRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyClusterRoleBinding(context.Context, *auth.ModifyClusterRoleBindingRequest) (*auth.ModifyClusterRoleBindingResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
+// ModifyRoleBinding implements the ModifyRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyRoleBinding(context.Context, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -61,50 +51,6 @@ func (a *InactiveAPIServer) AuthorizeInTransaction(*txnenv.TransactionContext, *
 
 // WhoAmI implements the WhoAmI RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetScope implements the SetScope RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) SetScope(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetScopeInTransaction is the same as the SetScope RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) SetScopeInTransaction(*txnenv.TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetScope implements the GetScope RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetScope(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetScopeInTransaction is the same as the GetScope RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) GetScopeInTransaction(*txnenv.TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetACL implements the GetACL RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetACL(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// GetACLInTransaction is the same as the GetACL RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) GetACLInTransaction(*txnenv.TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetACL implements the SetACL RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) SetACL(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// SetACLInTransaction is the same as the SetACL RPC but for use inside a
-// running transaction.  It also returns a NotActivatedError.
-func (a *InactiveAPIServer) SetACLInTransaction(*txnenv.TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

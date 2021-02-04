@@ -6,12 +6,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // CheckIsAuthorizedInTransaction is identicalto CheckIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
-func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, p []auth.Permission) error {
+func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *auth.Resource, p []auth.Permission) error {
 	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
