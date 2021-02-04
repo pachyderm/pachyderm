@@ -52,7 +52,6 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/SetACL":                   authenticated,
 	"/auth.API/RevokeAuthToken":          authenticated,
 	"/auth.API/GetGroups":                authenticated,
-	"/auth.API/GetOneTimePassword":       authenticated,
 	"/auth.API/SetConfiguration":         admin,
 	"/auth.API/ModifyAdmins":             admin,
 	"/auth.API/ModifyClusterRoleBinding": admin,

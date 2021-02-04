@@ -92,7 +92,6 @@ type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (
 type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error)
 type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
 type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
-type getOneTimePasswordFunc func(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error)
 type extractAuthTokensFunc func(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error)
 type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (*auth.RestoreAuthTokenResponse, error)
 
@@ -119,7 +118,6 @@ type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
 type mockModifyMembers struct{ handler modifyMembersFunc }
 type mockGetGroups struct{ handler getGroupsFunc }
 type mockGetUsers struct{ handler getUsersFunc }
-type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
 type mockExtractAuthTokens struct{ handler extractAuthTokensFunc }
 type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 
@@ -146,7 +144,6 @@ func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)                 {
 func (mock *mockModifyMembers) Use(cb modifyMembersFunc)                       { mock.handler = cb }
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                               { mock.handler = cb }
 func (mock *mockGetUsers) Use(cb getUsersFunc)                                 { mock.handler = cb }
-func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc)             { mock.handler = cb }
 func (mock *mockExtractAuthTokens) Use(cb extractAuthTokensFunc)               { mock.handler = cb }
 func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                 { mock.handler = cb }
 
@@ -179,7 +176,6 @@ type mockAuthServer struct {
 	ModifyMembers            mockModifyMembers
 	GetGroups                mockGetGroups
 	GetUsers                 mockGetUsers
-	GetOneTimePassword       mockGetOneTimePassword
 	ExtractAuthTokens        mockExtractAuthTokens
 	RestoreAuthToken         mockRestoreAuthToken
 }
@@ -321,12 +317,6 @@ func (api *authServerAPI) GetUsers(ctx context.Context, req *auth.GetUsersReques
 		return api.mock.GetUsers.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetUsers")
-}
-func (api *authServerAPI) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
-	if api.mock.GetOneTimePassword.handler != nil {
-		return api.mock.GetOneTimePassword.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.GetOneTimePassword")
 }
 
 func (api *authServerAPI) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error) {

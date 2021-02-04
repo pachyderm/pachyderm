@@ -168,11 +168,6 @@ func (a *InactiveAPIServer) GetConfiguration(context.Context, *auth.GetConfigura
 	return nil, auth.ErrNotActivated
 }
 
-// GetOneTimePassword implements the GetOneTimePassword RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetOneTimePassword(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // ExtractAuthTokens implements the ExtractAuthTokens RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ExtractAuthTokens(context.Context, *auth.ExtractAuthTokensRequest) (*auth.ExtractAuthTokensResponse, error) {
 	return nil, auth.ErrNotActivated
