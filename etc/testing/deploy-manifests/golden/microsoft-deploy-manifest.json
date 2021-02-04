@@ -399,6 +399,13 @@
         "port": 600,
         "targetPort": 0,
         "nodePort": 30600
+      },
+      {
+        "name": "prometheus-metrics",
+        "protocol": "TCP",
+        "port": 656,
+        "targetPort": 656,
+        "nodePort": 30656
       }
     ],
     "selector": {
@@ -487,7 +494,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.12.1",
+            "image": "pachyderm/pachd:1.12.2",
             "command": [
               "/pachd"
             ],
@@ -548,14 +555,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.12.1"
+                "value": "pachyderm/worker:1.12.2"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.12.1"
+                "value": "pachyderm/pachd:1.12.2"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -567,7 +574,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.12.1"
+                "value": "1.12.2"
               },
               {
                 "name": "METRICS",

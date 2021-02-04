@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.2
+
+- Fixes several issues with logging, specifically with the Loki backend. Adds support for getting logs since a particular time. (#5438)
+- Fixes a bug that can deadlock in listfile (#5638)
+- Added support to expose Prometheus-metrics ports (#5646)
+- Added support to show progress bars during downloads (#5654)
+- Fixes a bug that causes update-pipeline to time out in some cases (#5661)
+
 ## 1.12.1
 - [Security] Adds required authentication for various API calls (#5582) (#5577) (#5575)
 - Fixes a bug that prevented the creation of build pipeline when auth is enabled (#5594)

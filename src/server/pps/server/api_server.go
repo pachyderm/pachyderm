@@ -20,6 +20,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -73,6 +74,10 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+
+	// DefaultLogsFrom is the default duration to return logs from, i.e. by
+	// default we return logs from up to 24 hours ago.
+	DefaultLogsFrom = time.Hour * 24
 )
 
 var (
@@ -100,32 +105,27 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix             string
-	env                    *serviceenv.ServiceEnv
-	txnEnv                 *txnenv.TransactionEnv
-	namespace              string
-	workerImage            string
-	workerSidecarImage     string
-	workerImagePullPolicy  string
-	storageRoot            string
-	storageBackend         string
-	storageHostPath        string
-	cacheRoot              string
-	iamRole                string
-	imagePullSecret        string
-	noExposeDockerSocket   bool
-	reporter               *metrics.Reporter
-	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func() // protected by monitorCancelsMu
-	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
-	pollPipelinesMu        sync.Mutex
-	pollCancel             func() // protected by pollPipelinesMu
-	workerUsesRoot         bool
-	workerGrpcPort         uint16
-	port                   uint16
-	httpPort               uint16
-	peerPort               uint16
-	gcPercent              int
+	etcdPrefix            string
+	env                   *serviceenv.ServiceEnv
+	txnEnv                *txnenv.TransactionEnv
+	namespace             string
+	workerImage           string
+	workerSidecarImage    string
+	workerImagePullPolicy string
+	storageRoot           string
+	storageBackend        string
+	storageHostPath       string
+	cacheRoot             string
+	iamRole               string
+	imagePullSecret       string
+	noExposeDockerSocket  bool
+	reporter              *metrics.Reporter
+	workerUsesRoot        bool
+	workerGrpcPort        uint16
+	port                  uint16
+	httpPort              uint16
+	peerPort              uint16
+	gcPercent             int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -1450,12 +1450,24 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+	// Set the default for the `Since` field.
+	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
+		request.Since = types.DurationProto(DefaultLogsFrom)
+	}
 	if a.env.LokiLogging || request.UseLokiBackend {
-		return a.getLogsLoki(request, apiGetLogsServer)
+		resp, err := pachClient.Enterprise.GetState(context.Background(),
+			&enterpriseclient.GetStateRequest{})
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+		}
+		if resp.State == enterpriseclient.State_ACTIVE {
+			return a.getLogsLoki(request, apiGetLogsServer)
+		}
+		return errors.Errorf("enterprise must be enabled to use loki logging")
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -1532,6 +1544,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if len(pods) == 0 {
 		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
 	}
+	// Convert request.From to a usable timestamp.
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
+	}
+	sinceSeconds := int64(since.Seconds())
 
 	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
 	// and channels are read into the output server in a stable order.
@@ -1557,9 +1575,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// Get full set of logs from pod i
 				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container: containerName,
-						Follow:    request.Follow,
-						TailLines: tailLines,
+						Container:    containerName,
+						Follow:       request.Follow,
+						TailLines:    tailLines,
+						SinceSeconds: &sinceSeconds,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					return err
@@ -1640,6 +1659,11 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	limiter := limit.New(20)
 	var eg errgroup.Group
 	var mu sync.Mutex
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert since to duration")
+	}
+	from := time.Now().Add(-since)
 	for {
 		fileInfo, err := fs.Recv()
 		if errors.Is(err, io.EOF) {
@@ -1678,6 +1702,13 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
+				t, err := types.TimestampFromProto(msg.Ts)
+				if err != nil {
+					return errors.Wrapf(err, "failed to convert msg.Ts to Time")
+				}
+				if !t.After(from) {
+					continue
+				}
 
 				mu.Lock()
 				if err := apiGetLogsServer.Send(msg); err != nil {
@@ -1704,12 +1735,16 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err != nil {
 		return err
 	}
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
+	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		return lokiutil.QueryRange(loki, `{app="pachd"}`, time.Time{}, time.Now(), func(t time.Time, line string) error {
+		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
 			return apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
@@ -1755,7 +1790,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
@@ -3079,7 +3114,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Get current pipeline info from:
 	// - etcdPipelineInfo
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
-	//   pipeline's spec branch_
+	//   pipeline's spec branch)
 	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
@@ -3117,11 +3152,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		}
 	}
 
-	// Delete pipeline's workers
-	if err := a.deletePipelineResources(ctx, request.Pipeline.Name); err != nil {
-		return nil, errors.Wrapf(err, "error deleting workers")
-	}
-
 	// If necessary, revoke the pipeline's auth token and remove it from its
 	// inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
@@ -3145,6 +3175,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
+	// TODO(msteffen): a job may be created by the worker master after this step
+	// but before the pipeline RC is deleted. Check for orphaned jobs in
+	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
@@ -3171,15 +3204,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
 		})
 	})
-	// Delete EtcdPipelineInfo
-	eg.Go(func() error {
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-		}); err != nil {
-			return errors.Wrapf(err, "collection.Delete")
-		}
-		return nil
-	})
 	// Delete cron input repos
 	if !request.KeepRepo {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -3190,6 +3214,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		})
 	}
+	// Delete EtcdPipelineInfo
+	eg.Go(func() error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+		}); err != nil {
+			return errors.Wrapf(err, "collection.Delete")
+		}
+		return nil
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
