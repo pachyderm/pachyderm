@@ -19,8 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -547,21 +545,22 @@ func (a *apiServer) AuthorizeInTransaction(
 			"auth is deactivated, only pipelines can perform any operations)")
 	}
 
-	request := newAuthorizeRequest(callerInfo.Subject, req.Permissions, a.groupsForUser)
+	request := newAuthorizeRequest(callerInfo.Subject, req.Permissions, a.getGroups)
 
 	// Check the permissions at the cluster level
 	binding, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
 	if !ok {
 		return nil, errors.New("cached cluster role binding had unexpected type")
 	}
-	if err := request.evaluateRoleBinding(binding); err != nil {
+	if err := request.evaluateRoleBinding(txnCtx.ClientContext, binding); err != nil {
 		return nil, err
 	}
 
 	// If all the permissions are satisfied by the cached cluster binding don't
-	// retrieve the resource bindings
-	if request.satisfied() {
-		return &auth.AuthorizeResponse{Authorized: true}, nil
+	// retrieve the resource bindings. If the resource in question is the whole
+	// cluster we should also exit early
+	if request.satisfied() || req.Resource.Type == auth.ResourceType_CLUSTER {
+		return &auth.AuthorizeResponse{Authorized: request.satisfied()}, nil
 	}
 
 	// Get the role bindings for the resource to check
@@ -569,7 +568,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBinding); err != nil && !col.IsErrNotFound(err) {
 		return nil, errors.Wrapf(err, "error getting role bindings for %s \"%s\"", req.Resource.Type, req.Resource.Name)
 	}
-	if err := request.evaluateRoleBinding(&roleBinding); err != nil {
+	if err := request.evaluateRoleBinding(txnCtx.ClientContext, &roleBinding); err != nil {
 		return nil, err
 	}
 
@@ -631,23 +630,6 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	}, nil
 }
 
-// hasClusterPermissions returns true if the subject has the specified permissions at the cluster level.
-// It returns the list of permissions  that are _not fulfilled_ by the cluster role bindings.
-// This hits the cached cluster role binding instead of etcd, so it's fast _unless_ the user derives
-// their permissions from a group membership.
-func (a *apiServer) hasClusterPermissions(ctx context.Context, subject string, desired []auth.Permission) (bool, error) {
-	binding, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
-	if !ok {
-		return false, errors.New("cached auth config had unexpected type")
-	}
-
-	request := newAuthorizeRequest(subject, desired, a.groupsForUser)
-	if err := request.evaluateRoleBinding(binding); err != nil {
-		return false, err
-	}
-	return request.satisfied(), nil
-}
-
 // CreateRoleBindingInTransaction is identitical to CreateRoleBinding except that it can run inside
 // an existing etcd STM transaction. This is not an RPC.
 func (a *apiServer) CreateRoleBindingInTransaction(
@@ -665,34 +647,50 @@ func (a *apiServer) CreateRoleBindingInTransaction(
 	// Check that the role binding does not currently exist
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
-	var bindings auth.RoleBindings
+	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err == nil {
 		return nil, fmt.Errorf("role binding already exists for resource %v", req.Resource)
 	} else if !col.IsErrNotFound(err) {
 		return nil, err
 	}
 
-	roleBindings.Entries = map[string]*auth.Roles{
-		req.Principal: make(map[string]bool),
+	bindings.Entries = map[string]*auth.Roles{
+		req.Principal: &auth.Roles{Roles: make(map[string]bool)},
 	}
 
 	for _, r := range req.Roles {
-		roleBindings.Entries[req.Principal][r] = true
+		bindings.Entries[req.Principal].Roles[r] = true
 	}
 
-	if err := roleBindings.Put(key, &roleBindings); err != nil {
+	if err := roleBindings.Put(key, &bindings); err != nil {
 		return nil, err
 	}
 
 	return &auth.CreateRoleBindingResponse{}, nil
 }
 
-// ModifyRolesInTransaction is identical to ModifyRoles except that it can run inside
+// CreateRoleBinding implements the CreateRoleBinding RPC
+func (a *apiServer) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleBindingRequest) (resp *auth.CreateRoleBindingResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	var response *auth.CreateRoleBindingResponse
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		var err error
+		response, err = txn.CreateRoleBinding(req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) ModifyRolesInTransaction(
+func (a *apiServer) ModifyRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
-	req *auth.ModifyRolesRequest,
-) (*auth.ModifyRolesResponse, error) {
+	req *auth.ModifyRoleBindingRequest,
+) (*auth.ModifyRoleBindingResponse, error) {
 	if err := a.isActive(); err != nil {
 		return nil, err
 	}
@@ -706,14 +704,14 @@ func (a *apiServer) ModifyRolesInTransaction(
 		return nil, err
 	}
 
-	// ModifyRoles can be called for any type of resource, and the permission required depends on
+	// ModifyRoleBinding can be called for any type of resource, and the permission required depends on
 	// the type of resource.
 	var permissions []auth.Permission
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		permissions := []auth.Permission{auth.Permission_CLUSTER_ADMIN}
+		permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
 	case auth.ResourceType_REPO:
-		permissions := []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
+		permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
 	default:
 		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
 	}
@@ -726,135 +724,45 @@ func (a *apiServer) ModifyRolesInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	if !authorized {
+	if !authorized.Authorized {
 		return nil, &auth.ErrNotAuthorized{
-			Subject:     callerInfo.Subject,
-			Resource:    req.Resource,
-			Permissions: permissions,
+			Subject:  callerInfo.Subject,
+			Resource: *req.Resource,
+			Required: permissions,
 		}
 	}
 
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
-	var bindings auth.RoleBindings
+	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
 		return nil, err
 	}
 
-	if _, ok := bindings[req.Principal]; !ok {
-		bindings[req.Principal] = make(map[string]bool)
+	if _, ok := bindings.Entries[req.Principal]; !ok {
+		bindings.Entries[req.Principal] = &auth.Roles{Roles: make(map[string]bool)}
 	}
 
 	for _, r := range req.ToRemove {
-		delete(bindings[req.Principal], r)
+		delete(bindings.Entries[req.Principal].Roles, r)
 	}
 
 	for _, r := range req.ToAdd {
-		bindings[req.Principal][r] = true
+		bindings.Entries[req.Principal].Roles[r] = true
 	}
 
-	return &auth.ModifyRolesResponse{}, nil
+	return &auth.ModifyRoleBindingResponse{}, nil
 }
 
-// ModifyRoles implements the protobuf auth.ModifyRoles RPC
-func (a *apiServer) ModifyRoles(ctx context.Context, req *auth.ModifyRolesRequest) (resp *auth.ModifyRolesResponse, retErr error) {
+// ModifyRoleBinding implements the protobuf auth.ModifyRoleBinding RPC
+func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest) (resp *auth.ModifyRoleBindingResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	var response *auth.ModifyRolesResponse
+	var response *auth.ModifyRoleBindingResponse
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
-		response, err = txn.ModifyRoles(req)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
-// GetRolesInTransaction is identical to GetRoles except that it can run inside
-// an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) GetRolesInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	req *auth.GetRolesRequest,
-) (*auth.GetRolesResponse, error) {
-	if err := a.isActive(); err != nil {
-		return nil, err
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-	callerIsAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the caller is getting another user's scopes, the caller must have
-	// READER access to every repo in the request--check this requirement
-	targetSubject := callerInfo.Subject
-	mustHaveReadAccess := false
-	if req.Username != "" {
-		if err := a.checkCanonicalSubject(req.Username); err != nil {
-			return nil, err
-		}
-		targetSubject = req.Username
-		mustHaveReadAccess = true
-	}
-
-	// Read repo ACLs from etcd & compute final result
-	// Note: for now, we don't return OWNER if the user is an admin, even though
-	// that's their effective access scope for all repos--the caller may want to
-	// know what will happen if the user's admin privileges are revoked. Note
-	// that pfs.ListRepo overrides this logic—the auth info it returns for a
-	// listed repo indicates that a user is OWNER of all repos if they are an
-	// admin
-	acls := a.acls.ReadWrite(txnCtx.Stm)
-	response := new(auth.GetScopeResponse)
-	for _, repo := range req.Repos {
-		var acl auth.ACL
-		if err := acls.Get(repo, &acl); err != nil && !col.IsErrNotFound(err) {
-			return nil, err
-		}
-
-		// determine if ACL read is authorized
-		if mustHaveReadAccess && !callerIsAdmin {
-			// Caller is getting another user's scopes. Check if the caller is
-			// authorized to view this repo's ACL
-			callerScope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
-			if err != nil {
-				return nil, err
-			}
-			if callerScope < auth.Scope_READER {
-				return nil, &auth.ErrNotAuthorized{
-					Subject:  callerInfo.Subject,
-					Repo:     repo,
-					Required: auth.Scope_READER,
-				}
-			}
-		}
-
-		// compute target's access scope to this repo
-		targetScope, err := a.getScope(txnCtx.ClientContext, targetSubject, &acl)
-		if err != nil {
-			return nil, err
-		}
-		response.Scopes = append(response.Scopes, targetScope)
-	}
-
-	return response, nil
-}
-
-// GetRoles implements the protobuf auth.GetRoles RPC
-func (a *apiServer) GetRoles(ctx context.Context, req *auth.GetRolesRequest) (resp *auth.GetRolesResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	var response *auth.GetScopeResponse
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		var err error
-		response, err = a.GetScopeInTransaction(txnCtx, req)
+		response, err = txn.ModifyRoleBinding(req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -872,35 +780,18 @@ func (a *apiServer) GetRoleBindingsInTransaction(
 		return nil, err
 	}
 
-	// Validate request
-	if req.Repo == "" {
-		return nil, errors.Errorf("invalid request: must provide name of repo to get that repo's ACL")
-	}
-
-	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.expiredEnterpriseCheck(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
-	// Read repo ACL from etcd
-	acl := &auth.ACL{}
-	if err := a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	// Read role bindings from etcd
+	var roleBindings auth.RoleBinding
+	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
-	response := &auth.GetRoleBindingsResponse{
-		Entries: make([]*auth.ACLEntry, 0),
-	}
-	for user, scope := range acl.Entries {
-		response.Entries = append(response.Entries, &auth.ACLEntry{
-			Username: user,
-			Scope:    scope,
-		})
-	}
-	return response, nil
+	return &auth.GetRoleBindingsResponse{
+		Binding: &roleBindings,
+	}, nil
 }
 
 // GetRoleBindings implements the protobuf auth.GetRoleBindings RPC
@@ -917,131 +808,6 @@ func (a *apiServer) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindin
 		return nil, err
 	}
 	return response, nil
-}
-
-// SetACLInTransaction is identical to SetACL except that it can run inside
-// an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) SetACLInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	req *auth.SetACLRequest,
-) (*auth.SetACLResponse, error) {
-	if err := a.isActive(); err != nil {
-		return nil, err
-	}
-
-	// Validate request
-	if req.Repo == "" {
-		return nil, errors.Errorf("invalid request: must provide name of repo you want to modify")
-	}
-
-	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_FS)
-	if err != nil {
-		return nil, err
-	}
-
-	// Canonicalize entries in the request (must have canonical request before we
-	// can authorize, as we inspect the ACL contents during authorization in the
-	// case where we're creating a new repo)
-	newACL := new(auth.ACL)
-	if len(req.Entries) > 0 {
-		newACL.Entries = make(map[string]auth.Scope)
-	}
-	for _, entry := range req.Entries {
-		user, scope := entry.Username, entry.Scope
-		if user == ppsUser {
-			continue
-		}
-
-		if err := a.checkCanonicalSubject(user); err != nil {
-			return nil, err
-		}
-		newACL.Entries[user] = scope
-	}
-
-	// Read repo ACL from etcd
-	acls := a.acls.ReadWrite(txnCtx.Stm)
-
-	// determine if the caller is authorized to set this repo's ACL
-	authorized, err := func() (bool, error) {
-		if isAdmin {
-			// admins are automatically authorized
-			return true, nil
-		}
-
-		// Check if the cluster's enterprise token is expired (fail if so)
-		state, err := a.getEnterpriseTokenState(txnCtx.ClientContext)
-		if err != nil {
-			return false, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-		}
-		if state != enterpriseclient.State_ACTIVE {
-			return false, errors.Errorf("Pachyderm Enterprise is not active in this " +
-				"cluster (only a cluster admin can modify an ACL)")
-		}
-
-		// Check if there is an existing ACL, and if the user is on it
-		var acl auth.ACL
-		if err := acls.Get(req.Repo, &acl); err != nil {
-			// ACL not found -- construct empty ACL proto
-			acl.Entries = make(map[string]auth.Scope)
-		}
-		if len(acl.Entries) > 0 {
-			// ACL is present; caller must be authorized directly
-			scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
-			if err != nil {
-				return false, err
-			}
-			if scope == auth.Scope_OWNER {
-				return true, nil
-			}
-			return false, nil
-		}
-
-		// No ACL -- check if the repo being modified exists
-		_, err = txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}})
-		if err == nil {
-			// Repo exists -- user isn't authorized
-			return false, nil
-		} else if !strings.HasSuffix(err.Error(), "not found") {
-			// Unclear if repo exists -- return error
-			return false, errors.Wrapf(err, "could not inspect \"%s\"", req.Repo)
-		} else if len(newACL.Entries) == 1 &&
-			newACL.Entries[callerInfo.Subject] == auth.Scope_OWNER {
-			// Special case: Repo doesn't exist, but user is creating a new Repo, and
-			// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
-			// the request is authorized
-			return true, nil
-		}
-		return false, err
-	}()
-	if err != nil {
-		return nil, err
-	}
-	if !authorized {
-		return nil, &auth.ErrNotAuthorized{
-			Subject:  callerInfo.Subject,
-			Repo:     req.Repo,
-			Required: auth.Scope_OWNER,
-		}
-	}
-
-	// Set new ACL
-	if len(newACL.Entries) == 0 {
-		err := acls.Delete(req.Repo)
-		if err != nil && !col.IsErrNotFound(err) {
-			return nil, err
-		}
-	} else {
-		err = acls.Put(req.Repo, newACL)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not put new ACL")
-		}
-	}
-	return &auth.SetACLResponse{}, nil
 }
 
 // authorizeNewToken is a helper for GetAuthToken and GetOTP that checks if
@@ -1071,7 +837,6 @@ func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.Toke
 		if !isAdmin && targetSubject != callerInfo.Subject {
 			return "", &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "get token on behalf of another user",
 			}
 		}
 	}
@@ -1097,64 +862,12 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 		return nil, err
 	}
 
-	// Get current caller and authorize them if req.Subject is set to a different
-	// user
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.TTL < 0 && !isAdmin {
-		return nil, errors.Errorf("GetAuthTokenRequest.TTL must be >= 0")
-	}
-
-	// check if this request is auhorized
-	req.Subject, err = a.authorizeNewToken(txnCtx.ClientContext, callerInfo, isAdmin, req.Subject)
-	if err != nil {
-		if errors.As(err, &auth.ErrNotAuthorized{}) {
-			// return more descriptive error
-			return nil, &auth.ErrNotAuthorized{
-				Subject: callerInfo.Subject,
-				AdminOp: "GetAuthToken on behalf of another user",
-			}
-		}
-		return nil, err
-	}
-
 	// TODO: switch the ppsUser to have the `pach:` prefix to simplify this case
 	if req.Subject == ppsUser || strings.HasPrefix(req.Subject, auth.PachPrefix) {
 		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 
-	// Compute TTL for new token that the user will get once OTP is exchanged
-	// Note: For Pachyderm <1.10, admin tokens always come with an indefinite
-	// session, unless a limit is requested. For Pachyderm >=1.10, Admins always
-	// use default TTL (30 days currently), unless they explicitly request an
-	// indefinite TTL.
-	//
-	// TODO(msteffen): Either way, admins can can extend their session by getting
-	// a new token for themselves. I don't know if allowing users to do this is
-	// bad security practice (it might be). However, preventing admins from
-	// extending their own session here wouldn't improve security: admins can
-	// currently manufacture a buddy account, promote it to admin, and then extend
-	// their session indefinitely with the buddy account. Pachyderm cannot prevent
-	// this with the information is currently stores, so preventing admins from
-	// extending their session indefinitely would require larger changes to the
-	// auth model.
-	if !isAdmin {
-		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err := a.getCallerTTL(txnCtx.ClientContext)
-		if err != nil {
-			return nil, err
-		}
-		if req.TTL == 0 || req.TTL > ttl {
-			req.TTL = ttl
-		}
-	} else if version.IsAtLeast(1, 10) && (req.TTL == 0 || req.TTL > defaultSessionTTLSecs) {
+	if req.TTL == 0 {
 		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
 		// to -1, but the default behavior (TTL == 0) is use the default token
 		// lifetime.
@@ -1261,30 +974,8 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txnenv.TransactionConte
 	if err := a.isActive(); err != nil {
 		return nil, err
 	}
-	// Get the caller. Users can revoke their own tokens, and admins can revoke
-	// any user's token
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(txnCtx.ClientContext, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
 
 	tokens := a.tokens.ReadWrite(txnCtx.Stm)
-	var tokenInfo auth.TokenInfo
-	if err := tokens.Get(auth.HashToken(req.Token), &tokenInfo); err != nil {
-		if !col.IsErrNotFound(err) {
-			return nil, err
-		}
-	}
-	if !isAdmin && tokenInfo.Subject != callerInfo.Subject {
-		return nil, &auth.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "RevokeAuthToken on another user's token",
-		}
-	}
 	if err := tokens.Delete(auth.HashToken(req.Token)); err != nil {
 		return nil, err
 	}
@@ -1451,37 +1142,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// must be admin or user getting your own groups (default value of
-	// req.Username is the caller).
-	// Note: hasClusterRole(subject) calls getGroups(subject), so getGroups(subject)
-	// must only call hasClusterRole(caller) when caller != subject, or else we'll have
-	// infinite recursion
-	var target string
-	if req.Username != "" && req.Username != callerInfo.Subject {
-		isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-		if err != nil {
-			return nil, err
-		}
-		if !isAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: callerInfo.Subject,
-				AdminOp: "GetGroups",
-			}
-		}
-		if err := a.checkCanonicalSubject(req.Username); err != nil {
-			return nil, err
-		}
-		target = req.Username
-	} else {
-		target = callerInfo.Subject
-	}
-
-	groups, err := a.getGroups(ctx, target)
+	groups, err := a.getGroups(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}

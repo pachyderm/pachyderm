@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
@@ -30,13 +31,13 @@ func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsFo
 
 // satisfied returns true if no permissions remain
 func (r *authorizeRequest) satisfied() bool {
-	return len(r.permission) == 0
+	return len(r.permissions) == 0
 }
 
 // evaluateRoleBinding removes permissions that are satisfied by the role binding from the
 // set of desired permissions.
-func (r *authorizeRequest) evaluateRoleBinding(binding *auth.RoleBinding) error {
-	if err := binding.evaluateRoleBindingForSubject(r.subject, binding); err != nil {
+func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, binding *auth.RoleBinding) error {
+	if err := r.evaluateRoleBindingForSubject(r.subject, binding); err != nil {
 		return err
 	}
 
@@ -46,14 +47,14 @@ func (r *authorizeRequest) evaluateRoleBinding(binding *auth.RoleBinding) error 
 
 	if r.groups == nil {
 		var err error
-		r.groups, err = r.groupsForSubject(r.subject)
+		r.groups, err = r.groupsForSubject(ctx, r.subject)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, g := range r.groups {
-		if err := binding.evaluateBindingForSubject(g, binding); err != nil {
+		if err := r.evaluateRoleBindingForSubject(g, binding); err != nil {
 			return err
 		}
 	}
@@ -63,11 +64,11 @@ func (r *authorizeRequest) evaluateRoleBinding(binding *auth.RoleBinding) error 
 
 func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding *auth.RoleBinding) error {
 	if binding.Entries == nil {
-		return
+		return nil
 	}
 
-	if entry, ok := bindings.Entries[subject]; ok {
-		for role := range entry {
+	if entry, ok := binding.Entries[subject]; ok {
+		for role := range entry.Roles {
 			permissions, err := permissionsForRole(role)
 			if err != nil {
 				return err
@@ -88,23 +89,23 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 	case auth.ClusterAdminRole:
 		return []auth.Permission{
 			auth.Permission_CLUSTER_ADMIN,
-		}
+		}, nil
 	case auth.RepoOwnerRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_MODIFY_BINDINGS,
-		}
+		}, nil
 	case auth.RepoWriterRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
-		}
+		}, nil
 	case auth.RepoReaderRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
-		}
+		}, nil
 	}
 	return nil, fmt.Errorf("unknown role %q", role)
 }

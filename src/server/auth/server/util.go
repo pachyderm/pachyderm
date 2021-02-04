@@ -22,14 +22,14 @@ func CheckIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *auth.R
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: r, Permissions: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *r, Required: p}
 	}
 	return nil
 }
 
 // CheckIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for resource 'r'
-func CheckIsAuthorized(pachClient *client.APIClient, r *auth.Resource, p auth.Permissions) error {
+func CheckIsAuthorized(pachClient *client.APIClient, r *auth.Resource, p []auth.Permission) error {
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
@@ -42,7 +42,7 @@ func CheckIsAuthorized(pachClient *client.APIClient, r *auth.Resource, p auth.Pe
 		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: r.Name, Permissions: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *r, Required: p}
 	}
 	return nil
 }

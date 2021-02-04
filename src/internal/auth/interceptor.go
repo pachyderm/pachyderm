@@ -36,7 +36,6 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/Authorize":    unauthenticated,
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
-	"/auth.API/GetAuthToken": unauthenticated,
 
 	// TODO: restrict GetClusterRoleBindings to cluster admins?
 	// TODO: split GetScope for self and others
@@ -51,7 +50,8 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/GetACL":                   authenticated,
 	"/auth.API/SetACL":                   authenticated,
 	"/auth.API/RevokeAuthToken":          authenticated,
-	"/auth.API/GetGroups":                authenticated,
+	"/auth.API/GetAuthToken":             admin,
+	"/auth.API/GetGroups":                admin,
 	"/auth.API/SetConfiguration":         admin,
 	"/auth.API/ModifyAdmins":             admin,
 	"/auth.API/ModifyClusterRoleBinding": admin,

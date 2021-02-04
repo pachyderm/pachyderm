@@ -48,6 +48,8 @@ func admin(pachClient *client.APIClient, fullMethod string) error {
 
 	return &auth.ErrNotAuthorized{
 		Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
-		Required: auth.Permission_CLUSTER_ADMIN,
+		Required: []auth.Permission{
+			auth.Permission_CLUSTER_ADMIN,
+		},
 	}
 }
