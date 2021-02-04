@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -476,6 +477,7 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
+		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -535,9 +537,16 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 					i++
 				}
 			}
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "error parsing since(%q)", since)
+			}
+			if tail != 0 {
+				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
+			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {
@@ -574,6 +583,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {
