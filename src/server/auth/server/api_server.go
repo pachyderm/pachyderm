@@ -674,6 +674,44 @@ func (a *apiServer) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleB
 	return response, nil
 }
 
+// DeleteRoleBindingInTransaction is identitical to DeleteRoleBinding except that it can run inside
+// an existing etcd STM transaction. This is not an RPC.
+func (a *apiServer) DeleteRoleBindingInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	req *auth.DeleteRoleBindingRequest,
+) (*auth.DeleteRoleBindingResponse, error) {
+	if err := a.isActive(); err != nil {
+		return nil, err
+	}
+
+	// TODO: check that the resource doesn't exist - this avoids "orphan" repos with no ACL
+	// which could be claimed by anyone
+
+	key := resourceKey(req.Resource)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	if err := roleBindings.Delete(key); err != nil {
+		return nil, err
+	}
+
+	return &auth.DeleteRoleBindingResponse{}, nil
+}
+
+// DeleteRoleBinding implements the DeleteRoleBinding RPC
+func (a *apiServer) DeleteRoleBinding(ctx context.Context, req *auth.DeleteRoleBindingRequest) (resp *auth.DeleteRoleBindingResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	var response *auth.DeleteRoleBindingResponse
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		var err error
+		response, err = txn.DeleteRoleBinding(req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) ModifyRoleBindingInTransaction(

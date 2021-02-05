@@ -23,6 +23,11 @@ func (a *InactiveAPIServer) Deactivate(context.Context, *auth.DeactivateRequest)
 	return nil, auth.ErrNotActivated
 }
 
+// CreateRoleBinding implements the CreateRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) CreateRoleBinding(context.Context, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetRoleBindings implements the GetRoleBindings RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetRoleBindings(context.Context, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -30,6 +35,31 @@ func (a *InactiveAPIServer) GetRoleBindings(context.Context, *auth.GetRoleBindin
 
 // ModifyRoleBinding implements the ModifyRoleBinding RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyRoleBinding(context.Context, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// DeleteRoleBinding implements the DeleteRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteRoleBinding(context.Context, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetRoleBindingsInTransaction implements the GetRoleBindings RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetRoleBindingsInTransaction(*txnenv.TransactionContext, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// ModifyRoleBindingInTransaction implements the ModifyRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txnenv.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// DeleteRoleBindingInTransaction implements the DeleteRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txnenv.TransactionContext, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

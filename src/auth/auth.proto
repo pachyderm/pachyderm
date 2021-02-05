@@ -139,6 +139,15 @@ enum Permission {
   REPO_READ            = 200;
   REPO_WRITE           = 201;
   REPO_MODIFY_BINDINGS = 202;
+  REPO_DELETE          = 203;
+  REPO_INSPECT_COMMIT  = 204;
+  REPO_LIST_COMMIT     = 205;
+  REPO_DELETE_COMMIT   = 206;
+  REPO_CREATE_BRANCH   = 207;
+  REPO_LIST_BRANCH     = 208;
+  REPO_DELETE_BRANCH   = 209;
+  REPO_INSPECT_FILE    = 210;
+  REPO_LIST_FILE       = 211;
 }
 
 // ResourceType represents the type of a Resource
@@ -205,6 +214,13 @@ message ModifyRoleBindingRequest {
 }
 
 message ModifyRoleBindingResponse {}
+
+message DeleteRoleBindingRequest {
+  // resource is the resource to modify the role bindings on 
+  Resource resource = 1;
+}
+
+message DeleteRoleBindingResponse {}
 
 message GetRoleBindingsRequest {
   Resource resource = 1; 
@@ -365,6 +381,7 @@ service API {
 
   rpc CreateRoleBinding(CreateRoleBindingRequest) returns (CreateRoleBindingResponse) {}
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
+  rpc DeleteRoleBinding(DeleteRoleBindingRequest) returns (DeleteRoleBindingResponse) {}
   rpc GetRoleBindings(GetRoleBindingsRequest) returns (GetRoleBindingsResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}

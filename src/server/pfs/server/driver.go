@@ -188,7 +188,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		// idempotent way to ensure that R exists. By permitting these calls when
 		// they don't actually change anything, even if the caller doesn't have
 		// WRITER access, we make the pattern more generally useful.
-		if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_WRITER); err != nil {
+		if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_WRITE); err != nil {
 			return errors.Wrapf(err, "could not update description of %q", repo)
 		}
 		existingRepoInfo.Description = description
@@ -198,12 +198,10 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		if authIsActivated {
 			// Create ACL for new repo. Make caller the sole owner. If the ACL already
 			// exists with a different owner, this will fail.
-			_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-				Repo: repo.Name,
-				Entries: []*auth.ACLEntry{{
-					Username: whoAmI.Username,
-					Scope:    auth.Scope_OWNER,
-				}},
+			_, err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, &auth.CreateRoleBindingRequest{
+				Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+				Principal: whoAmI.Username,
+				Roles:     []string{auth.RepoOwnerRole},
 			})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
@@ -307,7 +305,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	}
 
 	// Check if the caller is authorized to delete this repo
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
 		return err
 	}
 
@@ -404,8 +402,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
-	if _, err = txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
-		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
+	if _, err = txnCtx.Auth().DeleteRoleBindingInTransaction(txnCtx, &auth.DeleteRoleBindingRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
 	}); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -448,7 +446,7 @@ func (d *driver) makeCommit(
 		return nil, errors.Errorf("parent cannot be nil")
 	}
 	// Check that caller is authorized
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, parent.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, parent.Repo.Name, auth.Permission_REPO_WRITE); err != nil {
 		return nil, err
 	}
 
@@ -1159,7 +1157,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, err
 	}
 
@@ -1309,7 +1307,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 	}
 
 	ctx := pachClient.Ctx()
-	if err := authserver.CheckIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
@@ -1925,7 +1923,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 
 	var err error
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_CREATE_BRANCH); err != nil {
 		return err
 	}
 	// Validate request
@@ -2130,7 +2128,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		return nil, errors.New("repo cannot be nil")
 	}
 
-	if err := authserver.CheckIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, repo.Name, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return nil, err
 	}
 
@@ -2186,7 +2184,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		return errors.New("branch repo cannot be nil")
 	}
 
-	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo.Name, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return err
 	}
 
