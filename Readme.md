@@ -2,6 +2,8 @@
 
 The repo contains the pachyderm helm chart.
 
+Status: **Experimental**
+
 ## Folder Structure
 
 ```
