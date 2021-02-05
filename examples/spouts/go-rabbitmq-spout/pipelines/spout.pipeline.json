@@ -10,7 +10,7 @@
             "-topic",     "test-topic",
             "-overwrite", "true"
         ],
-        "image": "seerai/pachyderm-rabbitmq-spout:0.0.1",
+        "image": "seerai/pachyderm-rabbitmq-spout:0.0.2",
         "env": {
             "PREFETCH": "2000",
             "FLUSH_INTERVAL_MS": "10000",
@@ -19,6 +19,7 @@
             "TEST": "false",
             "RABBITMQ_HOST": "rabbitmq.default.svc.cluster.local:5672",
             "RABBITMQ_USER": "peter",
+            "RABBITMQ_PROTOCOL": "amqps",
             "SWITCH_BRANCH": "master",
             "COMMIT_BRANCH": "staging"
         },

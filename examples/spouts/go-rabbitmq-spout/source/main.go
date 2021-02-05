@@ -25,7 +25,7 @@ const defaultSwitchInterval = 60000 // ms
 
 var logger log.Logger
 
-func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery, commits chan<- string) error {
+func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery) error {
 
 	log.Print("writing buffer...")
 	log.Printf("buffer_size %d", len(buffer))
@@ -61,24 +61,11 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery, com
 	// Start of writing
 	log.Print("Writing messages...")
 
-	// Begin the commit
-	commit, err := pc.StartCommit(opts.repoName, opts.commitBranch)
+	pfc, err := pc.NewPutFileClient()
 	if err != nil {
-		// StartCommit will fail if this crashed with an open commit. Finish open commits and
-		commitList, err := pc.ListCommit(opts.repoName, opts.commitBranch, "", 0)
-		for _, c := range commitList {
-			com := c.GetCommit()
-			err = pc.FinishCommit(opts.repoName, com.GetID())
-			if err != nil {
-				return fmt.Errorf("unable to start commit on %s@%s: %v", opts.repoName, opts.commitBranch, err)
-			}
-		}
-		if err != nil {
-			return fmt.Errorf("unable to start commit on %s@%s: %v", opts.repoName, opts.commitBranch, err)
-		}
+		return fmt.Errorf("unable to create new PutFileClient: %v", err)
 	}
-
-	commitID := commit.GetID()
+	defer pfc.Close()
 
 	// Name - to be used for groupby operations
 	name := opts.topic + "-" + hex.EncodeToString(groupHash.Sum(nil)) + "." + opts.ext
@@ -102,12 +89,12 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery, com
 
 	// Write to PFS.
 	if opts.overwrite {
-		_, err := pc.PutFileOverwrite(opts.repoName, commitID, name, reader, 0)
+		_, err := pfc.PutFileOverwrite(opts.repoName, opts.commitBranch, name, reader, 0)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err := pc.PutFile(opts.repoName, commitID, name, reader)
+		_, err := pfc.PutFile(opts.repoName, opts.commitBranch, name, reader)
 		if err != nil {
 			return err
 		}
@@ -119,15 +106,6 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery, com
 		return err
 	default:
 	}
-
-	// Finish the commit
-	err = pc.FinishCommit(opts.repoName, commitID)
-	if err != nil {
-		return fmt.Errorf("unable to finish commit on %s@%s:%s: %v", opts.repoName, opts.commitBranch, commit.GetID(), err)
-	}
-
-	// Write latest finished commit to channel
-	commits <- commitID
 
 	log.Print("wrote messages.")
 
@@ -146,7 +124,7 @@ func writeFiles(pc *client.APIClient, opts *options, buffer []amqp.Delivery, com
 	return nil
 }
 
-func bufferReceive(pc *client.APIClient, msgC <-chan amqp.Delivery, opts *options, commits chan<- string, errors chan<- error) {
+func bufferReceive(pc *client.APIClient, msgC <-chan amqp.Delivery, opts *options, errors chan<- error) {
 	// Flush the read messages once every
 	flushC := time.NewTicker(time.Duration(opts.flushInterval) * time.Millisecond)
 	buffer := make([]amqp.Delivery, 0, cap(msgC))
@@ -158,7 +136,7 @@ func bufferReceive(pc *client.APIClient, msgC <-chan amqp.Delivery, opts *option
 			// Check for bull buffer
 			if len(buffer) == cap(buffer) {
 
-				err := writeFiles(pc, opts, buffer, commits)
+				err := writeFiles(pc, opts, buffer)
 				if err != nil {
 					errors <- err
 				}
@@ -169,7 +147,7 @@ func bufferReceive(pc *client.APIClient, msgC <-chan amqp.Delivery, opts *option
 		case <-flushC.C: // On a timer
 			if len(buffer) > 0 {
 				// Flush the buffer
-				err := writeFiles(pc, opts, buffer, commits)
+				err := writeFiles(pc, opts, buffer)
 				if err != nil {
 					errors <- err
 				}
@@ -180,38 +158,29 @@ func bufferReceive(pc *client.APIClient, msgC <-chan amqp.Delivery, opts *option
 	}
 }
 
-func switchBranch(pc *client.APIClient, opts *options, commits <-chan string, errors chan<- error) {
+func switchBranch(pc *client.APIClient, opts *options, errors chan<- error) {
 
 	log.Print("started branch switching routine.")
 	switchC := time.NewTicker(time.Duration(opts.switchInterval) * time.Millisecond)
 
-	latestClosedCommit := ""
-
-	// This reads closed commits until the branch switch interval is reached and then sets master
-	for {
-		select {
-		case latestClosedCommit = <-commits:
-			log.Printf("latest commit %s", latestClosedCommit)
-		case <-switchC.C:
-			if latestClosedCommit != "" {
-				log.Printf("switching branch %s HEAD to %s", opts.switchBranch, latestClosedCommit)
-				err := pc.CreateBranch(opts.repoName, opts.switchBranch, latestClosedCommit, nil)
-				if err != nil {
-					errors <- err
-					return
-				}
-			}
+	// Switches master to staging at regular intervals
+	for range switchC.C {
+		log.Print(fmt.Sprintf("switching branch %s HEAD to %s", opts.switchBranch, opts.commitBranch))
+		err := pc.CreateBranch(opts.repoName, opts.switchBranch, opts.commitBranch, nil)
+		if err != nil {
+			errors <- err
+			return
 		}
 	}
 }
 
-func consume(pc *client.APIClient, msgs <-chan amqp.Delivery, opts *options, commits chan<- string, errors chan<- error) {
+func consume(pc *client.APIClient, msgs <-chan amqp.Delivery, opts *options, errors chan<- error) {
 
 	// Messages to write to file.
 	msgC := make(chan amqp.Delivery, opts.prefetch)
 
 	// Simple goroutine to read incoming messages from a channel
-	go bufferReceive(pc, msgC, opts, commits, errors)
+	go bufferReceive(pc, msgC, opts, errors)
 
 	// This may look funny, but the msgs channel is unbuffered. I don't like debugging channel deadlocks, do you?
 	for msg := range msgs {
@@ -310,15 +279,16 @@ func dialRabbit() (*amqp.Connection, error) {
 	if rabbitPassword == "" {
 		return nil, fmt.Errorf("RABBITMQ_PASSWORD environment variable not set")
 	}
-
-	return amqp.Dial("amqp://" + rabbitUser + ":" + rabbitPassword + "@" + rabbitURL)
+	rabbitProtocol := os.Getenv("RABBITMQ_PROTOCOL")
+	if rabbitProtocol == "" {
+		rabbitProtocol = "amqp"
+	}
+	return amqp.Dial(rabbitProtocol + "://" + rabbitUser + ":" + rabbitPassword + "@" + rabbitURL)
 }
 
 func main() {
 	// Buffered channel for errors. 50 should do it.
 	errors := make(chan error, 50)
-	// Buffered channel of latest commit
-	commits := make(chan string, 1)
 
 	// Create a Pachd client
 	pc, err := client.NewInWorker()
@@ -398,9 +368,9 @@ func main() {
 	}
 
 	// Switch branch on a timer
-	go switchBranch(pc, &opts, commits, errors)
+	go switchBranch(pc, &opts, errors)
 	// Consume from RabbitMQ
-	go consume(pc, msgs, &opts, commits, errors)
+	go consume(pc, msgs, &opts, errors)
 
 	// Log any errors.
 	log.Fatal(<-errors)
