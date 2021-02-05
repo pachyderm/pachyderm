@@ -13,6 +13,5 @@ test - Go based tests for the helm chart
 To run the tests for the helm chart, run the following:
 
 ```
-cd test
 make test
 ```
