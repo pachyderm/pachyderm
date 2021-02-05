@@ -376,12 +376,12 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}

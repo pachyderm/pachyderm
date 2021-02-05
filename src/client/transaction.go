@@ -569,6 +569,9 @@ func (c *authBuilderClient) GetRoleBindings(ctx context.Context, req *auth.GetRo
 func (c *authBuilderClient) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, unsupportedError("ModifyRoleBinding")
 }
+func (c *authBuilderClient) DeleteRoleBinding(ctx context.Context, req *auth.DeleteRoleBindingRequest, opts ...grpc.CallOption) (*auth.DeleteRoleBindingResponse, error) {
+	return nil, unsupportedError("DeleteRoleBinding")
+}
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
 }

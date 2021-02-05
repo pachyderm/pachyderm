@@ -107,16 +107,38 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_DELETE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
 		}, nil
 	case auth.RepoWriterRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
 		}, nil
 	case auth.RepoReaderRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown role %q", role)
