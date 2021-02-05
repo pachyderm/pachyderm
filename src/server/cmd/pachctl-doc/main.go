@@ -19,7 +19,12 @@ func do(appEnvObj interface{}) error {
 	// Set 'os.Args[0]' so that examples use the expected command name
 	os.Args[0] = "pachctl"
 
-	rootCmd := cmd.PachctlCmd()
+	path := "./doc/docs/master/reference/pachctl/"
+	if len(os.Args) == 2 {
+		path = os.Args[1]
+	}
 
-	return doc.GenMarkdownTree(rootCmd, "./doc/docs/master/reference/pachctl/")
+	rootCmd := cmd.PachctlCmd()
+	rootCmd.DisableAutoGenTag = true
+	return doc.GenMarkdownTree(rootCmd, path)
 }
