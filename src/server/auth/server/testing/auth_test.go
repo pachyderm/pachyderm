@@ -95,11 +95,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -108,12 +104,7 @@ func TestGetSetBasic(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}, nil))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -128,11 +119,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -141,12 +128,7 @@ func TestGetSetBasic(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}, nil))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -160,11 +142,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.ID))
 	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -173,12 +151,7 @@ func TestGetSetBasic(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_OWNER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}, nil))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -192,12 +165,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.ID))
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil))
 	// check that ACL was updated)
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, robot("carol"), "reader"),
@@ -233,12 +201,7 @@ func TestGetSetReverse(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_OWNER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}, nil))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -252,34 +215,20 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.ID))
 	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil))
 	// check that ACL was updated)
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, robot("carol"), "reader"),
 		getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// clear carol
-	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_NONE,
-	})
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), nil, []string{auth.RepoReaderRole}))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}, []string{auth.RepoOwnerRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -293,11 +242,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.ID))
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -306,12 +251,7 @@ func TestGetSetReverse(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}, []string{auth.RepoWriterRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataRepo, "master", "/file", buf))
@@ -325,11 +265,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -338,12 +274,7 @@ func TestGetSetReverse(t *testing.T) {
 
 	//////////
 	/// alice revokes all of bob's privileges
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, nil, []string{auth.RepoReaderRole}))
 	// bob can't read
 	err = bobClient.GetFile(dataRepo, "master", "/file", buf)
 	require.YesError(t, err)
@@ -357,11 +288,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: robot("carol"),
-		Scope:    auth.Scope_READER,
-	})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}, nil)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
@@ -394,12 +321,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	require.Equal(t, "1", buf.String())
 
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader"), getRepoRoleBinding(t, aliceClient, dataRepo))
 	// bob can read
@@ -526,12 +448,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoneEquals(t, badPipeline, PipelineNames(t, aliceClient))
 
 	// alice adds bob as a reader of the input repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}, nil))
 
 	// now bob can create a pipeline
 	goodPipeline := tu.UniqueString("bob-good")
@@ -574,22 +491,12 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// alice adds bob as a writer of the output repo, and removes him as a reader
 	// of the input repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     pipeline,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "writer", pl(pipeline), "writer"),
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, nil, []string{auth.RepoReaderRole}))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), "reader", pl(goodPipeline), "reader"),
 		getRepoRoleBinding(t, aliceClient, dataRepo))
@@ -610,12 +517,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
 	// alice re-adds bob as a reader of the input repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader", pl(pipeline), "reader", pl(goodPipeline), "reader"),
 		getRepoRoleBinding(t, aliceClient, dataRepo))
@@ -718,16 +620,11 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(aliceUnionPipeline), "writer"), getRepoRoleBinding(t, aliceClient, aliceUnionPipeline))
 
 	// alice adds bob as a reader of one of the input repos, but not the other
-	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo1,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo1, bob, []string{auth.RepoReaderRole}, nil))
 
 	// bob cannot create a cross-pipeline with both inputs
 	bobCrossPipeline := tu.UniqueString("bob-cross")
-	err = createPipeline(createArgs{
+	err := createPipeline(createArgs{
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
@@ -754,12 +651,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoneEquals(t, bobUnionPipeline, PipelineNames(t, aliceClient))
 
 	// alice adds bob as a writer of her pipeline's output
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     aliceCrossPipeline,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceCrossPipeline, bob, []string{auth.RepoWriterRole}, nil))
 
 	// bob can update alice's pipeline if he removes one of the inputs
 	infoBefore, err := aliceClient.InspectPipeline(aliceCrossPipeline)
@@ -797,12 +689,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
 	// alice adds bob as a reader of the second input
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     dataRepo2,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo2, bob, []string{auth.RepoReaderRole}, nil))
 
 	// bob can now update alice's to put the second input back
 	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline)
@@ -871,12 +758,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice creates a repo, and adds bob as a reader
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader"), getRepoRoleBinding(t, aliceClient, repo))
 
@@ -897,19 +779,13 @@ func TestPipelineRevoke(t *testing.T) {
 	// bob adds alice as a reader of the pipeline's output repo, so alice can
 	// flush input commits (which requires her to inspect commits in the output)
 	// and update the pipeline
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     pipeline,
-		Username: alice,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(pipeline, alice, []string{auth.RepoWriterRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(bob, auth.RepoOwnerRole, alice, "writer", pl(pipeline), "writer"),
 		getRepoRoleBinding(t, bobClient, pipeline))
 
 	// alice commits to the input repo, and the pipeline runs successfully
-	require.NoError(t, err)
-	err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test")))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := bobClient.FlushCommitAll(
@@ -922,12 +798,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice removes bob as a reader of her repo, and then commits to the input
 	// repo, but bob's pipeline still runs (it has its own principal--it doesn't
 	// inherit bob's privileges)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, nil, []string{auth.RepoReaderRole}))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), "reader"), getRepoRoleBinding(t, aliceClient, repo))
 	err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
@@ -942,13 +813,8 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// alice revokes the pipeline's access to 'repo' directly, and the pipeline
 	// stops running
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: pl(pipeline),
-		Scope:    auth.Scope_NONE,
-	})
-	err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), nil, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test")))
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
@@ -994,12 +860,7 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// alice restores the pipeline's access to its input repo, and now the
 	// pipeline runs successfully
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: pl(pipeline),
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), []string{auth.RepoReaderRole}, nil))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
@@ -1085,12 +946,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice adds bob as a reader of the input repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader", pl(pipeline), "reader"),
 		getRepoRoleBinding(t, aliceClient, repo))
@@ -1105,21 +961,11 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice removes bob as a reader of the input repo and adds bob as a writer of
 	// the output repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, nil, []string{auth.RepoReaderRole}))
 
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), "reader"), getRepoRoleBinding(t, aliceClient, repo))
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     pipeline,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "writer", pl(pipeline), "writer"),
 		getRepoRoleBinding(t, aliceClient, pipeline))
@@ -1133,12 +979,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice re-adds bob as a reader of the input repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader", pl(pipeline), "reader"),
 		getRepoRoleBinding(t, aliceClient, repo))
@@ -1153,12 +994,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice adds bob as an owner of the output repo
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     pipeline,
-		Username: bob,
-		Scope:    auth.Scope_OWNER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoOwnerRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, pl(pipeline), "writer"),
 		getRepoRoleBinding(t, aliceClient, pipeline))
@@ -1247,24 +1083,14 @@ func TestListAndInspectRepo(t *testing.T) {
 	// alice creates a repo and makes Bob a writer
 	repoWriter := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
-	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repoWriter,
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoWriter, bob, []string{auth.RepoWriterRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "writer"), getRepoRoleBinding(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
 	repoReader := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoReader))
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repoReader,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoReader, bob, []string{auth.RepoReaderRole}, nil))
 	require.ElementsEqual(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, "reader"), getRepoRoleBinding(t, aliceClient, repoReader))
 
@@ -1285,13 +1111,13 @@ func TestListAndInspectRepo(t *testing.T) {
 	listResp, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	expectedAccess := map[string]auth.Scope{
-		repoOwner:  auth.Scope_OWNER,
-		repoWriter: auth.Scope_WRITER,
-		repoReader: auth.Scope_READER,
+	expectedPermissions := map[string][]auth.Permission{
+		repoOwner:  []auth.Permission{auth.Permission_REPO_READ, auth.Permission_REPO_WRITE, auth.Permission_REPO_MODIFY_BINDINGS},
+		repoWriter: []auth.Permission{auth.Permission_REPO_READ, auth.Permission_REPO_WRITE},
+		repoReader: []auth.Permission{auth.Permission_REPO_READ},
 	}
 	for _, info := range listResp.RepoInfo {
-		require.Equal(t, expectedAccess[info.Repo.Name], info.AuthInfo.AccessLevel)
+		require.Equal(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
@@ -1300,7 +1126,7 @@ func TestListAndInspectRepo(t *testing.T) {
 				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
-		require.Equal(t, expectedAccess[name], inspectResp.AuthInfo.AccessLevel)
+		require.Equal(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
 	}
 }
 
@@ -1320,46 +1146,10 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// bob calls SetScope(bob, OWNER) on alice's repo. This should fail
-	_, err := bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Scope:    auth.Scope_OWNER,
-		Username: bob,
-	})
+	err := bobClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoOwnerRole}, nil)
 	require.YesError(t, err)
 	// make sure ACL wasn't updated
 	require.ElementsEqual(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
-}
-
-func TestGetScopeRequiresReader(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
-
-	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.ElementsEqual(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
-
-	// bob calls GetScope(repo). This should succeed
-	resp, err := bobClient.GetScope(bobClient.Ctx(), &auth.GetScopeRequest{
-		Repos: []string{repo},
-	})
-	require.NoError(t, err)
-	require.Equal(t, []auth.Scope{auth.Scope_NONE}, resp.Scopes)
-
-	// bob calls GetScope(repo, alice). This should fail because bob isn't a
-	// READER
-	_, err = bobClient.GetScope(bobClient.Ctx(),
-		&auth.GetScopeRequest{
-			Repos:    []string{repo},
-			Username: alice,
-		})
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
 }
 
 // TestListRepoNotLoggedInError makes sure that if a user isn't logged in, and
@@ -1408,7 +1198,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
+		require.Equal(t, []auth.Permission{}, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth
@@ -1489,11 +1279,7 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 	// alice creates a repo
 	inputRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(inputRepo))
-	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     inputRepo,
-	})
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(inputRepo, bob, []string{auth.RepoReaderRole}, nil))
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pipeline))
 
@@ -1512,11 +1298,7 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice gives bob writer scope on pipeline output repo
-	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_WRITER,
-		Repo:     pipeline,
-	})
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}, nil))
 	require.NoError(t, bobClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1527,49 +1309,6 @@ func TestCreatePipelineRepoAlreadyExistsPermissions(t *testing.T) {
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	))
-}
-
-// TestAuthorizedNoneRole tests that Authorized(user, repo, NONE) yields 'true',
-// even for repos with no ACL
-func TestAuthorizedNoneRole(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
-
-	// Deactivate auth
-	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
-	require.NoError(t, err)
-
-	// Wait for auth to be deactivated
-	require.NoError(t, backoff.Retry(func() error {
-		_, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
-		if err != nil && auth.IsErrNotActivated(err) {
-			return nil // WhoAmI should fail when auth is deactivated
-		}
-		return errors.New("auth is not yet deactivated")
-	}, backoff.NewTestingBackOff()))
-
-	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateRepo(repo))
-
-	// Get new pach clients, re-activating auth
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
-
-	// Check that the repo has no ACL
-	require.ElementsEqual(t, buildBindings(), getRepoRoleBinding(t, adminClient, repo))
-
-	// alice authorizes against it with the 'NONE' scope
-	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Repo:  repo,
-		Scope: auth.Scope_NONE,
-	})
-	require.NoError(t, err)
-	require.True(t, resp.Authorized)
 }
 
 // TestAuthorizedEveryone tests that Authorized(user, repo, NONE) tests that the
@@ -1590,40 +1329,48 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// alice is authorized as `OWNER`
 	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Repo:  repo,
-		Scope: auth.Scope_OWNER,
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Permissions: []auth.Permission{
+			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_READ,
+		},
 	})
 	require.NoError(t, err)
 	require.True(t, resp.Authorized)
 
 	// bob is not authorized
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Repo:  repo,
-		Scope: auth.Scope_READER,
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Permissions: []auth.Permission{
+			auth.Permission_REPO_READ,
+		},
 	})
 	require.NoError(t, err)
 	require.False(t, resp.Authorized)
 
 	// alice grants everybody WRITER access
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Scope:    auth.Scope_WRITER,
-		Username: "allClusterUsers",
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, "allClusterUsers", []string{auth.RepoWriterRole}, nil))
 
 	// alice is still authorized as `OWNER`
 	resp, err = aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Repo:  repo,
-		Scope: auth.Scope_OWNER,
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Permissions: []auth.Permission{
+			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_READ,
+		},
 	})
 	require.NoError(t, err)
 	require.True(t, resp.Authorized)
 
 	// bob is now authorized as WRITER
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Repo:  repo,
-		Scope: auth.Scope_WRITER,
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Permissions: []auth.Permission{
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_READ,
+		},
 	})
 	require.NoError(t, err)
 	require.True(t, resp.Authorized)
@@ -1650,18 +1397,12 @@ func TestDeleteAll(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// admin makes alice an fs admin
-	_, err = adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: alice, Roles: fsClusterRole()})
-	require.NoError(t, err)
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}, nil))
 
 	// wait until alice shows up in admin list
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(
-			admins(auth.RootUser)(alice), resp.Bindings,
-		)
-	}, backoff.NewTestingBackOff()))
+	resp, err := aliceClient.GetClusterRoleBindings()
+	require.NoError(t, err)
+	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, alice, auth.RepoOwnerRole), resp)
 
 	// alice calls DeleteAll but it fails because she's only an fs admin
 	err = aliceClient.DeleteAll()
@@ -1730,52 +1471,27 @@ func TestListDatum(t *testing.T) {
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     repoA,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}, nil))
 	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice removes bob from repoA and adds bob to repoB, but bob still can't
 	// call ListDatum
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-		Repo:     repoA,
-	})
-	require.NoError(t, err)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     repoB,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, nil, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}, nil))
 	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     repoA,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}, nil))
 	_, err = bobClient.ListDatumAll(jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     pipeline,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}, nil))
 	dis, err := bobClient.ListDatumAll(jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
@@ -1847,12 +1563,7 @@ func TestListJob(t *testing.T) {
 
 	// alice adds bob to repo, but bob still can't call ListJob on 'pipeline' or
 	// get any output
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     repo,
-	})
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}, nil))
 	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
@@ -1862,17 +1573,8 @@ func TestListJob(t *testing.T) {
 
 	// alice removes bob from repo and adds bob to 'pipeline', and now bob can
 	// call listJob on 'pipeline', and gets results back from blank listJob
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_NONE,
-		Repo:     repo,
-	})
-	require.NoError(t, err)
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Username: bob,
-		Scope:    auth.Scope_READER,
-		Repo:     pipeline,
-	})
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, nil, []string{auth.RepoReaderRole}))
+	err = aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}, nil)
 	require.NoError(t, err)
 	jobs, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
@@ -2651,18 +2353,12 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// admin makes alice an fs admin
-	_, err := adminClient.ModifyClusterRoleBinding(adminClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: alice, Roles: fsClusterRole()})
-	require.NoError(t, err)
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}, nil))
 
 	// wait until alice shows up in admin list
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(
-			admins(auth.RootUser)(alice), resp.Bindings,
-		)
-	}, backoff.NewTestingBackOff()))
+	resp, err := aliceClient.GetClusterRoleBindings()
+	require.NoError(t, err)
+	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, alice, auth.RepoOwnerRole), resp)
 
 	// alice tries to deactivate, but doesn't have permission as an FS admin
 	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
