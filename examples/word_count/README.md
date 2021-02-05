@@ -2,15 +2,15 @@
 New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
 
 In this guide, we will write a classic MapReduce word count application in Pachyderm.
-A MapReduce job splits your input data into independent chunks which are seamlessly processed by the map pipeline in a parallel manner. 
-The outputs of the maps are then input to the reduce pipeline which creates an aggregated content. 
+A MapReduce job typically splits your input data into independent chunks which are seamlessly processed by a `map` pipeline in a parallel manner. 
+The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 
-- In the first part of the example, we will: 
-    - **Map**: Extract a list of words occuring in given web pages and create a list of text files named after each word, each containing its own occurence. 
-    One line in that file represents the occurence of the word in one page. 
+- In the first part of this example, we will: 
+    - **Map**: Extract a list of words occuring in given web pages and create a list of text files named after each word.
+    One line in that file represents the occurence of the word in a page. 
     - **Reduce**: Aggregate those numbers to display the total occurence for each word in all pages considered. 
 
-- In our second example, we commit a second file containing one additional web page and witness how the map/reduce pipelines aggregate our additionnal data.
+- In our second example, we add an additional web page and witness how the map/reduce pipelines manage our additionnal words.
 
 ***Table of Contents***
 - [1. Getting ready](#1-getting-ready)
