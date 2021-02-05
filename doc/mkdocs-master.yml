@@ -99,10 +99,11 @@ nav:
         - Welcome: index.md
         - Contributing:
             - Setup for Contributors: contributing/setup.md
-            - Gcloud Cluster Setup: contributing/gcloud-setup.md
             - Repo Layout: contributing/repo-layout.md
+            - Supported releases: contributing/supported-releases.md   
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
+            - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
