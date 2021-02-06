@@ -1,16 +1,12 @@
 # Pachyderm Word Count - Map/Reduce 101
 New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
 
-In this guide, we will write a classic MapReduce word count application in Pachyderm.
-A MapReduce job typically splits your input data into independent chunks which are seamlessly processed by a `map` pipeline in a parallel manner. 
-The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
+In this guide, we will write a classic MapReduce word count application in Pachyderm.A MapReduce job typically splits your input data into independent chunks that are seamlessly processed by a `map` pipeline in a parallel manner. The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 
 - In the first part of this example, we will: 
-    - **Map**: Extract a list of words occuring in given web pages and create a list of text files named after each word.
-    One line in that file represents the occurence of the word in a page. 
-    - **Reduce**: Aggregate those numbers to display the total occurence for each word in all pages considered. 
-
-- In our second example, we add an additional web page and witness how the map/reduce pipelines manage our additionnal words.
+    - **Map**: Extract a list of words occurring in given web pages and create a list of text files named after each word. One line in that file represents the occurrence of the word on a page. 
+    - **Reduce**: Aggregate those numbers to display the total occurrence for each word in all pages considered. 
+- In our second example, we add an additional web page and witness how the map/reduce pipelines manage our additional words.
 
 ***Table of Contents***
 - [1. Getting ready](#1-getting-ready)
@@ -23,9 +19,8 @@ The outputs of the maps are then input to a `reduce` pipeline which creates an a
 
 ***Key concepts***
 
-For this example, we recommend to be familiar with the following concepts:
+For this example, we recommend being familiar with the following concepts:
 - The original Map/Reduce word count example.
-- Pachyderm's [Build pipelines](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/) -  A convenient Pachyderm feature that removes the need to build/tag/push your image in a registry. It is especially usefull when you develop your pipeline's code as it shortens the time between the developement and the test of the pipeline.
 - Pachyderm's [file appending strategy](https://docs.pachyderm.com/latest/concepts/data-concepts/file/#file-processing-strategies) - 
 When you put a file into a Pachyderm repository and a file by the same name already exists, Pachyderm appends the new data to the existing file by default, unless you add an `override` flag to your instruction.
 - [Parallelism](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/) and [Glob Pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) to fine tune your performances.
@@ -54,17 +49,17 @@ In this example, we will have three successive processing stages (`scraper`, `ma
 
 ![alt text](./img/pachyderm_word_count.png)
 
-1. **Pipeline input repositories**: The `urls` in which we will commit files containing urls.
+1. **Pipeline input repositories**: The `urls` in which we will commit files containing URLS.
 Each file is named for the site we want to scrape with the content being the URLs of the pages considered.
 
-1. **Pipeline**: 
+1. **Pipelines**: 
     - [scraper.json](./pipelines/scraper.json) will first retrieve the .html content of the pages linked to the given urls.
-    - [map](./pipelines/map.json) will then tokenize the words from each page in parallel and extract each word occurence.
-    - finally,[reduce](./pipelines/reduce.json) will aggregate the total counts for each word accross all pages.
+    - [map](./pipelines/map.json) will then tokenize the words from each page in parallel and extract each word occurrence.
+    - finally,[reduce](./pipelines/reduce.json) will aggregate the total counts for each word across all pages.
 
-3 pipelines, including `reduce`, can be run in a distributed fashion to maximize performance. 
+    3 pipelines, including `reduce`, can be run in a distributed fashion to maximize performance. 
 
-1. **Pipeline output repository**: The output repo `reduce` will contain a list of text files named after the words identified in the pages and their cumulative occurence. 
+1. **Pipeline output repository**: The output repo `reduce` will contain a list of text files named after the words identified in the pages and their cumulative occurrence. 
 
 ## 3. Example part one
 ### ***Step 1*** Create and populate Pachyderm's entry repo and pipelines
@@ -73,22 +68,22 @@ In the `examples/word_count` directory, run:
 ```shell
 $ make wordcount
 ```
-or create the entry repo `urls` and add the Wikipedia file:
+or create the entry repo `urls`, add the Wikipedia file:
 ```shell
 $	pachctl create repo urls
 $	cd data && pachctl put file urls@master -f Wikipedia
 ```
 The input data [`Wikipedia`](./data/Wikipedia) contains 2 URLs refering to 2 Wikipedia pages. 
 
-then create your 3 pipelines:
+... then create your 3 pipelines:
 ```shell
 $	pachctl create pipeline -f pipelines/scraper.json
 $	pachctl create pipeline -f pipelines/map.json
 $	pachctl create pipeline -f pipelines/reduce.json
 ```
 
-The entry repository of your 3 pipelines already contains data to process.
-Therefore, the pipelines creation will trigger a list of 3 jobs (the 4th is related to the use of [build pipelines](https://docs.pachyderm.com/latest/how-tos/developer-workflow/build-pipelines/) in `map.json`).
+The entry repository of the first pipeline already contains data to process.
+Therefore, the pipeline creation will trigger a list of 3 jobs.
 
 You should be able to see your jobs running: 
 ```shell
@@ -112,30 +107,30 @@ NAME       CREATED        SIZE (MASTER) DESCRIPTION
 
 reduce     13 minutes ago 4.62KiB       Output repo for pipeline reduce.
 map        13 minutes ago 4.495KiB      Output repo for pipeline map.
-map_build  13 minutes ago 0B
 scraper    13 minutes ago 103.4KiB      Output repo for pipeline scraper.
 urls       13 minutes ago 81B
 ```
-Again, `map_build` is a by-product of the build pipeline used in the `map` pipeline. 
-It does not show in the case where you [use your built image]() on Docker Huh.
 
 ### ***Step 2*** Now, let's take a closer look at their content
 - Scraper content
     ```shell
     $ pachctl list file scraper@master
+
     NAME       TYPE SIZE
     /Wikipedia dir  103.4KiB
     ```
     ```shell          
-    $ pachctl list file scraper@master:/Wikipedia               
+    $ pachctl list file scraper@master:/Wikipedia     
+
     NAME                      TYPE SIZE
     /Wikipedia/Main_Page.html file 77.53KiB
     /Wikipedia/Pachyderm.html file 25.88KiB
     ```
-We see that we have retrieved 2 .html pages corresponding to the 2 urls provided.
+We have successfully retrieved 2 .html pages corresponding to the 2 URLs provided.
 
 - Map content 
-    The `map` pipeline counts the number of occurrences of each word it encounters in each of the scraped webpages (see [map.go]()./src/map.go)). 
+
+    The `map` pipeline counts the number of occurrences of each word it encounters in each of the scraped webpages (see [map.go](./src/map.go)). 
     The filename for each word is the name of the word itself. 
 
     ```shell
@@ -150,23 +145,23 @@ We see that we have retrieved 2 .html pages corresponding to the 2 urls provided
     ...
     ```
     For every word on those pages, there is a separate file. 
-    Inside that file is the numeric value for how many times that word appeared for each page. 
+    Each file contains the numeric value for how many times that word appeared for each page. 
 
     ```shell
     $ pachctl get file map@master:/license
     5
     5
     ```
-    It looks like the word `license` appeared 5 times on each on the 2 pages considered.
+    It looks like the word `license` appeared 5 times on each of the 2 pages considered.
 
-    ????????????????????By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.
+    By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.
     This can be changed. 
     For more info on controlling the number of workers, check the [Distributed Computing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed_computing/#controlling-the-number-of-workers) page.
 
 - Reduce content
 
     The final pipeline, `reduce`, aggregates the total count per word. 
-    A look at the words counted:
+    Take a look at the words counted:
 
     ```shell
     $ pachctl list file reduce@master
@@ -179,7 +174,7 @@ We see that we have retrieved 2 .html pages corresponding to the 2 urls provided
     /licenses    file 2B
     ...
     ```
-    For the word `license`, let's confirm that the occurence is the sum of the 2 previous numbers above.
+    For the word `license`, let's confirm that the total occurrence is the sum of the 2 previous numbers above 5+5.
 
     ```shell          
     $ pachctl get file reduce@master:/license
@@ -187,30 +182,30 @@ We see that we have retrieved 2 .html pages corresponding to the 2 urls provided
     ```
 ## 4. Expand on the example
 
-Now that we've got a full end-to-end scraper and wordcount use case set up, 
-lets add more to it. 
-Go ahead and add a one more sites to scrape. 
+Now that we have a full end-to-end scraper and word count use case set up, let's add more to it. Go ahead and add one more site to scrape. 
 
 ```shell
 $ cd data && pachctl put file urls@master -f Github
 ```
-Your scraper should automatically get started pulling the new site (it won't rescrape Wikipedia). 
+Your scraper should automatically get started pulling the new site (it won't scrape Wikipedia again). 
 That will then automatically trigger the `map` and `reduce` pipelines
 to process the new data and update the word counts for all the sites combined.
 
 - Scraper content
     ```shell
     $ pachctl list file scraper@master
+
     NAME       TYPE SIZE
     /Github    dir  195.1KiB
     /Wikipedia dir  103.4KiB
     ```
     ```shell          
-    $ pachctl list file scraper@master:/Github           
+    $ pachctl list file scraper@master:/Github      
+
     NAME                      TYPE SIZE
     /Github/pachyderm.html file 195.1KiB
     ```
-The scraper has added one additional .html page related to the URL provided in the new Github file.
+The scraper has added one additional .html page following the URL provided in the new Github file.
 
 - Map content 
      ```shell
@@ -233,16 +228,18 @@ The scraper has added one additional .html page related to the URL provided in t
 
     ```shell
     $ pachctl get file map@master:/license
+
     23
     5
     5
     ```
-    It looks like the word `license` appeared 23 times on on our new github page.
+    It looks like the word `license` appeared 23 times on our new github page.
 
  - Reduce content
 
     ```shell
     $ pachctl list file reduce@master
+
     NAME         TYPE SIZE  
     ...                                                
     /liberated   file 2B
@@ -253,7 +250,7 @@ The scraper has added one additional .html page related to the URL provided in t
     /licenses    file 2B
     ...
     ```
-    Let's see if the total sum of all occurences in now  23+5+5 = 33.
+    Let's see if the total sum of all occurrences in now  23+5+5 = 33.
 
     ```shell          
     $ pachctl get file reduce@master:/license

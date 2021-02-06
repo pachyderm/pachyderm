@@ -8,13 +8,11 @@ wordcount:
 clean:
 	pachctl delete pipeline reduce
 	pachctl delete pipeline map
-	pachctl delete pipeline map_build
 	pachctl delete pipeline scraper
 	pachctl delete repo urls
 	pachctl delete repo scraper	
 	pachctl delete repo map	
 	pachctl delete repo reduce
-	pachctl delete repo map_build
 
 
 .PHONY:
