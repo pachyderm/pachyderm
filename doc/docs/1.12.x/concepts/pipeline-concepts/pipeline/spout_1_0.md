@@ -1,13 +1,12 @@
 # Spout
 
 !!! note
-    This document addresses spouts 1.0 implementation
-    prior to Pachyderm 1.12.
-    The implementation in spouts 2.0 is significantly different.
+    This is the documentation page of spout 1.0 implementation
+    before Pachyderm 1.12. Spout 1.0 is now a [deprecated feature](../../contributing/supported-releases/#deprecated).
     We recommend upgrading 
     to the latest version
     of Pachyderm
-    and using the spouts 2.0 implementation.
+    and using the spout 2.0 implementation.
     Return to the [documentation page of spouts 2.0](./spout.md)
     
 A spout is a type of pipeline that ingests

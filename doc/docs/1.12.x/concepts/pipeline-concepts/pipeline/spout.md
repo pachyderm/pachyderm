@@ -1,18 +1,17 @@
 # Spout
 !!! note
     This page documents
-    the new *spouts 2.0* implementation
+    the new *spout 2.0* implementation
     in **Pachyderm 1.12 and newer releases**.
     The implementation of spouts 
     in previous releases
-    is significantly different.
+    is now [deprecated](../../contributing/supported-releases/#deprecated).
     We recommend upgrading 
     to the latest version
     of Pachyderm
     and using **spouts 2.0**.
     You can access the [documentation page
     of spouts 1.0 here](./spout_1_0.md).
-
 
 A spout is a type of pipeline
 that **ingests streaming data
