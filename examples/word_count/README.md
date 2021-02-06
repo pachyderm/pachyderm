@@ -1,5 +1,5 @@
 # Pachyderm Word Count - Map/Reduce 101
-New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
+>![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
 
 In this guide, we will write a classic MapReduce word count application in Pachyderm.A MapReduce job typically splits your input data into independent chunks that are seamlessly processed by a `map` pipeline in a parallel manner. The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 
@@ -115,13 +115,15 @@ urls       13 minutes ago 81B
 - Scraper content
     ```shell
     $ pachctl list file scraper@master
-
+    ```
+    ```shell
     NAME       TYPE SIZE
     /Wikipedia dir  103.4KiB
     ```
     ```shell          
     $ pachctl list file scraper@master:/Wikipedia     
-
+    ```
+    ```shell
     NAME                      TYPE SIZE
     /Wikipedia/Main_Page.html file 77.53KiB
     /Wikipedia/Pachyderm.html file 25.88KiB
@@ -135,6 +137,8 @@ We have successfully retrieved 2 .html pages corresponding to the 2 URLs provide
 
     ```shell
     $ pachctl list file map@master
+    ```
+    ```shell
     NAME          TYPE SIZE
     ...
     /liberated   file 2B
@@ -165,6 +169,8 @@ We have successfully retrieved 2 .html pages corresponding to the 2 URLs provide
 
     ```shell
     $ pachctl list file reduce@master
+    ```
+    ```shell
     NAME         TYPE SIZE  
     ...                                                
     /liberated   file 2B
@@ -194,14 +200,16 @@ to process the new data and update the word counts for all the sites combined.
 - Scraper content
     ```shell
     $ pachctl list file scraper@master
-
+    ```
+    ```shell
     NAME       TYPE SIZE
     /Github    dir  195.1KiB
     /Wikipedia dir  103.4KiB
     ```
     ```shell          
     $ pachctl list file scraper@master:/Github      
-
+    ```
+    ```shell
     NAME                      TYPE SIZE
     /Github/pachyderm.html file 195.1KiB
     ```
@@ -220,7 +228,7 @@ The scraper has added one additional .html page following the URL provided in th
     | |**/libraries   file 2B**|
     |/library     file 2B|/library     file 2B|
     |/license     file 4B|/license     file **7B**|
-    |/licenses    file 4B|/license     file 7B|
+    |/licenses    file 4B|/licenses     file 4B|
     |...|...|
     
 
@@ -228,7 +236,6 @@ The scraper has added one additional .html page following the URL provided in th
 
     ```shell
     $ pachctl get file map@master:/license
-
     23
     5
     5
@@ -239,7 +246,8 @@ The scraper has added one additional .html page following the URL provided in th
 
     ```shell
     $ pachctl list file reduce@master
-
+    ```
+    ```shell
     NAME         TYPE SIZE  
     ...                                                
     /liberated   file 2B
