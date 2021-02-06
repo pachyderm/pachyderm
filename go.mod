@@ -10,7 +10,6 @@ require (
 	github.com/beevik/etree v1.1.0
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
-	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
@@ -34,7 +33,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.0 // indirect
-	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.2
@@ -59,6 +58,7 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.1-0.20200124165624-2876d2018785
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
+	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect

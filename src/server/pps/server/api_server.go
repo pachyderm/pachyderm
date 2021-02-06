@@ -1417,9 +1417,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
 		return errors.New("s3 output is not supported in spouts or services")
 	}
-	if request.S3Out && request.EnableStats {
-		return errors.New("stats are not supported for pipelines that output via Pachyderm's S3 gateway")
-	}
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
 	}
@@ -1428,14 +1425,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 
 // TODO: Implement the appropriate features.
 func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	if request.TFJob != nil {
-		return nil, errors.Errorf("TFJob not implemented")
-	}
 	if request.Egress != nil {
 		return nil, errors.Errorf("Egress not implemented")
-	}
-	if request.S3Out {
-		return nil, errors.Errorf("S3Out not implemented")
 	}
 	if request.CacheSize != "" {
 		return nil, errors.Errorf("CacheSize not implemented")

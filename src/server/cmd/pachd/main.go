@@ -1,6 +1,7 @@
 package main
 
 import (
+	gotls "crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
@@ -27,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/netutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -38,6 +41,7 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
@@ -654,28 +658,27 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
-	// TODO: Make s3 server work with V2.
-	//go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-	//	server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
-	//		return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
-	//	})
-	//	if err != nil {
-	//		return err
-	//	}
-	//	certPath, keyPath, err := tls.GetCertPaths()
-	//	if err != nil {
-	//		log.Warnf("s3gateway TLS disabled: %v", err)
-	//		return server.ListenAndServe()
-	//	}
-	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-	//	// Read TLS cert and key
-	//	err = cLoader.LoadAndStart()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-	//	}
-	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-	//	return server.ListenAndServeTLS(certPath, keyPath)
-	//})
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
+		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
+		})
+		if err != nil {
+			return err
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			return server.ListenAndServe()
+		}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		// Read TLS cert and key
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+		}
+		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		return server.ListenAndServeTLS(certPath, keyPath)
+	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
 		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)

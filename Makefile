@@ -245,13 +245,14 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-pfs-server:
+test-postgres:
 	./etc/testing/start_postgres.sh
+
+test-pfs-server: test-postgres
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
-test-pfs-storage:
-	./etc/testing/start_postgres.sh
-	go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
+test-pfs-storage: test-postgres
+	go test -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
 	go test -count=1 ./src/internal/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
@@ -310,8 +311,8 @@ test-vault:
 #	fi
 #	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 #
-#test-s3gateway-unit:
-#	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
+test-s3gateway-unit: test-postgres
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
 	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
