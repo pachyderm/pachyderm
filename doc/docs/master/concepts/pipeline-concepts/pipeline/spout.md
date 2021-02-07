@@ -5,7 +5,7 @@
     in **Pachyderm 1.12 and newer releases**.
     The implementation of spouts 
     in previous releases
-    is now [deprecated](../../../contributing/supported-releases/#deprecated).
+    is now [deprecated](../../../../contributing/supported-releases/#deprecated).
     We recommend upgrading 
     to the latest version
     of Pachyderm
