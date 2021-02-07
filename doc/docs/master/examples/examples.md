@@ -54,19 +54,10 @@ A spout is a special type of pipeline that you can use to ingest
 streaming data and perform such operations as sorting, filtering, and other.
 
 We have released a new *spouts 2.0* implementation
-<<<<<<< Updated upstream
-in Pachyderm 1.12. Checkout our example.
-
-[Spout101]((https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spou101)
-
-!!! Warning
-    The following examples are based on our previous version of spout. That implementation is now [deprecated](../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
-=======
 in Pachyderm 1.12. Checkout our [Spout101](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101) example.
 
 !!! Warning
     The following examples are based on our previous version of spout. That implementation is now [deprecated](../../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
->>>>>>> Stashed changes
 * [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer)
 * [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout)
 * [Amazon SQS S3 Spout](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3)
