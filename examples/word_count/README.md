@@ -18,7 +18,6 @@ In this guide, we will write a classic MapReduce word count application in Pachy
 
 
 ***Key concepts***
-
 For this example, we recommend being familiar with the following concepts:
 - The original Map/Reduce word count example.
 - Pachyderm's [file appending strategy](https://docs.pachyderm.com/latest/concepts/data-concepts/file/#file-processing-strategies) - 
@@ -33,15 +32,16 @@ When you put a file into a Pachyderm repository and a file by the same name alre
 ***Getting started***
 - Clone this repo.
 - Make sure Pachyderm is running. You should be able to connect to your Pachyderm cluster via the `pachctl` CLI. 
-Run a quick:
-```shell
-$ pachctl version
+    Run a quick:
+    ```shell
+    $ pachctl version
 
-COMPONENT           VERSION
-pachctl             1.12.0
-pachd               1.12.0
-```
-Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of pachctl and pachd. 
+    COMPONENT           VERSION
+    pachctl             1.12.0
+    pachd               1.12.0
+    ```
+    Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of pachctl and pachd. 
+- You can run this example as is. You can also decide to build, tag, and push your own image to Docker Hub. If so, make sure to update the script `build_tag_deploy.sh` with the appropriate username and tag version and update `pipelines/map.json` accordingly.
 
 ## 2. Pipelines setup
 ***Goal***

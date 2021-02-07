@@ -12,7 +12,7 @@
   "input": {
     "pfs": {
       "repo": "map",
-      "glob": "/*"
+      "glob": "/"
     }
   }
 }
