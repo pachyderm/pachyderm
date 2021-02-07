@@ -845,7 +845,7 @@ you want to join with other data.
 #### Git Input
 
 !!! Warning
-  Git Inputs are an [experimental feature](../contributing/supported-releases#experimental).
+    Git Inputs are an [experimental feature](../../contributing/supported-releases/#experimental).
 
 Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
 
@@ -934,7 +934,7 @@ exists, the storage space used by the stats cannot be released.
 ### Service (optional)
 
 !!! Warning
-  Service Pipelines are an [experimental feature](../contributing/supported-releases#experimental).
+    Service Pipelines are an [experimental feature](../../contributing/supported-releases/#experimental).
 
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is

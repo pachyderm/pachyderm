@@ -1,5 +1,8 @@
 # Build Pipelines
 
+!!! Warning
+    Build Pipelines are an [experimental feature](../../../contributing/supported-releases/#experimental).
+
 A build pipeline is a useful feature when iterating on the code in your pipeline. In essence, build pipelines automate or remove the need for Steps 2-4 of the [pipeline workflow](working-with-pipelines.md). They allow you to bypass the Docker build process and submit your code directly to the pipeline. A diagram of the build pipeline process is shown below.
 
 ![Developer workflow](../../assets/images/d_steps_build_pipeline.svg)
