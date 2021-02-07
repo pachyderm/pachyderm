@@ -2,7 +2,7 @@
 
 !!! note
     This is the documentation page of spout 1.0 implementation
-    before Pachyderm 1.12. Spout 1.0 is now a [deprecated feature](../../contributing/supported-releases/#deprecated).
+    before Pachyderm 1.12. Spout 1.0 is now a [deprecated feature](../../../../contributing/supported-releases/#deprecated).
     We recommend upgrading 
     to the latest version
     of Pachyderm
