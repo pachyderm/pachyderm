@@ -44,9 +44,20 @@ func (r *authorizeRequest) missing() []auth.Permission {
 }
 
 // evaluateRoleBinding removes permissions that are satisfied by the role binding from the
-// set of desired permissions.
+// set of desired permissions. A subject derives permissions from:
+// - role bindings that refer to them by name
+// - role bindings that refer to allClusterUsers
+// - role bindings that refer to any group the subject belongs to
 func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, binding *auth.RoleBinding) error {
 	if err := r.evaluateRoleBindingForSubject(r.subject, binding); err != nil {
+		return err
+	}
+
+	if len(r.permissions) == 0 {
+		return nil
+	}
+
+	if err := r.evaluateRoleBindingForSubject(auth.AllClusterUsersSubject, binding); err != nil {
 		return err
 	}
 
@@ -101,6 +112,19 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 	case auth.ClusterAdminRole:
 		return []auth.Permission{
 			auth.Permission_CLUSTER_ADMIN,
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_DELETE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoOwnerRole:
 		return []auth.Permission{
@@ -116,6 +140,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoWriterRole:
 		return []auth.Permission{
@@ -129,6 +154,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoReaderRole:
 		return []auth.Permission{
@@ -139,6 +165,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown role %q", role)

@@ -1,15 +1,13 @@
 package client
 
 import (
-	"context"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // IsAuthActive returns whether auth is activated on the cluster
 func (c APIClient) IsAuthActive() (bool, error) {
-	_, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+	_, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	switch {
@@ -23,7 +21,7 @@ func (c APIClient) IsAuthActive() (bool, error) {
 }
 
 func (c APIClient) GetClusterRoleBindings() (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+	resp, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	if err != nil {
@@ -32,12 +30,11 @@ func (c APIClient) GetClusterRoleBindings() (*auth.RoleBinding, error) {
 	return resp.Binding, nil
 }
 
-func (c APIClient) ModifyClusterRoleBinding(principal string, toAdd []string, toRemove []string) error {
-	_, err := c.ModifyRoleBinding(context.Background(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
 		Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		Principal: principal,
-		ToAdd:     toAdd,
-		ToRemove:  toRemove,
+		Roles:     roles,
 	})
 	if err != nil {
 		return err
@@ -46,7 +43,7 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, toAdd []string, to
 }
 
 func (c APIClient) GetRepoRoleBindings(repo string) (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBindings(context.Background(), &auth.GetRoleBindingsRequest{
+	resp, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 	})
 	if err != nil {
@@ -55,12 +52,11 @@ func (c APIClient) GetRepoRoleBindings(repo string) (*auth.RoleBinding, error) {
 	return resp.Binding, nil
 }
 
-func (c APIClient) ModifyRepoRoleBinding(repo, principal string, toAdd []string, toRemove []string) error {
-	_, err := c.ModifyRoleBinding(context.Background(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyRepoRoleBinding(repo, principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
 		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 		Principal: principal,
-		ToAdd:     toAdd,
-		ToRemove:  toRemove,
+		Roles:     roles,
 	})
 	if err != nil {
 		return err

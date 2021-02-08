@@ -42,6 +42,12 @@ const (
 	// be removed from the set of cluster super-admins.
 	RootUser = "pach:root"
 
+	// PpsUser is a special, unrevokable cluster administrator account used by PPS
+	// to create pipeline tokens, close commits, and do other necessary PPS work.
+	// It's not possible to authenticate as ppsUser (pps reads the auth token for
+	// this user directly from etcd).
+	PpsUser = `pach:pps`
+
 	// ClusterAdminRole is the role for cluster admins, who have full access to all APIs
 	ClusterAdminRole = "clusterAdmin"
 
@@ -53,6 +59,9 @@ const (
 
 	// RepoReaderRole is a role which grants ability to both read from a repo
 	RepoReaderRole = "repoReader"
+
+	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
+	AllClusterUsersSubject = "allClusterUsers"
 )
 
 var (
