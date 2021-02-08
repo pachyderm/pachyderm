@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	allClusterUsersSubject = "allClusterUsers"
-
 	tokensPrefix       = "/tokens"
 	roleBindingsPrefix = "/role-bindings"
 	membersPrefix      = "/members"
@@ -42,13 +40,6 @@ const (
 	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
 	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
-
-	// ppsUser is a special, unrevokable cluster administrator account used by PPS
-	// to create pipeline tokens, close commits, and do other necessary PPS work.
-	// It's not possible to authenticate as ppsUser (pps reads the auth token for
-	// this user directly from etcd). This string is not secret, but is long and
-	// random to avoid collisions with real usernames
-	ppsUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
@@ -199,7 +190,7 @@ func NewAuthServer(
 		authConfig:              authConfig,
 		roleBindings:            roleBindings,
 		configCache:             keycache.NewCache(authConfig, configKey, &DefaultOIDCConfig),
-		clusterRoleBindingCache: keycache.NewCache(authConfig, configKey, &auth.RoleBinding{}),
+		clusterRoleBindingCache: keycache.NewCache(roleBindings, clusterRoleBindingKey, &auth.RoleBinding{}),
 		public:                  public,
 	}
 	go s.retrieveOrGeneratePPSToken()
@@ -310,7 +301,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin. If activation failed in PFS, calling auth.Activate
 	// again should work (in this state, the only admin will be 'ppsUser')
-	if err := a.isActive(); err != nil {
+	if err := a.isActive(); err == nil {
 		return nil, auth.ErrAlreadyActivated
 	}
 
@@ -324,11 +315,12 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		admins := a.roleBindings.ReadWrite(stm)
+		roleBindings := a.roleBindings.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
-		if err := admins.Put(clusterRoleBindingKey, &auth.RoleBinding{
+		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				auth.PpsUser:  &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			},
 		}); err != nil {
 			return err
@@ -601,7 +593,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != ppsUser {
+	if callerInfo.Subject != auth.PpsUser {
 		token, err := auth.GetAuthToken(ctx)
 		if err != nil {
 			return nil, err
@@ -726,6 +718,10 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
+	if req.Principal == auth.RootUser {
+		return nil, fmt.Errorf("cannot modify role bindings for root user")
+	}
+
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
@@ -766,16 +762,17 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
-	if _, ok := bindings.Entries[req.Principal]; !ok {
+	if len(req.Roles) > 0 {
 		bindings.Entries[req.Principal] = &auth.Roles{Roles: make(map[string]bool)}
+		for _, r := range req.Roles {
+			bindings.Entries[req.Principal].Roles[r] = true
+		}
+	} else {
+		delete(bindings.Entries, req.Principal)
 	}
 
-	for _, r := range req.ToRemove {
-		delete(bindings.Entries[req.Principal].Roles, r)
-	}
-
-	for _, r := range req.ToAdd {
-		bindings.Entries[req.Principal].Roles[r] = true
+	if err := roleBindings.Put(key, &bindings); err != nil {
+		return nil, err
 	}
 
 	return &auth.ModifyRoleBindingResponse{}, nil
@@ -856,8 +853,7 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 		return nil, err
 	}
 
-	// TODO: switch the ppsUser to have the `pach:` prefix to simplify this case
-	if req.Subject == ppsUser || strings.HasPrefix(req.Subject, auth.PachPrefix) {
+	if strings.HasPrefix(req.Subject, auth.PachPrefix) {
 		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 
@@ -875,9 +871,6 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
 	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL); err != nil {
-		if tokenInfo.Subject != ppsUser {
-			return nil, errors.Wrapf(err, "error storing token for user \"%s\"", tokenInfo.Subject)
-		}
 		return nil, errors.Wrapf(err, "error storing token")
 	}
 	return &auth.GetAuthTokenResponse{
@@ -1201,7 +1194,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		// entry mapping ppsToken to ppsUser. Soon, ppsUser will go away and
 		// this check should happen in authorize
 		return &auth.TokenInfo{
-			Subject: ppsUser,
+			Subject: auth.PpsUser,
 			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
@@ -1230,7 +1223,7 @@ func (a *apiServer) checkCanonicalSubjects(subjects []string) error {
 // checkCanonicalSubject returns an error if a subject doesn't have a prefix, or the prefix is
 // not recognized
 func (a *apiServer) checkCanonicalSubject(subject string) error {
-	if subject == allClusterUsersSubject {
+	if subject == auth.AllClusterUsersSubject {
 		return nil
 	}
 

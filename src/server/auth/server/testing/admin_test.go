@@ -172,13 +172,13 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo)) // check that ACL wasn't updated
 
 	// 'admin' makes bob a super admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.ClusterAdminRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.ClusterAdminRole}))
 
 	// wait until bob shows up in admin list
 	bindings, err = aliceClient.GetClusterRoleBindings()
@@ -197,14 +197,13 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "reader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, nil, []string{auth.ClusterAdminRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
 
 	// wait until bob is not in admin list
 	bindings, err = aliceClient.GetClusterRoleBindings()
@@ -224,12 +223,12 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole}, []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "reader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t,
+		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
 }
 
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
@@ -275,13 +274,13 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo)) // check that ACL wasn't updated
 
 	// 'admin' makes bob an fs admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
 	bindings, err = aliceClient.GetClusterRoleBindings()
@@ -300,14 +299,13 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "reader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, nil, []string{auth.RepoOwnerRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
 
 	// wait until bob is not in admin list
 	bindings, err = aliceClient.GetClusterRoleBindings()
@@ -327,12 +325,11 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole}, []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "reader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
 }
 
 // TestFSAdminFixBrokenRepo tests that an FS admin can modify the ACL of a repo even
@@ -354,7 +351,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// 'admin' makes bob an FS admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
 	bindings, err := aliceClient.GetClusterRoleBindings()
@@ -362,7 +359,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, bob, auth.RepoOwnerRole), bindings)
 
 	// admin deletes the repo's ACL
-	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, bob, nil, []string{auth.RepoOwnerRole}))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, alice, []string{}))
 
 	// Check that the ACL is empty
 	require.Equal(t, buildBindings(), getRepoRoleBinding(t, rootClient, repo))
@@ -375,7 +372,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 	// bob, an FS admin, can update the ACL to put Alice back, even though reading the ACL
 	// will fail
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoOwnerRole}, nil))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoOwnerRole}))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// now alice can write to the repo
@@ -403,26 +400,26 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole), bindings)
 
 	// root cannot remove themselves from the list of super admins
-	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, nil, []string{auth.ClusterAdminRole}))
+	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
 
 	bindings, err = rootClient.GetClusterRoleBindings()
 	require.NoError(t, err)
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole), bindings)
 
 	// root can make alice a cluster administrator
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.ClusterAdminRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.ClusterAdminRole}))
 	bindings, err = rootClient.GetClusterRoleBindings()
 	require.NoError(t, err)
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, alice, auth.ClusterAdminRole), bindings)
 
 	// Root still cannot remove themselves as a cluster admin
-	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, nil, []string{auth.ClusterAdminRole}))
+	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
 	bindings, err = rootClient.GetClusterRoleBindings()
 	require.NoError(t, err)
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, alice, auth.ClusterAdminRole), bindings)
 
 	// alice is an admin, and she cannot remove root as an admin
-	require.YesError(t, aliceClient.ModifyClusterRoleBinding(auth.RootUser, nil, []string{auth.ClusterAdminRole}))
+	require.YesError(t, aliceClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
 	bindings, err = rootClient.GetClusterRoleBindings()
 	require.NoError(t, err)
 	require.Equal(t, buildBindings(auth.RootUser, auth.ClusterAdminRole, alice, auth.ClusterAdminRole), bindings)
@@ -584,7 +581,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, rootClient, repo)) // check that no commits were created
 
 	// alice can't update the ACL
-	err = aliceClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = aliceClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 	// We don't delete the ACL because the user might re-enable enterprise pachyderm
@@ -611,11 +608,10 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, rootClient, repo)) // check that a new commit was created
 
 	// admin can update the repo's ACL
-	err = rootClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = rootClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "reader"), getRepoRoleBinding(t, rootClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, rootClient, repo))
 
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
@@ -668,11 +664,10 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.Equal(t, 3, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// alice can update the ACL again
-	err = aliceClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole}, []string{auth.RepoReaderRole})
+	err = aliceClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoWriterRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoWriterRole), getRepoRoleBinding(t, rootClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoWriterRole), getRepoRoleBinding(t, rootClient, repo))
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -706,8 +701,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too,
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -819,7 +813,7 @@ func TestGetAndModifyRoleBindingsWithEnterpriseExpired(t *testing.T) {
 	require.Matches(t, "not active", err.Error())
 
 	// alice can't call ModifyRoleBindings on repo
-	err = aliceClient.ModifyRepoRoleBinding(repo, "carol", []string{auth.RepoReaderRole}, nil)
+	err = aliceClient.ModifyRepoRoleBinding(repo, "carol", []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, rootClient, repo))
@@ -830,7 +824,7 @@ func TestGetAndModifyRoleBindingsWithEnterpriseExpired(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), bindings)
 
 	// admin can call ModifyRoleBindings on repo
-	err = rootClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole}, nil)
+	err = rootClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 
 	bindings, err = rootClient.GetRepoRoleBindings(repo)
@@ -942,8 +936,7 @@ func TestGetAuthToken(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, robotClient1))
 	// check that robotUser owns the output repo
-	require.ElementsEqual(t,
-		buildBindings(robotUser, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, robotClient1, pipeline))
+	require.Equal(t, buildBindings(robotUser, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, robotClient1, pipeline))
 
 	// Make sure that robotClient2 can commit to the input repo and flush their
 	// input commit
@@ -1086,9 +1079,8 @@ func TestRobotUserACL(t *testing.T) {
 	require.NoError(t, robotClient.CreateRepo(repo))
 	require.Equal(t, buildBindings(robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
-	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}, nil))
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoWriterRole, robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	// test that alice can commit to the robot user's repo
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -1099,9 +1091,8 @@ func TestRobotUserACL(t *testing.T) {
 	repo2 := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(repo2))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo2))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robotUser, []string{auth.RepoWriterRole}, nil))
-	require.ElementsEqual(t,
-		buildBindings(alice, auth.RepoOwnerRole, robotUser, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robotUser, []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robotUser, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
 
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(repo2, "master")
@@ -1134,7 +1125,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	robotClient.SetAuthToken(resp.Token)
 
 	// make robotUser an admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(robotUser, []string{auth.ClusterAdminRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(robotUser, []string{auth.ClusterAdminRole}))
 	// wait until robotUser shows up in admin list
 	bindings, err := rootClient.GetClusterRoleBindings()
 	require.NoError(t, err)
@@ -1158,11 +1149,9 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, robotClient.FinishCommit(repo, commit.ID))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
-	require.ElementsEqual(t,
-		buildBindings(robotUser2, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
-	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}, nil))
-	require.ElementsEqual(t,
-		buildBindings(robotUser2, auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
@@ -1345,7 +1334,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// 'admin' makes alice an fs admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}, nil))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
 
 	// wait until alice shows up in admin list
 	bindings, err := aliceClient.GetClusterRoleBindings()
@@ -1667,7 +1656,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
 	// that it fails)
-	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, fmt.Sprintf("pipeline:%s", pipeline), nil, []string{auth.RepoWriterRole}))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, fmt.Sprintf("pipeline:%s", pipeline), []string{}))
 
 	// make sure flush-commit returns (pipeline either
 	// fails or restarts RC & finishes)
