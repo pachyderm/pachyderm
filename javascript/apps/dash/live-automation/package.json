@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "open": "NODE_ENV=test cypress open",
-    "test-production": "NODE_ENV=test CYPRESS_NETWORK_REQUESTS_PATH=/tmp/cypress-network CYPRESS_BASE_URL=https://hub.pachyderm.com cypress run --browser chrome --headless",
+    "test-production": "NODE_ENV=test CYPRESS_NETWORK_REQUESTS_PATH=/tmp/cypress-network CYPRESS_BASE_URL=https://hub.pachyderm.com cypress run --browser chrome --headless --record",
     "test-and-report-production": "(npm run test-production && npm run report) || npm run report",
     "report": "node ./node_modules/@pachyderm/scripts/reportLiveAutomation.js --app Dash"
   },
