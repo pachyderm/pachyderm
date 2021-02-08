@@ -799,7 +799,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	}
 	var parentFSID *fileset.ID
 	if commitInfo.ParentCommit != nil {
-		id, err := d.commitStore.GetFileset(ctx, commitInfo.ParentCommit)
+		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
 		if err != nil {
 			return err
 		}
@@ -807,7 +807,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	}
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
-		id, err := d.commitStore.GetFileset(ctx, commit)
+		id, err := d.commitStore.GetDiffFileset(ctx, commit)
 		if err != nil {
 			return err
 		}
@@ -821,7 +821,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		if err != nil {
 			return err
 		}
-		if err := d.commitStore.SetFileset(ctx, commit, *compactedID); err != nil {
+		if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
 			return err
 		}
 		outputSize, err := d.storage.SizeOf(ctx, *compactedID)

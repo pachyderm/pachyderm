@@ -76,7 +76,7 @@ func (d *driver) compactionWorker() {
 			if err != nil {
 				return nil, err
 			}
-			return serializeCompactionResult(&pfs.CompactionResult{
+			return serializeCompactionResult(&pfs.CompactionTaskResult{
 				Id: *id,
 			})
 		})
@@ -107,7 +107,7 @@ func deserializeCompactionTask(taskAny *types.Any) (*pfs.CompactionTask, error) 
 	return task, nil
 }
 
-func serializeCompactionResult(res *pfs.CompactionResult) (*types.Any, error) {
+func serializeCompactionResult(res *pfs.CompactionTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(res)
 	if err != nil {
 		return nil, err
@@ -118,8 +118,8 @@ func serializeCompactionResult(res *pfs.CompactionResult) (*types.Any, error) {
 	}, nil
 }
 
-func deserializeCompactionResult(any *types.Any) (*pfs.CompactionResult, error) {
-	res := &pfs.CompactionResult{}
+func deserializeCompactionResult(any *types.Any) (*pfs.CompactionTaskResult, error) {
+	res := &pfs.CompactionTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
 		return nil, err
 	}

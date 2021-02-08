@@ -166,7 +166,7 @@ message CompactionTask {
   PathRange range = 2;
 }
 
-message CompactionResult {
+message CompactionTaskResult {
   string id = 1;
 }
 

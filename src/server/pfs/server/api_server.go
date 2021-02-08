@@ -526,14 +526,14 @@ func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetReque
 }
 
 func modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.UnorderedWriter) (int64, error) {
-	var total int64
+	var bytesRead int64
 	for {
 		req, err := server.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return total, nil
+				return bytesRead, nil
 			}
-			return -1, err
+			return bytesRead, err
 		}
 
 		// TODO Validation.
@@ -550,12 +550,12 @@ func modifyFile(ctx context.Context, server modifyFileSource, uw *fileset.Unorde
 				n, err = appendFileURL(ctx, uw, mod.AppendFile)
 			}
 			if err != nil {
-				return total, err
+				return bytesRead, err
 			}
-			total += n
+			bytesRead += n
 		case *pfs.ModifyFileRequest_DeleteFile:
 			if err := deleteFile(uw, mod.DeleteFile); err != nil {
-				return total, err
+				return bytesRead, err
 			}
 		}
 	}

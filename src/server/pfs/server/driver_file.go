@@ -66,6 +66,13 @@ func (d *driver) withCommitUnorderedWriter(pachClient *client.APIClient, commit 
 		if err != nil {
 			return err
 		}
+		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			return pfsserver.ErrCommitFinished{commitInfo.Commit}
+		}
 		return d.commitStore.AddFileset(ctx, commit, *id)
 	})
 }
@@ -133,10 +140,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 	if err != nil {
 		return nil, nil, err
 	}
-	if commitInfo.Finished == nil {
-		return nil, nil, pfsserver.ErrCommitNotFinished{commitInfo.Commit}
-	}
-	id, err := d.commitStore.GetFileset(pachClient.Ctx(), commitInfo.Commit)
+	id, err := d.getFileset(pachClient, commitInfo.Commit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -152,9 +156,6 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
-	}
-	if srcCommitInfo.Finished == nil {
-		return pfsserver.ErrCommitNotFinished{srcCommitInfo.Commit}
 	}
 	srcCommit := srcCommitInfo.Commit
 	dstCommitInfo, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED)
@@ -186,12 +187,13 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
 	})
 	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
-		idx.Path = pathTransform(idx.Path)
-		return idx
+		idx2 := *idx
+		idx2.Path = pathTransform(idx2.Path)
+		return &idx2
 	})
-	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
+	return d.withCommitWriter(pachClient, dstCommit, func(tag string, dstW *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
-			return dst.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
+			return dstW.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
 				fw.Append(tag)
 				return f.Content(fw)
 			})
@@ -445,12 +447,27 @@ func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, fi
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
+	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+		return nil, err
+	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, err
 	}
-	if commitInfo.Finished == nil {
-		return nil, pfsserver.ErrCommitNotFinished{commitInfo.Commit}
+	if commitInfo.Finished != nil {
+		return d.commitStore.GetTotalFileset(pachClient.Ctx(), commitInfo.Commit)
 	}
-	return d.commitStore.GetFileset(pachClient.Ctx(), commitInfo.Commit)
+	var parentFileset *fileset.ID
+	if commitInfo.ParentCommit != nil {
+		// ¯\_(ツ)_/¯
+		parentFileset, err = d.getFileset(pachClient, commitInfo.ParentCommit)
+		if err != nil {
+			return nil, err
+		}
+	}
+	id, err := d.commitStore.GetDiffFileset(pachClient.Ctx(), commitInfo.Commit)
+	if err != nil {
+		return id, err
+	}
+	return d.storage.Compose(pachClient.Ctx(), []fileset.ID{*parentFileset, *id}, defaultTTL)
 }
