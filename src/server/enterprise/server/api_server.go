@@ -76,8 +76,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
 // If the attempt fails and the license server is configured it logs the error.
 func (a *apiServer) heartbeatRoutine() {
-	ticker := time.NewTicker(heartbeatFrequency)
-	for {
+	for range time.Tick(heartbeatFrequency) {
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
 			defer cancel()
@@ -85,7 +84,6 @@ func (a *apiServer) heartbeatRoutine() {
 				logrus.WithError(err).Error("enterprise license heartbeat process failed")
 			}
 		}()
-		<-ticker.C
 	}
 }
 
@@ -213,7 +211,8 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	return &ec.ActivateResponse{}, nil
 }
 
-// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), without the activation code
+// GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), without the signature of the activation coee
+// redacted so it can be used as an identifier but can't be replayed.
 func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp *ec.GetStateResponse, retErr error) {
 	record, err := a.getEnterpriseRecord()
 	if err != nil {

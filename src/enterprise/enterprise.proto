@@ -18,8 +18,12 @@ message LicenseRecord {
 // EnterpriseConfig is the configuration we store for heartbeating
 // to the license server.
 message EnterpriseConfig {
+  // license_server is the address of the grpc license service
   string license_server = 1;
+  // id is the unique identifier for this pachd, which is registered
+  // with the license service
   string id = 2;
+  // secret is a shared secret between this pachd and the license service
   string secret = 3;
 }
 
@@ -85,6 +89,9 @@ message GetActivationCodeResponse {
   string activation_code = 3;
 }
 
+// Heartbeat in the enterprise service just triggers a heartbeat for
+// testing purposes. The RPC used to communicate with the license 
+// service is defined in the license service.
 message HeartbeatRequest{}
 message HeartbeatResponse{}
 
