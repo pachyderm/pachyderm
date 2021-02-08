@@ -1,0 +1,33 @@
+{
+    "pipeline": {
+        "name": "rabbitmq-spout"
+    },
+    "spout": {},
+    "description": "A spout that reads from rabbitmq and writes files to a repo",
+    "transform": {
+        "cmd": [
+            "/bin/app",
+            "-topic",     "test-topic",
+            "-overwrite", "true"
+        ],
+        "image": "seerai/pachyderm-rabbitmq-spout:0.0.2",
+        "env": {
+            "PREFETCH": "2000",
+            "FLUSH_INTERVAL_MS": "10000",
+            "SWITCH_INTERVAL_MS": "60000",
+            "EXTENSION": "ndjson",
+            "TEST": "false",
+            "RABBITMQ_HOST": "rabbitmq.default.svc.cluster.local:5672",
+            "RABBITMQ_USER": "peter",
+            "RABBITMQ_PROTOCOL": "amqps",
+            "SWITCH_BRANCH": "master",
+            "COMMIT_BRANCH": "staging"
+        },
+        "secrets": [{
+            "name": "rabbitmq-password",
+            "key": "rabbitmq-password",
+            "env_var": "RABBITMQ_PASSWORD"
+        }]
+    }
+}
+
