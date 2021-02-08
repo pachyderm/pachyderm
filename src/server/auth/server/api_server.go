@@ -672,39 +672,43 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
-	// ModifyRoleBinding can be called for any type of resource, and the permission required depends on
-	// the type of resource.
-	var permissions []auth.Permission
-	switch req.Resource.Type {
-	case auth.ResourceType_CLUSTER:
-		permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
-	case auth.ResourceType_REPO:
-		permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
-	default:
-		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
-	}
-
-	// Check if the caller is authorized
-	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-		Resource:    req.Resource,
-		Permissions: permissions,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !authorized.Authorized {
-		return nil, &auth.ErrNotAuthorized{
-			Subject:  callerInfo.Subject,
-			Resource: *req.Resource,
-			Required: permissions,
-		}
-	}
-
+	// Check if the binding exists - if not, skip the auth check and allow it to be created
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
-		return nil, err
+		if !col.IsErrNotFound(err) {
+			return nil, err
+		}
+		bindings.Entries = make(map[string]*auth.Roles)
+	} else {
+		// ModifyRoleBinding can be called for any type of resource,
+		// and the permission required depends on the type of resource.
+		var permissions []auth.Permission
+		switch req.Resource.Type {
+		case auth.ResourceType_CLUSTER:
+			permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
+		case auth.ResourceType_REPO:
+			permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
+		default:
+			return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
+		}
+
+		// Check if the caller is authorized
+		authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
+			Resource:    req.Resource,
+			Permissions: permissions,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if !authorized.Authorized {
+			return nil, &auth.ErrNotAuthorized{
+				Subject:  callerInfo.Subject,
+				Resource: *req.Resource,
+				Required: permissions,
+			}
+		}
 	}
 
 	if len(req.Roles) > 0 {
