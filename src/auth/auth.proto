@@ -193,14 +193,6 @@ message AuthorizeResponse {
   repeated Permission missing = 3;
 }
 
-message CreateRoleBindingRequest {
-  Resource resource = 1;
-  string principal = 2;
-  repeated string roles =3;
-}
-
-message CreateRoleBindingResponse {}
-
 message ModifyRoleBindingRequest {
   // resource is the resource to modify the role bindings on 
   Resource resource = 1;
@@ -215,7 +207,7 @@ message ModifyRoleBindingRequest {
 message ModifyRoleBindingResponse {}
 
 message DeleteRoleBindingRequest {
-  // resource is the resource to modify the role bindings on 
+  // resource is the resource to delete the role bindings on 
   Resource resource = 1;
 }
 
@@ -378,7 +370,6 @@ service API {
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
-  rpc CreateRoleBinding(CreateRoleBindingRequest) returns (CreateRoleBindingResponse) {}
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
   rpc DeleteRoleBinding(DeleteRoleBindingRequest) returns (DeleteRoleBindingResponse) {}
   rpc GetRoleBindings(GetRoleBindingsRequest) returns (GetRoleBindingsResponse) {}

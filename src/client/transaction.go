@@ -487,9 +487,6 @@ func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetC
 func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
 	return nil, unsupportedError("SetConfiguration")
 }
-func (c *authBuilderClient) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleBindingRequest, opts ...grpc.CallOption) (*auth.CreateRoleBindingResponse, error) {
-	return nil, unsupportedError("CreateRoleBinding")
-}
 func (c *authBuilderClient) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingsResponse, error) {
 	return nil, unsupportedError("GetRoleBindings")
 }

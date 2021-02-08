@@ -23,11 +23,6 @@ func (a *InactiveAPIServer) Deactivate(context.Context, *auth.DeactivateRequest)
 	return nil, auth.ErrNotActivated
 }
 
-// CreateRoleBinding implements the CreateRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) CreateRoleBinding(context.Context, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // GetRoleBindings implements the GetRoleBindings RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetRoleBindings(context.Context, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -40,11 +35,6 @@ func (a *InactiveAPIServer) ModifyRoleBinding(context.Context, *auth.ModifyRoleB
 
 // DeleteRoleBinding implements the DeleteRoleBinding RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) DeleteRoleBinding(context.Context, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
-// CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
