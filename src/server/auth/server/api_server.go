@@ -611,61 +611,6 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	}, nil
 }
 
-// CreateRoleBindingInTransaction is identitical to CreateRoleBinding except that it can run inside
-// an existing etcd STM transaction. This is not an RPC.
-func (a *apiServer) CreateRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	req *auth.CreateRoleBindingRequest,
-) (*auth.CreateRoleBindingResponse, error) {
-	if err := a.isActive(); err != nil {
-		return nil, err
-	}
-
-	if err := a.checkCanonicalSubject(req.Principal); err != nil {
-		return nil, err
-	}
-
-	// Check that the role binding does not currently exist
-	key := resourceKey(req.Resource)
-	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
-	var bindings auth.RoleBinding
-	if err := roleBindings.Get(key, &bindings); err == nil {
-		return nil, fmt.Errorf("role binding already exists for resource %v", req.Resource)
-	} else if !col.IsErrNotFound(err) {
-		return nil, err
-	}
-
-	bindings.Entries = map[string]*auth.Roles{
-		req.Principal: &auth.Roles{Roles: make(map[string]bool)},
-	}
-
-	for _, r := range req.Roles {
-		bindings.Entries[req.Principal].Roles[r] = true
-	}
-
-	if err := roleBindings.Put(key, &bindings); err != nil {
-		return nil, err
-	}
-
-	return &auth.CreateRoleBindingResponse{}, nil
-}
-
-// CreateRoleBinding implements the CreateRoleBinding RPC
-func (a *apiServer) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleBindingRequest) (resp *auth.CreateRoleBindingResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	var response *auth.CreateRoleBindingResponse
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		var err error
-		response, err = txn.CreateRoleBinding(req)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
 // DeleteRoleBindingInTransaction is identitical to DeleteRoleBinding except that it can run inside
 // an existing etcd STM transaction. This is not an RPC.
 func (a *apiServer) DeleteRoleBindingInTransaction(

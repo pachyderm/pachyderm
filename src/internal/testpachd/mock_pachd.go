@@ -73,7 +73,6 @@ type deactivateAuthFunc func(context.Context, *auth.DeactivateRequest) (*auth.De
 type getConfigurationFunc func(context.Context, *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error)
 type setConfigurationFunc func(context.Context, *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error)
 
-type createRoleBindingFunc func(context.Context, *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error)
 type modifyRoleBindingFunc func(context.Context, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 type getRoleBindingsFunc func(context.Context, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error)
 type deleteRoleBindingFunc func(context.Context, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error)
@@ -96,7 +95,6 @@ type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
 type mockGetConfiguration struct{ handler getConfigurationFunc }
 type mockSetConfiguration struct{ handler setConfigurationFunc }
-type mockCreateRoleBinding struct{ handler createRoleBindingFunc }
 type mockModifyRoleBinding struct{ handler modifyRoleBindingFunc }
 type mockGetRoleBindings struct{ handler getRoleBindingsFunc }
 type mockDeleteRoleBinding struct{ handler deleteRoleBindingFunc }
@@ -143,7 +141,6 @@ type mockAuthServer struct {
 	Deactivate        mockDeactivateAuth
 	GetConfiguration  mockGetConfiguration
 	SetConfiguration  mockSetConfiguration
-	CreateRoleBinding mockCreateRoleBinding
 	ModifyRoleBinding mockModifyRoleBinding
 	GetRoleBindings   mockGetRoleBindings
 	DeleteRoleBinding mockDeleteRoleBinding
@@ -185,12 +182,6 @@ func (api *authServerAPI) SetConfiguration(ctx context.Context, req *auth.SetCon
 		return api.mock.SetConfiguration.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.SetConfiguration")
-}
-func (api *authServerAPI) CreateRoleBinding(ctx context.Context, req *auth.CreateRoleBindingRequest) (*auth.CreateRoleBindingResponse, error) {
-	if api.mock.CreateRoleBinding.handler != nil {
-		return api.mock.CreateRoleBinding.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.CreateRoleBinding")
 }
 func (api *authServerAPI) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
 	if api.mock.GetRoleBindings.handler != nil {
