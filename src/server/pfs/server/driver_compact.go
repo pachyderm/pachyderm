@@ -20,8 +20,12 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 	// serialize access to RunSubtasks, the compactor may call workerFunc concurrently
 	mu := sync.Mutex{}
 	workerFunc := func(ctx context.Context, task fileset.CompactionTask) (*fileset.ID, error) {
+		serInputs := make([]string, len(task.Inputs))
+		for i := range task.Inputs {
+			serInputs[i] = task.Inputs[i].HexString()
+		}
 		any, err := serializeCompactionTask(&pfs.CompactionTask{
-			Inputs: task.Inputs,
+			Inputs: serInputs,
 			Range: &pfs.PathRange{
 				Lower: task.PathRange.Lower,
 				Upper: task.PathRange.Upper,
@@ -77,7 +81,7 @@ func (d *driver) compactionWorker() {
 				return nil, err
 			}
 			return serializeCompactionResult(&pfs.CompactionTaskResult{
-				Id: *id,
+				Id: id.HexString(),
 			})
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {

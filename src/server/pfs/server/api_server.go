@@ -60,8 +60,8 @@ func newAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etc
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {
-	if repo := request.GetRepo(); repo != nil && repo.Name == tmpRepo {
-		return errors.Errorf("%s is a reserved name", tmpRepo)
+	if repo := request.GetRepo(); repo != nil && repo.Name == fileSetsRepo {
+		return errors.Errorf("%s is a reserved name", fileSetsRepo)
 	}
 	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
 }
@@ -358,7 +358,11 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 
 func (a *apiServer) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
 	pachClient := a.env.GetPachClient(ctx)
-	if err := a.driver.addFileset(pachClient, req.Commit, req.FilesetId); err != nil {
+	fsid, err := fileset.ParseID(req.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.addFileset(pachClient, req.Commit, *fsid); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -370,7 +374,7 @@ func (a *apiServer) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) 
 		return nil, err
 	}
 	return &pfs.CreateFilesetResponse{
-		FilesetId: *filesetID,
+		FilesetId: filesetID.HexString(),
 	}, nil
 }
 
@@ -513,13 +517,17 @@ func (a *apiServer) CreateFileset(server pfs.API_CreateFilesetServer) error {
 		return err
 	}
 	return server.SendAndClose(&pfs.CreateFilesetResponse{
-		FilesetId: *fsID,
+		FilesetId: fsID.HexString(),
 	})
 }
 
 // RenewFileset implements the pfs.RenewFileset RPC
 func (a *apiServer) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
-	if err := a.driver.renewFileset(ctx, req.FilesetId, time.Duration(req.TtlSeconds)*time.Second); err != nil {
+	fsid, err := fileset.ParseID(req.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.renewFileset(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

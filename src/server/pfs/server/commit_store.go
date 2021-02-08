@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -47,15 +48,14 @@ func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commi
 	}
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		if _, err := cs.db.ExecContext(ctx,
-			`INSERT INTO pfs.commit_diffs (repo_name, commit_id, fileset_id)
-		VALUES ($1, $2, $3)
-	`, commit.Repo.Name, commit.ID, *id2); err != nil {
+			`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
+		VALUES ($1, $2)
+	`, commit.ID, *id2); err != nil {
 			return err
 		}
 		if _, err := cs.db.ExecContext(ctx,
-			`DELETE FROM pfs.commit_totals
-			WHERE repo_name = $1 AND commit_id = $2
-			`, commit.Repo.Name, commit.ID); err != nil {
+			`DELETE FROM pfs.commit_totals WHERE commit_id = $1
+			`, commit.ID); err != nil {
 			return err
 		}
 		return nil
@@ -80,12 +80,12 @@ func (cs *postgresCommitStore) GetDiffFileset(ctx context.Context, commit *pfs.C
 
 func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
 	_, err := cs.db.ExecContext(ctx,
-		`INSERT INTO pfs.commit_totals (repo_name, commit_id, fileset_id)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (repo_name, commit_id) DO UPDATE
-		SET fileset_id = $3
-		WHERE commit_totals.repo_name = $1 AND commit_totals.commit_id = $2
-		`, commit.Repo.Name, commit.ID, id)
+		`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
+		VALUES ($1, $2)
+		ON CONFLICT (commit_id) DO UPDATE
+		SET fileset_id = $2
+		WHERE commit_totals.commit_id = $1
+		`, commit.ID, id)
 	return err
 }
 
@@ -109,7 +109,7 @@ func (cs *postgresCommitStore) dropDiff(ctx context.Context, db dbutil.Interface
 			return err
 		}
 	}
-	if _, err := cs.db.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE repo_name = $1 AND commit_id = $2`); err != nil {
+	if _, err := cs.db.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, commit.ID); err != nil {
 		return err
 	}
 	return nil
@@ -118,12 +118,15 @@ func (cs *postgresCommitStore) dropDiff(ctx context.Context, db dbutil.Interface
 func (cs *postgresCommitStore) dropTotal(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) error {
 	id, err := getTotal(ctx, db, commit)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
 		return err
 	}
 	if err := cs.s.Drop(ctx, *id); err != nil {
 		return err
 	}
-	if _, err := cs.db.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE repo_name = $1 AND commit_id = $2`); err != nil {
+	if _, err := cs.db.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, commit.ID); err != nil {
 		return err
 	}
 	return nil
@@ -133,9 +136,9 @@ func getDiff(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) ([]fi
 	var ids []fileset.ID
 	if err := db.SelectContext(ctx, &ids,
 		`SELECT fileset_id FROM pfs.commit_diffs
-		WHERE commit_id = $1 AND repo_name = $2
+		WHERE commit_id = $1
 		ORDER BY num
-		`, commit.ID, commit.Repo.Name); err != nil {
+		`, commit.ID); err != nil {
 		return nil, err
 	}
 	return ids, nil
@@ -146,8 +149,7 @@ func getTotal(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) (*fi
 	if err := db.GetContext(ctx, &id,
 		`SELECT fileset_id FROM pfs.commit_totals
 		WHERE commit_id = $1
-		AND repo_name = $2
-	`, commit.ID, commit.Repo.Name); err != nil {
+	`, commit.ID); err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -157,18 +159,16 @@ func getTotal(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) (*fi
 func SetupPostgresCommitStoreV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE pfs.commit_diffs (
-			repo_name VARCHAR(250) NOT NULL,
 			commit_id VARCHAR(64) NOT NULL,
 			num BIGSERIAL NOT NULL,
 			fileset_id VARCHAR(64) NOT NULL,
-			PRIMARY KEY(repo_name, commit_id, num)
+			PRIMARY KEY(commit_id, num)
 		);
 
 		CREATE TABLE pfs.commit_totals (
-			repo_name VARCHAR(250) NOT NULL,
 			commit_id VARCHAR(64) NOT NULL,
 			fileset_id VARCHAR(64) NOT NULL,
-			PRIMARY KEY(repo_name, commit_id)
+			PRIMARY KEY(commit_id)
 		);
 	`)
 	return err

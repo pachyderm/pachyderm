@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -66,13 +67,6 @@ func (d *driver) withCommitUnorderedWriter(pachClient *client.APIClient, commit 
 		if err != nil {
 			return err
 		}
-		commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return err
-		}
-		if commitInfo.Finished != nil {
-			return pfsserver.ErrCommitFinished{commitInfo.Commit}
-		}
 		return d.commitStore.AddFileset(ctx, commit, *id)
 	})
 }
@@ -91,14 +85,14 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 		return nil, err
 	}
 	if !compact {
-		renewer.Add(*id)
+		renewer.Add(id.HexString())
 		return id, nil
 	}
 	compactedID, err := d.storage.Compact(ctx, []fileset.ID{*id}, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(*compactedID)
+	renewer.Add(string(*compactedID))
 	return compactedID, nil
 }
 
@@ -112,12 +106,10 @@ func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Comm
 		return pfsserver.ErrCommitFinished{commitInfo.Commit}
 	}
 	fsw := d.storage.NewWriter(ctx)
-	defer func() {
-		if _, err := fsw.Close(); retErr == nil {
-			retErr = err
-		}
-	}()
 	if err := cb(d.getDefaultTag(), fsw); err != nil {
+		if _, err := fsw.Close(); err != nil {
+			logrus.Error(err)
+		}
 		return err
 	}
 	id, err := fsw.Close()
@@ -133,6 +125,17 @@ func (d *driver) getDefaultTag() string {
 }
 
 func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, opts ...index.Option) (*pfs.Commit, fileset.FileSet, error) {
+	if commit.Repo.Name == fileSetsRepo {
+		fsid, err := fileset.ParseID(commit.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		fs, err := d.storage.Open(pachClient.Ctx(), []fileset.ID{*fsid}, opts...)
+		if err != nil {
+			return nil, nil, err
+		}
+		return commit, fs, nil
+	}
 	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, nil, err
 	}
@@ -418,24 +421,18 @@ func (d *driver) createFileset(ctx context.Context, cb func(*fileset.UnorderedWr
 	return id, nil
 }
 
-func (d *driver) renewFileset(ctx context.Context, id string, ttl time.Duration) error {
+func (d *driver) renewFileset(ctx context.Context, id fileset.ID, ttl time.Duration) error {
 	if ttl < time.Second {
 		return errors.Errorf("ttl (%d) must be at least one second", ttl)
 	}
 	if ttl > maxTTL {
 		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
 	}
-	// check that it is the correct length, to prevent malicious renewing of multiple filesets
-	// len(hex(uuid)) == 32
-	if len(id) != 32 {
-		return errors.Errorf("invalid id (%s)", id)
-	}
-	p := path.Join(tmpRepo, id)
-	_, err := d.storage.SetTTL(ctx, p, ttl)
+	_, err := d.storage.SetTTL(ctx, id, ttl)
 	return err
 }
 
-func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, filesetID string) error {
+func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, filesetID fileset.ID) error {
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err

@@ -234,7 +234,7 @@ func (uw *UnorderedWriter) serialize() error {
 	}
 	uw.layers = append(uw.layers, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(*id)
+		uw.renewer.Add(filesetObjectID(*id))
 	}
 	// Reset in-memory file set.
 	uw.memFileSet = newMemFileSet()
@@ -250,6 +250,6 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
-		Layers: uw.layers,
+		Layers: idsToHex(uw.layers),
 	}, uw.ttl)
 }

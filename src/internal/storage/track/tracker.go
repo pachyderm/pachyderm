@@ -2,6 +2,7 @@ package track
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -25,6 +26,9 @@ var (
 
 // NoTTL will cause the object to live forever
 const NoTTL = time.Duration(0)
+
+// ExpireNow will expire the object immediately.
+const ExpireNow = time.Duration(math.MinInt32)
 
 // Tracker tracks objects and their references to one another.
 type Tracker interface {

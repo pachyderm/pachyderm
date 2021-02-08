@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -170,12 +171,21 @@ type fileSetIterator struct {
 	repo, commit string
 }
 
-// NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, repo, commit string) Iterator {
+// NewCommitIterator creates an iterator for the specified commit and repo.
+func NewCommitIterator(pachClient *client.APIClient, repo, commit string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       repo,
 		commit:     commit,
+	}
+}
+
+// NewFileSetIterator creates a new fileset iterator.
+func NewFileSetIterator(pachClient *client.APIClient, fsID fileset.ID) Iterator {
+	return &fileSetIterator{
+		pachClient: pachClient,
+		repo:       client.FileSetsRepoName,
+		commit:     fsID,
 	}
 }
 

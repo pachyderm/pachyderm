@@ -93,7 +93,7 @@ func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
 
 // TODO: Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
-func (s *Storage) newReader(fileSet string, opts ...index.Option) *Reader {
+func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
 	return newReader(s.store, s.chunks, fileSet, opts...)
 }
 
@@ -110,7 +110,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 		case *Metadata_Primitive:
 			fss = append(fss, s.newReader(id, opts...))
 		case *Metadata_Composite:
-			fs, err := s.Open(ctx, x.Composite.Layers)
+			fs, err := s.Open(ctx, stringsToIDs(x.Composite.Layers), opts...)
 			if err != nil {
 				return nil, err
 			}
@@ -131,7 +131,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 // other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	c := &Composite{
-		Layers: ids,
+		Layers: idsToHex(ids),
 	}
 	return s.newComposite(ctx, c, ttl)
 }
@@ -167,7 +167,7 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 		case *Metadata_Primitive:
 			flattened = append(flattened, id)
 		case *Metadata_Composite:
-			ids2, err := s.Flatten(ctx, x.Composite.Layers)
+			ids2, err := s.Flatten(ctx, stringsToIDs(x.Composite.Layers))
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +179,7 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 
 // Merge writes the contents of ids to a new fileset with the specified ttl and returns the ID
 // Merge always returns the ID of a primitive fileset.
-func (s *Storage) Merge(ctx context.Context, ids []string, ttl time.Duration) (*ID, error) {
+func (s *Storage) Merge(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var size int64
 	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
 		size += index.SizeBytes(idx)
@@ -243,8 +243,8 @@ func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
-	rf := func(ctx context.Context, p string, ttl time.Duration) error {
-		_, err := s.SetTTL(ctx, p, ttl)
+	rf := func(ctx context.Context, idHexStr string, ttl time.Duration) error {
+		_, err := s.SetTTL(ctx, ID(idHexStr), ttl)
 		return err
 	}
 	return renew.WithStringSet(ctx, ttl, rf, cb)
@@ -303,7 +303,7 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 	}
 	var pointsTo []string
 	for _, id := range comp.Layers {
-		pointsTo = append(pointsTo, filesetObjectID(id))
+		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
 	}
 	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 }
 
 func filesetObjectID(id ID) string {
-	return "fileset/" + id
+	return "fileset/" + id.HexString()
 }
 
 var _ track.Deleter = &deleter{}

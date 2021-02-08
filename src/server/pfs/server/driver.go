@@ -45,7 +45,7 @@ const (
 
 const (
 	storageTaskNamespace = "storage"
-	tmpRepo              = client.TmpRepoName
+	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
 )
@@ -1152,10 +1152,10 @@ nextSubvBI:
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.GetRepo().GetName() == tmpRepo {
+	if commit.GetRepo().GetName() == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
-			Description: "Temporary Fileset",
+			Description: "FileSet - Virtual Commit",
 			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
 		}
 		return cinfo, nil
