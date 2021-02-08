@@ -617,9 +617,6 @@ func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRe
 func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequest, opts ...grpc.CallOption) (*auth.GetUsersResponse, error) {
 	return nil, unsupportedError("GetUsers")
 }
-func (c *authBuilderClient) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest, opts ...grpc.CallOption) (*auth.GetOneTimePasswordResponse, error) {
-	return nil, unsupportedError("GetOneTimePassword")
-}
 func (c *authBuilderClient) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest, opts ...grpc.CallOption) (*auth.ExtractAuthTokensResponse, error) {
 	return nil, unsupportedError("ExtractAuthTokens")
 }
