@@ -12,7 +12,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -181,7 +180,7 @@ func NewCommitIterator(pachClient *client.APIClient, repo, commit string) Iterat
 }
 
 // NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, fsID fileset.ID) Iterator {
+func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       client.FileSetsRepoName,

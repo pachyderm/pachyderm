@@ -258,6 +258,7 @@ func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
 	})
 }
 
+// FileSetsRepoName is the repo name used to access filesets as virtual commits.
 const FileSetsRepoName = "__filesets__"
 
 // DefaultTTL is the default time-to-live for a temporary fileset.

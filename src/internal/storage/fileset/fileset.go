@@ -18,6 +18,7 @@ func newID() ID {
 	return ID(uuid.NewWithoutDashes())
 }
 
+// ParseID parses a string into an ID or returns an error
 func ParseID(x string) (*ID, error) {
 	if len(x) < 32 {
 		return nil, errors.Errorf("string (%v) too short to be ID", x)
@@ -26,6 +27,7 @@ func ParseID(x string) (*ID, error) {
 	return &id, nil
 }
 
+// HexString returns the ID encoded with the hex alphabet.
 func (id ID) HexString() string {
 	return string(id)
 }
