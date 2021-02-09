@@ -62,28 +62,6 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	return md, nil
 }
 
-// func (s *postgresStore) Walk(ctx context.Context, prefix string, cb func(string) error) (retErr error) {
-// 	rows, err := s.db.QueryContext(ctx, `SELECT path from storage.filesets WHERE path LIKE $1 || '%' ORDER BY path`, prefix)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer func() {
-// 		if err := rows.Close(); retErr == nil {
-// 			retErr = err
-// 		}
-// 	}()
-// 	var p string
-// 	for rows.Next() {
-// 		if err := rows.Scan(&p); err != nil {
-// 			return err
-// 		}
-// 		if err := cb(p); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return rows.Err()
-// }
-
 func (s *postgresStore) Delete(ctx context.Context, id ID) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.filesets WHERE path = $1`, id.HexString())
 	return err
