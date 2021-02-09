@@ -24,9 +24,10 @@ func newAuthorizeRequest(subject string, permissions []auth.Permission, groupsFo
 	}
 
 	return &authorizeRequest{
-		subject:          subject,
-		permissions:      permissionMap,
-		groupsForSubject: groupsForSubject,
+		subject:              subject,
+		permissions:          permissionMap,
+		groupsForSubject:     groupsForSubject,
+		satisfiedPermissions: make([]auth.Permission, 0),
 	}
 }
 
@@ -159,7 +160,6 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 	case auth.RepoReaderRole:
 		return []auth.Permission{
 			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_INSPECT_COMMIT,
 			auth.Permission_REPO_LIST_COMMIT,
 			auth.Permission_REPO_LIST_BRANCH,

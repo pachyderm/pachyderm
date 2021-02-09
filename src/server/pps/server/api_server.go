@@ -469,7 +469,9 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
 				required = auth.Permission_REPO_WRITE
-			} else if !isNotFoundErr(err) {
+			} else if isNotFoundErr(err) {
+				return nil
+			} else {
 				return err
 			}
 		case pipelineOpListDatum, pipelineOpGetLogs:
