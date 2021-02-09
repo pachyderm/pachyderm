@@ -105,5 +105,6 @@ workflows:
               - PPS1
               - PPS2
               - PPS3
+              - PPS4
               - EXAMPLES
               - OBJECT
