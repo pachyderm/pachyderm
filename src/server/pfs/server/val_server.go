@@ -32,7 +32,7 @@ func newValidatedAPIServer(embeddedServer APIServer, env *serviceenv.ServiceEnv)
 func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteRepoRequest) error {
 	repo := request.Repo
 	// Check if the caller is authorized to delete this repo
-	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_READ); err != nil {
+	if err := authserver.CheckRepoIsAuthorizedInTransaction(txnCtx, repo.Name, auth.Permission_REPO_DELETE); err != nil {
 		return err
 	}
 	return a.APIServer.DeleteRepoInTransaction(txnCtx, request)

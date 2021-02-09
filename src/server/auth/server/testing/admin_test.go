@@ -810,7 +810,7 @@ func TestGetAndModifyRoleBindingsWithEnterpriseExpired(t *testing.T) {
 	require.Matches(t, "not active", err.Error())
 
 	// alice can't call ModifyRoleBindings on repo
-	err = aliceClient.ModifyRepoRoleBinding(repo, "carol", []string{auth.RepoReaderRole})
+	err = aliceClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, rootClient, repo))
@@ -851,7 +851,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Equal(t, []auth.Permission{}, info.AuthInfo.Permissions)
+		require.Nil(t, info.AuthInfo.Permissions)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
@@ -985,12 +985,6 @@ func TestGetTokenForRootUser(t *testing.T) {
 	// Try and get credentials as the root user, specifying the name
 	_, err := rootClient.GetAuthToken(rootClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: auth.RootUser})
-	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
-
-	// Try and get credentials as the root user implicitly by not specifying a subject
-	_, err = rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
 }
@@ -1310,7 +1304,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "must be an admin", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
 }
 
 // TestGetAuthTokenErrorFSAdminUser tests that FS admin users can't call
@@ -1340,7 +1334,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "must be an admin", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)

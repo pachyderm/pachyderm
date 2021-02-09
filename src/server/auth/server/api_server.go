@@ -389,12 +389,22 @@ func (a *apiServer) expiredEnterpriseCheck(ctx context.Context) error {
 		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 
-	if state != enterpriseclient.State_ACTIVE {
-		return errors.New("Pachyderm Enterprise is not active in this " +
-			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-			"auth is deactivated, users cannot log in)")
+	if state == enterpriseclient.State_ACTIVE {
+		return nil
 	}
-	return nil
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	if callerInfo.Subject == auth.RootUser || callerInfo.Subject == auth.PpsUser {
+		return nil
+	}
+
+	return errors.New("Pachyderm Enterprise is not active in this " +
+		"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+		"auth is deactivated, users cannot log in)")
 }
 
 // Authenticate implements the protobuf auth.Authenticate RPC
@@ -503,21 +513,13 @@ func (a *apiServer) AuthorizeInTransaction(
 		return nil, err
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
+	if err := a.expiredEnterpriseCheck(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
-	// If the cluster's enterprise token is expired, only pipelines can authorize
-	state, err := a.getEnterpriseTokenState(txnCtx.ClientContext)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-	if state != enterpriseclient.State_ACTIVE &&
-		!strings.HasPrefix(callerInfo.Subject, auth.PipelinePrefix) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " +
-			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-			"auth is deactivated, only pipelines can perform any operations)")
+		return nil, err
 	}
 
 	request := newAuthorizeRequest(callerInfo.Subject, req.Permissions, a.getGroups)
@@ -663,8 +665,8 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
-	if req.Principal == auth.RootUser {
-		return nil, fmt.Errorf("cannot modify role bindings for root user")
+	if strings.HasPrefix(req.Principal, auth.PachPrefix) && req.Resource.Type == auth.ResourceType_CLUSTER {
+		return nil, fmt.Errorf("cannot modify cluster role bindings for pach: users")
 	}
 
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
@@ -761,6 +763,10 @@ func (a *apiServer) GetRoleBindingsInTransaction(
 	var roleBindings auth.RoleBinding
 	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
+	}
+
+	if roleBindings.Entries == nil {
+		roleBindings.Entries = make(map[string]*auth.Roles)
 	}
 	return &auth.GetRoleBindingsResponse{
 		Binding: &roleBindings,
@@ -1078,7 +1084,38 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	groups, err := a.getGroups(ctx, req.Username)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var target string
+	if req.Username != "" && req.Username != callerInfo.Subject {
+		pachClient := a.env.GetPachClient(ctx)
+		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
+			Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+			Permissions: []auth.Permission{
+				auth.Permission_CLUSTER_ADMIN,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if !resp.Authorized {
+			return nil, &auth.ErrNotAuthorized{
+				Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
+				Required: []auth.Permission{
+					auth.Permission_CLUSTER_ADMIN,
+				},
+			}
+		}
+		target = req.Username
+	} else {
+		target = callerInfo.Subject
+	}
+
+	groups, err := a.getGroups(ctx, target)
 	if err != nil {
 		return nil, err
 	}
