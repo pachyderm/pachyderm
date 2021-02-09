@@ -218,7 +218,7 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 			}
 		}
 		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
-	}, backoff.NewExponentialBackOff(), backoff.NotifyContinue("pollPipelinePods"),
+	}, backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
 		panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
 	}
