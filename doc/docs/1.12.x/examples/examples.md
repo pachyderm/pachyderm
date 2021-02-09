@@ -58,13 +58,19 @@ A spout is a special type of pipeline that you can use to ingest
 streaming data and perform such operations as sorting, filtering, and other.
 
 We have released a new *spouts 2.0* implementation
-in Pachyderm 1.12. Checkout our [Spout101](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101) example.
+in Pachyderm 1.12. Please take a look at our examples:
+
+- [Spout101](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101)
+
+- More extensive - Pachyderm's integration of spouts with RabbitMQ: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 
 
 !!! Warning
     The following examples are based on our previous version of spout. That implementation is now [deprecated](../../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
+
 * [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer)
 * [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout)
 * [Amazon SQS S3 Spout](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3)
+* [Spout Marker](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker)
 
 ### Transactions
 
@@ -121,7 +127,7 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
 [Spark Example](https://github.com/pachyderm/pachyderm/tree/master/examples/spark/pi)
 
 ## Integration with Pachyderm
-###  S3 getaway 
+###  S3 gateway 
 - Pachyderm - Seldon integration: Version Controlled Models¶
 
     In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end pipelines,
