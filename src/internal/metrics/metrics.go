@@ -211,16 +211,16 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				}
 			}
 			if pi.Input != nil {
-				if metrics.InputOuterJoin == false {
+				if !metrics.InputOuterJoin {
 					metrics.InputOuterJoin = pi.Input.Pfs.OuterJoin
 				}
-				if metrics.InputLazy == false {
+				if !metrics.InputLazy {
 					metrics.InputLazy = pi.Input.Pfs.Lazy
 				}
-				if metrics.InputEmptyFiles == false {
+				if !metrics.InputEmptyFiles {
 					metrics.InputEmptyFiles = pi.Input.Pfs.EmptyFiles
 				}
-				if metrics.InputS3 == false {
+				if !metrics.InputS3 {
 					metrics.InputS3 = pi.Input.Pfs.S3
 				}
 				if pi.Input.Pfs.Trigger != nil {
@@ -245,7 +245,7 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 					metrics.InputGit = true
 				}
 			}
-			if metrics.CfgStandby == false {
+			if !metrics.CfgStandby {
 				metrics.CfgStats = pi.EnableStats
 			}
 			if pi.Service != nil {
@@ -257,10 +257,10 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 					metrics.PpsSpoutService = true
 				}
 			}
-			if metrics.CfgStandby == false {
+			if !metrics.CfgStandby {
 				metrics.CfgStandby = pi.Standby
 			}
-			if metrics.CfgS3Gateway == false {
+			if !metrics.CfgS3Gateway {
 				metrics.CfgS3Gateway = pi.S3Out
 			}
 			if pi.Transform != nil {
@@ -278,5 +278,4 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 	if err == nil {
 		metrics.Repos = int64(len(ris))
 	}
-	return
 }
