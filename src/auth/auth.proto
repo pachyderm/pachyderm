@@ -112,6 +112,7 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
+  reserved 2,4;
   string username = 1;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
 }

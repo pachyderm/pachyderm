@@ -2,13 +2,18 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
 
 type groupLookupFn func(ctx context.Context, subject string) ([]string, error)
 
+// authorizeRequest is a helper struct used to evaluate an incoming Authorize request.
+// It's initialized with the subject and set of permissions required for an Operation,
+// and it looks at role bindings to figure out which permissions are satisfied.
+// This decouples evaluating role bindings from fetching the role bindings,
+// so we can easily try the cheapest/most likely options and exit early if
+// the permissions are all satisfied.
 type authorizeRequest struct {
 	subject              string
 	permissions          map[auth.Permission]bool
@@ -62,10 +67,13 @@ func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, binding *aut
 		return err
 	}
 
+	// If all permissions are satisfied without checking group membership, then return early
 	if len(r.permissions) == 0 {
 		return nil
 	}
 
+	// Cache the group membership after the first lookup, in case we need to evaluate several
+	// bindings to cover the set of permissions.
 	if r.groups == nil {
 		var err error
 		r.groups, err = r.groupsForSubject(ctx, r.subject)
@@ -104,69 +112,4 @@ func (r *authorizeRequest) evaluateRoleBindingForSubject(subject string, binding
 		}
 	}
 	return nil
-}
-
-// permissionsForRole returns the set of permissions associated with a role.
-// For now this is a hard-coded list but it may be extended to support user-defined roles.
-func permissionsForRole(role string) ([]auth.Permission, error) {
-	switch role {
-	case auth.ClusterAdminRole:
-		return []auth.Permission{
-			auth.Permission_CLUSTER_ADMIN,
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_MODIFY_BINDINGS,
-			auth.Permission_REPO_DELETE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
-		}, nil
-	case auth.RepoOwnerRole:
-		return []auth.Permission{
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_MODIFY_BINDINGS,
-			auth.Permission_REPO_DELETE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
-		}, nil
-	case auth.RepoWriterRole:
-		return []auth.Permission{
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
-		}, nil
-	case auth.RepoReaderRole:
-		return []auth.Permission{
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
-		}, nil
-	}
-	return nil, fmt.Errorf("unknown role %q", role)
 }
