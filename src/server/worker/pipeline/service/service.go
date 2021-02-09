@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/sync/errgroup"
 
@@ -104,7 +105,11 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			}
 
 			if err := eg.Wait(); err != nil {
-				logger.Logf("error running user code: %+v", err)
+				reason := fmt.Sprintf("error running user code: %v", err)
+				if err := driver.UpdateJobState(job.ID, pps.JobState_JOB_FAILURE, reason); err != nil {
+					logger.Logf("error updating job progress: %+v", err)
+				}
+				logger.Logf(reason)
 			}
 
 			// Only want to update this stuff if we were canceled due to a new commit
