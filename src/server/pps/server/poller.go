@@ -160,11 +160,8 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 		return backoff.ErrContinue
 	}, backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelines"),
-	); err != nil {
-		if ctx.Err() == nil {
-			log.Errorf("pollPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
-			panic("pollPipelines is exiting prematurely which should not happen; restarting pod...")
-		}
+	); err != nil && ctx.Err() == nil {
+		log.Fatalf("pollPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
@@ -226,8 +223,7 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
 	}, backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
-		log.Errorf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
-		panic("pollPipelinePods is exiting prematurely which should not happen; restarting pod...")
+		log.Fatalf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
@@ -282,7 +278,6 @@ func (m *ppsMaster) pollPipelinesEtcd(pollClient *client.APIClient) {
 		return backoff.ErrContinue // reset until ctx is cancelled (RetryUntilCancel)
 	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue("pollPipelinesEtcd"),
 	); err != nil && ctx.Err() == nil {
-		log.Errorf("pollPipelinesEtcd is exiting prematurely which should not happen (error: %v); restarting container...", err)
-		panic("pollPipelinesEtcd is exiting prematurely which should not happen; restarting pod...")
+		log.Fatalf("pollPipelinesEtcd is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
