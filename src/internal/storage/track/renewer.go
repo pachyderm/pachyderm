@@ -59,7 +59,13 @@ func (r *Renewer) Add(ctx context.Context, id string) error {
 }
 
 // Close stops the background renewal
-func (r *Renewer) Close() error {
+func (r *Renewer) Close() (retErr error) {
+	if _, err := r.tracker.SetTTLPrefix(ctx, r.id+"/", ExpireNow); retErr == nil {
+		retErr = err
+	}
+	if err := r.r.Close(); retErr == nil {
+		return
+	}
 	return r.r.Close()
 }
 

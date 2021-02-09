@@ -22,6 +22,7 @@ type commitStore interface {
 	GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// DropFilesets clears the diff and total filesets for the commit.
 	DropFilesets(ctx context.Context, commit *pfs.Commit) error
+	DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error
 }
 
 var _ commitStore = &postgresCommitStore{}
@@ -91,11 +92,16 @@ func (cs *postgresCommitStore) SetTotalFileset(ctx context.Context, commit *pfs.
 
 func (cs *postgresCommitStore) DropFilesets(ctx context.Context, commit *pfs.Commit) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
-		if err := cs.dropTotal(ctx, tx, commit); err != nil {
-			return err
-		}
-		return cs.dropDiff(ctx, tx, commit)
+		return cs.DropFilesetsTx(tx, commit)
 	})
+}
+
+func (cs *postgresCommitStore) DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error {
+	ctx := context.Background()
+	if err := cs.dropTotal(ctx, tx, commit); err != nil {
+		return err
+	}
+	return cs.dropDiff(ctx, tx, commit)
 }
 
 func (cs *postgresCommitStore) dropDiff(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) error {

@@ -56,7 +56,6 @@ type Tracker interface {
 	// MarkTombstone causes the object to appear deleted.  It cannot be created, and objects referencing it cannot
 	// be created until it is deleted.
 	// It errors if id has other objects referencing it.
-	// Marking something as a tombstone which is already a tombstone is not an error
 	MarkTombstone(ctx context.Context, id string) error
 
 	// FinishDelete deletes the object

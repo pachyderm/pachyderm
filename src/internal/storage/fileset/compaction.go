@@ -155,6 +155,8 @@ func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl
 	results := make([]ID, len(tasks))
 	eg := errgroup.Group{}
 	for i, task := range tasks {
+		i := i
+		task := task
 		eg.Go(func() error {
 			id, err := c.workerFunc(ctx, task)
 			if err != nil {

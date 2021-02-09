@@ -294,8 +294,6 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
-	// TODO: impoement deleteRepo with commitStore
-
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -374,6 +372,10 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			}); err != nil {
 				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
 			}
+		}
+		// TODO: use DropFilesetsTx
+		if err := d.commitStore.DropFilesets(txnCtx.ClientContext, ci.Commit); err != nil {
+			return err
 		}
 	}
 
