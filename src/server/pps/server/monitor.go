@@ -371,8 +371,7 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)
-		log.Errorf("monitorCrashingPipeline is exiting prematurely which should not happen (error: %v); restarting container...", err)
-		panic("monitorCrashingPipeline is exiting early, this should never happen")
+		log.Fatalf("monitorCrashingPipeline is exiting prematurely which should not happen (error: %v); restarting container...", err)
 	}
 }
 
