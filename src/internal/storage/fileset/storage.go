@@ -214,7 +214,7 @@ func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID,
 
 // Drop allows a fileset to be deleted if it is not otherwise referenced.
 func (s *Storage) Drop(ctx context.Context, id ID) error {
-	_, err := s.SetTTL(ctx, id, -1)
+	_, err := s.SetTTL(ctx, id, track.ExpireNow)
 	return err
 }
 

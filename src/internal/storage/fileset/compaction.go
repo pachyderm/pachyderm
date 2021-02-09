@@ -6,7 +6,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"golang.org/x/sync/errgroup"
 )
 
 // IsCompacted returns true if the fileset is already in compacted form.
@@ -81,13 +80,15 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 	if i == len(inputs) {
 		return s.Compose(ctx, ids, ttl)
 	}
-	// merge everything from i-1 onward into a single layer
+	// merge everything from i onward into a single layer
 	merged, err := s.Merge(ctx, ids[i:], ttl)
 	if err != nil {
 		return nil, err
 	}
-	// replace everything from i-1 onward with the merged version
-	ids2 := append(ids[:i], *merged)
+	// replace everything from i onward with the merged version
+	ids2 := []ID{}
+	ids2 = append(ids2, ids[:i]...)
+	ids2 = append(ids2, *merged)
 	return s.Compact(ctx, ids2, ttl)
 }
 
@@ -100,16 +101,20 @@ type CompactionTask struct {
 // CompactionWorker can perform CompactionTasks
 type CompactionWorker func(ctx context.Context, spec CompactionTask) (*ID, error)
 
+// CompactionBatchWorker can perform batches of CompactionTasks
+type CompactionBatchWorker func(ctx context.Context, spec []CompactionTask) ([]ID, error)
+
 // DistributedCompactor performs compaction by fanning out tasks to workers.
 type DistributedCompactor struct {
 	s          *Storage
 	maxFanIn   int
-	workerFunc CompactionWorker
+	workerFunc CompactionBatchWorker
 }
 
 // NewDistributedCompactor returns a DistributedCompactor which will compact by fanning out
 // work to workerFunc, while respecting maxFanIn
-func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionWorker) *DistributedCompactor {
+// TODO: change this to CompactionWorker after work package changes.
+func NewDistributedCompactor(s *Storage, maxFanIn int, workerFunc CompactionBatchWorker) *DistributedCompactor {
 	return &DistributedCompactor{
 		s:          s,
 		maxFanIn:   maxFanIn,
@@ -152,22 +157,12 @@ func (c *DistributedCompactor) shardedCompact(ctx context.Context, ids []ID, ttl
 	}); err != nil {
 		return nil, err
 	}
-	results := make([]ID, len(tasks))
-	eg := errgroup.Group{}
-	for i, task := range tasks {
-		i := i
-		task := task
-		eg.Go(func() error {
-			id, err := c.workerFunc(ctx, task)
-			if err != nil {
-				return err
-			}
-			results[i] = *id
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
+	results, err := c.workerFunc(ctx, tasks)
+	if err != nil {
 		return nil, err
+	}
+	if len(results) != len(tasks) {
+		return nil, errors.Errorf("results are a different length than tasks")
 	}
 	return c.s.Concat(ctx, results, ttl)
 }

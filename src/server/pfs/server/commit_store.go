@@ -28,6 +28,8 @@ type commitStore interface {
 
 var _ commitStore = &postgresCommitStore{}
 
+// TODO: add deleter for the commitStore and stop making permanent filesets, keep the filesets
+// around, by referencing them with commit-fileset objects.
 type postgresCommitStore struct {
 	db *sqlx.DB
 	s  *fileset.Storage

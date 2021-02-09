@@ -1,7 +1,7 @@
 package server
 
 import (
-	"sync"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -17,27 +17,26 @@ import (
 )
 
 func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, error) {
-	// serialize access to RunSubtasks, the compactor may call workerFunc concurrently
-	mu := sync.Mutex{}
-	workerFunc := func(ctx context.Context, task fileset.CompactionTask) (*fileset.ID, error) {
-		serInputs := make([]string, len(task.Inputs))
-		for i := range task.Inputs {
-			serInputs[i] = task.Inputs[i].HexString()
+	workerFunc := func(ctx context.Context, tasks []fileset.CompactionTask) ([]fileset.ID, error) {
+		workTasks := make([]*work.Task, len(tasks))
+		for i, task := range tasks {
+			serInputs := make([]string, len(task.Inputs))
+			for i := range task.Inputs {
+				serInputs[i] = task.Inputs[i].HexString()
+			}
+			any, err := serializeCompactionTask(&pfs.CompactionTask{
+				Inputs: serInputs,
+				Range: &pfs.PathRange{
+					Lower: task.PathRange.Lower,
+					Upper: task.PathRange.Upper,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			workTasks[i] = &work.Task{Data: any}
 		}
-		any, err := serializeCompactionTask(&pfs.CompactionTask{
-			Inputs: serInputs,
-			Range: &pfs.PathRange{
-				Lower: task.PathRange.Lower,
-				Upper: task.PathRange.Upper,
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		workTasks := []*work.Task{&work.Task{Data: any}}
-		mu.Lock()
-		defer mu.Unlock()
-		var result *fileset.ID
+		var results []fileset.ID
 		if err := master.RunSubtasks(workTasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 			if taskInfo.Result == nil {
 				return errors.Errorf("no result set for compaction work.TaskInfo")
@@ -46,13 +45,17 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 			if err != nil {
 				return err
 			}
-			id := fileset.ID(res.Id)
-			result = &id
+			id, err := fileset.ParseID(res.Id)
+			if err != nil {
+				return err
+			}
+			results = append(results, *id)
 			return nil
 		}); err != nil {
 			return nil, err
 		}
-		return result, nil
+		fmt.Println(tasks, "->", results)
+		return results, nil
 	}
 	dc := fileset.NewDistributedCompactor(d.storage, d.env.StorageCompactionMaxFanIn, workerFunc)
 	return dc.Compact(master.Ctx(), ids, defaultTTL)
