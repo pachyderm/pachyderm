@@ -505,7 +505,7 @@ func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite, request.Tag); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -204,54 +204,76 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 	return err
 }
 
-func Export(storageRoot string, w io.Writer, cb ...func(*tar.Header) error) error {
+type exportConfig struct {
+	headerCallback  func(*tar.Header) error
+	symlinkCallback func(string, string, func() error) error
+}
+
+func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error) {
+	ec := &exportConfig{}
+	for _, opt := range opts {
+		opt(ec)
+	}
 	return WithWriter(w, func(tw *tar.Writer) error {
-		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) (retErr error) {
+		return filepath.Walk(storageRoot, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 			if file == storageRoot {
 				return nil
 			}
-			// TODO: link name?
-			hdr, err := tar.FileInfoHeader(fi, "")
+			relPath, err := filepath.Rel(storageRoot, file)
 			if err != nil {
 				return err
 			}
-			hdr.Name, err = filepath.Rel(storageRoot, file)
-			if err != nil {
-				return err
-			}
-			// TODO: Remove when path cleaning is in.
-			hdr.Name = filepath.Join("/", hdr.Name)
-			if len(cb) > 0 {
-				if err := cb[0](hdr); err != nil {
+			copyFunc := func() (retErr error) {
+				// TODO: Not sure if this is the best way to skip the upload of named pipes.
+				// This is needed for uploading the inputs when lazy files is enabled, since the inputs
+				// will be closed named pipes.
+				if fi.IsDir() || fi.Mode()&os.ModeNamedPipe != 0 {
+					return nil
+				}
+				// TODO: link name?
+				hdr, err := tar.FileInfoHeader(fi, "")
+				if err != nil {
 					return err
 				}
-			}
-			if err := tw.WriteHeader(hdr); err != nil {
-				return err
-			}
-			if hdr.Typeflag == tar.TypeDir {
-				return nil
-			}
-			// TODO: Not sure if this is the best way to skip the upload of named pipes.
-			// This is needed for uploading the inputs when lazy files is enabled, since the inputs
-			// will be closed named pipes.
-			if fi.Mode()&os.ModeNamedPipe != 0 {
-				return nil
-			}
-			f, err := os.Open(file)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); retErr == nil {
-					retErr = err
+				hdr.Name = relPath
+				if ec.headerCallback != nil {
+					if err := ec.headerCallback(hdr); err != nil {
+						return err
+					}
 				}
-			}()
-			_, err = io.Copy(tw, f)
-			return err
+				if err := tw.WriteHeader(hdr); err != nil {
+					return err
+				}
+				f, err := os.Open(file)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := f.Close(); retErr == nil {
+						retErr = err
+					}
+				}()
+				_, err = io.Copy(tw, f)
+				return err
+			}
+			if fi.Mode()&os.ModeSymlink != 0 {
+				var err error
+				file, err = os.Readlink(file)
+				if err != nil {
+					return err
+				}
+				fi, err = os.Stat(file)
+				if err != nil {
+					return err
+				}
+				if ec.symlinkCallback != nil {
+					return ec.symlinkCallback(relPath, file, copyFunc)
+				}
+			}
+			return copyFunc()
 		})
 	})
 }

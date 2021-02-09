@@ -109,7 +109,7 @@ func (d *driver) withTmpUnorderedWriter(ctx context.Context, renewer *renew.Stri
 	return id, nil
 }
 
-func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb func(string, *fileset.Writer) error) (retErr error) {
+func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, tag string, cb func(string, *fileset.Writer) error) (retErr error) {
 	ctx := pachClient.Ctx()
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -121,15 +121,18 @@ func (d *driver) withWriter(pachClient *client.APIClient, commit *pfs.Commit, cb
 	commit = commitInfo.Commit
 	n := d.getSubFileset()
 	subFileSetStr := fileset.SubFileSetStr(n)
+	if tag == "" {
+		tag = subFileSetStr
+	}
 	subFileSetPath := path.Join(commit.Repo.Name, commit.ID, subFileSetStr)
 	fsw := d.storage.NewWriter(ctx, subFileSetPath)
-	if err := cb(subFileSetStr, fsw); err != nil {
+	if err := cb(tag, fsw); err != nil {
 		return err
 	}
 	return fsw.Close()
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool, tag string) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
@@ -171,7 +174,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		idx.Path = pathTransform(idx.Path)
 		return idx
 	})
-	return d.withWriter(pachClient, dstCommit, func(tag string, dst *fileset.Writer) error {
+	return d.withWriter(pachClient, dstCommit, tag, func(tag string, dst *fileset.Writer) error {
 		return fs.Iterate(ctx, func(f fileset.File) error {
 			return dst.Append(f.Index().Path, func(fw *fileset.FileWriter) error {
 				fw.Append(tag)

@@ -1474,9 +1474,6 @@ func TestLazyPipeline(t *testing.T) {
 }
 
 func TestEmptyFiles(t *testing.T) {
-	// TODO: Implement symlinks.
-	// Make work with V2.
-	t.Skip("Symlinks not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1519,7 +1516,7 @@ func TestEmptyFiles(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -3574,98 +3571,65 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
-// TODO: Implement symlinks.
-//func TestPipelineThatSymlinks(t *testing.T) {
-//	t.Skip("Symlinks not implemented in V2")
-//
-//	c := tu.GetPachClient(t)
-//	require.NoError(t, c.DeleteAll())
-//
-//	// create repos
-//	dataRepo := tu.UniqueString("TestPipeline_data")
-//	require.NoError(t, c.CreateRepo(dataRepo))
-//
-//	// create pipeline
-//	pipelineName := tu.UniqueString("pipeline")
-//	require.NoError(t, c.CreatePipeline(
-//		pipelineName,
-//		"",
-//		[]string{"bash"},
-//		[]string{
-//			// Symlinks to input files
-//			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
-//			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
-//			"mkdir /pfs/out/dir",
-//			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
-//			// Symlinks to external files
-//			"echo buzz > /tmp/buzz",
-//			"ln -s /tmp/buzz /pfs/out/buzz",
-//		},
-//		&pps.ParallelismSpec{
-//			Constant: 1,
-//		},
-//		client.NewPFSInput(dataRepo, "/"),
-//		"",
-//		false,
-//	))
-//
-//	// Do first commit to repo
-//	commit, err := c.StartCommit(dataRepo, "master")
-//	require.NoError(t, err)
-//	require.NoError(t, c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo")))
-//	require.NoError(t, c.PutFile(dataRepo, commit.ID, "dir1/bar", strings.NewReader("bar")))
-//	require.NoError(t, c.PutFile(dataRepo, commit.ID, "dir2/foo", strings.NewReader("foo")))
-//	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-//
-//	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-//	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitInfoIter)
-//	require.Equal(t, 1, len(commitInfos))
-//
-//	// Check that the output files are identical to the input files.
-//	buffer := bytes.Buffer{}
-//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", &buffer))
-//	require.Equal(t, "foo", buffer.String())
-//	buffer.Reset()
-//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "bar", &buffer))
-//	require.Equal(t, "bar", buffer.String())
-//	buffer.Reset()
-//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "dir/dir2/foo", &buffer))
-//	require.Equal(t, "foo", buffer.String())
-//	buffer.Reset()
-//	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", &buffer))
-//	require.Equal(t, "buzz\n", buffer.String())
-//
-//	// Make sure that we skipped the upload by checking that the input file
-//	// and the output file have the same object refs.
-//	inputFooFileInfo, err := c.InspectFile(dataRepo, commit.ID, "foo")
-//	require.NoError(t, err)
-//	outputFooFileInfo, err := c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "foo")
-//	require.NoError(t, err)
-//	for i, object := range inputFooFileInfo.Objects {
-//		info, err := c.InspectObject(object.Hash)
-//		require.NoError(t, err)
-//		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
-//	}
-//	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir1/bar")
-//	require.NoError(t, err)
-//	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "bar")
-//	require.NoError(t, err)
-//	for i, object := range inputFooFileInfo.Objects {
-//		info, err := c.InspectObject(object.Hash)
-//		require.NoError(t, err)
-//		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
-//	}
-//	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir2/foo")
-//	require.NoError(t, err)
-//	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "dir/dir2/foo")
-//	require.NoError(t, err)
-//	for i, object := range inputFooFileInfo.Objects {
-//		info, err := c.InspectObject(object.Hash)
-//		require.NoError(t, err)
-//		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
-//	}
-//}
+func TestPipelineThatSymlinks(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	dataRepo := tu.UniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			// Symlinks to input files
+			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
+			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
+			"mkdir /pfs/out/dir",
+			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
+			// Symlinks to external files
+			"echo buzz > /tmp/buzz",
+			"ln -s /tmp/buzz /pfs/out/buzz",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/"),
+		"",
+		false,
+	))
+
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(dataRepo, commit.ID, "dir1/bar", strings.NewReader("bar")))
+	require.NoError(t, c.PutFile(dataRepo, commit.ID, "dir2/foo", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitInfoIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	// Check that the output files are identical to the input files.
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "bar", &buffer))
+	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "dir/dir2/foo", &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", &buffer))
+	require.Equal(t, "buzz\n", buffer.String())
+}
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
 func TestChainedPipelines(t *testing.T) {
@@ -5055,8 +5019,9 @@ func TestJoinInput(t *testing.T) {
 		false,
 	))
 
-	commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	outCommit := commitInfos[0].Commit
 	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
@@ -5302,78 +5267,70 @@ func TestGroupInput(t *testing.T) {
 		}
 		require.Equal(t, expected, actual)
 	})
-	// TODO: Make work with V2?
-	//	t.Run("Symlink", func(t *testing.T) {
-	//		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/v2/tree/example-groupby/examples/group
-	//		repo := tu.UniqueString("TestGroupInputSymlink")
-	//		require.NoError(t, c.CreateRepo(repo))
-	//
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//		require.NoError(t, c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader("")))
-	//		require.NoError(t, err)
-	//
-	//		pipeline := "group-pipeline-symlink"
-	//		_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-	//			&pps.CreatePipelineRequest{
-	//				Pipeline: client.NewPipeline(pipeline),
-	//				Transform: &pps.Transform{
-	//					Cmd: []string{"bash"},
-	//					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
-	//						fmt.Sprintf("FILES=/pfs/%v/*", repo),
-	//						"for f in $FILES",
-	//						"do",
-	//						"[[ $(basename $f) =~ $PATTERN ]]",
-	//						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
-	//						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
-	//						"done"},
-	//				},
-	//				Input: client.NewGroupInput(
-	//					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
-	//				),
-	//				EnableStats: true,
-	//				ParallelismSpec: &pps.ParallelismSpec{
-	//					Constant: 1,
-	//				},
-	//			})
-	//		require.NoError(t, err)
-	//
-	//		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
-	//		require.NoError(t, err)
-	//		require.Equal(t, 1, len(jobs))
-	//
-	//		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
-	//
-	//		expected := [][]string{
-	//			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
-	//			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
-	//			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
-	//			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
-	//		actual := make([][]string, 0, 3)
-	//		resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
-	//		require.NoError(t, err)
-	//		// these don't come in a consistent order because group inputs use maps
-	//		sort.Slice(resp.DatumInfos, func(i, j int) bool {
-	//			return resp.DatumInfos[i].Data[0].File.Path < resp.DatumInfos[j].Data[0].File.Path
-	//		})
-	//		for _, di := range resp.DatumInfos {
-	//			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
-	//			datumFiles := make([]string, 0)
-	//			for _, fi := range di.Data {
-	//				datumFiles = append(datumFiles, fi.File.Path)
-	//			}
-	//			actual = append(actual, datumFiles)
-	//		}
-	//		require.Equal(t, expected, actual)
-	//	})
+	t.Run("Symlink", func(t *testing.T) {
+		// Fix for the bug exhibited here: https://github.com/pachyderm/pachyderm/v2/tree/example-groupby/examples/group
+		repo := tu.UniqueString("TestGroupInputSymlink")
+		require.NoError(t, c.CreateRepo(repo))
+
+		require.NoError(t, c.PutFile(repo, "master", "/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", strings.NewReader("")))
+		require.NoError(t, c.PutFile(repo, "master", "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader("")))
+		require.NoError(t, c.PutFile(repo, "master", "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader("")))
+		require.NoError(t, c.PutFile(repo, "master", "/T1606707597-LIPID-PATID4-CLIA24D9871327.txt", strings.NewReader("")))
+		require.NoError(t, c.PutFile(repo, "master", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt", strings.NewReader("")))
+		require.NoError(t, c.PutFile(repo, "master", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt", strings.NewReader("")))
+
+		pipeline := "group-pipeline-symlink"
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
+						fmt.Sprintf("FILES=/pfs/%v/*", repo),
+						"for f in $FILES",
+						"do",
+						"[[ $(basename $f) =~ $PATTERN ]]",
+						"mkdir -p /pfs/out/${BASH_REMATCH[1]}/",
+						"cp $f /pfs/out/${BASH_REMATCH[1]}/",
+						"done"},
+				},
+				Input: client.NewGroupInput(
+					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+				),
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+			})
+		require.NoError(t, err)
+
+		jobs, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobs))
+
+		require.Equal(t, "JOB_SUCCESS", jobs[0].State.String())
+
+		expected := [][]string{
+			[]string{"/T1606331395-LIPID-PATID2-CLIA24D9871327.txt"},
+			[]string{"/T1606707557-LIPID-PATID1-CLIA24D9871327.txt", "/T1606707613-LIPID-PATID1-CLIA24D9871328.txt"},
+			[]string{"/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", "/T1606707635-LIPID-PATID3-CLIA24D9871328.txt"},
+			[]string{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"}}
+		actual := make([][]string, 0, 3)
+		dis, err := c.ListDatumAll(jobs[0].Job.ID)
+		require.NoError(t, err)
+		// these don't come in a consistent order because group inputs use maps
+		sort.Slice(dis, func(i, j int) bool {
+			return dis[i].Data[0].File.Path < dis[j].Data[0].File.Path
+		})
+		for _, di := range dis {
+			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
+			datumFiles := make([]string, 0)
+			for _, fi := range di.Data {
+				datumFiles = append(datumFiles, fi.File.Path)
+			}
+			actual = append(actual, datumFiles)
+		}
+		require.Equal(t, expected, actual)
+	})
 }
 
 // TODO: Make work with V2?
@@ -5638,8 +5595,8 @@ func TestUnionInput(t *testing.T) {
 	})
 
 	t.Run("union alias", func(t *testing.T) {
-		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
-		t.Skip("Symlinks not implemented in V2")
+		// TODO: Decide on how to handle duplicate datum IDs.
+		t.Skip("Need to decide on how to handle duplicate datum IDs (change to datum ID might be enough to address this)")
 		pipeline := tu.UniqueString("pipeline")
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -5675,8 +5632,8 @@ func TestUnionInput(t *testing.T) {
 	})
 
 	t.Run("union cross alias", func(t *testing.T) {
-		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
-		t.Skip("Symlinks not implemented in V2")
+		// TODO: Decide on how to handle duplicate datum IDs.
+		t.Skip("Need to decide on how to handle duplicate datum IDs (change to datum ID might be enough to address this)")
 		pipeline := tu.UniqueString("pipeline")
 		require.YesError(t, c.CreatePipeline(
 			pipeline,
@@ -5741,8 +5698,8 @@ func TestUnionInput(t *testing.T) {
 		}
 	})
 	t.Run("cross union alias", func(t *testing.T) {
-		// TODO: This test depends on the append behavior of PFS when symlinking, cannot resolve in the short term by resolving symlinks on local filesystem.
-		t.Skip("Symlinks not implemented in V2")
+		// TODO: Decide on how to handle duplicate datum IDs.
+		t.Skip("Need to decide on how to handle duplicate datum IDs (change to datum ID might be enough to address this)")
 		pipeline := tu.UniqueString("pipeline")
 		require.YesError(t, c.CreatePipeline(
 			pipeline,

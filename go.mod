@@ -10,7 +10,6 @@ require (
 	github.com/beevik/etree v1.1.0
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
-	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
