@@ -102,11 +102,15 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 
 	b.Reset()
 	for {
-		if err = operation(); err == nil {
+		err = operation()
+		if err == nil {
 			return nil
 		}
 		if ctx.Err() != nil {
 			return ctx.Err() // return if cancel() was called inside operation()
+		}
+		if errors.Is(err, ErrContinue) {
+			b.Reset()
 		}
 
 		if next = b.NextBackOff(); next == Stop {
