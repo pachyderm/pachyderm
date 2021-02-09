@@ -623,8 +623,40 @@ func (a *apiServer) DeleteRoleBindingInTransaction(
 		return nil, err
 	}
 
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: check that the resource doesn't exist - this avoids "orphan" repos with no ACL
 	// which could be claimed by anyone
+
+	// DeleteRepoBinding can only be called for repos, as part of deletion
+	var permissions []auth.Permission
+	switch req.Resource.Type {
+	case auth.ResourceType_CLUSTER:
+		return nil, fmt.Errorf("cannot delete cluster role binding")
+	case auth.ResourceType_REPO:
+		permissions = []auth.Permission{auth.Permission_REPO_DELETE}
+	default:
+		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
+	}
+
+	// Check if the caller is authorized
+	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
+		Resource:    req.Resource,
+		Permissions: permissions,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !authorized.Authorized {
+		return nil, &auth.ErrNotAuthorized{
+			Subject:  callerInfo.Subject,
+			Resource: *req.Resource,
+			Required: permissions,
+		}
+	}
 
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
