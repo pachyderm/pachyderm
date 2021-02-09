@@ -346,12 +346,12 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parallelism uint64, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
-	ctx := pachClient.Ctx()
+	ctx, cancelInner := context.WithCancel(pachClient.Ctx())
 	if parallelism == 0 {
 		parallelism = 1
 	}
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
 			m.a.env.GetEtcdClient(), m.a.etcdPrefix, m.a.workerGrpcPort)
 		if err != nil {
@@ -363,10 +363,10 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				return errors.Wrap(err, "could not transition pipeline to RUNNING")
 			}
-			return nil // done--pipeline is out of CRASHING
+			cancelInner() // done--pipeline is out of CRASHING
 		}
-		return backoff.ErrContinue // loop again to check for new workers
-	}, backoff.NewConstantBackOff(crashingBackoff),
+		return nil // loop again to check for new workers
+	}), backoff.NewConstantBackOff(crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
