@@ -167,3 +167,21 @@ func TestNotifyContinue(t *testing.T) {
 		require.Equal(t, 1, strings.Count(buf.String(), t.Name())) // logged once
 	})
 }
+
+func TestMustLoop(t *testing.T) {
+	var results []int
+	ctx, cancel := context.WithCancel(context.Background())
+	RetryUntilCancel(ctx, MustLoop(func() error {
+		results = append(results, len(results)+1)
+		switch len(results) {
+		case 1:
+			return ErrContinue
+		case 2:
+			break // return nil, but don't cancel context
+		case 3:
+			cancel() // actually break out
+		}
+		return nil
+	}), &ZeroBackOff{}, NotifyContinue(t.Name()))
+	require.Equal(t, []int{1, 2, 3}, results)
+}

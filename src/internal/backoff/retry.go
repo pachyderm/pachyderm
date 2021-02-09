@@ -80,6 +80,22 @@ func NotifyContinue(inner interface{}) Notify {
 	}
 }
 
+// MustLoop is a convenience function for use with RetryUntilCancel. It wraps
+// 'operation' in another Operation that returns ErrContinue if the inner
+// operation returns nil. If used with RetryUntilCancel and NotifyContinue, this
+// guarantees that 'operation'is retried until 'ctx' is cancelled, even if it
+// returns nil.
+func MustLoop(operation Operation) Operation {
+	return func() error {
+		switch err := operation(); err {
+		case nil:
+			return ErrContinue
+		default:
+			return err
+		}
+	}
+}
+
 // Retry the operation o until it does not return error or BackOff stops.
 // o is guaranteed to be run at least once.
 // It is the caller's responsibility to reset b after Retry returns.
