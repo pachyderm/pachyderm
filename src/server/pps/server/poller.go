@@ -149,7 +149,12 @@ func (m *ppsMaster) pollPipelines(pollClient *client.APIClient) {
 
 		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
-		m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}
+		select {
+		case m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}:
+			break
+		case <-ctx.Done():
+			break
+		}
 
 		// 5. move to next pipeline (after 2s sleep)
 		return backoff.ErrContinue
