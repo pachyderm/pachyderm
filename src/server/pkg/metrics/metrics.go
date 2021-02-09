@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,21 +162,215 @@ func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
 	return nil
 }
 
-func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
+func pfsInputMetrics(pfsInput *pps.PFSInput, metrics *Metrics) {
+	metrics.InputPfs++
+	if pfsInput.Commit != "" {
+		metrics.InputCommit++
+	}
+	if pfsInput.JoinOn != "" {
+		metrics.InputJoinOn++
+	}
+	if pfsInput.OuterJoin {
+		metrics.InputOuterJoin++
+	}
+	if pfsInput.Lazy {
+		metrics.InputLazy++
+	}
+	if pfsInput.EmptyFiles {
+		metrics.InputEmptyFiles++
+	}
+	if pfsInput.S3 {
+		metrics.InputS3++
+	}
+	if pfsInput.Trigger != nil {
+		metrics.InputTrigger++
+	}
+}
+
+func inputMetrics(input *pps.Input, metrics *Metrics) {
+	if input.Join != nil {
+		metrics.InputJoin++
+		for _, item := range input.Join {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Group != nil {
+		metrics.InputGroup++
+		inputMetrics(input, metrics)
+		for _, item := range input.Group {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Cross != nil {
+		metrics.InputCross++
+		for _, item := range input.Cross {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Union != nil {
+		metrics.InputUnion++
+		for _, item := range input.Union {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Cron != nil {
+		metrics.InputCron++
+	}
+	if input.Git != nil {
+		metrics.InputGit++
+	}
+	if input.Pfs != nil {
+		pfsInputMetrics(input.Pfs, metrics)
+	}
+}
+
+func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
+
+	// We should not return due to an error
+
+	// Activation code
 	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
-	if err != nil {
-		return err
+	if err == nil {
+		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
-	metrics.ActivationCode = enterpriseState.ActivationCode
+
+	// Pipeline info
 	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
-	if err != nil {
-		return err
+	if err == nil {
+		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
+		for _, pi := range resp.PipelineInfo {
+			if pi.ParallelismSpec != nil {
+				if metrics.MaxParallelism < pi.ParallelismSpec.Constant {
+					metrics.MaxParallelism = pi.ParallelismSpec.Constant
+				}
+				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
+					metrics.MinParallelism = pi.ParallelismSpec.Constant
+				}
+				metrics.NumParallelism++
+			}
+			if pi.Egress != nil {
+				metrics.CfgEgress++
+			}
+			if pi.JobCounts != nil {
+				var cnt int64 = 0
+				for _, c := range pi.JobCounts {
+					cnt += int64(c)
+				}
+				if metrics.Jobs < cnt {
+					metrics.Jobs = cnt
+				}
+			}
+			if pi.ResourceRequests != nil {
+				if pi.ResourceRequests.Cpu != 0 {
+					metrics.ResourceCpuReq += pi.ResourceRequests.Cpu
+					if metrics.ResourceCpuReqMax < pi.ResourceRequests.Cpu {
+						metrics.ResourceCpuReqMax = pi.ResourceRequests.Cpu
+					}
+				}
+				if pi.ResourceRequests.Memory != "" {
+					metrics.ResourceMemReq += (pi.ResourceRequests.Memory + " ")
+				}
+				if pi.ResourceRequests.Gpu != nil {
+					metrics.ResourceGpuReq += pi.ResourceRequests.Gpu.Number
+					if metrics.ResourceGpuReqMax < pi.ResourceRequests.Gpu.Number {
+						metrics.ResourceGpuReqMax = pi.ResourceRequests.Gpu.Number
+					}
+				}
+				if pi.ResourceRequests.Disk != "" {
+					metrics.ResourceDiskReq += (pi.ResourceRequests.Disk + " ")
+				}
+			}
+			if pi.ResourceLimits != nil {
+				if pi.ResourceLimits.Cpu != 0 {
+					metrics.ResourceCpuLimit += pi.ResourceLimits.Cpu
+					if metrics.ResourceCpuLimitMax < pi.ResourceLimits.Cpu {
+						metrics.ResourceCpuLimitMax = pi.ResourceLimits.Cpu
+					}
+				}
+				if pi.ResourceLimits.Memory != "" {
+					metrics.ResourceMemLimit += (pi.ResourceLimits.Memory + " ")
+				}
+				if pi.ResourceLimits.Gpu != nil {
+					metrics.ResourceGpuLimit += pi.ResourceLimits.Gpu.Number
+					if metrics.ResourceGpuLimitMax < pi.ResourceLimits.Gpu.Number {
+						metrics.ResourceGpuLimitMax = pi.ResourceLimits.Gpu.Number
+					}
+				}
+				if pi.ResourceLimits.Disk != "" {
+					metrics.ResourceDiskLimit += (pi.ResourceLimits.Disk + " ")
+				}
+			}
+			if pi.Input != nil {
+				inputMetrics(pi.Input, metrics)
+			}
+			if pi.EnableStats {
+				metrics.CfgStats++
+			}
+			if pi.Service != nil {
+				metrics.CfgServices++
+			}
+			if pi.Spout != nil {
+				metrics.PpsSpout++
+				if pi.Spout.Service != nil {
+					metrics.PpsSpoutService++
+				}
+			}
+			if pi.Standby {
+				metrics.CfgStandby++
+			}
+			if pi.S3Out {
+				metrics.CfgS3Gateway++
+			}
+			if pi.Transform != nil {
+				if pi.Transform.ErrCmd != nil {
+					metrics.CfgErrcmd++
+				}
+				if pi.Transform.Build != nil {
+					metrics.PpsBuild++
+				}
+			}
+			if pi.TFJob != nil {
+				metrics.CfgTfjob++
+			}
+		}
+	} else {
+		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
-	metrics.Pipelines = int64(len(resp.PipelineInfo))
+
 	ris, err := pachClient.ListRepo()
-	if err != nil {
-		return err
+	if err == nil {
+		var sz, mbranch uint64 = 0, 0
+		for _, ri := range ris {
+			if (sz + ri.SizeBytes) < sz {
+				sz = 0xFFFFFFFFFFFFFFFF
+			} else {
+				sz += ri.SizeBytes
+			}
+			if mbranch < uint64(len(ri.Branches)) {
+				mbranch = uint64(len(ri.Branches))
+			}
+		}
+		metrics.Repos = int64(len(ris))
+		metrics.Bytes = sz
+		metrics.MaxBranches = mbranch
+	} else {
+		log.Errorf("Error getting repo metrics: %v", err)
 	}
-	metrics.Repos = int64(len(ris))
-	return nil
+	log.Infof("Metrics logged: %v", metrics)
 }
