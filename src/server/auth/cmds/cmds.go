@@ -44,6 +44,16 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	return state, nil
 }
 
+func printRoleBindings(b *auth.RoleBinding) {
+	for principal, roles := range b.Entries {
+		roleList := make([]string, 0)
+		for r := range roles.Roles {
+			roleList = append(roleList, r)
+		}
+		fmt.Printf("%v: %v\n", principal, roleList)
+	}
+}
+
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var supplyRootToken bool
@@ -305,6 +315,140 @@ func UseAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
+// CheckRepoCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
+// determine whether the specified user has access to the specified repo.
+func CheckRepoCmd() *cobra.Command {
+	check := &cobra.Command{
+		Use:   "{{alias}} <permission> <repo>",
+		Short: "Check whether you have the specificed permission on 'repo'",
+		Long:  "Check whether you have the specificed permission on 'repo'",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			permission, ok := auth.Permission_value[args[0]]
+			if !ok {
+				return fmt.Errorf("unknown permission %q", args[0])
+			}
+			repo := args[1]
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
+				Resource:    &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+				Permissions: []auth.Permission{auth.Permission(permission)},
+			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Printf("%t\n", resp.Authorized)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(check, "auth check repo")
+}
+
+// SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
+func SetRepoRoleBindingCmd() *cobra.Command {
+	setScope := &cobra.Command{
+		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
+		Short: "Set the roles that 'username' has on 'repo'",
+		Long:  "Set the roles that 'username' has on 'repo'",
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			var roles []string
+			if args[1] == "none" {
+				roles = []string{}
+			} else {
+				roles = strings.Split(args[1], ",")
+			}
+
+			subject, repo := args[2], args[0]
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			err = c.ModifyRepoRoleBinding(repo, subject, roles)
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return cmdutil.CreateAlias(setScope, "auth set repo")
+}
+
+// GetRepoRoleBindingsCmd returns a cobra command that gets the role bindings for a resource
+func GetRepoRoleBindingsCmd() *cobra.Command {
+	get := &cobra.Command{
+		Use:   "{{alias}} <repo>",
+		Short: "Get the role bindings for 'repo'",
+		Long:  "Get the role bindings for 'repo'",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			repo := args[0]
+			resp, err := c.GetRepoRoleBindings(repo)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			printRoleBindings(resp)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(get, "auth get repo")
+}
+
+// SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
+func SetClusterRoleBindingCmd() *cobra.Command {
+	setScope := &cobra.Command{
+		Use:   "{{alias}} [role1,role2 | none ] subject",
+		Short: "Set the roles that 'username' has on the cluster",
+		Long:  "Set the roles that 'username' has on the cluster",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			var roles []string
+			if args[0] == "none" {
+				roles = []string{}
+			} else {
+				roles = strings.Split(args[0], ",")
+			}
+
+			subject := args[1]
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			err = c.ModifyClusterRoleBinding(subject, roles)
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return cmdutil.CreateAlias(setScope, "auth set cluster")
+}
+
+// GetClusterRoleBindingsCmd returns a cobra command that gets the role bindings for a resource
+func GetClusterRoleBindingsCmd() *cobra.Command {
+	get := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Get the role bindings for 'repo'",
+		Long:  "Get the role bindings for 'repo'",
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			resp, err := c.GetClusterRoleBindings()
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			printRoleBindings(resp)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(get, "auth get cluster")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -325,6 +469,10 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
-
+	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, GetRepoRoleBindingsCmd())
+	commands = append(commands, SetRepoRoleBindingCmd())
+	commands = append(commands, GetClusterRoleBindingsCmd())
+	commands = append(commands, SetClusterRoleBindingCmd())
 	return commands
 }
