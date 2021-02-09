@@ -175,7 +175,7 @@ func (m *ppsMaster) startMonitorThread(name string, f func(pachClient *client.AP
 		case <-time.After(time.Minute):
 			// restart pod rather than permanently locking up the PPS master (which
 			// would break the PPS API)
-			panic(name + " blocked for over a minute after cancellation; restarting pod")
+			panic(name + " blocked for over a minute after cancellation; restarting container")
 		}
 	}
 }
@@ -371,6 +371,7 @@ func (m *ppsMaster) monitorCrashingPipeline(pachClient *client.APIClient, parall
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)
+		log.Errorf("monitorCrashingPipeline is exiting prematurely which should not happen (error: %v); restarting container...", err)
 		panic("monitorCrashingPipeline is exiting early, this should never happen")
 	}
 }
