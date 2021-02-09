@@ -5,6 +5,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	"golang.org/x/net/context"
 )
 
@@ -23,4 +24,11 @@ var DesiredClusterState migrations.State = migrations.InitialState().
 	}).
 	Apply("storage fileset store v0", func(ctx context.Context, env migrations.Env) error {
 		return fileset.SetupPostgresStoreV0(ctx, env.Tx)
+	}).
+	Apply("create license schema", func(ctx context.Context, env migrations.Env) error {
+		_, err := env.Tx.ExecContext(ctx, `CREATE SCHEMA license`)
+		return err
+	}).
+	Apply("license clusters v0", func(ctx context.Context, env migrations.Env) error {
+		return license.CreateClustersTable(ctx, env.Tx)
 	})

@@ -636,6 +636,9 @@ func (c *enterpriseBuilderClient) GetActivationCode(ctx context.Context, req *en
 func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest, opts ...grpc.CallOption) (*enterprise.DeactivateResponse, error) {
 	return nil, unsupportedError("Deactivate")
 }
+func (c *enterpriseBuilderClient) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise.HeartbeatResponse, error) {
+	return nil, unsupportedError("Heartbeat")
+}
 
 func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
 	return nil, unsupportedError("GetVersion")

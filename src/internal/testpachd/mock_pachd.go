@@ -339,16 +339,19 @@ type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (
 type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
 type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
+type heartbeatEnterpriseFunc func(context.Context, *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
 type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
+type mockHeartbeatEnterprise struct{ handler heartbeatEnterpriseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
 func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
+func (mock *mockHeartbeatEnterprise) Use(cb heartbeatEnterpriseFunc)   { mock.handler = cb }
 
 type enterpriseServerAPI struct {
 	mock *mockEnterpriseServer
@@ -360,6 +363,7 @@ type mockEnterpriseServer struct {
 	GetState          mockGetState
 	GetActivationCode mockGetActivationCode
 	Deactivate        mockDeactivateEnterprise
+	Heartbeat         mockHeartbeatEnterprise
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -385,6 +389,12 @@ func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.
 		return api.mock.Deactivate.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Deactivate")
+}
+func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Heartbeat.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Heartbeat")
 }
 
 /* PFS Server Mocks */
