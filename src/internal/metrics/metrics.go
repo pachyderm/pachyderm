@@ -161,21 +161,122 @@ func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
 	return nil
 }
 
-func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
+func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
+
+	// We should not return due to an error
+
+	// Activation code
 	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
-	if err != nil {
-		return err
+	if err == nil {
+		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
-	metrics.ActivationCode = enterpriseState.ActivationCode
+
+	// Pipeline info
 	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
-	if err != nil {
-		return err
+	if err == nil {
+		metrics.Pipelines = int64(len(resp.PipelineInfo)) // Number of pipelines
+		for _, pi := range resp.PipelineInfo {
+			if pi.ParallelismSpec != nil {
+				if metrics.MaxParallelism < pi.ParallelismSpec.Constant {
+					metrics.MaxParallelism = pi.ParallelismSpec.Constant
+				}
+				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
+					metrics.MinParallelism = pi.ParallelismSpec.Constant
+				}
+			}
+			if pi.Egress != nil {
+				metrics.CfgEgress = true
+			}
+			if pi.JobCounts != nil {
+				var cnt int64 = 0
+				for _, c := range pi.JobCounts {
+					cnt += int64(c)
+				}
+				if metrics.Jobs < cnt {
+					metrics.Jobs = cnt
+				}
+			}
+			if pi.ResourceRequests != nil {
+				if pi.ResourceRequests.Cpu != 0 {
+					metrics.ResourceCpu = true
+				}
+				if pi.ResourceRequests.Memory != "" {
+					metrics.ResourceMem = true
+				}
+				if pi.ResourceRequests.Gpu != nil {
+					metrics.ResourceGpu = true
+				}
+				if pi.ResourceRequests.Disk != "" {
+					metrics.ResourceDisk = true
+				}
+			}
+			if pi.Input != nil {
+				if metrics.InputOuterJoin == false {
+					metrics.InputOuterJoin = pi.Input.Pfs.OuterJoin
+				}
+				if metrics.InputLazy == false {
+					metrics.InputLazy = pi.Input.Pfs.Lazy
+				}
+				if metrics.InputEmptyFiles == false {
+					metrics.InputEmptyFiles = pi.Input.Pfs.EmptyFiles
+				}
+				if metrics.InputS3 == false {
+					metrics.InputS3 = pi.Input.Pfs.S3
+				}
+				if pi.Input.Pfs.Trigger != nil {
+					metrics.InputTrigger = true
+				}
+				if pi.Input.Join != nil {
+					metrics.InputJoin = true
+				}
+				if pi.Input.Group != nil {
+					metrics.InputGroup = true
+				}
+				if pi.Input.Cross != nil {
+					metrics.InputCross = true
+				}
+				if pi.Input.Union != nil {
+					metrics.InputUnion = true
+				}
+				if pi.Input.Cron != nil {
+					metrics.InputCron = true
+				}
+				if pi.Input.Git != nil {
+					metrics.InputGit = true
+				}
+			}
+			if metrics.CfgStandby == false {
+				metrics.CfgStats = pi.EnableStats
+			}
+			if pi.Service != nil {
+				metrics.CfgServices = true
+			}
+			if pi.Spout != nil {
+				metrics.PpsSpout = true
+				if pi.Spout.Service != nil {
+					metrics.PpsSpoutService = true
+				}
+			}
+			if metrics.CfgStandby == false {
+				metrics.CfgStandby = pi.Standby
+			}
+			if metrics.CfgS3Gateway == false {
+				metrics.CfgS3Gateway = pi.S3Out
+			}
+			if pi.Transform != nil {
+				if pi.Transform.ErrCmd != nil {
+					metrics.CfgErrcmd = true
+				}
+				if pi.Transform.Build != nil {
+					metrics.PpsBuild = true
+				}
+			}
+		}
 	}
-	metrics.Pipelines = int64(len(resp.PipelineInfo))
+
 	ris, err := pachClient.ListRepo()
-	if err != nil {
-		return err
+	if err == nil {
+		metrics.Repos = int64(len(ris))
 	}
-	metrics.Repos = int64(len(ris))
-	return nil
+	return
 }

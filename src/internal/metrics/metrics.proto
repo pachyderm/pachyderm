@@ -6,17 +6,43 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/metrics";
 import "gogoproto/gogo.proto";
 
 message Metrics {
-    string cluster_id = 1 [(gogoproto.customname) = "ClusterID"];
-    string pod_id = 2 [(gogoproto.customname) = "PodID"];
-    int64 nodes = 3;
-    string version = 4;
-    int64 repos = 5;
-    int64 commits = 6;
-    int64 files = 7;
-    int64 bytes = 8;
-    int64 jobs = 9;
-    int64 pipelines = 10;
-    int64 archived_commits = 11;
-    int64 cancelled_commits = 12;
-    string activation_code = 13;
+    string cluster_id       =  1 [(gogoproto.customname) = "ClusterID"];
+    string pod_id           =  2 [(gogoproto.customname) = "PodID"];
+    int64 nodes             =  3;
+    string version          =  4;
+    int64 repos             =  5; // Number of repos
+    int64 commits           =  6; // Number of commits
+    int64 files             =  7; // Number of files
+    int64 bytes             =  8; // Number of bytes input bytes or overall storage bytes
+    int64 jobs              =  9; // Number of jobs
+    int64 pipelines         = 10; // Number of pipelines in the cluster -- not the same as DAG
+    int64 archived_commits  = 11; // Number of archived commit
+    int64 cancelled_commits = 12; // Number of cancelled commits
+    string activation_code  = 13; // Activation code
+    bool pps_spout          = 14;
+    bool pps_spout_service  = 15;
+    bool pps_build          = 16;
+    bool cfg_egress         = 17;
+    bool cfg_standby        = 18;
+    bool cfg_s3gateway      = 19;
+    bool cfg_services       = 20;
+    bool cfg_errcmd         = 21;
+    bool cfg_stats          = 22;
+    bool input_group        = 23;
+    bool input_join         = 24;
+    bool input_cross        = 25;
+    bool input_union        = 26;
+    bool input_cron         = 27;
+    bool input_git          = 28;
+    bool input_outer_join   = 29;
+    bool input_lazy         = 30;
+    bool input_empty_files  = 31;
+    bool input_s3           = 32;
+    bool input_trigger      = 33;
+    bool resource_cpu       = 34;
+    bool resource_mem       = 35;
+    bool resource_gpu       = 36;
+    bool resource_disk      = 37;
+    uint64 max_parallelism  = 38;
+    uint64 min_parallelism  = 39;
 }
