@@ -367,7 +367,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, alice, []string{}))
 
 	// Check that the ACL is empty
-	require.Equal(t, buildBindings(), getRepoRoleBinding(t, rootClient, repo))
+	require.Nil(t, getRepoRoleBinding(t, rootClient, repo).Entries)
 
 	// alice cannot write to the repo
 	_, err = aliceClient.StartCommit(repo, "master")
@@ -862,6 +862,15 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_DELETE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
 		}, info.AuthInfo.Permissions)
 	}
 }

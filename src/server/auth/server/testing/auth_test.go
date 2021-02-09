@@ -913,11 +913,11 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
-	require.Equal(t, buildBindings(), getRepoRoleBinding(t, aliceClient, pipeline))
+	require.Nil(t, getRepoRoleBinding(t, aliceClient, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
-	require.Equal(t, buildBindings(), getRepoRoleBinding(t, aliceClient, repo))
+	require.Nil(t, getRepoRoleBinding(t, aliceClient, repo).Entries)
 
 	// alice creates another repo
 	repo = tu.UniqueString(t.Name())
@@ -1112,9 +1112,40 @@ func TestListAndInspectRepo(t *testing.T) {
 		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
-		repoOwner:  []auth.Permission{auth.Permission_REPO_READ, auth.Permission_REPO_WRITE, auth.Permission_REPO_MODIFY_BINDINGS},
-		repoWriter: []auth.Permission{auth.Permission_REPO_READ, auth.Permission_REPO_WRITE},
-		repoReader: []auth.Permission{auth.Permission_REPO_READ},
+		repoOwner: []auth.Permission{
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_REPO_DELETE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
+		},
+		repoWriter: []auth.Permission{
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_WRITE,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
+		},
+		repoReader: []auth.Permission{
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_INSPECT_FILE,
+		},
 	}
 	for _, info := range listResp.RepoInfo {
 		require.Equal(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
@@ -1198,7 +1229,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Equal(t, []auth.Permission{}, info.AuthInfo.Permissions)
+		require.Nil(t, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth

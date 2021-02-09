@@ -221,7 +221,7 @@ func waitForError(name string, required bool, cb func() error) {
 func (a *apiServer) isActive() error {
 	bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
 	if !ok {
-		return errors.New("cached auth config had unexpected type")
+		return errors.New("cached cluster binding had unexpected type")
 	}
 
 	if bindings.Entries == nil {
@@ -683,6 +683,18 @@ func (a *apiServer) DeleteRoleBinding(ctx context.Context, req *auth.DeleteRoleB
 	return response, nil
 }
 
+func bindingFromRequest(req *auth.ModifyRoleBindingRequest) *auth.Roles {
+	if len(req.Roles) == 0 {
+		return nil
+	}
+
+	roles := &auth.Roles{Roles: make(map[string]bool)}
+	for _, r := range req.Roles {
+		roles.Roles[r] = true
+	}
+	return roles
+}
+
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) ModifyRoleBindingInTransaction(
@@ -714,7 +726,6 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		if !col.IsErrNotFound(err) {
 			return nil, err
 		}
-		bindings.Entries = make(map[string]*auth.Roles)
 	} else {
 		// ModifyRoleBinding can be called for any type of resource,
 		// and the permission required depends on the type of resource.
@@ -745,15 +756,15 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		}
 	}
 
-	if len(req.Roles) > 0 {
-		bindings.Entries[req.Principal] = &auth.Roles{Roles: make(map[string]bool)}
-		for _, r := range req.Roles {
-			bindings.Entries[req.Principal].Roles[r] = true
-		}
-	} else {
-		delete(bindings.Entries, req.Principal)
+	if bindings.Entries == nil {
+		bindings.Entries = make(map[string]*auth.Roles)
 	}
 
+	if len(req.Roles) == 0 {
+		delete(bindings.Entries, req.Principal)
+	} else {
+		bindings.Entries[req.Principal] = bindingFromRequest(req)
+	}
 	if err := roleBindings.Put(key, &bindings); err != nil {
 		return nil, err
 	}
@@ -774,6 +785,24 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 	}); err != nil {
 		return nil, err
 	}
+
+	// If the request is not in a transaction, block until the cache is updated
+	if req.Resource.Type == auth.ResourceType_CLUSTER {
+		expected := bindingFromRequest(req)
+		if err := backoff.Retry(func() error {
+			bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
+			if !ok {
+				return errors.New("cached cluster binding had unexpected type")
+			}
+			if !proto.Equal(bindings.Entries[req.Principal], expected) {
+				return errors.New("waiting for cache to be updated")
+			}
+			return nil
+		}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
+			return nil, err
+		}
+	}
+
 	return response, nil
 }
 
