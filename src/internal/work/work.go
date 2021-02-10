@@ -369,7 +369,6 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 							if retErr != nil {
 								subtaskInfo.State = State_FAILURE
 								subtaskInfo.Reason = retErr.Error()
-								subtaskInfo.Result = nil
 								retErr = nil
 							}
 							return nil
@@ -378,12 +377,9 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 						retErr = err
 					}
 				}()
-				res, err := processFunc(claimCtx, subtask)
-				if err != nil {
-					return err
-				}
-				result = res
-				return nil
+				var err error
+				result, err = processFunc(claimCtx, subtask)
+				return err
 			})
 		}(); err != nil {
 			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.
