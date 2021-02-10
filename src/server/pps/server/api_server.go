@@ -1808,9 +1808,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}); err != nil {
 		// attempt to clean up any commit we created
 		if specCommit != nil {
-			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
-				return superClient.DeleteCommit(request.Pipeline.Name, specCommit.ID)
-			})
+			if err := a.env.GetPachClient(ctx).DeleteCommit(request.Pipeline.Name, specCommit.ID); err != nil {
+				return nil, err
+			}
 		}
 		return nil, err
 	}
@@ -1938,8 +1938,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}
 			// make sure the pipeline branch hasn't changed outside of the transaction
 			// since the spec commit was created
-			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
-				commitInfo, err := superClient.InspectCommit(pipelineName, ppsconsts.SpecBranch)
+			if err := func() error {
+				commitInfo, err := txnCtx.Client.InspectCommit(pipelineName, ppsconsts.SpecBranch)
 				if err != nil {
 					return err
 				}
@@ -1950,7 +1950,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				}
 				specCommit = nil
 				return errors.Errorf("pipeline updated outside of transaction")
-			}); err != nil {
+			}(); err != nil {
 				return specCommit, err
 			}
 		}
@@ -1958,39 +1958,39 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		if specCommit == nil {
 			// make a commit branching off of master on a new, throwaway branch
 			tempBranch := testutil.UniqueString("__temp_spec__")
-			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
+			if err := func() error {
 				// strip transaction so that commits happen for real
-				superClient = superClient.WithoutTransaction()
+				pachClient := txnCtx.Client.WithoutTransaction()
 				var err error
 				if update {
-					_, err = superClient.StartCommitParent(pipelineName, tempBranch, pipelineName)
+					_, err = pachClient.StartCommitParent(pipelineName, tempBranch, pipelineName)
 				} else {
-					_, err = superClient.StartCommit(pipelineName, tempBranch)
+					_, err = pachClient.StartCommit(pipelineName, tempBranch)
 				}
 				if err != nil {
 					return err
 				}
-				specCommit, err = a.makePipelineInfoCommitOnBranch(superClient, pipelineInfo, tempBranch)
+				specCommit, err = a.makePipelineInfoCommitOnBranch(pachClient, pipelineInfo, tempBranch)
 				if err != nil {
 					return err
 				}
 				// don't bother failing on error here, we won't be able to clean it up later, either
-				_ = superClient.DeleteBranch(pipelineName, tempBranch, false)
+				_ = pachClient.DeleteBranch(pipelineName, tempBranch, false)
 
-				err = superClient.FinishCommit(pipelineName, specCommit.ID)
+				err = pachClient.FinishCommit(pipelineName, specCommit.ID)
 				if err != nil {
 					specCommit = nil // don't use the open commit
 					return err
 				}
 				return nil
-			}); err != nil {
+			}(); err != nil {
 				return nil, err
 			}
 			// we just created a new commit outside of the transaction, so our transaction reads won't see it
 			// to prevent errors, start and finish a commit in the transaction with the same ID
 			// this *will* cause an STM conflict, but will succeed on retry since specCommit already exists
-			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
+			if err := func() error {
+				if _, err := txnCtx.Pfs().StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
 					Parent: client.NewCommit(pipelineName, ""),
 				}, specCommit); col.IsErrExists(err) {
 					// if a miracle occurs and we see the existing specCommit, that's fine, just continue
@@ -1998,10 +1998,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				} else if err != nil {
 					return err
 				}
-				return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
+				return txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
 					Commit: client.NewCommit(pipelineName, specCommit.ID),
 				})
-			}); err != nil {
+			}(); err != nil {
 				return specCommit, err
 			}
 		}
@@ -2206,8 +2206,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-		if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-			tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
+		if err := func() error {
+			tokenResp, err := txnCtx.Auth().GetAuthTokenInTransaction(txnCtx, &auth.GetAuthTokenRequest{
 				Subject: auth.PipelinePrefix + request.Pipeline.Name,
 				TTL:     -1,
 			})
@@ -2219,7 +2219,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			}
 			pipelinePtr.AuthToken = tokenResp.Token
 			return nil
-		}); err != nil {
+		}(); err != nil {
 			return err
 		}
 		// Put a pointer to the new PipelineInfo commit into etcd
@@ -2229,9 +2229,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			if prevSpecCommit != nil {
 				*prevSpecCommit = nil
 			}
-			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
-				return superUserClient.DeleteCommit(pipelineName, commit.ID)
-			}); err != nil {
+			if err := txnCtx.Client.DeleteCommit(pipelineName, commit.ID); err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
 			}
 
@@ -2638,9 +2636,7 @@ func (a *apiServer) cleanUpSpecBranch(pachClient *client.APIClient, pipeline str
 	}
 	// branch exists but head is nil => pipeline creation never finished/
 	// pps state is invalid. Delete nil branch
-	return grpcutil.ScrubGRPC(a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		return superUserClient.DeleteBranch(pipeline, ppsconsts.SpecBranch, true)
-	}))
+	return grpcutil.ScrubGRPC(pachClient.DeleteBranch(pipeline, ppsconsts.SpecBranch, true))
 }
 
 func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
