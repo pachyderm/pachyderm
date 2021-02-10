@@ -130,7 +130,7 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"ExpireSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				require.Nil(t, tracker.CreateObject(ctx, "keep", []string{}, time.Hour))
-				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, -1))
+				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, ExpireNow))
 
 				var toExpire []string
 				err := tracker.IterateDeletable(ctx, func(id string) error {

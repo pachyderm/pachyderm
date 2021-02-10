@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -54,7 +53,6 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 		}); err != nil {
 			return nil, err
 		}
-		fmt.Println(tasks, "->", results)
 		return results, nil
 	}
 	dc := fileset.NewDistributedCompactor(d.storage, d.env.StorageCompactionMaxFanIn, workerFunc)

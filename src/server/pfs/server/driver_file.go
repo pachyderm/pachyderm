@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -92,7 +91,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *renew.StringS
 	if err != nil {
 		return nil, err
 	}
-	renewer.Add(string(*compactedID))
+	renewer.Add(compactedID.HexString())
 	return compactedID, nil
 }
 
@@ -107,9 +106,6 @@ func (d *driver) withCommitWriter(pachClient *client.APIClient, commit *pfs.Comm
 	}
 	fsw := d.storage.NewWriter(ctx)
 	if err := cb(d.getDefaultTag(), fsw); err != nil {
-		if _, err := fsw.Close(); err != nil {
-			logrus.Error(err)
-		}
 		return err
 	}
 	id, err := fsw.Close()
