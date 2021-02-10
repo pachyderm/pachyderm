@@ -459,7 +459,25 @@ func Cmds() []*cobra.Command {
 		Long:  "Auth commands manage access to data in a Pachyderm cluster",
 	}
 
+	get := &cobra.Command{
+		Short: "Get the role bindings for a resource",
+		Long:  "Get the role bindings for a resource",
+	}
+
+	set := &cobra.Command{
+		Short: "Set the role bindings for a resource",
+		Long:  "Set the role bindings for a resource",
+	}
+
+	check := &cobra.Command{
+		Short: "Check whether a subject has a permission on a resource",
+		Long:  "Check whether a subject has a permission on a resource",
+	}
+
 	commands = append(commands, cmdutil.CreateAlias(auth, "auth"))
+	commands = append(commands, cmdutil.CreateAlias(get, "auth get"))
+	commands = append(commands, cmdutil.CreateAlias(set, "auth set"))
+	commands = append(commands, cmdutil.CreateAlias(check, "auth check"))
 	commands = append(commands, ActivateCmd())
 	commands = append(commands, DeactivateCmd())
 	commands = append(commands, LoginCmd())
