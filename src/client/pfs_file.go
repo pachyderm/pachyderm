@@ -258,16 +258,8 @@ func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
 	})
 }
 
-// TmpRepoName is a reserved repo name used for namespacing temporary filesets
-const TmpRepoName = "__tmp__"
-
-// TmpFileSetCommit creates a commit which can be used to access the temporary fileset fileSetID
-func (c APIClient) TmpFileSetCommit(fileSetID string) *pfs.Commit {
-	return &pfs.Commit{
-		ID:   fileSetID,
-		Repo: &pfs.Repo{Name: TmpRepoName},
-	}
-}
+// FileSetsRepoName is the repo name used to access filesets as virtual commits.
+const FileSetsRepoName = "__filesets__"
 
 // DefaultTTL is the default time-to-live for a temporary fileset.
 const DefaultTTL = 10 * time.Minute

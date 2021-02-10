@@ -161,14 +161,13 @@ message FileInfo {
   bytes hash = 7;
 }
 
-message Compaction {
-  repeated string input_prefixes = 2;
+message CompactionTask {
+  repeated string inputs = 1;
+  PathRange range = 2;
 }
 
-message Shard {
-  Compaction compaction = 1;
-  PathRange range = 2;
-  string output_path = 3;
+message CompactionTaskResult {
+  string id = 1;
 }
 
 message PathRange {
@@ -459,6 +458,15 @@ message RenewFilesetRequest {
   int64 ttl_seconds = 2;
 }
 
+message AddFilesetRequest {
+  Commit commit = 1;
+  string fileset_id = 2;
+}
+
+message GetFilesetRequest {
+  Commit commit = 1;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -520,6 +528,11 @@ service API {
   // Fsck does a file system consistency check for pfs.
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
+  // Fileset API
+  // AddFileset associates a fileset with a commit
+  rpc AddFileset(AddFilesetRequest) returns (google.protobuf.Empty) {}
+  // GetFileset returns a fileset with the data from a commit
+  rpc GetFileset(GetFilesetRequest) returns (CreateFilesetResponse) {}
   // CreateFileset creates a new fileset.
   rpc CreateFileset(stream ModifyFileRequest) returns (CreateFilesetResponse) {}
   // RenewFileset prevents a fileset from being deleted for a set amount of time.

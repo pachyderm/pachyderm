@@ -118,8 +118,12 @@ func (m *LicenseRecord) GetExpires() *types.Timestamp {
 // EnterpriseConfig is the configuration we store for heartbeating
 // to the license server.
 type EnterpriseConfig struct {
-	LicenseServer        string   `protobuf:"bytes,1,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
-	Id                   string   `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// license_server is the address of the grpc license service
+	LicenseServer string `protobuf:"bytes,1,opt,name=license_server,json=licenseServer,proto3" json:"license_server,omitempty"`
+	// id is the unique identifier for this pachd, which is registered
+	// with the license service
+	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// secret is a shared secret between this pachd and the license service
 	Secret               string   `protobuf:"bytes,3,opt,name=secret,proto3" json:"secret,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -611,6 +615,9 @@ func (m *GetActivationCodeResponse) GetActivationCode() string {
 	return ""
 }
 
+// Heartbeat in the enterprise service just triggers a heartbeat for
+// testing purposes. The RPC used to communicate with the license
+// service is defined in the license service.
 type HeartbeatRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

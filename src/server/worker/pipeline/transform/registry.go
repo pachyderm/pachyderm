@@ -199,7 +199,7 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChain(
 			hasher,
-			datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
+			datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID),
 		)
 	}
 	return nil
@@ -297,7 +297,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	if err != nil {
 		return err
 	}
-	outputDit := datum.NewFileSetIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
 	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {

@@ -45,7 +45,7 @@ const (
 
 const (
 	storageTaskNamespace = "storage"
-	tmpRepo              = client.TmpRepoName
+	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
 )
@@ -83,10 +83,8 @@ type driver struct {
 	openCommits col.Collection
 
 	storage         *fileset.Storage
+	commitStore     commitStore
 	compactionQueue *work.TaskQueue
-
-	// TODO: remove this. It prevents flakiness when running on macOS (millisecond resolution timestamps)
-	nonce uint64
 }
 
 func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPrefix string, db *sqlx.DB) (*driver, error) {
@@ -126,6 +124,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
+	d.commitStore = newPostgresCommitStore(db, tracker, d.storage)
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -295,11 +294,6 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
-	if err := d.storage.Store().Walk(txnCtx.ClientContext, repo.Name, func(p string) error {
-		return d.storage.Delete(txnCtx.ClientContext, p)
-	}); err != nil {
-		return err
-	}
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -378,6 +372,10 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			}); err != nil {
 				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
 			}
+		}
+		// TODO: use DropFilesetsTx
+		if err := d.commitStore.DropFilesets(txnCtx.ClientContext, ci.Commit); err != nil {
+			return err
 		}
 	}
 
@@ -789,6 +787,7 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 }
 
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
+	ctx := txnCtx.Client.Ctx()
 	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
@@ -800,59 +799,35 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitPath := commitKey(commit)
+	var parentFSID *fileset.ID
+	if commitInfo.ParentCommit != nil {
+		id, err := d.commitStore.GetTotalFileset(ctx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+		parentFSID = id
+	}
 	// Run compaction task.
-	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
-		exists := func(p string) (bool, error) {
-			var exists bool
-			if err := d.storage.Store().Walk(m.Ctx(), p, func(_ string) error {
-				exists = true
-				return nil
-			}); err != nil {
-				return false, err
-			}
-			return exists, nil
-		}
-		diffExists, err := exists(path.Join(commitPath, fileset.Diff))
+	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
+		id, err := d.commitStore.GetDiffFileset(ctx, commit)
 		if err != nil {
 			return err
 		}
-		if !diffExists {
-			// Compact the commit changes into a diff file set.
-			if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
-				return err
-			}
+		var ids []fileset.ID
+		// if the commit has a parent, then include the parents fileset in the compaction
+		if parentFSID != nil {
+			ids = append(ids, *parentFSID)
 		}
-		compactedExists, err := exists(path.Join(commitPath, fileset.Compacted))
+		ids = append(ids, *id)
+		compactedID, err := d.compact(m, ids)
 		if err != nil {
 			return err
 		}
-		if !compactedExists {
-			// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
-			var compactSpec *fileset.CompactSpec
-			if commitInfo.ParentCommit == nil {
-				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
-			} else {
-				parentCommitPath := commitKey(commitInfo.ParentCommit)
-				compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
-			}
-			if err != nil {
-				return err
-			}
-			if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
-				return err
-			}
+		if err := d.commitStore.SetTotalFileset(ctx, commit, *compactedID); err != nil {
+			return err
 		}
-		// Collect the output size from the file set metadata.
-		var outputSize int64
-		if err := d.storage.Store().Walk(m.Ctx(), path.Join(commitPath, fileset.Compacted), func(p string) error {
-			md, err := d.storage.Store().Get(m.Ctx(), p)
-			if err != nil {
-				return err
-			}
-			outputSize += md.SizeBytes
-			return nil
-		}); err != nil {
+		outputSize, err := d.storage.SizeOf(ctx, *compactedID)
+		if err != nil {
 			return err
 		}
 		commitInfo.SizeBytes = uint64(outputSize)
@@ -1179,10 +1154,10 @@ nextSubvBI:
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.GetRepo().GetName() == tmpRepo {
+	if commit.GetRepo().GetName() == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
-			Description: "Temporary Fileset",
+			Description: "FileSet - Virtual Commit",
 			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
 		}
 		return cinfo, nil
@@ -1499,7 +1474,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				return err
 			}
 			// Delete the commit's filesets
-			if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID)); err != nil {
+			if err := d.commitStore.DropFilesets(txnCtx.Client.Ctx(), commit); err != nil {
 				return err
 			}
 			if commit.ID == lower.ID {
@@ -1934,7 +1909,7 @@ func (d *driver) clearCommit(pachClient *client.APIClient, commit *pfs.Commit) e
 	if commitInfo.Finished != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
-	return d.storage.Delete(ctx, commitPath(commit))
+	return d.commitStore.DropFilesets(ctx, commit)
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one
