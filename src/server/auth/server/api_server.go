@@ -223,7 +223,6 @@ func (a *apiServer) isActive() error {
 	if !ok {
 		return errors.New("cached cluster binding had unexpected type")
 	}
-	fmt.Printf("bindings: %v\n", bindings)
 
 	if bindings.Entries == nil {
 		return auth.ErrNotActivated
@@ -714,6 +713,13 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check that the roles are valid
+	for _, r := range req.Roles {
+		if _, err := permissionsForRole(r); err != nil {
+			return nil, err
+		}
 	}
 
 	// Check if the binding exists - if not, skip the auth check and allow it to be created
