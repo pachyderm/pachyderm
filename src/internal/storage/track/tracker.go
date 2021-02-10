@@ -120,7 +120,7 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"DeleteSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				id := "test"
-				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, -1))
+				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, ExpireNow))
 				require.Nil(t, tracker.MarkTombstone(ctx, id))
 				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
 				require.Nil(t, tracker.FinishDelete(ctx, id))
