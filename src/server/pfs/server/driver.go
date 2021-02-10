@@ -126,18 +126,6 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	if err != nil {
 		return nil, err
 	}
-	// Create spec repo (default repo)
-	repo := client.NewRepo(ppsconsts.SpecRepo)
-	repoInfo := &pfs.RepoInfo{
-		Repo:    repo,
-		Created: types.TimestampNow(),
-	}
-	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		return repos.Create(repo.Name, repoInfo)
-	}); err != nil && !col.IsErrExists(err) {
-		return nil, err
-	}
 	// Setup PFS master
 	go d.master(env, db)
 	go d.compactionWorker()
@@ -273,9 +261,6 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		if repoName == ppsconsts.SpecRepo {
-			return nil
-		}
 		if includeAuth && authSeemsActive {
 			permissions, err := d.getPermissions(pachClient, repoInfo.Repo)
 			if err == nil {
@@ -300,12 +285,6 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	}); err != nil {
 		return err
 	}
-	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
-	// recreate the PPS spec repo, then uncomment this block to prevent users from
-	// deleting it and breaking their cluster
-	// if repo.Name == ppsconsts.SpecRepo {
-	// 	return errors.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
-	// }
 	repos := d.repos.ReadWrite(txnCtx.Stm)
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
@@ -488,7 +467,7 @@ func (d *driver) makeCommit(
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
 		log.Infof("Appending provenance for spout: %v %v", spoutName, spoutCommit)
-		provenance = append(provenance, client.NewCommitProvenance(ppsconsts.SpecRepo, spoutName, spoutCommit))
+		provenance = append(provenance, client.NewCommitProvenance(spoutName, ppsconsts.SpecBranch, spoutCommit))
 	}
 
 	// Set newCommitInfo.Started and possibly newCommitInfo.Finished. Enforce:
@@ -567,7 +546,7 @@ func (d *driver) makeCommit(
 			// since spouts will have __spec__ as provenance, but need to accept commits
 			provenanceCount := len(branchInfo.Provenance)
 			for _, p := range branchInfo.Provenance {
-				if p.Repo.Name == ppsconsts.SpecRepo {
+				if p.Name == ppsconsts.SpecBranch {
 					provenanceCount--
 					break
 				}
@@ -578,7 +557,7 @@ func (d *driver) makeCommit(
 			// output branch
 			hasSpec := false
 			for _, prov := range provenance {
-				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
+				if prov.Branch.Name == ppsconsts.SpecBranch {
 					hasSpec = true
 				}
 			}
@@ -690,7 +669,7 @@ func (d *driver) makeCommit(
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
 			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			if prov.Branch.Name != ppsconsts.SpecBranch && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
@@ -1071,7 +1050,7 @@ nextSubvBI:
 		// output commit
 		allSpec := true
 		for _, p := range newCommitProvMap {
-			if p.Branch.Repo.Name != ppsconsts.SpecRepo {
+			if p.Branch.Name != ppsconsts.SpecBranch {
 				allSpec = false
 				break
 			}
@@ -1744,7 +1723,7 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	provenanceCount := len(provenance)
 	for _, p := range provenance {
 		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
-		if p.Commit.Repo.Name == ppsconsts.SpecRepo {
+		if p.Branch.Name == ppsconsts.SpecBranch {
 			provenanceCount--
 			break
 		}

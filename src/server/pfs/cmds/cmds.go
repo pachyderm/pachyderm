@@ -536,7 +536,7 @@ $ {{alias}} test@master --new`,
 				if err != nil {
 					return err
 				}
-				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+				prov = client.NewCommitProvenance(pipeline, ppsconsts.SpecBranch, pipelineInfo.SpecCommit.ID)
 			}
 
 			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED)

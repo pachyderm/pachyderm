@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -9027,31 +9026,6 @@ func TestEntryPoint(t *testing.T) {
 	require.Equal(t, "foo", buf.String())
 }
 
-func TestDeleteSpecRepo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := tu.GetPachClient(t)
-	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	pipeline := tu.UniqueString("TestSimplePipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"pachyderm_entrypoint",
-		[]string{"echo", "foo"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/"),
-		"",
-		false,
-	))
-	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
-}
-
 // TODO: Make work with V2?
 //func TestUserWorkingDir(t *testing.T) {
 //	if testing.Short() {
@@ -11123,6 +11097,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.Matches(t, "outside of transaction", err.Error())
 }
 
+/*
 func TestPipelineSpecCommitCleanup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -11166,6 +11141,7 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 1)
 }
+*/
 
 //lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
