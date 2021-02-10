@@ -44,7 +44,7 @@ func requestOIDCLogin(c *client.APIClient, openBrowser bool) (string, error) {
 	return state, nil
 }
 
-func printRoleBindings(b *auth.RoleBinding) {
+func printRoleBinding(b *auth.RoleBinding) {
 	for principal, roles := range b.Entries {
 		roleList := make([]string, 0)
 		for r := range roles.Roles {
@@ -374,8 +374,8 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAlias(setScope, "auth set repo")
 }
 
-// GetRepoRoleBindingsCmd returns a cobra command that gets the role bindings for a resource
-func GetRepoRoleBindingsCmd() *cobra.Command {
+// GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a resource
+func GetRepoRoleBindingCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Get the role bindings for 'repo'",
@@ -387,11 +387,11 @@ func GetRepoRoleBindingsCmd() *cobra.Command {
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetRepoRoleBindings(repo)
+			resp, err := c.GetRepoRoleBinding(repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			printRoleBindings(resp)
+			printRoleBinding(resp)
 			return nil
 		}),
 	}
@@ -425,8 +425,8 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAlias(setScope, "auth set cluster")
 }
 
-// GetClusterRoleBindingsCmd returns a cobra command that gets the role bindings for a resource
-func GetClusterRoleBindingsCmd() *cobra.Command {
+// GetClusterRoleBindingCmd returns a cobra command that gets the role bindings for a resource
+func GetClusterRoleBindingCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for 'repo'",
@@ -437,12 +437,12 @@ func GetClusterRoleBindingsCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			resp, err := c.GetClusterRoleBindings()
+			resp, err := c.GetClusterRoleBinding()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			printRoleBindings(resp)
+			printRoleBinding(resp)
 			return nil
 		}),
 	}
@@ -488,9 +488,9 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
 	commands = append(commands, CheckRepoCmd())
-	commands = append(commands, GetRepoRoleBindingsCmd())
+	commands = append(commands, GetRepoRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())
-	commands = append(commands, GetClusterRoleBindingsCmd())
+	commands = append(commands, GetClusterRoleBindingCmd())
 	commands = append(commands, SetClusterRoleBindingCmd())
 	return commands
 }

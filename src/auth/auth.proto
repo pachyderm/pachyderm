@@ -192,6 +192,9 @@ message AuthorizeResponse {
 
   // missing is the set of permissions that the principal lacks
   repeated Permission missing = 3;
+
+  // principal is the principal the request was evaluated for
+  string principal = 4;
 }
 
 message ModifyRoleBindingRequest {
@@ -214,11 +217,11 @@ message DeleteRoleBindingRequest {
 
 message DeleteRoleBindingResponse {}
 
-message GetRoleBindingsRequest {
+message GetRoleBindingRequest {
   Resource resource = 1; 
 }
 
-message GetRoleBindingsResponse {
+message GetRoleBindingResponse {
   RoleBinding binding = 1; 
 }
 
@@ -373,7 +376,7 @@ service API {
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
   rpc DeleteRoleBinding(DeleteRoleBindingRequest) returns (DeleteRoleBindingResponse) {}
-  rpc GetRoleBindings(GetRoleBindingsRequest) returns (GetRoleBindingsResponse) {}
+  rpc GetRoleBinding(GetRoleBindingRequest) returns (GetRoleBindingResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
 

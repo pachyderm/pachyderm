@@ -223,6 +223,7 @@ func (a *apiServer) isActive() error {
 	if !ok {
 		return errors.New("cached cluster binding had unexpected type")
 	}
+	fmt.Printf("bindings: %v\n", bindings)
 
 	if bindings.Entries == nil {
 		return auth.ErrNotActivated
@@ -538,6 +539,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	// cluster we should also exit early
 	if request.satisfied() || req.Resource.Type == auth.ResourceType_CLUSTER {
 		return &auth.AuthorizeResponse{
+			Principal:  callerInfo.Subject,
 			Authorized: request.satisfied(),
 			Missing:    request.missing(),
 			Satisfied:  request.satisfiedPermissions,
@@ -554,6 +556,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	}
 
 	return &auth.AuthorizeResponse{
+		Principal:  callerInfo.Subject,
 		Authorized: request.satisfied(),
 		Missing:    request.missing(),
 		Satisfied:  request.satisfiedPermissions,
@@ -623,11 +626,6 @@ func (a *apiServer) DeleteRoleBindingInTransaction(
 		return nil, err
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: check that the resource doesn't exist - this avoids "orphan" repos with no ACL
 	// which could be claimed by anyone
 
@@ -652,7 +650,7 @@ func (a *apiServer) DeleteRoleBindingInTransaction(
 	}
 	if !authorized.Authorized {
 		return nil, &auth.ErrNotAuthorized{
-			Subject:  callerInfo.Subject,
+			Subject:  authorized.Principal,
 			Resource: *req.Resource,
 			Required: permissions,
 		}
@@ -806,12 +804,12 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 	return response, nil
 }
 
-// GetRoleBindingsInTransaction is identical to GetRoleBindings except that it can run inside
+// GetRoleBindingInTransaction is identical to GetRoleBinding except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) GetRoleBindingsInTransaction(
+func (a *apiServer) GetRoleBindingInTransaction(
 	txnCtx *txnenv.TransactionContext,
-	req *auth.GetRoleBindingsRequest,
-) (*auth.GetRoleBindingsResponse, error) {
+	req *auth.GetRoleBindingRequest,
+) (*auth.GetRoleBindingResponse, error) {
 	if err := a.isActive(); err != nil {
 		return nil, err
 	}
@@ -829,20 +827,20 @@ func (a *apiServer) GetRoleBindingsInTransaction(
 	if roleBindings.Entries == nil {
 		roleBindings.Entries = make(map[string]*auth.Roles)
 	}
-	return &auth.GetRoleBindingsResponse{
+	return &auth.GetRoleBindingResponse{
 		Binding: &roleBindings,
 	}, nil
 }
 
-// GetRoleBindings implements the protobuf auth.GetRoleBindings RPC
-func (a *apiServer) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindingsRequest) (resp *auth.GetRoleBindingsResponse, retErr error) {
+// GetRoleBinding implements the protobuf auth.GetRoleBinding RPC
+func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest) (resp *auth.GetRoleBindingResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	var response *auth.GetRoleBindingsResponse
+	var response *auth.GetRoleBindingResponse
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.GetRoleBindingsInTransaction(txnCtx, req)
+		response, err = a.GetRoleBindingInTransaction(txnCtx, req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -1165,6 +1163,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 
 		if !resp.Authorized {
 			return nil, &auth.ErrNotAuthorized{
+				Subject:  resp.Principal,
 				Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
 				Required: []auth.Permission{
 					auth.Permission_CLUSTER_ADMIN,

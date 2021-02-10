@@ -50,9 +50,9 @@ func (mats *MockAuthTransactionServer) ModifyRoleBindingInTransaction(*Transacti
 	return nil, unimplementedError("AuthTransactionServer.ModifyRoleBindingInTransaction")
 }
 
-// GetRoleBindingsInTransaction always errors
-func (mats *MockAuthTransactionServer) GetRoleBindingsInTransaction(*TransactionContext, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error) {
-	return nil, unimplementedError("AuthTransactionServer.GetRoleBindingsInTransaction")
+// GetRoleBindingInTransaction always errors
+func (mats *MockAuthTransactionServer) GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
+	return nil, unimplementedError("AuthTransactionServer.GetRoleBindingInTransaction")
 }
 
 // MockPfsTransactionServer is a simple mock that can be used to satisfy the
