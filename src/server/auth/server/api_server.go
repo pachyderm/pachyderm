@@ -716,6 +716,13 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
+	// Check that the roles are valid
+	for _, r := range req.Roles {
+		if _, err := permissionsForRole(r); err != nil {
+			return nil, err
+		}
+	}
+
 	// Check if the binding exists - if not, skip the auth check and allow it to be created
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
