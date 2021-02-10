@@ -560,8 +560,8 @@ func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetC
 func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
 	return nil, unsupportedError("SetConfiguration")
 }
-func (c *authBuilderClient) GetRoleBindings(ctx context.Context, req *auth.GetRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingsResponse, error) {
-	return nil, unsupportedError("GetRoleBindings")
+func (c *authBuilderClient) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingResponse, error) {
+	return nil, unsupportedError("GetRoleBinding")
 }
 func (c *authBuilderClient) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
 	return nil, unsupportedError("ModifyRoleBinding")

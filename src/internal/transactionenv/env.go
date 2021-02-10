@@ -139,7 +139,7 @@ type AuthTransactionServer interface {
 	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 
 	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	GetRoleBindingsInTransaction(*TransactionContext, *auth.GetRoleBindingsRequest) (*auth.GetRoleBindingsResponse, error)
+	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error)
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)

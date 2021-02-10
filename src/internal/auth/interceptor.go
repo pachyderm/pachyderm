@@ -37,14 +37,14 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
 
-	// TODO: restrict GetClusterRoleBindings to cluster admins?
+	// TODO: restrict GetClusterRoleBinding to cluster admins?
 	// TODO: split GetScope for self and others
 	// TODO: split GetAuthToken for self and others
 	// TODO: split RevokeAuthToken for self and others
 	// TODO: split GetGroups for self and others
 	"/auth.API/GetConfiguration":  authenticated,
 	"/auth.API/CreateRoleBinding": authenticated,
-	"/auth.API/GetRoleBindings":   authenticated,
+	"/auth.API/GetRoleBinding":    authenticated,
 	"/auth.API/ModifyRoleBinding": authenticated,
 	"/auth.API/DeleteRoleBinding": authenticated,
 	"/auth.API/RevokeAuthToken":   authenticated,

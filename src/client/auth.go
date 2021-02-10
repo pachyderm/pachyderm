@@ -7,7 +7,7 @@ import (
 
 // IsAuthActive returns whether auth is activated on the cluster
 func (c APIClient) IsAuthActive() (bool, error) {
-	_, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
+	_, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	switch {
@@ -20,8 +20,8 @@ func (c APIClient) IsAuthActive() (bool, error) {
 	}
 }
 
-func (c APIClient) GetClusterRoleBindings() (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
+func (c APIClient) GetClusterRoleBinding() (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	if err != nil {
@@ -42,8 +42,8 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) er
 	return nil
 }
 
-func (c APIClient) GetRepoRoleBindings(repo string) (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBindings(c.Ctx(), &auth.GetRoleBindingsRequest{
+func (c APIClient) GetRepoRoleBinding(repo string) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 	})
 	if err != nil {
