@@ -154,7 +154,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 	return commitInfo.Commit, fs, nil
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool, tag string) (retErr error) {
 	ctx := pachClient.Ctx()
 	srcCommitInfo, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
