@@ -39,7 +39,7 @@ import (
 
 // Change this to false to keep kubernetes namespaces around after the test for
 // debugging purposes.
-const cleanup = true
+const cleanup = false
 
 // Rewrites kubernetes manifest services to auto-allocate external ports and
 // reduce cpu resource requests for parallel testing.
