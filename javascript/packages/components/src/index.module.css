@@ -80,7 +80,7 @@
   --z-index-notification-banner: 1041;
 }
 
-@custom-media --extra-small-viewport (width < 345px);
+@custom-media --extra-small-viewport (width < 375px);
 @custom-media --small-viewport (width < 768px);
 @custom-media --medium-viewport (width < 1024px);
 @custom-media --large-viewport (width >= 1024px);
