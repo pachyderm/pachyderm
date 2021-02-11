@@ -41,7 +41,10 @@ When you put a file into a Pachyderm repository and a file by the same name alre
     pachd               1.12.0
     ```
     Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the same major & minor versions of pachctl and pachd. 
-- You can run this example as is. You can also decide to build, tag, and push your own image to Docker Hub. If so, make sure to update the script `build_tag_deploy.sh` with the appropriate username and tag version and update `pipelines/map.json` accordingly.
+- You can run this example as is. You can also decide to build, tag, and push your own image to your Docker Hub. 
+If so, make sure to update `CONTAINER_TAG` in the `Makefile` accordingly 
+as well as your pipelines' specifications,
+then run `make docker-image`.
 
 ## 2. Pipelines setup
 ***Goal***
