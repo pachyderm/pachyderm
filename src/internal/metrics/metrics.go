@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -271,11 +272,28 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 					metrics.PpsBuild = true
 				}
 			}
+			if pi.TFJob != nil {
+				metrics.CfgTfjob = true
+			}
 		}
 	}
 
 	ris, err := pachClient.ListRepo()
 	if err == nil {
+		var sz, mbranch uint64 = 0, 0
+		for _, ri := range ris {
+			if (sz + ri.SizeBytes) < sz {
+				sz = 0xFFFFFFFFFFFFFFFF
+			} else {
+				sz += ri.SizeBytes
+			}
+			if mbranch < uint64(len(ri.Branches)) {
+				mbranch = uint64(len(ri.Branches))
+			}
+		}
 		metrics.Repos = int64(len(ris))
+		metrics.Bytes = sz
+		metrics.MaxBranches = mbranch
 	}
+	log.Debugf("Metrics: %v", metrics)
 }
