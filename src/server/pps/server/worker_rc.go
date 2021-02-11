@@ -794,13 +794,13 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 		}
 	}
 
-	if options.service != nil {
-		var servicePort = []v1.ServicePort{
-			{
-				Port:       options.service.ExternalPort,
-				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
-				Name:       "user-port",
-			},
+	if options.service != nil && options.service.ExternalPort != 0 {
+		var servicePort = []v1.ServicePort{{
+			Port: options.service.ExternalPort,
+			Name: "user-port",
+		}}
+		if options.service.InternalPort != 0 {
+			servicePort[0].TargetPort = intstr.FromInt(int(options.service.InternalPort))
 		}
 		var serviceType = v1.ServiceType(options.service.Type)
 		if serviceType == v1.ServiceTypeNodePort {
