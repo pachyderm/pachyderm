@@ -13,6 +13,7 @@ export {ReactComponent as ChevronRight} from './chevronRight.svg';
 export {ReactComponent as CloseSVG} from './close.svg';
 export {ReactComponent as CollaborationSVG} from './collaboration.svg';
 export {ReactComponent as CopySVG} from './copy.svg';
+export {ReactComponent as CopyLinkSVG} from './copyLink.svg';
 export {ReactComponent as CubeSVG} from './cube.svg';
 export {ReactComponent as DigitalReasoningLogoSVG} from './digitalReasoningLogo.svg';
 export {ReactComponent as DiscoverSVG} from './discover.svg';

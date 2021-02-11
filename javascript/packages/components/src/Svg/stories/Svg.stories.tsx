@@ -15,6 +15,7 @@ import {
   CloseSVG,
   CollaborationSVG,
   CopySVG,
+  CopyLinkSVG,
   CubeSVG,
   DigitalReasoningLogoSVG,
   DiscoverSVG,
@@ -223,6 +224,9 @@ export const UIIcons = () => {
         </SVGWrapper>
         <SVGWrapper title="CopySVG">
           <CopySVG />
+        </SVGWrapper>
+        <SVGWrapper title="CopyLinkSVG">
+          <CopyLinkSVG />
         </SVGWrapper>
         <SVGWrapper title="DiscoverSVG">
           <DiscoverSVG />
