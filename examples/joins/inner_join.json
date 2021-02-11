@@ -25,6 +25,6 @@
  },
  "transform": {
   "cmd": [ "python", "inner/main.py" ],
-  "image": "npepin/pachyderm-joins101:2"
+  "image": "pachyderm/example-joins-inner-outer:1.12.2"
 }
 }
