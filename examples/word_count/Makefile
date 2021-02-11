@@ -1,3 +1,14 @@
+# Set as you wish
+DOCKER_ACCOUNT := pachyderm
+CONTAINER_NAME := example-wordcount
+CONTAINER_VERSION := 1.12.2
+CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
+
+docker-image:
+	@docker build -t $(CONTAINER_TAG) .
+	@docker push $(CONTAINER_TAG)
+
+
 wordcount:
 	pachctl create repo urls
 	cd data && pachctl put file urls@master -f Wikipedia
