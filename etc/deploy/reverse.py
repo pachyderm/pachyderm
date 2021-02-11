@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+# This script copies all the objects from one S3 bucket to another, while
+# reversing the object keys. This is used to migrate from a pachyderm
+# deployment using the object-storage option 'reverse=True' to 'reverse=False'
+# (or vice-versa).
+#
+# Usage: reverse.py <from-bucket> <to-bucket>
+#
+# This script will add an object to the target bucket to track when the
+# migration started, so that it can be run multiple times on a running
+# deployment without having to redo work. The migration should not be
+# considered complete unless it has run on a stopped pachyderm deployment,
+# though, this merely allows you to do most of the work while your cluster is
+# still running. If the migration errors or is interrupted, no progress from
+# that run will be saved. To completely reset the progress, delete the
+# 'reverse_migration' object from the target bucket.
+
 import boto3, os, queue, subprocess, sys, threading, time, traceback
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
@@ -30,12 +46,14 @@ def start_migration(client, to_bucket):
         if raw is not None and len(raw) > 0:
             prev_start_time = datetime.fromisoformat(raw)
     except ClientError as ex:
-        print(ex.response['Error'])
         if ex.response['Error']['Code'] != '404':
             raise
 
-    # Write an empty object to indicate we've started a migration and the data is in an unknown state
-    res = client.put_object(Bucket=to_bucket, Key=migration_state_path, Metadata={'migration_start_time': ''})
+    # Write an empty object to update the LastModified so we can get the current S3 time
+    if prev_start_time is None:
+        res = client.put_object(Bucket=to_bucket, Key=migration_state_path, Metadata={'migration_start_time': ''})
+    else:
+        res = client.put_object(Bucket=to_bucket, Key=migration_state_path, Metadata={'migration_start_time': prev_start_time.isoformat()})
 
     # Inspect the object to get the canonical 'start time'
     res = client.head_object(Bucket=to_bucket, Key=migration_state_path)
@@ -116,4 +134,3 @@ if __name__ == '__main__':
         print(f'Usage: {sys.argv[0]} <from-bucket> <to-bucket>')
         sys.exit(1)
     do_reverse(from_bucket=sys.argv[1], to_bucket=sys.argv[2])
-
