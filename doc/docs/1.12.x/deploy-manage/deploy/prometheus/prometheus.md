@@ -86,7 +86,7 @@ $   kubectl port-forward pod/prometheus-<a-release-name>-kube-prometheus-stack-p
 If you have an existing Prometheus deployment, please navigate to your Prometheus GUI.
 
 ## Browse
-1. You can now browse your targets (http://localhost:9090/targets).
+You can now browse your targets (http://localhost:9090/targets).
     Run a pipeline of your choice. The `pachyderm-scraper` should be visible:
 
     ![pachyderm scraper target](./img/prometheus_target_pachyderm_scaper.png)
@@ -97,5 +97,6 @@ If you have an existing Prometheus deployment, please navigate to your Prometheu
 
 ## References
 
-* Kube Prometheus Stack - https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
-* Prometheus documentation - https://prometheus.io/docs/introduction/overview/
+* Find the full list of [Pachyderm metrics here](./pachyderm_prometheus_metrics).
+* [Kube Prometheus Stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) documentation.
+* Prometheus [documentation](https://prometheus.io/docs/introduction/overview/).
