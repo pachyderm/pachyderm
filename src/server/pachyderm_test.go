@@ -4055,7 +4055,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		base64Hash := "dzh7KGu+C0o1a4et0lR0FedzYO/udIdm6ZXTSLtJb5DZivQib9TfeWizDuLBfFfOVJ3EwoI34vk3NOB7qVUwWQ=="
+		base64Hash := "TBw9TLCKorQTGs4WY/H00vZYxGXd/15dXzXIDlbsoNw="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
