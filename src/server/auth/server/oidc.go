@@ -380,7 +380,7 @@ func (o *InternalOIDCProvider) validateIDToken(ctx context.Context, rawIDToken s
 	}
 
 	if !claims.EmailVerified && !o.IgnoreEmailVerified {
-		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
 	}
 	return idToken, &claims, nil
 }
