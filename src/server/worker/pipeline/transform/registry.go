@@ -188,7 +188,7 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 			return err
 		}
 		if metaCommitInfo.ParentCommit == nil {
-			reg.jobChain = chain.NewJobChain(hasher)
+			reg.jobChain = chain.NewJobChain(hasher, opts...)
 			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
