@@ -1840,7 +1840,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// attempt to clean up any commit we created
 		if specCommit != nil {
 			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
-				return superClient.DeleteCommit(ppsconsts.SpecRepo, specCommit.ID)
+				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.ID)
 			})
 		}
 		return nil, err
@@ -2261,7 +2261,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				*prevSpecCommit = nil
 			}
 			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
-				return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
+				return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.ID)
 			}); err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
 			}

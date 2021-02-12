@@ -371,11 +371,11 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 	return grpcutil.ScrubGRPC(err)
 }
 
-// DeleteCommit deletes a commit.
-func (c APIClient) DeleteCommit(repoName string, commitID string) error {
-	_, err := c.PfsAPIClient.DeleteCommit(
+// SquashCommit deletes a commit.
+func (c APIClient) SquashCommit(repoName string, commitID string) error {
+	_, err := c.PfsAPIClient.SquashCommit(
 		c.Ctx(),
-		&pfs.DeleteCommitRequest{
+		&pfs.SquashCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
 	)

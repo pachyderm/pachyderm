@@ -746,7 +746,7 @@ func TestInspectCommitBlock(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommit(t *testing.T) {
+func TestSquashCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -764,7 +764,7 @@ func TestDeleteCommit(t *testing.T) {
 		commit2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.DeleteCommit(repo, commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommit(repo, commit2.ID))
 
 		_, err = env.PachClient.InspectCommit(repo, commit2.ID)
 		require.YesError(t, err)
@@ -783,7 +783,7 @@ func TestDeleteCommit(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
+func TestSquashCommitOnlyCommitInBranch(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -793,7 +793,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n")))
-		require.NoError(t, env.PachClient.DeleteCommit(repo, "master"))
+		require.NoError(t, env.PachClient.SquashCommit(repo, "master"))
 
 		// The branch has not been deleted, though it has no commits
 		branches, err := env.PachClient.ListBranch(repo)
@@ -812,7 +812,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 	}))
 }
 
-func TestDeleteCommitFinished(t *testing.T) {
+func TestSquashCommitFinished(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -823,7 +823,7 @@ func TestDeleteCommitFinished(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n")))
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		require.NoError(t, env.PachClient.DeleteCommit(repo, "master"))
+		require.NoError(t, env.PachClient.SquashCommit(repo, "master"))
 
 		// The branch has not been deleted, though it has no commits
 		branches, err := env.PachClient.ListBranch(repo)
@@ -1252,7 +1252,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 		require.Equal(t, 2, len(ci.Provenance))
 
 		// We should also be able to delete the head commit of A
-		require.NoError(t, env.PachClient.DeleteCommit("repo", "A"))
+		require.NoError(t, env.PachClient.SquashCommit("repo", "A"))
 
 		// And the head of branch B should go back to the parent of the deleted commit
 		branchInfo, err := env.PachClient.InspectBranch("repo", "B")
@@ -1260,7 +1260,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 		require.Equal(t, parentCommit.ID, branchInfo.Head.ID)
 
 		// We should also be able to delete the head commit of A
-		require.NoError(t, env.PachClient.DeleteCommit("repo", parentCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("repo", parentCommit.ID))
 
 		// It should also be ok to make new commits on branches A and B
 		aCommit, err := env.PachClient.StartCommit("repo", "A")
@@ -4099,7 +4099,7 @@ func TestChildCommits(t *testing.T) {
 		require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit 2 and make sure it's removed from commit1.ChildCommits
-		require.NoError(t, env.PachClient.DeleteCommit("A", commit2.ID))
+		require.NoError(t, env.PachClient.SquashCommit("A", commit2.ID))
 		commit1Info = inspect("A", commit1.ID)
 		require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
@@ -4116,7 +4116,7 @@ func TestChildCommits(t *testing.T) {
 		require.ElementsEqualUnderFn(t, []string{commit2.ID, commit3.ID}, commit1Info.ChildCommits, CommitToID)
 
 		// Delete commit3 and make sure commit1 has the right children
-		require.NoError(t, env.PachClient.DeleteCommit("A", commit3.ID))
+		require.NoError(t, env.PachClient.SquashCommit("A", commit3.ID))
 		commit1Info = inspect("A", commit1.ID)
 		require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
@@ -4239,7 +4239,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
+// TestSquashCommitBigSubvenance deletes a commit that is upstream of a large
 // stack of pipeline outputs and makes sure that parenthood and such are handled
 // correctly.
 // DAG (dots are commits):
@@ -4254,7 +4254,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
 // 3. Delete branch HEAD   -> output branch rewritten to point to nil
 // 4. Delete parent commit -> child rewritten to point to nil
-func TestDeleteCommitBigSubvenance(t *testing.T) {
+func TestSquashCommitBigSubvenance(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4309,7 +4309,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 13, len(commits))
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4322,7 +4322,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		// - commit to 'logs' 10 more times
 		// - delete bigSubvCommit
 		// - Now there should be two commits in 'pipeline':
-		//   - One started by DeleteCommit (with provenance schema/master and
+		//   - One started by SquashCommit (with provenance schema/master and
 		//     logs/masterand
 		//   - The oldest commit in 'pipeline', from the setup
 		// - The second commit is the parent of the first
@@ -4342,7 +4342,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit("logs", commit.ID))
 		}
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4370,23 +4370,23 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit("logs", commit.ID))
 		}
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commits))
 
-		// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
+		// Delete all input commits--SquashCommit should reset 'pipeline/master' to
 		// nil, and should not create a new output commit this time
 		commits, err = env.PachClient.ListCommit("schema", "master", "", 0)
 		require.NoError(t, err)
 		for _, commitInfo := range commits {
-			require.NoError(t, env.PachClient.DeleteCommit("schema", commitInfo.Commit.ID))
+			require.NoError(t, env.PachClient.SquashCommit("schema", commitInfo.Commit.ID))
 		}
 		commits, err = env.PachClient.ListCommit("logs", "master", "", 0)
 		require.NoError(t, err)
 		for _, commitInfo := range commits {
-			require.NoError(t, env.PachClient.DeleteCommit("logs", commitInfo.Commit.ID))
+			require.NoError(t, env.PachClient.SquashCommit("logs", commitInfo.Commit.ID))
 		}
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4419,7 +4419,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("schema", commit.ID))
 
-		require.NoError(t, env.PachClient.DeleteCommit("schema", bigSubvCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("schema", bigSubvCommit.ID))
 
 		commits, err = env.PachClient.ListCommit("pipeline", "master", "", 0)
 		require.NoError(t, err)
@@ -4432,7 +4432,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitMultipleChildrenSingleCommit tests that when you have the
+// TestSquashCommitMultipleChildrenSingleCommit tests that when you have the
 // following commit graph in a repo:
 // c   d
 //  ↘ ↙
@@ -4445,7 +4445,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 // c   d
 //  ↘ ↙
 //   a
-func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
+func TestSquashCommitMultipleChildrenSingleCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4495,7 +4495,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 		require.Equal(t, 0, len(dInfo.ChildCommits))
 
 		// Delete commit 'b'
-		env.PachClient.DeleteCommit("repo", b.ID)
+		env.PachClient.SquashCommit("repo", b.ID)
 
 		// Collect info re: a, c, and d, and make sure that the parent/child
 		// relationships are still correct
@@ -4519,7 +4519,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitMultiLevelChildrenNilParent tests that when you have the
+// TestSquashCommitMultiLevelChildrenNilParent tests that when you have the
 // following commit graph in a repo:
 //
 //    ↙f
@@ -4535,7 +4535,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 // d e f
 //  ↘↓↙
 //  nil
-func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
+func TestSquashCommitMultiLevelChildrenNilParent(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4637,7 +4637,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete commit in upstream2, which deletes b & c
-		require.NoError(t, env.PachClient.DeleteCommit("upstream2", deleteMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("upstream2", deleteMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
 		dInfo, err = env.PachClient.InspectCommit("repo", d.ID)
@@ -4678,7 +4678,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 //   a
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
-func TestDeleteCommitMultiLevelChildren(t *testing.T) {
+func TestSquashCommitMultiLevelChildren(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4781,7 +4781,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete second commit in upstream2, which deletes b & c
-		require.NoError(t, env.PachClient.DeleteCommit("upstream1", deleteMeCommit.ID))
+		require.NoError(t, env.PachClient.SquashCommit("upstream1", deleteMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
 		aInfo, err = env.PachClient.InspectCommit("repo", a.ID)
@@ -4794,9 +4794,9 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure child/parent relationships are as shown in second diagram. Note
-		// that after 'b' and 'c' are deleted, DeleteCommit creates a new commit:
+		// that after 'b' and 'c' are deleted, SquashCommit creates a new commit:
 		// - 'repo/master' points to 'a'
-		// - DeleteCommit starts a new output commit to process 'upstream1/master'
+		// - SquashCommit starts a new output commit to process 'upstream1/master'
 		//   and 'upstream2/master'
 		// - The new output commit is started in 'repo/master' and is also a child of
 		//   'a'
@@ -4820,7 +4820,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 	}))
 }
 
-// TestDeleteCommitShrinkSubvRange is like TestDeleteCommitBigSubvenance, but
+// TestSquashCommitShrinkSubvRange is like TestSquashCommitBigSubvenance, but
 // instead of deleting commits from "schema", this test deletes them from
 // "logs", to make sure that the subvenance of "schema" commits is rewritten
 // correctly. As before, there are four cases:
@@ -4828,7 +4828,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 // 2. Subvenance "Upper" is decreased
 // 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
 // 4. The entire subvenance range is deleted
-func TestDeleteCommitShrinkSubvRange(t *testing.T) {
+func TestSquashCommitShrinkSubvRange(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
@@ -4883,7 +4883,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 1
 		// - Delete the first commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" has increased its Lower value
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[0].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[0].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4893,7 +4893,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 2
 		// - Delete the last commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" has decreased its Upper value
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[9].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[9].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4903,7 +4903,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// Case 3
 		// - Delete the middle commit in "logs" and make sure that the subvenance of
 		//   the single commit in "schema" hasn't changed
-		require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[5].ID))
+		require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[5].ID))
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
@@ -4914,7 +4914,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 		// - Delete the remaining commits in "logs" and make sure that the subvenance
 		//   of the single commit in "schema" is now empty
 		for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
-			require.NoError(t, env.PachClient.DeleteCommit("logs", logsCommit[i].ID))
+			require.NoError(t, env.PachClient.SquashCommit("logs", logsCommit[i].ID))
 		}
 		schemaCommitInfo, err = env.PachClient.InspectCommit("schema", schemaCommit.ID)
 		require.NoError(t, err)
@@ -5779,7 +5779,7 @@ const (
 	inputBranch               // create a new branch on an existing input repo
 	deleteInputBranch         // delete an input branch
 	commit                    // commit to an input branch
-	deleteCommit              // delete a commit from an input branch
+	squashCommit              // squash commit from an input branch
 	outputRepo                // create a new output repo, with master branch subscribed to random other branches
 	outputBranch              // create a new output branch on an existing output repo
 	deleteOutputBranch        // delete an output branch
@@ -5804,7 +5804,7 @@ func TestFuzzProvenance(t *testing.T) {
 			1, // inputBranch
 			1, // deleteInputBranch
 			5, // commit
-			3, // deleteCommit
+			3, // squashCommit
 			1, // outputRepo
 			2, // outputBranch
 			1, // deleteOutputBranch
@@ -5870,14 +5870,14 @@ func TestFuzzProvenance(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, env.PachClient.FinishCommit(branch.Repo.Name, branch.Name))
 				commits = append(commits, commit)
-			case deleteCommit:
+			case squashCommit:
 				if len(commits) == 0 {
 					continue OpLoop
 				}
 				i := r.Intn(len(commits))
 				commit := commits[i]
 				commits = append(commits[:i], commits[i+1:]...)
-				require.NoError(t, env.PachClient.DeleteCommit(commit.Repo.Name, commit.ID))
+				require.NoError(t, env.PachClient.SquashCommit(commit.Repo.Name, commit.ID))
 			case outputRepo:
 				if len(inputBranches) == 0 {
 					continue OpLoop

@@ -236,7 +236,7 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
-message DeleteCommitRequest {
+message SquashCommitRequest {
   Commit commit = 1;
 }
 
@@ -471,8 +471,8 @@ service API {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
-  // DeleteCommit deletes a commit.
-  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // SquashCommit squashes a commit into it's parent.
+  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish.
   rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.

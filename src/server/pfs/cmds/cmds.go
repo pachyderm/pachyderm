@@ -556,10 +556,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	deleteCommit := &cobra.Command{
+	squashCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
-		Short: "Delete an input commit.",
-		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
+		Short: "Squash an input commit into it's parent",
+		Long:  "Squash an input commit. An input is a commit which is not the output of a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
@@ -572,12 +572,12 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.DeleteCommit(commit.Repo.Name, commit.ID)
+				return c.SquashCommit(commit.Repo.Name, commit.ID)
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",

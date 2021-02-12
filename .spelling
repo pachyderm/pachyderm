@@ -69,7 +69,7 @@ datasets
 datums
 deduplicates
 DeleteAll
-DeleteCommit
+SquashCommit
 dockerfile
 dockerhub
 EBS
