@@ -1268,44 +1268,6 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
-	getObject := &cobra.Command{
-		Use:   "{{alias}} <hash>",
-		Short: "Print the contents of an object.",
-		Long:  "Print the contents of an object.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			return c.GetObject(args[0], os.Stdout)
-		}),
-	}
-	commands = append(commands, cmdutil.CreateAlias(getObject, "get object"))
-
-	tagDocs := &cobra.Command{
-		Short: "Docs for tags.",
-		Long: `Tags are aliases for objects. Many tags can refer to the same object.
-
-Tags are a low-level resource and should not be accessed directly by most users.`,
-	}
-	commands = append(commands, cmdutil.CreateDocsAlias(tagDocs, "tag", " tag$"))
-
-	getTag := &cobra.Command{
-		Use:   "{{alias}} <tag>",
-		Short: "Print the contents of a tag.",
-		Long:  "Print the contents of a tag.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			return c.GetTag(args[0], os.Stdout)
-		}),
-	}
-	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
-
 	var fix bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",

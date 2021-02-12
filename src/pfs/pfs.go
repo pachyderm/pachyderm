@@ -1,11 +1,11 @@
 package pfs
 
 import (
-	"crypto/sha512"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"hash"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
 
 var (
@@ -22,7 +22,7 @@ func (c *Commit) FullID() string {
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
 func NewHash() hash.Hash {
-	return sha512.New()
+	return pachhash.New()
 }
 
 // EncodeHash encodes a hash into a readable format.
@@ -33,11 +33,4 @@ func EncodeHash(bytes []byte) string {
 // DecodeHash decodes a hash into bytes.
 func DecodeHash(hash string) ([]byte, error) {
 	return hex.DecodeString(hash)
-}
-
-// GetBlock encodes a hash into a readable format in the form of a Block.
-func GetBlock(hash hash.Hash) *Block {
-	return &Block{
-		Hash: base64.URLEncoding.EncodeToString(hash.Sum(nil)),
-	}
 }
