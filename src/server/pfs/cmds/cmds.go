@@ -556,10 +556,10 @@ $ {{alias}} test@master --new`,
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
-	squashCommit := &cobra.Command{
+	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
-		Short: "Squash an input commit into it's parent",
-		Long:  "Squash an input commit. An input is a commit which is not the output of a pipeline.",
+		Short: "Delete an input commit.",
+		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
@@ -576,8 +576,8 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
-	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
+	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
