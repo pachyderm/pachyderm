@@ -319,7 +319,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 	}
 
 	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
 	}
 	return idToken, &claims, nil
 }
