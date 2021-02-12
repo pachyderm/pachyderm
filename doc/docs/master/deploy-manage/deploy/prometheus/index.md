@@ -96,6 +96,6 @@ In the ClassicUI tab, you should be able to see the new pachyderm metrics:
 ## References
 * Find the full list of Pachyderm metrics here:
     - [Pachd metrics](./pachd_metrics)
-    - [Job metrics]((./job_metrics))
+    - [Job metrics](./job_metrics)
 * [Kube Prometheus Stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) documentation.
 * Prometheus [documentation](https://prometheus.io/docs/introduction/overview/).
