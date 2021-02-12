@@ -2,9 +2,7 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"path"
 	"strings"
 	"time"
 
@@ -24,16 +22,9 @@ const (
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
 	DefaultShardThreshold = 1024 * units.MB
-	// DefaultLevelZeroSize is the default size for level zero in the compacted
-	// representation of a file set.
-	DefaultLevelZeroSize = 1 * units.MB
-	// DefaultLevelSizeBase is the default base of the exponential growth function
-	// for level sizes in the compacted representation of a file set.
-	DefaultLevelSizeBase = 10
-	// Diff is the suffix of a path that points to the diff of the prefix.
-	Diff = "diff"
-	// Compacted is the suffix of a path that points to the compaction of the prefix.
-	Compacted = "compacted"
+	// DefaultLevelFactor is the default factor that level sizes increase by in a compacted fileset
+	DefaultLevelFactor = 10
+
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
 )
@@ -49,8 +40,7 @@ type Storage struct {
 	store                        Store
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
-	levelZeroSize                int64
-	levelSizeBase                int
+	levelFactor                  int64
 	filesetSem                   *semaphore.Weighted
 }
 
@@ -62,12 +52,14 @@ func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...St
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
 		shardThreshold: DefaultShardThreshold,
-		levelZeroSize:  DefaultLevelZeroSize,
-		levelSizeBase:  DefaultLevelSizeBase,
+		levelFactor:    DefaultLevelFactor,
 		filesetSem:     semaphore.NewWeighted(math.MaxInt64),
 	}
 	for _, opt := range opts {
 		opt(s)
+	}
+	if s.levelFactor < 1 {
+		panic("level factor cannot be < 1")
 	}
 	return s
 }
@@ -86,39 +78,47 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // NewUnorderedWriter creates a new unordered file set writer.
-func (s *Storage) NewUnorderedWriter(ctx context.Context, fileSet, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
-	return newUnorderedWriter(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
+func (s *Storage) NewUnorderedWriter(ctx context.Context, defaultTag string, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+	return newUnorderedWriter(ctx, s, s.memThreshold, defaultTag, opts...)
 }
 
 // NewWriter creates a new file set writer.
-func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	return s.newWriter(ctx, fileSet, opts...)
+func (s *Storage) NewWriter(ctx context.Context, opts ...WriterOption) *Writer {
+	return s.newWriter(ctx, opts...)
 }
 
-func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s.store, s.tracker, s.chunks, fileSet, opts...)
+func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
+	return newWriter(ctx, s, s.tracker, s.chunks, opts...)
 }
 
 // TODO: Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
-func (s *Storage) newReader(fileSet string, opts ...index.Option) *Reader {
+func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
 	return newReader(s.store, s.chunks, fileSet, opts...)
 }
 
 // Open opens a file set for reading.
 // TODO: It might make sense to have some of the file set transforms as functional options here.
-func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Option) (FileSet, error) {
+func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (FileSet, error) {
 	var fss []FileSet
-	for _, fileSet := range fileSets {
-		if err := s.store.Walk(ctx, fileSet, func(p string) error {
-			fss = append(fss, s.newReader(p, opts...))
-			return nil
-		}); err != nil {
+	for _, id := range ids {
+		md, err := s.store.Get(ctx, id)
+		if err != nil {
 			return nil, err
+		}
+		switch x := md.Value.(type) {
+		case *Metadata_Primitive:
+			fss = append(fss, s.newReader(id, opts...))
+		case *Metadata_Composite:
+			fs, err := s.Open(ctx, stringsToIDs(x.Composite.Layers), opts...)
+			if err != nil {
+				return nil, err
+			}
+			fss = append(fss, fs)
 		}
 	}
 	if len(fss) == 0 {
-		return nil, errors.Errorf("error opening fileset: non-existent fileset: %v", fileSets)
+		return emptyFileSet{}, nil
 	}
 	if len(fss) == 1 {
 		return fss[0], nil
@@ -126,179 +126,125 @@ func (s *Storage) Open(ctx context.Context, fileSets []string, opts ...index.Opt
 	return newMergeReader(s.chunks, fss), nil
 }
 
-// Shard shards the file set into path ranges.
-// TODO This should be extended to be more configurable (different criteria
-// for creating shards).
-func (s *Storage) Shard(ctx context.Context, fs FileSet, cb ShardCallback) error {
-	return shard(ctx, fs, s.shardThreshold, cb)
-}
-
-// ShardCallback is a callback that returns a path range for each shard.
-type ShardCallback func(*index.PathRange) error
-
-// shard creates shards (path ranges) from the file set streams being merged.
-// A shard is created when the size of the content for a path range is greater than
-// the passed in shard threshold.
-// For each shard, the callback is called with the path range for the shard.
-func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallback) error {
-	var size int64
-	pathRange := &index.PathRange{}
-	if err := fs.Iterate(ctx, func(f File) error {
-		// A shard is created when we have encountered more than shardThreshold content bytes.
-		if size >= shardThreshold {
-			pathRange.Upper = f.Index().Path
-			if err := cb(pathRange); err != nil {
-				return err
-			}
-			size = 0
-			pathRange = &index.PathRange{
-				Lower: f.Index().Path,
-			}
-		}
-		size += index.SizeBytes(f.Index())
-		return nil
-	}); err != nil {
-		return err
+// Compose produces a composite fileset from the filesets under ids.
+// It does not perform a merge or check that the filesets at ids in any way
+// other than ensuring that they exist.
+func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	c := &Composite{
+		Layers: idsToHex(ids),
 	}
-	return cb(pathRange)
+	return s.newComposite(ctx, c, ttl)
 }
 
-// Copy copies the fileset at srcPrefix to dstPrefix. It does *not* perform compaction
-// ttl sets the time to live on the keys under dstPrefix if ttl == 0, it is ignored
-func (s *Storage) Copy(ctx context.Context, srcPrefix, dstPrefix string, ttl time.Duration) error {
-	// TODO: perform this atomically with postgres
-	return s.store.Walk(ctx, srcPrefix, func(srcPath string) error {
-		dstPath := dstPrefix + srcPath[len(srcPrefix):]
-		return copyPath(ctx, s.store, s.store, srcPath, dstPath, s.tracker, ttl)
-	})
+// Clone creates a new fileset, identical to the fileset at id, but with the specified ttl.
+// The ttl can be ignored by using track.NoTTL
+func (s *Storage) Clone(ctx context.Context, id ID, ttl time.Duration) (*ID, error) {
+	md, err := s.store.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch x := md.Value.(type) {
+	case *Metadata_Primitive:
+		return s.newPrimitive(ctx, x.Primitive, ttl)
+	case *Metadata_Composite:
+		return s.newComposite(ctx, x.Composite, ttl)
+	default:
+		return nil, errors.Errorf("cannot clone type %T", md.Value)
+	}
 }
 
-// CompactStats contains information about what was compacted.
-type CompactStats struct {
-	OutputSize int64
+// Flatten takes a list of IDs and replaces references to composite FileSets
+// with references to all their layers inplace.
+// The returned IDs will only contain ids of Primitive FileSets
+func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
+	flattened := make([]ID, 0, len(ids))
+	for _, id := range ids {
+		md, err := s.store.Get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		switch x := md.Value.(type) {
+		case *Metadata_Primitive:
+			flattened = append(flattened, id)
+		case *Metadata_Composite:
+			ids2, err := s.Flatten(ctx, stringsToIDs(x.Composite.Layers))
+			if err != nil {
+				return nil, err
+			}
+			flattened = append(flattened, ids2...)
+		}
+	}
+	return flattened, nil
 }
 
-// Compact compacts a set of filesets into an output fileset.
-func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, ttl time.Duration, opts ...index.Option) (*CompactStats, error) {
+// Merge writes the contents of ids to a new fileset with the specified ttl and returns the ID
+// Merge always returns the ID of a primitive fileset.
+func (s *Storage) Merge(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var size int64
-	w := s.newWriter(ctx, outputFileSet, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
+	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
 		size += index.SizeBytes(idx)
 		return nil
 	}))
-	fs, err := s.Open(ctx, inputFileSets)
+	fs, err := s.Open(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 	if err := CopyFiles(ctx, w, fs, true); err != nil {
 		return nil, err
 	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	return &CompactStats{OutputSize: size}, nil
+	return w.Close()
 }
 
-// CompactSpec specifies the input and output for a compaction operation.
-type CompactSpec struct {
-	Output string
-	Input  []string
-}
-
-// CompactSpec returns a compaction specification that determines the input filesets (the diff file set and potentially
-// compacted filesets) and output fileset.
-func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (*CompactSpec, error) {
-	if len(compactedFileSet) > 1 {
-		return nil, errors.Errorf("multiple compacted FileSets")
-	}
-	spec, err := s.compactSpec(ctx, fileSet, compactedFileSet...)
-	if err != nil {
-		return nil, err
-	}
-	return spec, nil
-}
-
-func (s *Storage) compactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (ret *CompactSpec, retErr error) {
-	md, err := s.store.Get(ctx, path.Join(fileSet, Diff))
-	if err != nil {
-		return nil, err
-	}
-	size := md.SizeBytes
-	spec := &CompactSpec{
-		Input: []string{path.Join(fileSet, Diff)},
-	}
-	var level int
-	// Handle first commit being compacted.
-	if len(compactedFileSet) == 0 {
-		for size > s.levelSize(level) {
-			level++
-		}
-		spec.Output = path.Join(fileSet, Compacted, levelName(level))
-		return spec, nil
-	}
-	// While we can't fit it all in the current level
-	for {
-		levelPath := path.Join(compactedFileSet[0], Compacted, levelName(level))
-		md, err := s.store.Get(ctx, levelPath)
+// Concat is a special case of Merge, where the filesets each contain paths for distinct ranges.
+// The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
+// Concat always returns the ID of a primitive fileset.
+func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+	fsw := s.NewWriter(ctx, WithTTL(ttl))
+	for _, id := range ids {
+		fs, err := s.Open(ctx, []ID{id})
 		if err != nil {
-			if err != ErrPathNotExists {
-				return nil, err
-			}
-		} else {
-			spec.Input = append(spec.Input, levelPath)
-			size += md.SizeBytes
+			return nil, err
 		}
-		if size <= s.levelSize(level) {
-			break
+		if err := CopyFiles(ctx, fsw, fs, true); err != nil {
+			return nil, err
 		}
-		level++
 	}
-	// Now we know the output level
-	spec.Output = path.Join(fileSet, Compacted, levelName(level))
-	// Copy the other levels that may exist
-	if err := s.store.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(src string) error {
-		lName := path.Base(src)
-		l, err := parseLevel(lName)
-		if err != nil {
-			return err
-		}
-		if l > level {
-			dst := path.Join(fileSet, Compacted, levelName(l))
-			if err := copyPath(ctx, s.store, s.store, src, dst, s.tracker, 0); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	// Inputs should be ordered with priority from least to greatest.
-	for i := 0; i < len(spec.Input)/2; i++ {
-		spec.Input[i], spec.Input[len(spec.Input)-1-i] = spec.Input[len(spec.Input)-1-i], spec.Input[i]
-	}
-	return spec, nil
+	return fsw.Close()
 }
 
-// Delete deletes a fileset.
-func (s *Storage) Delete(ctx context.Context, fileSet string) error {
-	return s.store.Walk(ctx, fileSet, func(name string) error {
-		oid := filesetObjectID(name)
-		if err := s.store.Delete(ctx, name); err != nil {
-			return err
-		}
-		return s.tracker.MarkTombstone(ctx, oid)
-	})
+// Drop allows a fileset to be deleted if it is not otherwise referenced.
+func (s *Storage) Drop(ctx context.Context, id ID) error {
+	_, err := s.SetTTL(ctx, id, track.ExpireNow)
+	return err
 }
 
-// SetTTL sets the time-to-live for the prefix p.
-func (s *Storage) SetTTL(ctx context.Context, p string, ttl time.Duration) (time.Time, error) {
-	oid := filesetObjectID(p)
+// SetTTL sets the time-to-live for the fileset at id
+func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
+	oid := filesetObjectID(id)
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
+}
+
+// SizeOf returns the size of the data in the fileset in bytes
+func (s *Storage) SizeOf(ctx context.Context, id ID) (int64, error) {
+	ids, err := s.Flatten(ctx, []ID{id})
+	if err != nil {
+		return -1, err
+	}
+	prims, err := s.getPrimitiveBatch(ctx, ids)
+	if err != nil {
+		return -1, err
+	}
+	var total int64
+	for _, prim := range prims {
+		total += prim.SizeBytes
+	}
+	return total, nil
 }
 
 // WithRenewer calls cb with a Renewer, and a context which will be canceled if the renewer is unable to renew a path.
 func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(context.Context, *renew.StringSet) error) error {
-	rf := func(ctx context.Context, p string, ttl time.Duration) error {
-		_, err := s.SetTTL(ctx, p, ttl)
+	rf := func(ctx context.Context, idHexStr string, ttl time.Duration) error {
+		_, err := s.SetTTL(ctx, ID(idHexStr), ttl)
 		return err
 	}
 	return renew.WithStringSet(ctx, ttl, rf, cb)
@@ -328,30 +274,60 @@ func (s *Storage) GC(ctx context.Context) error {
 	return gc.Run(ctx)
 }
 
-func (s *Storage) levelSize(i int) int64 {
-	return s.levelZeroSize * int64(math.Pow(float64(s.levelSizeBase), float64(i)))
+func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
+	id := newID()
+	md := &Metadata{
+		Value: &Metadata_Primitive{
+			Primitive: prim,
+		},
+	}
+	var pointsTo []string
+	for _, chunkID := range prim.PointsTo() {
+		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
+	}
+	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
+		return nil, err
+	}
+	if err := s.store.Set(ctx, id, md); err != nil {
+		return nil, err
+	}
+	return &id, nil
 }
 
-const subFileSetFmt = "%020d"
-const levelFmt = "level_" + subFileSetFmt
-
-// SubFileSetStr returns the string representation of a subfileset.
-func SubFileSetStr(subFileSet int64) string {
-	return fmt.Sprintf(subFileSetFmt, subFileSet)
+func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Duration) (*ID, error) {
+	id := newID()
+	md := &Metadata{
+		Value: &Metadata_Composite{
+			Composite: comp,
+		},
+	}
+	var pointsTo []string
+	for _, id := range comp.Layers {
+		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
+	}
+	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
+		return nil, err
+	}
+	if err := s.store.Set(ctx, id, md); err != nil {
+		return nil, err
+	}
+	return &id, nil
 }
 
-func levelName(i int) string {
-	return fmt.Sprintf(levelFmt, i)
+func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
+	md, err := s.store.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	prim := md.GetPrimitive()
+	if prim == nil {
+		return nil, errors.Errorf("fileset %v is not primitive", id)
+	}
+	return prim, nil
 }
 
-func parseLevel(x string) (int, error) {
-	var y int
-	_, err := fmt.Sscanf(x, levelFmt, &y)
-	return y, err
-}
-
-func filesetObjectID(p string) string {
-	return "fileset/" + p
+func filesetObjectID(id ID) string {
+	return "fileset/" + id.HexString()
 }
 
 var _ track.Deleter = &deleter{}

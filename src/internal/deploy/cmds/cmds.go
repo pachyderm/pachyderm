@@ -765,7 +765,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
 				log.Warningf("you specified a cloudfront distribution; deploying on " +
-					"AWS with cloudfront is currently an alpha feature. No security " +
+					"AWS with cloudfront is currently an experimental feature. No security " +
 					"restrictions have been applied to cloudfront, making all data " +
 					"public (obscured but not secured)\n")
 			}

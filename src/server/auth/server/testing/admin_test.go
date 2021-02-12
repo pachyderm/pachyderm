@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -682,11 +683,18 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, aliceClient, repo))
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -756,12 +764,20 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
+
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to re-enable
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -860,11 +876,18 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	})
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -914,11 +937,18 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -1974,69 +2004,4 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	pi, err := rootClient.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
-}
-
-// TestOneTimePasswordOtherUser tests that it's possible for an admin to
-// generate an OTP on behalf of another user (similar to how an admin can
-// generate a Pachyderm token for another user).
-func TestOneTimePasswordOtherUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-
-	rootClient, anonClient := tu.GetAuthenticatedPachClient(t, auth.RootUser), tu.GetUnauthenticatedPachClient(t)
-	otpResp, err := rootClient.GetOneTimePassword(rootClient.Ctx(),
-		&auth.GetOneTimePasswordRequest{
-			Subject: robot("alice"),
-		})
-	require.NoError(t, err)
-
-	authResp, err := anonClient.Authenticate(anonClient.Ctx(),
-		&auth.AuthenticateRequest{
-			OneTimePassword: otpResp.Code,
-		})
-	require.NoError(t, err)
-	anonClient.SetAuthToken(authResp.PachToken)
-	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, 0, len(who.ClusterRoles.Roles))
-	require.Equal(t, robot("alice"), who.Username)
-	require.True(t, who.TTL > 0)
-}
-
-// TestFSAdminOneTimePasswordOtherUser tests that it's not possible for an FS admin to
-// generate an OTP on behalf of another user.
-func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.DeleteAll(t)
-
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
-
-	// 'admin' makes alice an fs admin
-	_, err := rootClient.ModifyClusterRoleBinding(rootClient.Ctx(),
-		&auth.ModifyClusterRoleBindingRequest{Principal: alice, Roles: fsClusterRole()})
-	require.NoError(t, err)
-
-	// wait until alice shows up in fs admin list
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetClusterRoleBindings(aliceClient.Ctx(), &auth.GetClusterRoleBindingsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(
-			admins(auth.RootUser)(alice), resp.Bindings,
-		)
-	}, backoff.NewTestingBackOff()))
-
-	// Fail to get an OTP for another subject as alice
-	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
-		&auth.GetOneTimePasswordRequest{
-			Subject: robot("bob"),
-		})
-	require.Nil(t, otpResp)
-	require.YesError(t, err)
-	require.Matches(t, "must be an admin", err.Error())
 }

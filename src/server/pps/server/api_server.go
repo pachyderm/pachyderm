@@ -1079,7 +1079,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 		return errors.Errorf("job not finished")
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	fsi := datum.NewFileSetIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+	fsi := datum.NewCommitIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
 	return fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{

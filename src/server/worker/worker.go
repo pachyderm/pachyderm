@@ -9,6 +9,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -119,9 +120,9 @@ func (w *Worker) worker() {
 		eg.Go(func() error {
 			return driver.NewTaskWorker().Run(
 				ctx,
-				func(ctx context.Context, subtask *work.Task) error {
+				func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 					driver := w.driver.WithContext(ctx)
-					return transform.Worker(driver, logger, subtask, w.status)
+					return nil, transform.Worker(driver, logger, subtask, w.status)
 				},
 			)
 		})

@@ -239,57 +239,6 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	require.Matches(t, "try logging in", errMsg.String())
 }
 
-// TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
-// subject from the currently logged-in user if none is specified on the command
-// line
-func TestGetOneTimePasswordNoSubject(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-
-	require.NoError(t, tu.BashCmd(`
-		otp="$(pachctl auth get-otp)"
-		echo "${otp}" | pachctl auth login --one-time-password
-		pachctl auth whoami | match {{.alice}}
-		`,
-		"alice", alice,
-	).Run())
-}
-
-// TestGetOneTimePasswordTTL tests that the --ttl argument to 'pachctl get-otp'
-// correctly limits the lifetime of the returned token
-func TestGetOneTimePasswordTTL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-
-	var otpBuf bytes.Buffer
-	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
-	otpCmd.Stdout = &otpBuf
-	require.NoError(t, otpCmd.Run())
-	otp := strings.TrimSpace(otpBuf.String())
-
-	// wait for OTP to expire
-	time.Sleep(6 * time.Second)
-	var errMsg bytes.Buffer
-	login := tu.BashCmd(`
-		echo {{.otp}} | pachctl auth login --one-time-password
-	`, "otp", otp)
-	login.Stderr = &errMsg
-	require.YesError(t, login.Run())
-	require.Matches(t, "otp is invalid or has expired", errMsg.String())
-}
-
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
 	if err := tu.BashCmd("echo 'iamroot' | pachctl auth use-auth-token &>/dev/null").Run(); err != nil {

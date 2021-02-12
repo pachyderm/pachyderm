@@ -117,7 +117,7 @@ func NewDefaultConfig() *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
-	config.StorageLevelZeroSize = units.MB
+	config.StorageLevelFactor = 10
 	config.StorageGCPolling = "30s"
 	config.StorageCompactionMaxFanIn = 50
 	return config

@@ -8,6 +8,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -267,7 +268,7 @@ func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string)
 }
 
 // ProcessFunc is a callback that is used for processing a subtask in a task.
-type ProcessFunc func(context.Context, *Task) error
+type ProcessFunc func(context.Context, *Task) (*types.Any, error)
 
 // Run runs the worker with the given context.
 // The worker will continue to watch the task collection until the context is canceled.
@@ -348,6 +349,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 			}
 			return w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
 				subtask := subtaskInfo.Task
+				var result *types.Any
 				defer func() {
 					// If the task context was canceled or the claim was lost, just return with no error.
 					if errors.Is(claimCtx.Err(), context.Canceled) {
@@ -363,6 +365,7 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 							}
 							subtaskInfo.Task = subtask
 							subtaskInfo.State = State_SUCCESS
+							subtaskInfo.Result = result
 							if retErr != nil {
 								subtaskInfo.State = State_FAILURE
 								subtaskInfo.Reason = retErr.Error()
@@ -374,7 +377,9 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 						retErr = err
 					}
 				}()
-				return processFunc(claimCtx, subtask)
+				var err error
+				result, err = processFunc(claimCtx, subtask)
+				return err
 			})
 		}(); err != nil {
 			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.

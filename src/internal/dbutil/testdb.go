@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"runtime"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -15,20 +13,10 @@ import (
 // set this to true if you want to keep the database around
 var devDontDropDatabase = false
 
-const (
-	// DefaultHost is the default host.
-	DefaultHost = "127.0.0.1"
-	// DefaultPort is the default port.
-	DefaultPort = 32228
-	// DefaultUser is the default user
-	DefaultUser = "postgres"
-	// DefaultDBName is the default DB name.
-	DefaultDBName = "pgc"
-
-	postgresMaxConnections = 100
-)
+const postgresMaxConnections = 100
 
 // we want to divide the total number of connections we can have up among the
+// concurrently running tests
 var maxOpenConnsPerPool = postgresMaxConnections / runtime.GOMAXPROCS(0)
 
 // NewTestDB connects to postgres using the default settings, creates a database with a unique name
@@ -73,13 +61,6 @@ func withDB(cb func(*sqlx.DB) error, opts ...Option) (retErr error) {
 	return cb(db)
 }
 
-type dBConfig struct {
-	host           string
-	port           int
-	user, password string
-	name           string
-}
-
 func ephemeralDBName() string {
 	buf := [8]byte{}
 	if n, err := rand.Reader.Read(buf[:]); err != nil || n < 8 {
@@ -95,41 +76,4 @@ func ephemeralDBName() string {
 	// 	now.Year(), now.Month(), now.Day(),
 	// 	now.Hour(), now.Minute(), now.Second(),
 	// 	rand.Uint32())
-}
-
-// NewDB creates a new DB.
-func NewDB(opts ...Option) (*sqlx.DB, error) {
-	dbc := &dBConfig{
-		host: DefaultHost,
-		port: DefaultPort,
-		user: DefaultUser,
-		name: DefaultDBName,
-	}
-	for _, opt := range opts {
-		opt(dbc)
-	}
-	fields := map[string]string{
-		"sslmode": "disable",
-	}
-	if dbc.host != "" {
-		fields["host"] = dbc.host
-	}
-	if dbc.port != 0 {
-		fields["port"] = strconv.Itoa(dbc.port)
-	}
-	if dbc.name != "" {
-		fields["dbname"] = dbc.name
-	}
-	if dbc.user != "" {
-		fields["user"] = dbc.user
-	}
-	if dbc.password != "" {
-		fields["password"] = dbc.password
-	}
-	var dsnParts []string
-	for k, v := range fields {
-		dsnParts = append(dsnParts, k+"="+v)
-	}
-	dsn := strings.Join(dsnParts, " ")
-	return sqlx.Open("postgres", dsn)
 }

@@ -6496,7 +6496,7 @@ func TestRegressionOrphanedFile(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
 		require.NoError(t, env.PachClient.RenewFileSet(resp.FilesetId, 60*time.Second))
-		fis, err := env.PachClient.ListFileAll(pclient.TmpRepoName, resp.FilesetId, "/")
+		fis, err := env.PachClient.ListFileAll(pclient.FileSetsRepoName, resp.FilesetId, "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		return nil

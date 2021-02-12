@@ -170,12 +170,21 @@ type fileSetIterator struct {
 	repo, commit string
 }
 
-// NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, repo, commit string) Iterator {
+// NewCommitIterator creates an iterator for the specified commit and repo.
+func NewCommitIterator(pachClient *client.APIClient, repo, commit string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
 		repo:       repo,
 		commit:     commit,
+	}
+}
+
+// NewFileSetIterator creates a new fileset iterator.
+func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
+	return &fileSetIterator{
+		pachClient: pachClient,
+		repo:       client.FileSetsRepoName,
+		commit:     fsID,
 	}
 }
 

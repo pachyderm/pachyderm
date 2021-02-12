@@ -134,7 +134,7 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var useOTP, noBrowser bool
+	var noBrowser bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
 		Long: "Login to Pachyderm. Any resources that have been restricted to " +
@@ -150,17 +150,7 @@ func LoginCmd() *cobra.Command {
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
 			var authErr error
-			if useOTP {
-				// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
-				code, err := cmdutil.ReadPassword("One-Time Password:")
-				if err != nil {
-					return errors.Wrapf(err, "error reading One-Time Password")
-				}
-				code = strings.TrimSpace(code) // drop trailing newline
-				resp, authErr = c.Authenticate(
-					c.Ctx(),
-					&auth.AuthenticateRequest{OneTimePassword: code})
-			} else if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
+			if state, err := requestOIDCLogin(c, !noBrowser); err == nil {
 				// Exchange OIDC token for Pachyderm token
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
@@ -184,8 +174,6 @@ func LoginCmd() *cobra.Command {
 			return config.WritePachTokenToConfig(resp.PachToken)
 		}),
 	}
-	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
-		"If set, authenticate with a One-Time Password")
 	login.PersistentFlags().BoolVarP(&noBrowser, "no-browser", "b", false,
 		"If set, don't try to open a web browser")
 	return cmdutil.CreateAlias(login, "auth login")
@@ -495,52 +483,6 @@ func UseAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
-// GetOneTimePasswordCmd returns a cobra command that lets a user get an OTP.
-func GetOneTimePasswordCmd() *cobra.Command {
-	var ttl string
-	getOneTimePassword := &cobra.Command{
-		Use: "{{alias}} <username>",
-		Short: "Get a one-time password that authenticates the holder as " +
-			"\"username\", or the currently signed in user if no 'username' is " +
-			"specified",
-		Long: "Get a one-time password that authenticates the holder as " +
-			"\"username\", or the currently signed in user if no 'username' is " +
-			"specified. Only cluster admins may obtain a one-time password on " +
-			"behalf of another user.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return errors.Wrapf(err, "could not connect")
-			}
-			defer c.Close()
-
-			req := &auth.GetOneTimePasswordRequest{}
-			if ttl != "" {
-				d, err := time.ParseDuration(ttl)
-				if err != nil {
-					return errors.Wrapf(err, "could not parse duration %q", ttl)
-				}
-				req.TTL = int64(d.Seconds())
-			}
-			if len(args) == 1 {
-				req.Subject = args[0]
-			}
-			resp, err := c.GetOneTimePassword(c.Ctx(), req)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			fmt.Println(resp.Code)
-			return nil
-		}),
-	}
-	getOneTimePassword.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, "+
-		"the resulting one-time password will have the given lifetime (or the "+
-		"lifetime of the caller's current session, whichever is shorter). This "+
-		"flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\"). If unset, "+
-		"one-time passwords will have a lifetime of 5 minutes")
-	return cmdutil.CreateAlias(getOneTimePassword, "auth get-otp")
-}
-
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -566,7 +508,6 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
-	commands = append(commands, GetOneTimePasswordCmd())
 
 	return commands
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -41,6 +42,7 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
+	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -428,6 +430,17 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
 			return nil
 		}); err != nil {
 			return err

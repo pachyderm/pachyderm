@@ -33,15 +33,14 @@ import (
 const (
 	allClusterUsersSubject = "allClusterUsers"
 
-	tokensPrefix           = "/tokens"
-	oneTimePasswordsPrefix = "/auth-codes"
-	aclsPrefix             = "/acls"
-	adminsPrefix           = "/admins"
-	fsAdminsPrefix         = "/fs-admins"
-	membersPrefix          = "/members"
-	groupsPrefix           = "/groups"
-	configPrefix           = "/config"
-	oidcAuthnPrefix        = "/oidc-authns"
+	tokensPrefix    = "/tokens"
+	aclsPrefix      = "/acls"
+	adminsPrefix    = "/admins"
+	fsAdminsPrefix  = "/fs-admins"
+	membersPrefix   = "/members"
+	groupsPrefix    = "/groups"
+	configPrefix    = "/config"
+	oidcAuthnPrefix = "/oidc-authns"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	// and the default lifetime of an auth token from GetAuthToken.
@@ -49,18 +48,6 @@ const (
 	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
 	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
-
-	// minSessionTTL is the shortest session TTL that Authenticate() will attach
-	// to a new token. This avoids confusing behavior with stale OTPs and such.
-	minSessionTTL = 10 * time.Second // 30 days
-
-	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
-	// GetOneTimePassword
-	//
-	// Note: if 'defaultOTPTTLSecs' is changed, then the description of
-	// '--ttl' in 'pachctl get-otp' must also be changed
-	defaultOTPTTLSecs = 60 * 5            // 5 minutes
-	maxOTPTTLSecs     = 30 * 24 * 60 * 60 // 30 days
 
 	// ppsUser is a special, unrevokable cluster administrator account used by PPS
 	// to create pipeline tokens, close commits, and do other necessary PPS work.
@@ -110,10 +97,6 @@ type apiServer struct {
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
-	// oneTimePasswords is a collection of hash(code) -> TokenInfo mappings.
-	// These codes are generated internally, and converted to regular tokens by
-	// Authenticate()
-	oneTimePasswords col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -193,14 +176,6 @@ func NewAuthServer(
 			path.Join(etcdPrefix, tokensPrefix),
 			nil,
 			&auth.TokenInfo{},
-			nil,
-			nil,
-		),
-		oneTimePasswords: col.NewCollection(
-			env.GetEtcdClient(),
-			path.Join(etcdPrefix, oneTimePasswordsPrefix),
-			nil,
-			&auth.OTPInfo{},
 			nil,
 			nil,
 		),
@@ -773,55 +748,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
 
-	case req.OneTimePassword != "":
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			// read short-lived authentication code (and delete it if found)
-			otps := a.oneTimePasswords.ReadWrite(stm)
-			key := auth.HashToken(req.OneTimePassword)
-			var otpInfo auth.OTPInfo
-			if err := otps.Get(key, &otpInfo); err != nil {
-				if col.IsErrNotFound(err) {
-					return errors.Errorf("otp is invalid or has expired")
-				}
-				return err
-			}
-			otps.Delete(key)
-
-			// If the cluster's enterprise token is expired, only admins may log in
-			// Check if 'otpInfo.Subject' is an admin
-			if err := a.expiredClusterAdminCheck(ctx, otpInfo.Subject); err != nil {
-				return err
-			}
-
-			// Determine new token's TTL
-			ttl := int64(defaultSessionTTLSecs)
-			if otpInfo.SessionExpiration != nil {
-				expiration, err := types.TimestampFromProto(otpInfo.SessionExpiration)
-				if err != nil {
-					return errors.Errorf("invalid timestamp in OTPInfo, could not " +
-						"authenticate (try obtaining a new OTP)")
-				}
-				tokenTTLDuration := time.Until(expiration)
-				if tokenTTLDuration < minSessionTTL {
-					return errors.Errorf("otp is invalid or has expired")
-				}
-				// divide instead of calling Seconds() to avoid float-based rounding
-				// errors
-				newTTL := int64(tokenTTLDuration / time.Second)
-				if newTTL < ttl {
-					ttl = newTTL
-				}
-			}
-
-			// write long-lived pachyderm token
-			pachToken = uuid.NewWithoutDashes()
-			return a.tokens.ReadWrite(stm).PutTTL(auth.HashToken(pachToken), &auth.TokenInfo{
-				Subject: otpInfo.Subject,
-				Source:  auth.TokenInfo_AUTHENTICATE,
-			}, ttl)
-		}); err != nil {
-			return nil, err
-		}
 	case req.IdToken != "":
 		// Determine caller's Pachyderm/OIDC user info (email)
 		token, claims, err := a.validateIDToken(ctx, req.IdToken)
@@ -886,145 +812,6 @@ func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
 		return 0, errors.Wrapf(err, "error looking up TTL for token")
 	}
 	return ttl, nil
-}
-
-// GetOneTimePassword implements the protobuf auth.GetOneTimePassword RPC
-func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest) (resp *auth.GetOneTimePasswordResponse, retErr error) {
-	// We don't want to actually log the request/response since they contain
-	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-
-	if req.Subject == ppsUser {
-		return nil, errors.Errorf("GetOneTimePassword.Subject is invalid")
-	}
-
-	// Get current caller and check if they're authorized if req.Subject is set
-	// to a different user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isAdmin, err := a.hasClusterRole(ctx, callerInfo.Subject, auth.ClusterRole_SUPER)
-	if err != nil {
-		return nil, err
-	}
-
-	// check if this request is auhorized
-	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
-	if err != nil {
-		if errors.As(err, &auth.ErrNotAuthorized{}) {
-			// return more descriptive error
-			return nil, &auth.ErrNotAuthorized{
-				Subject: callerInfo.Subject,
-				AdminOp: "GetOneTimePassword on behalf of another user",
-			}
-		}
-		return nil, err
-	}
-
-	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
-	// than the TTL for the token that the user will get once the OTP is exchanged
-	// (see below) or 30 days, whichever is shorter.
-	if req.TTL <= 0 {
-		req.TTL = defaultOTPTTLSecs
-	} else if req.TTL > maxOTPTTLSecs {
-		req.TTL = maxOTPTTLSecs
-	}
-
-	// Compute TTL for new token that the user will get once OTP is exchanged.
-	// For non-admin users (getting an OTP for themselves), the new token's TTL
-	// will be the same as their current token's TTL, or 30 days (whichever is
-	// shorter).
-	//
-	// This prevents a non-admin attacker from extending their session
-	// indefinitely by repeatedly getting an OTP and authenticating with it.
-	// Eventually the user must re-authenticate, or have an admin create an auth
-	// token for them (in the case of robot users)
-	//
-	// When admins get OTPs for other users, the new token will have the default
-	// token TTL. Moreover, because admins can add other users as admins, get an
-	// OTP for that other user, and then get a new OTP for themselves *as* that
-	// other user, there is no additional security provided by preventing admins
-	// from extending their own sessions by getting OTPs for themselves, so even
-	// in that case, the new token has the default token TTL.
-	var sessionTTL int64 = defaultSessionTTLSecs
-	if !isAdmin {
-		// Caller is getting OTP for themselves--use TTL of their current token
-		callerCurrentSessionTTL, err := a.getCallerTTL(ctx)
-		if err != nil {
-			return nil, err
-		}
-		// Can't currently happen, but if the caller has an indefinite token, then
-		// the new token should have the default session TTL rather than being
-		// indefinite as well
-		if callerCurrentSessionTTL > 0 && sessionTTL > callerCurrentSessionTTL {
-			sessionTTL = callerCurrentSessionTTL
-		}
-		if sessionTTL <= 10 {
-			// session is too short to be meaningful -- return an error
-			return nil, errors.Errorf("session expires too soon to get a " +
-				"one-time password")
-		}
-	}
-	sessionExpiration := time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
-
-	// Cap OTP TTL at session TTL (so OTPs don't convert to expired tokens)
-	if req.TTL >= sessionTTL {
-		req.TTL = (sessionTTL - 1)
-	}
-
-	// Generate authentication code with same (or slightly shorter) expiration
-	code, err := a.getOneTimePassword(ctx, req.Subject, req.TTL, sessionExpiration)
-	if err != nil {
-		return nil, err
-	}
-
-	// compute OTP expiration (used by dash)
-	otpExpiration := time.Now().Add(time.Duration(req.TTL-1) * time.Second)
-	otpExpirationProto, err := types.TimestampProto(otpExpiration)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not create OTP with expiration time %s",
-			otpExpiration.String())
-	}
-	return &auth.GetOneTimePasswordResponse{
-		Code:          code,
-		OTPExpiration: otpExpirationProto,
-	}, nil
-}
-
-// getOneTimePassword contains the implementation of GetOneTimePassword,
-// but is also called directly by handleSAMLResponse. It generates a
-// short-lived one-time password for 'username', writes it to
-// a.oneTimePasswords, and returns it
-//
-// Note: if sessionExpiration is 0, then Authenticate() will give the caller the
-// default session TTL, rather than an indefinite token, so this is relatively
-// safe. 'sessionExpiration' should typically be set, though, so that expiration
-// time is measured from when the OTP is issued, rather than from when it's
-// converted.
-func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otpTTL int64, sessionExpiration time.Time) (code string, err error) {
-	// Create OTPInfo that will be stored
-	otpInfo := &auth.OTPInfo{
-		Subject: username,
-	}
-	if !sessionExpiration.IsZero() {
-		sessionExpirationProto, err := types.TimestampProto(sessionExpiration)
-		if err != nil {
-			return "", errors.Wrapf(err, "could not create OTP with session expiration time %s",
-				sessionExpiration.String())
-		}
-		otpInfo.SessionExpiration = sessionExpirationProto
-	}
-
-	// Generate and store new OTP
-	code = "otp/" + uuid.NewWithoutDashes()
-	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.oneTimePasswords.ReadWrite(stm).PutTTL(auth.HashToken(code),
-			otpInfo, otpTTL)
-	}); err != nil {
-		return "", err
-	}
-	return code, nil
 }
 
 // AuthorizeInTransaction is identical to Authorize except that it can run

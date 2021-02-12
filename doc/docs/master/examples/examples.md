@@ -1,5 +1,8 @@
 # Examples
+A curated list of examples that use Pachyderm.
 
+!!! Warning
+        For **Informational Purposes** ONLY. Those examples might not be production-ready.
 ## OpenCV Edge Detection
 
 This example does edge detection using OpenCV. This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
@@ -54,14 +57,19 @@ A spout is a special type of pipeline that you can use to ingest
 streaming data and perform such operations as sorting, filtering, and other.
 
 We have released a new *spouts 2.0* implementation
-in Pachyderm 1.12. Checkout our didactic example.
+in Pachyderm 1.12. Please take a look at our examples:
 
-[Spout101]((https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spou101)
+- [Spout101](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101)
 
-For more extensive examples based on our previous version of spout:
+- More extensive - Pachyderm's integration of spouts with RabbitMQ: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 
+
+!!! Warning
+    The following examples are based on our previous version of spout. That implementation is now [deprecated](../../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
+
 * [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer)
 * [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout)
 * [Amazon SQS S3 Spout](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3)
+* [Spout Marker](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker)
 
 ### Transactions
 
@@ -117,4 +125,33 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
 
 [Spark Example](https://github.com/pachyderm/pachyderm/tree/master/examples/spark/pi)
 
+## Integration with Pachyderm
+###  S3 gateway 
+- Pachyderm - Seldon integration: Version Controlled Models¶
 
+    In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end pipelines,
+    leveraging our data lineage capabilities, 
+    with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/#:~:text=Seldon%20Core%2C%20our%20open%2Dsource,or%20commercial%20model%20building%20framework.).
+
+    1. In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
+    expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/), and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb
+
+        !!! Highlights
+            You can trace the model artifact's lineage right back to the version of the data that it was trained on.  
+
+    1. CD for an ML process: In this example, we automate the provisioning of a Seldon deployment using Pachyderm pipelines when new training data enters a Pachyderm repository. 
+    https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-cd4ml/index.ipynb
+
+        !!! Highlights 
+            - **Provenance** - The traceability of the model artifact's lineage all the way to the data provides the ability to do post-analysis on models performing poorly.  
+            - **Automation** -  A new deployment in production is triggered when new model artifacts are exposed to Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/).
+
+- Pachyderm - Label Studio
+
+    We have integrated Pachyderm's versioned data backend with [Label Studio](https://labelstud.io/)
+    to support versioning datasets and tracking the data lineage of pipelines built off the versioned datasets: https://github.com/pachyderm/examples/tree/master/label-studio
+###  Spout 
+This is a simple example of using the new implementation of
+Pachyderm's spouts with RabbitMQ to process messages and write them to files.
+This spout reads messages from a single configurable RabbitMQ queue. 
+Please take a look; there is a little more to it, including a fault tolerance mechanism: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 

@@ -1,16 +1,13 @@
 package server
 
 import (
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -60,14 +57,6 @@ func pathIsChild(parent, child string) bool {
 // "/" -> "/"
 func cleanPath(x string) string {
 	return "/" + strings.Trim(x, "/")
-}
-
-func commitPath(commit *pfs.Commit) string {
-	return commitKey(commit)
-}
-
-func compactedCommitPath(commit *pfs.Commit) string {
-	return path.Join(commitPath(commit), fileset.Compacted)
 }
 
 func checkFilePath(path string) error {

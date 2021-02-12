@@ -1,3 +1,13 @@
+# Set as you wish
+DOCKER_ACCOUNT := pachyderm
+CONTAINER_NAME := example-joins-inner-outer
+CONTAINER_VERSION := 1.12.2
+CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
+
+docker-image:
+	@docker build -t $(CONTAINER_TAG) .
+	@docker push $(CONTAINER_TAG)
+
 setup:
 	mkdir -p ./stores ./purchases ./returns
 	echo "Creating stores..."

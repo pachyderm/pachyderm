@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -13,15 +14,15 @@ import (
 type Reader struct {
 	store     Store
 	chunks    *chunk.Storage
-	path      string
+	id        ID
 	indexOpts []index.Option
 }
 
-func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Option) *Reader {
+func newReader(store Store, chunks *chunk.Storage, id ID, opts ...index.Option) *Reader {
 	r := &Reader{
 		store:     store,
 		chunks:    chunks,
-		path:      p,
+		id:        id,
 		indexOpts: opts,
 	}
 	return r
@@ -29,17 +30,21 @@ func newReader(store Store, chunks *chunk.Storage, p string, opts ...index.Optio
 
 // Iterate iterates over the files in the file set.
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
-	md, err := r.store.Get(ctx, r.path)
+	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
 		return err
 	}
+	prim := md.GetPrimitive()
+	if prim == nil {
+		return errors.Errorf("fileset %v is not primitive", r.id)
+	}
 	if len(deletive) > 0 && deletive[0] {
-		ir := index.NewReader(r.chunks, md.Deletive, r.indexOpts...)
+		ir := index.NewReader(r.chunks, prim.Deletive, r.indexOpts...)
 		return ir.Iterate(ctx, func(idx *index.Index) error {
 			return cb(newFileReader(ctx, r.chunks, idx))
 		})
 	}
-	ir := index.NewReader(r.chunks, md.Additive, r.indexOpts...)
+	ir := index.NewReader(r.chunks, prim.Additive, r.indexOpts...)
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(ctx, r.chunks, idx))
 	})
