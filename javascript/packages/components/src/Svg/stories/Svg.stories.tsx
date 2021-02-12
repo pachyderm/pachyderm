@@ -25,6 +25,7 @@ import {
   DrawerRingsSVG,
   ElephantCtaSVG,
   ElephantHeadExtraLargeSVG,
+  ElephantHeadLargeSVG,
   ElephantHeadSVG,
   ElephantSVG,
   EllipsisSVG,
@@ -146,6 +147,9 @@ export const Pachyderm = () => {
         </SVGWrapper>
         <SVGWrapper title="ElephantHeadExtraLargeSVG">
           <ElephantHeadExtraLargeSVG viewBox="0 0 127 118" />
+        </SVGWrapper>
+        <SVGWrapper title="ElephantHeadLargeSVG">
+          <ElephantHeadLargeSVG viewBox="0 0 127 118" />
         </SVGWrapper>
         <SVGWrapper title="ElephantHeadSVG">
           <ElephantHeadSVG />
