@@ -97,6 +97,6 @@ You can now browse your targets (http://localhost:9090/targets).
 
 ## References
 
-* Find the full list of [Pachyderm metrics here](../pachyderm_prometheus_metrics.md).
+* Find the full list of [Pachyderm metrics here](../prometheus/pachyderm_prometheus_metrics).
 * [Kube Prometheus Stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) documentation.
 * Prometheus [documentation](https://prometheus.io/docs/introduction/overview/).
