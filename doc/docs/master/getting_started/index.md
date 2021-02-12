@@ -1,7 +1,7 @@
 # Getting Started
 
 Pachyderm provides multiple easy ways to get up and running quickly.
-You can deploy Pachyderm on you local machine, in you favorite cloud
+You can deploy Pachyderm on your local machine, in your favorite cloud
 provider, or in our fully managed service, Pachyderm Hub.
 
 <div class="row">

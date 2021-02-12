@@ -1,3 +1,6 @@
+Back to the [Pachyderm/Prometheus page](../prometheus.md).
+# List of Pachyderm metrics exposed to Prometheus.
+
 pachyderm_pachd_auth_log_req_seconds_count
 pachyderm_pachd_cache_object_cache_hits_gauge
 pachyderm_pachd_cache_object_gets_gauge
