@@ -1,4 +1,4 @@
-Back to the [Pachyderm/Prometheus page](../prometheus/prometheus).
+Back to the [Pachyderm/Prometheus page](./prometheus).
 # List of Pachyderm metrics exposed to Prometheus.
 
 pachyderm_pachd_auth_log_req_seconds_count
