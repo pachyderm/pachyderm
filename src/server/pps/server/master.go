@@ -21,6 +21,7 @@ import (
 
 const (
 	masterLockPath = "_master_lock"
+	maxErrCount    = 3 // gives all retried operations ~4.5s total to finish
 )
 
 var (
@@ -52,6 +53,15 @@ type pipelineEvent struct {
 	// created by pollPipelines.
 	etcdVer int64
 	etcdRev int64
+}
+
+type failPipelineError struct {
+	error
+	retry bool
+}
+
+func (f failPipelineError) Unwrap() error {
+	return f.error
 }
 
 type ppsMaster struct {
@@ -140,10 +150,8 @@ eventLoop:
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
-				// Create/Modify/Delete pipeline resources as needed per new state
-				if err := m.step(e.pipeline, e.etcdVer, e.etcdRev); err != nil {
-					log.Errorf("PPS master: could not update resources for pipeline %q: %v",
-						e.pipeline, err)
+				if err := m.attemptStep(masterCtx, e); err != nil {
+					log.Errorf("PPS master: %v", err)
 				}
 			case deleteEv:
 				// TODO(msteffen) trace this call
@@ -156,6 +164,31 @@ eventLoop:
 			break eventLoop
 		}
 	}
+}
+
+func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
+	var errCount int
+	return backoff.RetryNotify(func() error {
+		// Create/Modify/Delete pipeline resources as needed per new state
+		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		var failError failPipelineError
+		if errors.As(err, &failError) {
+			// don't just return this error, we might have to fail the pipeline
+			if errCount++; errCount >= maxErrCount || !failError.retry {
+				failError := m.a.setPipelineFailure(ctx, e.pipeline, fmt.Sprintf(
+					"could not update resources after %d attempts: %v", errCount, err))
+				if failError != nil {
+					return fmt.Errorf("error failing pipeline %q: %v", e.pipeline, failError)
+				}
+				return fmt.Errorf("failing pipeline %q: %v", e.pipeline, err)
+			}
+			log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+				e.pipeline, err, d)
+			return nil
+		}
+		return fmt.Errorf("could not update resource for pipeline %q: %v", e.pipeline, err)
+	})
 }
 
 func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
