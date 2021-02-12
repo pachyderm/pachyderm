@@ -22,13 +22,14 @@ from datetime import datetime, timedelta
 import multiprocessing as mp
 
 num_workers = 100
-def do_worker(done, work_queue, from_bucket, to_bucket):
+def do_worker(done, work_queue, finished_queue, from_bucket, to_bucket):
     client = boto3.client('s3')
     try:
         while True:
             try:
                 path = work_queue.get_nowait()
                 client.copy({'Bucket': from_bucket, 'Key': path}, to_bucket, path[::-1])
+                finished_queue.put(path)
             except queue.Empty:
                 if done.is_set():
                     return
@@ -63,21 +64,29 @@ def end_migration(client, to_bucket, start_time):
     # Write an empty object to indicate the migration was completed for the given start time
     res = client.put_object(Bucket=to_bucket, Key=migration_state_path, Metadata={'migration_start_time': start_time.isoformat()})
 
-def print_progress(done, scanned, enqueued, work_queue):
+def print_progress(done, scanned, enqueued, finished_queue):
+    finished = 0
     while not done.is_set():
-        buf = f'scanned: {scanned.value} enqueued: {enqueued.value} processed: {enqueued.value - work_queue.qsize()}...'
+        while True:
+            try:
+                _ = finished_queue.get_nowait()
+                finished += 1
+            except queue.Empty:
+                break
+
+        buf = f'scanned: {scanned.value} enqueued: {enqueued.value} finished: {finished}...'
         sys.stdout.write(buf)
         sys.stdout.flush()
         sys.stdout.write('\b' * len(buf))
         time.sleep(0.1)
 
-def all_objects(client, from_bucket, from_time, work_queue):
+def all_objects(client, from_bucket, from_time, finished_queue):
     kwargs = {'Bucket': from_bucket}
     scanned = mp.Value('l', 0)
     enqueued = mp.Value('l', 0)
     done = mp.Event()
 
-    progress = mp.Process(target=print_progress, args=(done, scanned, enqueued, work_queue))
+    progress = mp.Process(target=print_progress, args=(done, scanned, enqueued, finished_queue))
     progress.start()
 
     while True:
@@ -95,14 +104,15 @@ def all_objects(client, from_bucket, from_time, work_queue):
 
     done.set()
     progress.join()
-    print(f'\nTotal processed objects: {enqueued.value} of {scanned.value}')
+    print(f'\nSkipped objects: {scanned.value - enqueued.value}\nProcessed objects: {enqueued.value}')
 
 def do_reverse(from_bucket, to_bucket):
     complete = False
     done = mp.Event()
     work_queue = mp.Queue(maxsize=1001) # Slightly more than one batch of results from list_object
+    finished_queue = mp.Queue(maxsize=1001)
 
-    workers = [mp.Process(target=do_worker, args=(done, work_queue, from_bucket, to_bucket)) for i in range(num_workers)]
+    workers = [mp.Process(target=do_worker, args=(done, work_queue, finished_queue, from_bucket, to_bucket)) for i in range(num_workers)]
     [x.start() for x in workers]
 
     try:
@@ -111,7 +121,7 @@ def do_reverse(from_bucket, to_bucket):
         print(f'Previous start time: {from_time}')
         print(f'Current start time: {start_time}')
 
-        for path, modified in all_objects(client, from_bucket, from_time, work_queue):
+        for path, modified in all_objects(client, from_bucket, from_time, finished_queue):
             work_queue.put(path)
         complete = True
     except KeyboardInterrupt:
