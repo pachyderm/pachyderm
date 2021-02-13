@@ -215,7 +215,7 @@ clean-launch: check-kubectl install
 	yes | $(GOBIN)/pachctl undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | $(GOBIN)pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
