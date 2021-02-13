@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,9 +183,10 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
 					metrics.MinParallelism = pi.ParallelismSpec.Constant
 				}
+				metrics.NumParallelism += 1
 			}
 			if pi.Egress != nil {
-				metrics.CfgEgress = true
+				metrics.CfgEgress += 1
 			}
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
@@ -199,81 +199,107 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 			}
 			if pi.ResourceRequests != nil {
 				if pi.ResourceRequests.Cpu != 0 {
-					metrics.ResourceCpu = true
+					metrics.ResourceCpuReq += pi.ResourceRequests.Cpu
+					if metrics.ResourceCpuReqMax < pi.ResourceRequests.Cpu {
+						metrics.ResourceCpuReqMax = pi.ResourceRequests.Cpu
+					}
 				}
 				if pi.ResourceRequests.Memory != "" {
-					metrics.ResourceMem = true
+					metrics.ResourceMemReq += (pi.ResourceRequests.Memory + " ")
 				}
 				if pi.ResourceRequests.Gpu != nil {
-					metrics.ResourceGpu = true
+					metrics.ResourceGpuReq += pi.ResourceRequests.Gpu.Number
+					if metrics.ResourceGpuReqMax < pi.ResourceRequests.Gpu.Number {
+						metrics.ResourceGpuReqMax = pi.ResourceRequests.Gpu.Number
+					}
 				}
 				if pi.ResourceRequests.Disk != "" {
-					metrics.ResourceDisk = true
+					metrics.ResourceDiskReq += (pi.ResourceRequests.Disk + " ")
+				}
+			}
+			if pi.ResourceLimits != nil {
+				if pi.ResourceLimits.Cpu != 0 {
+					metrics.ResourceCpuLimit += pi.ResourceLimits.Cpu
+					if metrics.ResourceCpuLimitMax < pi.ResourceLimits.Cpu {
+						metrics.ResourceCpuLimitMax = pi.ResourceLimits.Cpu
+					}
+				}
+				if pi.ResourceLimits.Memory != "" {
+					metrics.ResourceMemLimit += (pi.ResourceLimits.Memory + " ")
+				}
+				if pi.ResourceLimits.Gpu != nil {
+					metrics.ResourceGpuLimit += pi.ResourceLimits.Gpu.Number
+					if metrics.ResourceGpuLimitMax < pi.ResourceLimits.Gpu.Number {
+						metrics.ResourceGpuLimitMax = pi.ResourceLimits.Gpu.Number
+					}
+				}
+				if pi.ResourceLimits.Disk != "" {
+					metrics.ResourceDiskLimit += (pi.ResourceLimits.Disk + " ")
 				}
 			}
 			if pi.Input != nil {
-				if !metrics.InputOuterJoin {
-					metrics.InputOuterJoin = pi.Input.Pfs.OuterJoin
+				if pi.Input.Pfs.OuterJoin {
+					metrics.InputOuterJoin += 1
 				}
-				if !metrics.InputLazy {
-					metrics.InputLazy = pi.Input.Pfs.Lazy
+				if pi.Input.Pfs.Lazy {
+					metrics.InputLazy += 1
 				}
-				if !metrics.InputEmptyFiles {
-					metrics.InputEmptyFiles = pi.Input.Pfs.EmptyFiles
+				if pi.Input.Pfs.EmptyFiles {
+					metrics.InputEmptyFiles += 1
 				}
-				if !metrics.InputS3 {
-					metrics.InputS3 = pi.Input.Pfs.S3
+				if pi.Input.Pfs.S3 {
+					metrics.InputS3 += 1
 				}
 				if pi.Input.Pfs.Trigger != nil {
-					metrics.InputTrigger = true
+					metrics.InputTrigger += 1
 				}
 				if pi.Input.Join != nil {
-					metrics.InputJoin = true
+					metrics.InputJoin += 1
 				}
 				if pi.Input.Group != nil {
-					metrics.InputGroup = true
+					metrics.InputGroup += 1
 				}
 				if pi.Input.Cross != nil {
-					metrics.InputCross = true
+					metrics.InputCross += 1
 				}
 				if pi.Input.Union != nil {
-					metrics.InputUnion = true
+					metrics.InputUnion += 1
 				}
 				if pi.Input.Cron != nil {
-					metrics.InputCron = true
+					metrics.InputCron += 1
 				}
 				if pi.Input.Git != nil {
-					metrics.InputGit = true
+					metrics.InputGit += 1
 				}
 			}
-			if !metrics.CfgStandby {
-				metrics.CfgStats = pi.EnableStats
+			if pi.EnableStats {
+				metrics.CfgStats += 1
 			}
 			if pi.Service != nil {
-				metrics.CfgServices = true
+				metrics.CfgServices += 1
 			}
 			if pi.Spout != nil {
-				metrics.PpsSpout = true
+				metrics.PpsSpout += 1
 				if pi.Spout.Service != nil {
-					metrics.PpsSpoutService = true
+					metrics.PpsSpoutService += 1
 				}
 			}
-			if !metrics.CfgStandby {
-				metrics.CfgStandby = pi.Standby
+			if pi.Standby {
+				metrics.CfgStandby += 1
 			}
-			if !metrics.CfgS3Gateway {
-				metrics.CfgS3Gateway = pi.S3Out
+			if pi.S3Out {
+				metrics.CfgS3Gateway += 1
 			}
 			if pi.Transform != nil {
 				if pi.Transform.ErrCmd != nil {
-					metrics.CfgErrcmd = true
+					metrics.CfgErrcmd += 1
 				}
 				if pi.Transform.Build != nil {
-					metrics.PpsBuild = true
+					metrics.PpsBuild += 1
 				}
 			}
 			if pi.TFJob != nil {
-				metrics.CfgTfjob = true
+				metrics.CfgTfjob += 1
 			}
 		}
 	}
@@ -295,5 +321,4 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
 	}
-	log.Debugf("Metrics: %v", metrics)
 }
