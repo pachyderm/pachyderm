@@ -1,4 +1,4 @@
-Back to the [Pachyderm Prometheus page](../index).
+Back to the [Prometheus set up page](../index).
 # List of job metrics exposed to Prometheus.
 
 pachyderm_worker_datum_count
