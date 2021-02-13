@@ -199,7 +199,7 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChain(
 			hasher,
-			datum.NewFileSetIterator(pachClient, commit.Repo.Name, commit.ID),
+			datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID),
 		)
 	}
 	return nil
@@ -265,12 +265,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	if err := reg.initializeJobChain(metaCommit); err != nil {
 		return err
 	}
-	var metaCommitInfo *pfs.CommitInfo
-	if metaCommit != nil {
-		metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
-		if err != nil {
-			return err
-		}
+	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
+	if err != nil {
+		return err
 	}
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
 	driver := reg.driver.WithContext(jobCtx)
@@ -300,7 +297,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	if err != nil {
 		return err
 	}
-	outputDit := datum.NewFileSetIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+	outputDit := datum.NewCommitIterator(pachClient, pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
 	pj.jdit = reg.jobChain.CreateJob(pj.driver.PachClient().Ctx(), pj.ji.Job.ID, dit, outputDit)
 	var afterTime time.Duration
 	if pj.ji.JobTimeout != nil {
@@ -375,16 +372,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 				if err := pj.driver.PachClient().ClearCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID); err != nil {
 					return err
 				}
-				if metaCommit != nil {
-					pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(metaCommit.Repo.Name, metaCommit.ID)
-					if err != nil {
-						return err
-					}
-					if err := pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID); err != nil {
-						return err
-					}
+				pj.metaCommitInfo, err = reg.driver.PachClient().InspectCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
+				if err != nil {
+					return err
 				}
-				return nil
+				return pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
 			})
 			pj.logger.Logf("master done running processJobs")
 			// TODO: make sure that all paths close the commit correctly
@@ -506,7 +498,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					Number: int(pj.driver.PipelineInfo().ChunkSpec.Number),
 				}
 			}
-			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.AppendFileTarClient) error) error {
+			return datum.CreateSets(pj.jdit, storageRoot, setSpec, func(upload func(datum.Client) error) error {
 				subtask, err := createDatumSetSubtask(pachClient, pj, upload, renewer)
 				if err != nil {
 					return err
@@ -556,9 +548,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.AppendFileTarClient) error, renewer *renew.StringSet) (*work.Task, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(ctfsc *client.CreateFilesetClient) error {
-		return upload(ctfsc)
+func createDatumSetSubtask(pachClient *client.APIClient, pj *pendingJob, upload func(datum.Client) error, renewer *renew.StringSet) (*work.Task, error) {
+	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
+		return upload(newDatumClientFileset(cfsc))
 	})
 	if err != nil {
 		return nil, err

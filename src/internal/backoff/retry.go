@@ -43,11 +43,19 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 	}
 }
 
-// ErrContinue is a sentinel error designed to be used with NotifyContinue.
-// NotifyContinue always returns nil (causing operation() to be retried) when
-// operation() returns ErrContinue. The two combined allow semantics similar to
-// 'continue' in a regular loop: operation() is re-run from the beginning, as a
-// loop's body would be.
+// ErrContinue is a sentinel error designed to be used with
+// Retry/RetryNotify/RetryUntilCancel and NotifyContinue.
+//
+// Retry/RetryNotify/RetryUntilCancel: if operation() returns ErrContinue,
+// RetryUntilCancel will reset its backoff and call notify() (if set) with the
+// error.
+//
+// NotifyContinue: by extension, NotifyContinue always returns nil (causing
+// operation() to be retried) when operation() returns ErrContinue (the typical
+// usage of ErrContinue).
+//
+// The two combined allow semantics similar to 'continue' in a regular loop:
+// operation() is re-run from the beginning, as a loop's body would be.
 var ErrContinue = errors.New("looping through backoff")
 
 // NotifyContinue is a convenience function for use with RetryUntilCancel. If
@@ -80,6 +88,22 @@ func NotifyContinue(inner interface{}) Notify {
 	}
 }
 
+// MustLoop is a convenience function for use with RetryUntilCancel. It wraps
+// 'operation' in another Operation that returns ErrContinue if the inner
+// operation returns nil. If used with RetryUntilCancel and NotifyContinue, this
+// guarantees that 'operation'is retried until 'ctx' is cancelled, even if it
+// returns nil.
+func MustLoop(operation Operation) Operation {
+	return func() error {
+		switch err := operation(); err {
+		case nil:
+			return ErrContinue
+		default:
+			return err
+		}
+	}
+}
+
 // Retry the operation o until it does not return error or BackOff stops.
 // o is guaranteed to be run at least once.
 // It is the caller's responsibility to reset b after Retry returns.
@@ -102,11 +126,15 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 
 	b.Reset()
 	for {
-		if err = operation(); err == nil {
+		err = operation()
+		if err == nil {
 			return nil
 		}
 		if ctx.Err() != nil {
 			return ctx.Err() // return if cancel() was called inside operation()
+		}
+		if errors.Is(err, ErrContinue) {
+			b.Reset()
 		}
 
 		if next = b.NextBackOff(); next == Stop {

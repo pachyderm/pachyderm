@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -682,11 +683,18 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, aliceClient, repo))
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -756,12 +764,20 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
+
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to re-enable
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -860,11 +876,18 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	})
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
@@ -914,11 +937,18 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// Make current enterprise token expire
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
+	rootClient.License.Activate(rootClient.Ctx(),
+		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	rootClient.Enterprise.Activate(rootClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "localhost:650",
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),

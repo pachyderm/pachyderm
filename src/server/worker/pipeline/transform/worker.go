@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -23,7 +24,6 @@ import (
 // capture datum logs.
 // git inputs.
 // handle custom user set for execution.
-// Taking advantage of symlinks during upload?
 func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
 	datumSet, err := deserializeDatumSet(subtask.Data)
 	if err != nil {
@@ -51,10 +51,15 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	return pachClient.WithModifyFileClient(metaCommit.Repo.Name, metaCommit.ID, func(mfcMeta *client.ModifyFileClient) error {
 		// Setup file operation client for output PFS commit.
 		outputCommit := datumSet.OutputCommit
-		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) error {
+		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) (retErr error) {
+			opts := []datum.SetOption{
+				datum.WithMetaOutput(newDatumClient(mfcMeta, pachClient, metaCommit)),
+				datum.WithPFSOutput(newDatumClient(mfcPFS, pachClient, outputCommit)),
+				datum.WithStats(datumSet.Stats),
+			}
 			// Setup datum set for processing.
 			return datum.WithSet(pachClient, storageRoot, func(s *datum.Set) error {
-				di := datum.NewFileSetIterator(pachClient, client.TmpRepoName, datumSet.FileSet)
+				di := datum.NewFileSetIterator(pachClient, datumSet.FileSet)
 				// Process each datum in the assigned datum set.
 				return di.Iterate(func(meta *datum.Meta) error {
 					ctx := pachClient.Ctx()
@@ -87,7 +92,40 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					}, opts...)
 
 				})
-			}, datum.WithMetaOutput(mfcMeta), datum.WithPFSOutput(mfcPFS), datum.WithStats(datumSet.Stats))
+			}, opts...)
 		})
 	})
+}
+
+// TODO: This should be removed when CopyFile is a part of ModifyFile.
+type datumClient struct {
+	*client.ModifyFileClient
+	pachClient *client.APIClient
+	commit     *pfs.Commit
+}
+
+func newDatumClient(mfc *client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) datum.Client {
+	return &datumClient{
+		ModifyFileClient: mfc,
+		pachClient:       pachClient,
+		commit:           commit,
+	}
+}
+
+func (dc *datumClient) CopyFile(dst string, srcFile *pfs.File, tag string) error {
+	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, false, tag)
+}
+
+type datumClientFileset struct {
+	*client.CreateFilesetClient
+}
+
+func newDatumClientFileset(cfc *client.CreateFilesetClient) datum.Client {
+	return &datumClientFileset{
+		CreateFilesetClient: cfc,
+	}
+}
+
+func (dcf *datumClientFileset) CopyFile(_ string, _ *pfs.File, _ string) error {
+	panic("attempted copy file in fileset datum client")
 }

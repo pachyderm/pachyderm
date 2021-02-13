@@ -1567,13 +1567,15 @@ func TestInspectFile(t *testing.T) {
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1)))
-
+		checks := func() {
+			fileInfo, err := env.PachClient.InspectFile(repo, commit1.ID, "foo")
+			require.NoError(t, err)
+			require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
+			require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit1.ID))
-
-		fileInfo, err := env.PachClient.InspectFile(repo, commit1.ID, "foo")
-		require.NoError(t, err)
-		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
-		require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+		checks()
 
 		fileContent2 := "barbar\n"
 		commit2, err := env.PachClient.StartCommit(repo, "master")
@@ -1582,7 +1584,7 @@ func TestInspectFile(t *testing.T) {
 
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit2.ID))
 
-		fileInfo, err = env.PachClient.InspectFile(repo, commit2.ID, "foo")
+		fileInfo, err := env.PachClient.InspectFile(repo, commit2.ID, "foo")
 		require.NoError(t, err)
 		require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 		require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
@@ -1853,13 +1855,17 @@ func TestListFile(t *testing.T) {
 		fileContent2 := "bar\n"
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "dir/bar", strings.NewReader(fileContent2)))
 
-		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks := func() {
+			fileInfos, err := env.PachClient.ListFileAll(repo, commit.ID, "dir")
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
+			require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
-		fileInfos, err := env.PachClient.ListFileAll(repo, commit.ID, "dir")
-		require.NoError(t, err)
-		require.Equal(t, 2, len(fileInfos))
-		require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
-		require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
+		}
+		checks()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks()
 
 		return nil
 	}))
@@ -2595,17 +2601,21 @@ func TestGetFile(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, commit.ID, "dir/file", strings.NewReader("foo\n")))
+		checks := func() {
+			var buffer bytes.Buffer
+			require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "dir/file", &buffer))
+			require.Equal(t, "foo\n", buffer.String())
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		var buffer bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(repo, commit.ID, "dir/file", &buffer))
-		require.Equal(t, "foo\n", buffer.String())
+		checks()
 		t.Run("InvalidCommit", func(t *testing.T) {
-			buffer = bytes.Buffer{}
+			buffer := bytes.Buffer{}
 			err = env.PachClient.GetFile(repo, "aninvalidcommitid", "dir/file", &buffer)
 			require.YesError(t, err)
 		})
 		t.Run("Directory", func(t *testing.T) {
-			buffer = bytes.Buffer{}
+			buffer := bytes.Buffer{}
 			err = env.PachClient.GetFile(repo, commit.ID, "dir", &buffer)
 			require.NoError(t, err)
 		})
@@ -3429,76 +3439,94 @@ func TestDiffFile(t *testing.T) {
 		c1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, c1.ID, "foo", strings.NewReader("foo\n")))
+		checks := func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c1.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(oldFis))
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/foo", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c1.ID))
-
-		newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c1.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(oldFis))
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/foo", newFis[1].File.Path)
+		checks()
 
 		// Change the value of foo
 		c2, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, c2.ID, "/foo"))
 		require.NoError(t, env.PachClient.PutFile(repo, c2.ID, "foo", strings.NewReader("not foo\n")))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c2.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(oldFis))
+			require.Equal(t, "/foo", oldFis[1].File.Path)
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/foo", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c2.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c2.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(oldFis))
-		require.Equal(t, "/foo", oldFis[1].File.Path)
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/foo", newFis[1].File.Path)
+		checks()
 
 		// Write bar
 		c3, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, c3.ID, "/bar", strings.NewReader("bar\n")))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c3.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(oldFis))
+			require.Equal(t, 2, len(newFis))
+			require.Equal(t, "/bar", newFis[1].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c3.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c3.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(oldFis))
-		require.Equal(t, 2, len(newFis))
-		require.Equal(t, "/bar", newFis[1].File.Path)
+		checks()
 
 		// Delete bar
 		c4, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.DeleteFile(repo, c4.ID, "/bar"))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c4.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(oldFis))
+			require.Equal(t, "/bar", oldFis[1].File.Path)
+			require.Equal(t, 1, len(newFis))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c4.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c4.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(oldFis))
-		require.Equal(t, "/bar", oldFis[1].File.Path)
-		require.Equal(t, 1, len(newFis))
+		checks()
 
 		// Write dir/fizz and dir/buzz
 		c5, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/fizz", strings.NewReader("fizz\n")))
 		require.NoError(t, env.PachClient.PutFile(repo, c5.ID, "/dir/buzz", strings.NewReader("buzz\n")))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c5.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(oldFis))
+			require.Equal(t, 4, len(newFis))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c5.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c5.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(oldFis))
-		require.Equal(t, 4, len(newFis))
+		checks()
 
 		// Modify dir/fizz
 		c6, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, c6.ID, "/dir/fizz", strings.NewReader("fizz\n")))
+		checks = func() {
+			newFis, oldFis, err := env.PachClient.DiffFileAll(repo, c6.ID, "", "", "", "", false)
+			require.NoError(t, err)
+			require.Equal(t, 3, len(oldFis))
+			require.Equal(t, "/dir/fizz", oldFis[2].File.Path)
+			require.Equal(t, 3, len(newFis))
+			require.Equal(t, "/dir/fizz", newFis[2].File.Path)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, c6.ID))
-
-		newFis, oldFis, err = env.PachClient.DiffFileAll(repo, c6.ID, "", "", "", "", false)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(oldFis))
-		require.Equal(t, "/dir/fizz", oldFis[2].File.Path)
-		require.Equal(t, 3, len(newFis))
-		require.Equal(t, "/dir/fizz", newFis[2].File.Path)
+		checks()
 
 		return nil
 	}))
@@ -3524,65 +3552,68 @@ func TestGlobFile(t *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader("2")))
 			require.NoError(t, env.PachClient.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3")))
 		}
+		checks := func() {
+			fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles+2, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "file*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir1/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir2/dir3/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles, len(fileInfos))
+			fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "*/*")
+			require.NoError(t, err)
+			require.Equal(t, numFiles+1, len(fileInfos))
+
+			var output strings.Builder
+			err = env.PachClient.GetFile(repo, "master", "*", &output)
+			require.NoError(t, err)
+			require.Equal(t, numFiles*3, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "dir2/dir3/file1?", &output)
+			require.NoError(t, err)
+			require.Equal(t, 10, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1?", &output)
+			require.NoError(t, err)
+			require.Equal(t, 30, len(output.String()))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1", &output)
+			require.NoError(t, err)
+			require.True(t, strings.Contains(output.String(), "1"))
+			require.True(t, strings.Contains(output.String(), "2"))
+			require.True(t, strings.Contains(output.String(), "3"))
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "**file1", &output)
+			require.NoError(t, err)
+			match, err := regexp.Match("[123]", []byte(output.String()))
+			require.NoError(t, err)
+			require.True(t, match)
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "dir?", &output)
+			require.NoError(t, err)
+
+			output = strings.Builder{}
+			err = env.PachClient.GetFile(repo, "master", "", &output)
+			require.NoError(t, err)
+
+			// TODO: File not found?
+			//output = strings.Builder{}
+			//err = env.PachClient.GetFile(repo, "master", "garbage", &output)
+			//require.YesError(t, err)
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles+2, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "file*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir1/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "dir2/dir3/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles, len(fileInfos))
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "*/*")
-		require.NoError(t, err)
-		require.Equal(t, numFiles+1, len(fileInfos))
-
-		var output strings.Builder
-		err = env.PachClient.GetFile(repo, "master", "*", &output)
-		require.NoError(t, err)
-		require.Equal(t, numFiles*3, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "dir2/dir3/file1?", &output)
-		require.NoError(t, err)
-		require.Equal(t, 10, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1?", &output)
-		require.NoError(t, err)
-		require.Equal(t, 30, len(output.String()))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1", &output)
-		require.NoError(t, err)
-		require.True(t, strings.Contains(output.String(), "1"))
-		require.True(t, strings.Contains(output.String(), "2"))
-		require.True(t, strings.Contains(output.String(), "3"))
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "**file1", &output)
-		require.NoError(t, err)
-		match, err := regexp.Match("[123]", []byte(output.String()))
-		require.NoError(t, err)
-		require.True(t, match)
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "dir?", &output)
-		require.NoError(t, err)
-
-		output = strings.Builder{}
-		err = env.PachClient.GetFile(repo, "master", "", &output)
-		require.NoError(t, err)
-
-		// TODO: File not found?
-		//output = strings.Builder{}
-		//err = env.PachClient.GetFile(repo, "master", "garbage", &output)
-		//require.YesError(t, err)
+		checks()
 
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -3593,12 +3624,14 @@ func TestGlobFile(t *testing.T) {
 		require.NoError(t, err)
 		err = env.PachClient.DeleteFile(repo, "master", "/")
 		require.NoError(t, err)
-
+		checks = func() {
+			fileInfos, err := env.PachClient.GlobFileAll(repo, "master", "**")
+			require.NoError(t, err)
+			require.Equal(t, 0, len(fileInfos))
+		}
+		checks()
 		require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-
-		fileInfos, err = env.PachClient.GlobFileAll(repo, "master", "**")
-		require.NoError(t, err)
-		require.Equal(t, 0, len(fileInfos))
+		checks()
 
 		return nil
 	}))
@@ -5138,18 +5171,25 @@ func TestWalkFile(t *testing.T) {
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		repo := "TestWalkFile"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "dir/bar", strings.NewReader("bar")))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "dir/dir2/buzz", strings.NewReader("buzz")))
 		require.NoError(t, env.PachClient.PutFile(repo, "master", "foo", strings.NewReader("foo")))
 
 		expectedPaths := []string{"/", "/dir/", "/dir/bar", "/dir/dir2/", "/dir/dir2/buzz", "/foo"}
-		i := 0
-		require.NoError(t, env.PachClient.WalkFile(repo, "master", "", func(fi *pfs.FileInfo) error {
-			require.Equal(t, expectedPaths[i], fi.File.Path)
-			i++
-			return nil
-		}))
-		require.Equal(t, len(expectedPaths), i)
+		checks := func() {
+			i := 0
+			require.NoError(t, env.PachClient.WalkFile(repo, "master", "", func(fi *pfs.FileInfo) error {
+				require.Equal(t, expectedPaths[i], fi.File.Path)
+				i++
+				return nil
+			}))
+			require.Equal(t, len(expectedPaths), i)
+		}
+		checks()
+		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+		checks()
 
 		return nil
 	}))
@@ -6496,7 +6536,7 @@ func TestRegressionOrphanedFile(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("tmp fileset id: %s", resp.FilesetId)
 		require.NoError(t, env.PachClient.RenewFileSet(resp.FilesetId, 60*time.Second))
-		fis, err := env.PachClient.ListFileAll(pclient.TmpRepoName, resp.FilesetId, "/")
+		fis, err := env.PachClient.ListFileAll(pclient.FileSetsRepoName, resp.FilesetId, "/")
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		return nil

@@ -339,16 +339,19 @@ type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (
 type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
 type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
+type heartbeatEnterpriseFunc func(context.Context, *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
 type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
+type mockHeartbeatEnterprise struct{ handler heartbeatEnterpriseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
 func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
+func (mock *mockHeartbeatEnterprise) Use(cb heartbeatEnterpriseFunc)   { mock.handler = cb }
 
 type enterpriseServerAPI struct {
 	mock *mockEnterpriseServer
@@ -360,6 +363,7 @@ type mockEnterpriseServer struct {
 	GetState          mockGetState
 	GetActivationCode mockGetActivationCode
 	Deactivate        mockDeactivateEnterprise
+	Heartbeat         mockHeartbeatEnterprise
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -385,6 +389,12 @@ func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.
 		return api.mock.Deactivate.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Deactivate")
+}
+func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Heartbeat.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Heartbeat")
 }
 
 /* PFS Server Mocks */
@@ -416,6 +426,8 @@ type diffFileFunc func(*pfs.DiffFileRequest, pfs.API_DiffFileServer) error
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type createFilesetFunc func(pfs.API_CreateFilesetServer) error
+type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
+type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -445,6 +457,8 @@ type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
 type mockCreateFileset struct{ handler createFilesetFunc }
+type mockAddFileset struct{ handler addFilesetFunc }
+type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
@@ -474,6 +488,8 @@ func (mock *mockDiffFile) Use(cb diffFileFunc)               { mock.handler = cb
 func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)       { mock.handler = cb }
 func (mock *mockFsck) Use(cb fsckFunc)                       { mock.handler = cb }
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb }
+func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
+func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
 func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
 
 type pfsServerAPI struct {
@@ -509,6 +525,8 @@ type mockPFSServer struct {
 	DeleteAll       mockDeleteAllPFS
 	Fsck            mockFsck
 	CreateFileset   mockCreateFileset
+	AddFileset      mockAddFileset
+	GetFileset      mockGetFileset
 	RenewFileset    mockRenewFileset
 }
 
@@ -673,6 +691,18 @@ func (api *pfsServerAPI) CreateFileset(srv pfs.API_CreateFilesetServer) error {
 		return api.mock.CreateFileset.handler(srv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.CreateFileset")
+}
+func (api *pfsServerAPI) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+	if api.mock.AddFileset.handler != nil {
+		return api.mock.AddFileset.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+}
+func (api *pfsServerAPI) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
+	if api.mock.AddFileset.handler != nil {
+		return api.mock.GetFileset.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
 }
 func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
 	if api.mock.RenewFileset.handler != nil {

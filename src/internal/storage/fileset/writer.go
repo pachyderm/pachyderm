@@ -40,8 +40,7 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 type Writer struct {
 	ctx                context.Context
 	tracker            track.Tracker
-	store              Store
-	path               string
+	storage            *Storage
 	additive, deletive *index.Writer
 	sizeBytes          int64
 	cw                 *chunk.Writer
@@ -53,13 +52,12 @@ type Writer struct {
 	ttl                time.Duration
 }
 
-func newWriter(ctx context.Context, store Store, tracker track.Tracker, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chunks *chunk.Storage, opts ...WriterOption) *Writer {
 	uuidStr := uuid.NewWithoutDashes()
 	w := &Writer{
 		ctx:     ctx,
-		store:   store,
+		storage: storage,
 		tracker: tracker,
-		path:    path,
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -199,47 +197,39 @@ func (w *Writer) callback(annotations []*chunk.Annotation) error {
 }
 
 // Close closes the writer.
-func (w *Writer) Close() error {
+func (w *Writer) Close() (*ID, error) {
 	if err := w.cw.Close(); err != nil {
-		return err
+		return nil, err
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
 		idx := w.lastIdx
 		if !w.noUpload {
 			if err := w.additive.WriteIndex(idx); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if w.indexFunc != nil {
 			if err := w.indexFunc(idx); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 	if w.noUpload {
-		return nil
+		return nil, nil
 	}
 	// Close the index writers.
 	additiveIdx, err := w.additive.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	deletiveIdx, err := w.deletive.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// TODO: This should be one transaction.
-	if err := createTrackerObject(w.ctx, w.path, []*index.Index{additiveIdx, deletiveIdx}, w.tracker, w.ttl); err != nil {
-		return err
-	}
-	if err := w.store.Set(w.ctx, w.path, &Metadata{
-		Path:      w.path,
+	return w.storage.newPrimitive(w.ctx, &Primitive{
 		Additive:  additiveIdx,
 		Deletive:  deletiveIdx,
 		SizeBytes: w.sizeBytes,
-	}); err != nil && err != ErrPathExists {
-		return err
-	}
-	return nil
+	}, w.ttl)
 }

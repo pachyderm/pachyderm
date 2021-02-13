@@ -132,6 +132,6 @@ runtime:
   memory: 16GB
   disk: 50GB
 
-prewarm_pool_size: 12
-max_pool_size: 24
+prewarm_pool_size: 11
+max_pool_size: 22
 default_lease_timeout: ""

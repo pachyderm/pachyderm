@@ -86,15 +86,16 @@ depending on their size.
 
 ***Example walkthrough***
 
-1.  Let's start by building/deploying your image
-    on your Docker Hub repository. 
+1.  We have a Docker Hub image of this example ready for you.
+    However, you can choose to build your own and push it to your repository.
     
-    Make sure to update the following script
-    with your DH username before running it.
-
-    In the `examples/spouts/spout101` directory, run:
+    In the `examples/spouts/spout101` directory,
+    make sure to update the 
+    `CONTAINER_TAG` in the `Makefile` accordingly
+    as well as your pipelines' specifications,
+    then run:
     ```shell
-    $ ./build_tag_deploy.sh
+    $ make docker-image
     ```
     >![pach_logo](./img/pach_logo.svg) Need a refresher on building, tagging, pushing your image on Docker Hub? Take a look at this [how-to](https://docs.pachyderm.com/latest/how-tos/developer-workflow/working-with-pipelines/).
 

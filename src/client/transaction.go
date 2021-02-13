@@ -404,6 +404,12 @@ func (c *pfsBuilderClient) CreateFileset(ctx context.Context, opts ...grpc.CallO
 func (c *pfsBuilderClient) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RenewFileset")
 }
+func (c *pfsBuilderClient) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("AddFileset")
+}
+func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest, opts ...grpc.CallOption) (*pfs.CreateFilesetResponse, error) {
+	return nil, unsupportedError("GetFileset")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
@@ -635,6 +641,9 @@ func (c *enterpriseBuilderClient) GetActivationCode(ctx context.Context, req *en
 }
 func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest, opts ...grpc.CallOption) (*enterprise.DeactivateResponse, error) {
 	return nil, unsupportedError("Deactivate")
+}
+func (c *enterpriseBuilderClient) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise.HeartbeatResponse, error) {
+	return nil, unsupportedError("Heartbeat")
 }
 
 func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
