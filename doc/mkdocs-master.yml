@@ -208,7 +208,10 @@ nav:
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
-            - Monitor your cluster metrics with Prometheus: deploy-manage/deploy/prometheus/prometheus.md
+            - Monitor your cluster metrics with Prometheus: 
+                - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
+                - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
+                - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
             - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:

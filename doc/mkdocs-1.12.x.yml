@@ -211,7 +211,7 @@ nav:
             - Monitor your cluster metrics with Prometheus: 
                 - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
                 - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
-                - List of job metrics: deploy-manage/deploy/prometheus/job_metrics.md
+                - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
             - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
