@@ -183,10 +183,10 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				if metrics.MinParallelism > pi.ParallelismSpec.Constant {
 					metrics.MinParallelism = pi.ParallelismSpec.Constant
 				}
-				metrics.NumParallelism += 1
+				metrics.NumParallelism++
 			}
 			if pi.Egress != nil {
-				metrics.CfgEgress += 1
+				metrics.CfgEgress++
 			}
 			if pi.JobCounts != nil {
 				var cnt int64 = 0
@@ -239,67 +239,67 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 			}
 			if pi.Input != nil {
 				if pi.Input.Pfs.OuterJoin {
-					metrics.InputOuterJoin += 1
+					metrics.InputOuterJoin++
 				}
 				if pi.Input.Pfs.Lazy {
-					metrics.InputLazy += 1
+					metrics.InputLazy++
 				}
 				if pi.Input.Pfs.EmptyFiles {
-					metrics.InputEmptyFiles += 1
+					metrics.InputEmptyFiles++
 				}
 				if pi.Input.Pfs.S3 {
-					metrics.InputS3 += 1
+					metrics.InputS3++
 				}
 				if pi.Input.Pfs.Trigger != nil {
-					metrics.InputTrigger += 1
+					metrics.InputTrigger++
 				}
 				if pi.Input.Join != nil {
-					metrics.InputJoin += 1
+					metrics.InputJoin++
 				}
 				if pi.Input.Group != nil {
-					metrics.InputGroup += 1
+					metrics.InputGroup++
 				}
 				if pi.Input.Cross != nil {
-					metrics.InputCross += 1
+					metrics.InputCross++
 				}
 				if pi.Input.Union != nil {
-					metrics.InputUnion += 1
+					metrics.InputUnion++
 				}
 				if pi.Input.Cron != nil {
-					metrics.InputCron += 1
+					metrics.InputCron++
 				}
 				if pi.Input.Git != nil {
-					metrics.InputGit += 1
+					metrics.InputGit++
 				}
 			}
 			if pi.EnableStats {
-				metrics.CfgStats += 1
+				metrics.CfgStats++
 			}
 			if pi.Service != nil {
-				metrics.CfgServices += 1
+				metrics.CfgServices++
 			}
 			if pi.Spout != nil {
-				metrics.PpsSpout += 1
+				metrics.PpsSpout++
 				if pi.Spout.Service != nil {
-					metrics.PpsSpoutService += 1
+					metrics.PpsSpoutService++
 				}
 			}
 			if pi.Standby {
-				metrics.CfgStandby += 1
+				metrics.CfgStandby++
 			}
 			if pi.S3Out {
-				metrics.CfgS3Gateway += 1
+				metrics.CfgS3Gateway++
 			}
 			if pi.Transform != nil {
 				if pi.Transform.ErrCmd != nil {
-					metrics.CfgErrcmd += 1
+					metrics.CfgErrcmd++
 				}
 				if pi.Transform.Build != nil {
-					metrics.PpsBuild += 1
+					metrics.PpsBuild++
 				}
 			}
 			if pi.TFJob != nil {
-				metrics.CfgTfjob += 1
+				metrics.CfgTfjob++
 			}
 		}
 	}
