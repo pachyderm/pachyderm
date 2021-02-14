@@ -372,5 +372,5 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 	} else {
 		log.Errorf("Error getting repo metrics: %v", err)
 	}
-	log.Infof("Metrics logged: %v", metrics)
+	//log.Infof("Metrics logged: %v", metrics)
 }
