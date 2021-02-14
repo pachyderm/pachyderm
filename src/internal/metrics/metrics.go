@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,6 +162,84 @@ func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
 	return nil
 }
 
+func pfsInputMetrics(pfsInput *pps.PFSInput, metrics *Metrics) {
+	metrics.InputPfs++
+	if pfsInput.Commit != "" {
+		metrics.InputCommit++
+	}
+	if pfsInput.JoinOn != "" {
+		metrics.InputJoinOn++
+	}
+	if pfsInput.OuterJoin {
+		metrics.InputOuterJoin++
+	}
+	if pfsInput.Lazy {
+		metrics.InputLazy++
+	}
+	if pfsInput.EmptyFiles {
+		metrics.InputEmptyFiles++
+	}
+	if pfsInput.S3 {
+		metrics.InputS3++
+	}
+	if pfsInput.Trigger != nil {
+		metrics.InputTrigger++
+	}
+}
+
+func inputMetrics(input *pps.Input, metrics *Metrics) {
+	if input.Join != nil {
+		metrics.InputJoin++
+		for _, item := range input.Join {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Group != nil {
+		metrics.InputGroup++
+		inputMetrics(input, metrics)
+		for _, item := range input.Group {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Cross != nil {
+		metrics.InputCross++
+		for _, item := range input.Cross {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Union != nil {
+		metrics.InputUnion++
+		for _, item := range input.Union {
+			if item.Pfs != nil {
+				pfsInputMetrics(item.Pfs, metrics)
+			} else {
+				inputMetrics(item, metrics)
+			}
+		}
+	}
+	if input.Cron != nil {
+		metrics.InputCron++
+	}
+	if input.Git != nil {
+		metrics.InputGit++
+	}
+	if input.Pfs != nil {
+		pfsInputMetrics(input.Pfs, metrics)
+	}
+}
+
 func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 
 	// We should not return due to an error
@@ -238,39 +317,7 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				}
 			}
 			if pi.Input != nil {
-				if pi.Input.Pfs.OuterJoin {
-					metrics.InputOuterJoin++
-				}
-				if pi.Input.Pfs.Lazy {
-					metrics.InputLazy++
-				}
-				if pi.Input.Pfs.EmptyFiles {
-					metrics.InputEmptyFiles++
-				}
-				if pi.Input.Pfs.S3 {
-					metrics.InputS3++
-				}
-				if pi.Input.Pfs.Trigger != nil {
-					metrics.InputTrigger++
-				}
-				if pi.Input.Join != nil {
-					metrics.InputJoin++
-				}
-				if pi.Input.Group != nil {
-					metrics.InputGroup++
-				}
-				if pi.Input.Cross != nil {
-					metrics.InputCross++
-				}
-				if pi.Input.Union != nil {
-					metrics.InputUnion++
-				}
-				if pi.Input.Cron != nil {
-					metrics.InputCron++
-				}
-				if pi.Input.Git != nil {
-					metrics.InputGit++
-				}
+				inputMetrics(pi.Input, metrics)
 			}
 			if pi.EnableStats {
 				metrics.CfgStats++
@@ -302,6 +349,8 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 				metrics.CfgTfjob++
 			}
 		}
+	} else {
+		log.Errorf("Error getting pipeline metrics: %v", err)
 	}
 
 	ris, err := pachClient.ListRepo()
@@ -320,5 +369,8 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 		metrics.Repos = int64(len(ris))
 		metrics.Bytes = sz
 		metrics.MaxBranches = mbranch
+	} else {
+		log.Errorf("Error getting repo metrics: %v", err)
 	}
+	//log.Infof("Metrics logged: %v", metrics)
 }
