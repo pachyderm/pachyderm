@@ -6,17 +6,57 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/metrics";
 import "gogoproto/gogo.proto";
 
 message Metrics {
-    string cluster_id = 1 [(gogoproto.customname) = "ClusterID"];
-    string pod_id = 2 [(gogoproto.customname) = "PodID"];
-    int64 nodes = 3;
-    string version = 4;
-    int64 repos = 5;
-    int64 commits = 6;
-    int64 files = 7;
-    int64 bytes = 8;
-    int64 jobs = 9;
-    int64 pipelines = 10;
-    int64 archived_commits = 11;
-    int64 cancelled_commits = 12;
-    string activation_code = 13;
+    string cluster_id              =  1 [(gogoproto.customname) = "ClusterID"];
+    string pod_id                  =  2 [(gogoproto.customname) = "PodID"];
+    int64 nodes                    =  3;
+    string version                 =  4;
+    int64 repos                    =  5; // Number of repos
+    int64 commits                  =  6; // Number of commits -- not used
+    int64 files                    =  7; // Number of files -- not used
+    uint64 bytes                   =  8; // Number of bytes in all repos
+    int64 jobs                     =  9; // Number of jobs
+    int64 pipelines                = 10; // Number of pipelines in the cluster -- not the same as DAG
+    int64 archived_commits         = 11; // Number of archived commit -- not used
+    int64 cancelled_commits        = 12; // Number of cancelled commits -- not used
+    string activation_code         = 13; // Activation code
+    uint64 max_branches            = 14; // Max branches in across all the repos
+    int64 pps_spout                = 15; // Number of spout pipelines
+    int64 pps_spout_service        = 16; // Number of spout services
+    int64 pps_build                = 17; // Number of build pipelines
+    int64 cfg_egress               = 18; // Number of pipelines with Egress configured
+    int64 cfg_standby              = 19; // Number of pipelines with Standby congigured
+    int64 cfg_s3gateway            = 20; // Number of pipelines with S3 Gateway configured
+    int64 cfg_services             = 21; // Number of pipelines with services configured
+    int64 cfg_errcmd               = 22; // Number of pipelines with error cmd set
+    int64 cfg_stats                = 23; // Number of pipelines with stats configured
+    int64 cfg_tfjob                = 24; // Number of pipelines with TFJobs configured
+    int64 input_group              = 25; // Number of pipelines with group inputs
+    int64 input_join               = 26; // Number of pipelines with join inputs
+    int64 input_cross              = 27; // Number of pipelines with cross inputs
+    int64 input_union              = 28; // Number of pipelines with union inputs
+    int64 input_cron               = 29; // Number of pipelines with cron inputs
+    int64 input_git                = 30; // Number of pipelines with git inputs
+    int64 input_pfs                = 31; // Number of pfs inputs
+    int64 input_commit             = 32; // Number of pfs inputs with commits
+    int64 input_join_on            = 33; // Number of pfs inputs with join_on
+    int64 input_outer_join         = 34; // Number of pipelines with outer joins
+    int64 input_lazy               = 35; // Number of pipelines with lazy set
+    int64 input_empty_files        = 36; // Number of pipelines with empty files set
+    int64 input_s3                 = 37; // Number of pipelines with S3 input
+    int64 input_trigger            = 38; // Number of pipelines with triggers set
+    float resource_cpu_req         = 39; // Total CPU request across all pipelines
+    float resource_cpu_req_max     = 40; // Max CPU resource requests set
+    string resource_mem_req        = 41; // Sting of memory requests set across all pipelines
+    int64 resource_gpu_req         = 42; // Total GPU requests across all pipelines
+    int64 resource_gpu_req_max     = 43; // Max GPU request across all pipelines
+    string resource_disk_req       = 44; // String of disk requests set across all pipelines
+    float resource_cpu_limit       = 45; // Total CPU limits set across all pipelines
+    float resource_cpu_limit_max   = 46; // Max CPU limit set
+    string resource_mem_limit      = 47; // String of memory limits set
+    int64 resource_gpu_limit       = 48; // Number of pipelines with
+    int64 resource_gpu_limit_max   = 49; // Max GPU limit set
+    string resource_disk_limit     = 50; // String of disk limits set across all pipelines
+    uint64 max_parallelism         = 51; // Max parallelism set
+    uint64 min_parallelism         = 52; // Min parallelism set
+    uint64 num_parallelism         = 53; // Number of pipelines with parallelism set
 }
