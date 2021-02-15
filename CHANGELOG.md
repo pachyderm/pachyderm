@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.3
+- Fixes a bug that does not return objects with paths that have a leading slash in S3 gateway requests (#5679)
+- Fixes a bug that causes intermittent pachd crashes (#5690)
+- Adds support for services without ports set (#5691)
+- Fixes a bug that prevents InitContainer from initializing if pipelines are already running  (#5701)
+- Fixes a bug that would crash when email verified claim is not set by OIDC provider (#5709)
+- Adds support for additional metrics (#5713)
+
 ## 1.12.2
 
 - Fixes several issues with logging, specifically with the Loki backend. Adds support for getting logs since a particular time. (#5438)
