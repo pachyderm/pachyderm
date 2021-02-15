@@ -229,7 +229,7 @@ package pipeline
 //		}
 //		defer func() {
 //			if retErr != nil {
-//				pachClient.DeleteCommit(repo, commit.ID)
+//				pachClient.SquashCommit(repo, commit.ID)
 //				return
 //			}
 //			if err := pachClient.FinishCommit(repo, commit.ID); retErr == nil {

@@ -153,7 +153,7 @@ package server
 // 			prevLength = fileLength
 // 		}
 // 		// make sure we can delete commits
-// 		err = c.DeleteCommit(pipeline, "master")
+// 		err = c.SquashCommit(pipeline, "master")
 // 		require.NoError(t, err)
 
 // 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
@@ -253,7 +253,7 @@ package server
 // 		}
 
 // 		// make sure we can delete commits
-// 		err = c.DeleteCommit(pipeline, "master")
+// 		err = c.SquashCommit(pipeline, "master")
 // 		require.NoError(t, err)
 
 // 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
@@ -309,7 +309,7 @@ package server
 // 		defer tu.DeleteAll(t)
 
 // 		// make sure we can delete commits
-// 		err = c.DeleteCommit(pipeline, "master")
+// 		err = c.SquashCommit(pipeline, "master")
 // 		require.NoError(t, err)
 
 // 		// now let's update the pipeline and make sure it works again
@@ -416,7 +416,7 @@ package server
 // 			prevLength = fileLength
 // 		}
 // 		// make sure we can delete commits
-// 		err = c.DeleteCommit(pipeline, "master")
+// 		err = c.SquashCommit(pipeline, "master")
 // 		require.NoError(t, err)
 
 // 		// and make sure we can attach a downstream pipeline

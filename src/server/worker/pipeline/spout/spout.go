@@ -15,7 +15,7 @@ package spout
 //		if c.Finished != nil {
 //			return nil
 //		}
-//		return pachClient.DeleteCommit(pipelineInfo.Pipeline.Name, c.Commit.ID)
+//		return pachClient.SquashCommit(pipelineInfo.Pipeline.Name, c.Commit.ID)
 //	})
 //
 //	// TODO: do something with stats?

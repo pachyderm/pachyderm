@@ -27,15 +27,10 @@ type RealEnv struct {
 
 	LocalStorageDirectory    string
 	AuthServer               authserver.APIServer
-	PFSBlockServer           pfsserver.BlockAPIServer
 	PFSServer                pfsserver.APIServer
 	TransactionServer        txnserver.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
-
-const (
-	localBlockServerCacheBytes = 256 * 1024 * 1024
-)
 
 // WithRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS requires a kubernetes
@@ -67,16 +62,6 @@ func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*servicee
 
 		realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
 		config.StorageRoot = realEnv.LocalStorageDirectory
-		realEnv.PFSBlockServer, err = pfsserver.NewBlockAPIServer(
-			realEnv.LocalStorageDirectory,
-			localBlockServerCacheBytes,
-			pfsserver.LocalBackendEnvVar,
-			net.JoinHostPort(config.EtcdHost, config.EtcdPort),
-			true, // duplicate
-		)
-		if err != nil {
-			return err
-		}
 
 		etcdPrefix := ""
 
@@ -103,7 +88,6 @@ func WithRealEnv(db *sqlx.DB, cb func(*RealEnv) error, customConfig ...*servicee
 
 		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
 
-		linkServers(&realEnv.MockPachd.Object, realEnv.PFSBlockServer)
 		linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 		linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 		linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)

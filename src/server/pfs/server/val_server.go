@@ -55,9 +55,9 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txnenv.Transactio
 	return a.APIServer.FinishCommitInTransaction(txnCtx, request)
 }
 
-// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// SquashCommitInTransaction is identical to SquashCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
+func (a *validatedAPIServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if userCommit == nil {
@@ -69,7 +69,7 @@ func (a *validatedAPIServer) DeleteCommitInTransaction(txnCtx *txnenv.Transactio
 	if err := authserver.CheckIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	return a.APIServer.DeleteCommitInTransaction(txnCtx, request)
+	return a.APIServer.SquashCommitInTransaction(txnCtx, request)
 }
 
 // CopyFile implements the protobuf pfs.CopyFile RPC
