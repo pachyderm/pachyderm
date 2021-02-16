@@ -162,7 +162,7 @@ func TestRepoSize(t *testing.T) {
 	require.Equal(t, uint64(6), repoInfo.SizeBytes)
 
 	// ensure size is updated when we delete a commit
-	require.NoError(t, c.DeleteCommit(dataRepo, commit1.ID))
+	require.NoError(t, c.SquashCommit(dataRepo, commit1.ID))
 	repoInfo, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), repoInfo.SizeBytes)
@@ -4055,7 +4055,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
-		base64Hash := "dzh7KGu+C0o1a4et0lR0FedzYO/udIdm6ZXTSLtJb5DZivQib9TfeWizDuLBfFfOVJ3EwoI34vk3NOB7qVUwWQ=="
+		base64Hash := "TBw9TLCKorQTGs4WY/H00vZYxGXd/15dXzXIDlbsoNw="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
 		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
@@ -8773,10 +8773,10 @@ func TestCancelManyJobs(t *testing.T) {
 }
 
 // TODO: Make work with V2: Implement PutFileSplit?
-// TestDeleteCommitPropagation deletes an input commit and makes sure all
+// TestSquashCommitPropagation deletes an input commit and makes sure all
 // downstream commits are also deleted.
 // DAG in this test: repo -> pipeline[0] -> pipeline[1]
-// func TestDeleteCommitPropagation(t *testing.T) {
+// func TestSquashCommitPropagation(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")
 // 	}
@@ -8785,7 +8785,7 @@ func TestCancelManyJobs(t *testing.T) {
 // 	require.NoError(t, c.DeleteAll())
 
 // 	// Create an input repo
-// 	repo := tu.UniqueString("TestDeleteCommitPropagation")
+// 	repo := tu.UniqueString("TestSquashCommitPropagation")
 // 	require.NoError(t, c.CreateRepo(repo))
 // 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 // 		strings.NewReader(tu.TestPGDump))
@@ -8839,12 +8839,12 @@ func TestCancelManyJobs(t *testing.T) {
 // 		})
 // }
 
-// TestDeleteCommitRunsJob creates an input reo, commits several times, and then
+// TestSquashCommitRunsJob creates an input reo, commits several times, and then
 // creates a pipeline. Creating the pipeline will spawn a job and while that
 // job is running, this test deletes the HEAD commit of the input branch, which
 // deletes the job's output commit and cancels the job. This should start
 // another job that processes the original input HEAD commit's parent.
-func TestDeleteCommitRunsJob(t *testing.T) {
+func TestSquashCommitRunsJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8853,7 +8853,7 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 	c := tu.GetPachClient(t)
 
 	// Create an input repo
-	repo := tu.UniqueString("TestDeleteCommitRunsJob")
+	repo := tu.UniqueString("TestSquashCommitRunsJob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Create two input commits. The input commit has two files: 'time' which
@@ -8921,7 +8921,7 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 	})
 
 	// Delete the first commit in the input repo
-	require.NoError(t, c.DeleteCommit(repo, commit2.ID))
+	require.NoError(t, c.SquashCommit(repo, commit2.ID))
 
 	// Wait until PPS has started processing commit1
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
@@ -10425,7 +10425,7 @@ func TestPFSPanicOnNilArgs(t *testing.T) {
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
 	requireNoPanic(err)
-	_, err = c.PfsAPIClient.DeleteCommit(c.Ctx(), &pfs.DeleteCommitRequest{})
+	_, err = c.PfsAPIClient.SquashCommit(c.Ctx(), &pfs.SquashCommitRequest{})
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.FlushCommit(c.Ctx(), &pfs.FlushCommitRequest{})
 	requireNoPanic(err)

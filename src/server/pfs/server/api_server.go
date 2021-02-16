@@ -201,18 +201,18 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	})
 }
 
-// DeleteCommitInTransaction is identical to DeleteCommit except that it can run
+// SquashCommitInTransaction is identical to SquashCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) DeleteCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.DeleteCommitRequest) error {
-	return a.driver.deleteCommit(txnCtx, request.Commit)
+func (a *apiServer) SquashCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.SquashCommitRequest) error {
+	return a.driver.squashCommit(txnCtx, request.Commit)
 }
 
-// DeleteCommit implements the protobuf pfs.DeleteCommit RPC
-func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
+// SquashCommit implements the protobuf pfs.SquashCommit RPC
+func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.DeleteCommit(request)
+		return txn.SquashCommit(request)
 	}); err != nil {
 		return nil, err
 	}

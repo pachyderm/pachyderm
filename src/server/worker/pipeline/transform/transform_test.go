@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
@@ -52,10 +51,6 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 		}
 
 		if err := os.MkdirAll(env.LocalStorageDirectory, 0777); err != nil {
-			return err
-		}
-		// TODO: this is global and complicates running tests in parallel
-		if err := os.Setenv(pfsserver.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
 

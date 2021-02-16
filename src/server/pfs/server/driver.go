@@ -1432,7 +1432,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 	return nil
 }
 
-func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+func (d *driver) squashCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
 	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit

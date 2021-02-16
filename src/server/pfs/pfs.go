@@ -121,11 +121,6 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
 }
 
-// ByteRangeSize returns byteRange.Upper - byteRange.Lower.
-func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
-	return byteRange.Upper - byteRange.Lower
-}
-
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")

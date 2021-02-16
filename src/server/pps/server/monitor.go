@@ -388,7 +388,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.DeleteCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}
