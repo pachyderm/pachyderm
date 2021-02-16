@@ -51,26 +51,32 @@ func main() {
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
 func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Kvs) != 1 {
-		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
-	}
-	var pipelinePtr pps.EtcdPipelineInfo
-	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
-		return nil, err
-	}
-	pachClient.SetAuthToken(pipelinePtr.AuthToken)
+	/*
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
+		if err != nil {
+			return nil, err
+		}
+
+		if len(resp.Kvs) != 1 {
+			return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
+		}
+		var pipelinePtr pps.EtcdPipelineInfo
+		if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
+			return nil, err
+		}*/
+
+	// TODO: Handle pipeline auth
+	//pachClient.SetAuthToken(pipelinePtr.AuthToken)
+
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, env.PPSPipelineName, &pipelinePtr)
+	//pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
+
+	return ppsutil.GetPipelineInfoNoEtcd(pachClient, env.PPSPipelineName, env.PPSSpecCommitID)
 }
 
 func do(config interface{}) error {

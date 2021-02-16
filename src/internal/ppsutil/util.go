@@ -136,10 +136,48 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, p
 	return result, nil
 }
 
+// GetPipelineInfoAllowIncomplete retrieves and returns a PipelineInfo from PFS,
+// or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
+// (e.g. due to corruption or a missing block). It does the PFS
+// read/unmarshalling of bytes as well as filling in missing fields
+func GetPipelineInfoAllowIncompleteNoEtcd(pachClient *client.APIClient, name, specCommitID string) (*pps.PipelineInfo, error) {
+	result := &pps.PipelineInfo{}
+	buf := bytes.Buffer{}
+	if err := pachClient.GetFile(ppsconsts.SpecRepo, specCommitID, ppsconsts.SpecFile, &buf); err != nil {
+		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
+	} else {
+		if err := result.Unmarshal(buf.Bytes()); err != nil {
+			return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+		}
+	}
+
+	if result.Pipeline == nil {
+		result.Pipeline = &pps.Pipeline{
+			Name: name,
+		}
+	}
+	//result.State = ptr.State
+	//result.Reason = ptr.Reason
+	//result.JobCounts = ptr.JobCounts
+	//result.LastJobState = ptr.LastJobState
+	//result.SpecCommit = ptr.SpecCommit
+	return result, nil
+}
+
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result, err := GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+	if err == nil && result.Transform == nil {
+		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
+	}
+	return result, err
+}
+
+// GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
+// the PFS read/unmarshalling of bytes as well as filling in missing fields
+func GetPipelineInfoNoEtcd(pachClient *client.APIClient, name, specCommitID string) (*pps.PipelineInfo, error) {
+	result, err := GetPipelineInfoAllowIncompleteNoEtcd(pachClient, name, specCommitID)
 	if err == nil && result.Transform == nil {
 		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
 	}

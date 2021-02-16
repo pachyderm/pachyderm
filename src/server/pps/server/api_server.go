@@ -2226,56 +2226,59 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				return err
 			}
 		}
-
+		fmt.Println("Spec commit ID", commit.ID)
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
-		pipelinePtr := &pps.EtcdPipelineInfo{
+		/*pipelinePtr := &pps.EtcdPipelineInfo{
 			SpecCommit:  commit,
 			State:       pps.PipelineState_PIPELINE_STARTING,
 			Parallelism: uint64(parallelism),
-		}
+		}*/
 
-		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
-		// repos
-		if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-			tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
-				Subject: auth.PipelinePrefix + request.Pipeline.Name,
-				TTL:     -1,
-			})
-			if err != nil {
-				if auth.IsErrNotActivated(err) {
-					return nil // no auth work to do
+		/*
+			// Generate pipeline's auth token & add pipeline to the ACLs of input/output
+			// repos
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
+					Subject: auth.PipelinePrefix + request.Pipeline.Name,
+					TTL:     -1,
+				})
+				if err != nil {
+					if auth.IsErrNotActivated(err) {
+						return nil // no auth work to do
+					}
+					return grpcutil.ScrubGRPC(err)
 				}
-				return grpcutil.ScrubGRPC(err)
-			}
-			pipelinePtr.AuthToken = tokenResp.Token
-			return nil
-		}); err != nil {
-			return err
-		}
-		// Put a pointer to the new PipelineInfo commit into etcd
-		err := a.pipelines.ReadWrite(txnCtx.Stm).Create(pipelineName, pipelinePtr)
-		if isAlreadyExistsErr(err) {
-			// make sure we don't retain this commit, whether or not the delete succeeds
-			if prevSpecCommit != nil {
-				*prevSpecCommit = nil
-			}
-			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
-				return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.ID)
+				//pipelinePtr.AuthToken = tokenResp.Token
+				return nil
 			}); err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
-			}
-
-			return newErrPipelineExists(pipelineName)
-		} else if err != nil {
-			return err
-		}
-
-		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, nil); err != nil {
 				return err
 			}
-		}
+
+				// Put a pointer to the new PipelineInfo commit into etcd
+				err := a.pipelines.ReadWrite(txnCtx.Stm).Create(pipelineName, pipelinePtr)
+				if isAlreadyExistsErr(err) {
+					// make sure we don't retain this commit, whether or not the delete succeeds
+					if prevSpecCommit != nil {
+						*prevSpecCommit = nil
+					}
+					if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
+						return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.ID)
+					}); err != nil {
+						return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
+					}
+
+					return newErrPipelineExists(pipelineName)
+				} else if err != nil {
+					return err
+				}
+		*/
+		/*
+			if pipelinePtr.AuthToken != "" {
+				if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, nil); err != nil {
+					return err
+				}
+			}*/
 	}
 
 	// spouts don't need to keep track of branch provenance since they are essentially inputs
