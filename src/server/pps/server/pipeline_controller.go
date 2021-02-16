@@ -92,7 +92,11 @@ func (m *ppsMaster) step(pipeline string, keyVer, keyRev int64) (retErr error) {
 	// Retrieve pipelineInfo from the spec repo
 	op, err := m.newPipelineOp(m.masterClient.WithCtx(opCtx), pipeline)
 	if err != nil {
-		return failPipelineError{fmt.Errorf("couldn't initialize pipeline op: %w", err), false}
+		// fail immediately without retry
+		return stepError{
+			error:        errors.Wrap(err, "couldn't initialize pipeline op"),
+			failPipeline: true,
+		}
 	}
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
@@ -199,9 +203,12 @@ func (op *pipelineOp) run() error {
 		// deletePipelineResources calls cancelMonitor() and cancelCrashingMonitor()
 		// in addition to deleting the RC, so those calls aren't necessary here.
 		if err := op.deletePipelineResources(); err != nil {
-			log.Errorf("PPS master: error deleting resources for failing pipeline %q: %v", op.name, err)
+			// retry, but the pipeline has already failed
+			return stepError{
+				error: errors.Wrap(err, "error deleting resources for failing pipeline"),
+				retry: true,
+			}
 		}
-		// don't bother retrying the delete for a failed pipeline
 		return nil
 	case pps.PipelineState_PIPELINE_CRASHING:
 		if !op.rcIsFresh() {
@@ -230,9 +237,6 @@ func (op *pipelineOp) run() error {
 // getPipelineInfo reads the pipelineInfo associated with 'op's pipeline. This
 // should be one of the first calls made on 'op', as most other methods (e.g.
 // getRC, though not failPipeline) assume that op.pipelineInfo is set.
-//
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
 func (op *pipelineOp) getPipelineInfo() error {
 	err := op.m.a.sudo(op.opClient, func(superUserClient *client.APIClient) error {
 		var err error
@@ -240,7 +244,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 		return err
 	})
 	if err != nil {
-		return failPipelineError{fmt.Errorf("error retrieving spec for %q: %v", op.name, err), true}
+		return newRetriableError(err, "error retrieving spec")
 	}
 	return nil
 }
@@ -253,7 +257,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // retry the kubeclient.List() RPC, but will not restart the pipeline if no RC
 // is found
 //
-// Unike other functions in this file, it takes responsibility for restarting
+// Unlike other functions in this file, getRC takes responsibility for restarting
 // op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
@@ -374,32 +378,31 @@ func (op *pipelineOp) rcIsFresh() bool {
 
 // setPipelineState set's op's state in etcd to 'state'. This will trigger an
 // etcd watch event and cause step() to eventually run again.
-//
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline.
-// While failing the pipeline is unlikely to succeed if the state can't be set,
-// this error will be ignored and PPS master will move on.
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	if err := op.m.a.setPipelineState(op.opClient.Ctx(),
 		op.pipelineInfo.Pipeline.Name, state, reason); err != nil {
-		return failPipelineError{errors.Wrapf(err, "could not set pipeline state to %v"+
-			"(you may need to restart pachd to un-stick the pipeline)", state), true}
+		// don't bother failing if we can't set the state
+		return stepError{
+			error: errors.Wrapf(err, "could not set pipeline state to %v"+
+				"(you may need to restart pachd to un-stick the pipeline)", state),
+			retry: true,
+		}
 	}
 	return nil
 }
 
 // createPipelineResources creates the RC and any services for op's pipeline.
-//
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
 func (op *pipelineOp) createPipelineResources() error {
 	log.Infof("PPS master: creating resources for pipeline %q", op.name)
 	if err := op.m.a.createWorkerSvcAndRc(op.opClient.Ctx(), op.ptr, op.pipelineInfo); err != nil {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
-			return failPipelineError{fmt.Errorf("could not generate RC options: %v", err), false}
+			return stepError{
+				error:        errors.Wrap(err, "could not generate RC options: %v"),
+				failPipeline: true,
+			}
 		}
-		return failPipelineError{fmt.Errorf("error creating resources: %v", err), true}
+		return newRetriableError(err, "error creating resources")
 	}
 	return nil
 }
@@ -479,13 +482,10 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 }
 
 // deletePipelineResources deletes the RC and services associated with op's
-// pipeline.
-
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
+// pipeline. It doesn't return a stepError, leaving retry behavior to the caller
 func (op *pipelineOp) deletePipelineResources() error {
 	if err := op.m.deletePipelineResources(op.name); err != nil {
-		return failPipelineError{err, true}
+		return err
 	}
 	return nil
 }
@@ -496,9 +496,6 @@ func (op *pipelineOp) deletePipelineResources() error {
 // updated is already available to the caller in op.rc, but update() may be
 // called muliple times if the k8s write fails. It may be helpful to think of
 // the rc passed to update() as mutable, while op.rc is immutable.
-
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
 func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error {
 	kubeClient := op.m.a.env.GetKubeClient()
 	namespace := op.m.a.namespace
@@ -509,16 +506,13 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 	update(&newRC)
 	// write updated RC to k8s
 	if _, err := rc.Update(&newRC); err != nil {
-		return failPipelineError{fmt.Errorf("error updating RC: %v", err), true}
+		return newRetriableError(err, "error updating RC")
 	}
 	return nil
 }
 
 // scaleUpPipeline edits the RC associated with op's pipeline & spins up the
 // configured number of workers.
-//
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
 func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	log.Infof("PPS master: scaling up workers for %q", op.name)
 	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
@@ -550,9 +544,6 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 
 // scaleDownPipeline edits the RC associated with op's pipeline & spins down the
 // configured number of workers.
-//
-// Like other functions in this file, its errors signal that the whole step
-// should be retried, eventually failing op's pipeline
 func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 	log.Infof("PPS master: scaling down workers for %q", op.name)
 	span, _ := tracing.AddSpanToAnyExisting(op.opClient.Ctx(),
@@ -587,22 +578,19 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 // if errorState {
 //   return op.restartPipeline("entered error state")
 // }
-//
-// Like other functions in this file, its (wrapped) errors signal that the whole
-// step should be retried, eventually failing op's pipeline
 func (op *pipelineOp) restartPipeline(reason string) error {
 	if op.rc != nil && !op.rcIsFresh() {
 		// delete old RC, monitorPipeline goro, and worker service
 		if err := op.deletePipelineResources(); err != nil {
-			return fmt.Errorf("error deleting resources for restart: %w", err)
+			return newRetriableError(err, "error deleting resources for restart")
 		}
 	}
 	// create up-to-date RC
 	if err := op.createPipelineResources(); err != nil {
-		return fmt.Errorf("error creating resources for restart: %w", err)
+		return errors.Wrap(err, "error creating resources for restart")
 	}
 	if err := op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING, ""); err != nil {
-		return fmt.Errorf("error restarting pipeline: %w", err)
+		return errors.Wrap(err, "error restarting pipeline")
 	}
 
 	return errors.Errorf("restarting pipeline %q: %v", op.name, reason)
