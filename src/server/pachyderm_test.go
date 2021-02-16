@@ -1315,8 +1315,8 @@ func TestPipelineErrorHandling(t *testing.T) {
 }
 
 func TestEgressFailure(t *testing.T) {
-	// TODO: Implement egress.
-	t.Skip("Egress not implemented in V2")
+	// TODO: Fail job after certain number of failures, or just keep restarting?
+	t.Skip("Fail job after certain number of failures, or just keep restarting?")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

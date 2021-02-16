@@ -393,12 +393,52 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
+		ctx := server.Context()
 		commit := request.File.Commit
 		glob := request.File.Path
+		src, err := a.driver.getFile(a.env.GetPachClient(ctx), commit, glob)
+		if err != nil {
+			return 0, err
+		}
+		if request.URL != "" {
+			return getFileURL(ctx, request.URL, src)
+		}
 		gfw := newGetFileWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getFile(a.env.GetPachClient(server.Context()), commit, glob, gfw)
+		err = getFileTar(ctx, gfw, src)
 		return gfw.bytesWritten, err
 	})
+}
+
+// TODO: Parallelize and decide on appropriate config.
+func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
+	parsedURL, err := obj.ParseURL(URL)
+	if err != nil {
+		return 0, err
+	}
+	objClient, err := obj.NewClientFromURLAndSecret(parsedURL, false)
+	if err != nil {
+		return 0, err
+	}
+	var bytesWritten int64
+	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) (retErr error) {
+		if fi.FileType != pfs.FileType_FILE {
+			return nil
+		}
+		w, err := objClient.Writer(ctx, filepath.Join(parsedURL.Object, fi.File.Path))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := w.Close(); retErr == nil {
+				retErr = err
+			}
+			if retErr == nil {
+				bytesWritten += int64(fi.SizeBytes)
+			}
+		}()
+		return file.Content(w)
+	})
+	return bytesWritten, err
 }
 
 type getFileWriter struct {
@@ -414,6 +454,23 @@ func (gfw *getFileWriter) Write(data []byte) (int, error) {
 	n, err := gfw.w.Write(data)
 	gfw.bytesWritten += int64(n)
 	return n, err
+}
+
+func getFileTar(ctx context.Context, w io.Writer, src Source) error {
+	// TODO: remove absolute paths on the way out?
+	// nonAbsolute := &fileset.HeaderMapper{
+	// 	R: filter,
+	// 	F: func(th *tar.Header) *tar.Header {
+	// 		th.Name = "." + th.Name
+	// 		return th
+	// 	},
+	// }
+	if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
+		return fileset.WriteTarEntry(w, file)
+	}); err != nil {
+		return err
+	}
+	return tar.NewWriter(w).Close()
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
