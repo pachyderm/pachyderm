@@ -1,5 +1,7 @@
 import './index.module.css';
 
+export {default as useLoginWindow} from './hooks/useLoginWindow';
+
 export * from './Button';
 export * from './Checkbox';
 export * from './Form';
