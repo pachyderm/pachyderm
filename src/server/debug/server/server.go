@@ -394,7 +394,7 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
 	return collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
 		}
