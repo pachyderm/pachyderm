@@ -2,6 +2,7 @@ package track
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -22,6 +23,12 @@ var (
 	// ErrSelfReference object cannot reference itself
 	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
+
+// NoTTL will cause the object to live forever
+const NoTTL = time.Duration(0)
+
+// ExpireNow will expire the object immediately.
+const ExpireNow = time.Duration(math.MinInt32)
 
 // Tracker tracks objects and their references to one another.
 type Tracker interface {
@@ -49,7 +56,6 @@ type Tracker interface {
 	// MarkTombstone causes the object to appear deleted.  It cannot be created, and objects referencing it cannot
 	// be created until it is deleted.
 	// It errors if id has other objects referencing it.
-	// Marking something as a tombstone which is already a tombstone is not an error
 	MarkTombstone(ctx context.Context, id string) error
 
 	// FinishDelete deletes the object
@@ -114,7 +120,7 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"DeleteSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				id := "test"
-				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, 0))
+				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, ExpireNow))
 				require.Nil(t, tracker.MarkTombstone(ctx, id))
 				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
 				require.Nil(t, tracker.FinishDelete(ctx, id))
@@ -124,14 +130,14 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"ExpireSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				require.Nil(t, tracker.CreateObject(ctx, "keep", []string{}, time.Hour))
-				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, time.Microsecond))
-				time.Sleep(time.Millisecond)
+				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, ExpireNow))
 
 				var toExpire []string
-				tracker.IterateDeletable(ctx, func(id string) error {
+				err := tracker.IterateDeletable(ctx, func(id string) error {
 					toExpire = append(toExpire, id)
 					return nil
 				})
+				require.NoError(t, err)
 				require.ElementsEqual(t, []string{"expire"}, toExpire)
 			},
 		},

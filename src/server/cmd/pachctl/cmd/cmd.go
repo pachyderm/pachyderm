@@ -28,6 +28,7 @@ import (
 	debugcmds "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
@@ -832,6 +833,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, deploycmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, licensecmds.Cmds()...)
 	subcommands = append(subcommands, identitycmds.Cmds()...)
 	subcommands = append(subcommands, admincmds.Cmds()...)
 	subcommands = append(subcommands, debugcmds.Cmds()...)

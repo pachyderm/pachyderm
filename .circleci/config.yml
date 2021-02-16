@@ -100,9 +100,11 @@ workflows:
               # update the value of PPS_BUCKETS above
               - ADMIN
               - AUTH
+              - ENTERPRISE
               - PFS
               - PPS1
               - PPS2
               - PPS3
+              - PPS4
               - EXAMPLES
               - OBJECT

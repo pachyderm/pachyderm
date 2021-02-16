@@ -221,7 +221,7 @@ clean-launch: check-kubectl install
 	yes | $(GOBIN)/pachctl undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | $(GOBIN)pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -242,7 +242,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -335,6 +335,8 @@ test-auth:
 test-identity:
 	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
 
+test-license:
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)

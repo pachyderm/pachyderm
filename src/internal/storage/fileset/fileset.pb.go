@@ -24,13 +24,13 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Metadata struct {
-	Path                 string       `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Additive             *index.Index `protobuf:"bytes,2,opt,name=additive,proto3" json:"additive,omitempty"`
-	Deletive             *index.Index `protobuf:"bytes,3,opt,name=deletive,proto3" json:"deletive,omitempty"`
-	SizeBytes            int64        `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	// Types that are valid to be assigned to Value:
+	//	*Metadata_Primitive
+	//	*Metadata_Composite
+	Value                isMetadata_Value `protobuf_oneof:"value"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
 func (m *Metadata) Reset()         { *m = Metadata{} }
@@ -66,28 +66,155 @@ func (m *Metadata) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Metadata proto.InternalMessageInfo
 
-func (m *Metadata) GetPath() string {
-	if m != nil {
-		return m.Path
-	}
-	return ""
+type isMetadata_Value interface {
+	isMetadata_Value()
+	MarshalTo([]byte) (int, error)
+	Size() int
 }
 
-func (m *Metadata) GetAdditive() *index.Index {
+type Metadata_Primitive struct {
+	Primitive *Primitive `protobuf:"bytes,1,opt,name=primitive,proto3,oneof" json:"primitive,omitempty"`
+}
+type Metadata_Composite struct {
+	Composite *Composite `protobuf:"bytes,2,opt,name=composite,proto3,oneof" json:"composite,omitempty"`
+}
+
+func (*Metadata_Primitive) isMetadata_Value() {}
+func (*Metadata_Composite) isMetadata_Value() {}
+
+func (m *Metadata) GetValue() isMetadata_Value {
 	if m != nil {
-		return m.Additive
+		return m.Value
 	}
 	return nil
 }
 
-func (m *Metadata) GetDeletive() *index.Index {
+func (m *Metadata) GetPrimitive() *Primitive {
+	if x, ok := m.GetValue().(*Metadata_Primitive); ok {
+		return x.Primitive
+	}
+	return nil
+}
+
+func (m *Metadata) GetComposite() *Composite {
+	if x, ok := m.GetValue().(*Metadata_Composite); ok {
+		return x.Composite
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Metadata) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*Metadata_Primitive)(nil),
+		(*Metadata_Composite)(nil),
+	}
+}
+
+type Composite struct {
+	Layers               []string `protobuf:"bytes,1,rep,name=layers,proto3" json:"layers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Composite) Reset()         { *m = Composite{} }
+func (m *Composite) String() string { return proto.CompactTextString(m) }
+func (*Composite) ProtoMessage()    {}
+func (*Composite) Descriptor() ([]byte, []int) {
+	return fileDescriptor_22dc3e2e3017d669, []int{1}
+}
+func (m *Composite) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Composite) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Composite.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Composite) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Composite.Merge(m, src)
+}
+func (m *Composite) XXX_Size() int {
+	return m.Size()
+}
+func (m *Composite) XXX_DiscardUnknown() {
+	xxx_messageInfo_Composite.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Composite proto.InternalMessageInfo
+
+func (m *Composite) GetLayers() []string {
+	if m != nil {
+		return m.Layers
+	}
+	return nil
+}
+
+type Primitive struct {
+	Deletive             *index.Index `protobuf:"bytes,1,opt,name=deletive,proto3" json:"deletive,omitempty"`
+	Additive             *index.Index `protobuf:"bytes,2,opt,name=additive,proto3" json:"additive,omitempty"`
+	SizeBytes            int64        `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *Primitive) Reset()         { *m = Primitive{} }
+func (m *Primitive) String() string { return proto.CompactTextString(m) }
+func (*Primitive) ProtoMessage()    {}
+func (*Primitive) Descriptor() ([]byte, []int) {
+	return fileDescriptor_22dc3e2e3017d669, []int{2}
+}
+func (m *Primitive) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Primitive) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Primitive.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Primitive) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Primitive.Merge(m, src)
+}
+func (m *Primitive) XXX_Size() int {
+	return m.Size()
+}
+func (m *Primitive) XXX_DiscardUnknown() {
+	xxx_messageInfo_Primitive.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Primitive proto.InternalMessageInfo
+
+func (m *Primitive) GetDeletive() *index.Index {
 	if m != nil {
 		return m.Deletive
 	}
 	return nil
 }
 
-func (m *Metadata) GetSizeBytes() int64 {
+func (m *Primitive) GetAdditive() *index.Index {
+	if m != nil {
+		return m.Additive
+	}
+	return nil
+}
+
+func (m *Primitive) GetSizeBytes() int64 {
 	if m != nil {
 		return m.SizeBytes
 	}
@@ -96,6 +223,8 @@ func (m *Metadata) GetSizeBytes() int64 {
 
 func init() {
 	proto.RegisterType((*Metadata)(nil), "fileset.Metadata")
+	proto.RegisterType((*Composite)(nil), "fileset.Composite")
+	proto.RegisterType((*Primitive)(nil), "fileset.Primitive")
 }
 
 func init() {
@@ -103,22 +232,26 @@ func init() {
 }
 
 var fileDescriptor_22dc3e2e3017d669 = []byte{
-	// 225 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0xcb, 0xcc, 0x2b, 0x49,
-	0x2d, 0xca, 0x4b, 0xcc, 0xd1, 0x2f, 0x2e, 0xc9, 0x2f, 0x4a, 0x4c, 0x4f, 0xd5, 0x4f, 0xcb, 0xcc,
-	0x49, 0x2d, 0x4e, 0x2d, 0x81, 0xd1, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9, 0x42, 0xec, 0x50, 0xae,
-	0x94, 0x16, 0x4e, 0x0d, 0x99, 0x79, 0x29, 0xa9, 0x15, 0x10, 0x12, 0xa2, 0x49, 0x69, 0x22, 0x23,
-	0x17, 0x87, 0x6f, 0x6a, 0x49, 0x62, 0x4a, 0x62, 0x49, 0xa2, 0x90, 0x10, 0x17, 0x4b, 0x41, 0x62,
-	0x49, 0x86, 0x04, 0xa3, 0x02, 0xa3, 0x06, 0x67, 0x10, 0x98, 0x2d, 0xa4, 0xc1, 0xc5, 0x91, 0x98,
-	0x92, 0x92, 0x59, 0x92, 0x59, 0x96, 0x2a, 0xc1, 0xa4, 0xc0, 0xa8, 0xc1, 0x6d, 0xc4, 0xa3, 0x07,
-	0x31, 0xc0, 0x13, 0x44, 0x06, 0xc1, 0x65, 0x41, 0x2a, 0x53, 0x52, 0x73, 0x52, 0xc1, 0x2a, 0x99,
-	0xb1, 0xa9, 0x84, 0xc9, 0x0a, 0xc9, 0x72, 0x71, 0x15, 0x67, 0x56, 0xa5, 0xc6, 0x27, 0x55, 0x96,
-	0xa4, 0x16, 0x4b, 0xb0, 0x28, 0x30, 0x6a, 0x30, 0x07, 0x71, 0x82, 0x44, 0x9c, 0x40, 0x02, 0x4e,
-	0x3e, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0x63, 0x94, 0x5d,
-	0x7a, 0x66, 0x49, 0x46, 0x69, 0x92, 0x5e, 0x72, 0x7e, 0xae, 0x7e, 0x41, 0x62, 0x72, 0x46, 0x65,
-	0x4a, 0x6a, 0x11, 0x32, 0xab, 0xcc, 0x48, 0xbf, 0xb8, 0x28, 0x59, 0x1f, 0x97, 0x9f, 0x93, 0xd8,
-	0xc0, 0x1e, 0x35, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xd3, 0xd8, 0x87, 0x6c, 0x47, 0x01, 0x00,
-	0x00,
+	// 290 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0xc1, 0x4a, 0xf4, 0x30,
+	0x10, 0xc7, 0xbf, 0x6c, 0xf9, 0x76, 0xb7, 0xd1, 0x53, 0x0e, 0x52, 0x04, 0x4b, 0xa9, 0x20, 0xc5,
+	0x43, 0x0b, 0xf5, 0xee, 0xa1, 0x5e, 0x14, 0x14, 0xa4, 0x47, 0x2f, 0x92, 0x36, 0xe3, 0x6e, 0xa0,
+	0x6d, 0x4a, 0x92, 0x2d, 0x56, 0xc1, 0xe7, 0xf3, 0xe8, 0x23, 0x48, 0x9f, 0x44, 0x62, 0x37, 0x75,
+	0x11, 0xf7, 0x32, 0xc9, 0xcc, 0xff, 0xff, 0x63, 0x32, 0x19, 0x7c, 0xc6, 0x1b, 0x0d, 0xb2, 0xa1,
+	0x55, 0xa2, 0xb4, 0x90, 0x74, 0x05, 0xc9, 0x13, 0xaf, 0x40, 0x81, 0xb6, 0x67, 0xdc, 0x4a, 0xa1,
+	0x05, 0x59, 0x6c, 0xd3, 0xe3, 0xf3, 0xbd, 0x00, 0x6f, 0x18, 0x3c, 0x8f, 0x71, 0x84, 0xc2, 0x57,
+	0xbc, 0xbc, 0x03, 0x4d, 0x19, 0xd5, 0x94, 0xa4, 0xd8, 0x6d, 0x25, 0xaf, 0xb9, 0xe6, 0x1d, 0x78,
+	0x28, 0x40, 0xd1, 0x41, 0x4a, 0x62, 0xdb, 0xe3, 0xde, 0x2a, 0xd7, 0xff, 0xf2, 0x1f, 0x9b, 0x61,
+	0x4a, 0x51, 0xb7, 0x42, 0x71, 0x0d, 0xde, 0xec, 0x17, 0x73, 0x65, 0x15, 0xc3, 0x4c, 0xb6, 0x6c,
+	0x81, 0xff, 0x77, 0xb4, 0xda, 0x40, 0x78, 0x8a, 0xdd, 0xc9, 0x42, 0x8e, 0xf0, 0xbc, 0xa2, 0x3d,
+	0x48, 0xe5, 0xa1, 0xc0, 0x89, 0xdc, 0x7c, 0x9b, 0x85, 0x6f, 0xd8, 0x9d, 0x7a, 0x93, 0x08, 0x2f,
+	0x19, 0x54, 0xb0, 0xf3, 0xc2, 0xc3, 0x78, 0x1c, 0xe7, 0xc6, 0xc4, 0x7c, 0x52, 0x8d, 0x93, 0x32,
+	0x36, 0xce, 0x32, 0xfb, 0xcb, 0x69, 0x55, 0x72, 0x82, 0xb1, 0xe2, 0x2f, 0xf0, 0x58, 0xf4, 0x1a,
+	0x94, 0xe7, 0x04, 0x28, 0x72, 0x72, 0xd7, 0x54, 0x32, 0x53, 0xc8, 0x6e, 0xdf, 0x07, 0x1f, 0x7d,
+	0x0c, 0x3e, 0xfa, 0x1c, 0x7c, 0xf4, 0x70, 0xb9, 0xe2, 0x7a, 0xbd, 0x29, 0xe2, 0x52, 0xd4, 0x49,
+	0x4b, 0xcb, 0x75, 0xcf, 0x40, 0xee, 0xde, 0xba, 0x34, 0x51, 0xb2, 0x4c, 0xf6, 0x6d, 0xa0, 0x98,
+	0x7f, 0x7f, 0xfb, 0xc5, 0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0x2c, 0x29, 0x4f, 0xa3, 0xd5, 0x01,
+	0x00, 0x00,
 }
 
 func (m *Metadata) Marshal() (dAtA []byte, err error) {
@@ -145,14 +278,28 @@ func (m *Metadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.SizeBytes != 0 {
-		i = encodeVarintFileset(dAtA, i, uint64(m.SizeBytes))
-		i--
-		dAtA[i] = 0x20
-	}
-	if m.Deletive != nil {
+	if m.Value != nil {
 		{
-			size, err := m.Deletive.MarshalToSizedBuffer(dAtA[:i])
+			size := m.Value.Size()
+			i -= size
+			if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Metadata_Primitive) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Metadata_Primitive) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Primitive != nil {
+		{
+			size, err := m.Primitive.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -160,7 +307,95 @@ func (m *Metadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintFileset(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x1a
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Metadata_Composite) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Metadata_Composite) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Composite != nil {
+		{
+			size, err := m.Composite.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFileset(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Composite) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Composite) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Composite) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Layers) > 0 {
+		for iNdEx := len(m.Layers) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Layers[iNdEx])
+			copy(dAtA[i:], m.Layers[iNdEx])
+			i = encodeVarintFileset(dAtA, i, uint64(len(m.Layers[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Primitive) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Primitive) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Primitive) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.SizeBytes != 0 {
+		i = encodeVarintFileset(dAtA, i, uint64(m.SizeBytes))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.Additive != nil {
 		{
@@ -174,10 +409,15 @@ func (m *Metadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x12
 	}
-	if len(m.Path) > 0 {
-		i -= len(m.Path)
-		copy(dAtA[i:], m.Path)
-		i = encodeVarintFileset(dAtA, i, uint64(len(m.Path)))
+	if m.Deletive != nil {
+		{
+			size, err := m.Deletive.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFileset(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0xa
 	}
@@ -201,16 +441,69 @@ func (m *Metadata) Size() (n int) {
 	}
 	var l int
 	_ = l
-	l = len(m.Path)
-	if l > 0 {
+	if m.Value != nil {
+		n += m.Value.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Metadata_Primitive) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Primitive != nil {
+		l = m.Primitive.Size()
+		n += 1 + l + sovFileset(uint64(l))
+	}
+	return n
+}
+func (m *Metadata_Composite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Composite != nil {
+		l = m.Composite.Size()
+		n += 1 + l + sovFileset(uint64(l))
+	}
+	return n
+}
+func (m *Composite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Layers) > 0 {
+		for _, s := range m.Layers {
+			l = len(s)
+			n += 1 + l + sovFileset(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Primitive) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Deletive != nil {
+		l = m.Deletive.Size()
 		n += 1 + l + sovFileset(uint64(l))
 	}
 	if m.Additive != nil {
 		l = m.Additive.Size()
-		n += 1 + l + sovFileset(uint64(l))
-	}
-	if m.Deletive != nil {
-		l = m.Deletive.Size()
 		n += 1 + l + sovFileset(uint64(l))
 	}
 	if m.SizeBytes != 0 {
@@ -259,7 +552,128 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Primitive", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFileset
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFileset
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFileset
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Primitive{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Value = &Metadata_Primitive{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Composite", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFileset
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFileset
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFileset
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Composite{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Value = &Metadata_Composite{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFileset(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthFileset
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Composite) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFileset
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Composite: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Composite: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Layers", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -287,7 +701,94 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Path = string(dAtA[iNdEx:postIndex])
+			m.Layers = append(m.Layers, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFileset(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthFileset
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Primitive) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFileset
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Primitive: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Primitive: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Deletive", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFileset
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFileset
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFileset
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Deletive == nil {
+				m.Deletive = &index.Index{}
+			}
+			if err := m.Deletive.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -326,42 +827,6 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Deletive", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFileset
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthFileset
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthFileset
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Deletive == nil {
-				m.Deletive = &index.Index{}
-			}
-			if err := m.Deletive.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
 			}

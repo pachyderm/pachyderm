@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
@@ -51,10 +50,6 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 		}
 
 		if err := os.MkdirAll(env.LocalStorageDirectory, 0777); err != nil {
-			return err
-		}
-		// TODO: this is global and complicates running tests in parallel
-		if err := os.Setenv(pfsserver.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
 
@@ -125,9 +120,9 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 			err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
-					func(ctx context.Context, subtask *work.Task) error {
+					func(ctx context.Context, subtask *work.Task) (*types.Any, error) {
 						status := &Status{}
-						return Worker(env.driver, env.logger, subtask, status)
+						return nil, Worker(env.driver, env.logger, subtask, status)
 					},
 				)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

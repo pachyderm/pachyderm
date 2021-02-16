@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -155,17 +154,4 @@ func getDataRefs(parts []*index.Part) []*chunk.DataRef {
 		dataRefs = append(dataRefs, part.DataRefs...)
 	}
 	return dataRefs
-}
-
-func createTrackerObject(ctx context.Context, p string, idxs []*index.Index, tracker track.Tracker, ttl time.Duration) error {
-	var pointsTo []string
-	for _, idx := range idxs {
-		for _, cid := range index.PointsTo(idx) {
-			pointsTo = append(pointsTo, chunk.ObjectID(cid))
-		}
-	}
-	if err := tracker.CreateObject(ctx, filesetObjectID(p), pointsTo, ttl); err != nil && err != track.ErrObjectExists {
-		return err
-	}
-	return nil
 }

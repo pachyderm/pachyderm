@@ -36,11 +36,8 @@ func (env *ServiceEnv) FileSetStorageOptions() []fileset.StorageOption {
 	if env.StorageShardThreshold > 0 {
 		opts = append(opts, fileset.WithShardThreshold(env.StorageShardThreshold))
 	}
-	if env.StorageLevelZeroSize > 0 {
-		opts = append(opts, fileset.WithLevelZeroSize(env.StorageLevelZeroSize))
-	}
-	if env.StorageLevelSizeBase > 0 {
-		opts = append(opts, fileset.WithLevelSizeBase(env.StorageLevelSizeBase))
+	if env.StorageLevelFactor > 0 {
+		opts = append(opts, fileset.WithLevelFactor(env.StorageLevelFactor))
 	}
 	return opts
 }

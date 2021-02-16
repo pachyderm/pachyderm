@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -62,9 +63,6 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// ObjectAPIClient is an alias for pfs.ObjectAPIClient
-type ObjectAPIClient pfs.ObjectAPIClient
-
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
@@ -87,7 +85,6 @@ type DebugClient debug.DebugClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	ObjectAPIClient
 	AuthAPIClient
 	IdentityAPIClient
 	VersionAPIClient
@@ -95,6 +92,7 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
+	License    license.APIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
@@ -618,6 +616,12 @@ func (c APIClient) DeleteAll() error {
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
@@ -700,10 +704,10 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.License = license.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)

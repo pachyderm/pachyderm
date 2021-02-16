@@ -25,7 +25,7 @@ import (
 func TestPrometheusStats(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, tu.ActivateEnterprise(t, c))
+	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -236,7 +236,7 @@ func TestPrometheusStats(t *testing.T) {
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, tu.ActivateEnterprise(t, c))
+	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))

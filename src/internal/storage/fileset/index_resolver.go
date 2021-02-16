@@ -22,7 +22,7 @@ type indexResolver struct {
 
 func (ir *indexResolver) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
 	iter := NewIterator(ctx, ir.fs)
-	w := ir.s.newWriter(ctx, "", WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
+	w := ir.s.newWriter(ctx, WithNoUpload(), WithIndexCallback(func(idx *index.Index) error {
 		f, err := iter.Next()
 		if err != nil {
 			return err
@@ -35,5 +35,6 @@ func (ir *indexResolver) Iterate(ctx context.Context, cb func(File) error, _ ...
 	if err := CopyFiles(ctx, w, ir.fs); err != nil {
 		return err
 	}
-	return w.Close()
+	_, err := w.Close() // don't use the id from this, it will be nil because of WithNoUpload()
+	return err
 }

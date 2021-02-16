@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -13,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	oidc "github.com/coreos/go-oidc"
@@ -41,26 +40,6 @@ type IDTokenClaims struct {
 
 func scopes(additionalScopes []string) []string {
 	return append([]string{oidc.ScopeOpenID, "profile", "email"}, additionalScopes...)
-}
-
-// CryptoString returns a cryptographically random, URL safe string with length
-// at least n
-//
-// TODO(msteffen): move away from UUIDv4 towards this (current implementation of
-// UUIDv4 produces UUIDs via CSPRNG, but the UUIDv4 spec doesn't guarantee that
-// behavior, and we shouldn't assume it going forward)
-func CryptoString(n int) string {
-	var numBytes int
-	for n >= base64.RawURLEncoding.EncodedLen(numBytes) {
-		numBytes++
-	}
-	b := make([]byte, numBytes)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic("could not generate cryptographically secure random string!")
-	}
-
-	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // validateOIDC validates an OIDC configuration before it's stored in etcd.
@@ -143,8 +122,8 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		return "", "", err
 	}
 
-	state := CryptoString(30)
-	nonce := CryptoString(30)
+	state := random.String(30)
+	nonce := random.String(30)
 	conf := oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
@@ -340,7 +319,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 	}
 
 	if !claims.EmailVerified && !config.IgnoreEmailVerified {
-		return nil, nil, errors.Wrapf(err, "email_verified claim was false")
+		return nil, nil, errors.New("email_verified claim was false, and ignore_email_verified was not set")
 	}
 	return idToken, &claims, nil
 }

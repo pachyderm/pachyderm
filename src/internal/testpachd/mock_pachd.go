@@ -339,16 +339,19 @@ type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (
 type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
 type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
+type heartbeatEnterpriseFunc func(context.Context, *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
 type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
+type mockHeartbeatEnterprise struct{ handler heartbeatEnterpriseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
 func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
+func (mock *mockHeartbeatEnterprise) Use(cb heartbeatEnterpriseFunc)   { mock.handler = cb }
 
 type enterpriseServerAPI struct {
 	mock *mockEnterpriseServer
@@ -360,6 +363,7 @@ type mockEnterpriseServer struct {
 	GetState          mockGetState
 	GetActivationCode mockGetActivationCode
 	Deactivate        mockDeactivateEnterprise
+	Heartbeat         mockHeartbeatEnterprise
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -386,6 +390,12 @@ func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.
 	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Deactivate")
 }
+func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Heartbeat.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Heartbeat")
+}
 
 /* PFS Server Mocks */
 
@@ -397,7 +407,7 @@ type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
-type deleteCommitFunc func(context.Context, *pfs.DeleteCommitRequest) (*types.Empty, error)
+type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*types.Empty, error)
 type flushCommitFunc func(*pfs.FlushCommitRequest, pfs.API_FlushCommitServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
@@ -416,6 +426,8 @@ type diffFileFunc func(*pfs.DiffFileRequest, pfs.API_DiffFileServer) error
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type createFilesetFunc func(pfs.API_CreateFilesetServer) error
+type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty, error)
+type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
 
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -426,7 +438,7 @@ type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
-type mockDeleteCommit struct{ handler deleteCommitFunc }
+type mockSquashCommit struct{ handler squashCommitFunc }
 type mockFlushCommit struct{ handler flushCommitFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
@@ -445,6 +457,8 @@ type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
 type mockCreateFileset struct{ handler createFilesetFunc }
+type mockAddFileset struct{ handler addFilesetFunc }
+type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
@@ -455,7 +469,7 @@ func (mock *mockStartCommit) Use(cb startCommitFunc)         { mock.handler = cb
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)       { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)     { mock.handler = cb }
 func (mock *mockListCommit) Use(cb listCommitFunc)           { mock.handler = cb }
-func (mock *mockDeleteCommit) Use(cb deleteCommitFunc)       { mock.handler = cb }
+func (mock *mockSquashCommit) Use(cb squashCommitFunc)       { mock.handler = cb }
 func (mock *mockFlushCommit) Use(cb flushCommitFunc)         { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc) { mock.handler = cb }
 func (mock *mockClearCommit) Use(cb clearCommitFunc)         { mock.handler = cb }
@@ -474,6 +488,8 @@ func (mock *mockDiffFile) Use(cb diffFileFunc)               { mock.handler = cb
 func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)       { mock.handler = cb }
 func (mock *mockFsck) Use(cb fsckFunc)                       { mock.handler = cb }
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)     { mock.handler = cb }
+func (mock *mockAddFileset) Use(cb addFilesetFunc)           { mock.handler = cb }
+func (mock *mockGetFileset) Use(cb getFilesetFunc)           { mock.handler = cb }
 func (mock *mockRenewFileset) Use(cb renewFilesetFunc)       { mock.handler = cb }
 
 type pfsServerAPI struct {
@@ -490,7 +506,7 @@ type mockPFSServer struct {
 	FinishCommit    mockFinishCommit
 	InspectCommit   mockInspectCommit
 	ListCommit      mockListCommit
-	DeleteCommit    mockDeleteCommit
+	SquashCommit    mockSquashCommit
 	FlushCommit     mockFlushCommit
 	SubscribeCommit mockSubscribeCommit
 	ClearCommit     mockClearCommit
@@ -509,6 +525,8 @@ type mockPFSServer struct {
 	DeleteAll       mockDeleteAllPFS
 	Fsck            mockFsck
 	CreateFileset   mockCreateFileset
+	AddFileset      mockAddFileset
+	GetFileset      mockGetFileset
 	RenewFileset    mockRenewFileset
 }
 
@@ -560,11 +578,11 @@ func (api *pfsServerAPI) ListCommit(req *pfs.ListCommitRequest, serv pfs.API_Lis
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListCommit")
 }
-func (api *pfsServerAPI) DeleteCommit(ctx context.Context, req *pfs.DeleteCommitRequest) (*types.Empty, error) {
-	if api.mock.DeleteCommit.handler != nil {
-		return api.mock.DeleteCommit.handler(ctx, req)
+func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest) (*types.Empty, error) {
+	if api.mock.SquashCommit.handler != nil {
+		return api.mock.SquashCommit.handler(ctx, req)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
 }
 func (api *pfsServerAPI) FlushCommit(req *pfs.FlushCommitRequest, serv pfs.API_FlushCommitServer) error {
 	if api.mock.FlushCommit.handler != nil {
@@ -673,6 +691,18 @@ func (api *pfsServerAPI) CreateFileset(srv pfs.API_CreateFilesetServer) error {
 		return api.mock.CreateFileset.handler(srv)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.CreateFileset")
+}
+func (api *pfsServerAPI) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest) (*types.Empty, error) {
+	if api.mock.AddFileset.handler != nil {
+		return api.mock.AddFileset.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
+}
+func (api *pfsServerAPI) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error) {
+	if api.mock.AddFileset.handler != nil {
+		return api.mock.GetFileset.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.AddFileset")
 }
 func (api *pfsServerAPI) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest) (*types.Empty, error) {
 	if api.mock.RenewFileset.handler != nil {
@@ -1053,250 +1083,6 @@ func (api *versionServerAPI) GetVersion(ctx context.Context, req *types.Empty) (
 	return nil, errors.Errorf("unhandled pachd mock version.GetVersion")
 }
 
-/* Object Server Mocks */
-
-type putObjectFunc func(pfs.ObjectAPI_PutObjectServer) error
-type putObjectSplitFunc func(pfs.ObjectAPI_PutObjectSplitServer) error
-type putObjectsFunc func(pfs.ObjectAPI_PutObjectsServer) error
-type createObjectFunc func(context.Context, *pfs.CreateObjectRequest) (*types.Empty, error)
-type getObjectFunc func(*pfs.Object, pfs.ObjectAPI_GetObjectServer) error
-type getObjectsFunc func(*pfs.GetObjectsRequest, pfs.ObjectAPI_GetObjectsServer) error
-type putBlockFunc func(pfs.ObjectAPI_PutBlockServer) error
-type getBlockFunc func(*pfs.GetBlockRequest, pfs.ObjectAPI_GetBlockServer) error
-type getBlocksFunc func(*pfs.GetBlocksRequest, pfs.ObjectAPI_GetBlocksServer) error
-type listBlockFunc func(*pfs.ListBlockRequest, pfs.ObjectAPI_ListBlockServer) error
-type tagObjectFunc func(context.Context, *pfs.TagObjectRequest) (*types.Empty, error)
-type inspectObjectFunc func(context.Context, *pfs.Object) (*pfs.ObjectInfo, error)
-type checkObjectFunc func(context.Context, *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error)
-type listObjectsFunc func(*pfs.ListObjectsRequest, pfs.ObjectAPI_ListObjectsServer) error
-type deleteObjectsFunc func(context.Context, *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error)
-type getTagFunc func(*pfs.Tag, pfs.ObjectAPI_GetTagServer) error
-type inspectTagFunc func(context.Context, *pfs.Tag) (*pfs.ObjectInfo, error)
-type listTagsFunc func(*pfs.ListTagsRequest, pfs.ObjectAPI_ListTagsServer) error
-type deleteTagsFunc func(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error)
-type compactFunc func(context.Context, *types.Empty) (*types.Empty, error)
-type putObjDirectFunc func(pfs.ObjectAPI_PutObjDirectServer) error
-type getObjDirectFunc func(*pfs.GetObjDirectRequest, pfs.ObjectAPI_GetObjDirectServer) error
-type deleteObjDirectFunc func(context.Context, *pfs.DeleteObjDirectRequest) (*types.Empty, error)
-
-type mockPutObject struct{ handler putObjectFunc }
-type mockPutObjectSplit struct{ handler putObjectSplitFunc }
-type mockPutObjects struct{ handler putObjectsFunc }
-type mockCreateObject struct{ handler createObjectFunc }
-type mockGetObject struct{ handler getObjectFunc }
-type mockGetObjects struct{ handler getObjectsFunc }
-type mockPutBlock struct{ handler putBlockFunc }
-type mockGetBlock struct{ handler getBlockFunc }
-type mockGetBlocks struct{ handler getBlocksFunc }
-type mockListBlock struct{ handler listBlockFunc }
-type mockTagObject struct{ handler tagObjectFunc }
-type mockInspectObject struct{ handler inspectObjectFunc }
-type mockCheckObject struct{ handler checkObjectFunc }
-type mockListObjects struct{ handler listObjectsFunc }
-type mockDeleteObjects struct{ handler deleteObjectsFunc }
-type mockGetTag struct{ handler getTagFunc }
-type mockInspectTag struct{ handler inspectTagFunc }
-type mockListTags struct{ handler listTagsFunc }
-type mockDeleteTags struct{ handler deleteTagsFunc }
-type mockCompact struct{ handler compactFunc }
-type mockPutObjDirect struct{ handler putObjDirectFunc }
-type mockGetObjDirect struct{ handler getObjDirectFunc }
-type mockDeleteObjDirect struct{ handler deleteObjDirectFunc }
-
-func (mock *mockPutObject) Use(cb putObjectFunc)             { mock.handler = cb }
-func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc)   { mock.handler = cb }
-func (mock *mockPutObjects) Use(cb putObjectsFunc)           { mock.handler = cb }
-func (mock *mockCreateObject) Use(cb createObjectFunc)       { mock.handler = cb }
-func (mock *mockGetObject) Use(cb getObjectFunc)             { mock.handler = cb }
-func (mock *mockGetObjects) Use(cb getObjectsFunc)           { mock.handler = cb }
-func (mock *mockPutBlock) Use(cb putBlockFunc)               { mock.handler = cb }
-func (mock *mockGetBlock) Use(cb getBlockFunc)               { mock.handler = cb }
-func (mock *mockGetBlocks) Use(cb getBlocksFunc)             { mock.handler = cb }
-func (mock *mockListBlock) Use(cb listBlockFunc)             { mock.handler = cb }
-func (mock *mockTagObject) Use(cb tagObjectFunc)             { mock.handler = cb }
-func (mock *mockInspectObject) Use(cb inspectObjectFunc)     { mock.handler = cb }
-func (mock *mockCheckObject) Use(cb checkObjectFunc)         { mock.handler = cb }
-func (mock *mockListObjects) Use(cb listObjectsFunc)         { mock.handler = cb }
-func (mock *mockDeleteObjects) Use(cb deleteObjectsFunc)     { mock.handler = cb }
-func (mock *mockGetTag) Use(cb getTagFunc)                   { mock.handler = cb }
-func (mock *mockInspectTag) Use(cb inspectTagFunc)           { mock.handler = cb }
-func (mock *mockListTags) Use(cb listTagsFunc)               { mock.handler = cb }
-func (mock *mockDeleteTags) Use(cb deleteTagsFunc)           { mock.handler = cb }
-func (mock *mockCompact) Use(cb compactFunc)                 { mock.handler = cb }
-func (mock *mockPutObjDirect) Use(cb putObjDirectFunc)       { mock.handler = cb }
-func (mock *mockGetObjDirect) Use(cb getObjDirectFunc)       { mock.handler = cb }
-func (mock *mockDeleteObjDirect) Use(cb deleteObjDirectFunc) { mock.handler = cb }
-
-type objectServerAPI struct {
-	mock *mockObjectServer
-}
-
-type mockObjectServer struct {
-	api             objectServerAPI
-	PutObject       mockPutObject
-	PutObjectSplit  mockPutObjectSplit
-	PutObjects      mockPutObjects
-	CreateObject    mockCreateObject
-	GetObject       mockGetObject
-	GetObjects      mockGetObjects
-	PutBlock        mockPutBlock
-	GetBlock        mockGetBlock
-	GetBlocks       mockGetBlocks
-	ListBlock       mockListBlock
-	TagObject       mockTagObject
-	InspectObject   mockInspectObject
-	CheckObject     mockCheckObject
-	ListObjects     mockListObjects
-	DeleteObjects   mockDeleteObjects
-	GetTag          mockGetTag
-	InspectTag      mockInspectTag
-	ListTags        mockListTags
-	DeleteTags      mockDeleteTags
-	Compact         mockCompact
-	PutObjDirect    mockPutObjDirect
-	GetObjDirect    mockGetObjDirect
-	DeleteObjDirect mockDeleteObjDirect
-}
-
-func (api *objectServerAPI) PutObject(serv pfs.ObjectAPI_PutObjectServer) error {
-	if api.mock.PutObject.handler != nil {
-		return api.mock.PutObject.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.PutObject")
-}
-func (api *objectServerAPI) PutObjectSplit(serv pfs.ObjectAPI_PutObjectSplitServer) error {
-	if api.mock.PutObjectSplit.handler != nil {
-		return api.mock.PutObjectSplit.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.PutObjectSplit")
-}
-func (api *objectServerAPI) PutObjects(serv pfs.ObjectAPI_PutObjectsServer) error {
-	if api.mock.PutObjects.handler != nil {
-		return api.mock.PutObjects.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.PutObjects")
-}
-func (api *objectServerAPI) CreateObject(ctx context.Context, serv *pfs.CreateObjectRequest) (*types.Empty, error) {
-	if api.mock.CreateObject.handler != nil {
-		return api.mock.CreateObject.handler(ctx, serv)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.CreateObject")
-}
-func (api *objectServerAPI) GetObject(req *pfs.Object, serv pfs.ObjectAPI_GetObjectServer) error {
-	if api.mock.GetObject.handler != nil {
-		return api.mock.GetObject.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetObject")
-}
-func (api *objectServerAPI) GetObjects(req *pfs.GetObjectsRequest, serv pfs.ObjectAPI_GetObjectsServer) error {
-	if api.mock.GetObjects.handler != nil {
-		return api.mock.GetObjects.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetObjects")
-}
-func (api *objectServerAPI) PutBlock(serv pfs.ObjectAPI_PutBlockServer) error {
-	if api.mock.PutBlock.handler != nil {
-		return api.mock.PutBlock.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.PutBlock")
-}
-func (api *objectServerAPI) GetBlock(req *pfs.GetBlockRequest, serv pfs.ObjectAPI_GetBlockServer) error {
-	if api.mock.GetBlock.handler != nil {
-		return api.mock.GetBlock.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetBlock")
-}
-func (api *objectServerAPI) GetBlocks(req *pfs.GetBlocksRequest, serv pfs.ObjectAPI_GetBlocksServer) error {
-	if api.mock.GetBlocks.handler != nil {
-		return api.mock.GetBlocks.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetBlocks")
-}
-func (api *objectServerAPI) ListBlock(req *pfs.ListBlockRequest, serv pfs.ObjectAPI_ListBlockServer) error {
-	if api.mock.ListBlock.handler != nil {
-		return api.mock.ListBlock.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.ListBlock")
-}
-func (api *objectServerAPI) TagObject(ctx context.Context, req *pfs.TagObjectRequest) (*types.Empty, error) {
-	if api.mock.TagObject.handler != nil {
-		return api.mock.TagObject.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.TagObject")
-}
-func (api *objectServerAPI) InspectObject(ctx context.Context, req *pfs.Object) (*pfs.ObjectInfo, error) {
-	if api.mock.InspectObject.handler != nil {
-		return api.mock.InspectObject.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.InspectObject")
-}
-func (api *objectServerAPI) CheckObject(ctx context.Context, req *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error) {
-	if api.mock.CheckObject.handler != nil {
-		return api.mock.CheckObject.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.CheckObject")
-}
-func (api *objectServerAPI) ListObjects(req *pfs.ListObjectsRequest, serv pfs.ObjectAPI_ListObjectsServer) error {
-	if api.mock.ListObjects.handler != nil {
-		return api.mock.ListObjects.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.ListObjects")
-}
-func (api *objectServerAPI) DeleteObjects(ctx context.Context, req *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error) {
-	if api.mock.DeleteObjects.handler != nil {
-		return api.mock.DeleteObjects.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.DeleteObjects")
-}
-func (api *objectServerAPI) GetTag(req *pfs.Tag, serv pfs.ObjectAPI_GetTagServer) error {
-	if api.mock.GetTag.handler != nil {
-		return api.mock.GetTag.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetTag")
-}
-func (api *objectServerAPI) InspectTag(ctx context.Context, req *pfs.Tag) (*pfs.ObjectInfo, error) {
-	if api.mock.InspectTag.handler != nil {
-		return api.mock.InspectTag.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.InspectTag")
-}
-func (api *objectServerAPI) ListTags(req *pfs.ListTagsRequest, serv pfs.ObjectAPI_ListTagsServer) error {
-	if api.mock.ListTags.handler != nil {
-		return api.mock.ListTags.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.ListTags")
-}
-func (api *objectServerAPI) DeleteTags(ctx context.Context, req *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error) {
-	if api.mock.DeleteTags.handler != nil {
-		return api.mock.DeleteTags.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.DeleteTags")
-}
-func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*types.Empty, error) {
-	if api.mock.Compact.handler != nil {
-		return api.mock.Compact.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.Compact")
-}
-func (api *objectServerAPI) PutObjDirect(serv pfs.ObjectAPI_PutObjDirectServer) error {
-	if api.mock.PutObjDirect.handler != nil {
-		return api.mock.PutObjDirect.handler(serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.PutObjDirect")
-}
-func (api *objectServerAPI) GetObjDirect(req *pfs.GetObjDirectRequest, serv pfs.ObjectAPI_GetObjDirectServer) error {
-	if api.mock.GetObjDirect.handler != nil {
-		return api.mock.GetObjDirect.handler(req, serv)
-	}
-	return errors.Errorf("unhandled pachd mock object.GetObjDirect")
-}
-func (api *objectServerAPI) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest) (*types.Empty, error) {
-	if api.mock.DeleteObjDirect.handler != nil {
-		return api.mock.DeleteObjDirect.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock object.GetObjDirect")
-}
-
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -1307,7 +1093,6 @@ type MockPachd struct {
 
 	Addr net.Addr
 
-	Object      mockObjectServer
 	PFS         mockPFSServer
 	PPS         mockPPSServer
 	Auth        mockAuthServer
@@ -1327,7 +1112,6 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 
 	ctx, mock.cancel = context.WithCancel(ctx)
 
-	mock.Object.api.mock = &mock.Object
 	mock.PFS.api.mock = &mock.PFS
 	mock.PPS.api.mock = &mock.PPS
 	mock.Auth.api.mock = &mock.Auth
@@ -1344,7 +1128,6 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	admin.RegisterAPIServer(server.Server, &mock.Admin.api)
 	auth.RegisterAPIServer(server.Server, &mock.Auth.api)
 	enterprise.RegisterAPIServer(server.Server, &mock.Enterprise.api)
-	pfs.RegisterObjectAPIServer(server.Server, &mock.Object.api)
 	pfs.RegisterAPIServer(server.Server, &mock.PFS.api)
 	pps.RegisterAPIServer(server.Server, &mock.PPS.api)
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)

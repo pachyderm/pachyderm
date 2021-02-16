@@ -24,7 +24,7 @@ type PfsWrites interface {
 
 	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
-	DeleteCommit(*pfs.DeleteCommitRequest) error
+	SquashCommit(*pfs.SquashCommitRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -160,7 +160,7 @@ type PfsTransactionServer interface {
 
 	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
-	DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error
+	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
@@ -249,9 +249,9 @@ func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.FinishCommitInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) DeleteCommit(original *pfs.DeleteCommitRequest) error {
-	req := proto.Clone(original).(*pfs.DeleteCommitRequest)
-	return t.txnCtx.txnEnv.pfsServer.DeleteCommitInTransaction(t.txnCtx, req)
+func (t *directTransaction) SquashCommit(original *pfs.SquashCommitRequest) error {
+	req := proto.Clone(original).(*pfs.SquashCommitRequest)
+	return t.txnCtx.txnEnv.pfsServer.SquashCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
@@ -321,8 +321,8 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	return err
 }
 
-func (t *appendTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteCommit: req})
+func (t *appendTransaction) SquashCommit(req *pfs.SquashCommitRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommit: req})
 	return err
 }
 

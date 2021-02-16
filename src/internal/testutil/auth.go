@@ -23,8 +23,9 @@ const (
 func ActivateAuth(tb testing.TB) {
 	tb.Helper()
 	client := GetPachClient(tb)
+	client.SetAuthToken(RootToken)
 
-	require.NoError(tb, ActivateEnterprise(tb, client))
+	ActivateEnterprise(tb, client)
 
 	_, err := client.Activate(client.Ctx(),
 		&auth.ActivateRequest{RootToken: RootToken},

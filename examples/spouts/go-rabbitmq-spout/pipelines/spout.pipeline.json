@@ -10,7 +10,7 @@
             "-topic",     "test-topic",
             "-overwrite", "true"
         ],
-        "image": "seerai/pachyderm-rabbitmq-spout:0.0.2",
+        "image": "pachyderm/example-rabbitmq-spout:1.12.2",
         "env": {
             "PREFETCH": "2000",
             "FLUSH_INTERVAL_MS": "10000",
