@@ -1,4 +1,4 @@
-const path = require('path');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
 const baseConfig = require('../webpack.config.js');
 
@@ -24,6 +24,8 @@ module.exports = {
       test: /\.svg$/,
       use: ["@svgr/webpack", "url-loader"],
     });
+
+    config.resolve.plugins.push(new TsconfigPathsPlugin());
 
     return config;
   },
