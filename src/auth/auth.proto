@@ -204,7 +204,8 @@ message ModifyRoleBindingRequest {
   // principal is the principal to modify the roles binding for
   string principal = 2;
 
-  // roles is the set of roles for principal 
+  // roles is the set of roles for principal - an empty list
+  // removes all role bindings
   repeated string roles = 3;
 }
 
