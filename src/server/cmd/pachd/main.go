@@ -11,6 +11,7 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
+	catalogclient "github.com/pachyderm/pachyderm/v2/src/catalog"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/v2/src/health"
@@ -35,6 +36,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	catalogserver "github.com/pachyderm/pachyderm/v2/src/server/catalog/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
@@ -232,6 +234,16 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env.PachdPodName,
 			nil,
 		))
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Catalog", func() error {
+		catalogAPIServer, err := catalogserver.NewCatalogServer(env)
+		if err != nil {
+			return err
+		}
+		catalogclient.RegisterAPIServer(server.Server, catalogAPIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -469,6 +481,16 @@ func doFullMode(config interface{}) (retErr error) {
 				env.PachdPodName,
 				nil,
 			))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Catalog", func() error {
+			catalogAPIServer, err := catalogserver.NewCatalogServer(env)
+			if err != nil {
+				return err
+			}
+			catalogclient.RegisterAPIServer(externalServer.Server, catalogAPIServer)
 			return nil
 		}); err != nil {
 			return err
