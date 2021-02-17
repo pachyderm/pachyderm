@@ -736,7 +736,6 @@ func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
 	}
 	_, err = io.Copy(ioutil.Discard, grpcutil.NewStreamingBytesReader(client, nil))
 	return err
-
 }
 
 // InspectFile returns info about a specific file.

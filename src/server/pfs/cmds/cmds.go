@@ -975,6 +975,9 @@ $ {{alias}} foo@master^2:XXX`,
 			if outputPath == "" {
 				w = os.Stdout
 			} else {
+				if url, err := url.Parse(outputPath); err == nil && url.Scheme != "" {
+					return c.GetFileURL(file.Commit.Repo.Name, file.Commit.ID, file.Path, url.String())
+				}
 				fi, err := c.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				if err != nil {
 					return err
