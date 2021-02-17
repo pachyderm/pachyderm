@@ -1926,6 +1926,8 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 // anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
 // any other test
 func TestPipelineFailingWithOpenCommit(t *testing.T) {
+	// TODO: Reenable when finishing job state is transactional.
+	t.Skip("Job state does not get finished in a transaction, so stats commit is left open")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
