@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
@@ -45,20 +46,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
-	var commitInfos []*pfs.CommitInfo
-	for {
-		commitInfo, err := commitInfoIter.Next()
-		if errors.Is(err, io.EOF) {
-			if len(commitInfos) > 0 {
-				sort.Slice(commitInfos, func(i, j int) bool {
-					return len(commitInfos[i].Provenance) < len(commitInfos[j].Provenance)
-				})
-			}
-			return commitInfos
+func newCountBreakFunc(maxCount int) func(func() error) error {
+	var count int
+	return func(cb func() error) error {
+		if err := cb(); err != nil {
+			return err
 		}
-		require.NoError(t, err)
-		commitInfos = append(commitInfos, commitInfo)
+		count++
+		if count == maxCount {
+			return errutil.ErrBreak
+		}
+		return nil
 	}
 }
 
@@ -94,9 +92,8 @@ func TestSimplePipeline(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -146,9 +143,8 @@ func TestRepoSize(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	// wait for everything to be processed
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// check data repo size
@@ -203,9 +199,8 @@ func TestPFSPipeline(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -248,9 +243,8 @@ func TestPipelineWithParallelism(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	for i := 0; i < numFiles; i++ {
@@ -298,9 +292,8 @@ func TestPipelineWithParallelism(t *testing.T) {
 //		"",
 //		false,
 //	))
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	commit := commitInfos[0].Commit
@@ -353,9 +346,8 @@ func TestDatumDedup(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	commit2, err := c.StartCommit(dataRepo, "master")
@@ -406,9 +398,8 @@ func TestPipelineInputDataModification(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -422,9 +413,8 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit2}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	buf.Reset()
@@ -438,9 +428,8 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit3.ID, "file2", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// TODO: File not found?
@@ -490,9 +479,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -504,9 +492,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit2.ID, "dirA/file", strings.NewReader("bar\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit2}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	buf.Reset()
@@ -518,9 +505,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit3.ID, "dirB/file", strings.NewReader("buzz\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	buf.Reset()
@@ -576,12 +562,11 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
 	c.FinishCommit(dataRepo, commitB.ID)
 
-	iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commitA, commitB}, nil)
 	require.NoError(t, err)
-	commits := collectCommitInfos(t, iter)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
-	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
 
@@ -633,7 +618,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
 //		require.NoError(t, err)
-//		commits := collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //		buffer := bytes.Buffer{}
 //		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
@@ -690,7 +674,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		// and make sure the output file is updated appropriately
 //		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB2}, nil)
 //		require.NoError(t, err)
-//		commits = collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //		buffer = bytes.Buffer{}
 //		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
@@ -705,7 +688,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		// and ensure that the file now has the info from the correct versions of the commits
 //		iter, err = c.FlushCommit([]*pfs.Commit{commitA, commitB2}, nil)
 //		require.NoError(t, err)
-//		commits = collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //		buffer = bytes.Buffer{}
 //		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
@@ -714,7 +696,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //		// make sure no commits with this provenance combination exist
 //		iter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB}, nil)
 //		require.NoError(t, err)
-//		commits = collectCommitInfos(t, iter)
 //		require.Equal(t, 0, len(commits))
 //	})
 //
@@ -832,7 +813,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
 //		require.NoError(t, err)
-//		commits := collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //		buffer := bytes.Buffer{}
 //		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", &buffer))
@@ -918,7 +898,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		iter, err := c.FlushCommit([]*pfs.Commit{commitA}, nil)
 //		require.NoError(t, err)
-//		commits := collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //
 //		// no commit to branch-b so "file" should not exist
@@ -1057,7 +1036,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //
 //		iter, err := c.FlushCommit([]*pfs.Commit{commitA1}, nil)
 //		require.NoError(t, err)
-//		commits := collectCommitInfos(t, iter)
 //		require.Equal(t, 2, len(commits))
 //		// now run the pipeline
 //		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
@@ -1126,12 +1104,11 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //	//	}, backoff.NewTestingBackOff()))
 //
 //	//	// make sure the pipeline didn't crash
-//	//	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+//	//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
 //	//	require.NoError(t, err)
 //
 //	//	// we'll know it crashed if this causes it to hang
 //	//	require.NoErrorWithinTRetry(t, 80*time.Second, func() error {
-//	//		collectCommitInfos(t, commitIter)
 //	//		return nil
 //	//	})
 //	// })
@@ -1406,9 +1383,8 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, commitIter)
 
 	jobInfos, err := c.ListJob(pipelineA, nil, nil, -1, true)
 	require.NoError(t, err)
@@ -1463,9 +1439,8 @@ func TestLazyPipeline(t *testing.T) {
 	// leak but that shouldn't prevent the job from completing.
 	require.NoError(t, c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
@@ -1512,9 +1487,8 @@ func TestEmptyFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
@@ -1655,14 +1629,12 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
 
 	aCommit := commit2
-	commitIter, err := c.FlushCommit([]*pfs.Commit{aCommit}, []*pfs.Repo{client.NewRepo(bPipeline)})
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{aCommit}, []*pfs.Repo{client.NewRepo(bPipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	bCommit := commitInfos[0].Commit
-	commitIter, err = c.FlushCommit([]*pfs.Commit{aCommit, bCommit}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{aCommit, bCommit}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 3, len(commitInfos))
 	cCommitInfo := commitInfos[1]
 	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
@@ -1755,9 +1727,8 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, c.PutFile(aRepo, commit2.ID, "cfile", strings.NewReader("bar\n")))
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(dPipeline)})
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(dPipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// We should only see two commits in each repo.
@@ -1825,9 +1796,8 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(bPipeline), client.NewRepo(cPipeline)})
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(bPipeline), client.NewRepo(cPipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 4, len(commitInfos))
 
 	// We should only see one commit in aRepo, bPipeline, and cPipeline
@@ -1888,9 +1858,8 @@ func TestFlushCommit(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n")))
 		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, numStages*2, len(commitInfos))
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
 		require.NoError(t, err)
@@ -2005,9 +1974,8 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		"",
 		false,
 	))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, commitIter)
 }
 
 // TestRecreatePipeline tracks #432
@@ -2038,9 +2006,8 @@ func TestRecreatePipeline(t *testing.T) {
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(collectCommitInfos(t, commitIter)))
 	}
 
 	// Do it twice.  We expect jobs to be created on both runs.
@@ -2247,9 +2214,8 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(repo, commit.ID, "file", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, commitIter)
 	jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
@@ -2360,9 +2326,8 @@ func TestAcceptReturnCode(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
@@ -2404,9 +2369,8 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
@@ -2455,9 +2419,8 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(collectCommitInfos(t, commitIter)))
 	require.NoError(t, c.DeleteAll())
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
@@ -2509,9 +2472,8 @@ func TestRecursiveCp(t *testing.T) {
 		))
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(collectCommitInfos(t, commitIter)))
 }
 
 func TestPipelineUniqueness(t *testing.T) {
@@ -2584,9 +2546,8 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("1")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, iter)
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", &buffer))
@@ -2645,9 +2606,8 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("2")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, iter)
 
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", &buffer))
@@ -2715,9 +2675,8 @@ func TestUpdatePipeline(t *testing.T) {
 		return nil
 	})
 
-	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, iter)
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
@@ -2753,9 +2712,8 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(dataRepo, commit.ID, "file"+strconv.Itoa(commitNum), strings.NewReader("foo")))
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 	}
 	// Create a new job that should succeed (both output and stats commits should be finished normally).
@@ -2830,9 +2788,8 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, "master", "file", strings.NewReader("2")))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, iter)
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", &buffer))
@@ -2876,10 +2833,9 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.Equal(t, 1, len(commits))
 
 	// Make sure the pipeline runs once (i.e. it's all the way up)
-	commitIter, err := c.FlushCommit(
+	commitInfos, err := c.FlushCommitAll(
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// Stop the pipeline (and confirm that it's stopped)
@@ -2943,10 +2899,9 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
-	commitIter, err = c.FlushCommit(
+	commitInfos, err = c.FlushCommitAll(
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
@@ -3033,9 +2988,8 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	collectCommitInfos(t, iter)
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
@@ -3152,9 +3106,8 @@ func TestStopPipeline(t *testing.T) {
 
 	// Restart pipeline, and make sure old commit is processed
 	require.NoError(t, c.StartPipeline(pipelineName))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", &buffer))
@@ -3216,9 +3169,8 @@ func TestStandby(t *testing.T) {
 		var eg errgroup.Group
 		var finished bool
 		eg.Go(func() error {
-			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+			_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 			require.NoError(t, err)
-			collectCommitInfos(t, commitIter)
 			finished = true
 			return nil
 		})
@@ -3264,9 +3216,8 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, c.FinishCommit(dataRepo, "master"))
 		}
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		pod := ""
 		cis, err := c.ListCommit(pipeline, "master", "", 0)
@@ -3327,9 +3278,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, "master", "/foo", strings.NewReader("foo")))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
-		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		collectCommitInfos(t, itr)
 		// check ending state
 		pi, err := c.InspectPipeline(pipeline)
 		require.NoError(t, err)
@@ -3367,9 +3317,8 @@ func TestStopStandbyPipeline(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
-		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		collectCommitInfos(t, itr)
 		// check ending state
 		pi, err := c.InspectPipeline(pipeline)
 		require.NoError(t, err)
@@ -3500,9 +3449,8 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
@@ -3512,9 +3460,8 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	commitInfoIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 2, len(commitInfos))
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
@@ -3556,9 +3503,8 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		false,
 	))
 
-	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 2, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", &buffer))
@@ -3610,9 +3556,8 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit.ID, "dir2/foo", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// Check that the output files are identical to the input files.
@@ -3685,16 +3630,15 @@ func TestChainedPipelines(t *testing.T) {
 		"",
 		false,
 	))
-	resultIter, err := c.FlushCommit([]*pfs.Commit{aCommit, dCommit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{aCommit, dCommit}, nil)
 	require.NoError(t, err)
-	results := collectCommitInfos(t, resultIter)
-	require.Equal(t, 2, len(results))
-	require.Equal(t, cPipeline, results[0].Commit.Repo.Name)
+	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, cPipeline, commitInfos[0].Commit.Repo.Name)
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(cPipeline, results[0].Commit.ID, "bFile", &buf))
+	require.NoError(t, c.GetFile(cPipeline, commitInfos[0].Commit.ID, "bFile", &buf))
 	require.Equal(t, "foo\n", buf.String())
 	buf.Reset()
-	require.NoError(t, c.GetFile(cPipeline, results[0].Commit.ID, "dFile", &buf))
+	require.NoError(t, c.GetFile(cPipeline, commitInfos[0].Commit.ID, "dFile", &buf))
 	require.Equal(t, "bar\n", buf.String())
 }
 
@@ -3777,20 +3721,18 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		false,
 	))
 
-	resultsIter, err := c.FlushCommit([]*pfs.Commit{aCommit, eCommit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{aCommit, eCommit}, nil)
 	require.NoError(t, err)
-	results := collectCommitInfos(t, resultsIter)
-	require.Equal(t, 4, len(results))
+	require.Equal(t, 4, len(commitInfos))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n")))
 	require.NoError(t, c.FinishCommit(eRepo, "master"))
 
-	resultsIter, err = c.FlushCommit([]*pfs.Commit{eCommit2}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{eCommit2}, nil)
 	require.NoError(t, err)
-	results = collectCommitInfos(t, resultsIter)
-	require.Equal(t, 4, len(results))
+	require.Equal(t, 4, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil, nil, -1, true)
@@ -3828,10 +3770,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-
-	_, err = commitIter.Next()
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
 	// Now delete the corresponding job
@@ -4290,9 +4229,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1, commit2}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1, commit2}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -4367,9 +4305,8 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
 	checkStatus()
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 }
 
@@ -4965,9 +4902,8 @@ func TestPipelineLargeOutput(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 }
 
@@ -5016,9 +4952,8 @@ func TestJoinInput(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 	outCommit := commitInfos[0].Commit
 	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
@@ -5381,9 +5316,8 @@ func TestGroupInput(t *testing.T) {
 //	//  repoB: file-0
 //
 //	commits := []*pfs.Commit{commitA, commitB}
-//	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+//	commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //	outCommit := commitInfos[0].Commit
 //	fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
@@ -5421,9 +5355,8 @@ func TestGroupInput(t *testing.T) {
 //	//  repoB:        file-1
 //
 //	commits = []*pfs.Commit{commitA, commitB}
-//	commitIter, err = c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+//	commitInfos, err = c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 //	require.NoError(t, err)
-//	commitInfos = collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //	outCommit = commitInfos[0].Commit
 //	fileInfos, err = c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
@@ -5493,9 +5426,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "")
@@ -5533,9 +5465,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		for _, repo := range repos {
@@ -5575,9 +5506,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		for _, repo := range repos {
@@ -5615,9 +5545,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		fileInfos, err := c.ListFileAll(outCommit.Repo.Name, outCommit.ID, "in")
@@ -5679,9 +5608,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		for _, dir := range []string{"in1", "in2"} {
@@ -5745,9 +5673,8 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 		outCommit := commitInfos[0].Commit
 		for _, dir := range []string{"in1", "in2"} {
@@ -5801,9 +5728,8 @@ func TestUnionInput(t *testing.T) {
 //		})
 //	require.NoError(t, err)
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -5884,9 +5810,8 @@ func TestUnionInput(t *testing.T) {
 //		})
 //	require.NoError(t, err)
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -5952,9 +5877,8 @@ func TestUnionInput(t *testing.T) {
 //			},
 //		})
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	var jobs []*pps.JobInfo
@@ -6031,9 +5955,8 @@ func TestUnionInput(t *testing.T) {
 //		})
 //	require.NoError(t, err)
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -6059,9 +5982,8 @@ func TestUnionInput(t *testing.T) {
 //	}
 //	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 //
-//	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+//	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit2}, nil)
 //	require.NoError(t, err)
-//	commitInfos = collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
@@ -6129,9 +6051,8 @@ func TestUnionInput(t *testing.T) {
 //		})
 //	require.NoError(t, err)
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -6168,9 +6089,8 @@ func TestUnionInput(t *testing.T) {
 //	require.NoError(t, c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100))))
 //	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 //
-//	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+//	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit3}, nil)
 //	require.NoError(t, err)
-//	commitInfos = collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
@@ -6345,24 +6265,24 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline1, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-
 		// We'll look at three commits - with one created in each tick
 		// We expect the first commit to have 1 file, the second to have 2 files, etc...
-		for i := 1; i <= 3; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
+		countBreakFunc := newCountBreakFunc(3)
+		count := 1
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				commitInfos, err := c.FlushCommitAll([]*pfs.Commit{ci.Commit}, nil)
+				require.NoError(t, err)
+				require.Equal(t, 4, len(commitInfos))
 
-			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-			require.NoError(t, err)
-			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 4, len(commitInfos))
+				files, err := c.ListFileAll(ci.Commit.Repo.Name, ci.Commit.ID, "")
+				require.NoError(t, err)
+				require.Equal(t, count, len(files))
+				count++
 
-			files, err := c.ListFileAll(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
-			require.NoError(t, err)
-			require.Equal(t, i, len(files))
-		}
+				return nil
+			})
+		}))
 	})
 
 	// Test a CronInput with the overwrite flag set to true
@@ -6383,24 +6303,22 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-
 		// We'll look at three commits - with one created in each tick
 		// We expect each of the commits to have just a single file in this case
-		for i := 1; i <= 3; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
+		countBreakFunc := newCountBreakFunc(3)
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				commitInfos, err := c.FlushCommitAll([]*pfs.Commit{ci.Commit}, nil)
+				require.NoError(t, err)
+				require.Equal(t, 2, len(commitInfos))
 
-			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-			require.NoError(t, err)
-			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 2, len(commitInfos))
+				files, err := c.ListFileAll(ci.Commit.Repo.Name, ci.Commit.ID, "")
+				require.NoError(t, err)
+				require.Equal(t, 1, len(files))
 
-			files, err := c.ListFileAll(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
-			require.NoError(t, err)
-			require.Equal(t, 1, len(files))
-		}
+				return nil
+			})
+		}))
 	})
 
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
@@ -6433,15 +6351,16 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline4, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-		commitInfo, err := iter.Next()
-		require.NoError(t, err)
+		countBreakFunc := newCountBreakFunc(1)
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				commitInfos, err := c.FlushCommitAll([]*pfs.Commit{dataCommit, ci.Commit}, nil)
+				require.NoError(t, err)
+				require.Equal(t, 2, len(commitInfos))
 
-		commitIter, err := c.FlushCommit([]*pfs.Commit{dataCommit, commitInfo.Commit}, nil)
-		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 2, len(commitInfos))
+				return nil
+			})
+		}))
 	})
 	t.Run("RunCron", func(t *testing.T) {
 		pipeline5 := tu.UniqueString("cron5-")
@@ -6478,19 +6397,15 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline5, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-
-		// We expect to see three commits, despite the schedule being every hour, and the timeout 120 seconds
-		for i := 1; i <= 3; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
-
-			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-			require.NoError(t, err)
-			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 4, len(commitInfos))
-		}
+		countBreakFunc := newCountBreakFunc(3)
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				commitInfos, err := c.FlushCommitAll([]*pfs.Commit{ci.Commit}, nil)
+				require.NoError(t, err)
+				require.Equal(t, 4, len(commitInfos))
+				return nil
+			})
+		}))
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
 		// TODO: Change semantics of run cron or put file client (probably put file client).
@@ -6525,44 +6440,42 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_FINISHED)
-		require.NoError(t, err)
-		commitInfo, err := iter.Next()
-		require.NoError(t, err)
+		countBreakFunc := newCountBreakFunc(1)
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
+				time.Sleep(2 * time.Second)
 
-		// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
-		time.Sleep(2 * time.Second)
+				_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+				require.NoError(t, err)
+				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+				require.NoError(t, err)
+				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+				require.NoError(t, err)
 
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-		require.NoError(t, err)
+				// subscribe to the pipeline1 cron repo and wait for inputs
+				repo = fmt.Sprintf("%s_%s", pipeline7, "time")
+				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
+				defer cancel() //cleanup resources
+				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
+				// We expect each of the commits to have just a single file in this case
+				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
+				countBreakFunc := newCountBreakFunc(4)
+				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+					return countBreakFunc(func() error {
+						commitInfos, err := c.FlushCommitAll([]*pfs.Commit{ci.Commit}, nil)
+						require.NoError(t, err)
+						require.Equal(t, 4, len(commitInfos))
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		repo = fmt.Sprintf("%s_%s", pipeline7, "time")
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, commitInfo.Commit.ID, pfs.CommitState_STARTED)
-		require.NoError(t, err)
-
-		// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
-		// We expect each of the commits to have just a single file in this case
-		// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-		for i := 1; i <= 4; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
-
-			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-			require.NoError(t, err)
-			commitInfos := collectCommitInfos(t, commitIter)
-			require.Equal(t, 4, len(commitInfos))
-
-			files, err := c.ListFileAll(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "")
-			require.NoError(t, err)
-			require.Equal(t, 1, len(files))
-		}
+						files, err := c.ListFileAll(ci.Commit.Repo.Name, ci.Commit.ID, "")
+						require.NoError(t, err)
+						require.Equal(t, 1, len(files))
+						return nil
+					})
+				}))
+				return nil
+			})
+		}))
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
 		pipeline9 := tu.UniqueString("cron9-")
@@ -6590,14 +6503,14 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline9, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-
 		// We expect to see at least three commits, despite the schedules not ticking until three hours, and the timeout 120 seconds
-		for i := 1; i <= 3; i++ {
-			_, err := iter.Next()
-			require.NoError(t, err)
-		}
+		repo := pipeline9
+		countBreakFunc := newCountBreakFunc(3)
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+			return countBreakFunc(func() error {
+				return nil
+			})
+		}))
 	})
 }
 
@@ -6763,9 +6676,8 @@ func TestListJobOutput(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, backoff.Retry(func() error {
@@ -6815,9 +6727,8 @@ func TestListJobTruncated(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, backoff.Retry(func() error {
@@ -6884,9 +6795,8 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	for i := 0; i < numFiles; i++ {
@@ -7370,9 +7280,8 @@ func TestChunkSpec(t *testing.T) {
 				ChunkSpec: &pps.ChunkSpec{Number: 1},
 			})
 
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 2, len(commitInfos))
 
 		for i := 0; i < numFiles; i++ {
@@ -7398,9 +7307,8 @@ func TestChunkSpec(t *testing.T) {
 				ChunkSpec: &pps.ChunkSpec{SizeBytes: 5},
 			})
 
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
+		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 
 		for i := 0; i < numFiles; i++ {
@@ -7447,9 +7355,8 @@ func TestLongDatums(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	for i := 0; i < numFiles; i++ {
@@ -7754,9 +7661,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //
 //	// Now wait for the pipeline complete as normal
 //	outputRepo := client.NewRepo(pipeline)
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 1, len(commitInfos))
 //
 //	commit = commitInfos[0].Commit
@@ -7816,9 +7722,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	commit := branches[0].Head
 //
 //	// Now wait for the pipeline complete as normal
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 1, len(commitInfos))
 //
 //	commit = commitInfos[0].Commit
@@ -7841,9 +7746,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	commit = branches[0].Head
 //
 //	// Now wait for the pipeline complete as normal
-//	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 //	require.NoError(t, err)
-//	commitInfos = collectCommitInfos(t, commitIter)
 //	require.Equal(t, 1, len(commitInfos))
 //
 //	commit = commitInfos[0].Commit
@@ -7905,9 +7809,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //
 //	// Now wait for the pipeline complete as normal
 //	outputRepo := client.NewRepo(pipeline)
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 1, len(commitInfos))
 //
 //	commit = commitInfos[0].Commit
@@ -7983,9 +7886,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //
 //		// Now wait for the pipeline complete as normal
 //		outputRepo := client.NewRepo(pipelines[i])
-//		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+//		commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 //		require.NoError(t, err)
-//		commitInfos := collectCommitInfos(t, commitIter)
 //		require.Equal(t, 1, len(commitInfos))
 //
 //		commit = commitInfos[0].Commit
@@ -8059,9 +7961,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //	commit := branches[0].Head
 //
 //	// Now wait for the pipeline complete as normal
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	for _, commitInfo := range commitInfos {
@@ -8128,9 +8029,8 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 //
 //	// Now wait for the pipeline complete as normal
 //	outputRepo := client.NewRepo(pipeline)
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 1, len(commitInfos))
 //
 //	commit = commitInfos[0].Commit
@@ -8178,9 +8078,8 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -8301,9 +8200,8 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -8534,9 +8432,8 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, c.PutFile(bRepo, "master", "file", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(bRepo, "master"))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commita1, commitb1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commita1, commitb1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	commita2, err := c.StartCommit(aRepo, "master")
@@ -8544,9 +8441,8 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, c.PutFile(aRepo, "master", "file", strings.NewReader("bar")))
 	require.NoError(t, c.FinishCommit(aRepo, "master"))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commita2, commitb1}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commita2, commitb1}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	commitb2, err := c.StartCommit(bRepo, "master")
@@ -8554,9 +8450,8 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, c.PutFile(bRepo, "master", "file", strings.NewReader("bar")))
 	require.NoError(t, c.FinishCommit(bRepo, "master"))
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commita2, commitb2}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commita2, commitb2}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil, -1, true)
@@ -8675,9 +8570,8 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit2.ID))
 
 	// Flush commit2, and make sure the output is as expected
-	iter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, iter)
 	require.Equal(t, 2, len(commitInfos))
 
 	buf := bytes.Buffer{}
@@ -8949,9 +8843,8 @@ func TestSquashCommitRunsJob(t *testing.T) {
 		}, backoff.NewTestingBackOff())
 	})
 
-	iter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, iter)
 	require.Equal(t, 2, len(commitInfos))
 
 	// Check that the job processed the right data
@@ -8969,9 +8862,8 @@ func TestSquashCommitRunsJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit3.ID))
 
 	// Flush commit3, and make sure the output is as expected
-	iter, err = c.FlushCommit([]*pfs.Commit{commit3}, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit3}, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, iter)
 	require.Equal(t, 2, len(commitInfos))
 
 	buf.Reset()
@@ -9017,9 +8909,8 @@ func TestEntryPoint(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -9090,9 +8981,8 @@ func TestDeleteSpecRepo(t *testing.T) {
 //		})
 //	require.NoError(t, err)
 //
-//	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 //	require.NoError(t, err)
-//	commitInfos := collectCommitInfos(t, commitIter)
 //	require.Equal(t, 2, len(commitInfos))
 //
 //	var buf bytes.Buffer
@@ -9984,22 +9874,20 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	// Create a new input commit, and flush its output to 'pipeline', to make sure
 	// the pipeline either restarts the RC and recreates the output repo, or fails
 	require.NoError(t, c.PutFile(repo, "master", "/file.2", strings.NewReader("2")))
-	iter, err := c.FlushCommit(
-		[]*pfs.Commit{client.NewCommit(repo, "master")},
-		[]*pfs.Repo{client.NewRepo(pipeline)})
-	require.NoError(t, err)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := iter.Next()
 		// TODO(msteffen): While not currently possible, PFS could return
 		// CommitDeleted here. This should detect that error, but first:
 		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
 		//   handling code)
 		// - packages depending on that code should be migrated
 		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
-		if errors.Is(err, io.EOF) {
-			return nil // expected--with no output repo, FlushCommit can't return anything
+		if _, err := c.FlushCommitAll(
+			[]*pfs.Commit{client.NewCommit(repo, "master")},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
+		); err != nil {
+			return errors.Wrapf(err, "unexpected error value")
 		}
-		return errors.Wrapf(err, "unexpected error value")
+		return nil
 	})
 
 	// Create a new pipeline, make sure FlushCommit eventually returns, and check
@@ -10016,12 +9904,10 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		"", // default output branch: master
 		false,
 	))
-	iter, err = c.FlushCommit(
-		[]*pfs.Commit{client.NewCommit(repo, "master")},
-		[]*pfs.Repo{client.NewRepo(pipeline2)})
-	require.NoError(t, err)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := iter.Next()
+		_, err := c.FlushCommitAll(
+			[]*pfs.Commit{client.NewCommit(repo, "master")},
+			[]*pfs.Repo{client.NewRepo(pipeline2)})
 		return err
 	})
 	buf := &bytes.Buffer{}
@@ -10253,9 +10139,8 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
 	var buf bytes.Buffer
@@ -10992,9 +10877,8 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 6, len(commitInfos))
 
 	buf := &bytes.Buffer{}

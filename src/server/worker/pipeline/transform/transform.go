@@ -32,7 +32,7 @@ func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo, *pfs.Commit) e
 	pi := driver.PipelineInfo()
 	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
 	// of commits being closed / jobs being finished.
-	return pachClient.SubscribeCommitF(
+	return pachClient.SubscribeCommit(
 		pi.Pipeline.Name,
 		"",
 		nil,

@@ -201,7 +201,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				return pachClient.SubscribeCommitF(pipeline, "",
+				return pachClient.SubscribeCommit(pipeline, "",
 					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
