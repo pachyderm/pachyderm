@@ -10944,7 +10944,7 @@ func TestDebug(t *testing.T) {
 
 	expectedFiles := make(map[string]*globlib.Glob)
 	// Record glob patterns for expected pachd files.
-	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
+	for _, file := range []string{"version", "logs", "logs-previous**", "goroutine", "heap"} {
 		pattern := path.Join("pachd", "*", "pachd", file)
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
@@ -10972,7 +10972,7 @@ func TestDebug(t *testing.T) {
 		))
 		// Record glob patterns for expected pipeline files.
 		for _, container := range []string{"user", "storage"} {
-			for _, file := range []string{"logs", "goroutine", "heap"} {
+			for _, file := range []string{"logs", "logs-previous**", "goroutine", "heap"} {
 				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
 				g, err := globlib.Compile(pattern, '/')
 				require.NoError(t, err)
