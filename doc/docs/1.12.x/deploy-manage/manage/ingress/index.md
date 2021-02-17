@@ -97,7 +97,7 @@ cluster includes the following steps:
 
     Pachyderm supports the [Traefik](https://docs.traefik.io/)
     ingress controller. For more information, see
-    [Expose a Pachyderm UI Through an Ingress](../pach-ui-ingress).
+    [Expose a Pachyderm UI Through an Ingress](./pach-ui-ingress).
 
   * Configure the pachd service as a `LoadBalancer` by changing 
   `type: Nodeport` to `type: LoabBalancer` in the `pachd` service
@@ -137,4 +137,4 @@ and whitelisting.**
 
 !!! note "See Also"
 
-    - [Expose a Pachyderm UI Through an Ingress](../pach-ui-ingress)
+    - [Expose a Pachyderm UI Through an Ingress](./pach-ui-ingress)
