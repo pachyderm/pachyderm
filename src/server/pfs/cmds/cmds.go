@@ -424,35 +424,6 @@ $ {{alias}} foo@master --from XXX`,
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
-	printCommitIter := func(commitIter client.CommitInfoIterator) error {
-		if raw {
-			for {
-				commitInfo, err := commitIter.Next()
-				if errors.Is(err, io.EOF) {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
-					return err
-				}
-			}
-		}
-		writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-		for {
-			commitInfo, err := commitIter.Next()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
-		}
-		return writer.Flush()
-	}
-
 	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
@@ -464,7 +435,7 @@ $ {{alias}} foo@XXX bar@YYY
 
 # return commits caused by foo@XXX leading to repos bar and baz
 $ {{alias}} foo@XXX -r bar -r baz`,
-		Run: cmdutil.Run(func(args []string) error {
+		Run: cmdutil.Run(func(args []string) (retErr error) {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
@@ -481,12 +452,19 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 				toRepos = append(toRepos, client.NewRepo(repoName))
 			}
 
-			commitIter, err := c.FlushCommit(commits, toRepos)
-			if err != nil {
-				return err
-			}
-
-			return printCommitIter(commitIter)
+			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			defer func() {
+				if err := w.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return c.FlushCommit(commits, toRepos, func(ci *pfsclient.CommitInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, ci)
+				}
+				pretty.PrintCommitInfo(w, ci, fullTimestamps)
+				return nil
+			})
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
@@ -511,7 +489,7 @@ $ {{alias}} test@master --from XXX
 
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
 $ {{alias}} test@master --new`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -539,12 +517,19 @@ $ {{alias}} test@master --new`,
 				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
 			}
 
-			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED)
-			if err != nil {
-				return err
-			}
-
-			return printCommitIter(commitIter)
+			w := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			defer func() {
+				if err := w.Flush(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED, func(ci *pfsclient.CommitInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, ci)
+				}
+				pretty.PrintCommitInfo(w, ci, fullTimestamps)
+				return nil
+			})
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")

@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -37,20 +38,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )
-
-func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
-	var commitInfos []*pfs.CommitInfo
-	for {
-		commitInfo, err := commitInfoIter.Next()
-		if errors.Is(err, io.EOF) {
-			return commitInfos, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, commitInfo)
-	}
-}
 
 func CommitToID(commit interface{}) interface{} {
 	return commit.(*pfs.Commit).ID
@@ -2463,38 +2450,33 @@ func TestSubscribeCommit(t *testing.T) {
 			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
 		}
 
-		var commits []*pfs.Commit
-		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartCommit(repo, "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-			commits = append(commits, commit)
-		}
+		require.NoErrorWithinT(t, 60*time.Second, func() error {
+			var eg errgroup.Group
+			nextCommitChan := make(chan *pfs.Commit, numCommits)
+			eg.Go(func() error {
+				var count int
+				return env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+					commit := <-nextCommitChan
+					require.Equal(t, commit, ci.Commit)
+					count++
+					if count == numCommits {
+						return errutil.ErrBreak
+					}
+					return nil
+				})
+			})
+			eg.Go(func() error {
+				for i := 0; i < numCommits; i++ {
+					commit, err := env.PachClient.StartCommit(repo, "master")
+					require.NoError(t, err)
+					require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
+					nextCommitChan <- commit
+				}
+				return nil
+			})
 
-		commitIter, err := env.PachClient.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-		for i := 0; i < numCommits; i++ {
-			commitInfo, err := commitIter.Next()
-			require.NoError(t, err)
-			require.Equal(t, commits[i], commitInfo.Commit)
-		}
-
-		// Create another batch of commits
-		commits = nil
-		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartCommit(repo, "master")
-			require.NoError(t, err)
-			require.NoError(t, env.PachClient.FinishCommit(repo, "master"))
-			commits = append(commits, commit)
-		}
-
-		for i := 0; i < numCommits; i++ {
-			commitInfo, err := commitIter.Next()
-			require.NoError(t, err)
-			require.Equal(t, commits[i], commitInfo.Commit)
-		}
-
-		commitIter.Close()
+			return eg.Wait()
+		})
 
 		return nil
 	}))
@@ -2972,9 +2954,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master"))
 		require.NoError(t, env.PachClient.FinishCommit("B", "master"))
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3007,18 +2987,14 @@ func TestFlush2(t *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(commitInfos))
 
-		commitInfoIter, err = env.PachClient.FlushCommit(
+		commitInfos, err = env.PachClient.FlushCommitAll(
 			[]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)},
 			[]*pfs.Repo{pclient.NewRepo("C")},
 		)
-		require.NoError(t, err)
-		commitInfos, err = collectCommitInfos(commitInfoIter)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3057,9 +3033,7 @@ func TestFlush3(t *testing.T) {
 		require.NoError(t, env.PachClient.FinishCommit("B", BCommit.ID))
 		require.NoError(t, env.PachClient.FinishCommit("C", "master"))
 
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3077,9 +3051,7 @@ func TestFlushRedundant(t *testing.T) {
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", "master"))
-		commitInfoIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitInfoIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 
@@ -3096,9 +3068,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commitInfos))
 
@@ -3124,9 +3094,7 @@ func TestFlushOpenCommit(t *testing.T) {
 		}()
 
 		// Flush ACommit
-		commitIter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos, err := collectCommitInfos(commitIter)
+		commitInfos, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commitInfos))
 
@@ -3138,9 +3106,7 @@ func TestEmptyFlush(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		commitIter, err := env.PachClient.FlushCommit(nil, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(commitIter)
+		_, err := env.PachClient.FlushCommitAll(nil, nil)
 		require.YesError(t, err)
 
 		return nil
@@ -3151,15 +3117,11 @@ func TestFlushNonExistentCommit(t *testing.T) {
 	t.Parallel()
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
-		iter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(iter)
+		_, err := env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 		require.YesError(t, err)
 		repo := "FlushNonExistentCommit"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
-		_, err = env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
-		require.NoError(t, err)
-		_, err = collectCommitInfos(iter)
+		_, err = env.PachClient.FlushCommitAll([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
 		require.YesError(t, err)
 
 		return nil
@@ -5001,13 +4963,13 @@ func TestSubscribeStates(t *testing.T) {
 
 		var readyCommits int64
 		go func() {
-			client.SubscribeCommitF("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			client.SubscribeCommit("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommits, 1)
 				return nil
 			})
 		}()
 		go func() {
-			client.SubscribeCommitF("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			client.SubscribeCommit("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommits, 1)
 				return nil
 			})

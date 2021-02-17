@@ -916,7 +916,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 	for _, pipeline := range request.ToPipelines {
 		toRepos = append(toRepos, client.NewRepo(pipeline.Name))
 	}
-	return pachClient.FlushCommitF(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
+	return pachClient.FlushCommit(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
 		var jis []*pps.JobInfo
 		// FlushJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.

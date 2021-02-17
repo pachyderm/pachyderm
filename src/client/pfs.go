@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -383,34 +384,7 @@ func (c APIClient) SquashCommit(repoName string, commitID string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// FlushCommit returns an iterator that returns commits that have the
-// specified `commits` as provenance.  Note that the iterator can block if
-// jobs have not successfully completed. This in effect waits for all of the
-// jobs that are triggered by a set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those
-// repos will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushCommit to run jobs, they'll
-// run no matter what, FlushCommit just allows you to wait for them to
-// complete and see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
-	stream, err := c.PfsAPIClient.FlushCommit(
-		ctx,
-		&pfs.FlushCommitRequest{
-			Commits: commits,
-			ToRepos: toRepos,
-		},
-	)
-	if err != nil {
-		cancel()
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &commitInfoIterator{stream, cancel}, nil
-}
-
-// FlushCommitF calls f with commits that have the specified `commits` as
+// FlushCommit calls cb with commits that have the specified `commits` as
 // provenance. Note that it can block if jobs have not successfully
 // completed. This in effect waits for all of the jobs that are triggered by a
 // set of commits to complete.
@@ -421,8 +395,11 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
 // no matter what, FlushCommitF just allows you to wait for them to complete and
 // see their output once they do.
-func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
-	stream, err := c.PfsAPIClient.FlushCommit(
+func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.FlushCommit(
 		c.Ctx(),
 		&pfs.FlushCommitRequest{
 			Commits: commits,
@@ -430,17 +407,20 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 		},
 	)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		ci, err := stream.Recv()
+		ci, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
-		if err := f(ci); err != nil {
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
 			return err
 		}
 	}
@@ -458,46 +438,27 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 // no matter what, FlushCommitAll just allows you to wait for them to complete and
 // see their output once they do.
 func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
-	var result []*pfs.CommitInfo
-	if err := c.FlushCommitF(commits, toRepos, func(ci *pfs.CommitInfo) error {
-		result = append(result, ci)
+	var cis []*pfs.CommitInfo
+	if err := c.FlushCommit(commits, toRepos, func(ci *pfs.CommitInfo) error {
+		cis = append(cis, ci)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
-}
-
-// CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
-type CommitInfoIterator interface {
-	Next() (*pfs.CommitInfo, error)
-	Close()
-}
-
-type commitInfoIterator struct {
-	stream pfs.API_SubscribeCommitClient
-	cancel context.CancelFunc
-}
-
-func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
-	return c.stream.Recv()
-}
-
-func (c *commitInfoIterator) Close() {
-	c.cancel()
-	// according to this thread it's necessary to drain a server-side stream before closing
-	// https://github.com/grpc/grpc-go/issues/188
-	for {
-		if _, err := c.stream.Recv(); err != nil {
-			break
-		}
+	if len(cis) > 0 {
+		sort.Slice(cis, func(i, j int) bool {
+			return len(cis[i].Provenance) < len(cis[j].Provenance)
+		})
 	}
+	return cis, nil
 }
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState) (CommitInfoIterator, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
+func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
@@ -507,37 +468,23 @@ func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenan
 	if from != "" {
 		req.From = NewCommit(repo, from)
 	}
-	stream, err := c.PfsAPIClient.SubscribeCommit(ctx, req)
+	client, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
 	if err != nil {
-		cancel()
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &commitInfoIterator{stream, cancel}, nil
-}
-
-// SubscribeCommitF is like ListCommit but it calls a callback function with
-// the results rather than returning an iterator.
-func (c APIClient) SubscribeCommitF(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
-	req := &pfs.SubscribeCommitRequest{
-		Repo:   NewRepo(repo),
-		Branch: branch,
-		Prov:   prov,
-		State:  state,
-	}
-	if from != "" {
-		req.From = NewCommit(repo, from)
-	}
-	stream, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		ci, err := stream.Recv()
+		ci, err := client.Recv()
 		if err != nil {
-			return grpcutil.ScrubGRPC(err)
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
 		}
-		if err := f(ci); err != nil {
-			return grpcutil.ScrubGRPC(err)
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
 		}
 	}
 }
@@ -761,7 +708,7 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.ListFile(
+	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
 			File: NewFile(repo, commit, path),
@@ -771,7 +718,7 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -809,7 +756,7 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.GlobFile(
+	client, err := c.PfsAPIClient.GlobFile(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
 			Commit:  NewCommit(repo, commit),
@@ -820,7 +767,7 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -912,7 +859,7 @@ func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) er
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.WalkFile(
+	client, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
 		&pfs.WalkFileRequest{
 			File: NewFile(repo, commit, path),
@@ -921,7 +868,7 @@ func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) er
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
