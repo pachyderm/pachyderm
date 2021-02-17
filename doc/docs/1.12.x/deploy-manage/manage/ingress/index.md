@@ -1,5 +1,6 @@
 # Overview
 
+
 When you deploy a Kubernetes application, like Pachyderm, typically, it cannot
 be accessed from outside the Kubernetes cluster right away. This ensures that
 your cluster is secure and resilient to malicious cyber attacks. In the
@@ -32,7 +33,18 @@ resource provides advanced routing capabilities, it is the recommended option
 to use with Pachyderm. The only complication of this approach is that you need
 to deploy an ingress controller, such as NGINX or traefik, in your Kubernetes
 cluster. Such an ingress controller is not deployed by default with the
-`pachctl deploy command`.
+`pachctl deploy` command.
+
+
+
+A Kubernetes Ingress enables you to allow external traffic inside
+of a Pachyderm cluster. Specifically, if you do not want to use
+port-forwarding, you might want to expose the Pachyderm UI, `dash`
+through an Ingress resource. To do so, you need to deploy an ingress
+controller and ingress resource object on the Kubernetes cluster that
+runs your Pachyderm cluster. While Kubernetes supports multiple ingress
+controllers, not all of them might work seamlessly with Pachyderm.
+
 
 ## Pachyderm Ingress Requirements
 
@@ -85,7 +97,7 @@ cluster includes the following steps:
 
     Pachyderm supports the [Traefik](https://docs.traefik.io/)
     ingress controller. For more information, see
-    [Expose a Pachyderm UI Through an Ingress](../expose-pach-ui-ingress/).
+    [Expose a Pachyderm UI Through an Ingress](../pach-ui-ingress).
 
   * Configure the pachd service as a `LoadBalancer` by changing 
   `type: Nodeport` to `type: LoabBalancer` in the `pachd` service

@@ -1,6 +1,6 @@
 # Set up Ingress with Traefic to access Pachyderm UI (`dash`) service in your cluster 
 
-Before completing the steps in this section, read [Overview](../index/).
+Before completing the steps in this section, read [Overview](../index).
 
 
 This section provides an example of how to expose
@@ -19,7 +19,7 @@ that supports websockets (Nginx, Ambassador...).
    
 
 ## Traefic ingress controller set up on Pachyderm's cluster node: Overview
-![pach-ui-ingress](./pach-ui-ingress.png)
+![pach-ui-ingress](../pach-ui-ingress.png)
 
 
 ## Traefic installation and Ingress Route CRD creation
