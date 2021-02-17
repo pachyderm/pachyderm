@@ -24,8 +24,8 @@ that supports websockets (Nginx, Ambassador...).
 
 ## Traefic installation and Ingress Route CRD creation
 1. Prerequisite:
-   * A Pachyderm cluster  - See [Deploy Pachyderm](../../deploy/).
-   * For production deployments, deploy with the [`--tls` flag](https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_w_tls/). Authentication enableas described in [Configure Access Controls](../../../enterprise/auth/enable-auth/).
+   * A Pachyderm cluster  - See [Deploy Pachyderm](../../../deploy/).
+   * For production deployments, deploy with the [`--tls` flag](https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_w_tls/). Authentication enableas described in [Configure Access Controls](../../../../enterprise/auth/enable-auth/).
 1. Helm install [Traefic](https://github.com/traefik/traefik-helm-chart):
 
     - Get Repo Info
@@ -156,9 +156,6 @@ Connect to your Pachyderm UI: http://dash.localhost/app/
       If you’re using the same hostname on your ingress to map both the websocket port and the UI port, you can omit that last parameter.
 
 ## References
-* Find the full list of Pachyderm metrics here:
-    - [Pachd metrics](./pachd_metrics)
-    - [Pipeline metrics](./job_metrics)
 * [Traefic](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
 * [Kubernetes](https://kubernetes.io/docs/concepts/services-networking/ingress/) Ingress.
 
