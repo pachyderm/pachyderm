@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -92,6 +93,7 @@ func (cc *checkedClient) Writer(ctx context.Context, name string) (_ io.WriteClo
 	defer func() {
 		retErr = errors.WithStack(retErr)
 	}()
+	name = strings.Trim(name, "/")
 	wc, err := cc.Client.Writer(ctx, name)
 	if err != nil {
 		return nil, err
@@ -104,6 +106,7 @@ func (cc *checkedClient) Reader(ctx context.Context, name string, offset uint64,
 	defer func() {
 		retErr = errors.WithStack(retErr)
 	}()
+	name = strings.Trim(name, "/")
 	rc, err := cc.Client.Reader(ctx, name, offset, size)
 	if err != nil {
 		// Enforce that clients return either an error or a reader, not both
@@ -123,6 +126,7 @@ func (cc *checkedClient) Delete(ctx context.Context, name string) (retErr error)
 	defer func() {
 		retErr = errors.WithStack(retErr)
 	}()
+	name = strings.Trim(name, "/")
 	return cc.Client.Delete(ctx, name)
 }
 
