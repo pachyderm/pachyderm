@@ -137,4 +137,4 @@ and whitelisting.**
 
 !!! note "See Also"
 
-    - [Expose a Pachyderm UI Through an Ingress](../pach-ui-ingress/)
+    - [Expose a Pachyderm UI Through an Ingress](../pach-ui-ingress)
