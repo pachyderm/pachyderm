@@ -99,14 +99,14 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 func reportAndFlushUserAction(action string, value interface{}) func() {
 	metricsDone := make(chan struct{})
 	go func() {
-		client := newSegmentClient()
-		defer client.Close()
+		defer close(metricsDone)
 		cfg, _ := config.Read(false, false)
 		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
 			return
 		}
+		client := newSegmentClient()
+		defer client.Close()
 		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
-		close(metricsDone)
 	}()
 	return func() {
 		select {
