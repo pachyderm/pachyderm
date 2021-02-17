@@ -30,7 +30,13 @@ export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
-GOPATH = $(shell go env GOPATH)
+
+ifeq ($(OS),Windows_NT)
+	GOPATH = $(shell cygpath -u $(shell go env GOPATH))
+else
+	GOPATH = $(shell go env GOPATH)
+endif
+
 GOBIN = $(GOPATH)/bin
 
 ifdef TRAVIS_BUILD_NUMBER

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -666,6 +667,22 @@ func (c APIClient) getFile(repo, commit, path string) (_ io.Reader, retErr error
 		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
+}
+
+func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pfs.GetFileRequest{
+		File: NewFile(repo, commit, path),
+		URL:  URL,
+	}
+	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(ioutil.Discard, grpcutil.NewStreamingBytesReader(client, nil))
+	return err
 }
 
 // InspectFile returns info about a specific file.

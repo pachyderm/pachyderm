@@ -1431,9 +1431,6 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	if request.TFJob != nil {
 		return nil, errors.Errorf("TFJob not implemented")
 	}
-	if request.Egress != nil {
-		return nil, errors.Errorf("Egress not implemented")
-	}
 	if request.S3Out {
 		return nil, errors.Errorf("S3Out not implemented")
 	}

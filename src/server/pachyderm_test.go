@@ -1292,8 +1292,8 @@ func TestPipelineErrorHandling(t *testing.T) {
 }
 
 func TestEgressFailure(t *testing.T) {
-	// TODO: Implement egress.
-	t.Skip("Egress not implemented in V2")
+	// TODO: Fail job after certain number of failures, or just keep restarting?
+	t.Skip("Fail job after certain number of failures, or just keep restarting?")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10829,7 +10829,7 @@ func TestDebug(t *testing.T) {
 
 	expectedFiles := make(map[string]*globlib.Glob)
 	// Record glob patterns for expected pachd files.
-	for _, file := range []string{"version", "logs", "goroutine", "heap"} {
+	for _, file := range []string{"version", "logs", "logs-previous**", "goroutine", "heap"} {
 		pattern := path.Join("pachd", "*", "pachd", file)
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
@@ -10857,7 +10857,7 @@ func TestDebug(t *testing.T) {
 		))
 		// Record glob patterns for expected pipeline files.
 		for _, container := range []string{"user", "storage"} {
-			for _, file := range []string{"logs", "goroutine", "heap"} {
+			for _, file := range []string{"logs", "logs-previous**", "goroutine", "heap"} {
 				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
 				g, err := globlib.Compile(pattern, '/')
 				require.NoError(t, err)
