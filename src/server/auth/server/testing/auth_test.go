@@ -786,7 +786,6 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test")))
-	require.NoError(t, err)
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := bobClient.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
@@ -801,8 +800,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
-	err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := aliceClient.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
@@ -841,8 +839,7 @@ func TestPipelineRevoke(t *testing.T) {
 		"", // default output branch: master
 		true,
 	))
-	err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
+	require.NoError(t, aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test")))
 	doneCh = make(chan struct{})
 	go func() {
 		defer close(doneCh)
