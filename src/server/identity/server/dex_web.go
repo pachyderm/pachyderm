@@ -139,6 +139,30 @@ func (w *dexWeb) getServer() *dex_server.Server {
 	return server
 }
 
+// interceptApproval handles the `/approval` route which is called after a user has
+// authenticated to the IDP but before they're redirected back to the OIDC server
+func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.ResponseWriter, *http.Request) {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		storage, err := w.storageProvider.GetStorage(w.logger)
+		if err != nil {
+			return
+		}
+		authReq, err := storage.GetAuthRequest(r.FormValue("req"))
+		if err != nil {
+			w.logger.WithError(err).Error("failed to get auth request")
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !authReq.LoggedIn {
+			w.logger.Error("auth request does not have an identity for approval")
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.logger.Infof("authenticated user: %q", authReq.Claims.Email)
+		server.ServeHTTP(rw, r)
+	}
+}
+
 // ServeHTTP proxies requests to the Dex server, if it's configured.
 //
 func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -148,5 +172,8 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.ServeHTTP(rw, r)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/approval", w.interceptApproval(server))
+	mux.HandleFunc("/", server.ServeHTTP)
+	mux.ServeHTTP(rw, r)
 }
