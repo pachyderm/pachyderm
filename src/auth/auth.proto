@@ -177,10 +177,11 @@ message Groups {
 //// Authorization API
 
 message AuthorizeRequest {
+  reserved 2;
   Resource resource = 1;
 
   // permissions are the operations the caller is attempting to perform 
-  repeated Permission permissions = 2;
+  repeated Permission permissions = 3;
 }
 
 message AuthorizeResponse {
