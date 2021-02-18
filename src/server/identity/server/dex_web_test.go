@@ -1,14 +1,18 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	logrus "github.com/sirupsen/logrus"
 
@@ -108,4 +112,41 @@ func TestConfigureIssuer(t *testing.T) {
 
 	require.NoError(t, json.NewDecoder(recorder.Result().Body).Decode(&oidcConfig))
 	require.Equal(t, "http://example.com:1234", oidcConfig["issuer"].(string))
+}
+
+// TestLogApprovedUsers tests that the web server intercepts approvals and records the email
+// in the database.
+func TestLogApprovedUsers(t *testing.T) {
+	webDir = "../../../../dex-assets"
+	logger := logrus.NewEntry(logrus.New())
+	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
+	db := dbutil.NewTestDB(t)
+
+	require.NoError(t, migrations.ApplyMigrations(context.Background(), db, migrations.Env{}, clusterstate.DesiredClusterState))
+	require.NoError(t, migrations.BlockUntil(context.Background(), db, clusterstate.DesiredClusterState))
+
+	server := newDexWeb(sp, logger, db)
+	defer server.stopWebServer()
+
+	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})
+	require.NoError(t, err)
+
+	// Create an auth request that has already done the Github flow
+	require.NoError(t, sp.provider.CreateAuthRequest(dex_storage.AuthRequest{
+		ID:       "testreq",
+		ClientID: "testclient",
+		Expiry:   time.Now().Add(time.Hour),
+		LoggedIn: true,
+		Claims:   dex_storage.Claims{Email: "test@example.com"},
+	}))
+
+	// Hit the approval endpoint to be redirected
+	req := httptest.NewRequest("GET", "/approval?req=testreq", nil)
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusSeeOther, recorder.Result().StatusCode)
+
+	users, err := server.listUsers(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "test@example.com", users[0].Email)
 }

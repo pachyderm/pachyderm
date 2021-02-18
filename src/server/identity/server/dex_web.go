@@ -142,6 +142,15 @@ func (w *dexWeb) getServer() *dex_server.Server {
 	return server
 }
 
+func (w *dexWeb) listUsers(ctx context.Context) ([]*identity.User, error) {
+	users := make([]*identity.User, 0)
+	err := w.db.SelectContext(ctx, &users, "SELECT email, last_authenticated FROM identity.users WHERE enabled=true;")
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // interceptApproval handles the `/approval` route which is called after a user has
 // authenticated to the IDP but before they're redirected back to the OIDC server
 func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.ResponseWriter, *http.Request) {
@@ -161,8 +170,8 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.logger.Infof("authenticated user: %q", authReq.Claims.Email)
-		if _, err := w.db.ExecContext(r.Context(), `INSERT INTO identity.users (email, last_authenticated, enabled) VALUES ($1, now(), true) ON CONFLICT UPDATE last_authenticated=NOW()`, authReq.Claims.Email); err != nil {
+		if _, err := w.db.ExecContext(r.Context(), `INSERT INTO identity.users (email, last_authenticated, enabled) VALUES ($1, now(), true) ON CONFLICT(email) DO UPDATE SET last_authenticated=NOW()`, authReq.Claims.Email); err != nil {
+			w.logger.WithError(err).Error("unable to record user identity for login")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
