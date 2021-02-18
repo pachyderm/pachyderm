@@ -46,12 +46,13 @@ var (
 
 // MetadataStore stores metadata about chunks
 type MetadataStore interface {
+	DB() *sqlx.DB
 	// Set adds chunk metadata to the tracker
-	Set(ctx context.Context, chunkID ID, md Metadata) error
+	SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error
 	// Get returns info about the chunk if it exists
 	Get(ctx context.Context, chunkID ID) (*Metadata, error)
 	// Delete removes chunk metadata from the tracker
-	Delete(ctx context.Context, chunkID ID) error
+	DeleteTx(tx *sqlx.Tx, chunkID ID) error
 }
 
 var _ MetadataStore = &postgresStore{}
@@ -65,8 +66,12 @@ func NewPostgresStore(db *sqlx.DB) MetadataStore {
 	return &postgresStore{db: db}
 }
 
-func (s *postgresStore) Set(ctx context.Context, chunkID ID, md Metadata) error {
-	res, err := s.db.ExecContext(ctx,
+func (s *postgresStore) DB() *sqlx.DB {
+	return s.db
+}
+
+func (s *postgresStore) SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error {
+	res, err := tx.Exec(
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
 		`, chunkID, md.Size)
@@ -99,8 +104,8 @@ func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) 
 	}, nil
 }
 
-func (s *postgresStore) Delete(ctx context.Context, chunkID ID) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
+func (s *postgresStore) DeleteTx(tx *sqlx.Tx, chunkID ID) error {
+	_, err := s.db.Exec(`DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }
 

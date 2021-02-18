@@ -7,6 +7,8 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -37,7 +39,7 @@ var (
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
 	tracker                      track.Tracker
-	store                        Store
+	store                        MetadataStore
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
 	levelFactor                  int64
@@ -45,9 +47,9 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
+func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		store:          store,
+		store:          mds,
 		tracker:        tr,
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
@@ -68,9 +70,9 @@ func NewStorage(store Store, tr track.Tracker, chunks *chunk.Storage, opts ...St
 // TODO Store is just used to poke through the information about file set sizes.
 // I think there might be a cleaner way to handle this through the file set interface, and changing
 // the metadata we expose for a file set as a set of metadata entries.
-func (s *Storage) Store() Store {
-	return s.store
-}
+// func (s *Storage) Store() Store {
+// 	return s.store
+// }
 
 // ChunkStorage returns the underlying chunk storage instance for this storage instance.
 func (s *Storage) ChunkStorage() *chunk.Storage {
@@ -299,10 +301,16 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 	for _, chunkID := range prim.PointsTo() {
 		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
 	}
-	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
-		return nil, err
-	}
-	if err := s.store.Set(ctx, id, md); err != nil {
+	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		if err := s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl); err != nil {
+			return err
+		}
+		if err := s.store.Set(tx, id, md); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -319,10 +327,16 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 	for _, id := range comp.Layers {
 		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
 	}
-	if err := s.tracker.CreateObject(ctx, filesetObjectID(id), pointsTo, ttl); err != nil {
-		return nil, err
-	}
-	if err := s.store.Set(ctx, id, md); err != nil {
+	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
+		if err := s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl); err != nil {
+			return err
+		}
+		if err := s.store.Set(tx, id, md); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &id, nil
@@ -347,16 +361,16 @@ func filesetObjectID(id ID) string {
 var _ track.Deleter = &deleter{}
 
 type deleter struct {
-	store Store
+	store MetadataStore
 }
 
-func (d *deleter) Delete(ctx context.Context, oid string) error {
+func (d *deleter) DeleteTx(tx *sqlx.Tx, oid string) error {
 	if !strings.HasPrefix(oid, TrackerPrefix) {
-		return errors.Errorf("don't know how to delete object %s", oid)
+		return errors.Errorf("don't know how to delete %v", oid)
 	}
-	fsid, err := ParseID(oid[len(TrackerPrefix):])
+	id, err := ParseID(oid[len(TrackerPrefix):])
 	if err != nil {
 		return err
 	}
-	return d.store.Delete(ctx, *fsid)
+	return d.store.Delete(tx, *id)
 }

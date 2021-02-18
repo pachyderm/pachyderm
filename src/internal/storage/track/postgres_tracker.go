@@ -20,48 +20,51 @@ func NewPostgresTracker(db *sqlx.DB) Tracker {
 	return &postgresTracker{db: db}
 }
 
-func (t *postgresTracker) CreateObject(ctx context.Context, id string, pointsTo []string, ttl time.Duration) error {
+func (t *postgresTracker) DB() *sqlx.DB {
+	return t.db
+}
+
+func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error {
+	// TODO: contraints on ttl? ttl = 0 has to be interpretted as no ttl, but all other values will make it through
 	for _, dwn := range pointsTo {
 		if dwn == id {
 			return ErrSelfReference
 		}
 	}
-	return t.withTx(ctx, func(tx *sqlx.Tx) error {
-		var oid int
-		if err := func() error {
-			if ttl != NoTTL {
-				return tx.GetContext(ctx, &oid,
-					`INSERT INTO storage.tracker_objects (str_id, expires_at)
+	var oid int
+	if err := func() error {
+		if ttl != NoTTL {
+			return tx.Get(&oid,
+				`INSERT INTO storage.tracker_objects (str_id, expires_at)
 				VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
 				ON CONFLICT (str_id) DO NOTHING
 				RETURNING int_id
 				`, id, ttl.Microseconds())
-			}
-			return tx.GetContext(ctx, &oid,
-				`INSERT INTO storage.tracker_objects (str_id)
+		}
+		return tx.Get(&oid,
+			`INSERT INTO storage.tracker_objects (str_id)
 				VALUES ($1)
 				ON CONFLICT (str_id) DO NOTHING
 				RETURNING int_id
 				`, id)
-		}(); err != nil {
-			if err == sql.ErrNoRows {
-				err = ErrObjectExists
-			}
-			return err
+	}(); err != nil {
+		if err == sql.ErrNoRows {
+			err = ErrObjectExists
 		}
-		var pointsToInts []int
-		if err := tx.SelectContext(ctx, &pointsToInts,
-			`INSERT INTO storage.tracker_refs (from_id, to_id)
+		return err
+	}
+	var pointsToInts []int
+	if err := tx.Select(&pointsToInts,
+		`INSERT INTO storage.tracker_refs (from_id, to_id)
 			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
 			RETURNING to_id`,
-			oid, pq.StringArray(pointsTo)); err != nil {
-			return err
-		}
-		if len(pointsToInts) != len(pointsTo) {
-			return ErrDanglingRef
-		}
-		return nil
-	})
+		oid, pq.StringArray(pointsTo)); err != nil {
+		return err
+	}
+	if len(pointsToInts) != len(pointsTo) {
+		return ErrDanglingRef
+	}
+	return nil
 }
 
 func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
@@ -109,72 +112,37 @@ func (t *postgresTracker) GetUpstream(ctx context.Context, id string) ([]string,
 	return ups, nil
 }
 
-func (t *postgresTracker) MarkTombstone(ctx context.Context, id string) error {
-	var tombstones []bool
-	if err := t.db.SelectContext(ctx, &tombstones, `	
-		UPDATE storage.tracker_objects
-		SET tombstone = (	
-			CASE
-				WHEN NOT EXISTS (
-					SELECT from_id FROM storage.tracker_refs
-					WHERE to_id IN (
-						SELECT int_id FROM storage.tracker_objects
-						WHERE str_id = $1
-					)
-				) THEN TRUE
-				ELSE FALSE
-			END
+func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
+	var count int
+	if err := t.db.Get(&count, `
+		WITH target AS (
+			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		WHERE str_id = $1
-		RETURNING tombstone
+		SELECT count(distinct from_id) FROM storage.tracker_refs WHERE to_id IN (SELECT int_id FROM TARGET)
 	`, id); err != nil {
 		return err
 	}
-	// if we get no results back, then it doesn't exist
-	if len(tombstones) == 0 {
-		return nil
-	}
-	// if the tombstone is not set, then it was because it would create a dangling ref
-	if !tombstones[0] {
+	if count > 0 {
 		return ErrDanglingRef
 	}
-	return nil
-}
-
-func (t *postgresTracker) FinishDelete(ctx context.Context, id string) error {
-	if err := t.withTx(ctx, func(tx *sqlx.Tx) error {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM storage.tracker_refs WHERE from_id IN (
+	_, err := t.db.Exec(`
+		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
-		`, id); err != nil {
-			return err
-		}
-		var tombstone bool
-		if err := tx.GetContext(ctx, &tombstone,
-			`DELETE FROM storage.tracker_objects
-			WHERE str_id = $1
-			RETURNING tombstone
-			`, id); err != nil {
-			return err
-		}
-		if !tombstone {
-			return ErrNotTombstone
-		}
-		return nil
-	}); err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		}
+		DELETE FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM TARGET)
+	`, id)
+	if err != nil {
 		return err
 	}
-	return nil
+	_, err = t.db.Exec(`DELETE FROM storacge.tracker_objects WHERE str_id = $1`, id)
+	return err
 }
 
 func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id string) error) (retErr error) {
 	rows, err := t.db.QueryxContext(ctx,
 		`SELECT str_id FROM storage.tracker_objects
 		WHERE int_id NOT IN (SELECT to_id FROM storage.tracker_refs)
-		AND (expires_at <= CURRENT_TIMESTAMP OR tombstone)`)
+		AND expires_at <= CURRENT_TIMESTAMP`)
 	if err != nil {
 		return err
 	}
@@ -195,18 +163,6 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	return rows.Err()
 }
 
-func (t *postgresTracker) withTx(ctx context.Context, cb func(tx *sqlx.Tx) error) error {
-	tx, err := t.db.BeginTxx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return err
-	}
-	if err := cb(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
-}
-
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
 func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
@@ -214,17 +170,21 @@ func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 var schema = `
-	CREATE TABLE IF NOT EXISTS storage.tracker_objects (
+	CREATE TABLE IF storage.tracker_objects (
 		int_id BIGSERIAL PRIMARY KEY,
 		str_id VARCHAR(4096) UNIQUE,
-		tombstone BOOLEAN NOT NULL DEFAULT FALSE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS storage.tracker_refs (
+	CREATE TABLE IF storage.tracker_refs (
 		from_id INT8 NOT NULL,
 		to_id INT8 NOT NULL,
 		PRIMARY KEY (from_id, to_id)
-	);	
+	);
+
+	CREATE INDEX ON storage.tracker_refs (
+		to_id,
+		from_id
+	);
 `

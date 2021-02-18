@@ -4,25 +4,27 @@ import (
 	"context"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/sirupsen/logrus"
 )
 
 // Deleter is used to delete data external to a tracker associated with a tracked object
 type Deleter interface {
-	Delete(ctx context.Context, id string) error
+	DeleteTx(tx *sqlx.Tx, id string) error
 }
 
 // DeleterMux returns a Deleter based on the id being deleted
 type DeleterMux func(string) Deleter
 
-// Delete implements Deleter
-func (dm DeleterMux) Delete(ctx context.Context, id string) error {
+// DeleteTx implements Deleter
+func (dm DeleterMux) DeleteTx(tx *sqlx.Tx, id string) error {
 	deleter := dm(id)
 	if deleter == nil {
 		return errors.Errorf("deleter mux does not have deleter for (%s)", id)
 	}
-	return deleter.Delete(ctx, id)
+	return deleter.DeleteTx(tx, id)
 }
 
 // GarbageCollector periodically runs garbage collection on tracker objects
@@ -91,11 +93,11 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (int, error) {
 }
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
-	if err := gc.tracker.MarkTombstone(ctx, id); err != nil {
-		return err
-	}
-	if err := gc.deleter.Delete(ctx, id); err != nil {
-		return err
-	}
-	return gc.tracker.FinishDelete(ctx, id)
+	db := gc.tracker.DB()
+	return dbutil.WithTx(ctx, db, func(tx *sqlx.Tx) error {
+		if err := gc.tracker.DeleteTx(tx, id); err != nil {
+			return err
+		}
+		return gc.deleter.DeleteTx(tx, id)
+	})
 }
