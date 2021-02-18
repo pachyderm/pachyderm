@@ -396,7 +396,7 @@ $ cd ../group
 $ pachctl list datum -f retail_group.json
 ```
 
-In this pipeline last pipeline, we have grouped `purchases`, `returns`, and `stores` repos on STOREID. Look at the datums created.
+In this last pipeline, we have grouped `purchases`, `returns`, and `stores` repos on STOREID. Look at the datums created.
 
 ![pach_logo](./img/pachctl_list_datum_retail_group.png)
 
