@@ -146,7 +146,7 @@ func TestLogApprovedUsers(t *testing.T) {
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusSeeOther, recorder.Result().StatusCode)
 
-	users, err := server.listUsers(context.Background())
+	users, err := listUsers(context.Background(), db)
 	require.NoError(t, err)
 	require.Equal(t, "test@example.com", users[0].Email)
 }
