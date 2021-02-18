@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	logrus "github.com/sirupsen/logrus"
 
@@ -33,7 +34,7 @@ func TestLazyStartWebServer(t *testing.T) {
 	sp := &InMemoryStorageProvider{err: errors.New("unable to connect to database")}
 
 	// server is instantiated but hasn't started
-	server := newDexWeb(sp, logger)
+	server := newDexWeb(sp, logger, dbutil.NewTestDB(t))
 	defer server.stopWebServer()
 
 	// request the well-known endpoint, this should return a 500 because the database is failing
@@ -82,7 +83,7 @@ func TestConfigureIssuer(t *testing.T) {
 	logger := logrus.NewEntry(logrus.New())
 	sp := &InMemoryStorageProvider{provider: dex_memory.New(logger)}
 
-	server := newDexWeb(sp, logger)
+	server := newDexWeb(sp, logger, dbutil.NewTestDB(t))
 	defer server.stopWebServer()
 
 	err := sp.provider.CreateConnector(dex_storage.Connector{ID: "conn", Type: "github"})

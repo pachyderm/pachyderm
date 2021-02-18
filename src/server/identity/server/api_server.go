@@ -74,7 +74,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 	}
 
 	if public {
-		server.web = newDexWeb(sp, logger)
+		server.web = newDexWeb(sp, logger, env.GetDBClient())
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, server.web); err != nil {
 				logger.WithError(err).Error("Dex web server stopped")
