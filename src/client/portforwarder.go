@@ -169,6 +169,11 @@ func (f *PortForwarder) RunForOIDCACS(localPort, remotePort uint16) (uint16, err
 	return f.Run("pachd", localPort, remotePort)
 }
 
+// RunForDex creates a port forwarder for Dex.
+func (f *PortForwarder) RunForDex(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
+}
+
 // RunForDashUI creates a port forwarder for the dash UI.
 func (f *PortForwarder) RunForDashUI(localPort uint16) (uint16, error) {
 	return f.Run("dash", localPort, 8080)
