@@ -11,16 +11,15 @@ implementation that best fits your cluster.
 For Pachyderm UI (`dash`) service in particular,
 make sure that it supports WebSockets (Traefic, Nginx, Ambassador...).
 
-## Pachyderm UI (aka Dashboard): A quick overview
+## Traefic ingress controller on Pachyderm UI's cluster in one diagram
 Pachyderm UI requires two ports to be open:
 
 - An HTTP port used to serve static assets 
 (HTML, CSS, JS, images, etc; port 30080 by default routes to the dash container within the dash pod)
 - A WebSocket port, used to connect to the GRPC proxy 
-(which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)    
+(which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)  
 
-## Traefic ingress controller on Pachyderm UI's cluster in one diagram
-A quick high-level understanding of the various components at play.
+Here is a quick high-level view of the various components at play.
 ![pach-ui-ingress](../pach-ui-ingress.png)
 
 !!! Warning 
