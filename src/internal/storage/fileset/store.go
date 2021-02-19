@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	// ErrPathExists path already exists
-	ErrPathExists = errors.Errorf("path already exists")
-	// ErrPathNotExists path does not exist
-	ErrPathNotExists = errors.Errorf("path does not exist")
+	// ErrFileSetExists path already exists
+	ErrFileSetExists = errors.Errorf("path already exists")
+	// ErrFileSetNotExists path does not exist
+	ErrFileSetNotExists = errors.Errorf("path does not exist")
 	// ErrNoTTLSet no ttl set on path
 	ErrNoTTLSet = errors.Errorf("no ttl set on path")
 )
@@ -43,6 +43,6 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) Store) {
 		require.NoError(t, x.Set(ctx, "test", md))
 		require.NoError(t, x.Delete(ctx, "test"))
 		_, err := x.Get(ctx, "test")
-		require.Equal(t, ErrPathNotExists, err)
+		require.Equal(t, ErrFileSetNotExists, err)
 	})
 }

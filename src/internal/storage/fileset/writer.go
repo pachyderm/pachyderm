@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
@@ -30,6 +29,9 @@ func (fw *FileWriter) Append(tag string) {
 
 func (fw *FileWriter) Write(data []byte) (int, error) {
 	parts := fw.idx.File.Parts
+	if len(parts) < 1 {
+		panic("must specify a tag before writing")
+	}
 	part := parts[len(parts)-1]
 	part.SizeBytes += int64(len(data))
 	fw.w.sizeBytes += int64(len(data))
@@ -53,7 +55,6 @@ type Writer struct {
 }
 
 func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chunks *chunk.Storage, opts ...WriterOption) *Writer {
-	uuidStr := uuid.NewWithoutDashes()
 	w := &Writer{
 		ctx:     ctx,
 		storage: storage,
@@ -66,13 +67,14 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	if w.noUpload {
 		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer-"+uuidStr)
-	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer-"+uuidStr)
-	w.cw = chunks.NewWriter(ctx, "chunk-writer-"+uuidStr, w.callback, chunkWriterOpts...)
+	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer")
+	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer")
+	w.cw = chunks.NewWriter(ctx, "chunk-writer", w.callback, chunkWriterOpts...)
 	return w
 }
 
 // Append creates an append operation for a file and provides a scoped file writer.
+// TODO: change to `Append(p string, tag string, r io.Reader) error`, remove FileWriter object from API.
 func (w *Writer) Append(p string, cb func(*FileWriter) error) error {
 	fw, err := w.newFileWriter(p, w.cw)
 	if err != nil {
