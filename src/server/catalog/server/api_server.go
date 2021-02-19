@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"time"
 
 	"github.com/blevesearch/bleve"
 	"github.com/pachyderm/pachyderm/v2/src/catalog"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
@@ -21,10 +23,12 @@ func newAPIServer(env *serviceenv.ServiceEnv) (*apiServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &apiServer{
+	a := &apiServer{
 		env:   env,
 		index: index,
-	}, nil
+	}
+	go a.scrape()
+	return a, nil
 }
 
 func (a *apiServer) Query(ctx context.Context, req *catalog.QueryRequest) (*catalog.QueryResponse, error) {
@@ -37,4 +41,20 @@ func (a *apiServer) Query(ctx context.Context, req *catalog.QueryRequest) (*cata
 		result.Results = append(result.Results, doc.ID)
 	}
 	return result, nil
+}
+
+func (a *apiServer) scrape() {
+	pc := a.env.GetPachClient(context.Background())
+	backoff.Retry(func() error {
+		for {
+			ris, err := pc.ListRepo()
+			if err != nil {
+				return err
+			}
+			for _, ri := range ris {
+				a.index.Index(ri.Repo.Name, ri)
+			}
+			time.Sleep(time.Second * 10)
+		}
+	}, backoff.RetryEvery(time.Second*10))
 }
