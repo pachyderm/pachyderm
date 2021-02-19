@@ -1,6 +1,6 @@
 # Set up Ingress with Traefic to access Pachyderm UI (`dash`) service in your cluster 
 
-Before completing the steps in this section, read the [Overview](../index).
+Before completing the following steps, read the [Overview](../index).
 
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
@@ -21,6 +21,7 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
    
 
 ## Traefic ingress controller on Pachyderm's cluster: Overview
+This diagram gives you a quick overview of the various components at play.
 ![pach-ui-ingress](../pach-ui-ingress.png)
 
 
@@ -44,7 +45,9 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
     ```shell
     $ kubectl get all 
     ```
-    then access your Traefic Dashboard at http://127.0.0.1:9000/dashboard/ following the port-forward instructions (You can choose to apply your own Ingress Ressource instead.):
+    You should see you traefic pod, service, deployments.apps and replicaset.app.
+
+    You can now access your Traefic Dashboard at http://127.0.0.1:9000/dashboard/ following the port-forward instructions (You can choose to apply your own Ingress Ressource instead.):
     ```shell
     $ kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name) 9000:9000
     ```
@@ -81,7 +84,7 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
 
          At a minimum, you will need to specify the following fields:
 
-         - `host` — match the hostname header of the http request (domain).  In the file above,  **dash.localhost** - 
+         - `host` — match the hostname header of the http request (domain).  In the file above,  **dash.localhost** 
          - `path` - mapped to the service port `servicePort` of the `serviceName`. 
 
    - Create/apply your ressource
@@ -93,11 +96,11 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
       ```shell
       $ kubectl describe ingress pachyderm
       ```
-      
+      ```
       Name:             pachyderm
       Namespace:        default
       Address:
-      Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+      Default backend:  default-http-backend:80 
       Rules:
       Host            Path  Backends
       dash.localhost
@@ -106,6 +109,7 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
       Annotations:      kubernetes.io/ingress.class: traefik
                         traefik.frontend.rule.type: PathPrefixStrip
       Events:           <none>
+      ```
        
    - Check the Traefic Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
 
@@ -113,39 +117,40 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
        You can deploy your `Ingress` resource (Ingress Route) in any namespace.
 
 !!! Note
-       The `servicePort` on which your `serviceName` listens,
+       The `servicePort`(s) on which your `serviceName`(s) listens,
        are defined in your Pachyderm deployment manifest (`pachctl deploy local --dry-run > pachd.json`).
        Take a look at the service declaration of `dash` from our manifest below
        and the 2 ports `dash-http` and `grpc-proxy-http` it listens to.
-
       ```yaml
-      "kind": "Service",
-      "apiVersion": "v1",
-      "metadata": {
-         "name": "dash",
-         "namespace": "default",
-         "creationTimestamp": null,
-         "labels": {
-            "app": "dash",
-            "suite": "pachyderm"
-         }
-      },
-      "spec": {
-         "ports": [
-            {
-            "name": "dash-http",
-            "port": 8080,
-            "targetPort": 0,
-            "nodePort": 30080
-            },
-            {
-            "name": "grpc-proxy-http",
-            "port": 8081,
-            "targetPort": 0,
-            "nodePort": 30081
+         "kind": "Service",
+         "apiVersion": "v1",
+         "metadata": {
+            "name": "dash",
+            "namespace": "default",
+            "creationTimestamp": null,
+            "labels": {
+               "app": "dash",
+               "suite": "pachyderm"
             }
-         ],
-      ``` 
+         },
+         "spec": {
+            "ports": [
+               {
+               "name": "dash-http",
+               "port": 8080,
+               "targetPort": 0,
+               "nodePort": 30080
+               },
+               {
+               "name": "grpc-proxy-http",
+               "port": 8081,
+               "targetPort": 0,
+               "nodePort": 30081
+               }
+            ],
+      ```      
+
+ 
 !!! Warning
       - You need to have administrative access to the hostname that you
       specify in the `host` field.
@@ -153,9 +158,10 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
       in the `Ingress` resource `.yaml`.
       - Do not create routes (`paths`) with `dash`.
       Pachyderm UI will not load.
-      
+
+
 ## Browse
-Connect to your Pachyderm UI: http://dash.localhost/app/
+Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
 
 !!! Info
       If you choose to run your websocket server on a different host/port, adjust your rules accordingly.
@@ -176,7 +182,7 @@ Connect to your Pachyderm UI: http://dash.localhost/app/
                serviceName: dash
                servicePort: grpc-proxy-http
       ``` 
-       You can access Pachyderm UI by specifying the path, host, and port for the websocket proxy
+       You can then access Pachyderm UI by specifying the path, host, and port for the websocket proxy
        using GET parameters in the url: http://dash.localhost/app?host=dashws.localhost&path=ws&port=80
        If you’re using the same hostname on your ingress to map both the websocket port and the UI port,
        you can omit those parameters.
