@@ -10,8 +10,8 @@ Kubernetes provides multiple ways to deliver external traffic to a service,
 including:
 
 * `type: NodePort`. A NodePort service provides basic
-access to services. By default, the `pachd` service is deployed as `NodePort`
-to simplify interaction with your localhost. 
+  access to services. By default, the `pachd` service is deployed as `NodePort`
+  to simplify interaction with your localhost. 
 
 !!! Warning
     `NodePort` is a limited solution
@@ -20,22 +20,21 @@ to simplify interaction with your localhost.
     deployments. 
 
 * `type: LoadBalancer`. A Kubernetes service with
-`type: LoadBalancer` (see `pachd` service manifest) perform basic load balancing. 
-Typically, if you set the `pachd` service type to LoadBalancer
-in a cloud provider, the cloud provider automatically
-deploys a load balancer to serve your
-application. 
-The downside of this approach is that you will have to change
-all your services to the load balancer type and have a separate load
-balancer for each service. This can become difficult to manage long term.
-
-This option works on most cloud platforms (AWS, GKE...), 
-as well as in minikube, and majorly used for internal use.
+  `type: LoadBalancer` (see `pachd` service manifest) perform basic load balancing. 
+  Typically, if you set the `pachd` service type to LoadBalancer
+  in a cloud provider, the cloud provider automatically
+  deploys a load balancer to serve your
+  application. 
+  The downside of this approach is that you will have to change
+  all your services to the load balancer type and have a separate load
+  balancer for each service. This can become difficult to manage long term.
+  This option works on most cloud platforms (AWS, GKE...), 
+  as well as in minikube, and majorly used for internal use.
 
 * `Ingress` resource. An ingress resource is
-independent of the services that you deploy.
-Because it provides advanced routing capabilities, 
-it is the recommended option to use with Pachyderm. 
+  independent of the services that you deploy.
+  Because it provides advanced routing capabilities, 
+  it is the recommended option to use with Pachyderm. 
 
 !!! Warning
     Kubernetes supports multiple ingress controller options, and you are free to

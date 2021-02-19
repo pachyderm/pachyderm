@@ -5,7 +5,7 @@ Before completing the steps in this section, read the [Overview](../index).
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
 (here Pachyderm UI (`dash`) service) 
-using the **ingress controller** Traeffic.
+using the **ingress controller** Traefic.
  
 However, we recommand you to choose the ingress controller
 implementation that best fits your cluster.
@@ -90,22 +90,22 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
       ```
       
    - Check your new rules by running `kubectl describe ingress <name-field-value-in-rules-yaml>`:
-         ```shell
-         $ kubectl describe ingress pachyderm
-         ```
-       
-         Name:             pachyderm
-         Namespace:        default
-         Address:
-         Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
-         Rules:
-         Host            Path  Backends
-         dash.localhost
-                           /     dash:dash-http (10.1.0.7:8080)
-                           /ws   dash:grpc-proxy-http (10.1.0.7:8081)
-         Annotations:      kubernetes.io/ingress.class: traefik
-                           traefik.frontend.rule.type: PathPrefixStrip
-         Events:           <none>
+      ```shell
+      $ kubectl describe ingress pachyderm
+      ```
+      
+      Name:             pachyderm
+      Namespace:        default
+      Address:
+      Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+      Rules:
+      Host            Path  Backends
+      dash.localhost
+                        /     dash:dash-http (10.1.0.7:8080)
+                        /ws   dash:grpc-proxy-http (10.1.0.7:8081)
+      Annotations:      kubernetes.io/ingress.class: traefik
+                        traefik.frontend.rule.type: PathPrefixStrip
+      Events:           <none>
        
    - Check the Traefic Dashboard again (http://127.0.0.1:9000/dashboard/), your new set of rules should now be visible.
 
@@ -118,7 +118,7 @@ make sure that it supports websockets (Traefic, Nginx, Ambassador...).
        Take a look at the service declaration of `dash` from our manifest below
        and the 2 ports `dash-http` and `grpc-proxy-http` it listens to.
 
-      ```json
+      ```yaml
       "kind": "Service",
       "apiVersion": "v1",
       "metadata": {
@@ -176,7 +176,7 @@ Connect to your Pachyderm UI: http://dash.localhost/app/
                serviceName: dash
                servicePort: grpc-proxy-http
       ``` 
-       You can Pachyderm UI by specifying the path, host, and port for the websocket proxy
+       You can access Pachyderm UI by specifying the path, host, and port for the websocket proxy
        using GET parameters in the url: http://dash.localhost/app?host=dashws.localhost&path=ws&port=80
        If you’re using the same hostname on your ingress to map both the websocket port and the UI port,
        you can omit those parameters.
