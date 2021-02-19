@@ -2,10 +2,16 @@ package transform
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -18,9 +24,7 @@ import (
 // Worker handles a transform pipeline work subtask, then returns.
 // TODO:
 // datum queuing (probably should be handled by datum package).
-// s3 input / gateway stuff (need more information here).
 // spouts.
-// joins.
 // capture datum logs.
 // git inputs.
 // handle custom user set for execution.
@@ -32,6 +36,11 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 	return status.withJob(datumSet.JobID, func() error {
 		logger = logger.WithJob(datumSet.JobID)
 		if err := logger.LogStep("datum task", func() error {
+			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
+				if err := checkS3Gateway(driver, logger); err != nil {
+					return err
+				}
+			}
 			return handleDatumSet(driver, logger, datumSet, status)
 		}); err != nil {
 			return err
@@ -39,6 +48,27 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 		subtask.Data, err = serializeDatumSet(datumSet)
 		return err
 	})
+}
+
+func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
+	return backoff.RetryNotify(func() error {
+		endpoint := fmt.Sprintf("http://%s:%s/", ppsutil.SidecarS3GatewayService(logger.JobID()), os.Getenv("S3GATEWAY_PORT"))
+		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
+		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
+		return err
+	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("worker could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+		return nil
+	})
+	// TODO: `master` implementation fails the job here, we may need to do the same
+	// We would need to load the jobInfo first for this:
+	// }); err != nil {
+	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+	//   logger.Logf("failing job with reason: %s", reason)
+	//   // NOTE: this is the only place a worker will reach over and change the job state, this should not generally be done.
+	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), jobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
+	// }
+	// return nil
 }
 
 // TODO: It would probably be better to write the output to temporary file sets and expose an operation through pfs for adding a temporary fileset to a commit.
