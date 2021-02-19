@@ -11,7 +11,6 @@ implementation that best fits your cluster.
 For Pachyderm UI (`dash`) service in particular,
 make sure that it supports WebSockets (Traefic, Nginx, Ambassador...).
 
-## Traefic ingress controller on Pachyderm UI's cluster in one diagram
 Pachyderm UI requires two ports to be open:
 
 - An HTTP port used to serve static assets 
@@ -19,8 +18,7 @@ Pachyderm UI requires two ports to be open:
 - A WebSocket port, used to connect to the GRPC proxy 
 (which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)  
 
-Here is a quick high-level view of the various components at play.
-![pach-ui-ingress](../pach-ui-ingress.png)
+Want a quick overview of all the components? Take a look at [this diagram](#traefic-ingress-controller-on-pachyderm-uis-cluster-in-one-diagram).
 
 !!! Warning 
 
@@ -189,6 +187,10 @@ Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
        using GET parameters in the url: http://dash.localhost/app?host=dashws.localhost&path=ws&port=80
        If you’re using the same hostname on your ingress to map both the WebSocket port and the UI port,
        you can omit those parameters.
+
+## Traefic ingress controller on Pachyderm UI's cluster in one diagram
+Here is a quick high-level view of the various components at play.
+![pach-ui-ingress](../pach-ui-ingress.png)
 
 ## References
 * [Traefic](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
