@@ -1,29 +1,33 @@
 # Set up Ingress with Traefic to access Pachyderm UI (`dash`) service in your cluster 
 
 Before completing the following steps, read the [Overview](../index).
-
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
 (here Pachyderm UI (`dash`) service) 
 using the **ingress controller** Traefic.
  
-However, we recommand you to choose the ingress controller
+However, we recommend you choose the ingress controller
 implementation that best fits your cluster.
-
 For Pachyderm UI (`dash`) service in particular,
-make sure that it supports websockets (Traefic, Nginx, Ambassador...).
+make sure that it supports WebSockets (Traefic, Nginx, Ambassador...).
+
+## Pachyderm UI (aka Dashboard): A quick overview
+Pachyderm UI requires two ports to be open:
+
+- An HTTP port used to serve static assets 
+(HTML, CSS, JS, images, etc; port 30080 by default routes to the dash container within the dash pod)
+- A WebSocket port, used to connect to the GRPC proxy 
+(which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)    
+
+## Traefic ingress controller on Pachyderm UI's cluster in one diagram
+A quick high-level understanding of the various components at play.
+![pach-ui-ingress](../pach-ui-ingress.png)
 
 !!! Warning 
 
-    These installation steps are for **Informational Purposes** ONLY. 
+    The following installation steps are for **Informational Purposes** ONLY. 
     Please refer to your full Traefic documentation 
     for further installation details and any troubleshooting advice.
-   
-
-## Traefic ingress controller on Pachyderm's cluster: Overview
-This diagram gives you a quick overview of the various components at play.
-![pach-ui-ingress](../pach-ui-ingress.png)
-
 
 ## Traefic installation and Ingress Ressource Definition
 1. Helm install [Traefic](https://github.com/traefik/traefik-helm-chart):
@@ -45,7 +49,7 @@ This diagram gives you a quick overview of the various components at play.
     ```shell
     $ kubectl get all 
     ```
-    You should see you traefic pod, service, deployments.apps and replicaset.app.
+    You should see your traefic pod, service, deployments.apps, and replicaset.app.
 
     You can now access your Traefic Dashboard at http://127.0.0.1:9000/dashboard/ following the port-forward instructions (You can choose to apply your own Ingress Ressource instead.):
     ```shell
@@ -164,7 +168,7 @@ This diagram gives you a quick overview of the various components at play.
 Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
 
 !!! Info
-      If you choose to run your websocket server on a different host/port, adjust your rules accordingly.
+      If you choose to run your WebSocket server on a different host/port, adjust your rules accordingly.
       ```shell
       rules:
       - host: dash.localhost
@@ -182,9 +186,9 @@ Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
                serviceName: dash
                servicePort: grpc-proxy-http
       ``` 
-       You can then access Pachyderm UI by specifying the path, host, and port for the websocket proxy
+       You can then access Pachyderm UI by specifying the path, host, and port for the WebSocket proxy
        using GET parameters in the url: http://dash.localhost/app?host=dashws.localhost&path=ws&port=80
-       If you’re using the same hostname on your ingress to map both the websocket port and the UI port,
+       If you’re using the same hostname on your ingress to map both the WebSocket port and the UI port,
        you can omit those parameters.
 
 ## References

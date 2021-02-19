@@ -5,7 +5,7 @@ daemon pod, and `dash`, the Pachyderm UI. Port-forwarding can be used in
 cloud environments as well, but a production environment might require you to
 define more sophisticated inbound connection rules.
 
-## Deliver external trafic to Pachyderm
+## Deliver external traffic to Pachyderm
 Kubernetes provides multiple ways to deliver external traffic to a service,
 including:
 
@@ -27,7 +27,7 @@ including:
   application. 
   The downside of this approach is that you will have to change
   all your services to the load balancer type and have a separate load
-  balancer for each service. This can become difficult to manage long term.
+  balancer for each service. This can become difficult to manage long-term.
   This option works on most cloud platforms (AWS, GKE...), 
   as well as in minikube, and majorly used for internal use.
 
@@ -41,7 +41,7 @@ including:
     pick the one that works best for your environment. 
     However, not all of them
     might be fully compatible with Pachyderm. 
-    In particular, it must support gRPC protocol (for `pachd`) and websockets (for `dash`)
+    In particular, it must support gRPC protocol (for `pachd`) and WebSockets (for `dash`)
 
 !!! Info
     No ingress controller is deployed by default with the `pachctl deploy` command.
@@ -56,7 +56,7 @@ including:
 If you run Pachyderm in a cloud platform, the cloud provider is responsible
 for securing the underlying infrastructure, such as the Kubernetes control plane.
 If you are running Kubernetes locally, the security of
-Kubernetes APIs, kubelet, and other components becomes your responsibility.
+Kubernetes APIs, kubelet, and other components become your responsibility.
 See security recommendations in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/). 
 
 
@@ -77,9 +77,6 @@ we recommend that you:
 
     Pachyderm authentication is an additional
     security layer to protect your data from unauthorized access.
-    If you cannot use Pachyderm authentication providers (Community Edition), 
-    we highly recommend to use Pachyderm port-forwarding.
-
     See [Configure Access Controls](https://docs.pachyderm.com/latest/enterprise/auth/enable-auth/).
 
 !!! Warning
