@@ -81,7 +81,7 @@ we recommend that you:
     If you cannot use Pachyderm authentication providers (Community Edition), 
     we highly recommend to use Pachyderm port-forwarding.
 
-    See [Configure Access Controls](../../../../enterprise/auth/enable-auth/).
+    See [Configure Access Controls](https://docs.pachyderm.com/latest/enterprise/auth/enable-auth/).
 
 !!! Warning
     Exposing Pachyderm services through an ingress without Pachyderm authentication might result in
