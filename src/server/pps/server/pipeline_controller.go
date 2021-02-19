@@ -398,7 +398,7 @@ func (op *pipelineOp) createPipelineResources() error {
 		if errors.As(err, &noValidOptionsErr{}) {
 			// these errors indicate invalid pipelineInfo, don't retry
 			return stepError{
-				error:        errors.Wrap(err, "could not generate RC options: %v"),
+				error:        errors.Wrap(err, "could not generate RC options"),
 				failPipeline: true,
 			}
 		}
@@ -593,5 +593,5 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 		return errors.Wrap(err, "error restarting pipeline")
 	}
 
-	return errors.Errorf("restarting pipeline %q: %v", op.name, reason)
+	return errors.Errorf("restarting pipeline %q: %s", op.name, reason)
 }

@@ -197,7 +197,7 @@ func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
 				return nil
 			}
 		}
-		return errors.Wrapf(err, "could not update resource for pipeline %q: %v", e.pipeline)
+		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
 	})
 	// we've given up on the step, check if the error indicated that the pipeline should fail
 	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
@@ -267,7 +267,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	for _, rc := range rcs.Items {
 		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
-				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
+				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
 			}
 		}
 	}
