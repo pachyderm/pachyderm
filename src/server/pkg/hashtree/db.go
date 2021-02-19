@@ -317,9 +317,13 @@ func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) 
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
 	}
-	return nodes(rs, func(path string, node *NodeProto) error {
+	return fastNodes(rs, func(path string, n *MergeNode) error {
 		if g.Match(path) {
-			return f(externalDefault(path), node)
+			n.nodeProto = &NodeProto{}
+			if err := n.nodeProto.Unmarshal(n.v); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return f(externalDefault(path), n.nodeProto)
 		}
 		return nil
 	})
@@ -374,6 +378,7 @@ func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodePro
 		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
 			return nil
 		}
+
 		if err := f(path, node); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -1368,6 +1373,29 @@ func Merge(w *Writer, rs []*Reader) error {
 		// Write out result
 		if err := w.Write(n); err != nil {
 			return errors.EnsureStack(err)
+		}
+	}
+	return nil
+}
+
+func fastNodes(rs []io.ReadCloser, f func(path string, node *MergeNode) error) error {
+	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
+	// Setup first set of nodes
+	for _, r := range rs {
+		if err := mq.insert(&nodeStream{r: NewReader(r, nil)}); err != nil {
+			return err
+		}
+	}
+	for mq.q[1] != nil {
+		// Get next node
+		ns, err := mq.next()
+		if err != nil {
+			return err
+		}
+		// Unmarshal node and run callback
+		n := ns[0]
+		if err := f(s(n.k), n); err != nil {
+			return err
 		}
 	}
 	return nil

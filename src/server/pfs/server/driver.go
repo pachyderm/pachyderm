@@ -3933,6 +3933,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if commitInfo.Trees == nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
+	start := time.Now()
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
 	if !ppath.IsGlob(file.Path) {
@@ -3943,6 +3944,8 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("getFile: %v\n", time.Since(start))
+	start = time.Now()
 	defer func() {
 		for _, r := range rs {
 			if err := r.Close(); err != nil && retErr != nil {
@@ -3967,6 +3970,8 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if !found {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
+	fmt.Printf("glob: %v\n", time.Since(start))
+	start = time.Now()
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
 		&pfs.GetBlocksRequest{
@@ -3979,6 +3984,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("getBlocks: %v\n", time.Since(start))
 	return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
 }
 
