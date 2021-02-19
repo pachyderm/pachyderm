@@ -68,8 +68,6 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 		defer func() {
 			if retErr != nil {
 				r.CloseWithError(retErr)
-			} else {
-				r.Close()
 			}
 		}()
 		for _, part := range tf.parts {
