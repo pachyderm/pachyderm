@@ -21,6 +21,7 @@ import (
 
 const (
 	masterLockPath = "_master_lock"
+	maxErrCount    = 3 // gives all retried operations ~4.5s total to finish
 )
 
 var (
@@ -52,6 +53,24 @@ type pipelineEvent struct {
 	// created by pollPipelines.
 	etcdVer int64
 	etcdRev int64
+}
+
+type stepError struct {
+	error
+	retry        bool
+	failPipeline bool
+}
+
+func newRetriableError(err error, message string) error {
+	return stepError{
+		error:        errors.Wrap(err, message),
+		retry:        true,
+		failPipeline: true,
+	}
+}
+
+func (s stepError) Unwrap() error {
+	return s.error
 }
 
 type ppsMaster struct {
@@ -140,10 +159,8 @@ eventLoop:
 		case e := <-m.eventCh:
 			switch e.eventType {
 			case writeEv:
-				// Create/Modify/Delete pipeline resources as needed per new state
-				if err := m.step(e.pipeline, e.etcdVer, e.etcdRev); err != nil {
-					log.Errorf("PPS master: could not update resources for pipeline %q: %v",
-						e.pipeline, err)
+				if err := m.attemptStep(masterCtx, e); err != nil {
+					log.Errorf("PPS master: %v", err)
 				}
 			case deleteEv:
 				// TODO(msteffen) trace this call
@@ -156,6 +173,42 @@ eventLoop:
 			break eventLoop
 		}
 	}
+}
+
+// attemptStep calls step for the given pipeline in a backoff loop.
+// When it encounters a stepError, returned by most pipeline controller helper
+// functions, it uses the fields to decide whether to retry the step or,
+// if the retries have been exhausted, fail the pipeline.
+//
+// Other errors are simply logged and ignored, assuming that some future polling
+// of the pipeline will succeed.
+func (m *ppsMaster) attemptStep(ctx context.Context, e *pipelineEvent) error {
+	var errCount int
+	var stepErr stepError
+	err := backoff.RetryNotify(func() error {
+		// Create/Modify/Delete pipeline resources as needed per new state
+		return m.step(e.pipeline, e.etcdVer, e.etcdRev)
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		errCount++
+		if errors.As(err, &stepErr) {
+			if stepErr.retry && errCount < maxErrCount {
+				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
+					e.pipeline, err, d)
+				return nil
+			}
+		}
+		return errors.Wrapf(err, "could not update resource for pipeline %q", e.pipeline)
+	})
+	// we've given up on the step, check if the error indicated that the pipeline should fail
+	if err != nil && errors.As(err, &stepErr) && stepErr.failPipeline {
+		failError := m.a.setPipelineFailure(ctx, e.pipeline, fmt.Sprintf(
+			"could not update resources after %d attempts: %v", errCount, err))
+		if failError != nil {
+			return errors.Wrapf(failError, "error failing pipeline %q", e.pipeline)
+		}
+		return errors.Wrapf(err, "failing pipeline %q", e.pipeline)
+	}
+	return err
 }
 
 func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) {
@@ -214,7 +267,7 @@ func (m *ppsMaster) deletePipelineResources(pipelineName string) (retErr error) 
 	for _, rc := range rcs.Items {
 		if err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
-				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
+				return errors.Wrapf(err, "could not delete RC %q", rc.Name)
 			}
 		}
 	}
