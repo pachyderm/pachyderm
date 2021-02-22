@@ -411,9 +411,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		return errors.Wrapf(err, "repos.Delete")
 	}
 
-	if _, err = txnCtx.Auth().DeleteRoleBindingInTransaction(txnCtx, &auth.DeleteRoleBindingRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
-	}); err != nil && !auth.IsErrNotActivated(err) {
+	if err := txnCtx.Auth().DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil

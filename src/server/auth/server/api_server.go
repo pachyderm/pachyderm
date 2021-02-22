@@ -617,12 +617,9 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 // DeleteRoleBindingInTransaction is identitical to DeleteRoleBinding except that it can run inside
 // an existing etcd STM transaction. This is not an RPC.
-func (a *apiServer) DeleteRoleBindingInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	req *auth.DeleteRoleBindingRequest,
-) (*auth.DeleteRoleBindingResponse, error) {
+func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// TODO: check that the resource doesn't exist - this avoids "orphan" repos with no ACL
@@ -630,54 +627,38 @@ func (a *apiServer) DeleteRoleBindingInTransaction(
 
 	// DeleteRepoBinding can only be called for repos, as part of deletion
 	var permissions []auth.Permission
-	switch req.Resource.Type {
+	switch resource.Type {
 	case auth.ResourceType_CLUSTER:
-		return nil, fmt.Errorf("cannot delete cluster role binding")
+		return fmt.Errorf("cannot delete cluster role binding")
 	case auth.ResourceType_REPO:
 		permissions = []auth.Permission{auth.Permission_REPO_DELETE}
 	default:
-		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
+		return fmt.Errorf("unknown resource type %v", resource.Type)
 	}
 
 	// Check if the caller is authorized
 	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-		Resource:    req.Resource,
+		Resource:    resource,
 		Permissions: permissions,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !authorized.Authorized {
-		return nil, &auth.ErrNotAuthorized{
+		return &auth.ErrNotAuthorized{
 			Subject:  authorized.Principal,
-			Resource: *req.Resource,
+			Resource: *resource,
 			Required: permissions,
 		}
 	}
 
-	key := resourceKey(req.Resource)
+	key := resourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
 	if err := roleBindings.Delete(key); err != nil {
-		return nil, err
-	}
-
-	return &auth.DeleteRoleBindingResponse{}, nil
-}
-
-// DeleteRoleBinding implements the DeleteRoleBinding RPC
-func (a *apiServer) DeleteRoleBinding(ctx context.Context, req *auth.DeleteRoleBindingRequest) (resp *auth.DeleteRoleBindingResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	var response *auth.DeleteRoleBindingResponse
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		var err error
-		response, err = txn.DeleteRoleBinding(req)
 		return err
-	}); err != nil {
-		return nil, err
 	}
-	return response, nil
+
+	return nil
 }
 
 func bindingFromRequest(req *auth.ModifyRoleBindingRequest) *auth.Roles {

@@ -212,13 +212,6 @@ message ModifyRoleBindingRequest {
 
 message ModifyRoleBindingResponse {}
 
-message DeleteRoleBindingRequest {
-  // resource is the resource to delete the role bindings on 
-  Resource resource = 1;
-}
-
-message DeleteRoleBindingResponse {}
-
 message GetRoleBindingRequest {
   Resource resource = 1; 
 }
@@ -377,7 +370,6 @@ service API {
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
   rpc ModifyRoleBinding(ModifyRoleBindingRequest) returns (ModifyRoleBindingResponse) {}
-  rpc DeleteRoleBinding(DeleteRoleBindingRequest) returns (DeleteRoleBindingResponse) {}
   rpc GetRoleBinding(GetRoleBindingRequest) returns (GetRoleBindingResponse) {}
 
   rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}

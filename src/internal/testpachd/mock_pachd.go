@@ -75,7 +75,6 @@ type setConfigurationFunc func(context.Context, *auth.SetConfigurationRequest) (
 
 type modifyRoleBindingFunc func(context.Context, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 type getRoleBindingFunc func(context.Context, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
-type deleteRoleBindingFunc func(context.Context, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error)
 
 type authenticateFunc func(context.Context, *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error)
 type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
@@ -97,7 +96,6 @@ type mockGetConfiguration struct{ handler getConfigurationFunc }
 type mockSetConfiguration struct{ handler setConfigurationFunc }
 type mockModifyRoleBinding struct{ handler modifyRoleBindingFunc }
 type mockGetRoleBinding struct{ handler getRoleBindingFunc }
-type mockDeleteRoleBinding struct{ handler deleteRoleBindingFunc }
 
 type mockAuthenticate struct{ handler authenticateFunc }
 type mockAuthorize struct{ handler authorizeFunc }
@@ -119,7 +117,6 @@ func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)   { mock.handler 
 func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)   { mock.handler = cb }
 func (mock *mockModifyRoleBinding) Use(cb modifyRoleBindingFunc) { mock.handler = cb }
 func (mock *mockGetRoleBinding) Use(cb getRoleBindingFunc)       { mock.handler = cb }
-func (mock *mockDeleteRoleBinding) Use(cb deleteRoleBindingFunc) { mock.handler = cb }
 func (mock *mockAuthenticate) Use(cb authenticateFunc)           { mock.handler = cb }
 func (mock *mockAuthorize) Use(cb authorizeFunc)                 { mock.handler = cb }
 func (mock *mockWhoAmI) Use(cb whoAmIFunc)                       { mock.handler = cb }
@@ -146,7 +143,6 @@ type mockAuthServer struct {
 	SetConfiguration  mockSetConfiguration
 	ModifyRoleBinding mockModifyRoleBinding
 	GetRoleBinding    mockGetRoleBinding
-	DeleteRoleBinding mockDeleteRoleBinding
 	Authenticate      mockAuthenticate
 	Authorize         mockAuthorize
 	WhoAmI            mockWhoAmI
@@ -197,12 +193,6 @@ func (api *authServerAPI) ModifyRoleBinding(ctx context.Context, req *auth.Modif
 		return api.mock.ModifyRoleBinding.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.ModifyRoleBinding")
-}
-func (api *authServerAPI) DeleteRoleBinding(ctx context.Context, req *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
-	if api.mock.DeleteRoleBinding.handler != nil {
-		return api.mock.DeleteRoleBinding.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.DeleteRoleBinding")
 }
 func (api *authServerAPI) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
 	if api.mock.Authenticate.handler != nil {

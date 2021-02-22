@@ -46,7 +46,7 @@ type PpsWrites interface {
 // context.
 type AuthWrites interface {
 	ModifyRoleBinding(*auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	DeleteRoleBinding(*auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error)
+	DeleteRoleBinding(*auth.Resource) error
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at
@@ -140,7 +140,7 @@ type AuthTransactionServer interface {
 
 	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
-	DeleteRoleBindingInTransaction(*TransactionContext, *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error)
+	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
@@ -277,8 +277,8 @@ func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, 
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
 }
 
-func (t *directTransaction) DeleteRoleBinding(original *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
-	req := proto.Clone(original).(*auth.DeleteRoleBindingRequest)
+func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
+	req := proto.Clone(original).(*auth.Resource)
 	return t.txnCtx.txnEnv.authServer.DeleteRoleBindingInTransaction(t.txnCtx, req)
 }
 
@@ -348,7 +348,7 @@ func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	panic("ModifyRoleBinding not yet implemented in transactions")
 }
 
-func (t *appendTransaction) DeleteRoleBinding(original *auth.DeleteRoleBindingRequest) (*auth.DeleteRoleBindingResponse, error) {
+func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	panic("DeleteRoleBinding not yet implemented in transactions")
 }
 
