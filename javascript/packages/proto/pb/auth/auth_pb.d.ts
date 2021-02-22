@@ -1,19 +1,16 @@
 // package: auth
-// file: client/auth/auth.proto
+// file: auth/auth.proto
 
 /* tslint:disable */
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as gogoproto_gogo_pb from "../../gogoproto/gogo_pb";
+import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 
 export class ActivateRequest extends jspb.Message { 
-    getSubject(): string;
-    setSubject(value: string): ActivateRequest;
-
-    getGithubToken(): string;
-    setGithubToken(value: string): ActivateRequest;
+    getRootToken(): string;
+    setRootToken(value: string): ActivateRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -28,8 +25,7 @@ export class ActivateRequest extends jspb.Message {
 
 export namespace ActivateRequest {
     export type AsObject = {
-        subject: string,
-        githubToken: string,
+        rootToken: string,
     }
 }
 
@@ -88,216 +84,51 @@ export namespace DeactivateResponse {
     }
 }
 
-export class IDProvider extends jspb.Message { 
-    getName(): string;
-    setName(value: string): IDProvider;
+export class OIDCConfig extends jspb.Message { 
+    getIssuer(): string;
+    setIssuer(value: string): OIDCConfig;
 
-    getDescription(): string;
-    setDescription(value: string): IDProvider;
+    getClientId(): string;
+    setClientId(value: string): OIDCConfig;
 
+    getClientSecret(): string;
+    setClientSecret(value: string): OIDCConfig;
 
-    hasSaml(): boolean;
-    clearSaml(): void;
-    getSaml(): IDProvider.SAMLOptions | undefined;
-    setSaml(value?: IDProvider.SAMLOptions): IDProvider;
+    getRedirectUri(): string;
+    setRedirectUri(value: string): OIDCConfig;
 
+    clearAdditionalScopesList(): void;
+    getAdditionalScopesList(): Array<string>;
+    setAdditionalScopesList(value: Array<string>): OIDCConfig;
+    addAdditionalScopes(value: string, index?: number): string;
 
-    hasOidc(): boolean;
-    clearOidc(): void;
-    getOidc(): IDProvider.OIDCOptions | undefined;
-    setOidc(value?: IDProvider.OIDCOptions): IDProvider;
+    getIgnoreEmailVerified(): boolean;
+    setIgnoreEmailVerified(value: boolean): OIDCConfig;
 
-
-    hasGithub(): boolean;
-    clearGithub(): void;
-    getGithub(): IDProvider.GitHubOptions | undefined;
-    setGithub(value?: IDProvider.GitHubOptions): IDProvider;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): IDProvider.AsObject;
-    static toObject(includeInstance: boolean, msg: IDProvider): IDProvider.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: IDProvider, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): IDProvider;
-    static deserializeBinaryFromReader(message: IDProvider, reader: jspb.BinaryReader): IDProvider;
-}
-
-export namespace IDProvider {
-    export type AsObject = {
-        name: string,
-        description: string,
-        saml?: IDProvider.SAMLOptions.AsObject,
-        oidc?: IDProvider.OIDCOptions.AsObject,
-        github?: IDProvider.GitHubOptions.AsObject,
-    }
-
-
-    export class SAMLOptions extends jspb.Message { 
-        getMetadataUrl(): string;
-        setMetadataUrl(value: string): SAMLOptions;
-
-        getMetadataXml(): Uint8Array | string;
-        getMetadataXml_asU8(): Uint8Array;
-        getMetadataXml_asB64(): string;
-        setMetadataXml(value: Uint8Array | string): SAMLOptions;
-
-        getGroupAttribute(): string;
-        setGroupAttribute(value: string): SAMLOptions;
-
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): SAMLOptions.AsObject;
-        static toObject(includeInstance: boolean, msg: SAMLOptions): SAMLOptions.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: SAMLOptions, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): SAMLOptions;
-        static deserializeBinaryFromReader(message: SAMLOptions, reader: jspb.BinaryReader): SAMLOptions;
-    }
-
-    export namespace SAMLOptions {
-        export type AsObject = {
-            metadataUrl: string,
-            metadataXml: Uint8Array | string,
-            groupAttribute: string,
-        }
-    }
-
-    export class OIDCOptions extends jspb.Message { 
-        getIssuer(): string;
-        setIssuer(value: string): OIDCOptions;
-
-        getClientId(): string;
-        setClientId(value: string): OIDCOptions;
-
-        getClientSecret(): string;
-        setClientSecret(value: string): OIDCOptions;
-
-        getRedirectUri(): string;
-        setRedirectUri(value: string): OIDCOptions;
-
-        clearAdditionalScopesList(): void;
-        getAdditionalScopesList(): Array<string>;
-        setAdditionalScopesList(value: Array<string>): OIDCOptions;
-        addAdditionalScopes(value: string, index?: number): string;
-
-        getIgnoreEmailVerified(): boolean;
-        setIgnoreEmailVerified(value: boolean): OIDCOptions;
-
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): OIDCOptions.AsObject;
-        static toObject(includeInstance: boolean, msg: OIDCOptions): OIDCOptions.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: OIDCOptions, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): OIDCOptions;
-        static deserializeBinaryFromReader(message: OIDCOptions, reader: jspb.BinaryReader): OIDCOptions;
-    }
-
-    export namespace OIDCOptions {
-        export type AsObject = {
-            issuer: string,
-            clientId: string,
-            clientSecret: string,
-            redirectUri: string,
-            additionalScopesList: Array<string>,
-            ignoreEmailVerified: boolean,
-        }
-    }
-
-    export class GitHubOptions extends jspb.Message { 
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): GitHubOptions.AsObject;
-        static toObject(includeInstance: boolean, msg: GitHubOptions): GitHubOptions.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: GitHubOptions, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): GitHubOptions;
-        static deserializeBinaryFromReader(message: GitHubOptions, reader: jspb.BinaryReader): GitHubOptions;
-    }
-
-    export namespace GitHubOptions {
-        export type AsObject = {
-        }
-    }
-
-}
-
-export class AuthConfig extends jspb.Message { 
-    getLiveConfigVersion(): number;
-    setLiveConfigVersion(value: number): AuthConfig;
-
-    clearIdProvidersList(): void;
-    getIdProvidersList(): Array<IDProvider>;
-    setIdProvidersList(value: Array<IDProvider>): AuthConfig;
-    addIdProviders(value?: IDProvider, index?: number): IDProvider;
-
-
-    hasSamlSvcOptions(): boolean;
-    clearSamlSvcOptions(): void;
-    getSamlSvcOptions(): AuthConfig.SAMLServiceOptions | undefined;
-    setSamlSvcOptions(value?: AuthConfig.SAMLServiceOptions): AuthConfig;
+    getLocalhostIssuer(): boolean;
+    setLocalhostIssuer(value: boolean): OIDCConfig;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): AuthConfig.AsObject;
-    static toObject(includeInstance: boolean, msg: AuthConfig): AuthConfig.AsObject;
+    toObject(includeInstance?: boolean): OIDCConfig.AsObject;
+    static toObject(includeInstance: boolean, msg: OIDCConfig): OIDCConfig.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: AuthConfig, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): AuthConfig;
-    static deserializeBinaryFromReader(message: AuthConfig, reader: jspb.BinaryReader): AuthConfig;
+    static serializeBinaryToWriter(message: OIDCConfig, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OIDCConfig;
+    static deserializeBinaryFromReader(message: OIDCConfig, reader: jspb.BinaryReader): OIDCConfig;
 }
 
-export namespace AuthConfig {
+export namespace OIDCConfig {
     export type AsObject = {
-        liveConfigVersion: number,
-        idProvidersList: Array<IDProvider.AsObject>,
-        samlSvcOptions?: AuthConfig.SAMLServiceOptions.AsObject,
+        issuer: string,
+        clientId: string,
+        clientSecret: string,
+        redirectUri: string,
+        additionalScopesList: Array<string>,
+        ignoreEmailVerified: boolean,
+        localhostIssuer: boolean,
     }
-
-
-    export class SAMLServiceOptions extends jspb.Message { 
-        getAcsUrl(): string;
-        setAcsUrl(value: string): SAMLServiceOptions;
-
-        getMetadataUrl(): string;
-        setMetadataUrl(value: string): SAMLServiceOptions;
-
-        getDashUrl(): string;
-        setDashUrl(value: string): SAMLServiceOptions;
-
-        getSessionDuration(): string;
-        setSessionDuration(value: string): SAMLServiceOptions;
-
-        getDebugLogging(): boolean;
-        setDebugLogging(value: boolean): SAMLServiceOptions;
-
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): SAMLServiceOptions.AsObject;
-        static toObject(includeInstance: boolean, msg: SAMLServiceOptions): SAMLServiceOptions.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: SAMLServiceOptions, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): SAMLServiceOptions;
-        static deserializeBinaryFromReader(message: SAMLServiceOptions, reader: jspb.BinaryReader): SAMLServiceOptions;
-    }
-
-    export namespace SAMLServiceOptions {
-        export type AsObject = {
-            acsUrl: string,
-            metadataUrl: string,
-            dashUrl: string,
-            sessionDuration: string,
-            debugLogging: boolean,
-        }
-    }
-
 }
 
 export class GetConfigurationRequest extends jspb.Message { 
@@ -321,8 +152,8 @@ export class GetConfigurationResponse extends jspb.Message {
 
     hasConfiguration(): boolean;
     clearConfiguration(): void;
-    getConfiguration(): AuthConfig | undefined;
-    setConfiguration(value?: AuthConfig): GetConfigurationResponse;
+    getConfiguration(): OIDCConfig | undefined;
+    setConfiguration(value?: OIDCConfig): GetConfigurationResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -337,7 +168,7 @@ export class GetConfigurationResponse extends jspb.Message {
 
 export namespace GetConfigurationResponse {
     export type AsObject = {
-        configuration?: AuthConfig.AsObject,
+        configuration?: OIDCConfig.AsObject,
     }
 }
 
@@ -345,8 +176,8 @@ export class SetConfigurationRequest extends jspb.Message {
 
     hasConfiguration(): boolean;
     clearConfiguration(): void;
-    getConfiguration(): AuthConfig | undefined;
-    setConfiguration(value?: AuthConfig): SetConfigurationRequest;
+    getConfiguration(): OIDCConfig | undefined;
+    setConfiguration(value?: OIDCConfig): SetConfigurationRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -361,7 +192,7 @@ export class SetConfigurationRequest extends jspb.Message {
 
 export namespace SetConfigurationRequest {
     export type AsObject = {
-        configuration?: AuthConfig.AsObject,
+        configuration?: OIDCConfig.AsObject,
     }
 }
 
@@ -576,34 +407,6 @@ export namespace ModifyAdminsResponse {
     }
 }
 
-export class OTPInfo extends jspb.Message { 
-    getSubject(): string;
-    setSubject(value: string): OTPInfo;
-
-
-    hasSessionExpiration(): boolean;
-    clearSessionExpiration(): void;
-    getSessionExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setSessionExpiration(value?: google_protobuf_timestamp_pb.Timestamp): OTPInfo;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): OTPInfo.AsObject;
-    static toObject(includeInstance: boolean, msg: OTPInfo): OTPInfo.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: OTPInfo, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): OTPInfo;
-    static deserializeBinaryFromReader(message: OTPInfo, reader: jspb.BinaryReader): OTPInfo;
-}
-
-export namespace OTPInfo {
-    export type AsObject = {
-        subject: string,
-        sessionExpiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-    }
-}
-
 export class TokenInfo extends jspb.Message { 
     getSubject(): string;
     setSubject(value: string): TokenInfo;
@@ -637,14 +440,8 @@ export namespace TokenInfo {
 }
 
 export class AuthenticateRequest extends jspb.Message { 
-    getGithubToken(): string;
-    setGithubToken(value: string): AuthenticateRequest;
-
     getOidcState(): string;
     setOidcState(value: string): AuthenticateRequest;
-
-    getOneTimePassword(): string;
-    setOneTimePassword(value: string): AuthenticateRequest;
 
     getIdToken(): string;
     setIdToken(value: string): AuthenticateRequest;
@@ -662,9 +459,7 @@ export class AuthenticateRequest extends jspb.Message {
 
 export namespace AuthenticateRequest {
     export type AsObject = {
-        githubToken: string,
         oidcState: string,
-        oneTimePassword: string,
         idToken: string,
     }
 }
@@ -1456,56 +1251,119 @@ export namespace GetUsersResponse {
     }
 }
 
-export class GetOneTimePasswordRequest extends jspb.Message { 
-    getSubject(): string;
-    setSubject(value: string): GetOneTimePasswordRequest;
+export class HashedAuthToken extends jspb.Message { 
+    getHashedToken(): string;
+    setHashedToken(value: string): HashedAuthToken;
 
-    getTtl(): number;
-    setTtl(value: number): GetOneTimePasswordRequest;
+
+    hasTokenInfo(): boolean;
+    clearTokenInfo(): void;
+    getTokenInfo(): TokenInfo | undefined;
+    setTokenInfo(value?: TokenInfo): HashedAuthToken;
+
+
+    hasExpiration(): boolean;
+    clearExpiration(): void;
+    getExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setExpiration(value?: google_protobuf_timestamp_pb.Timestamp): HashedAuthToken;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetOneTimePasswordRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: GetOneTimePasswordRequest): GetOneTimePasswordRequest.AsObject;
+    toObject(includeInstance?: boolean): HashedAuthToken.AsObject;
+    static toObject(includeInstance: boolean, msg: HashedAuthToken): HashedAuthToken.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetOneTimePasswordRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetOneTimePasswordRequest;
-    static deserializeBinaryFromReader(message: GetOneTimePasswordRequest, reader: jspb.BinaryReader): GetOneTimePasswordRequest;
+    static serializeBinaryToWriter(message: HashedAuthToken, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): HashedAuthToken;
+    static deserializeBinaryFromReader(message: HashedAuthToken, reader: jspb.BinaryReader): HashedAuthToken;
 }
 
-export namespace GetOneTimePasswordRequest {
+export namespace HashedAuthToken {
     export type AsObject = {
-        subject: string,
-        ttl: number,
+        hashedToken: string,
+        tokenInfo?: TokenInfo.AsObject,
+        expiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 
-export class GetOneTimePasswordResponse extends jspb.Message { 
-    getCode(): string;
-    setCode(value: string): GetOneTimePasswordResponse;
+export class ExtractAuthTokensRequest extends jspb.Message { 
 
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ExtractAuthTokensRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ExtractAuthTokensRequest): ExtractAuthTokensRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ExtractAuthTokensRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ExtractAuthTokensRequest;
+    static deserializeBinaryFromReader(message: ExtractAuthTokensRequest, reader: jspb.BinaryReader): ExtractAuthTokensRequest;
+}
 
-    hasOtpExpiration(): boolean;
-    clearOtpExpiration(): void;
-    getOtpExpiration(): google_protobuf_timestamp_pb.Timestamp | undefined;
-    setOtpExpiration(value?: google_protobuf_timestamp_pb.Timestamp): GetOneTimePasswordResponse;
+export namespace ExtractAuthTokensRequest {
+    export type AsObject = {
+    }
+}
+
+export class ExtractAuthTokensResponse extends jspb.Message { 
+    clearTokensList(): void;
+    getTokensList(): Array<HashedAuthToken>;
+    setTokensList(value: Array<HashedAuthToken>): ExtractAuthTokensResponse;
+    addTokens(value?: HashedAuthToken, index?: number): HashedAuthToken;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): GetOneTimePasswordResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: GetOneTimePasswordResponse): GetOneTimePasswordResponse.AsObject;
+    toObject(includeInstance?: boolean): ExtractAuthTokensResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ExtractAuthTokensResponse): ExtractAuthTokensResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: GetOneTimePasswordResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): GetOneTimePasswordResponse;
-    static deserializeBinaryFromReader(message: GetOneTimePasswordResponse, reader: jspb.BinaryReader): GetOneTimePasswordResponse;
+    static serializeBinaryToWriter(message: ExtractAuthTokensResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ExtractAuthTokensResponse;
+    static deserializeBinaryFromReader(message: ExtractAuthTokensResponse, reader: jspb.BinaryReader): ExtractAuthTokensResponse;
 }
 
-export namespace GetOneTimePasswordResponse {
+export namespace ExtractAuthTokensResponse {
     export type AsObject = {
-        code: string,
-        otpExpiration?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        tokensList: Array<HashedAuthToken.AsObject>,
+    }
+}
+
+export class RestoreAuthTokenRequest extends jspb.Message { 
+
+    hasToken(): boolean;
+    clearToken(): void;
+    getToken(): HashedAuthToken | undefined;
+    setToken(value?: HashedAuthToken): RestoreAuthTokenRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RestoreAuthTokenRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RestoreAuthTokenRequest): RestoreAuthTokenRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RestoreAuthTokenRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RestoreAuthTokenRequest;
+    static deserializeBinaryFromReader(message: RestoreAuthTokenRequest, reader: jspb.BinaryReader): RestoreAuthTokenRequest;
+}
+
+export namespace RestoreAuthTokenRequest {
+    export type AsObject = {
+        token?: HashedAuthToken.AsObject,
+    }
+}
+
+export class RestoreAuthTokenResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RestoreAuthTokenResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RestoreAuthTokenResponse): RestoreAuthTokenResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RestoreAuthTokenResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RestoreAuthTokenResponse;
+    static deserializeBinaryFromReader(message: RestoreAuthTokenResponse, reader: jspb.BinaryReader): RestoreAuthTokenResponse;
+}
+
+export namespace RestoreAuthTokenResponse {
+    export type AsObject = {
     }
 }
 

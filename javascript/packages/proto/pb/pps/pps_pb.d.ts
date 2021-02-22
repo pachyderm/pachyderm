@@ -1,5 +1,5 @@
 // package: pps
-// file: client/pps/pps.proto
+// file: pps/pps.proto
 
 /* tslint:disable */
 /* eslint-disable */
@@ -8,8 +8,8 @@ import * as jspb from "google-protobuf";
 import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
-import * as gogoproto_gogo_pb from "../../gogoproto/gogo_pb";
-import * as client_pfs_pfs_pb from "../../client/pfs/pfs_pb";
+import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
+import * as pfs_pfs_pb from "../pfs/pfs_pb";
 
 export class SecretMount extends jspb.Message { 
     getName(): string;
@@ -359,8 +359,8 @@ export class PFSInput extends jspb.Message {
 
     hasTrigger(): boolean;
     clearTrigger(): void;
-    getTrigger(): client_pfs_pfs_pb.Trigger | undefined;
-    setTrigger(value?: client_pfs_pfs_pb.Trigger): PFSInput;
+    getTrigger(): pfs_pfs_pb.Trigger | undefined;
+    setTrigger(value?: pfs_pfs_pb.Trigger): PFSInput;
 
 
     serializeBinary(): Uint8Array;
@@ -386,7 +386,7 @@ export namespace PFSInput {
         lazy: boolean,
         emptyFiles: boolean,
         s3: boolean,
-        trigger?: client_pfs_pfs_pb.Trigger.AsObject,
+        trigger?: pfs_pfs_pb.Trigger.AsObject,
     }
 }
 
@@ -536,8 +536,8 @@ export class JobInput extends jspb.Message {
 
     hasCommit(): boolean;
     clearCommit(): void;
-    getCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setCommit(value?: client_pfs_pfs_pb.Commit): JobInput;
+    getCommit(): pfs_pfs_pb.Commit | undefined;
+    setCommit(value?: pfs_pfs_pb.Commit): JobInput;
 
     getGlob(): string;
     setGlob(value: string): JobInput;
@@ -559,7 +559,7 @@ export class JobInput extends jspb.Message {
 export namespace JobInput {
     export type AsObject = {
         name: string,
-        commit?: client_pfs_pfs_pb.Commit.AsObject,
+        commit?: pfs_pfs_pb.Commit.AsObject,
         glob: string,
         lazy: boolean,
     }
@@ -587,27 +587,6 @@ export namespace ParallelismSpec {
     export type AsObject = {
         constant: number,
         coefficient: number,
-    }
-}
-
-export class HashtreeSpec extends jspb.Message { 
-    getConstant(): number;
-    setConstant(value: number): HashtreeSpec;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): HashtreeSpec.AsObject;
-    static toObject(includeInstance: boolean, msg: HashtreeSpec): HashtreeSpec.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: HashtreeSpec, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): HashtreeSpec;
-    static deserializeBinaryFromReader(message: HashtreeSpec, reader: jspb.BinaryReader): HashtreeSpec;
-}
-
-export namespace HashtreeSpec {
-    export type AsObject = {
-        constant: number,
     }
 }
 
@@ -685,13 +664,13 @@ export class DatumInfo extends jspb.Message {
 
     hasPfsState(): boolean;
     clearPfsState(): void;
-    getPfsState(): client_pfs_pfs_pb.File | undefined;
-    setPfsState(value?: client_pfs_pfs_pb.File): DatumInfo;
+    getPfsState(): pfs_pfs_pb.File | undefined;
+    setPfsState(value?: pfs_pfs_pb.File): DatumInfo;
 
     clearDataList(): void;
-    getDataList(): Array<client_pfs_pfs_pb.FileInfo>;
-    setDataList(value: Array<client_pfs_pfs_pb.FileInfo>): DatumInfo;
-    addData(value?: client_pfs_pfs_pb.FileInfo, index?: number): client_pfs_pfs_pb.FileInfo;
+    getDataList(): Array<pfs_pfs_pb.FileInfo>;
+    setDataList(value: Array<pfs_pfs_pb.FileInfo>): DatumInfo;
+    addData(value?: pfs_pfs_pb.FileInfo, index?: number): pfs_pfs_pb.FileInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -709,8 +688,8 @@ export namespace DatumInfo {
         datum?: Datum.AsObject,
         state: DatumState,
         stats?: ProcessStats.AsObject,
-        pfsState?: client_pfs_pfs_pb.File.AsObject,
-        dataList: Array<client_pfs_pfs_pb.FileInfo.AsObject>,
+        pfsState?: pfs_pfs_pb.File.AsObject,
+        dataList: Array<pfs_pfs_pb.FileInfo.AsObject>,
     }
 }
 
@@ -983,8 +962,8 @@ export class EtcdJobInfo extends jspb.Message {
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
-    getOutputCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: client_pfs_pfs_pb.Commit): EtcdJobInfo;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): EtcdJobInfo;
 
     getRestart(): number;
     setRestart(value: number): EtcdJobInfo;
@@ -1013,8 +992,8 @@ export class EtcdJobInfo extends jspb.Message {
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
-    getStatsCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: client_pfs_pfs_pb.Commit): EtcdJobInfo;
+    getStatsCommit(): pfs_pfs_pb.Commit | undefined;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): EtcdJobInfo;
 
     getState(): JobState;
     setState(value: JobState): EtcdJobInfo;
@@ -1049,7 +1028,7 @@ export namespace EtcdJobInfo {
     export type AsObject = {
         job?: Job.AsObject,
         pipeline?: Pipeline.AsObject,
-        outputCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
         restart: number,
         dataProcessed: number,
         dataSkipped: number,
@@ -1057,7 +1036,7 @@ export namespace EtcdJobInfo {
         dataFailed: number,
         dataRecovered: number,
         stats?: ProcessStats.AsObject,
-        statsCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        statsCommit?: pfs_pfs_pb.Commit.AsObject,
         state: JobState,
         reason: string,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
@@ -1090,8 +1069,8 @@ export class JobInfo extends jspb.Message {
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
-    getSpecCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: client_pfs_pfs_pb.Commit): JobInfo;
+    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): JobInfo;
 
 
     hasParallelismSpec(): boolean;
@@ -1126,8 +1105,8 @@ export class JobInfo extends jspb.Message {
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
-    getOutputCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: client_pfs_pfs_pb.Commit): JobInfo;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): JobInfo;
 
     getState(): JobState;
     setState(value: JobState): JobInfo;
@@ -1150,8 +1129,8 @@ export class JobInfo extends jspb.Message {
 
     hasOutputRepo(): boolean;
     clearOutputRepo(): void;
-    getOutputRepo(): client_pfs_pfs_pb.Repo | undefined;
-    setOutputRepo(value?: client_pfs_pfs_pb.Repo): JobInfo;
+    getOutputRepo(): pfs_pfs_pb.Repo | undefined;
+    setOutputRepo(value?: pfs_pfs_pb.Repo): JobInfo;
 
     getOutputBranch(): string;
     setOutputBranch(value: string): JobInfo;
@@ -1212,14 +1191,14 @@ export class JobInfo extends jspb.Message {
 
     hasNewBranch(): boolean;
     clearNewBranch(): void;
-    getNewBranch(): client_pfs_pfs_pb.BranchInfo | undefined;
-    setNewBranch(value?: client_pfs_pfs_pb.BranchInfo): JobInfo;
+    getNewBranch(): pfs_pfs_pb.BranchInfo | undefined;
+    setNewBranch(value?: pfs_pfs_pb.BranchInfo): JobInfo;
 
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
-    getStatsCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: client_pfs_pfs_pb.Commit): JobInfo;
+    getStatsCommit(): pfs_pfs_pb.Commit | undefined;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): JobInfo;
 
     getEnableStats(): boolean;
     setEnableStats(value: boolean): JobInfo;
@@ -1277,18 +1256,18 @@ export namespace JobInfo {
         transform?: Transform.AsObject,
         pipeline?: Pipeline.AsObject,
         pipelineVersion: number,
-        specCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        specCommit?: pfs_pfs_pb.Commit.AsObject,
         parallelismSpec?: ParallelismSpec.AsObject,
         egress?: Egress.AsObject,
         parentJob?: Job.AsObject,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
-        outputCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
         state: JobState,
         reason: string,
         service?: Service.AsObject,
         spout?: Spout.AsObject,
-        outputRepo?: client_pfs_pfs_pb.Repo.AsObject,
+        outputRepo?: pfs_pfs_pb.Repo.AsObject,
         outputBranch: string,
         restart: number,
         dataProcessed: number,
@@ -1302,8 +1281,8 @@ export namespace JobInfo {
         resourceLimits?: ResourceSpec.AsObject,
         sidecarResourceLimits?: ResourceSpec.AsObject,
         input?: Input.AsObject,
-        newBranch?: client_pfs_pfs_pb.BranchInfo.AsObject,
-        statsCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        newBranch?: pfs_pfs_pb.BranchInfo.AsObject,
+        statsCommit?: pfs_pfs_pb.Commit.AsObject,
         enableStats: boolean,
         salt: string,
         chunkSpec?: ChunkSpec.AsObject,
@@ -1341,29 +1320,6 @@ export namespace Worker {
     }
 }
 
-export class JobInfos extends jspb.Message { 
-    clearJobInfoList(): void;
-    getJobInfoList(): Array<JobInfo>;
-    setJobInfoList(value: Array<JobInfo>): JobInfos;
-    addJobInfo(value?: JobInfo, index?: number): JobInfo;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): JobInfos.AsObject;
-    static toObject(includeInstance: boolean, msg: JobInfos): JobInfos.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: JobInfos, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): JobInfos;
-    static deserializeBinaryFromReader(message: JobInfos, reader: jspb.BinaryReader): JobInfos;
-}
-
-export namespace JobInfos {
-    export type AsObject = {
-        jobInfoList: Array<JobInfo.AsObject>,
-    }
-}
-
 export class Pipeline extends jspb.Message { 
     getName(): string;
     setName(value: string): Pipeline;
@@ -1395,8 +1351,8 @@ export class EtcdPipelineInfo extends jspb.Message {
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
-    getSpecCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: client_pfs_pfs_pb.Commit): EtcdPipelineInfo;
+    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): EtcdPipelineInfo;
 
 
     getJobCountsMap(): jspb.Map<number, number>;
@@ -1426,7 +1382,7 @@ export namespace EtcdPipelineInfo {
     export type AsObject = {
         state: PipelineState,
         reason: string,
-        specCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        specCommit?: pfs_pfs_pb.Commit.AsObject,
 
         jobCountsMap: Array<[number, number]>,
         authToken: string,
@@ -1465,12 +1421,6 @@ export class PipelineInfo extends jspb.Message {
     clearParallelismSpec(): void;
     getParallelismSpec(): ParallelismSpec | undefined;
     setParallelismSpec(value?: ParallelismSpec): PipelineInfo;
-
-
-    hasHashtreeSpec(): boolean;
-    clearHashtreeSpec(): void;
-    getHashtreeSpec(): HashtreeSpec | undefined;
-    setHashtreeSpec(value?: HashtreeSpec): PipelineInfo;
 
 
     hasEgress(): boolean;
@@ -1587,8 +1537,8 @@ export class PipelineInfo extends jspb.Message {
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
-    getSpecCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: client_pfs_pfs_pb.Commit): PipelineInfo;
+    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): PipelineInfo;
 
     getStandby(): boolean;
     setStandby(value: boolean): PipelineInfo;
@@ -1636,7 +1586,6 @@ export namespace PipelineInfo {
         transform?: Transform.AsObject,
         tfJob?: TFJob.AsObject,
         parallelismSpec?: ParallelismSpec.AsObject,
-        hashtreeSpec?: HashtreeSpec.AsObject,
         egress?: Egress.AsObject,
         createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         state: PipelineState,
@@ -1664,7 +1613,7 @@ export namespace PipelineInfo {
         datumTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         jobTimeout?: google_protobuf_duration_pb.Duration.AsObject,
         githookUrl: string,
-        specCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        specCommit?: pfs_pfs_pb.Commit.AsObject,
         standby: boolean,
         datumTries: number,
         schedulingSpec?: SchedulingSpec.AsObject,
@@ -1708,8 +1657,8 @@ export class CreateJobRequest extends jspb.Message {
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
-    getOutputCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: client_pfs_pfs_pb.Commit): CreateJobRequest;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): CreateJobRequest;
 
     getRestart(): number;
     setRestart(value: number): CreateJobRequest;
@@ -1738,8 +1687,8 @@ export class CreateJobRequest extends jspb.Message {
 
     hasStatsCommit(): boolean;
     clearStatsCommit(): void;
-    getStatsCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setStatsCommit(value?: client_pfs_pfs_pb.Commit): CreateJobRequest;
+    getStatsCommit(): pfs_pfs_pb.Commit | undefined;
+    setStatsCommit(value?: pfs_pfs_pb.Commit): CreateJobRequest;
 
     getState(): JobState;
     setState(value: JobState): CreateJobRequest;
@@ -1773,7 +1722,7 @@ export class CreateJobRequest extends jspb.Message {
 export namespace CreateJobRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        outputCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
         restart: number,
         dataProcessed: number,
         dataSkipped: number,
@@ -1781,7 +1730,7 @@ export namespace CreateJobRequest {
         dataFailed: number,
         dataRecovered: number,
         stats?: ProcessStats.AsObject,
-        statsCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        statsCommit?: pfs_pfs_pb.Commit.AsObject,
         state: JobState,
         reason: string,
         started?: google_protobuf_timestamp_pb.Timestamp.AsObject,
@@ -1799,8 +1748,8 @@ export class InspectJobRequest extends jspb.Message {
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
-    getOutputCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: client_pfs_pfs_pb.Commit): InspectJobRequest;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): InspectJobRequest;
 
     getBlockState(): boolean;
     setBlockState(value: boolean): InspectJobRequest;
@@ -1822,7 +1771,7 @@ export class InspectJobRequest extends jspb.Message {
 export namespace InspectJobRequest {
     export type AsObject = {
         job?: Job.AsObject,
-        outputCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
         blockState: boolean,
         full: boolean,
     }
@@ -1836,15 +1785,15 @@ export class ListJobRequest extends jspb.Message {
     setPipeline(value?: Pipeline): ListJobRequest;
 
     clearInputCommitList(): void;
-    getInputCommitList(): Array<client_pfs_pfs_pb.Commit>;
-    setInputCommitList(value: Array<client_pfs_pfs_pb.Commit>): ListJobRequest;
-    addInputCommit(value?: client_pfs_pfs_pb.Commit, index?: number): client_pfs_pfs_pb.Commit;
+    getInputCommitList(): Array<pfs_pfs_pb.Commit>;
+    setInputCommitList(value: Array<pfs_pfs_pb.Commit>): ListJobRequest;
+    addInputCommit(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
 
 
     hasOutputCommit(): boolean;
     clearOutputCommit(): void;
-    getOutputCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setOutputCommit(value?: client_pfs_pfs_pb.Commit): ListJobRequest;
+    getOutputCommit(): pfs_pfs_pb.Commit | undefined;
+    setOutputCommit(value?: pfs_pfs_pb.Commit): ListJobRequest;
 
     getHistory(): number;
     setHistory(value: number): ListJobRequest;
@@ -1869,8 +1818,8 @@ export class ListJobRequest extends jspb.Message {
 export namespace ListJobRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        inputCommitList: Array<client_pfs_pfs_pb.Commit.AsObject>,
-        outputCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        inputCommitList: Array<pfs_pfs_pb.Commit.AsObject>,
+        outputCommit?: pfs_pfs_pb.Commit.AsObject,
         history: number,
         full: boolean,
         jqfilter: string,
@@ -1879,9 +1828,9 @@ export namespace ListJobRequest {
 
 export class FlushJobRequest extends jspb.Message { 
     clearCommitsList(): void;
-    getCommitsList(): Array<client_pfs_pfs_pb.Commit>;
-    setCommitsList(value: Array<client_pfs_pfs_pb.Commit>): FlushJobRequest;
-    addCommits(value?: client_pfs_pfs_pb.Commit, index?: number): client_pfs_pfs_pb.Commit;
+    getCommitsList(): Array<pfs_pfs_pb.Commit>;
+    setCommitsList(value: Array<pfs_pfs_pb.Commit>): FlushJobRequest;
+    addCommits(value?: pfs_pfs_pb.Commit, index?: number): pfs_pfs_pb.Commit;
 
     clearToPipelinesList(): void;
     getToPipelinesList(): Array<Pipeline>;
@@ -1901,7 +1850,7 @@ export class FlushJobRequest extends jspb.Message {
 
 export namespace FlushJobRequest {
     export type AsObject = {
-        commitsList: Array<client_pfs_pfs_pb.Commit.AsObject>,
+        commitsList: Array<pfs_pfs_pb.Commit.AsObject>,
         toPipelinesList: Array<Pipeline.AsObject>,
     }
 }
@@ -2054,6 +2003,12 @@ export class GetLogsRequest extends jspb.Message {
     setUseLokiBackend(value: boolean): GetLogsRequest;
 
 
+    hasSince(): boolean;
+    clearSince(): void;
+    getSince(): google_protobuf_duration_pb.Duration | undefined;
+    setSince(value?: google_protobuf_duration_pb.Duration): GetLogsRequest;
+
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetLogsRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetLogsRequest): GetLogsRequest.AsObject;
@@ -2074,6 +2029,7 @@ export namespace GetLogsRequest {
         follow: boolean,
         tail: number,
         useLokiBackend: boolean,
+        since?: google_protobuf_duration_pb.Duration.AsObject,
     }
 }
 
@@ -2197,18 +2153,6 @@ export class ListDatumRequest extends jspb.Message {
     setJob(value?: Job): ListDatumRequest;
 
 
-    hasInput(): boolean;
-    clearInput(): void;
-    getInput(): Input | undefined;
-    setInput(value?: Input): ListDatumRequest;
-
-    getPageSize(): number;
-    setPageSize(value: number): ListDatumRequest;
-
-    getPage(): number;
-    setPage(value: number): ListDatumRequest;
-
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListDatumRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListDatumRequest): ListDatumRequest.AsObject;
@@ -2222,72 +2166,6 @@ export class ListDatumRequest extends jspb.Message {
 export namespace ListDatumRequest {
     export type AsObject = {
         job?: Job.AsObject,
-        input?: Input.AsObject,
-        pageSize: number,
-        page: number,
-    }
-}
-
-export class ListDatumResponse extends jspb.Message { 
-    clearDatumInfosList(): void;
-    getDatumInfosList(): Array<DatumInfo>;
-    setDatumInfosList(value: Array<DatumInfo>): ListDatumResponse;
-    addDatumInfos(value?: DatumInfo, index?: number): DatumInfo;
-
-    getTotalPages(): number;
-    setTotalPages(value: number): ListDatumResponse;
-
-    getPage(): number;
-    setPage(value: number): ListDatumResponse;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListDatumResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ListDatumResponse): ListDatumResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListDatumResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListDatumResponse;
-    static deserializeBinaryFromReader(message: ListDatumResponse, reader: jspb.BinaryReader): ListDatumResponse;
-}
-
-export namespace ListDatumResponse {
-    export type AsObject = {
-        datumInfosList: Array<DatumInfo.AsObject>,
-        totalPages: number,
-        page: number,
-    }
-}
-
-export class ListDatumStreamResponse extends jspb.Message { 
-
-    hasDatumInfo(): boolean;
-    clearDatumInfo(): void;
-    getDatumInfo(): DatumInfo | undefined;
-    setDatumInfo(value?: DatumInfo): ListDatumStreamResponse;
-
-    getTotalPages(): number;
-    setTotalPages(value: number): ListDatumStreamResponse;
-
-    getPage(): number;
-    setPage(value: number): ListDatumStreamResponse;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListDatumStreamResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ListDatumStreamResponse): ListDatumStreamResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListDatumStreamResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListDatumStreamResponse;
-    static deserializeBinaryFromReader(message: ListDatumStreamResponse, reader: jspb.BinaryReader): ListDatumStreamResponse;
-}
-
-export namespace ListDatumStreamResponse {
-    export type AsObject = {
-        datumInfo?: DatumInfo.AsObject,
-        totalPages: number,
-        page: number,
     }
 }
 
@@ -2367,12 +2245,6 @@ export class CreatePipelineRequest extends jspb.Message {
     clearParallelismSpec(): void;
     getParallelismSpec(): ParallelismSpec | undefined;
     setParallelismSpec(value?: ParallelismSpec): CreatePipelineRequest;
-
-
-    hasHashtreeSpec(): boolean;
-    clearHashtreeSpec(): void;
-    getHashtreeSpec(): HashtreeSpec | undefined;
-    setHashtreeSpec(value?: HashtreeSpec): CreatePipelineRequest;
 
 
     hasEgress(): boolean;
@@ -2482,8 +2354,8 @@ export class CreatePipelineRequest extends jspb.Message {
 
     hasSpecCommit(): boolean;
     clearSpecCommit(): void;
-    getSpecCommit(): client_pfs_pfs_pb.Commit | undefined;
-    setSpecCommit(value?: client_pfs_pfs_pb.Commit): CreatePipelineRequest;
+    getSpecCommit(): pfs_pfs_pb.Commit | undefined;
+    setSpecCommit(value?: pfs_pfs_pb.Commit): CreatePipelineRequest;
 
 
     hasMetadata(): boolean;
@@ -2508,7 +2380,6 @@ export namespace CreatePipelineRequest {
         tfJob?: TFJob.AsObject,
         transform?: Transform.AsObject,
         parallelismSpec?: ParallelismSpec.AsObject,
-        hashtreeSpec?: HashtreeSpec.AsObject,
         egress?: Egress.AsObject,
         update: boolean,
         outputBranch: string,
@@ -2533,7 +2404,7 @@ export namespace CreatePipelineRequest {
         schedulingSpec?: SchedulingSpec.AsObject,
         podSpec: string,
         podPatch: string,
-        specCommit?: client_pfs_pfs_pb.Commit.AsObject,
+        specCommit?: pfs_pfs_pb.Commit.AsObject,
         metadata?: Metadata.AsObject,
     }
 }
@@ -2614,9 +2485,6 @@ export class DeletePipelineRequest extends jspb.Message {
     getKeepRepo(): boolean;
     setKeepRepo(value: boolean): DeletePipelineRequest;
 
-    getSplitTransaction(): boolean;
-    setSplitTransaction(value: boolean): DeletePipelineRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeletePipelineRequest.AsObject;
@@ -2634,7 +2502,6 @@ export namespace DeletePipelineRequest {
         all: boolean,
         force: boolean,
         keepRepo: boolean,
-        splitTransaction: boolean,
     }
 }
 
@@ -2694,9 +2561,9 @@ export class RunPipelineRequest extends jspb.Message {
     setPipeline(value?: Pipeline): RunPipelineRequest;
 
     clearProvenanceList(): void;
-    getProvenanceList(): Array<client_pfs_pfs_pb.CommitProvenance>;
-    setProvenanceList(value: Array<client_pfs_pfs_pb.CommitProvenance>): RunPipelineRequest;
-    addProvenance(value?: client_pfs_pfs_pb.CommitProvenance, index?: number): client_pfs_pfs_pb.CommitProvenance;
+    getProvenanceList(): Array<pfs_pfs_pb.CommitProvenance>;
+    setProvenanceList(value: Array<pfs_pfs_pb.CommitProvenance>): RunPipelineRequest;
+    addProvenance(value?: pfs_pfs_pb.CommitProvenance, index?: number): pfs_pfs_pb.CommitProvenance;
 
     getJobId(): string;
     setJobId(value: string): RunPipelineRequest;
@@ -2715,7 +2582,7 @@ export class RunPipelineRequest extends jspb.Message {
 export namespace RunPipelineRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
-        provenanceList: Array<client_pfs_pfs_pb.CommitProvenance.AsObject>,
+        provenanceList: Array<pfs_pfs_pb.CommitProvenance.AsObject>,
         jobId: string,
     }
 }
@@ -2972,7 +2839,6 @@ export enum JobState {
     JOB_FAILURE = 2,
     JOB_SUCCESS = 3,
     JOB_KILLED = 4,
-    JOB_MERGING = 5,
     JOB_EGRESSING = 6,
 }
 
