@@ -46,10 +46,12 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -2921,6 +2923,15 @@ func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionConte
 		pipelineInfo.WorkersAvailable = int64(len(workerStatus))
 		pipelineInfo.WorkersRequested = int64(pipelinePtr.Parallelism)
 	}
+	unclaimedTasks, err := work.NewWorker(
+		a.env.GetEtcdClient(),
+		a.etcdPrefix,
+		driver.WorkNamespace(pipelineInfo),
+	).UnclaimedTasks(txnCtx.ClientContext)
+	if err != nil {
+		return nil, err
+	}
+	pipelineInfo.UnclaimedTasks = int64(unclaimedTasks)
 	return pipelineInfo, nil
 }
 
