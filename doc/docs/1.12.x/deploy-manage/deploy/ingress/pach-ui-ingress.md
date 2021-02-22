@@ -19,7 +19,7 @@ Pachyderm UI requires two ports to be open:
 
 ## Traefic ingress controller on Pachyderm UI's cluster in one diagram
 Here is a quick high-level view of the various components at play.
-![pach-ui-ingress](../pach-ui-ingress.png)e-diagram).
+![pach-ui-ingress](../pach-ui-ingress.png)
 
 !!! Warning 
 
