@@ -91,7 +91,7 @@ Run a pipeline of your choice. The `pachyderm-scraper` should be visible:
 
 ![pachyderm scraper target](./img/prometheus_target_pachyderm_scaper.png)
 
-In the ClassicUI tab, you should be able to see the new pachyderm metrics:
+In the ClassicUI tab, you should be able to see the new pachyderm metrics.
 
 ## References
 * Find the full list of Pachyderm metrics here:
