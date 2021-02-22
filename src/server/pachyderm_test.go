@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -6878,116 +6879,113 @@ func TestMaxQueueSize(t *testing.T) {
 	}
 }
 
-// TODO: Make work with V2.
-//func TestHTTPAuth(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//	c := tu.GetPachClient(t)
-//
-//	clientAddr := c.GetAddress()
-//	host, _, err := net.SplitHostPort(clientAddr)
-//	require.NoError(t, err)
-//	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-//	if !ok {
-//		port = "30652" // default NodePort port for Pachd's HTTP API
-//	}
-//	httpAPIAddr := net.JoinHostPort(host, port)
-//
-//	// Try to login
-//	token := "abbazabbadoo"
-//	form := url.Values{}
-//	form.Add("Token", token)
-//	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
-//	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-//	require.NoError(t, err)
-//	httpClient := &http.Client{}
-//	resp, err := httpClient.Do(req)
-//	require.NoError(t, err)
-//	defer resp.Body.Close()
-//	require.Equal(t, 1, len(resp.Cookies()))
-//	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-//	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-//	require.Equal(t, token, resp.Cookies()[0].Value)
-//
-//	// Try to logout
-//	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
-//	require.NoError(t, err)
-//	resp, err = httpClient.Do(req)
-//	require.NoError(t, err)
-//	defer resp.Body.Close()
-//	require.Equal(t, 1, len(resp.Cookies()))
-//	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
-//	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
-//	// The cookie should be unset now
-//	require.Equal(t, "", resp.Cookies()[0].Value)
-//
-//	// Make sure we get 404s for non existent routes
-//	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
-//	require.NoError(t, err)
-//	resp, err = httpClient.Do(req)
-//	require.NoError(t, err)
-//	require.Equal(t, 404, resp.StatusCode)
-//}
-//
-//func TestHTTPGetFile(t *testing.T) {
-//	// TODO: Check if this runs in CI.
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//	c := tu.GetPachClient(t)
-//
-//	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
-//	require.NoError(t, c.CreateRepo(dataRepo))
-//
-//	commit1, err := c.StartCommit(dataRepo, "master")
-//	require.NoError(t, err)
-//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
-//	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
-//	require.NoError(t, err)
-//	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "giphy.gif", f))
-//	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-//
-//	clientAddr := c.GetAddress()
-//	host, _, err := net.SplitHostPort(clientAddr)
-//	require.NoError(t, err)
-//	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-//	if !ok {
-//		port = "30652" // default NodePort port for Pachd's HTTP API
-//	}
-//	httpAPIAddr := net.JoinHostPort(host, port)
-//
-//	// Try to get raw contents
-//	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
-//	require.NoError(t, err)
-//	defer resp.Body.Close()
-//	contents, err := ioutil.ReadAll(resp.Body)
-//	require.NoError(t, err)
-//	require.Equal(t, "foo", string(contents))
-//	contentDisposition := resp.Header.Get("Content-Disposition")
-//	require.Equal(t, "", contentDisposition)
-//
-//	// Try to get file for downloading
-//	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
-//	require.NoError(t, err)
-//	defer resp.Body.Close()
-//	contents, err = ioutil.ReadAll(resp.Body)
-//	require.NoError(t, err)
-//	require.Equal(t, "foo", string(contents))
-//	contentDisposition = resp.Header.Get("Content-Disposition")
-//	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
-//
-//	// Make sure MIME type is set
-//	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
-//	require.NoError(t, err)
-//	defer resp.Body.Close()
-//	contentDisposition = resp.Header.Get("Content-Type")
-//	require.Equal(t, "image/gif", contentDisposition)
-//}
+func TestHTTPAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+
+	clientAddr := c.GetAddress()
+	host, _, err := net.SplitHostPort(clientAddr)
+	require.NoError(t, err)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
+
+	// Try to login
+	token := "abbazabbadoo"
+	form := url.Values{}
+	form.Add("Token", token)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	require.NoError(t, err)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, token, resp.Cookies()[0].Value)
+
+	// Try to logout
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	// The cookie should be unset now
+	require.Equal(t, "", resp.Cookies()[0].Value)
+
+	// Make sure we get 404s for non existent routes
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 404, resp.StatusCode)
+}
+
+func TestHTTPGetFile(t *testing.T) {
+	// TODO: Check if this runs in CI.
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+
+	dataRepo := tu.UniqueString("TestHTTPGetFile_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo")))
+	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit1.ID, "giphy.gif", f))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	clientAddr := c.GetAddress()
+	host, _, err := net.SplitHostPort(clientAddr)
+	require.NoError(t, err)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
+
+	// Try to get raw contents
+	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	require.Equal(t, "", contentDisposition)
+
+	// Try to get file for downloading
+	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition = resp.Header.Get("Content-Disposition")
+	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
+
+	// Make sure MIME type is set
+	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contentDisposition = resp.Header.Get("Content-Type")
+	require.Equal(t, "image/gif", contentDisposition)
+}
 
 func TestService(t *testing.T) {
-	// TODO: Implement services.
-	t.Skip("Services not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7143,108 +7141,107 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-// TODO: Make work with V2.
-//func TestServiceEnvVars(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//	c := tu.GetPachClient(t)
-//	require.NoError(t, c.DeleteAll())
-//
-//	dataRepo := tu.UniqueString(t.Name() + "-input")
-//	require.NoError(t, c.CreateRepo(dataRepo))
-//
-//	require.NoError(t, c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo")))
-//
-//	pipeline := tu.UniqueString("pipelineservice")
-//	_, err := c.PpsAPIClient.CreatePipeline(
-//		c.Ctx(),
-//		&pps.CreatePipelineRequest{
-//			Pipeline: client.NewPipeline(pipeline),
-//			Transform: &pps.Transform{
-//				Image: "trinitronx/python-simplehttpserver",
-//				Cmd:   []string{"sh"},
-//				Stdin: []string{
-//					"echo ${CUSTOM_ENV_VAR} >/pfs/custom_env_var",
-//					"cd /pfs",
-//					"exec python -m SimpleHTTPServer 8000",
-//				},
-//				Env: map[string]string{
-//					"CUSTOM_ENV_VAR": "custom-value",
-//				},
-//			},
-//			ParallelismSpec: &pps.ParallelismSpec{
-//				Constant: 1,
-//			},
-//			Input:  client.NewPFSInput(dataRepo, "/"),
-//			Update: false,
-//			Service: &pps.Service{
-//				InternalPort: 8000,
-//				ExternalPort: 31800,
-//			},
-//		})
-//	require.NoError(t, err)
-//
-//	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
-//	serviceAddr := func() string {
-//		// Hack: detect if running inside the cluster by looking for this env var
-//		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
-//			// Outside cluster: Re-use external IP and external port defined above
-//			clientAddr := c.GetAddress()
-//			host, _, err := net.SplitHostPort(clientAddr)
-//			require.NoError(t, err)
-//			return net.JoinHostPort(host, "31800")
-//		}
-//		// Get k8s service corresponding to pachyderm service above--must access
-//		// via internal cluster IP, but we don't know what that is
-//		var address string
-//		kubeClient := tu.GetKubeClient(t)
-//		backoff.Retry(func() error {
-//			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
-//			require.NoError(t, err)
-//			for _, svc := range svcs.Items {
-//				// Pachyderm actually generates two services for pipelineservice: one
-//				// for pachyderm (a ClusterIP service) and one for the user container
-//				// (a NodePort service, which is the one we want)
-//				rightName := strings.Contains(svc.Name, "pipelineservice")
-//				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
-//				if !rightName || !rightType {
-//					continue
-//				}
-//				host := svc.Spec.ClusterIP
-//				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
-//				address = net.JoinHostPort(host, port)
-//				return nil
-//			}
-//			return fmt.Errorf("no matching k8s service found")
-//		}, backoff.NewTestingBackOff())
-//
-//		require.NotEqual(t, "", address)
-//		return address
-//	}()
-//
-//	var envValue []byte
-//	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-//		httpC := http.Client{
-//			Timeout: 3 * time.Second, // fail fast
-//		}
-//		resp, err := httpC.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
-//		if err != nil {
-//			// sleep => don't spam retries. Seems to make test less flaky
-//			time.Sleep(time.Second)
-//			return err
-//		}
-//		if resp.StatusCode != 200 {
-//			return fmt.Errorf("GET returned %d", resp.StatusCode)
-//		}
-//		envValue, err = ioutil.ReadAll(resp.Body)
-//		if err != nil {
-//			return err
-//		}
-//		return nil
-//	})
-//	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
-//}
+func TestServiceEnvVars(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name() + "-input")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	require.NoError(t, c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo")))
+
+	pipeline := tu.UniqueString("pipelineservice")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "trinitronx/python-simplehttpserver",
+				Cmd:   []string{"sh"},
+				Stdin: []string{
+					"echo ${CUSTOM_ENV_VAR} >/pfs/custom_env_var",
+					"cd /pfs",
+					"exec python -m SimpleHTTPServer 8000",
+				},
+				Env: map[string]string{
+					"CUSTOM_ENV_VAR": "custom-value",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:  client.NewPFSInput(dataRepo, "/"),
+			Update: false,
+			Service: &pps.Service{
+				InternalPort: 8000,
+				ExternalPort: 31800,
+			},
+		})
+	require.NoError(t, err)
+
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			clientAddr := c.GetAddress()
+			host, _, err := net.SplitHostPort(clientAddr)
+			require.NoError(t, err)
+			return net.JoinHostPort(host, "31800")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error {
+			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return fmt.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+
+		require.NotEqual(t, "", address)
+		return address
+	}()
+
+	var envValue []byte
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		httpC := http.Client{
+			Timeout: 3 * time.Second, // fail fast
+		}
+		resp, err := httpC.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
+		if err != nil {
+			// sleep => don't spam retries. Seems to make test less flaky
+			time.Sleep(time.Second)
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		envValue, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
+}
 
 func TestChunkSpec(t *testing.T) {
 	if testing.Short() {

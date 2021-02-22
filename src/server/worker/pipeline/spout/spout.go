@@ -1,36 +1,29 @@
 package spout
 
-// TODO: Make spout work with V2.
-//// Run will run a spout pipeline until the driver is canceled.
-//func Run(driver driver.Driver, logger logs.TaggedLogger) error {
-//	pachClient := driver.PachClient()
-//	pipelineInfo := driver.PipelineInfo()
-//	logger = logger.WithJob("spout")
-//
-//	// Spouts typically have an open commit waiting for new data. So if the spout needs to be updated, and
-//	// thus spoutSpawner is called, it might hang if the commit never gets closed. So to avoid this, we
-//	// delete open commits that we see here.
-//	// We probably only need to check the first commit, but doing 10 to be safe
-//	pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", 10, false, func(c *pfs.CommitInfo) error {
-//		if c.Finished != nil {
-//			return nil
-//		}
-//		return pachClient.SquashCommit(pipelineInfo.Pipeline.Name, c.Commit.ID)
-//	})
-//
-//	// TODO: do something with stats?
-//	_, err := driver.WithData(nil, nil, logger, func(dir string, stats *pps.ProcessStats) error {
-//		inputs := []*common.Input{} // Spouts take no inputs
-//		return driver.WithActiveData(inputs, dir, func() error {
-//			eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
-//
-//			// While spouts do write to output commits, the output commit changes
-//			// frequently and we do not restart the user code for each one. Therefore,
-//			// we leave the output commit out of the user code env.
-//			eg.Go(func() error { return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, nil, inputs) })
-//			eg.Go(func() error { return pipeline.ReceiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
-//			return eg.Wait()
-//		})
-//	})
-//	return err
-//}
+import (
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+)
+
+// Run will run a spout pipeline until the driver is canceled.
+func Run(driver driver.Driver, logger logs.TaggedLogger) error {
+	pachClient := driver.PachClient()
+	pipelineInfo := driver.PipelineInfo()
+
+	// Spouts typically have an open commit waiting for new data. So if the spout needs to be updated, and
+	// thus spoutSpawner is called, it might hang if the commit never gets closed. So to avoid this, we
+	// delete open commits that we see here.
+	// We probably only need to check the first commit, but doing 10 to be safe
+	// TODO: This seems like something the user should handle, rather than us. I don't think we want to impose
+	// semantics on the output repo across runs of the spout code.
+	pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", 10, false, func(ci *pfs.CommitInfo) error {
+		if ci.Finished != nil {
+			return nil
+		}
+		return pachClient.SquashCommit(pipelineInfo.Pipeline.Name, ci.Commit.ID)
+	})
+
+	logger = logger.WithJob("spout")
+	return driver.RunUserCode(pachClient.Ctx(), logger, nil)
+}

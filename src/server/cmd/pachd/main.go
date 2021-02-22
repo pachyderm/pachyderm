@@ -41,6 +41,7 @@ import (
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/health"
+	pach_http "github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -641,33 +642,32 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	// TODO: Make http server work with V2.
-	//go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
-	//	httpServer, err := pach_http.NewHTTPServer(address)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	server := http.Server{
-	//		Addr:    fmt.Sprintf(":%v", env.HTTPPort),
-	//		Handler: httpServer,
-	//	}
+	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
+		httpServer, err := pach_http.NewHTTPServer(address)
+		if err != nil {
+			return err
+		}
+		server := http.Server{
+			Addr:    fmt.Sprintf(":%v", env.HTTPPort),
+			Handler: httpServer,
+		}
 
-	//	certPath, keyPath, err := tls.GetCertPaths()
-	//	if err != nil {
-	//		log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
-	//		return server.ListenAndServe()
-	//	}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("pfs-over-HTTP - TLS disabled: %v", err)
+			return server.ListenAndServe()
+		}
 
-	//	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-	//	err = cLoader.LoadAndStart()
-	//	if err != nil {
-	//		return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
-	//	}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
+		}
 
-	//	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 
-	//	return server.ListenAndServeTLS(certPath, keyPath)
-	//})
+		return server.ListenAndServeTLS(certPath, keyPath)
+	})
 	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
