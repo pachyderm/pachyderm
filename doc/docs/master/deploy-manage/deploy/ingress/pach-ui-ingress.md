@@ -1,5 +1,4 @@
 # Set up Ingress with Traefic to access Pachyderm UI (`dash`) service in your cluster 
-
 Before completing the following steps, read the [Overview](../index).
 This section provides an example of how to route
 cluster-external requests (URLs - hostname and path) to cluster-internal services
@@ -18,7 +17,9 @@ Pachyderm UI requires two ports to be open:
 - A WebSocket port, used to connect to the GRPC proxy 
 (which in turn connects to pachd; port 30081 by default routes to the grpc-proxy container within the dash pod)  
 
-Want a quick overview of all the components? Take a look at [this diagram](#traefic-ingress-controller-on-pachyderm-uis-cluster-in-one-diagram).
+## Traefic ingress controller on Pachyderm UI's cluster in one diagram
+Here is a quick high-level view of the various components at play.
+![pach-ui-ingress](../pach-ui-ingress.png)
 
 !!! Warning 
 
@@ -188,9 +189,6 @@ Connect to your Pachyderm UI: http://dash.localhost/app/. You are all set!
        If you’re using the same hostname on your ingress to map both the WebSocket port and the UI port,
        you can omit those parameters.
 
-## Traefic ingress controller on Pachyderm UI's cluster in one diagram
-Here is a quick high-level view of the various components at play.
-![pach-ui-ingress](../pach-ui-ingress.png)
 
 ## References
 * [Traefic](https://doc.traefik.io/traefik/v1.7/user-guide/kubernetes/) documentation.
