@@ -1,6 +1,6 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
-import {APIClient} from '@pachyderm/proto/pb/client/pfs/pfs_grpc_pb';
-import {ListRepoRequest, RepoInfo} from '@pachyderm/proto/pb/client/pfs/pfs_pb';
+import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
+import {ListRepoRequest, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 const pfs = (pachdAddress: string, channelCredentials: ChannelCredentials) => {
   const client = new APIClient(pachdAddress, channelCredentials);

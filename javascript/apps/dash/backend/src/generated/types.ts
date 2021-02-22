@@ -3,8 +3,8 @@
 /* eslint-disable import/no-duplicates */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {PipelineState} from '@pachyderm/proto/pb/client/pps/pps_pb';
-import {JobState} from '@pachyderm/proto/pb/client/pps/pps_pb';
+import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
+import {JobState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {GraphQLResolveInfo} from 'graphql';
 
 import {Context} from 'lib/types';

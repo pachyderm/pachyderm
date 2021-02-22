@@ -1,5 +1,5 @@
-import {IAPIServer} from '@pachyderm/proto/pb/client/pps/pps_grpc_pb';
-import {PipelineInfos} from '@pachyderm/proto/pb/client/pps/pps_pb';
+import {IAPIServer} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
+import {PipelineInfos} from '@pachyderm/proto/pb/pps/pps_pb';
 
 import pipelines from 'mock/fixtures/pipelines';
 

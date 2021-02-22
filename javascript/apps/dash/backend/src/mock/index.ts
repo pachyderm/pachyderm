@@ -1,6 +1,6 @@
 import {Server, ServerCredentials} from '@grpc/grpc-js';
-import {APIService as PFSService} from '@pachyderm/proto/pb/client/pfs/pfs_grpc_pb';
-import {APIService as PPSService} from '@pachyderm/proto/pb/client/pps/pps_grpc_pb';
+import {APIService as PFSService} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
+import {APIService as PPSService} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';

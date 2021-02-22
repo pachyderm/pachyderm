@@ -1,9 +1,9 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
-import {APIClient} from '@pachyderm/proto/pb/client/pps/pps_grpc_pb';
+import {APIClient} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
 import {
   ListPipelineRequest,
   PipelineInfo,
-} from '@pachyderm/proto/pb/client/pps/pps_pb';
+} from '@pachyderm/proto/pb/pps/pps_pb';
 
 const pps = (pachdAddress: string, channelCredentials: ChannelCredentials) => {
   const client = new APIClient(pachdAddress, channelCredentials);

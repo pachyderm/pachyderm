@@ -2,9 +2,9 @@ schema: ./src/schema.graphqls
 generates:
   ./src/generated/types.ts:
     config:
-      enumValues: 
-        PipelineState: \@pachyderm/proto/pb/client/pps/pps_pb#PipelineState
-        JobState: \@pachyderm/proto/pb/client/pps/pps_pb#JobState
+      enumValues:
+        PipelineState: \@pachyderm/proto/pb/pps/pps_pb#PipelineState
+        JobState: \@pachyderm/proto/pb/pps/pps_pb#JobState
       contextType: lib/types#Context
       useIndexSignature: true
     hooks:
@@ -14,6 +14,8 @@ generates:
       - typescript
       - typescript-resolvers
       - add:
-          content: 
+          content:
             - "/* eslint-disable @typescript-eslint/naming-convention */"
             - "/* eslint-disable @typescript-eslint/ban-types */"
+            - "/* eslint-disable import/no-duplicates */"
+            - "/* eslint-disable @typescript-eslint/no-explicit-any */\n"

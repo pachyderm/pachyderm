@@ -3,7 +3,7 @@ import {
   PFSInput,
   Pipeline,
   PipelineInfo,
-} from '@pachyderm/proto/pb/client/pps/pps_pb';
+} from '@pachyderm/proto/pb/pps/pps_pb';
 
 const pipelines: {[projectId: string]: PipelineInfo[]} = {
   tutorial: [

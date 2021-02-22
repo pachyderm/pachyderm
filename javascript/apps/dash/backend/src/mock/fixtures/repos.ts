@@ -1,4 +1,4 @@
-import {Repo, RepoInfo} from '@pachyderm/proto/pb/client/pfs/pfs_pb';
+import {Repo, RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
 const repos: {[projectId: string]: RepoInfo[]} = {
   tutorial: [

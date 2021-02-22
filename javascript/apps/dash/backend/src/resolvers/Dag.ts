@@ -1,5 +1,5 @@
-import {RepoInfo} from '@pachyderm/proto/pb/client/pfs/pfs_pb';
-import {Input, PipelineInfo} from '@pachyderm/proto/pb/client/pps/pps_pb';
+import {RepoInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
+import {Input, PipelineInfo} from '@pachyderm/proto/pb/pps/pps_pb';
 import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
