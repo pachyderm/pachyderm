@@ -1,11 +1,13 @@
 {
   "name": "@pachyderm/scripts",
-  "version": "0.4.2",
+  "version": "0.5.2",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@graphql-tools/graphql-tag-pluck": "^6.5.1",
     "@pachyderm/config": "^0.5.0",
+    "glob": "^7.1.6",
     "mochawesome": "^6.2.1",
     "node-fetch": "^2.6.1",
     "react-dev-utils": "^11.0.2",
