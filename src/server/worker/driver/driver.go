@@ -36,7 +36,9 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-func workNamespace(pipelineInfo *pps.PipelineInfo) string {
+// WorkNamespace returns the namespace used by the work package for this
+// pipeline.
+func WorkNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
@@ -266,11 +268,11 @@ func (d *driver) Pipelines() col.EtcdCollection {
 }
 
 func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewWorker(d.etcdClient, d.etcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
-	return work.NewTaskQueue(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewTaskQueue(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, WorkNamespace(d.pipelineInfo))
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
