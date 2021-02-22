@@ -1,0 +1,77 @@
+<!-- at the end of the HEAD -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
+  {% import "partials/language.html" as lang with context %}
+  
+<style>
+
+/* Main dropdown wrapper */
+.algolia-autocomplete .ds-dropdown-menu {
+  width: 700px;
+}
+
+/* Main category (eg. Getting Started) */
+.algolia-autocomplete .algolia-docsearch-suggestion--category-header {
+  color: darkgray;
+  border: 1px solid gray;
+}
+
+/* Category (eg. Downloads) */
+.algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column {
+  color: gray;
+}
+
+/* Title (eg. Bootstrap CDN) */
+.algolia-autocomplete .algolia-docsearch-suggestion--title {
+  font-weight: bold;
+  color: black;
+}
+
+/* Description description (eg. Bootstrap currently works...) */
+.algolia-autocomplete .algolia-docsearch-suggestion--text {
+  font-size: 0.3rem;
+  color: gray;
+}
+
+/* Highlighted text */
+.algolia-autocomplete .algolia-docsearch-suggestion--highlight {
+  color: rgb(37, 37, 158);
+}
+
+
+.algolia-autocomplete .algolia-docsearch-footer--logo {
+    background-size: 50%;
+}
+
+</style>
+  <div class="md-search">
+    <label class="md-search__overlay" for="__search"></label>
+    <div class="md-search__inner" role="search">
+        <input type="text" class="md-search__input" name="query" aria-label="{{ lang.t('search.placeholder') }}" placeholder="{{ lang.t('search.placeholder') }}" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" 
+        required>
+        <label class="md-search__icon md-icon" for="__search">
+          {% include ".icons/material/magnify.svg" %}
+          {% include ".icons/material/arrow-left.svg" %}
+        </label>
+       
+      </form>
+    </div>
+  </div>
+
+<!-- at the end of the BODY -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
+<script type="text/javascript"> docsearch({
+apiKey: '1c5a1f36b613b96581249c08896a3979',
+indexName: 'pachyderm',
+inputSelector: '.md-search__input',
+algoliaOptions: { 
+    'facetFilters': ["version:{{ config.search_index_version }}"],
+hitsPerPage: 15,
+clickAnalytics: true},
+    // See https://www.algolia.com/doc/api-reference/api-parameters/
+
+debug: true // Set debug to true if you want to inspect the dropdown
+});
+
+
+</script>
+  
