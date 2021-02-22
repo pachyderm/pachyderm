@@ -513,10 +513,6 @@ func (a *apiServer) AuthorizeInTransaction(
 		return nil, err
 	}
 
-	if err := a.expiredEnterpriseCheck(txnCtx.ClientContext); err != nil {
-		return nil, err
-	}
-
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
@@ -615,8 +611,8 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	}, nil
 }
 
-// DeleteRoleBindingInTransaction is identitical to DeleteRoleBinding except that it can run inside
-// an existing etcd STM transaction. This is not an RPC.
+// DeleteRoleBindingInTransaction is used to remove role bindings for resources when they're deleted in other services.
+// This is not an RPC, this is only called in-process.
 func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(); err != nil {
 		return err
@@ -798,10 +794,6 @@ func (a *apiServer) GetRoleBindingInTransaction(
 	req *auth.GetRoleBindingRequest,
 ) (*auth.GetRoleBindingResponse, error) {
 	if err := a.isActive(); err != nil {
-		return nil, err
-	}
-
-	if err := a.expiredEnterpriseCheck(txnCtx.ClientContext); err != nil {
 		return nil, err
 	}
 
