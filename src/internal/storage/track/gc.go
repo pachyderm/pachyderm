@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Deleter is used to delete data external to a tracker associated with a tracked object
+// Deleter is used to delete external data associated with a tracked object
 type Deleter interface {
 	DeleteTx(tx *sqlx.Tx, id string) error
 }

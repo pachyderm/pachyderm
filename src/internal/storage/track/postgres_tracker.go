@@ -43,28 +43,15 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 			return err
 		}
 		if stringsMatch(pointsTo, dwn) {
-			return nil
+			_, err := t.putObject(tx, id, ttl)
+			return err
 		}
-		return ErrObjectExists
+		return ErrDifferentObjectExists
 	}
+
 	// create the object
-	var oid int
-	if err := func() error {
-		if ttl != NoTTL {
-			return tx.Get(&oid,
-				`INSERT INTO storage.tracker_objects (str_id, expires_at)
-				VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
-				ON CONFLICT (str_id) DO NOTHING
-				RETURNING int_id
-				`, id, ttl.Microseconds())
-		}
-		return tx.Get(&oid,
-			`INSERT INTO storage.tracker_objects (str_id)
-				VALUES ($1)
-				ON CONFLICT (str_id) DO NOTHING
-				RETURNING int_id
-				`, id)
-	}(); err != nil {
+	oid, err := t.putObject(tx, id, ttl)
+	if err != nil {
 		return err
 	}
 	var pointsToInts []int
@@ -79,6 +66,39 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 		return ErrDanglingRef
 	}
 	return nil
+}
+
+// putObject creates or updates the object at id, to have the max of the current and new ttl.
+// If ttl == NoTTL, then the ttl is removed.
+func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (int, error) {
+	var oid int
+	if ttl != NoTTL {
+		if err := tx.Get(&oid,
+			`INSERT INTO storage.tracker_objects (str_id, expires_at)
+			VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
+			ON CONFLICT (str_id) DO
+				UPDATE SET expires_at = greatest(
+					storage.tracker_objects.expires_at,
+					(CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
+				)
+				WHERE storage.tracker_objects.str_id = $1
+			RETURNING int_id
+		`, id, ttl.Microseconds()); err != nil {
+			return 0, err
+		}
+	} else {
+		if err := tx.Get(&oid,
+			`INSERT INTO storage.tracker_objects (str_id)
+			VALUES ($1)
+			ON CONFLICT (str_id) DO
+				UPDATE SET expires_at = NULL
+				WHERE storage.tracker_objects.str_id = $1
+			RETURNING int_id
+		`, id); err != nil {
+			return 0, err
+		}
+	}
+	return oid, nil
 }
 
 func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {

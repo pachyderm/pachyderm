@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	// ErrObjectExists the object already exists, with different downstream objects.
-	ErrObjectExists = errors.Errorf("object exists")
+	// ErrDifferentObjectExists the object already exists, with different downstream objects.
+	ErrDifferentObjectExists = errors.Errorf("a different object exists at that id")
 	// ErrDanglingRef the operation would create a dangling reference
 	ErrDanglingRef = errors.Errorf("the operation would create a dangling reference")
 	// ErrTombstone cannot create object because it is marked as a tombstone
@@ -87,12 +87,17 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			},
 		},
 		{
-			"ErrObjectExists",
+			"ErrDifferentObjectExists",
 			func(t *testing.T, tracker Tracker) {
 				require.NoError(t, Create(ctx, tracker, "1", []string{}, 0))
 				require.NoError(t, Create(ctx, tracker, "2", []string{}, 0))
+
 				require.NoError(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
-				require.YesError(t, Create(ctx, tracker, "3", []string{"1"}, 0))
+				require.NoError(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
+
+				err := Create(ctx, tracker, "3", []string{"1"}, 0)
+				require.YesError(t, err)
+				require.Equal(t, ErrDifferentObjectExists, err)
 			},
 		},
 		{
