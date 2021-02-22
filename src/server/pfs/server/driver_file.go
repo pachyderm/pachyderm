@@ -131,7 +131,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 		}
 		return commit, fs, nil
 	}
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
@@ -339,12 +339,12 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
@@ -431,7 +431,7 @@ func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, fi
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
