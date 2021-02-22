@@ -11,6 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const commitTrackerPrefix = "commit/"
+
 type commitStore interface {
 	// AddFileset appends a fileset to the diff.
 	AddFileset(ctx context.Context, commit *pfs.Commit, filesetID fileset.ID) error
@@ -22,8 +24,6 @@ type commitStore interface {
 	GetDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// DropFilesets clears the diff and total filesets for the commit.
 	DropFilesets(ctx context.Context, commit *pfs.Commit) error
-	// DropFilesetsTx clears the diff and total filesets for the commit.
-	DropFilesetsTx(tx *sqlx.Tx, commit *pfs.Commit) error
 }
 
 var _ commitStore = &postgresCommitStore{}
@@ -45,12 +45,16 @@ func newPostgresCommitStore(db *sqlx.DB, tr track.Tracker, s *fileset.Storage) *
 }
 
 func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	// clone to remove the ttl.
-	id2, err := cs.s.Clone(ctx, id, track.NoTTL)
+	id2, err := cs.s.Clone(ctx, id, defaultTTL)
 	if err != nil {
 		return err
 	}
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
+		oid := commitDiffTrackerID(commit, id)
+		pointsTo := []string{}
+		if err := cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
+			return err
+		}
 		if _, err := cs.db.ExecContext(ctx,
 			`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 		VALUES ($1, $2)
@@ -165,6 +169,10 @@ func getTotal(ctx context.Context, db dbutil.Interface, commit *pfs.Commit) (*fi
 		return nil, err
 	}
 	return &id, nil
+}
+
+func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {
+	return commitTrackerPrefix + commit.ID + "/diff/" + fs.HexString()
 }
 
 // SetupPostgresCommitStoreV0 runs SQL to setup the commit store.

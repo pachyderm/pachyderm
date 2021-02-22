@@ -2,11 +2,12 @@ package track
 
 import (
 	"context"
-	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 )
 
 var _ Tracker = &postgresTracker{}
@@ -31,6 +32,22 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 			return ErrSelfReference
 		}
 	}
+	// if the object exists and has different downstream then error, otherwise return nil.
+	exists, err := t.exists(tx, id)
+	if err != nil {
+		return err
+	}
+	if exists {
+		dwn, err := t.getDownstream(tx, id)
+		if err != nil {
+			return err
+		}
+		if stringsMatch(pointsTo, dwn) {
+			return nil
+		}
+		return ErrObjectExists
+	}
+	// create the object
 	var oid int
 	if err := func() error {
 		if ttl != NoTTL {
@@ -48,9 +65,6 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 				RETURNING int_id
 				`, id)
 	}(); err != nil {
-		if err == sql.ErrNoRows {
-			err = ErrObjectExists
-		}
 		return err
 	}
 	var pointsToInts []int
@@ -81,8 +95,20 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 }
 
 func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
+	var dwn []string
+	if err := dbutil.WithTx(ctx, t.db, func(tx *sqlx.Tx) error {
+		var err error
+		dwn, err = t.getDownstream(tx, id)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return dwn, nil
+}
+
+func (t *postgresTracker) getDownstream(tx *sqlx.Tx, id string) ([]string, error) {
 	dwn := []string{}
-	if err := t.db.SelectContext(ctx, &dwn,
+	if err := tx.Select(&dwn,
 		`WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
@@ -134,7 +160,7 @@ func (t *postgresTracker) DeleteTx(tx *sqlx.Tx, id string) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.db.Exec(`DELETE FROM storacge.tracker_objects WHERE str_id = $1`, id)
+	_, err = t.db.Exec(`DELETE FROM storage.tracker_objects WHERE str_id = $1`, id)
 	return err
 }
 
@@ -163,6 +189,28 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	return rows.Err()
 }
 
+func (t *postgresTracker) exists(tx *sqlx.Tx, id string) (bool, error) {
+	var count int
+	if err := tx.Get(&count, `SELECT count(*) FROM storage.tracker_objects WHERE str_id = $1`, id); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func stringsMatch(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker
 func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, schema)
@@ -170,14 +218,14 @@ func SetupPostgresTrackerV0(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 var schema = `
-	CREATE TABLE IF storage.tracker_objects (
+	CREATE TABLE storage.tracker_objects (
 		int_id BIGSERIAL PRIMARY KEY,
 		str_id VARCHAR(4096) UNIQUE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP
 	);
 
-	CREATE TABLE IF storage.tracker_refs (
+	CREATE TABLE storage.tracker_refs (
 		from_id INT8 NOT NULL,
 		to_id INT8 NOT NULL,
 		PRIMARY KEY (from_id, to_id)
