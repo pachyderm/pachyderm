@@ -205,7 +205,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
@@ -233,7 +233,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
+		buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 }
 
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
@@ -307,7 +307,7 @@ func TestFSAdminRWO(t *testing.T) {
 	err = bobClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
@@ -334,7 +334,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
 }
 
 // TestFSAdminFixBrokenRepo tests that an FS admin can modify the ACL of a repo even
@@ -612,7 +612,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	err = rootClient.ModifyRepoRoleBinding(repo, robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), "repoReader"), getRepoRoleBinding(t, rootClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole), getRepoRoleBinding(t, rootClient, repo))
 
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
