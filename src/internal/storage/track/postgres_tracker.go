@@ -32,6 +32,7 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 			return ErrSelfReference
 		}
 	}
+	pointsTo = removeDuplicates(pointsTo)
 	// if the object exists and has different downstream then error, otherwise return nil.
 	exists, err := t.exists(tx, id)
 	if err != nil {
@@ -229,6 +230,19 @@ func stringsMatch(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func removeDuplicates(xs []string) []string {
+	sort.Strings(xs)
+	var countDeleted int
+	for i := range xs {
+		if i > 0 && xs[i] == xs[i-1] {
+			countDeleted++
+		} else {
+			xs[i-countDeleted] = xs[i]
+		}
+	}
+	return xs[:len(xs)-countDeleted]
 }
 
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker

@@ -50,7 +50,7 @@ func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ I
 		pointsTo = append(pointsTo, ObjectID(cid))
 	}
 	chunkOID := ObjectID(chunkID)
-	err := dbutil.WithTx(ctx, c.mdstore.DB(), func(tx *sqlx.Tx) error {
+	if err := dbutil.WithTx(ctx, c.mdstore.DB(), func(tx *sqlx.Tx) error {
 		if err := c.tracker.CreateTx(tx, chunkOID, pointsTo, c.ttl); err != nil {
 			return err
 		}
@@ -58,8 +58,7 @@ func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ I
 			return err
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	if err := c.renewer.Add(ctx, chunkOID); err != nil {

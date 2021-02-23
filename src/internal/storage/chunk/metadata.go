@@ -71,21 +71,11 @@ func (s *postgresStore) DB() *sqlx.DB {
 }
 
 func (s *postgresStore) SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error {
-	res, err := tx.Exec(
+	_, err := tx.Exec(
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
-		ON CONFLICT DO NOTHING
+		ON CONFLICT (hash_id) DO NOTHING
 		`, chunkID, md.Size)
-	if err != nil {
-		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrMetadataExists
-	}
-	return nil
+	return err
 }
 
 func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) {
@@ -120,7 +110,7 @@ func SetupPostgresStoreV0(ctx context.Context, tableName string, tx *sqlx.Tx) er
 	}
 	query := fmt.Sprintf(`
 	CREATE TABLE %s (
-		hash_id BYTEA NOT NULL UNIQUE,
+		hash_id BYTEA NOT NULL PRIMARY KEY,
 		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);`, tableName)
