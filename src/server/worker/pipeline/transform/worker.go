@@ -610,7 +610,21 @@ func writeStats(
 	return datumStatsCache.Put(tag, bytes.NewReader(buf.Bytes()))
 }
 
-func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, address string, subtaskID string, shard int64, stats bool) (io.ReadCloser, error) {
+func readChunkIntoBuffer(reader io.ReadCloser) (chunk []byte, retErr error) {
+	defer func() {
+		if err := reader.Close(); retErr == nil {
+			retErr = errors.EnsureStack(err)
+			chunk = nil
+		}
+	}()
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, reader); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return buf.Bytes(), nil
+}
+
+func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, address string, subtaskID string, shard int64, stats bool) ([]byte, error) {
 	// TODO: cache cross-worker clients at the driver level
 	client, err := server.NewClient(address)
 	if err != nil {
@@ -624,10 +638,10 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 
-	return grpcutil.NewStreamingBytesReader(getChunkClient, cancel), nil
+	return readChunkIntoBuffer(grpcutil.NewStreamingBytesReader(getChunkClient, cancel))
 }
 
-func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64, stats bool) (io.ReadCloser, error) {
+func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64, stats bool) ([]byte, error) {
 	if info.Address != "" {
 		reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.SubtaskID, shard, stats)
 		if err == nil {
@@ -640,7 +654,7 @@ func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeIn
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return reader, nil
+	return readChunkIntoBuffer(reader)
 }
 
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) (retErr error) {
@@ -679,26 +693,13 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 			if !cache.Has(chunkID) {
 				limiter.Acquire()
 				hashtreeInfo := hashtreeInfo
-				eg.Go(func() (retErr error) {
+				eg.Go(func() error {
 					defer limiter.Release()
-					reader, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard, data.Stats)
+					chunk, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard, data.Stats)
 					if err != nil {
 						return err
 					}
-
-					defer func() {
-						if err := reader.Close(); retErr == nil {
-							retErr = err
-						}
-					}()
-
-					// TODO: this only works if it is read into a buffer first?
-					buf := &bytes.Buffer{}
-					if _, err := io.Copy(buf, reader); err != nil {
-						return errors.EnsureStack(err)
-					}
-
-					return errors.EnsureStack(cache.Put(chunkID, bytes.NewBuffer(buf.Bytes())))
+					return errors.EnsureStack(cache.Put(chunkID, bytes.NewBuffer(chunk)))
 				})
 				downloadedChunks++
 			} else {
