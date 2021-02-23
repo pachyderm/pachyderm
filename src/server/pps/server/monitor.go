@@ -338,6 +338,27 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
 		})
+		if pipelineInfo.ParallelismSpec.Constant > 1 {
+			eg.Go(func() error {
+				return backoff.RetryNotify(func() error {
+					for {
+						pi, err := pachClient.InspectPipeline(pipeline)
+						if err != nil {
+							return err
+						}
+						if pi.UnclaimedTasks > 0 {
+							n := pi.UnclaimedTasks
+							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
+								n = int64(pipelineInfo.ParallelismSpec.Constant)
+							}
+							// Scale the rc
+						}
+						time.Sleep(time.Second * 5)
+					}
+				}, backoff.NewInfiniteBackOff(),
+					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
+			})
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		log.Printf("error in monitorPipeline: %v", err)
