@@ -57,6 +57,18 @@ func newAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etc
 	return s, nil
 }
 
+// ActivateAuth implements the protobuf pfs.ActivateAuth RPC
+func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.activateAuth(txnCtx)
+	}); err != nil {
+		return nil, err
+	}
+	return &pfs.ActivateAuthResponse{}, nil
+}
+
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.CreateRepoRequest) error {

@@ -3242,6 +3242,18 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 
+	// Create the spec repo if it doesn't exist
+	if _, err := pachClient.PfsAPIClient.CreateRepo(
+		pachClient.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo(ppsconsts.SpecRepo),
+			Update:      true,
+			Description: ppsconsts.SpecRepoDesc,
+		},
+	); err != nil {
+		return nil, err
+	}
+
 	// Set the permissions on the spec repo so anyone can read it
 	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.AllClusterUsersSubject, []string{auth.RepoReaderRole}); err != nil {
 		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")

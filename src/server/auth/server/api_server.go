@@ -680,20 +680,22 @@ func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
 // CreateRoleBindingInTransaction is an internal-only API to create a role binding for a new resource.
 // This is not an RPC.
 func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
-	// Check that the subject is in canonical form (`<type>:<principal>`).
-	if err := a.checkCanonicalSubject(principal); err != nil {
-		return err
-	}
-
-	roles, err := rolesFromRoleSlice(roleSlice)
-	if err != nil {
-		return err
-	}
-
 	bindings := &auth.RoleBinding{
-		Entries: map[string]*auth.Roles{
-			principal: roles,
-		},
+		Entries: make(map[string]*auth.Roles),
+	}
+
+	if len(roleSlice) != 0 {
+		// Check that the subject is in canonical form (`<type>:<principal>`).
+		if err := a.checkCanonicalSubject(principal); err != nil {
+			return err
+		}
+
+		roles, err := rolesFromRoleSlice(roleSlice)
+		if err != nil {
+			return err
+		}
+
+		bindings.Entries[principal] = roles
 	}
 
 	// Call Create, this will raise an error if the role binding already exists.

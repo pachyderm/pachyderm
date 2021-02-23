@@ -143,6 +143,17 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	return d, nil
 }
 
+func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
+	repos := d.repos.ReadOnly(txnCtx.ClientContext)
+	repoInfo := &pfs.RepoInfo{}
+	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+		return txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: repoInfo.Repo.Name,
+		})
+	})
+}
+
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Validate arguments
 	if repo == nil {

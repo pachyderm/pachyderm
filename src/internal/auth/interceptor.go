@@ -118,6 +118,7 @@ var authHandlers = map[string]authHandler{
 	//
 
 	// TODO: Add methods to handle repo permissions
+	"/pfs.API/ActivateAuth":    admin,
 	"/pfs.API/CreateRepo":      authDisabledOr(authenticated),
 	"/pfs.API/InspectRepo":     authDisabledOr(authenticated),
 	"/pfs.API/ListRepo":        authDisabledOr(authenticated),
@@ -207,7 +208,7 @@ var authHandlers = map[string]authHandler{
 	"/pps.API/GarbageCollect":  authDisabledOr(authenticated),
 	"/pps.API/UpdateJobState":  authDisabledOr(authenticated),
 	"/pps.API/ListPipeline":    authDisabledOr(authenticated),
-	"/pps.API/ActivateAuth":    authDisabledOr(authenticated),
+	"/pps.API/ActivateAuth":    admin,
 	"/pps.API/DeleteAll":       authDisabledOr(admin),
 
 	//
