@@ -43,6 +43,11 @@ func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txnenv.TransactionCo
 	return nil, auth.ErrNotActivated
 }
 
+// CreateRoleBindingInTransaction implements the CreateRoleBinding RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) CreateRoleBindingInTransaction(*txnenv.TransactionContext, string, []string, *auth.Resource) error {
+	return auth.ErrNotActivated
+}
+
 // DeleteRoleBindingInTransaction implements the DeleteRoleBinding RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) DeleteRoleBindingInTransaction(*txnenv.TransactionContext, *auth.Resource) error {
 	return auth.ErrNotActivated

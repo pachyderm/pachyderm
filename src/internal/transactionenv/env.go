@@ -140,6 +140,9 @@ type AuthTransactionServer interface {
 
 	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+
+	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
+	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
