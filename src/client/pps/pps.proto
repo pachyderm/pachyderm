@@ -464,6 +464,7 @@ message PipelineInfo {
   bool s3_out = 47;
   Metadata metadata = 48;
   int64 unclaimed_tasks = 52;
+  string worker_rc = 53;
 }
 
 message PipelineInfos {
