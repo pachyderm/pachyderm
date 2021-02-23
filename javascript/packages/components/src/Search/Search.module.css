@@ -1,0 +1,15 @@
+.base {
+  background-color: inherit;
+  background-image: url('~@pachyderm/components/dist/Svg/Search.svg'); 
+  background-repeat: no-repeat;
+  border: 0;
+  padding-left: 1.5rem;
+  background-position: 0 0.1rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--pachyderm-black);
+}
+
+.base:focus {
+  outline-width: 0;
+}

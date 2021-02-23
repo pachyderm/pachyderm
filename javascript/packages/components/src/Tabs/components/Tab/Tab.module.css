@@ -1,0 +1,45 @@
+.base a {
+  color: var(--pachyderm-black);
+  text-decoration: none;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.base a[aria-selected=true] {
+  border-bottom: 2px solid var(--pachyderm-plum);
+  color: var(--pachyderm-plum);
+}
+
+.base a:hover {
+  color: var(--pachyderm-plum);
+}
+
+.base + .base {
+  margin-top: 1rem;
+}
+
+.base a {
+  display: block;
+}
+
+.base a:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+
+@media (min-width: 600px) {
+  .base {
+    display: inline-block;
+  }
+
+  .base a {
+    display: inline-block;
+  }
+
+  .base + .base {
+    margin-left: 2rem;
+    margin-top: 0;
+  }
+}

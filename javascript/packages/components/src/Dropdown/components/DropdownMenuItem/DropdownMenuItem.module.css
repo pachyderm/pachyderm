@@ -1,0 +1,32 @@
+.base {
+  color: var(--pachyderm-black);
+  font-size: var(--font-size-body-medium);
+  border: none;
+  background-color: transparent;
+  padding: 1rem 2rem;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+}
+
+.selected {
+  color: var(--pachyderm-plum);
+  font-weight: 600;
+}
+
+.base:hover,
+.base:focus {
+  background-color: var(--hover-grey);
+}
+
+.base:focus {
+  outline: none;
+}
+
+.base:disabled {
+  opacity: 0.4;
+}
+
+.important:hover {
+  color: var(--error-red);
+}

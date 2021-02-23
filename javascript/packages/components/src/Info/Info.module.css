@@ -1,0 +1,17 @@
+.header {
+  font-size: var(--font-size-body-medium);
+  color: var(--placeholder-grey);
+  font-weight: 500;
+  line-height: 1.3125rem;
+}
+
+.info {
+  font-size: var(--font-size-body-medium);
+  font-weight: 600;
+  max-width: 20rem;
+}
+
+.info.disabled {
+  color: var(--placeholder-grey);
+  font-weight: 500;
+}

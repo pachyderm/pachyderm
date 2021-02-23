@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
+
 :root {
   /* fonts */
   --font-family: 'Montserrat', sans-serif;
@@ -84,3 +86,15 @@
 @custom-media --small-viewport (width < 768px);
 @custom-media --medium-viewport (width < 1024px);
 @custom-media --large-viewport (width >= 1024px);
+
+body {
+  font-weight: auto;
+  font-family: 'Montserrat';
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}

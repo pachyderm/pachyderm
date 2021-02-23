@@ -1,0 +1,7 @@
+.base {
+  font-size: var(--font-size-body-medium);
+  display: inline-flex;
+  width: 100%;
+  justify-content: space-between;
+  font-weight: bold;
+}

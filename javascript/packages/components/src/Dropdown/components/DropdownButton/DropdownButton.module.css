@@ -1,0 +1,48 @@
+.base {
+  display: flex;
+  align-items: center;
+  border: none;
+  background-color: transparent;
+  color: var(--pachyderm-black);
+  font-weight: 600;
+  font-size: var(--font-size-body-medium);
+  padding: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.base:hover {
+  color: var(--pachyderm-plum);
+}
+
+.base:hover .icon path {
+  fill: var(--pachyderm-plum);
+}
+
+.children {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hideChevron .children {
+  width: 100%;
+}
+
+.icon {
+  margin-left: 0.25rem;
+  min-width: 0.875rem;
+}
+
+.icon path {
+  fill: var(--pachyderm-black);
+}
+
+.purple {
+  color: var(--pachyderm-plum);
+}
+
+.purple .icon path {
+  fill: var(--pachyderm-plum);
+}

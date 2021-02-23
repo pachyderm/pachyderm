@@ -1,0 +1,8 @@
+.base {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line-grey);
+}
+
+

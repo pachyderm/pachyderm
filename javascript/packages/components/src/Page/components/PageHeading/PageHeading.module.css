@@ -1,0 +1,5 @@
+.pageHeading {
+  font-size: var(--font-size-page-heading);
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+}

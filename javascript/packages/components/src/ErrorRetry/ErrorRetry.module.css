@@ -1,0 +1,13 @@
+.base {
+  margin-top: 2rem;
+}
+
+.text {
+  margin-left: 4.625rem;
+  margin-right: 10.875rem;
+}
+
+.exclamation {
+  color: var(--error-red);
+  margin-right: 0.25rem;
+}

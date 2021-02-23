@@ -1,0 +1,39 @@
+.base {
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  color: var(--pachyderm-plum);
+  user-select: none;
+  display: inline-block;
+  font-family: 'Montserrat', sans-serif;
+  box-shadow: none;
+  border: none;
+  background-color: inherit;
+  padding: 0;
+  margin: 0;
+  transition: color 300ms ease-in-out
+}
+
+a + .base,
+.base + .base {
+  margin-left: 1.5rem;
+}
+
+.base:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.base:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.base:not(:disabled):hover,
+.base:active,
+.base:focus {
+  color: var(--hover-plum);
+}
+
+.small {
+  font-size: var(--font-size-body-medium);
+}

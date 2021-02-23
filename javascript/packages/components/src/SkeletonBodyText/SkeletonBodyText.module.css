@@ -1,0 +1,45 @@
+@keyframes shimmer {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.skeletonBodyTextContainer {
+  backface-visibility: hidden;
+  animation: shimmer .8s linear infinite alternate;
+}
+
+.skeletonBodyText {
+  height: .875rem;
+  margin: .4375rem 0;
+  position: relative;
+}
+
+.disableShimmer {
+  animation: none;
+}
+
+.skeletonBodyText + .skeletonBodyText {
+  margin-top: 1.2rem;
+}
+
+.skeletonBodyText:last-child:not(:first-child) {
+  width: 80%;
+}
+
+.skeletonBodyText::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  background-color: var(--dropshadow-grey);
+  border-radius: 3px;
+}
+

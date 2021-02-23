@@ -1,0 +1,21 @@
+.base {
+  height: 0.625rem;
+  width: 0.625rem;
+  border-radius: 100%;
+}
+
+.green {
+  background-color: var(--success-green);
+}
+
+.yellow {
+  background-color: var(--highlight-yellow);
+}
+
+.red {
+  background-color: var(--error-red);
+}
+
+.gray {
+  background-color: var(--dropshadow-grey);
+}

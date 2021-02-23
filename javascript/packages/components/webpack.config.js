@@ -107,6 +107,7 @@ const config = {
     'react-dom': 'react-dom',
     'react-router-dom': 'react-router-dom',
     'react-hook-form': 'react-hook-form',
+    'react-helmet': 'react-helmet',
   },
   plugins: [
     new MiniCssExtractPlugin({

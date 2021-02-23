@@ -1,0 +1,16 @@
+.count {
+  background-color: var(--pachyderm-plum);
+  color: var(--white);
+  width: 1.25rem;
+  border-radius: 6px;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  margin-left: 0.3125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  display: flex;
+}

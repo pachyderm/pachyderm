@@ -1,0 +1,86 @@
+@keyframes slide-down {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scaleY(0);
+  }
+
+  10% {
+    visibility: visible;
+    transform: scaleY(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 1rem, 0) scaleY(1);
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scaleY(0);
+  }
+
+  10% {
+    visibility: visible;
+    transform: scaleY(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, -1rem, 0) scaleY(1);
+  }
+}
+
+.base {
+  position: absolute;
+  background-color: var(--white);
+  border-radius: 3px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0, 0, 0) scaleY(0);
+  transform-origin: top;
+  /* Needs to be set to 1, to be above other elements in the stacking context */
+  z-index: 1;
+  overflow: hidden;
+  box-shadow: 1px 1px 3px var(--dropshadow-grey);
+  max-height: 33rem;
+  overflow-y: auto;
+}
+
+.base.openAbove {
+  bottom: 1rem;
+}
+
+.left {
+  left: 0;
+}
+
+.right {
+  right: 0;
+}
+
+.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(0, 1rem, 0) scaleY(1);
+  /* Taken from https://easings.net/ */
+  animation: slide-down .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+.openAbove.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(0, -1rem, 0) scaleY(1);
+  /* Taken from https://easings.net/ */
+  animation: slide-up .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+.base::-webkit-scrollbar {
+  width: 10px;
+}
+
+.base::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
+}
