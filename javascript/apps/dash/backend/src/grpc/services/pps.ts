@@ -5,20 +5,25 @@ import {
   PipelineInfo,
 } from '@pachyderm/proto/pb/pps/pps_pb';
 
-const pps = (pachdAddress: string, channelCredentials: ChannelCredentials) => {
+const pps = (
+  pachdAddress: string,
+  channelCredentials: ChannelCredentials,
+  credentialMetadata: Metadata,
+) => {
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
-    listPipeline: (projectId = '') => {
+    listPipeline: () => {
       return new Promise<PipelineInfo.AsObject[]>((resolve, reject) => {
-        const metadata = new Metadata();
-        metadata.set('project-id', projectId);
+        client.listPipeline(
+          new ListPipelineRequest(),
+          credentialMetadata,
+          (err, res) => {
+            if (err) return reject(err);
 
-        client.listPipeline(new ListPipelineRequest(), metadata, (err, res) => {
-          if (err) return reject(err);
-
-          return resolve(res.toObject().pipelineInfoList);
-        });
+            return resolve(res.toObject().pipelineInfoList);
+          },
+        );
       });
     },
   };

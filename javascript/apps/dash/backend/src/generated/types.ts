@@ -167,6 +167,15 @@ export type QueryDagsArgs = {
   args: DagQueryArgs;
 };
 
+export type Mutation = {
+  __typename?: 'Mutation';
+  exchangeCode: Scalars['String'];
+};
+
+export type MutationExchangeCodeArgs = {
+  code: Scalars['String'];
+};
+
 export type WithIndex<TObject> = TObject & Record<string, any>;
 export type ResolversObject<TObject> = WithIndex<TObject>;
 
@@ -308,6 +317,7 @@ export type ResolversTypes = ResolversObject<{
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
   Query: ResolverTypeWrapper<{}>;
+  Mutation: ResolverTypeWrapper<{}>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -330,6 +340,7 @@ export type ResolversParentTypes = ResolversObject<{
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   Query: {};
+  Mutation: {};
 }>;
 
 export type PfsInputResolvers<
@@ -580,6 +591,18 @@ export type QueryResolvers<
   >;
 }>;
 
+export type MutationResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']
+> = ResolversObject<{
+  exchangeCode?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationExchangeCodeArgs, 'code'>
+  >;
+}>;
+
 export type Resolvers<ContextType = Context> = ResolversObject<{
   PFSInput?: PfsInputResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
@@ -596,6 +619,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Link?: LinkResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  Mutation?: MutationResolvers<ContextType>;
 }>;
 
 /**

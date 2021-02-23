@@ -139,3 +139,7 @@ type Query {
   dag(args: DagQueryArgs!): Dag!
   dags(args: DagQueryArgs!): [Dag!]!
 }
+
+type Mutation {
+  exchangeCode(code: String!): String!
+}

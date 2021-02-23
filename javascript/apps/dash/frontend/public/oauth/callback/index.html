@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- WARNING: to minimize the auth surface area, don't add any analytics or links to this page -->
+    <meta charset="utf-8" />
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Pachyderm OAuth callback" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png">
+    <link rel="mask-icon" color="#020408" href="%PUBLIC_URL%/safari-pinned-tab.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
+    <link rel="apple-touch-icon" href="logo192.png" />
+    <title>Pachyderm Hub</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">Loading…</div>
+    <script>
+// Adapted from https://stackoverflow.com/a/2091331
+const query = window.location.search.substring(1);
+const queryParams = query.split('&');
+
+function getParam(x) {
+    for (var i = 0; i < queryParams.length; i++) {
+        const pair = queryParams[i].split('=');
+        if (decodeURIComponent(pair[0]) === x) {
+            return decodeURIComponent(pair[1]);
+        }
+    }
+}
+
+const code = getParam('code');
+const state = getParam('state');
+const inline = getParam('inline');
+const storedState = window.localStorage.getItem('oauthState');
+
+if (!code) {
+  window.localStorage.setItem('oauthError', 'missing code parameter');
+} else if (!state) {
+  window.localStorage.setItem('oauthError', 'missing state parameter');
+} else if (state !== storedState) {
+  window.localStorage.setItem('oauthError', 'stale request or CSRF');
+} else {
+  window.localStorage.setItem('oauthCode', code);
+  window.localStorage.removeItem('oauthState');
+}
+
+if (inline) {
+  window.location.replace('/');
+} else {
+  window.close();
+}
+    </script>
+  </body>
+</html>

@@ -14,7 +14,7 @@ const query = <T>(query: TemplateStringsArray) => {
     {},
     {
       'auth-token': 'xyz',
-      'pachd-address': `localhost:${mockServer.port}`,
+      'pachd-address': `localhost:${mockServer.grpcPort}`,
     },
   );
 };

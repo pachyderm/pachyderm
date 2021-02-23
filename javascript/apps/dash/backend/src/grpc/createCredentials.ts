@@ -1,24 +1,11 @@
-import {credentials, Metadata} from '@grpc/grpc-js';
+import {credentials} from '@grpc/grpc-js';
 
-const createCredentials = (authToken: string) => {
-  if (process.env.NODE_ENV === 'test') {
+const createCredentials = (address: string) => {
+  if (address.includes('localhost')) {
     return credentials.createInsecure();
   }
 
-  const channelCredentials = credentials.createSsl();
-  const callCredentials = credentials.createFromMetadataGenerator(
-    (_, callback) => {
-      const meta = new Metadata();
-
-      meta.add('authn-token', authToken);
-      callback(null, meta);
-    },
-  );
-
-  return credentials.combineChannelCredentials(
-    channelCredentials,
-    callCredentials,
-  );
+  return credentials.createSsl();
 };
 
 export default createCredentials;

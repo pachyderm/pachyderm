@@ -7,6 +7,7 @@ import {
 import {History as BrowserHistory} from 'history';
 
 import {httpLink} from 'apollo/links/httpLink';
+import {LOGGED_IN_QUERY} from 'hooks/useAuth';
 
 import {contextLink} from './links/contextLink';
 
@@ -20,6 +21,24 @@ const createApolloClient = (
   const resolvers = {};
 
   const client = new ApolloClient({cache, link, resolvers});
+
+  client.writeQuery({
+    data: {
+      loggedIn: Boolean(window.localStorage.getItem('auth-token')),
+    },
+    query: LOGGED_IN_QUERY,
+  });
+
+  client.onResetStore(() =>
+    Promise.resolve(
+      client.writeQuery({
+        data: {
+          loggedIn: Boolean(window.localStorage.getItem('auth-token')),
+        },
+        query: LOGGED_IN_QUERY,
+      }),
+    ),
+  );
 
   return client;
 };

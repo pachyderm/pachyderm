@@ -1,0 +1,31 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+export default {
+  issuer: 'http://localhost:30658/',
+  authorization_endpoint: 'http://localhost:30658/auth',
+  token_endpoint: 'http://localhost:30658/token',
+  jwks_uri: 'http://localhost:30658/keys',
+  userinfo_endpoint: 'http://localhost:30658/userinfo',
+  device_authorization_endpoint: 'http://localhost:30658/device/code',
+  grant_types_supported: [
+    'authorization_code',
+    'refresh_token',
+    'urn:ietf:params:oauth:grant-type:device_code',
+  ],
+  response_types_supported: ['code'],
+  subject_types_supported: ['public'],
+  id_token_signing_alg_values_supported: ['RS256'],
+  code_challenge_methods_supported: ['S256', 'plain'],
+  scopes_supported: ['openid', 'email', 'groups', 'profile', 'offline_access'],
+  token_endpoint_auth_methods_supported: ['client_secret_basic'],
+  claims_supported: [
+    'aud',
+    'email',
+    'email_verified',
+    'exp',
+    'iat',
+    'iss',
+    'locale',
+    'name',
+    'sub',
+  ],
+};

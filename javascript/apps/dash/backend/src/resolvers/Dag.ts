@@ -112,12 +112,12 @@ const dagResolver: DagResolver = {
       {args: {projectId}},
       {pachdAddress = '', authToken = ''},
     ) => {
-      const pachClient = client(pachdAddress, authToken);
+      const pachClient = client(pachdAddress, authToken, projectId);
 
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
-        pachClient.pfs().listRepo(projectId),
-        pachClient.pps().listPipeline(projectId),
+        pachClient.pfs().listRepo(),
+        pachClient.pps().listPipeline(),
       ]);
 
       const allVertices = deriveVertices(repos, pipelines);
@@ -129,12 +129,12 @@ const dagResolver: DagResolver = {
       {args: {projectId}},
       {pachdAddress = '', authToken = ''},
     ) => {
-      const pachClient = client(pachdAddress, authToken);
+      const pachClient = client(pachdAddress, authToken, projectId);
 
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
-        pachClient.pfs().listRepo(projectId),
-        pachClient.pps().listPipeline(projectId),
+        pachClient.pfs().listRepo(),
+        pachClient.pps().listPipeline(),
       ]);
 
       const allVertices = deriveVertices(repos, pipelines);
