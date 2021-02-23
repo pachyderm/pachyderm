@@ -412,6 +412,7 @@ func (op *pipelineOp) createPipelineResources() error {
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
 	op.m.startMonitor(op.pipelineInfo, op.ptr)
+	op.pipelineInfo.WorkerRc = op.rc.ObjectMeta.Name
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
@@ -508,7 +509,7 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}()
 
 	// compute target pipeline parallelism
-	parallelism := int(op.ptr.Parallelism)
+	parallelism := op.pipelineInfo.ParallelismSpec.Constant
 	if parallelism == 0 {
 		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker)")
 		parallelism = 1
@@ -516,11 +517,11 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 
 	// update pipeline RC
 	return op.updateRC(func(rc *v1.ReplicationController) {
-		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas == int32(parallelism) {
+		if rc.Spec.Replicas != nil && *op.rc.Spec.Replicas > 0 {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
-		*rc.Spec.Replicas = int32(parallelism)
+		*rc.Spec.Replicas = 1
 	})
 }
 

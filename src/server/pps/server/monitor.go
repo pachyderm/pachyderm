@@ -27,6 +27,7 @@ import (
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -334,11 +335,23 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 							return err
 						}
 						if pi.UnclaimedTasks > 0 {
-							n := pi.UnclaimedTasks
+							kubeClient := m.a.env.GetKubeClient()
+							namespace := m.a.namespace
+							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
+							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
+							n := int64(scale.Spec.Replicas) + pi.UnclaimedTasks
 							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
 								n = int64(pipelineInfo.ParallelismSpec.Constant)
 							}
-							// Scale the rc
+							if err != nil {
+								return err
+							}
+							if int64(scale.Spec.Replicas) < n {
+								scale.Spec.Replicas = int32(n)
+								if _, err := rc.UpdateScale(pipelineInfo.WorkerRc, scale); err != nil {
+									return err
+								}
+							}
 						}
 						time.Sleep(time.Second * 5)
 					}
