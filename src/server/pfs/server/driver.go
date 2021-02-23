@@ -147,6 +147,7 @@ func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
 	repos := d.repos.ReadOnly(txnCtx.ClientContext)
 	repoInfo := &pfs.RepoInfo{}
 	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+		fmt.Printf("activate auth %v\n", repoInfo.Repo.Name)
 		return txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
 			Name: repoInfo.Repo.Name,

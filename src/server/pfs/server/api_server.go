@@ -61,7 +61,7 @@ func newAPIServer(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etc
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		return a.driver.activateAuth(txnCtx)
 	}); err != nil {
 		return nil, err
