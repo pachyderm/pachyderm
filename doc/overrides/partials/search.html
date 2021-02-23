@@ -3,43 +3,67 @@
   {% import "partials/language.html" as lang with context %}
   
 <style>
-
-/* Main dropdown wrapper */
 .algolia-autocomplete .ds-dropdown-menu {
   width: 700px;
 }
 
-/* Main category (eg. Getting Started) */
 .algolia-autocomplete .algolia-docsearch-suggestion--category-header {
-  color: darkgray;
-  border: 1px solid gray;
+  color: #fff;
+  background: #582f6b;
+  padding: 10px;
+  font-size: 16px !important;
+  margin-top: 20px;
+  font-weight: bold;
 }
 
-/* Category (eg. Downloads) */
 .algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column {
-  color: gray;
+  color: #582f6b;
+  font-size: 14px !important;
 }
 
-/* Title (eg. Bootstrap CDN) */
 .algolia-autocomplete .algolia-docsearch-suggestion--title {
   font-weight: bold;
-  color: black;
+  color: #000;
+  font-size: 14px !important;
 }
 
-/* Description description (eg. Bootstrap currently works...) */
 .algolia-autocomplete .algolia-docsearch-suggestion--text {
-  font-size: 0.3rem;
-  color: gray;
+  font-size: 14px !important;
+  color: #000;
 }
 
-/* Highlighted text */
 .algolia-autocomplete .algolia-docsearch-suggestion--highlight {
-  color: rgb(37, 37, 158);
+  box-shadow: inset 0 -2px 0 0 #5ba3b1;
+  color: #5ba3b1;
+  background: none;
+  padding: 0;
 }
 
+.algolia-autocomplete .algolia-docsearch-suggestion--text .algolia-docsearch-suggestion--highlight {
+  box-shadow: inset 0 -2px 0 0 #5ba3b1;
+  color: #5ba3b1;
+  background: none;
+  padding: 0;
+}
+
+.algolia-autocomplete .ds-dropdown-menu [class^=ds-dataset-] {
+  border-radius: 0px;
+}
+
+.algolia-autocomplete .ds-dropdown-menu .ds-suggestion.ds-cursor .algolia-docsearch-suggestion:not(.suggestion-layout-simple) .algolia-docsearch-suggestion--content {
+  background-color: #E6F4F6;
+}
+
+.algolia-autocomplete .ds-dropdown-menu .ds-suggestions {
+  margin-top: 0;
+}
 
 .algolia-autocomplete .algolia-docsearch-footer--logo {
-    background-size: 50%;
+  display: none;
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--category-header .algolia-docsearch-suggestion--category-header-lvl0 .algolia-docsearch-suggestion--highlight {
+  box-shadow: inset 0 -2px 0 0 #5ba3b1;
 }
 
 </style>
@@ -59,19 +83,35 @@
 
 <!-- at the end of the BODY -->
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
-<script type="text/javascript"> docsearch({
-apiKey: '1c5a1f36b613b96581249c08896a3979',
-indexName: 'pachyderm',
-inputSelector: '.md-search__input',
-algoliaOptions: { 
+<script type="text/javascript"> 
+function debounce(fn, delay) {
+  var timer = null;
+  return function () {
+    var context = this, args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      fn.apply(context, args);
+    }, delay);
+  };
+}
+docsearch({
+  apiKey: '1c5a1f36b613b96581249c08896a3979',
+  indexName: 'pachyderm',
+  inputSelector: '.md-search__input',
+  algoliaOptions: { 
     'facetFilters': ["version:{{ config.search_index_version }}"],
-hitsPerPage: 10,
-clickAnalytics: true},
-    // See https://www.algolia.com/doc/api-reference/api-parameters/
-
-debug: true // Set debug to true if you want to inspect the dropdown
+    hitsPerPage: 10,
+    clickAnalytics: true
+  },
+  queryHook: debounce(function (query) {
+    rudderanalytics.track(
+      "search",
+      {
+        term:  query
+      }
+    );
+  }, 3000),
+  debug: true
 });
-
-
 </script>
   
