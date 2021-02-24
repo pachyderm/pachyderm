@@ -2,12 +2,12 @@ package track
 
 import (
 	"context"
+	"database/sql"
 	"sort"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 )
 
 var _ Tracker = &postgresTracker{}
@@ -26,20 +26,20 @@ func (t *postgresTracker) DB() *sqlx.DB {
 }
 
 func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error {
-	// TODO: contraints on ttl? ttl = 0 has to be interpretted as no ttl, but all other values will make it through
 	for _, dwn := range pointsTo {
 		if dwn == id {
 			return ErrSelfReference
 		}
 	}
-	pointsTo = removeDuplicates(pointsTo)
-	// if the object exists and has different downstream then error, otherwise return nil.
-	exists, err := t.exists(tx, id)
-	if err != nil {
+	pointsTo = dedupedStrings(pointsTo)
+
+	intID, err := t.getIntID(tx, id)
+	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
-	if exists {
-		dwn, err := t.getDownstream(tx, id)
+	// if the object exists and has different downstream then error, otherwise return nil.
+	if err == nil {
+		dwn, err := t.getDownstream(tx, intID)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 	if err := tx.Select(&pointsToInts,
 		`INSERT INTO storage.tracker_refs (from_id, to_id)
 			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
-			RETURNING to_id`,
+		RETURNING to_id`,
 		oid, pq.StringArray(pointsTo)); err != nil {
 		return err
 	}
@@ -117,27 +117,16 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 
 func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
 	var dwn []string
-	if err := dbutil.WithTx(ctx, t.db, func(tx *sqlx.Tx) error {
-		var err error
-		dwn, err = t.getDownstream(tx, id)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return dwn, nil
-}
-
-func (t *postgresTracker) getDownstream(tx *sqlx.Tx, id string) ([]string, error) {
-	dwn := []string{}
-	if err := tx.Select(&dwn,
-		`WITH target AS (
+	if err := t.db.GetContext(ctx, &dwn, `
+		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
 		SELECT str_id
 		FROM storage.tracker_objects
 		WHERE int_id IN (
 			SELECT to_id FROM storage.tracker_refs WHERE from_id IN (SELECT int_id FROM target)
-		)`, id); err != nil {
+		)
+	`, id); err != nil {
 		return nil, err
 	}
 	return dwn, nil
@@ -210,12 +199,24 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	return rows.Err()
 }
 
-func (t *postgresTracker) exists(tx *sqlx.Tx, id string) (bool, error) {
-	var count int
-	if err := tx.Get(&count, `SELECT count(*) FROM storage.tracker_objects WHERE str_id = $1`, id); err != nil {
-		return false, err
+func (t *postgresTracker) getIntID(tx *sqlx.Tx, id string) (int, error) {
+	var intID int
+	if err := tx.Get(&intID, `SELECT int_id FROM storage.tracker_objects WHERE str_id = $1`, id); err != nil {
+		return 0, err
 	}
-	return count > 0, nil
+	return intID, nil
+}
+
+func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error) {
+	dwn := []string{}
+	if err := tx.Select(&dwn, `
+		SELECT str_id FROM storage.tracker_objects
+		JOIN storage.tracker_refs ON int_id = to_id
+		WHERE from_id = $1
+	`, intID); err != nil {
+		return nil, err
+	}
+	return dwn, nil
 }
 
 func stringsMatch(a, b []string) bool {
@@ -230,6 +231,11 @@ func stringsMatch(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func dedupedStrings(xs []string) []string {
+	ys := append([]string{}, xs...)
+	return removeDuplicates(ys)
 }
 
 func removeDuplicates(xs []string) []string {

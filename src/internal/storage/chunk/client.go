@@ -51,13 +51,10 @@ func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ I
 	}
 	chunkOID := ObjectID(chunkID)
 	if err := dbutil.WithTx(ctx, c.mdstore.DB(), func(tx *sqlx.Tx) error {
-		if err := c.tracker.CreateTx(tx, chunkOID, pointsTo, c.ttl); err != nil {
-			return err
-		}
 		if err := c.mdstore.SetTx(tx, chunkID, md); err != nil && err != ErrMetadataExists {
 			return err
 		}
-		return nil
+		return c.tracker.CreateTx(tx, chunkOID, pointsTo, c.ttl)
 	}); err != nil {
 		return nil, err
 	}

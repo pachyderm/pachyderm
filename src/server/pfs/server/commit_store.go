@@ -52,21 +52,18 @@ func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commi
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		oid := commitDiffTrackerID(commit, id)
 		pointsTo := []string{id.TrackerID()}
-		if err := cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
-			return err
-		}
-		if _, err := cs.db.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 		VALUES ($1, $2)
 	`, commit.ID, *id2); err != nil {
 			return err
 		}
-		if _, err := cs.db.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM pfs.commit_totals WHERE commit_id = $1
 			`, commit.ID); err != nil {
 			return err
 		}
-		return nil
+		return cs.tr.CreateTx(tx, oid, pointsTo, track.NoTTL)
 	})
 }
 
