@@ -1,3 +1,1 @@
-import DropdownMenuItem from './DropdownMenuItem';
-
-export default DropdownMenuItem;
+export * from './DropdownMenuItem';

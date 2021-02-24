@@ -10,7 +10,7 @@ export type CardProps = React.HTMLAttributes<HTMLDivElement> & {
   title?: string;
 };
 
-const Card: FunctionComponent<CardProps> = ({
+export const Card: FunctionComponent<CardProps> = ({
   autoHeight,
   children,
   className,
@@ -35,4 +35,4 @@ const Card: FunctionComponent<CardProps> = ({
   );
 };
 
-export default Card;
+export default Object.assign(Card, {Title: CardTitle, Header: CardHeader});

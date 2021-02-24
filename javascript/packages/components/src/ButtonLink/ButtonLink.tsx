@@ -7,7 +7,7 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   small?: boolean;
 }
 
-const ButtonLink: React.FC<Props> = ({
+export const ButtonLink: React.FC<Props> = ({
   children,
   className,
   small = false,

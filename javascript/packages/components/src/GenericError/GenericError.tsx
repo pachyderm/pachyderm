@@ -6,7 +6,7 @@ import {GenericErrorSVG} from 'Svg';
 
 import styles from './GenericError.module.css';
 
-const GenericError: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+export const GenericError: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   children,
   className,
   ...rest

@@ -8,7 +8,11 @@ interface SearchProps
   onSearch: (val: string) => void;
 }
 
-const Search: React.FC<SearchProps> = ({onSearch, className, ...props}) => {
+export const Search: React.FC<SearchProps> = ({
+  onSearch,
+  className,
+  ...props
+}) => {
   const handleSearch = useCallback(
     (evt: React.ChangeEvent<HTMLInputElement>) => {
       onSearch(evt.target.value);

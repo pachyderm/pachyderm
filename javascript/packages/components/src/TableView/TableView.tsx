@@ -1,8 +1,11 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import ErrorRetry from 'ErrorRetry';
-import Page from 'Page';
+import {ErrorRetry} from 'ErrorRetry';
+import {Page} from 'Page';
+
+import {TableViewBody} from './components/TableViewBody';
+import {TableViewHeader} from './components/TableViewHeader';
 
 export interface TableViewProps {
   title: string;
@@ -27,4 +30,7 @@ const TableView: React.FC<TableViewProps> = ({
   );
 };
 
-export default TableView;
+export default Object.assign(TableView, {
+  Body: TableViewBody,
+  Header: TableViewHeader,
+});

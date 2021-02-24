@@ -1,3 +1,1 @@
-import GenericError from './GenericError';
-
-export default GenericError;
+export {GenericError} from './GenericError';

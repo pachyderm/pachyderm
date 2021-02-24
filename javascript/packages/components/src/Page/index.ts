@@ -1,4 +1,2 @@
-import PageHeading from './components/PageHeading';
-import Page from './Page';
-
-export default Object.assign(Page, {Heading: PageHeading});
+export {default as Page} from './Page';
+export type {PageProps} from './Page';

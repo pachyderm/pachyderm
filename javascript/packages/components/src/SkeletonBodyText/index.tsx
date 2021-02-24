@@ -1,3 +1,1 @@
-import SkeletonBodyText from './SkeletonBodyText';
-
-export default SkeletonBodyText;
+export {SkeletonBodyText} from './SkeletonBodyText';

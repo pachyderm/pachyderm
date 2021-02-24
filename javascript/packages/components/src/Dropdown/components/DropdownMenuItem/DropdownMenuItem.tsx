@@ -13,7 +13,7 @@ export interface DropdownMenuItemProps
   closeOnClick?: boolean;
 }
 
-const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
+export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   children,
   important = false,
   id,

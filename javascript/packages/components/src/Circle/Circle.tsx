@@ -16,7 +16,7 @@ type Props = React.HTMLAttributes<HTMLDivElement> & {
   color?: CircleColor;
 };
 
-const Circle: React.FC<Props> = ({
+export const Circle: React.FC<Props> = ({
   children,
   className,
   color = 'gray',

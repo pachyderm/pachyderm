@@ -1,8 +1,12 @@
 import React from 'react';
 
-import SkeletonBodyText from 'SkeletonBodyText';
-import Tabs from 'Tabs';
+import {SkeletonBodyText} from 'SkeletonBodyText';
+import {Tabs} from 'Tabs';
 
+import BodyContent from './components/BodyContent';
+import BodyHeader from './components/BodyHeader';
+import BodyHeaderDropdown from './components/BodyHeaderDropdown';
+import BodyHeaderTabs from './components/BodyHeaderTabs';
 import styles from './TableViewBody.module.css';
 
 export type TableViewBodyProps = {
@@ -33,4 +37,9 @@ const TableViewBody: React.FC<TableViewBodyProps> = ({
   );
 };
 
-export default TableViewBody;
+export default Object.assign(TableViewBody, {
+  Header: BodyHeader,
+  Dropdown: BodyHeaderDropdown,
+  Tabs: BodyHeaderTabs,
+  Content: BodyContent,
+});

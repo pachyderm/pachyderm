@@ -3,7 +3,7 @@ import noop from 'lodash/noop';
 import React, {Dispatch, SetStateAction} from 'react';
 
 import {Group} from 'Group';
-import Search from 'Search';
+import {Search} from 'Search';
 
 import styles from './BodyHeaderTabs.module.css';
 

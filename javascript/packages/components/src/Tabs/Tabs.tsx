@@ -1,6 +1,9 @@
 import noop from 'lodash/noop';
 import React, {useEffect, useMemo, useState} from 'react';
 
+import Tab from './components/Tab';
+import TabPanel from './components/TabPanel';
+import TabsHeader from './components/TabsHeader';
 import TabsContext from './TabsContext';
 
 export interface TabsProps {
@@ -31,4 +34,4 @@ const Tabs: React.FC<TabsProps> = ({
   );
 };
 
-export default Tabs;
+export default Object.assign(Tabs, {Tab, TabsHeader, TabPanel});

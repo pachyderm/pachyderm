@@ -1,7 +1,7 @@
 import React from 'react';
 
 import {Checkbox} from 'Checkbox';
-import Dropdown from 'Dropdown';
+import {Dropdown} from 'Dropdown';
 
 import styles from './BodyHeaderDropdownItem.module.css';
 

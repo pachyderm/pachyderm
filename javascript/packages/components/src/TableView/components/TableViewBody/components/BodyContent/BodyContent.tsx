@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Tabs from 'Tabs';
+import {Tabs} from 'Tabs';
 
 export type BodyContentProps = {
   id: string;

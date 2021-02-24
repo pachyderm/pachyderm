@@ -12,7 +12,7 @@ export interface DropdownButtonProps
   hideChevron?: boolean;
 }
 
-const DropdownButton: React.FC<DropdownButtonProps> = ({
+export const DropdownButton: React.FC<DropdownButtonProps> = ({
   children,
   className,
   color = 'black',

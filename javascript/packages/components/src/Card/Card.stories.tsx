@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Card from './';
+import {Card} from './';
 
 export default {title: 'Card'};
 

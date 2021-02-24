@@ -4,7 +4,7 @@ import React from 'react';
 
 import {Button, ButtonProps} from 'Button';
 import {Group} from 'Group';
-import Page from 'Page';
+import {Page} from 'Page';
 
 import styles from './TableViewHeader.module.css';
 
@@ -63,4 +63,7 @@ const TableViewHeader: React.FC<TableViewHeaderProps> = ({
   );
 };
 
-export default TableViewHeader;
+export default Object.assign(TableViewHeader, {
+  Button: TableViewHeaderButton,
+  Heading: Page.Heading,
+});

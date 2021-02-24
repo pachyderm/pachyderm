@@ -9,7 +9,7 @@ interface SkeletonBodyText {
   disableShimmer?: boolean;
 }
 
-const SkeletonBodyText: React.FC<SkeletonBodyText> = ({
+export const SkeletonBodyText: React.FC<SkeletonBodyText> = ({
   lines = 1,
   disableShimmer = false,
   ...props

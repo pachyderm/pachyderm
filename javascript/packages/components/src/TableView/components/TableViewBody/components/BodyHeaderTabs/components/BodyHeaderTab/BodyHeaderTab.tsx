@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Tabs from 'Tabs';
+import {Tabs} from 'Tabs';
 import {TabProps} from 'Tabs/components/Tab/Tab';
 
 import styles from './BodyHeaderTab.module.css';

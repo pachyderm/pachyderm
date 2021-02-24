@@ -1,8 +1,8 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import ButtonLink from 'ButtonLink';
-import GenericError from 'GenericError';
+import {ButtonLink} from 'ButtonLink';
+import {GenericError} from 'GenericError';
 
 import styles from './ErrorRetry.module.css';
 
@@ -10,7 +10,7 @@ interface ErrorRetryProps {
   retry?: () => void;
 }
 
-const ErrorRetry: React.FC<ErrorRetryProps> = ({
+export const ErrorRetry: React.FC<ErrorRetryProps> = ({
   retry = noop,
   children,
   ...rest

@@ -12,7 +12,7 @@ type InfoProps = {
   disabled?: boolean;
 };
 
-const Info: React.FC<InfoProps> = ({
+export const Info: React.FC<InfoProps> = ({
   header,
   headerId,
   children,

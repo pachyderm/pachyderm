@@ -1,10 +1,2 @@
-import TableViewBody from './components/TableViewBody';
-import TableViewHeader from './components/TableViewHeader';
-import TableView from './TableView';
-
-export {TableViewBody, TableViewHeader};
-
-export default Object.assign(TableView, {
-  Body: TableViewBody,
-  Header: TableViewHeader,
-});
+export {default as TableView} from './TableView';
+export type {TableViewProps} from './TableView';

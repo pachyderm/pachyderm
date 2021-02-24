@@ -4,6 +4,9 @@ import React, {useState, useMemo, useCallback, useRef} from 'react';
 
 import useOutsideClick from 'hooks/useOutsideClick';
 
+import {DropdownButton} from './components/DropdownButton';
+import {DropdownMenu} from './components/DropdownMenu';
+import {DropdownMenuItem} from './components/DropdownMenuItem';
 import DropdownContext from './contexts/DropdownContext';
 import styles from './Dropdown.module.css';
 
@@ -14,7 +17,7 @@ export interface DropdownProps {
   storeSelected?: boolean;
 }
 
-const Dropdown: React.FC<DropdownProps> = ({
+export const Dropdown: React.FC<DropdownProps> = ({
   children,
   className,
   onSelect = noop,
@@ -59,4 +62,8 @@ const Dropdown: React.FC<DropdownProps> = ({
   );
 };
 
-export default Dropdown;
+export default Object.assign(Dropdown, {
+  Button: DropdownButton,
+  Menu: DropdownMenu,
+  MenuItem: DropdownMenuItem,
+});

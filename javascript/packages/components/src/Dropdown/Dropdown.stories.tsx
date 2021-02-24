@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Dropdown from './';
+import {Dropdown} from './';
 
 export default {title: 'Dropdown'};
 

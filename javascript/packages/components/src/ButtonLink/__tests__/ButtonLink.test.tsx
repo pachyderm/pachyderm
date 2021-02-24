@@ -2,7 +2,7 @@ import {render} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import ButtonLink from '../';
+import {ButtonLink} from '../';
 
 describe('ButtonLink', () => {
   it('should be disabled when passed disabled is true', () => {

@@ -3,7 +3,7 @@ import React from 'react';
 
 import {click} from 'testHelpers';
 
-import Tabs from '../';
+import {Tabs} from '../';
 
 describe('Tabs', () => {
   const renderTestBed = () => {
