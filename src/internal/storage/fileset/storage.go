@@ -302,13 +302,10 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl); err != nil {
-			return err
-		}
 		if err := s.store.Set(tx, id, md); err != nil {
 			return err
 		}
-		return nil
+		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
 	})
 	if err != nil {
 		return nil, err
@@ -328,13 +325,10 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl); err != nil {
-			return err
-		}
 		if err := s.store.Set(tx, id, md); err != nil {
 			return err
 		}
-		return nil
+		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
 	})
 	if err != nil {
 		return nil, err

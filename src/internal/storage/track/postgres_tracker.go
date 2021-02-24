@@ -2,7 +2,6 @@ package track
 
 import (
 	"context"
-	"database/sql"
 	"sort"
 	"time"
 
@@ -32,49 +31,34 @@ func (t *postgresTracker) CreateTx(tx *sqlx.Tx, id string, pointsTo []string, tt
 		}
 	}
 	pointsTo = dedupedStrings(pointsTo)
-
-	intID, err := t.getIntID(tx, id)
-	if err != nil && err != sql.ErrNoRows {
+	// create an object or update the ttl of an existing one
+	intID, created, err := t.putObject(tx, id, ttl)
+	if err != nil {
 		return err
 	}
-	// if the object exists and has different downstream then error, otherwise return nil.
-	if err == nil {
+	if !created {
 		dwn, err := t.getDownstream(tx, intID)
 		if err != nil {
 			return err
 		}
-		if stringsMatch(pointsTo, dwn) {
-			_, err := t.putObject(tx, id, ttl)
-			return err
+		if !stringsMatch(pointsTo, dwn) {
+			return ErrDifferentObjectExists
 		}
-		return ErrDifferentObjectExists
+		return nil
 	}
-
-	// create the object
-	oid, err := t.putObject(tx, id, ttl)
-	if err != nil {
-		return err
-	}
-	var pointsToInts []int
-	if err := tx.Select(&pointsToInts,
-		`INSERT INTO storage.tracker_refs (from_id, to_id)
-			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
-		RETURNING to_id`,
-		oid, pq.StringArray(pointsTo)); err != nil {
-		return err
-	}
-	if len(pointsToInts) != len(pointsTo) {
-		return ErrDanglingRef
-	}
-	return nil
+	return t.addReferences(tx, intID, pointsTo)
 }
 
 // putObject creates or updates the object at id, to have the max of the current and new ttl.
 // If ttl == NoTTL, then the ttl is removed.
-func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (int, error) {
-	var oid int
+func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (int, bool, error) {
+	// About xmax https://stackoverflow.com/a/39204667
+	res := struct {
+		IntID int `db:"int_id"`
+		XMax  int `db:"xmax"`
+	}{}
 	if ttl != NoTTL {
-		if err := tx.Get(&oid,
+		if err := tx.Get(&res,
 			`INSERT INTO storage.tracker_objects (str_id, expires_at)
 			VALUES ($1, CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
 			ON CONFLICT (str_id) DO
@@ -83,23 +67,42 @@ func (t *postgresTracker) putObject(tx *sqlx.Tx, id string, ttl time.Duration) (
 					(CURRENT_TIMESTAMP + $2 * interval '1 microsecond')
 				)
 				WHERE storage.tracker_objects.str_id = $1
-			RETURNING int_id
+			RETURNING int_id, xmax
 		`, id, ttl.Microseconds()); err != nil {
-			return 0, err
+			return 0, false, err
 		}
 	} else {
-		if err := tx.Get(&oid,
+		if err := tx.Get(&res,
 			`INSERT INTO storage.tracker_objects (str_id)
 			VALUES ($1)
 			ON CONFLICT (str_id) DO
 				UPDATE SET expires_at = NULL
 				WHERE storage.tracker_objects.str_id = $1
-			RETURNING int_id
+			RETURNING int_id, xmax
 		`, id); err != nil {
-			return 0, err
+			return 0, false, err
 		}
 	}
-	return oid, nil
+	inserted := res.XMax == 0
+	return res.IntID, inserted, nil
+}
+
+func (t *postgresTracker) addReferences(tx *sqlx.Tx, intID int, pointsTo []string) error {
+	if len(pointsTo) == 0 {
+		return nil
+	}
+	var pointsToInts []int
+	if err := tx.Select(&pointsToInts,
+		`INSERT INTO storage.tracker_refs (from_id, to_id)
+			SELECT $1, int_id FROM storage.tracker_objects WHERE str_id = ANY($2)
+		RETURNING to_id`,
+		intID, pq.StringArray(pointsTo)); err != nil {
+		return err
+	}
+	if len(pointsToInts) != len(pointsTo) {
+		return ErrDanglingRef
+	}
+	return nil
 }
 
 func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error) {
@@ -117,7 +120,7 @@ func (t *postgresTracker) SetTTLPrefix(ctx context.Context, prefix string, ttl t
 
 func (t *postgresTracker) GetDownstream(ctx context.Context, id string) ([]string, error) {
 	var dwn []string
-	if err := t.db.GetContext(ctx, &dwn, `
+	if err := t.db.SelectContext(ctx, &dwn, `
 		WITH target AS (
 			SELECT int_id FROM storage.tracker_objects WHERE str_id = $1
 		)
