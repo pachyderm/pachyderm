@@ -202,14 +202,6 @@ func (t *postgresTracker) IterateDeletable(ctx context.Context, cb func(id strin
 	return rows.Err()
 }
 
-func (t *postgresTracker) getIntID(tx *sqlx.Tx, id string) (int, error) {
-	var intID int
-	if err := tx.Get(&intID, `SELECT int_id FROM storage.tracker_objects WHERE str_id = $1`, id); err != nil {
-		return 0, err
-	}
-	return intID, nil
-}
-
 func (t *postgresTracker) getDownstream(tx *sqlx.Tx, intID int) ([]string, error) {
 	dwn := []string{}
 	if err := tx.Select(&dwn, `

@@ -3,6 +3,7 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"math/rand"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -60,7 +61,8 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		err = tryTxFunc(tx, cb)
 		if isSerializationFailure(err) {
 			retErr = err
-			time.Sleep(time.Millisecond * 500)
+			waitDuration := time.Millisecond * time.Duration(5+rand.Intn(10))
+			time.Sleep(waitDuration)
 			continue
 		}
 		return err
@@ -68,15 +70,11 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	return retErr
 }
 
-func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			if rbErr := tx.Rollback(); rbErr != nil {
-				logrus.Error(rbErr)
-			}
-		}
-	}()
+func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {
 	if err := cb(tx); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			logrus.Error(rbErr)
+		}
 		return err
 	}
 	return tx.Commit()
