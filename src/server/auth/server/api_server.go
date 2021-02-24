@@ -872,6 +872,26 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 	}, nil
 }
 
+// GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
+// Not an RPC.
+func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
+	if err := a.isActive(); err != nil {
+		return "", err
+	}
+
+	tokenInfo := auth.TokenInfo{
+		Source:  auth.TokenInfo_GET_TOKEN,
+		Subject: auth.PipelinePrefix + pipeline,
+	}
+
+	// generate new token, and write to etcd
+	token := uuid.NewWithoutDashes()
+	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, -1); err != nil {
+		return "", errors.Wrapf(err, "error storing token")
+	}
+	return token, nil
+}
+
 // GetOIDCLogin implements the protobuf auth.GetOIDCLogin RPC
 func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
 	a.LogReq(req)

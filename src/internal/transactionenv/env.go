@@ -144,6 +144,9 @@ type AuthTransactionServer interface {
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+
+	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
+	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported
