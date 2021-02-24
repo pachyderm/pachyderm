@@ -2,5 +2,6 @@
     "reporter": "mochawesome",
     "screenshotsFolder": "/tmp/cypress-screenshots",
     "videosFolder": "/tmp/cypress-videos",
-    "projectId": "bzxzkg"
+    "projectId": "bzxzkg",
+    "chromeWebSecurity": false
 }
