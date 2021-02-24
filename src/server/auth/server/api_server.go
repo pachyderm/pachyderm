@@ -543,7 +543,10 @@ func (a *apiServer) AuthorizeInTransaction(
 
 	// Get the role bindings for the resource to check
 	var roleBinding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBinding); err != nil && !col.IsErrNotFound(err) {
+	if err := a.roleBindings.ReadWrite(txnCtx.Stm).Get(resourceKey(req.Resource), &roleBinding); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil, &auth.ErrNoRoleBinding{*req.Resource}
+		}
 		return nil, errors.Wrapf(err, "error getting role bindings for %s \"%s\"", req.Resource.Type, req.Resource.Name)
 	}
 	if err := request.evaluateRoleBinding(txnCtx.ClientContext, &roleBinding); err != nil {
@@ -717,7 +720,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.Tra
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil {
+	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
@@ -792,6 +795,9 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txnenv.TransactionCo
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
+		if col.IsErrNotFound(err) {
+			return &auth.ErrNoRoleBinding{*resource}
+		}
 		return err
 	}
 

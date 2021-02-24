@@ -148,6 +148,25 @@ func IsErrExpiredToken(err error) bool {
 	return strings.Contains(err.Error(), status.Convert(ErrExpiredToken).Message())
 }
 
+const errNoRoleBindingMsg = "no role binding exists for"
+
+// ErrNoRoleBinding is returned if no role binding exists for a resource.
+type ErrNoRoleBinding struct {
+	Resource Resource
+}
+
+func (e *ErrNoRoleBinding) Error() string {
+	return fmt.Sprintf("%v %v %v", errNoRoleBindingMsg, e.Resource.Type, e.Resource.Name)
+}
+
+// IsErrNoRoleBinding checks if an error is a ErrNoRoleBinding
+func IsErrNoRoleBinding(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), errNoRoleBindingMsg)
+}
+
 // ErrNotAuthorized is returned if the user is not authorized to perform
 // a certain operation.
 type ErrNotAuthorized struct {

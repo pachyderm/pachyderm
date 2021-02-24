@@ -266,6 +266,9 @@ func (d *driver) getPermissions(pachClient *client.APIClient, repo *pfs.Repo) ([
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 		},
 	})
 	if err != nil {
