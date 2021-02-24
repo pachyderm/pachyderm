@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 
 	dex_server "github.com/dexidp/dex/server"
+	dex_storage "github.com/dexidp/dex/storage"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -45,7 +46,10 @@ func (w *dexWeb) updateConfig(conf identity.IdentityServerConfig) {
 
 	w.issuer = conf.Issuer
 	w.stopWebServer()
-	w.startWebServer()
+	server, cache := w.startWebServer()
+	if cache {
+		w.server = server
+	}
 }
 
 // stopWebServer must be called while holding the write mutex
@@ -58,11 +62,33 @@ func (w *dexWeb) stopWebServer() {
 	w.server = nil
 }
 
-// startWebServer must called while holding the write mutex
-func (w *dexWeb) startWebServer() {
+// startWebServer returns a new dex web server, and a boolean for whether it should be cached.
+func (w *dexWeb) startWebServer() (*dex_server.Server, bool) {
+	cache := true
 	storage, err := w.storageProvider.GetStorage(w.logger)
 	if err != nil {
-		return
+		return nil, false
+	}
+
+	// If no connectors are configured, add a static placeholder which directs the user
+	// to configure a connector
+	connectors, err := storage.ListConnectors()
+	if err != nil {
+		w.logger.WithError(err).Error("dex web server failed to list connectors")
+		return nil, false
+	}
+
+	dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return new(placeholderConfig) }
+	if len(connectors) == 0 {
+		cache = false
+		storage = dex_storage.WithStaticConnectors(storage, []dex_storage.Connector{
+			dex_storage.Connector{
+				ID:     "placeholder",
+				Type:   "placeholder",
+				Name:   "No IDPs Configured",
+				Config: []byte(""),
+			},
+		})
 	}
 
 	serverConfig := dex_server.Config{
@@ -80,10 +106,10 @@ func (w *dexWeb) startWebServer() {
 	dexServer, err := dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		w.logger.WithError(err).Error("dex web server failed to start")
-		return
+		return nil, false
 	}
 
-	w.server = dexServer
+	return dexServer, cache
 }
 
 func (w *dexWeb) getServer() *dex_server.Server {
@@ -97,10 +123,14 @@ func (w *dexWeb) getServer() *dex_server.Server {
 		defer w.Unlock()
 
 		// Once we have the write lock, check that the server hasn't already been started
+		var server *dex_server.Server
+		var cache bool
 		if w.server == nil {
-			w.startWebServer()
+			server, cache = w.startWebServer()
 		}
-		server = w.server
+		if cache {
+			w.server = server
+		}
 		return server
 	}
 
