@@ -1680,51 +1680,20 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	for repo := range remove {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{},
-					})
-				if isNotFoundErr(err) {
-					// can happen if input repo is force-deleted; nothing to remove
-					return nil
-				}
-				return err
-			})
+			return txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName)
 		})
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for repo := range add {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{auth.RepoReaderRole},
-					})
-				return err
-			})
+			return txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName)
 		})
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: pipelineName},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{auth.RepoWriterRole},
-					})
-				return err
-			})
+			return txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName)
 		})
 	}
 	if err := eg.Wait(); err != nil {
