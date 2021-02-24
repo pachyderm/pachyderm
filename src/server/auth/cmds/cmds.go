@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -56,7 +57,8 @@ func printRoleBinding(b *auth.RoleBinding) {
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
-	var supplyRootToken bool
+	var supplyRootToken, onlyActivate bool
+	var trustedPeers []string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
@@ -100,11 +102,47 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 			if _, err := c.ActivateAuth(c.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error configuring auth for existing PPS pipelines - run `pachctl auth activate` again")
 			}
+
+			// By default, configure pachd as an OIDC client for the embedded Dex server.
+			// If this fails users may need to configure the server manually.
+			if !onlyActivate {
+				if _, err := c.SetIdentityServerConfig(c.Ctx(), &identity.SetIdentityServerConfigRequest{
+					Config: &identity.IdentityServerConfig{
+						Issuer: "http://localhost:30658/",
+					}}); err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure identity server issuer")
+				}
+
+				oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
+					Client: &identity.OIDCClient{
+						Id:           "pachd",
+						Name:         "pachd",
+						TrustedPeers: trustedPeers,
+						RedirectUris: []string{"http://localhost:30657/authorization-code/callback"},
+					},
+				})
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC client ID")
+				}
+
+				if _, err := c.SetConfiguration(c.Ctx(),
+					&auth.SetConfigurationRequest{Configuration: &auth.OIDCConfig{
+						Issuer:          "http://localhost:30658/",
+						ClientID:        "pachd",
+						ClientSecret:    oidcClient.Client.Secret,
+						RedirectURI:     "http://localhost:30657/authorization-code/callback",
+						LocalhostIssuer: true,
+					}}); err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to configure OIDC in pachd")
+				}
+			}
 			return nil
 		}),
 	}
 	activate.PersistentFlags().BoolVar(&supplyRootToken, "supply-root-token", false, `
 Prompt the user to input a root token on stdin, rather than generating a random one.`[1:])
+	activate.PersistentFlags().BoolVar(&onlyActivate, "only-activate", false, "Activate auth without configuring the OIDC service")
+	activate.PersistentFlags().StringSliceVar(&trustedPeers, "trusted-peers", []string{}, "Comma-separated list of OIDC client IDs to trust")
 
 	return cmdutil.CreateAlias(activate, "auth activate")
 }

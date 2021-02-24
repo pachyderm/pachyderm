@@ -2086,23 +2086,20 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			pipelinePtr.Parallelism = uint64(parallelism)
 
 			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
-			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+			if err := func() error {
 				oldAuthToken := pipelinePtr.AuthToken
-				tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
-					Subject: auth.PipelinePrefix + request.Pipeline.Name,
-					TTL:     -1,
-				})
+				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 				if err != nil {
 					if auth.IsErrNotActivated(err) {
 						return nil // no auth work to do
 					}
 					return grpcutil.ScrubGRPC(err)
 				}
-				pipelinePtr.AuthToken = tokenResp.Token
+				pipelinePtr.AuthToken = token
 
 				// If getting a new auth token worked, we should revoke the old one
 				if oldAuthToken != "" {
-					_, err := superCtx.Auth().RevokeAuthTokenInTransaction(superCtx,
+					_, err := txnCtx.Auth().RevokeAuthTokenInTransaction(txnCtx,
 						&auth.RevokeAuthTokenRequest{
 							Token: oldAuthToken,
 						})
@@ -2114,7 +2111,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 					}
 				}
 				return nil
-			}); err != nil {
+			}(); err != nil {
 				return err
 			}
 			return nil
@@ -2203,20 +2200,19 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-		if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-			tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
-				Subject: auth.PipelinePrefix + request.Pipeline.Name,
-				TTL:     -1,
-			})
+
+		if err := func() error {
+			token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
 					return nil // no auth work to do
 				}
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelinePtr.AuthToken = tokenResp.Token
+
+			pipelinePtr.AuthToken = token
 			return nil
-		}); err != nil {
+		}(); err != nil {
 			return err
 		}
 		// Put a pointer to the new PipelineInfo commit into etcd

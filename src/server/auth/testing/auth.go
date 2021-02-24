@@ -79,6 +79,11 @@ func (a *InactiveAPIServer) GetAuthTokenInTransaction(*txnenv.TransactionContext
 	return nil, auth.ErrNotActivated
 }
 
+// GetPipelineAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
+func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txnenv.TransactionContext, string) (string, error) {
+	return "", auth.ErrNotActivated
+}
+
 // GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
 	return nil, auth.ErrNotActivated
