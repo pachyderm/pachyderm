@@ -612,6 +612,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 }
 
 // DeleteRoleBindingInTransaction is used to remove role bindings for resources when they're deleted in other services.
+// It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
 func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(); err != nil {
@@ -652,7 +653,8 @@ func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
 }
 
 // CreateRoleBindingInTransaction is an internal-only API to create a role binding for a new resource.
-// This is not an RPC.
+// It doesn't do any authorization checks itself - the calling method should ensure the user is allowed
+// to create the resource. This is not an RPC.
 func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
 	bindings := &auth.RoleBinding{
 		Entries: make(map[string]*auth.Roles),
