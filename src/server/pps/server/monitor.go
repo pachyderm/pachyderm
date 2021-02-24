@@ -248,7 +248,6 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					}
 					return err
 				}
-			commit:
 				for {
 					// finish span from previous loops
 					tracing.FinishAnySpan(childSpan)
@@ -263,14 +262,6 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						}
 						if ci.Finished != nil {
 							continue
-						}
-						for _, provC := range ci.Provenance {
-							provCi, err := pachClient.InspectCommit(provC.Commit.Repo.Name, provC.Commit.ID)
-							if err != nil {
-								if provCi.Finished != nil && provCi.Tree == nil && len(provCi.Trees) == 0 {
-									continue commit
-								}
-							}
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 							m.a.env.GetEtcdClient(), pipeline,
