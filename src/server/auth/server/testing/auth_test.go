@@ -1121,6 +1121,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoWriter: []auth.Permission{
@@ -1133,6 +1136,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoReader: []auth.Permission{
@@ -1141,11 +1147,12 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_COMMIT,
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 	}
 	for _, info := range listResp.RepoInfo {
-		require.Equal(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
@@ -1154,7 +1161,7 @@ func TestListAndInspectRepo(t *testing.T) {
 				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
-		require.Equal(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
 	}
 }
 

@@ -642,7 +642,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err = rootClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Equal(t, []auth.Permission{
+		require.ElementsEqual(t, []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_MODIFY_BINDINGS,
@@ -655,6 +655,9 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 		}, info.AuthInfo.Permissions)
 	}
 }
