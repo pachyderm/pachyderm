@@ -2,9 +2,10 @@ import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {Button, ButtonProps} from 'Button';
 import {Group} from 'Group';
 import {Page} from 'Page';
+
+import {Button, ButtonProps} from '../../../Button';
 
 import styles from './TableViewHeader.module.css';
 

@@ -2,8 +2,9 @@ import React from 'react';
 import {UseFormMethods} from 'react-hook-form';
 
 import {Dropdown} from 'Dropdown';
-import {DropdownButtonProps} from 'Dropdown/components/DropdownButton/DropdownButton';
 import {Form} from 'Form';
+
+import {DropdownButtonProps} from '../../../../../Dropdown/components/DropdownButton/DropdownButton';
 
 import styles from './BodyHeaderDropdown.module.css';
 
