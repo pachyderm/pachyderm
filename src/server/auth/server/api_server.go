@@ -875,6 +875,10 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 // GetPipelineAuthTokenInTransaction is an internal API used to create a pipeline token for a given pipeline.
 // Not an RPC.
 func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) (string, error) {
+	if err := a.isActive(); err != nil {
+		return "", err
+	}
+
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,
 		Subject: auth.PipelinePrefix + pipeline,
