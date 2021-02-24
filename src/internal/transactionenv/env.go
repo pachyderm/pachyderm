@@ -141,6 +141,12 @@ type AuthTransactionServer interface {
 	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
 
+	// Methods to add and remove pipelines from input and output repos. These do their own auth checks
+	// for specific permissions required to use a repo as a pipeline input/output.
+	AddPipelineReaderToRepoInTransaction(*TransactionContext, string, string) error
+	AddPipelineWriterToRepoInTransaction(*TransactionContext, string) error
+	RemovePipelineReaderFromRepoInTransaction(*TransactionContext, string, string) error
+
 	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
 	CreateRoleBindingInTransaction(*TransactionContext, string, []string, *auth.Resource) error
 	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error

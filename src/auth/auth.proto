@@ -137,18 +137,21 @@ enum Permission {
   // CLUSTER_ADMIN encompasses all "admin" APIs, which are generally cluster configuration
   CLUSTER_ADMIN        = 100;
 
-  REPO_READ            = 200;
-  REPO_WRITE           = 201;
-  REPO_MODIFY_BINDINGS = 202;
-  REPO_DELETE          = 203;
-  REPO_INSPECT_COMMIT  = 204;
-  REPO_LIST_COMMIT     = 205;
-  REPO_DELETE_COMMIT   = 206;
-  REPO_CREATE_BRANCH   = 207;
-  REPO_LIST_BRANCH     = 208;
-  REPO_DELETE_BRANCH   = 209;
-  REPO_INSPECT_FILE    = 210;
-  REPO_LIST_FILE       = 211;
+  REPO_READ                   = 200;
+  REPO_WRITE                  = 201;
+  REPO_MODIFY_BINDINGS        = 202;
+  REPO_DELETE                 = 203;
+  REPO_INSPECT_COMMIT         = 204;
+  REPO_LIST_COMMIT            = 205;
+  REPO_DELETE_COMMIT          = 206;
+  REPO_CREATE_BRANCH          = 207;
+  REPO_LIST_BRANCH            = 208;
+  REPO_DELETE_BRANCH          = 209;
+  REPO_INSPECT_FILE           = 210;
+  REPO_LIST_FILE              = 211;
+  REPO_ADD_PIPELINE_READER    = 212;
+  REPO_REMOVE_PIPELINE_READER = 213;
+  REPO_ADD_PIPELINE_WRITER    = 214;
 
   PIPELINE_LIST_JOB     = 301;
 }

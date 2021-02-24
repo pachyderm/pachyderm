@@ -684,6 +684,46 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 	return nil
 }
 
+// AddPipelineReaderToRepoInTransaction gives a pipeline access to read data from the specified source repo.
+// This is distinct from ModifyRoleBinding because AddPipelineReader is a less expansive permission
+// that is included in the repoReader role, versus being able to modify all role bindings which is
+// part of repoOwner. This method is for internal use and is not exposed as an RPC.
+func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+		return err
+	}
+
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo}, auth.PipelinePrefix+pipeline, []string{auth.RepoReaderRole})
+}
+
+// AddPipelineWriterToRepoInTransaction gives a pipeline access to write to it's own output repo.
+// This is distinct from ModifyRoleBinding because AddPipelineWriter is a less expansive permission
+// that is included in the repoWriter role, versus being able to modify all role bindings which is
+// part of repoOwner. This method is for internal use and is not exposed as an RPC.
+func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txnenv.TransactionContext, pipeline string) error {
+	// Check that the user is allowed to add a pipeline to write to the output repo.
+	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+		return err
+	}
+
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: pipeline}, auth.PipelinePrefix+pipeline, []string{auth.RepoWriterRole})
+}
+
+// RemovePipelineReaderFromRepo revokes a pipeline's access to read data from the specified source repo.
+// This is distinct from ModifyRoleBinding because RemovePipelineReader is a less expansive permission
+// that is included in the repoWriter role, versus being able to modify all role bindings which is
+// part of repoOwner. This method is for internal use and is not exposed as an RPC.
+func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txnenv.TransactionContext, sourceRepo, pipeline string) error {
+	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
+	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
+	// input repo.
+	if err := CheckRepoIsAuthorizedInTransaction(txnCtx, pipeline, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil {
+		return err
+	}
+
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo}, auth.PipelinePrefix+pipeline, []string{})
+}
+
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) ModifyRoleBindingInTransaction(
@@ -698,24 +738,12 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
-	roles, err := rolesFromRoleSlice(req.Roles)
-	if err != nil {
-		return nil, err
-	}
-
 	if strings.HasPrefix(req.Principal, auth.PachPrefix) && req.Resource.Type == auth.ResourceType_CLUSTER {
 		return nil, fmt.Errorf("cannot modify cluster role bindings for pach: users")
 	}
 
 	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
-		return nil, err
-	}
-
-	key := resourceKey(req.Resource)
-	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
-	var bindings auth.RoleBinding
-	if err := roleBindings.Get(key, &bindings); err != nil {
 		return nil, err
 	}
 
@@ -747,20 +775,36 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		}
 	}
 
-	if bindings.Entries == nil {
-		bindings.Entries = make(map[string]*auth.Roles)
-	}
-
-	if len(req.Roles) == 0 {
-		delete(bindings.Entries, req.Principal)
-	} else {
-		bindings.Entries[req.Principal] = roles
-	}
-	if err := roleBindings.Put(key, &bindings); err != nil {
+	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
 		return nil, err
 	}
 
 	return &auth.ModifyRoleBindingResponse{}, nil
+}
+
+func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource, principal string, roleSlice []string) error {
+	roles, err := rolesFromRoleSlice(roleSlice)
+	if err != nil {
+		return err
+	}
+
+	key := resourceKey(resource)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	var bindings auth.RoleBinding
+	if err := roleBindings.Get(key, &bindings); err != nil {
+		return err
+	}
+
+	if bindings.Entries == nil {
+		bindings.Entries = make(map[string]*auth.Roles)
+	}
+
+	if len(roleSlice) == 0 {
+		delete(bindings.Entries, principal)
+	} else {
+		bindings.Entries[principal] = roles
+	}
+	return roleBindings.Put(key, &bindings)
 }
 
 // ModifyRoleBinding implements the protobuf auth.ModifyRoleBinding RPC
