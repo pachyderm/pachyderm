@@ -13,25 +13,27 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
-	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
-	configcmds "github.com/pachyderm/pachyderm/src/server/config"
-	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
-	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
-	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
-	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	deploycmds "github.com/pachyderm/pachyderm/v2/src/internal/deploy/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
+	authcmds "github.com/pachyderm/pachyderm/v2/src/server/auth/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	configcmds "github.com/pachyderm/pachyderm/v2/src/server/config"
+	debugcmds "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds"
+	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
+	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
+	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
+	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
@@ -462,7 +464,7 @@ Environment variables:
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfg, err := config.Read(true)
+			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
 			}
@@ -533,6 +535,8 @@ This resets the cluster to its initial state.`,
 	var uiWebsocketPort uint16
 	var pfsPort uint16
 	var s3gatewayPort uint16
+	var dexPort uint16
+	var remoteDexPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -543,7 +547,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -634,6 +638,16 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
+			fmt.Println("Forwarding the identity service port...")
+			port, err = fw.RunForDex(dexPort, remoteDexPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dex"] = uint32(port)
+				successCount++
+			}
+
 			if successCount == 0 {
 				return errors.New("failed to start port forwarders")
 			}
@@ -645,7 +659,7 @@ This resets the cluster to its initial state.`,
 			defer func() {
 				// reload config in case changes have happened since the
 				// config was last read
-				cfg, err := config.Read(true)
+				cfg, err := config.Read(true, false)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
 					return
@@ -677,6 +691,8 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
+	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 658, "The local port to bind the identity service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
@@ -831,6 +847,8 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, deploycmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, licensecmds.Cmds()...)
+	subcommands = append(subcommands, identitycmds.Cmds()...)
 	subcommands = append(subcommands, admincmds.Cmds()...)
 	subcommands = append(subcommands, debugcmds.Cmds()...)
 	subcommands = append(subcommands, txncmds.Cmds()...)
@@ -839,7 +857,6 @@ This resets the cluster to its initial state.`,
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
 	applyRootUsageFunc(rootCmd)
-	applyCommandCompat1_8(rootCmd)
 
 	return rootCmd
 }
@@ -898,7 +915,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"garbage-collect",
 			"update-dash",
 			"auth",
-			"enterprise":
+			"enterprise",
+			"idp":
 			admin = append(admin, subcmd)
 		default:
 			other = append(other, subcmd)

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
 
 func TestCommit(t *testing.T) {
@@ -39,7 +39,9 @@ func TestCommit(t *testing.T) {
 	).Run())
 }
 
+// TODO: Make work with V2?
 func TestPutFileSplit(t *testing.T) {
+	t.Skip("Split not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

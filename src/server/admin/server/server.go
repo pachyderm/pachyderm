@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 // APIServer represents and APIServer
@@ -11,11 +11,9 @@ type APIServer interface {
 }
 
 // NewAPIServer returns a new admin.APIServer
-func NewAPIServer(address string, storageRoot string, clusterInfo *admin.ClusterInfo) APIServer {
+func NewAPIServer(clusterInfo *admin.ClusterInfo) APIServer {
 	return &apiServer{
 		Logger:      log.NewLogger("admin.API"),
-		address:     address,
-		storageRoot: storageRoot,
 		clusterInfo: clusterInfo,
 	}
 }

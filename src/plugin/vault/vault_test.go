@@ -9,10 +9,10 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 const (
@@ -27,18 +27,10 @@ const (
 
 func configurePlugin(t *testing.T, v *vault.Client, ttl string) error {
 	c := testutil.GetPachClient(t)
-	resp, err := c.Authenticate(
-		context.Background(),
-		&auth.AuthenticateRequest{GitHubToken: "admin"})
-
-	if err != nil {
-		return err
-	}
-
-	return configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), ttl)
+	return configurePluginHelper(v, testutil.RootToken, c.GetAddress(), ttl)
 }
 
-func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
+func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
 	vl := v.Logical()
 	config := make(map[string]interface{})
 	config["admin_token"] = testPachToken
@@ -67,35 +59,29 @@ func TestBadConfig(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
-	c := testutil.GetPachClient(t)
-	resp, err := c.Authenticate(
-		context.Background(),
-		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	c := testutil.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// make sure we get an error for missing admin_token
-	err = configurePluginHelper(c, v, "", "", "")
+	err = configurePluginHelper(v, "", "", "")
 	if err == nil {
 		t.Fatalf("expected error: missing token in config (but got none)")
 	}
 
 	// make sure we get an error for missing pachd_address (not set in configurePluginHelper)
-	err = configurePluginHelper(c, v, resp.PachToken, "", "")
+	err = configurePluginHelper(v, testutil.RootToken, "", "")
 	if err == nil {
 		t.Fatalf("expected missing address in config to error")
 	}
 
 	// make sure that missing TTL is OK
-	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "")
+	err = configurePluginHelper(v, testutil.RootToken, c.GetAddress(), "")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// make sure that malformed TTL is not OK
-	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "234....^^^")
+	err = configurePluginHelper(v, testutil.RootToken, c.GetAddress(), "234....^^^")
 	if err == nil {
 		t.Fatalf("expected bad ttl in config to error")
 	}
@@ -199,7 +185,7 @@ func TestLogin(t *testing.T) {
 	// Negative control: before we have a valid pach token, we should not
 	// be able to list admins
 	c := testutil.GetPachClient(t)
-	_, err := c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(context.Background(), &auth.WhoAmIRequest{})
 	if err == nil {
 		t.Fatalf("client could list admins before using auth token. this is likely a bug")
 	}
@@ -207,7 +193,7 @@ func TestLogin(t *testing.T) {
 	c, _, _ = loginHelper(t, "")
 
 	// Now do the actual test: try and list admins w a client w a valid pach token
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -221,14 +207,14 @@ func TestLoginExpires(t *testing.T) {
 	c, _, secret := loginHelper(t, "2s")
 
 	// Make sure token is valid
-	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// Wait for TTL to expire and check that token is no longer valid
 	time.Sleep(time.Duration(secret.LeaseDuration+1) * time.Second)
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err == nil {
 		t.Fatalf("API call should fail, but token did not expire")
 	}
@@ -269,13 +255,13 @@ func TestLoginTTLParam(t *testing.T) {
 	}
 	c.SetAuthToken(pachToken)
 	// Make sure token is valid
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	// Wait for TTL to expire and check that token is no longer valid
 	time.Sleep(time.Duration(secret.LeaseDuration+1) * time.Second)
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err == nil {
 		t.Fatalf("API call should fail, but token did not expire")
 	}
@@ -291,7 +277,7 @@ func TestLoginDefaultTTL(t *testing.T) {
 	}
 
 	// Make sure token is valid
-	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -339,7 +325,7 @@ func TestLoginLongTTL(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	c.SetAuthToken(pachToken)
-	if _, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{}); err != nil {
+	if _, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{}); err != nil {
 		t.Fatalf(err.Error())
 	}
 }
@@ -356,7 +342,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		t.Fatalf("expected lease to be at most 10s, but was: %d", secret.LeaseDuration)
 	}
 
-	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -401,7 +387,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 
 	// Make sure that the Pachyderm token was also renewed
 	time.Sleep(time.Duration(ttl/2+1) * time.Second) // wait til old lease exires
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -415,7 +401,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 	ttl := 2
 	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
-	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -441,7 +427,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 		t.Fatal("Expected failed renewal, but got successful renewal\n")
 	}
 
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err == nil {
 		t.Fatalf("Expected error using pach token after expiry, but got no error\n")
 	}
@@ -454,7 +440,7 @@ func TestRevoke(t *testing.T) {
 	c, v, secret := loginHelper(t, "")
 
 	// Make sure that 'secret' contains a valid Pachyderm token
-	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -471,7 +457,7 @@ func TestRevoke(t *testing.T) {
 
 	// Make sure that the Pachyderm token in 'secret' has been revoked and no
 	// longer works
-	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	if err == nil {
 		t.Fatalf("expected error with revoked pach token, got none\n")
 	}

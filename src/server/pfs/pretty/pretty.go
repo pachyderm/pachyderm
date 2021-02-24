@@ -9,8 +9,8 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 const (
@@ -40,7 +40,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	}
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
 	if repoInfo.AuthInfo != nil {
-		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.AccessLevel.String())
+		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.Permissions)
 	}
 	fmt.Fprintf(w, "%s\t", repoInfo.Description)
 	fmt.Fprintln(w)
@@ -185,7 +185,7 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 }
 
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
-func PrintDetailedCommitInfo(commitInfo *PrintableCommitInfo) error {
+func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}@{{.Commit.ID}}{{if .Branch}}
 Original Branch: {{.Branch.Name}}{{end}}{{if .Description}}
@@ -201,11 +201,7 @@ Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}@{{.Commit.ID}} ({{.Branc
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, commitInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return template.Execute(w, commitInfo)
 }
 
 // PrintFileInfo pretty-prints file info.
@@ -250,7 +246,6 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
-Children: {{range .Children}} {{.}} {{end}}
 `)
 	if err != nil {
 		return err

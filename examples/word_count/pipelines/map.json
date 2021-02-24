@@ -1,0 +1,20 @@
+{
+  "pipeline": {
+    "name": "map"
+  },
+  "description": "A pipeline that tokenizes scraped pages and appends counts of words to corresponding files.",
+  "transform": {
+    "image": "pachyderm/example-wordcount:1.12.2",
+    "cmd": [
+      "app",
+      "/pfs/scraper/", 
+      "/pfs/out"
+    ]
+  },
+  "input": {
+    "pfs": {
+      "repo": "scraper",
+      "glob": "/*/*"
+    }
+  }
+}

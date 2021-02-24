@@ -2,7 +2,6 @@ package stats
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -10,13 +9,12 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom_model "github.com/prometheus/common/model"
@@ -25,7 +23,7 @@ import (
 func TestPrometheusStats(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, tu.ActivateEnterprise(t, c))
+	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -70,8 +68,7 @@ func TestPrometheusStats(t *testing.T) {
 		// We want several datums per job so that we have multiple data points
 		// per job time series
 		for j := 0; j < numDatums; j++ {
-			_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar"))
-			require.NoError(t, err)
+			require.NoError(t, c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%v", j), strings.NewReader("bar")))
 		}
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -83,11 +80,10 @@ func TestPrometheusStats(t *testing.T) {
 	// Now write data that'll make the job fail
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail"))
-	require.NoError(t, err)
+	require.NoError(t, c.PutFile(dataRepo, commit.ID, "test", strings.NewReader("fail")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
 	port := os.Getenv("PROM_PORT")
@@ -234,11 +230,11 @@ func TestPrometheusStats(t *testing.T) {
 }
 
 // Regression: stats commits would not close when there were no input datums.
-//For more info, see github.com/pachyderm/pachyderm/issues/3337
+//For more info, see github.com/pachyderm/pachyderm/v2/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	require.NoError(t, tu.ActivateEnterprise(t, c))
+	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -267,16 +263,8 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	// If the error exists, the stats commit will never close, and this will
 	// timeout
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-
-	for {
-		_, err := commitIter.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		require.NoError(t, err)
-	}
 
 	// Make sure the job succeeded as well
 	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)

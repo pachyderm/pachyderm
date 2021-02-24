@@ -2,8 +2,8 @@ package health
 
 import (
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/health"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/health"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/net/context"
 )
 

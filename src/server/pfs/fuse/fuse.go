@@ -10,10 +10,10 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -95,8 +95,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 					retErr = errors.WithStack(err)
 				}
 			}()
-			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
-				pathpkg.Join(parts[1:]...), f, 0); err != nil {
+			if err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...), f); err != nil {
 				return err
 			}
 			return nil

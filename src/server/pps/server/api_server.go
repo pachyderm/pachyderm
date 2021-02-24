@@ -5,12 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"path"
-	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,44 +15,44 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/itchyny/gojq"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	ppath "github.com/pachyderm/pachyderm/src/server/pkg/path"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	ppsServer "github.com/pachyderm/pachyderm/src/server/pps"
-	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
-	"github.com/pachyderm/pachyderm/src/server/worker/datum"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	ppath "github.com/pachyderm/pachyderm/v2/src/internal/path"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	authServer "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
-	"github.com/willf/bloom"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
@@ -72,11 +69,14 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+
+	// DefaultLogsFrom is the default duration to return logs from, i.e. by
+	// default we return logs from up to 24 hours ago.
+	DefaultLogsFrom = time.Hour * 24
 )
 
 var (
-	suite           = "pachyderm"
-	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
+	suite = "pachyderm"
 )
 
 func newErrPipelineNotFound(pipeline string) error {
@@ -99,31 +99,27 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix             string
-	env                    *serviceenv.ServiceEnv
-	txnEnv                 *txnenv.TransactionEnv
-	namespace              string
-	workerImage            string
-	workerSidecarImage     string
-	workerImagePullPolicy  string
-	storageRoot            string
-	storageBackend         string
-	storageHostPath        string
-	iamRole                string
-	imagePullSecret        string
-	noExposeDockerSocket   bool
-	reporter               *metrics.Reporter
-	monitorCancelsMu       sync.Mutex
-	monitorCancels         map[string]func() // protected by monitorCancelsMu
-	crashingMonitorCancels map[string]func() // also protected by monitorCancelsMu
-	pollPipelinesMu        sync.Mutex
-	pollCancel             func() // protected by pollPipelinesMu
-	workerUsesRoot         bool
-	workerGrpcPort         uint16
-	port                   uint16
-	httpPort               uint16
-	peerPort               uint16
-	gcPercent              int
+	etcdPrefix            string
+	env                   *serviceenv.ServiceEnv
+	txnEnv                *txnenv.TransactionEnv
+	namespace             string
+	workerImage           string
+	workerSidecarImage    string
+	workerImagePullPolicy string
+	storageRoot           string
+	storageBackend        string
+	storageHostPath       string
+	cacheRoot             string
+	iamRole               string
+	imagePullSecret       string
+	noExposeDockerSocket  bool
+	reporter              *metrics.Reporter
+	workerUsesRoot        bool
+	workerGrpcPort        uint16
+	port                  uint16
+	httpPort              uint16
+	peerPort              uint16
+	gcPercent             int
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -189,7 +185,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
-func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName string, input *pps.Input, job bool) error {
+func (a *apiServer) validateInputInTransaction(txnCtx *txnenv.TransactionContext, pipelineName string, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
@@ -211,7 +207,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return errors.Errorf("inputs based on repos named \"out\" must have " +
 						"'name' set, as pachyderm already creates /pfs/out to collect " +
 						"job output")
-				case input.Pfs.Branch == "" && !job:
+				case input.Pfs.Branch == "":
 					return errors.Errorf("input must specify a branch")
 				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return errors.Errorf("input must specify a glob")
@@ -228,18 +224,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"'empty_files', as 's3' requires input data to be accessed via " +
 						"Pachyderm's S3 gateway rather than the file system")
 				}
-				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
-				// the job pipeline's input branches has no commits yet
-				if job && input.Pfs.Commit != "" {
-					// for jobs we check that the input commit exists
-					if _, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Commit); err != nil {
-						return err
-					}
-				} else {
-					// for pipelines we only check that the repo exists
-					if _, err := pachClient.InspectRepo(input.Pfs.Repo); err != nil {
-						return err
-					}
+				if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
+					Repo: client.NewRepo(input.Pfs.Repo)}); err != nil {
+					return err
 				}
 			}
 			if input.Cross != nil {
@@ -402,15 +389,6 @@ func (a *apiServer) validateKube() {
 	}
 }
 
-func checkLoggedIn(pachClient *client.APIClient) (context.Context, error) {
-	ctx := pachClient.Ctx() // pachClient propagates auth info
-	_, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if err != nil && !auth.IsErrNotActivated(err) {
-		return nil, err
-	}
-	return ctx, nil
-}
-
 // authorizing a pipeline operation varies slightly depending on whether the
 // pipeline is being created, updated, or deleted
 type pipelineOperation uint8
@@ -438,7 +416,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
 func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
-	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	_, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
 	} else if err != nil {
@@ -465,19 +443,8 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			}
 			done[repo] = struct{}{}
 			eg.Go(func() error {
-				resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-					Repo:  repo,
-					Scope: auth.Scope_READER,
-				})
-				if err != nil {
+				if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ); err != nil {
 					return err
-				}
-				if !resp.Authorized {
-					return &auth.ErrNotAuthorized{
-						Subject:  me.Username,
-						Repo:     repo,
-						Required: auth.Scope_READER,
-					}
 				}
 				return nil
 			})
@@ -494,20 +461,23 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 	// (if it did exist, we'd have to check that the user has permission to write
 	// to it, and this is simpler)
 	if output != "" {
-		var required auth.Scope
+		var required auth.Permission
 		switch operation {
 		case pipelineOpCreate:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
 			}); err == nil {
-				return errors.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
-			} else if !isNotFoundErr(err) {
+				// the repo already exists, so we need the same permissions as update
+				required = auth.Permission_REPO_WRITE
+			} else if isNotFoundErr(err) {
+				return nil
+			} else {
 				return err
 			}
 		case pipelineOpListDatum, pipelineOpGetLogs:
-			required = auth.Scope_READER
+			required = auth.Permission_REPO_READ
 		case pipelineOpUpdate:
-			required = auth.Scope_WRITER
+			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
@@ -516,25 +486,12 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 				// pipeline is now invalid). It should be possible to delete the pipeline.
 				return nil
 			}
-			required = auth.Scope_OWNER
+			required = auth.Permission_REPO_DELETE
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if required != auth.Scope_NONE {
-			resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-				Repo:  output,
-				Scope: required,
-			})
-			if err != nil {
-				return err
-			}
-			if !resp.Authorized {
-				return &auth.ErrNotAuthorized{
-					Subject:  me.Username,
-					Repo:     output,
-					Required: required,
-				}
-			}
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, output, required); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -579,17 +536,12 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
 	if request.Stats == nil {
 		request.Stats = &pps.ProcessStats{}
 	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
 			OutputCommit:  request.OutputCommit,
@@ -618,10 +570,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
 	}
@@ -715,14 +663,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline,
 	outputCommit *pfs.Commit, inputCommits []*pfs.Commit, history int64, full bool,
 	jqFilter string, f func(*pps.JobInfo) error) error {
-	authIsActive := true
-	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		authIsActive = false
-	} else if err != nil {
-		return err
-	}
-	if authIsActive && pipeline != nil {
+	if pipeline != nil {
 		// If 'pipeline is set, check that caller has access to the pipeline's
 		// output repo; currently, that's all that's required for ListJob.
 		//
@@ -730,21 +671,12 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
-			Repo:  pipeline.Name,
-			Scope: auth.Scope_READER,
-		})
-		if err != nil {
+		if err := authServer.CheckRepoIsAuthorized(pachClient, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+
 			return err
 		}
-		if !resp.Authorized {
-			return &auth.ErrNotAuthorized{
-				Subject:  me.Username,
-				Repo:     pipeline.Name,
-				Required: auth.Scope_READER,
-			}
-		}
 	}
+	var err error
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
@@ -919,29 +851,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 }
 
 // ListJob implements the protobuf pps.ListJob RPC
-func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
-			a.Log(request, &pps.JobInfos{JobInfo: response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
-		} else {
-			a.Log(request, response, retErr, time.Since(start))
-		}
-	}(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	var jobInfos []*pps.JobInfo
-	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, request.JqFilter, func(ji *pps.JobInfo) error {
-		jobInfos = append(jobInfos, ji)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return &pps.JobInfos{JobInfo: jobInfos}, nil
-}
-
-// ListJobStream implements the protobuf pps.ListJobStream RPC
-func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_ListJobStreamServer) (retErr error) {
+func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
@@ -965,15 +875,11 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.env.GetPachClient(resp.Context())
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return err
-	}
 	var toRepos []*pfs.Repo
 	for _, pipeline := range request.ToPipelines {
 		toRepos = append(toRepos, client.NewRepo(pipeline.Name))
 	}
-	return pachClient.FlushCommitF(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
+	return pachClient.FlushCommit(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
 		var jis []*pps.JobInfo
 		// FlushJob passes -1 for history because we don't know which version
 		// of the pipeline created the output commit.
@@ -996,7 +902,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		ji, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
+		ji, err := a.InspectJob(pachClient.Ctx(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
 		if err != nil {
 			return err
 		}
@@ -1009,14 +915,10 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
 		return nil, err
 	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
 	if err != nil {
@@ -1030,10 +932,6 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
 		return nil, err
 	}
@@ -1048,7 +946,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 	}
 	// Finish the job's output commit without a tree -- worker/master will mark
 	// the job 'killed'
-	if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
+	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: jobPtr.OutputCommit,
 			Empty:  true,
@@ -1064,12 +962,6 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
-
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -1083,385 +975,103 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
-// listDatum contains our internal implementation of ListDatum, which is shared
-// between ListDatum and ListDatumStream. When ListDatum is removed, this should
-// be inlined into ListDatumStream
-func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, input *pps.Input, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
-	if _, err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
-	}
-	response = &pps.ListDatumResponse{}
-	ctx := pachClient.Ctx()
-	pfsClient := pachClient.PfsAPIClient
-	if job == nil && input == nil {
-		return nil, errors.Errorf("must specify either job or input to list datums from")
-	}
-	if job != nil && input != nil {
-		return nil, errors.Errorf("can't specify both job and input to list datums from")
-	}
-
-	var pipelineName string
-	var statsCommit *pfs.Commit
-	var ji *pps.JobInfo
-
-	if job != nil {
-		// get information about 'job'
-		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-			Job: &pps.Job{
-				ID: job.ID,
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		input = jobInfo.Input
-		pipelineName = jobInfo.Pipeline.Name
-		statsCommit = jobInfo.StatsCommit
-		ji = jobInfo
-	} else if input != nil {
-		setInputDefaults("", input)
-
-		var visitErr error
-		pps.VisitInput(input, func(input *pps.Input) {
-			if visitErr != nil {
-				return
-			}
-			if input.Pfs != nil {
-				ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch)
-				if err != nil {
-					visitErr = err
-					return
-				}
-				input.Pfs.Commit = ci.Commit.ID
-			}
-			if input.Cron != nil {
-				visitErr = errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
-			}
-		})
-		if visitErr != nil {
-			return nil, visitErr
-		}
-	}
-
-	// authorize ListDatum (must have READER access to all inputs)
-	if err := a.authorizePipelineOp(pachClient,
-		pipelineOpListDatum,
-		input,
-		pipelineName,
-	); err != nil {
-		return nil, err
-	}
-
-	// helper functions for pagination
-	getTotalPages := func(totalSize int) int64 {
-		return (int64(totalSize) + pageSize - 1) / pageSize // == ceil(totalSize/pageSize)
-	}
-	getPageBounds := func(totalSize int) (int, int, error) {
-		start := int(page * pageSize)
-		end := int((page + 1) * pageSize)
-		switch {
-		case totalSize <= start:
-			return 0, 0, io.EOF
-		case totalSize <= end:
-			return start, totalSize, nil
-		case end < totalSize:
-			return start, end, nil
-		}
-		return 0, 0, errors.New("getPageBounds: unreachable code")
-	}
-
-	dit, err := datum.NewIterator(pachClient, input)
-	if err != nil {
-		return nil, err
-	}
-
-	var statsCommitInfo *pfs.CommitInfo
-	if statsCommit != nil {
-		statsCommitInfo, err = pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// If the stats commit is not closed, compute datums using jobInfo
-	if statsCommitInfo == nil || statsCommitInfo.Finished == nil {
-		start := 0
-		end := dit.Len()
-		if pageSize > 0 {
-			var err error
-			start, end, err = getPageBounds(dit.Len())
-			if err != nil {
-				return nil, err
-			}
-			response.Page = page
-			response.TotalPages = getTotalPages(dit.Len())
-		}
-		var datumInfos []*pps.DatumInfo
-		for i := start; i < end; i++ {
-			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
-			id := ""
-			if ji != nil {
-				id = workercommon.HashDatum(pipelineName, ji.Salt, datum)
-			}
-			datumInfo := &pps.DatumInfo{
-				Datum: &pps.Datum{
-					ID:  id,
-					Job: job,
-				},
-				State: pps.DatumState_STARTING,
-			}
-			for _, input := range datum {
-				datumInfo.Data = append(datumInfo.Data, input.FileInfo)
-			}
-			datumInfos = append(datumInfos, datumInfo)
-		}
-		response.DatumInfos = datumInfos
-		return response, nil
-	}
-
-	// The stats commit is closed -- job is finished
-	// List the files under / in the stats branch to get all the datums
-	file := &pfs.File{
-		Commit: statsCommit,
-		Path:   "/",
-	}
-
-	var datumFileInfos []*pfs.FileInfo
-	fs, err := pfsClient.ListFileStream(ctx,
-		&pfs.ListFileRequest{File: file, Full: true})
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	// Omit files at the top level that correspond to aggregate job stats
-	blacklist := map[string]bool{
-		"stats": true,
-		"logs":  true,
-		"pfs":   true,
-	}
-	pathToDatumHash := func(path string) (string, error) {
-		_, datumHash := filepath.Split(path)
-		if _, ok := blacklist[datumHash]; ok {
-			return "", errors.Errorf("value %v is not a datum hash", datumHash)
-		}
-		return datumHash, nil
-	}
-	for {
-		f, err := fs.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
-		}
-		if _, err := pathToDatumHash(f.File.Path); err != nil {
-			// not a datum
-			continue
-		}
-		datumFileInfos = append(datumFileInfos, f)
-	}
-	var egGetDatums errgroup.Group
-	limiter := limit.New(200)
-	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
-	for index, fileInfo := range datumFileInfos {
-		fileInfo := fileInfo
-		index := index
-		egGetDatums.Go(func() error {
-			limiter.Acquire()
-			defer limiter.Release()
-			datumHash, err := pathToDatumHash(fileInfo.File.Path)
-			if err != nil {
-				// not a datum
-				return nil
-			}
-			datum, err := a.getDatum(pachClient, statsCommit.Repo.Name, statsCommit, job.ID, datumHash, dit)
-			if err != nil {
-				return err
-			}
-			datumInfos[index] = datum
-			return nil
-		})
-	}
-	if err = egGetDatums.Wait(); err != nil {
-		return nil, err
-	}
-	// Sort results (failed first)
-	sort.Slice(datumInfos, func(i, j int) bool {
-		return datumInfos[i].State < datumInfos[j].State
-	})
-	if pageSize > 0 {
-		response.Page = page
-		response.TotalPages = getTotalPages(len(datumInfos))
-		start, end, err := getPageBounds(len(datumInfos))
-		if err != nil {
-			return nil, err
-		}
-		datumInfos = datumInfos[start:end]
-	}
-	response.DatumInfos = datumInfos
-	return response, nil
-}
-
-// ListDatum implements the protobuf pps.ListDatum RPC
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		if response != nil && len(response.DatumInfos) > client.MaxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.DatumInfos), client.MaxListItemsLog)
-			logResponse := &pps.ListDatumResponse{
-				TotalPages: response.TotalPages,
-				Page:       response.Page,
-				DatumInfos: response.DatumInfos[:client.MaxListItemsLog],
-			}
-			a.Log(request, logResponse, retErr, time.Since(start))
-		} else {
-			a.Log(request, response, retErr, time.Since(start))
-		}
-	}(time.Now())
-	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Input, request.Page, request.PageSize)
-}
-
-// ListDatumStream implements the protobuf pps.ListDatumStream RPC
-func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_ListDatumStreamServer) (retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	sent := 0
-	defer func(start time.Time) {
-		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
-	}(time.Now())
-	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Input, req.Page, req.PageSize)
-	if err != nil {
-		return err
-	}
-	first := true
-	for _, di := range ldr.DatumInfos {
-		r := &pps.ListDatumStreamResponse{}
-		if first {
-			r.Page = ldr.Page
-			r.TotalPages = ldr.TotalPages
-			first = false
-		}
-		r.DatumInfo = di
-		if err := resp.Send(r); err != nil {
-			return err
-		}
-		sent++
-	}
-	return nil
-}
-
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator) (datumInfo *pps.DatumInfo, retErr error) {
-	datumInfo = &pps.DatumInfo{
-		Datum: &pps.Datum{
-			ID:  datumID,
-			Job: client.NewJob(jobID),
-		},
-		State: pps.DatumState_SUCCESS,
-	}
-	ctx := pachClient.Ctx()
-	pfsClient := pachClient.PfsAPIClient
-
-	// Check if skipped
-	fileInfos, err := pachClient.GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/job:*", datumID))
-	if err != nil {
-		return nil, err
-	}
-	if len(fileInfos) != 1 {
-		return nil, errors.Errorf("couldn't find job file")
-	}
-	if strings.Split(fileInfos[0].File.Path, ":")[1] != jobID {
-		datumInfo.State = pps.DatumState_SKIPPED
-	}
-
-	// Check if failed
-	stateFile := &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/failure", datumID),
-	}
-	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{File: stateFile})
-	if err == nil {
-		datumInfo.State = pps.DatumState_FAILED
-	} else if !isNotFoundErr(err) {
-		return nil, err
-	}
-
-	// Populate stats
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
-		return nil, err
-	}
-	stats := &pps.ProcessStats{}
-	err = jsonpb.Unmarshal(&buffer, stats)
-	if err != nil {
-		return nil, err
-	}
-	datumInfo.Stats = stats
-	buffer.Reset()
-	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
-		return nil, err
-	}
-	i, err := strconv.Atoi(buffer.String())
-	if err != nil {
-		return nil, err
-	}
-	if i >= dit.Len() {
-		return nil, errors.Errorf("index %d out of range", i)
-	}
-	inputs := dit.DatumN(i)
-	for _, input := range inputs {
-		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
-	}
-	datumInfo.PfsState = &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/pfs", datumID),
-	}
-
-	return datumInfo, nil
-}
-
-// InspectDatum implements the protobuf pps.InspectDatum RPC
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
+	// TODO: Auth?
+	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
+		if common.DatumID(meta.Inputs) == request.Datum.ID {
+			response = convertDatumMetaToInfo(meta)
+			response.PfsState = pfsState
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+	return response, nil
+}
+
+func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	// TODO: Auth?
+	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+		return server.Send(convertDatumMetaToInfo(meta))
+	})
+}
+
+func convertDatumMetaToInfo(meta *datum.Meta) *pps.DatumInfo {
+	di := &pps.DatumInfo{
+		Datum: &pps.Datum{
+			Job: &pps.Job{
+				ID: meta.JobID,
+			},
+			ID: common.DatumID(meta.Inputs),
+		},
+		State: convertDatumState(meta.State),
+		Stats: meta.Stats,
+	}
+	for _, input := range meta.Inputs {
+		di.Data = append(di.Data, input.FileInfo)
+	}
+	return di
+}
+
+// TODO: this is a bit wonky, but it is necessary based on the dependency graph.
+func convertDatumState(state datum.State) pps.DatumState {
+	switch state {
+	case datum.State_FAILED:
+		return pps.DatumState_FAILED
+	case datum.State_RECOVERED:
+		return pps.DatumState_RECOVERED
+	default:
+		return pps.DatumState_SUCCESS
+	}
+}
+
+func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*datum.Meta, *pfs.File) error) error {
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.Datum.Job.ID,
+			ID: job.ID,
 		},
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	if !jobInfo.EnableStats {
-		return nil, errors.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+		return err
 	}
 	if jobInfo.StatsCommit == nil {
-		return nil, errors.Errorf("job not finished, no stats output yet")
+		return errors.Errorf("job not finished")
 	}
-	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
-	if err != nil {
-		return nil, err
-	}
-
-	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, dit)
-	if err != nil {
-		return nil, err
-	}
-
-	return datumInfo, nil
+	pachClient := a.env.GetPachClient(ctx)
+	fsi := datum.NewCommitIterator(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+	return fsi.Iterate(func(meta *datum.Meta) error {
+		// TODO: Potentially refactor into datum package (at least the path).
+		pfsState := &pfs.File{
+			Commit: jobInfo.StatsCommit,
+			Path:   "/" + path.Join(datum.PFSPrefix, common.DatumID(meta.Inputs)),
+		}
+		return cb(meta, pfsState)
+	})
 }
 
-// GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+	// Set the default for the `Since` field.
+	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
+		request.Since = types.DurationProto(DefaultLogsFrom)
+	}
 	if a.env.LokiLogging || request.UseLokiBackend {
-		return a.getLogsLoki(request, apiGetLogsServer)
+		resp, err := pachClient.Enterprise.GetState(context.Background(),
+			&enterpriseclient.GetStateRequest{})
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+		}
+		if resp.State == enterpriseclient.State_ACTIVE {
+			return a.getLogsLoki(request, apiGetLogsServer)
+		}
+		return errors.Errorf("enterprise must be enabled to use loki logging")
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -1471,7 +1081,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
-		// no authorization is done to get logs from master
 		containerName, rcName = "pachd", "pachd"
 	} else {
 		containerName = client.PPSWorkerUserContainerName
@@ -1479,7 +1088,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
 		var pipelineInfo *pps.PipelineInfo
-		var statsCommit *pfs.Commit
 		var err error
 		if request.Pipeline != nil {
 			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
@@ -1494,7 +1102,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
-			statsCommit = jobPtr.StatsCommit
 			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
@@ -1504,18 +1111,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
 		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
-		}
-
-		// If the job had stats enabled, we use the logs from the stats
-		// commit since that's likely to yield better results.
-		if statsCommit != nil {
-			ci, err := pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
-			if err != nil {
-				return err
-			}
-			if ci.Finished != nil {
-				return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
-			}
 		}
 
 		// 3) Get rcName for this pipeline
@@ -1533,6 +1128,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if len(pods) == 0 {
 		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
 	}
+	// Convert request.From to a usable timestamp.
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
+	}
+	sinceSeconds := int64(since.Seconds())
 
 	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
 	// and channels are read into the output server in a stable order.
@@ -1558,9 +1159,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// Get full set of logs from pod i
 				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container: containerName,
-						Follow:    request.Follow,
-						TailLines: tailLines,
+						Container:    containerName,
+						Follow:       request.Follow,
+						TailLines:    tailLines,
+						SinceSeconds: &sinceSeconds,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					return err
@@ -1596,7 +1198,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+						if !common.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1628,71 +1230,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	return egErr
 }
 
-func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
-	pfsClient := pachClient.PfsAPIClient
-	fs, err := pfsClient.GlobFileStream(pachClient.Ctx(), &pfs.GlobFileRequest{
-		Commit:  statsCommit,
-		Pattern: "*/logs", // this is the path where logs reside
-	})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-
-	limiter := limit.New(20)
-	var eg errgroup.Group
-	var mu sync.Mutex
-	for {
-		fileInfo, err := fs.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		eg.Go(func() error {
-			if err != nil {
-				return err
-			}
-			limiter.Acquire()
-			defer limiter.Release()
-			var buf bytes.Buffer
-			if err := pachClient.GetFile(fileInfo.File.Commit.Repo.Name, fileInfo.File.Commit.ID, fileInfo.File.Path, 0, 0, &buf); err != nil {
-				return err
-			}
-			// Parse pods' log lines, and filter out irrelevant ones
-			scanner := bufio.NewScanner(&buf)
-			for scanner.Scan() {
-				logBytes := scanner.Bytes()
-				msg := new(pps.LogMessage)
-				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-					continue
-				}
-				if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-					continue
-				}
-				if request.Job != nil && request.Job.ID != msg.JobID {
-					continue
-				}
-				if request.Datum != nil && request.Datum.ID != msg.DatumID {
-					continue
-				}
-				if request.Master != msg.Master {
-					continue
-				}
-				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
-					continue
-				}
-
-				mu.Lock()
-				if err := apiGetLogsServer.Send(msg); err != nil {
-					mu.Unlock()
-					return err
-				}
-				mu.Unlock()
-			}
-			return nil
-		})
-	}
-	return eg.Wait()
-}
-
 func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1705,12 +1242,16 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err != nil {
 		return err
 	}
+	since, err := types.DurationFromProto(request.Since)
+	if err != nil {
+		return errors.Wrapf(err, "invalid from time")
+	}
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		return lokiutil.QueryRange(loki, `{app="pachd"}`, time.Time{}, time.Now(), func(t time.Time, line string) error {
+		return lokiutil.QueryRange(ctx, loki, `{app="pachd"}`, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
 			return apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			})
@@ -1756,7 +1297,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(loki, query, time.Time{}, time.Now(), func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
@@ -1779,7 +1320,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if request.Master != msg.Master {
 			return nil
 		}
-		if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+		if !common.MatchDatum(request.DataFilters, msg.Data) {
 			return nil
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
@@ -1791,7 +1332,33 @@ func contains(s string) string {
 	return fmt.Sprintf(" |= %q", s)
 }
 
+type podSlice []v1.Pod
+
+func (s podSlice) Len() int {
+	return len(s)
+}
+func (s podSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s podSlice) Less(i, j int) bool {
+	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
+}
+
+func now() *types.Timestamp {
+	t, err := types.TimestampProto(time.Now())
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+	// TODO: Remove when at feature parity.
+	var err error
+	request, err = a.validateV2Features(request)
+	if err != nil {
+		return err
+	}
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1822,7 +1389,31 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+// TODO: Implement the appropriate features.
+func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
+	if request.TFJob != nil {
+		return nil, errors.Errorf("TFJob not implemented")
+	}
+	if request.S3Out {
+		return nil, errors.Errorf("S3Out not implemented")
+	}
+	if request.CacheSize != "" {
+		return nil, errors.Errorf("CacheSize not implemented")
+	}
+	request.EnableStats = true
+	if request.MaxQueueSize != 0 {
+		return nil, errors.Errorf("MaxQueueSize not implemented")
+	}
+	if request.Service != nil {
+		return nil, errors.Errorf("Service not implemented")
+	}
+	if request.Spout != nil {
+		return nil, errors.Errorf("Spout not implemented")
+	}
+	return request, nil
+}
+
+func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionContext, pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
 	}
@@ -1843,7 +1434,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return errors.Wrapf(err, "invalid transform")
 	}
-	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
+	if err := a.validateInputInTransaction(txnCtx, pipelineInfo.Pipeline.Name, pipelineInfo.Input); err != nil {
 		return err
 	}
 	if pipelineInfo.ParallelismSpec != nil {
@@ -1857,11 +1448,6 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")
-		}
-	}
-	if pipelineInfo.HashtreeSpec != nil {
-		if pipelineInfo.HashtreeSpec.Constant == 0 {
-			return errors.New("invalid pipeline spec: HashtreeSpec.Constant must be > 0")
 		}
 	}
 	if pipelineInfo.OutputBranch == "" {
@@ -1932,62 +1518,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-// hardStopPipeline does essentially the same thing as StopPipeline (deletes the
-// pipeline's branch provenance, deletes any open commits, deletes any k8s
-// workers), but does it immediately. This is to avoid races between operations
-// that will do subsequent work (e.g. UpdatePipeline and DeletePipeline) and the
-// PPS master
-func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	// Remove the output branch's provenance so that no new jobs can be created
-	if err := pachClient.CreateBranch(
-		pipelineInfo.Pipeline.Name,
-		pipelineInfo.OutputBranch,
-		pipelineInfo.OutputBranch,
-		nil,
-	); err != nil && !isNotFoundErr(err) {
-		return errors.Wrapf(err, "could not recreate original output branch")
-	}
-	if pipelineInfo.EnableStats {
-		if err := pachClient.CreateBranch(
-			pipelineInfo.Pipeline.Name,
-			"stats",
-			"stats",
-			nil,
-		); err != nil && !isNotFoundErr(err) {
-			return errors.Wrapf(err, "could not recreate original stats branch")
-		}
-	}
-
-	// Now that new commits won't be created on the master branch, enumerate
-	// existing commits and close any open ones.
-	iter, err := pachClient.ListCommitStream(pachClient.Ctx(), &pfs.ListCommitRequest{
-		Repo: client.NewRepo(pipelineInfo.Pipeline.Name),
-		To:   client.NewCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
-	})
-	if err != nil {
-		return errors.Wrapf(err, "couldn't get open commits on '%s'", pipelineInfo.OutputBranch)
-	}
-	// Finish all open commits, most recent first (so that we finish the
-	// current job's output commit--the oldest--last, and unblock the master
-	// only after all other commits are also finished, preventing any new jobs)
-	for {
-		ci, err := iter.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		if ci.Finished == nil {
-			// Finish the commit and don't pass a tree
-			pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit: ci.Commit,
-				Empty:  true,
-			})
-		}
-	}
-	return nil
-}
-
 var (
 	// superUserToken is the cached auth token used by PPS to write to the spec
 	// repo, create pipeline subjects, and
@@ -2049,17 +1579,21 @@ func (a *apiServer) sudoTransaction(txnCtx *txnenv.TransactionContext, f func(*t
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline.
 func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (result *pfs.Commit, retErr error) {
-	pipelineName := pipelineInfo.Pipeline.Name
+	return a.makePipelineInfoCommitOnBranch(pachClient, pipelineInfo, pipelineInfo.Pipeline.Name)
+}
+
+// makePipelineInfoCommitOnBranch
+func (a *apiServer) makePipelineInfoCommitOnBranch(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, branchName string) (result *pfs.Commit, retErr error) {
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		data, err := pipelineInfo.Marshal()
 		if err != nil {
 			return errors.Wrapf(err, "could not marshal PipelineInfo")
 		}
-		if _, err = superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, pipelineName, ppsconsts.SpecFile, bytes.NewReader(data), 0); err != nil {
+		if err := superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, branchName, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
 			return err
 		}
-		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName)
+		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, branchName)
 		if err != nil {
 			return err
 		}
@@ -2137,17 +1671,23 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 			"previous pipelineInfos == to nil; this is a bug")
 	}
 
+	// make sure we don't touch the pipeline's permissions on its output repo
+	delete(remove, pipelineName)
+	delete(add, pipelineName)
+
 	var eg errgroup.Group
 	// Remove pipeline from old, unused inputs
 	for repo := range remove {
 		repo := repo
 		eg.Go(func() error {
 			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     repo,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_NONE,
-				})
+				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
+					superTxnCtx,
+					&auth.ModifyRoleBindingRequest{
+						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+						Principal: auth.PipelinePrefix + pipelineName,
+						Roles:     []string{},
+					})
 				if isNotFoundErr(err) {
 					// can happen if input repo is force-deleted; nothing to remove
 					return nil
@@ -2161,11 +1701,13 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 		repo := repo
 		eg.Go(func() error {
 			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     repo,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_READER,
-				})
+				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
+					superTxnCtx,
+					&auth.ModifyRoleBindingRequest{
+						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+						Principal: auth.PipelinePrefix + pipelineName,
+						Roles:     []string{auth.RepoReaderRole},
+					})
 				return err
 			})
 		})
@@ -2174,11 +1716,13 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
 			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     pipelineName,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_WRITER,
-				})
+				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
+					superTxnCtx,
+					&auth.ModifyRoleBindingRequest{
+						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: pipelineName},
+						Principal: auth.PipelinePrefix + pipelineName,
+						Roles:     []string{auth.RepoWriterRole},
+					})
 				return err
 			})
 		})
@@ -2243,7 +1787,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	// Validate request
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
@@ -2256,10 +1799,26 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
 
-	// Propagate auth info & initialize context+clients
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
-	pfsClient := pachClient.PfsAPIClient
+	var specCommit *pfs.Commit
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreatePipeline(request, &specCommit)
+	}); err != nil {
+		// attempt to clean up any commit we created
+		if specCommit != nil {
+			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
+				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.ID)
+			})
+		}
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit **pfs.Commit) error {
+	// Validate request
+	if err := a.validatePipelineRequest(request); err != nil {
+		return err
+	}
 
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
@@ -2271,7 +1830,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Transform:             request.Transform,
 		TFJob:                 request.TFJob,
 		ParallelismSpec:       request.ParallelismSpec,
-		HashtreeSpec:          request.HashtreeSpec,
 		Input:                 request.Input,
 		OutputBranch:          request.OutputBranch,
 		Egress:                request.Egress,
@@ -2298,17 +1856,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Metadata:              request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
-		return nil, err
+		return err
 	}
 	// Validate final PipelineInfo (now that defaults have been populated)
-	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
-		return nil, err
+	if err := a.validatePipelineInTransaction(txnCtx, pipelineInfo); err != nil {
+		return err
 	}
 
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
@@ -2317,7 +1875,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Git != nil {
-			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Git.Name),
 					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
@@ -2327,7 +1885,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 	})
 	if visitErr != nil {
-		return nil, visitErr
+		return visitErr
 	}
 
 	// Authorize pipeline creation
@@ -2335,15 +1893,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Update {
 		operation = pipelineOpUpdate
 	}
-	if err := a.authorizePipelineOp(pachClient, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
-		return nil, err
+	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+		return err
 	}
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
 	update := false
 	if request.Update {
 		// inspect the pipeline to see if this is a real update
-		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err == nil {
+		if _, err := a.inspectPipelineInTransaction(txnCtx, request.Pipeline.Name); err == nil {
 			update = true
 		}
 	}
@@ -2362,26 +1920,110 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// Get the expected number of workers for this pipeline
 	parallelism, err := getExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	createOrValidateSpecCommit := func() (*pfs.Commit, error) {
+		var specCommit *pfs.Commit
+		if prevSpecCommit != nil {
+			specCommit = *prevSpecCommit
+		}
+		if specCommit != nil {
+			if !update {
+				// for new pipelines, we'll check for newness when the pipeline collection entry is created
+				return specCommit, nil
+			}
+			// make sure the pipeline branch hasn't changed outside of the transaction
+			// since the spec commit was created
+			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
+				commitInfo, err := superClient.InspectCommit(ppsconsts.SpecRepo, pipelineName)
+				if err != nil {
+					return err
+				}
+				for _, child := range commitInfo.ChildCommits {
+					if child.ID == specCommit.ID {
+						return nil
+					}
+				}
+				specCommit = nil
+				return errors.Errorf("pipeline updated outside of transaction")
+			}); err != nil {
+				return specCommit, err
+			}
+		}
+
+		if specCommit == nil {
+			// make a commit branching off of master on a new, throwaway branch
+			tempBranch := testutil.UniqueString(pipelineName + "_")
+			if err := a.sudo(txnCtx.Client, func(superClient *client.APIClient) error {
+				// strip transaction so that commits happen for real
+				superClient = superClient.WithoutTransaction()
+				var err error
+				if update {
+					_, err = superClient.StartCommitParent(ppsconsts.SpecRepo, tempBranch, pipelineName)
+				} else {
+					_, err = superClient.StartCommit(ppsconsts.SpecRepo, tempBranch)
+				}
+				if err != nil {
+					return err
+				}
+				specCommit, err = a.makePipelineInfoCommitOnBranch(superClient, pipelineInfo, tempBranch)
+				if err != nil {
+					return err
+				}
+				// don't bother failing on error here, we won't be able to clean it up later, either
+				_ = superClient.DeleteBranch(ppsconsts.SpecRepo, tempBranch, false)
+
+				err = superClient.FinishCommit(ppsconsts.SpecRepo, specCommit.ID)
+				if err != nil {
+					specCommit = nil // don't use the open commit
+					return err
+				}
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+			// we just created a new commit outside of the transaction, so our transaction reads won't see it
+			// to prevent errors, start and finish a commit in the transaction with the same ID
+			// this *will* cause an STM conflict, but will succeed on retry since specCommit already exists
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				if _, err := superCtx.Pfs().StartCommitInTransaction(superCtx, &pfs.StartCommitRequest{
+					Parent: client.NewCommit(ppsconsts.SpecRepo, ""),
+				}, specCommit); col.IsErrExists(err) {
+					// if a miracle occurs and we see the existing specCommit, that's fine, just continue
+					return nil
+				} else if err != nil {
+					return err
+				}
+				return superCtx.Pfs().FinishCommitInTransaction(superCtx, &pfs.FinishCommitRequest{
+					Commit: client.NewCommit(ppsconsts.SpecRepo, specCommit.ID),
+				})
+			}); err != nil {
+				return specCommit, err
+			}
+		}
+
+		if prevSpecCommit != nil {
+			// overwrite with current commit pointer
+			*prevSpecCommit = specCommit
+		}
+		return specCommit, nil
 	}
 
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
-		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
-			return nil, err
+		if ci, err := txnCtx.Client.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
+			return err
 		} else if ci.Finished == nil {
-			return nil, errors.Errorf("the HEAD commit of this pipeline's spec branch " +
+			return errors.Errorf("the HEAD commit of this pipeline's spec branch " +
 				"is open. Either another CreatePipeline call is running or a previous " +
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
 		}
 
-		// Remove provenance from existing output branch, so that creating a new
-		// spec commit doesn't create an output commit in the old output branch.
-		if err := a.hardStopPipeline(pachClient, pipelineInfo); err != nil {
-			return nil, err
-		}
+		// finish any open output commits at the end of the transaction
+		txnCtx.FinishPipelineCommits(client.NewBranch(pipelineName, pipelineInfo.OutputBranch))
 
 		// Look up existing pipelineInfo and update it, writing updated
 		// pipelineInfo back to PFS in a new commit. Do this inside an etcd
@@ -2391,138 +2033,142 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			pipelinePtr     pps.EtcdPipelineInfo
 			oldPipelineInfo *pps.PipelineInfo
 		)
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			// Read existing PipelineInfo from PFS output repo
-			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
-				var err error
+		// Read existing PipelineInfo from PFS output repo
+		if err := a.pipelines.ReadWrite(txnCtx.Stm).Update(pipelineName, &pipelinePtr, func() error {
+			var err error
 
-				// We can't recover from an incomplete pipeline info here because
-				// modifying the spec repo depends on being able to access the previous
-				// commit. We therefore use `GetPipelineInfo` which will error if the
-				// spec commit isn't working.
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+			// We can't recover from an incomplete pipeline info here because
+			// modifying the spec repo depends on being able to access the previous
+			// commit. We therefore use `GetPipelineInfo` which will error if the
+			// spec commit isn't working.
+			oldPipelineInfo, err = ppsutil.GetPipelineInfo(txnCtx.Client, pipelineName, &pipelinePtr)
+			if err != nil {
+				return err
+			}
+
+			// Cannot disable stats after it has been enabled.
+			if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
+				return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
+			}
+
+			// Modify pipelineInfo (increment Version, and *preserve Stopped* so
+			// that updating a pipeline doesn't restart it)
+			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if oldPipelineInfo.Stopped {
+				provenance = nil // CreateBranch() below shouldn't create new output
+				pipelineInfo.Stopped = true
+			}
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
+			specCommit, err := createOrValidateSpecCommit()
+			if err != nil {
+				return err
+			}
+
+			// move the spec branch for this pipeline to the new commit
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				return superCtx.Pfs().CreateBranchInTransaction(superCtx, &pfs.CreateBranchRequest{
+					Head:   specCommit,
+					Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+				})
+			}); err != nil {
+				return err
+			}
+
+			// Update pipelinePtr to point to new commit
+			pipelinePtr.SpecCommit = specCommit
+			// Reset pipeline state (PPS master/pipeline controller recreates RC)
+			pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
+			// Clear any failure reasons
+			pipelinePtr.Reason = ""
+			// Update pipeline parallelism
+			pipelinePtr.Parallelism = uint64(parallelism)
+
+			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
+			if err := func() error {
+				oldAuthToken := pipelinePtr.AuthToken
+				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 				if err != nil {
-					return err
+					if auth.IsErrNotActivated(err) {
+						return nil // no auth work to do
+					}
+					return grpcutil.ScrubGRPC(err)
 				}
+				pipelinePtr.AuthToken = token
 
-				// Cannot disable stats after it has been enabled.
-				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
-					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
-				}
-
-				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
-				// that updating a pipeline doesn't restart it)
-				pipelineInfo.Version = oldPipelineInfo.Version + 1
-				if oldPipelineInfo.Stopped {
-					provenance = nil // CreateBranch() below shouldn't create new output
-					pipelineInfo.Stopped = true
-				}
-				if !request.Reprocess {
-					pipelineInfo.Salt = oldPipelineInfo.Salt
-				}
-				// Must create spec commit before restoring output branch provenance, so
-				// that no commits are created with a mismatched spec commit
-				specCommit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-				if err != nil {
-					return err
-				}
-				// Update pipelinePtr to point to new commit
-				pipelinePtr.SpecCommit = specCommit
-				// Reset pipeline state (PPS master/pipeline controller recreates RC)
-				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
-				// Clear any failure reasons
-				pipelinePtr.Reason = ""
-				// Update pipeline parallelism
-				pipelinePtr.Parallelism = uint64(parallelism)
-
-				// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output
-				// repos
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					oldAuthToken := pipelinePtr.AuthToken
-					tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-						Subject: auth.PipelinePrefix + request.Pipeline.Name,
-						TTL:     -1,
-					})
+				// If getting a new auth token worked, we should revoke the old one
+				if oldAuthToken != "" {
+					_, err := txnCtx.Auth().RevokeAuthTokenInTransaction(txnCtx,
+						&auth.RevokeAuthTokenRequest{
+							Token: oldAuthToken,
+						})
 					if err != nil {
 						if auth.IsErrNotActivated(err) {
 							return nil // no auth work to do
 						}
 						return grpcutil.ScrubGRPC(err)
 					}
-					pipelinePtr.AuthToken = tokenResp.Token
-
-					// If getting a new auth token worked, we should revoke the old one
-					if oldAuthToken != "" {
-						_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
-							&auth.RevokeAuthTokenRequest{
-								Token: oldAuthToken,
-							})
-						if err != nil {
-							if auth.IsErrNotActivated(err) {
-								return nil // no auth work to do
-							}
-							return grpcutil.ScrubGRPC(err)
-						}
-					}
-					return nil
-				}); err != nil {
-					return err
 				}
 				return nil
-			})
+			}(); err != nil {
+				return err
+			}
+			return nil
 		}); err != nil {
-			return nil, err
+			return err
 		}
 
 		if !request.Reprocess {
 			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
-			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
+			_, err := txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: outputBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
 			}
 
-			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: statsBranch})
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: statsBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
 			}
 
-			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: markerBranch})
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: markerBranch})
 			if err != nil && !isNotFoundErr(err) {
-				return nil, err
+				return err
 			} else if err == nil {
 				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, oldPipelineInfo); err != nil {
-				return nil, err
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, oldPipelineInfo); err != nil {
+				return err
 			}
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+		if err := txnCtx.Pfs().CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
 				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
 			}); err != nil && !isAlreadyExistsErr(err) {
-			return nil, err
+			return err
 		}
 
 		// Must create spec commit before restoring output branch provenance, so
 		// that no commits are created with a missing spec commit
 		var commit *pfs.Commit
 		if request.SpecCommit != nil {
+			// if we're restoring from an extracted pipeline, don't change any other logic
 			// Make sure that the spec commit actually exists
-			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{Commit: request.SpecCommit})
+			commitInfo, err := txnCtx.Client.PfsAPIClient.InspectCommit(txnCtx.ClientContext, &pfs.InspectCommitRequest{Commit: request.SpecCommit})
 			if err != nil {
-				return nil, errors.Wrap(err, "error inspecting spec commit")
+				return errors.Wrap(err, "error inspecting spec commit")
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
@@ -2530,10 +2176,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
 			statsBranchHead = client.NewCommit(pipelineName, "stats")
 		} else {
-			var err error
-			commit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
-			if err != nil {
-				return nil, err
+			if commit, err = createOrValidateSpecCommit(); err != nil {
+				return err
+			}
+			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+				// move the spec branch for this pipeline to the new commit
+				return superCtx.Pfs().CreateBranchInTransaction(superCtx, &pfs.CreateBranchRequest{
+					Head:   commit,
+					Branch: client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name),
+				})
+			}); err != nil {
+				return err
 			}
 		}
 
@@ -2547,41 +2200,42 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-			tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-				Subject: auth.PipelinePrefix + request.Pipeline.Name,
-				TTL:     -1,
-			})
+
+		if err := func() error {
+			token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
 					return nil // no auth work to do
 				}
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelinePtr.AuthToken = tokenResp.Token
+
+			pipelinePtr.AuthToken = token
 			return nil
-		}); err != nil {
-			return nil, err
+		}(); err != nil {
+			return err
+		}
+		// Put a pointer to the new PipelineInfo commit into etcd
+		err := a.pipelines.ReadWrite(txnCtx.Stm).Create(pipelineName, pipelinePtr)
+		if isAlreadyExistsErr(err) {
+			// make sure we don't retain this commit, whether or not the delete succeeds
+			if prevSpecCommit != nil {
+				*prevSpecCommit = nil
+			}
+			if err := a.sudo(txnCtx.Client, func(superUserClient *client.APIClient) error {
+				return superUserClient.SquashCommit(ppsconsts.SpecRepo, commit.ID)
+			}); err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
+			}
+
+			return newErrPipelineExists(pipelineName)
+		} else if err != nil {
+			return err
 		}
 
-		// Put a pointer to the new PipelineInfo commit into etcd
-		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			err := a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
-			if isAlreadyExistsErr(err) {
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
-				}); err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "couldn't clean up orphaned spec commit")
-				}
-				return newErrPipelineExists(pipelineName)
-			}
-			return err
-		}); err != nil {
-			return nil, err
-		}
 		if pipelinePtr.AuthToken != "" {
-			if err := a.fixPipelineInputRepoACLs(ctx, pipelineInfo, nil); err != nil {
-				return nil, err
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, nil); err != nil {
+				return err
 			}
 		}
 	}
@@ -2593,12 +2247,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Create/update output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
-	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+	if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 		Branch:     outputBranch,
 		Provenance: provenance,
 		Head:       outputBranchHead,
 	}); err != nil {
-		return nil, errors.Wrapf(err, "could not create/update output branch")
+		return errors.Wrapf(err, "could not create/update output branch")
 	}
 	visitErr = nil
 	pps.VisitInput(request.Input, func(input *pps.Input) {
@@ -2606,34 +2260,47 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return
 		}
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
-			_, visitErr = pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
-				Trigger: input.Pfs.Trigger,
+			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
+				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
 			})
+
+			if err != nil && !isNotFoundErr(err) {
+				visitErr = err
+			} else {
+				var prevHead *pfs.Commit
+				if err == nil {
+					prevHead = client.NewCommit(input.Pfs.Repo, input.Pfs.Branch)
+				}
+				visitErr = txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+					Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+					Head:    prevHead,
+					Trigger: input.Pfs.Trigger,
+				})
+			}
 		}
 	})
 	if visitErr != nil {
-		return nil, errors.Wrapf(visitErr, "could not create/update trigger branch")
+		return errors.Wrapf(visitErr, "could not create/update trigger branch")
 	}
 	if pipelineInfo.EnableStats {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
 			Provenance: []*pfs.Branch{outputBranch},
 			Head:       statsBranchHead,
 		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update stats branch")
+			return errors.Wrapf(err, "could not create/update stats branch")
 		}
 	}
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch: markerBranch,
 			Head:   markerBranchHead,
 		}); err != nil {
-			return nil, errors.Wrapf(err, "could not create/update marker branch")
+			return errors.Wrapf(err, "could not create/update marker branch")
 		}
+		return nil
 	}
-
-	return &types.Empty{}, nil
+	return nil
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
@@ -2734,9 +2401,6 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 }
 
 func (a *apiServer) inspectPipelineInTransaction(txnCtx *txnenv.TransactionContext, name string) (*pps.PipelineInfo, error) {
-	if _, err := checkLoggedIn(txnCtx.Client); err != nil {
-		return nil, err
-	}
 	kubeClient := a.env.GetKubeClient()
 	name, ancestors, err := ancestry.Parse(name)
 	if err != nil {
@@ -2822,10 +2486,6 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	_, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 	pipelineInfos := &pps.PipelineInfos{}
 	if err := a.listPipeline(pachClient, request, func(pi *pps.PipelineInfo) error {
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pi)
@@ -2939,10 +2599,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
 
 	// Possibly list pipelines in etcd (skip PFS read--don't need it) and delete them
 	if request.All {
@@ -3000,7 +2656,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Get current pipeline info from:
 	// - etcdPipelineInfo
 	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
-	//   pipeline's spec branch_
+	//   pipeline's spec branch)
 	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
@@ -3032,15 +2688,10 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			}
 		} else {
 			// delete the pipeline's output repo
-			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force, request.SplitTransaction); err != nil {
+			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
 				return nil, err
 			}
 		}
-	}
-
-	// Delete pipeline's workers
-	if err := a.deletePipelineResources(ctx, request.Pipeline.Name); err != nil {
-		return nil, errors.Wrapf(err, "error deleting workers")
 	}
 
 	// If necessary, revoke the pipeline's auth token and remove it from its
@@ -3066,6 +2717,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
+	// TODO(msteffen): a job may be created by the worker master after this step
+	// but before the pipeline RC is deleted. Check for orphaned jobs in
+	// pollPipelines.
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions(), func(jobID string) error {
@@ -3092,6 +2746,16 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, request.Force))
 		})
 	})
+	// Delete cron input repos
+	if !request.KeepRepo {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+				})
+			}
+		})
+	}
 	// Delete EtcdPipelineInfo
 	eg.Go(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -3101,16 +2765,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		}
 		return nil
 	})
-	// Delete cron input repos
-	if !request.KeepRepo {
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-			if input.Cron != nil {
-				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force, request.SplitTransaction)
-				})
-			}
-		})
-	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -3422,8 +3076,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		}
 
 		// Put in an empty file named by the timestamp
-		_, err = pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
-		if err != nil {
+		if err := pfc.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader("")); err != nil {
 			return nil, errors.Wrapf(err, "put error")
 		}
 
@@ -3448,8 +3101,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	var s v1.Secret
-	err := json.Unmarshal(request.GetFile(), &s)
-	if err != nil {
+	if err := json.Unmarshal(request.GetFile(), &s); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal secret")
 	}
 
@@ -3464,7 +3116,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	labels["secret-source"] = "pachyderm-user"
 	s.SetLabels(labels)
 
-	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
 	return &types.Empty{}, nil
@@ -3553,26 +3205,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
-	// check if the caller is authorized -- they must be an admin
-	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
-		var isAdmin bool
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				isAdmin = true
-				break
-			}
-		}
-
-		if !isAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: me.Username,
-				AdminOp: "DeleteAll",
-			}
-		}
-	} else if !auth.IsErrNotActivated(err) {
-		return nil, errors.Wrapf(err, "error during authorization check")
-	}
-
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
@@ -3600,263 +3232,23 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
-// ActiveStat contains stats about the object objects and tags in the
-// filesystem. It is returned by CollectActiveObjectsAndTags.
-type ActiveStat struct {
-	Objects  *bloom.BloomFilter
-	NObjects int
-	Tags     *bloom.BloomFilter
-	NTags    int
-}
-
-// CollectActiveObjectsAndTags collects all objects/tags that are not deleted
-// or eligible for garbage collection
-func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int, storageRoot string) (*ActiveStat, error) {
-	if memoryAllowance == 0 {
-		memoryAllowance = defaultGCMemory
-	}
-	result := &ActiveStat{
-		// Each bloom filter gets half the memory allowance, times 8 to convert
-		// from bytes to bits.
-		Objects: bloom.New(uint(memoryAllowance*8/2), 10),
-		Tags:    bloom.New(uint(memoryAllowance*8/2), 10),
-	}
-	var activeObjectsMu sync.Mutex
-	// A helper function for adding active objects in a thread-safe way
-	addActiveObjects := func(objects ...*pfs.Object) {
-		activeObjectsMu.Lock()
-		defer activeObjectsMu.Unlock()
-		for _, object := range objects {
-			if object != nil {
-				result.NObjects++
-				result.Objects.AddString(object.Hash)
-			}
-		}
-	}
-	// A helper function for adding objects that are actually hash trees,
-	// which in turn contain active objects.
-	addActiveTree := func(object *pfs.Object) error {
-		if object == nil {
-			return nil
-		}
-		addActiveObjects(object)
-		tree, err := hashtree.GetHashTreeObject(pachClient, storageRoot, object)
-		if err != nil {
-			return err
-		}
-		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
-			if node.FileNode != nil {
-				addActiveObjects(node.FileNode.Objects...)
-			}
-			return nil
-		})
-	}
-
-	// Get all commit trees
-	limiter := limit.New(100)
-	var eg errgroup.Group
-	for _, repo := range repoInfos {
-		repo := repo
-		client, err := pachClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
-			Repo: repo.Repo,
-		})
-		if err != nil {
-			return nil, err
-		}
-		for {
-			ci, err := client.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			} else if err != nil {
-				return nil, grpcutil.ScrubGRPC(err)
-			}
-			limiter.Acquire()
-			eg.Go(func() error {
-				defer limiter.Release()
-				// (bryce) This needs some notion of active blockrefs since these trees do not use objects
-				addActiveObjects(ci.Trees...)
-				addActiveObjects(ci.Datums)
-				return addActiveTree(ci.Tree)
-			})
-		}
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-
-	eg = errgroup.Group{}
-	for _, pipelineInfo := range pipelineInfos {
-		tags, err := pachClient.ObjectAPIClient.ListTags(pachClient.Ctx(), &pfs.ListTagsRequest{
-			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
-			IncludeObject: true,
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "error listing tagged objects")
-		}
-
-		for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
-			resp := resp
-			if err != nil {
-				return nil, err
-			}
-			result.Tags.AddString(resp.Tag.Name)
-			result.NTags++
-			limiter.Acquire()
-			eg.Go(func() error {
-				defer limiter.Release()
-				// (bryce) Same as above
-				addActiveObjects(resp.Object)
-				return nil
-			})
-		}
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// GarbageCollect implements the protobuf pps.GarbageCollect RPC
-func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
-	}
-	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pi := range pipelineInfos.PipelineInfo {
-		if pi.State != pps.PipelineState_PIPELINE_PAUSED && pi.State != pps.PipelineState_PIPELINE_FAILURE {
-			return nil, errors.Errorf("all pipelines must be stopped to run garbage collection, pipeline: %s is not", pi.Pipeline.Name)
-		}
-		selector := fmt.Sprintf("pipelineName=%s", pi.Pipeline.Name)
-		pods, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
-		if err != nil {
-			return nil, err
-		}
-		if len(pods.Items) != 0 {
-			return nil, errors.Errorf("pipeline %s is paused, but still has running workers, this should resolve itself, if it doesn't you can manually delete them with kubectl delete", pi.Pipeline.Name)
-		}
-	}
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
-	pfsClient := pachClient.PfsAPIClient
-	objClient := pachClient.ObjectAPIClient
-
-	// Get all repos
-	repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{})
-	if err != nil {
-		return nil, err
-	}
-	specRepoInfo, err := pachClient.InspectRepo(ppsconsts.SpecRepo)
-	if err != nil {
-		return nil, err
-	}
-	activeStat, err := CollectActiveObjectsAndTags(ctx, pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes), a.storageRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	// Iterate through all objects.  If they are not active, delete them.
-	objects, err := objClient.ListObjects(ctx, &pfs.ListObjectsRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	var objectsToDelete []*pfs.Object
-	deleteObjectsIfMoreThan := func(n int) error {
-		if len(objectsToDelete) > n {
-			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
-				Objects: objectsToDelete,
-			}); err != nil {
-				return errors.Wrapf(err, "error deleting objects")
-			}
-			objectsToDelete = []*pfs.Object{}
-		}
-		return nil
-	}
-	for oi, err := objects.Recv(); !errors.Is(err, io.EOF); oi, err = objects.Recv() {
-		if err != nil {
-			return nil, errors.Wrapf(err, "error receiving objects from ListObjects")
-		}
-		if !activeStat.Objects.TestString(oi.Object.Hash) {
-			objectsToDelete = append(objectsToDelete, oi.Object)
-		}
-		// Delete objects in batches
-		if err := deleteObjectsIfMoreThan(100); err != nil {
-			return nil, err
-		}
-	}
-	if err := deleteObjectsIfMoreThan(0); err != nil {
-		return nil, err
-	}
-
-	// Iterate through all tags.  If they are not active, delete them
-	tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{})
-	if err != nil {
-		return nil, err
-	}
-	var tagsToDelete []*pfs.Tag
-	deleteTagsIfMoreThan := func(n int) error {
-		if len(tagsToDelete) > n {
-			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
-				Tags: tagsToDelete,
-			}); err != nil {
-				return errors.Wrapf(err, "error deleting tags")
-			}
-			tagsToDelete = []*pfs.Tag{}
-		}
-		return nil
-	}
-	for resp, err := tags.Recv(); !errors.Is(err, io.EOF); resp, err = tags.Recv() {
-		if err != nil {
-			return nil, errors.Wrapf(err, "error receiving tags from ListTags")
-		}
-		if !activeStat.Tags.TestString(resp.Tag.Name) {
-			tagsToDelete = append(tagsToDelete, resp.Tag)
-		}
-		if err := deleteTagsIfMoreThan(100); err != nil {
-			return nil, err
-		}
-	}
-	if err := deleteTagsIfMoreThan(0); err != nil {
-		return nil, err
-	}
-
-	if err := a.incrementGCGeneration(ctx); err != nil {
-		return nil, err
-	}
-
-	return &pps.GarbageCollectResponse{}, nil
-}
-
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
-	if err != nil {
-		return nil, err
+
+	// Set the permissions on the spec repo so anyone can read it
+	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.AllClusterUsersSubject, []string{auth.RepoReaderRole}); err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
 	}
 
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	var pipelines []*pps.PipelineInfo
-	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		var err error
-		pipelines, err = superUserClient.ListPipeline()
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+	pipelines, err := pachClient.ListPipeline()
+	if err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
 	}
 
 	var eg errgroup.Group
@@ -3866,25 +3258,24 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
-			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-					Subject: auth.PipelinePrefix + pipelineName,
-				})
-				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-				}
-				_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-					var pipelinePtr pps.EtcdPipelineInfo
-					if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
-						pipelinePtr.AuthToken = tokenResp.Token
-						return nil
-					}); err != nil {
-						return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
-					}
-					return nil
-				})
-				return err
+			tokenResp, err := pachClient.GetAuthToken(pachClient.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: auth.PipelinePrefix + pipelineName,
 			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+			}
+			_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+				var pipelinePtr pps.EtcdPipelineInfo
+
+				if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
+					pipelinePtr.AuthToken = tokenResp.Token
+					return nil
+				}); err != nil {
+					return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
+				}
+				return nil
+			})
+			return err
 		})
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {
@@ -3895,33 +3286,6 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		return nil, err
 	}
 	return &pps.ActivateAuthResponse{}, nil
-}
-
-// incrementGCGeneration increments the GC generation number in etcd
-func (a *apiServer) incrementGCGeneration(ctx context.Context) error {
-	resp, err := a.env.GetEtcdClient().Get(ctx, client.GCGenerationKey)
-	if err != nil {
-		return err
-	}
-
-	if resp.Count == 0 {
-		// If the generation number does not exist, create it.
-		// It's important that the new generation is 1, as the first
-		// generation is assumed to be 0.
-		if _, err := a.env.GetEtcdClient().Put(ctx, client.GCGenerationKey, "1"); err != nil {
-			return err
-		}
-	} else {
-		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Value))
-		if err != nil {
-			return err
-		}
-		newGen := oldGen + 1
-		if _, err := a.env.GetEtcdClient().Put(ctx, client.GCGenerationKey, strconv.Itoa(newGen)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func isAlreadyExistsErr(err error) bool {
@@ -3982,24 +3346,4 @@ func labels(app string) map[string]string {
 		"suite":     suite,
 		"component": "worker",
 	}
-}
-
-type podSlice []v1.Pod
-
-func (s podSlice) Len() int {
-	return len(s)
-}
-func (s podSlice) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-func (s podSlice) Less(i, j int) bool {
-	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
 }

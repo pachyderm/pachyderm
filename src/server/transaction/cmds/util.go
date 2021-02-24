@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
 // getActiveTransaction will read the active transaction from the config file
 // (if it exists) and return it.  If the config file is uninitialized or the
 // active transaction is unset, `nil` will be returned.
 func getActiveTransaction() (*transaction.Transaction, error) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error reading Pachyderm config")
 	}
@@ -39,7 +39,7 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 }
 
 func setActiveTransaction(txn *transaction.Transaction) error {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config")
 	}

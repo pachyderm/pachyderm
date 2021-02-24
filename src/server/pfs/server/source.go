@@ -5,11 +5,11 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/net/context"
 )
 
@@ -89,7 +89,7 @@ func checkFileInfoCache(cache map[string]*pfs.FileInfo, idx *index.Index) (*pfs.
 func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
 	f, err := iter.Next()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
 		}
 		return nil, err
@@ -106,7 +106,7 @@ func computeFileInfo(cache map[string]*pfs.FileInfo, iter *fileset.Iterator, tar
 	for {
 		f2, err := iter.Peek()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

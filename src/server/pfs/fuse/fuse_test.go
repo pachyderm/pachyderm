@@ -14,11 +14,11 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/workload"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 const (
@@ -29,9 +29,9 @@ const (
 func TestBasic(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "dir/file1", strings.NewReader("foo"))
+	err := c.PutFile("repo", "master", "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
-	_, err = c.PutFile("repo", "master", "dir/file2", strings.NewReader("foo"))
+	err = c.PutFile("repo", "master", "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withMount(t, c, nil, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -59,7 +59,7 @@ func TestBasic(t *testing.T) {
 func TestChunkSize(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
+	err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
 	withMount(t, c, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -72,7 +72,7 @@ func TestLargeFile(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
+	err := c.PutFile("repo", "master", "file", strings.NewReader(src))
 	require.NoError(t, err)
 	withMount(t, c, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -85,7 +85,7 @@ func BenchmarkLargeFile(b *testing.B) {
 	c := server.GetPachClient(b, server.GetBasicConfig())
 	require.NoError(b, c.CreateRepo("repo"))
 	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
+	err := c.PutFile("repo", "master", "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -102,7 +102,7 @@ func TestSeek(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	data := strings.Repeat("foo", MB)
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(data))
+	err := c.PutFile("repo", "master", "file", strings.NewReader(data))
 	require.NoError(t, err)
 	withMount(t, c, nil, func(mountPoint string) {
 		f, err := os.Open(filepath.Join(mountPoint, "repo", "file"))
@@ -168,7 +168,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("foo\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", &b))
 	require.Equal(t, "foo\n", b.String())
 
 	// Now append to the file
@@ -194,7 +194,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, err)
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", &b))
 	require.Equal(t, "foo\nfoo\n", b.String())
 
 	// Now overwrite that file
@@ -210,7 +210,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("bar\n"), 0644))
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now link it to another location
@@ -226,10 +226,10 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "dir", "foo"), filepath.Join(mountPoint, "repo", "dir", "buzz")))
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "dir/bar", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/bar", &b))
 	require.Equal(t, "bar\n", b.String())
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "dir/buzz", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/buzz", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it
@@ -244,7 +244,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "dir", "foo")))
 	})
 	b.Reset()
-	require.YesError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
+	require.YesError(t, c.GetFile("repo", "master", "dir/foo", &b))
 
 	// Try writing to two repos at once
 	require.NoError(t, c.CreateRepo("repo2"))
@@ -266,7 +266,7 @@ func TestRepoOpts(t *testing.T) {
 	require.NoError(t, c.CreateRepo("repo1"))
 	require.NoError(t, c.CreateRepo("repo2"))
 	require.NoError(t, c.CreateRepo("repo3"))
-	_, err := c.PutFile("repo1", "master", "foo", strings.NewReader("foo\n"))
+	err := c.PutFile("repo1", "master", "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	withMount(t, c, &Options{
 		Fuse: &fs.Options{
@@ -305,7 +305,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
 
-	_, err = c.PutFile("repo1", "staging", "buzz", strings.NewReader("buzz\n"))
+	err = c.PutFile("repo1", "staging", "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 	withMount(t, c, &Options{
 		Fuse: &fs.Options{
@@ -328,7 +328,7 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "fizz"), []byte("fizz\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, c.GetFile("repo1", "staging", "fizz", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo1", "staging", "fizz", &b))
 	require.Equal(t, "fizz\n", b.String())
 }
 

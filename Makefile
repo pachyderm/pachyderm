@@ -14,7 +14,7 @@ else
 	export GC_FLAGS = "all=-trimpath=${PWD}"
 endif
 
-export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
@@ -30,6 +30,14 @@ export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
+
+ifeq ($(OS),Windows_NT)
+	GOPATH = $(shell cygpath -u $(shell go env GOPATH))
+else
+	GOPATH = $(shell go env GOPATH)
+endif
+
+GOBIN = $(GOPATH)/bin
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -47,7 +55,7 @@ install:
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
-	@rm -f $(GOPATH)/bin/pachctl
+	@rm -f $(GOBIN)/pachctl
 	@make install
 
 install-doc:
@@ -56,13 +64,15 @@ install-doc:
 doc-custom: install-doc install-clean
 	./etc/build/doc.sh
 
+doc-reference-refresh: install-doc install-clean
+	./etc/build/reference_refresh.sh
+
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
 point-release:
 	@./etc/build/make_changelog.sh $(CHLOGFILE)
 	@VERSION_ADDITIONAL= ./etc/build/make_release.sh
-	@make doc
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=-rc2 release-candidate' to specify a version string
@@ -78,7 +88,7 @@ custom-release:
 # Git tag is force pushed. We are assuming if the same build is done again, it is done with intent
 release:
 	@git tag -f -am "Release tag v$(VERSION)" v$(VERSION)
-	$(SKIP) @git push origin v$(VERSION)
+	$(SKIP) @git push -f origin v$(VERSION)
 	@make release-helper
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
@@ -95,8 +105,9 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
-docker-build-pipeline-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
+docker-build-pipeline-build: install
+	VERSION=$$($(GOBIN)/pachctl version --client-only) DOCKER_BUILDKIT=1 \
+	  goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-build-pipelines.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -140,9 +151,11 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 
-docker-push-pipeline-build:
-	$(SKIP) docker push pachyderm/go-build:$(VERSION)
-	$(SKIP) docker push pachyderm/python-build:$(VERSION)
+docker-push-pipeline-build: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} docker push pachyderm/{}-build:$$(pachctl version --client-only)
+
+docker-push-pipeline-build-to-minikube: install
+	$(SKIP) ls etc/pipeline-build | xargs -I {} etc/kube/push-to-minikube.sh pachyderm/{}-build:$$(pachctl version --client-only)
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -192,23 +205,23 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
+	$(GOBIN)/pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	$(GOBIN)/pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
-	yes | pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 clean-launch-dev: check-kubectl install
-	yes | pachctl undeploy
+	yes | $(GOBIN)/pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -229,7 +242,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -247,7 +260,8 @@ test-pfs-server:
 
 test-pfs-storage:
 	./etc/testing/start_postgres.sh
-	go test  -count=1 ./src/server/pkg/storage/... -timeout $(TIMEOUT)
+	go test  -count=1 ./src/internal/storage/... -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/migrations/...
 
 test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -257,12 +271,13 @@ test-pps: launch-stats docker-build-spout-test docker-build-test-entrypoint
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/internal/deploy/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT)
 
 test-transaction:
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT)
@@ -273,15 +288,13 @@ test-client:
 test-object-clients:
 	# The parallelism is lowered here because these tests run several pachd
 	# deployments in kubernetes which may contest resources.
-	go test -count=1 ./src/server/pkg/obj/testing -timeout $(TIMEOUT) -parallel=2
+	go test -count=1 ./src/internal/obj/testing -timeout $(TIMEOUT) -parallel=2
 
 test-libs:
-	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	go test -count=1 ./src/server/pkg/hashtree -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/cert -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/localcache -timeout $(TIMEOUT)
-	go test -count=1 ./src/server/pkg/work -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/grpcutil -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off
+	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
+	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
@@ -291,22 +304,23 @@ test-vault:
 	go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT)
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
-test-s3gateway-conformance:
-	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
-	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
-	  exit 1; \
-	fi
-	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
-
-test-s3gateway-integration:
-	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
-	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
-	  exit 1; \
-	fi
-	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
-
-test-s3gateway-unit:
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
+# TODO: Readd when s3 gateway is implemented in V2.
+#test-s3gateway-conformance:
+#	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
+#	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
+#	  exit 1; \
+#	fi
+#	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
+#
+#test-s3gateway-integration:
+#	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
+#	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
+#	  exit 1; \
+#	fi
+#	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
+#
+#test-s3gateway-unit:
+#	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
 	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
@@ -317,6 +331,12 @@ test-local:
 test-auth:
 	yes | pachctl delete all
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
+
+test-identity:
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
+
+test-license:
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN)
@@ -383,15 +403,6 @@ launch-loki:
 clean-launch-loki:
 	helm uninstall loki
 
-launch-dex:
-	helm repo add stable https://charts.helm.sh/stable
-	helm repo update
-	helm upgrade --install dex stable/dex -f etc/testing/auth/dex.yaml
-	until timeout 1s bash -x ./etc/kube/check_ready.sh 'app.kubernetes.io/name=dex'; do sleep 1; done
-
-clean-launch-dex:
-	helm uninstall dex
-
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
@@ -399,7 +410,7 @@ follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
 
 google-cluster-manifest:
-	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -417,7 +428,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
@@ -441,7 +452,7 @@ amazon-clean:
         fi;done;
 
 microsoft-cluster-manifest:
-	@pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
+	@$(GOBIN)/pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
@@ -515,6 +526,7 @@ spellcheck:
 	test-fuse \
 	test-local \
 	test-auth \
+	test-identity \
 	test-admin \
 	test-enterprise \
 	test-tls \

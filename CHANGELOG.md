@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.12.0
+- Fixed a race condition that updated a job state after it is finished (#5099)
+- Fixes a bug that would prevent successful initialization (#5128)
+- Changes to `debug dump` command to capture debug info from pachd and all worker pods by default. Debug info includes logs, goroutines, profiles, and specs (#5128)
+- Added support for grouping datums in pipelines similar to grouping in SQL (#5147) (#5484)
+- Added support to capture enterprise key via stdin (#5162)
+- Changes to create/update pipeline to warn users about using the “latest” tag for images (#5164)
+- Fixes a bug that prevented progress counts from being updated. In addition, make progress counts update more granularly in `inspect job` (#5173)
+- Fixes a bug that would cause certain kinds of jobs to pick an incorrect commit if there were multiple commits on the same branch in the provenance (#5189)
+- Fixed a bug that would return an error when listing commits and the list reaches the user-specified limit (#5190)
+- Fixes a bug that mistagged user logs messages for spouts and services as master log messages (#5191)
+- Fixes `create_python_pipeline` in the python client library when auth is enabled (#5193)
+- Fixes a bug that fails to execute a pipeline if the build pipeline does not any wheels (#5196)
+- Fixes a bug that would immediately cancel job egress (#5201)
+- Fixes a bug that did not correctly port forward OIDC port (#5214)
+- ACLs support an "allClusterUsers" principal (#5222)
+- Pipelines can now associate triggers with their inputs that define conditions that must be met for the pipeline to run (#5225) (#5483) (#5538)
+- Fixes a bug that would fail the `run cron <pipeline>` command if multiple cron inputs have been specified (#5227)
+- Changes to allow configuration of SAML and OIDC default server ports (#5230)
+- Changes to improve the reliability of handling streams in spouts (#5237)
+- Fixes a bug that leaked goroutine (#5263)
+- Fixes a race condition that prevents a standby pipeline from transitioning out of crashing state (#5273)
+- Added alias support for cloud providers deployments - aws, azure, gcp (#5278)
+- Fixes a bug that did not correctly set the provenance when specified in `run pipeline` command (#5291)
+- Authenticate accepts an OIDC ID token with an appropriate audience (#5292)
+- Fixes a bug that can cause get file request to fail when the request falls on a certain boundary condition (#5302)
+- Fixes a bug that causes a connection failure when DNS is not configured properly (#5303)
+- Changes to fix multiple error log messages when processing `list pipeline` (#5304)
+- Added support for OIDC `groups` claim for syncing user group membership (#5308)
+- Added support for Outers joins to include files that have no match (#5309)
+- Fixes a bug that can leave a stats commit open when stats enabled pipeline is updated with `--reprocess` option. This bug will also prevent new jobs from getting created (#5314)
+- Changes for better error handling when pipelines info cannot be fully initialized due to transient failures or user errors (#5322)
+- Fixes a bug that did not stop a job before deleting a job when `delete job` is called (#5324)
+- Fixes a family of bug that did not properly clean up temporary artifacts from a job (#5332)
+- Added a deploy option to enable verbose logging in S3 client (#5341)
+- Changes to move some noisy log message to DEBUG level (#5344)
+- Added support for filtering by state in `list job` and `list pipeline` (#5355) (#5351)
+- Fixes a bug that can sometimes leave pipeline in STANDBY state (#5363)
+- Fixes a bug that causes incorrect datums to be processed due to trailing slashes in joins (#5367)
+- Changes the metric reporting interval to 60mins (#5369)
+- Fixes a family of bugs to handle pipeline state transitions. The change resolves a few issues: pipelines getting stuck in STARTING state if Kubernetes is unavailable; cannot delete and recreate pipelines in STANDBY state; fixes jobs occasionally getting stuck in CRASHING state (#5387) (#5273) (#5356)
+- Fix a bug that would leak a revoked pipeline token object (#5389) (#5400)
+- Added support to `list datum` to accept a pipeline spec which allows you to list datums for a pipeline without creating it (#5394)
+- Added support to display when a job is in the egress state (#5395)
+- New implementation of Spouts that uses pachctl -- deprecation (spouts using named pipes will be deprecated in a future release) (#5398) (#5528)
+- Fix a bug causing extra data to be written to small job artifact files in some cases (#5401)
+- Fix a bug causing workers to attempt to read certain job artifacts before they were fully written (#5401)
+- Changes to always create/update pipelines in a transaction (#5431)
+- Fixes a bug that prevented deletion directory under certain conditions (#5449)
+- Added an option `--split-txn` to pachctl delete pipeline` or `pachctl delete repo` commands for deployments with a very large number of commits and job history (#5461)
+- Fixes a bug that failed objects uploads when single grpc message is greater than 20MB (#5468)
+- Fixes a bug that prevented debug dump command when Auth is enabled (#5471)
+- Pipeline triggers (#5483) (#5538)
+- Added support for extracting and restoring data from clusters with authentication enabled (#5494) (#5532)
+- Fixed a bug preventing creating some build pipelines with auth enabled (#5523)
+- Update crewjam/saml to 0.45 to fix vulnerabilities in SAML auth provider (#5527)
+
 ## 1.11.0
 
 Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will reach end-of-life in 1.12.0. Users who are using S3V4-capable storage should make sure their deployment is using the supported storage backend by redeploying without `--isS3V2` flag. If you need help, please reach out to Pachyderm support.
@@ -254,7 +311,7 @@ Deprecation notice: Support for S3V2 signatures is deprecated in 1.11.0 and will
 ## 1.8.6
 
 - The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs-archive.pachyderm.com/en/v1.8.6/reference/pipeline_spec.html#cron-input) for more info. (#3509)
-- 1.8.6 contains alpha support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
+- 1.8.6 contains unstable support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
 - New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
 - The performance of `list-job` has been greatly improved. (#3557)
 - `pachctl undeploy` now asks for confirmation in all cases. (#3535)
@@ -608,7 +665,7 @@ New Features:
 
 ### New features
 
-* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
+* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently unstable; expect bugs and significant changes.   
 * You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
 * You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 

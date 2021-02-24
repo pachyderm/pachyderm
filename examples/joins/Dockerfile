@@ -1,6 +1,6 @@
-FROM python:3.7.4-slim-buster
+FROM python:3
 
-WORKDIR .
+WORKDIR /app
 
-ADD joins.py ./joins.py
-RUN chmod +x joins.py
+ADD ./src/inner/main.py inner/main.py
+ADD ./src/outer/main.py outer/main.py

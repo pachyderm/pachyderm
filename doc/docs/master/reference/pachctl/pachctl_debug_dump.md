@@ -1,19 +1,22 @@
 ## pachctl debug dump
 
-Return a dump of running goroutines.
+Collect a standard set of debugging information.
 
 ### Synopsis
 
-Return a dump of running goroutines.
+Collect a standard set of debugging information.
 
 ```
-pachctl debug dump [flags]
+pachctl debug dump <file> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for dump
+  -h, --help              help for dump
+      --pachd             Only collect the dump from pachd.
+  -p, --pipeline string   Only collect the dump from the worker pods for the given pipeline.
+  -w, --worker string     Only collect the dump from the given worker pod.
 ```
 
 ### Options inherited from parent commands

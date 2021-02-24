@@ -9,13 +9,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
-	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pps_pretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
@@ -146,7 +146,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
 	case filePart:
-		if err := c.GlobFileF(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
+		if err := c.GlobFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
 			} else {

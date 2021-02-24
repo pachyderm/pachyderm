@@ -39,4 +39,7 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
     "${i}" >/dev/stderr
 done
 
+# TODO (brendon): figure out how to configure protoc
+cd v2
+
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -

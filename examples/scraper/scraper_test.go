@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScraper(t *testing.T) {

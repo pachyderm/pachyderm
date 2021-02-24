@@ -2,6 +2,8 @@
 
 set -e
 
+GOPATH=$(go env GOPATH)
+
 if [ ! -f "$GOPATH/bin/pachctl" ]
 then
     echo "$GOPATH/bin/pachctl not found."

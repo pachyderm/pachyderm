@@ -21,6 +21,6 @@ ENV GOPATH /go
 ENV GOROOT /usr/local/go
 
 # Install Pachyderm job-shim
-RUN go get github.com/pachyderm/pachyderm && \
-	go get github.com/pachyderm/pachyderm/src/server/cmd/job-shim && \
+RUN go get github.com/pachyderm/pachyderm/v2 && \
+	go get github.com/pachyderm/pachyderm/v2/src/server/cmd/job-shim && \
     cp $GOPATH/bin/job-shim /job-shim

@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -112,10 +112,28 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return d.transactions.ReadWrite(stm).Delete(txn.ID)
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		// first try to clean up any aspects of the transaction that live outside the STM
+		info := &transaction.TransactionInfo{}
+		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
+		directTxn := txnenv.NewDirectTransaction(txnCtx)
+		if err != nil {
+			return err
+		}
+		for i, req := range info.Requests {
+			if req.CreatePipeline == nil || len(info.Responses) <= i {
+				continue
+			}
+			commit := info.Responses[i].Commit
+			if commit != nil {
+				if err := directTxn.SquashCommit(&pfs.SquashCommitRequest{Commit: commit}); err != nil {
+					return err
+				}
+			}
+		}
+		// now that all side effects are undone, delete the transaction
+		return d.transactions.ReadWrite(txnCtx.Stm).Delete(txn.ID)
 	})
-	return err
 }
 
 func (d *driver) listTransaction(ctx context.Context) ([]*transaction.TransactionInfo, error) {
@@ -182,8 +200,8 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		} else if request.FinishCommit != nil {
 			err = directTxn.FinishCommit(request.FinishCommit)
 			response = &transaction.TransactionResponse{}
-		} else if request.DeleteCommit != nil {
-			err = directTxn.DeleteCommit(request.DeleteCommit)
+		} else if request.SquashCommit != nil {
+			err = directTxn.SquashCommit(request.SquashCommit)
 			response = &transaction.TransactionResponse{}
 		} else if request.CreateBranch != nil {
 			err = directTxn.CreateBranch(request.CreateBranch)
@@ -200,6 +218,19 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			// RPCs.
 			err = d.deleteAll(txnCtx.ClientContext, txnCtx.Stm, info.Transaction)
 			response = &transaction.TransactionResponse{}
+		} else if request.CreatePipeline != nil {
+			// find the existing spec commit, if it exists
+			var commit *pfs.Commit
+			if len(info.Responses) > i {
+				commit = info.Responses[i].Commit
+				if commit == nil {
+					err = errors.Errorf("unexpected stored response type for CreatePipeline")
+				}
+			}
+			if err == nil {
+				err = directTxn.CreatePipeline(request.CreatePipeline, &commit)
+				response = client.NewCommitResponse(commit)
+			}
 		} else {
 			err = errors.Errorf("unrecognized transaction request type")
 		}

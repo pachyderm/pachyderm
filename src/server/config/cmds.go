@@ -9,11 +9,11 @@ import (
 	"os"
 	"sort"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
@@ -37,7 +37,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets whether metrics are enabled.",
 		Long:  "Gets whether metrics are enabled.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -59,7 +59,7 @@ func Cmds() []*cobra.Command {
 				return errors.New("invalid argument; use either `true` or `false`")
 			}
 
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets the currently active context.",
 		Long:  "Gets the currently active context.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -97,7 +97,7 @@ func Cmds() []*cobra.Command {
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -146,7 +146,7 @@ func Cmds() []*cobra.Command {
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			name := args[0]
 
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -223,7 +223,7 @@ func Cmds() []*cobra.Command {
 		Long: "Updates an existing context config from a given name (or the " +
 			"currently-active context, if no name is given).",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -294,7 +294,7 @@ func Cmds() []*cobra.Command {
 		Short: "Deletes a context.",
 		Long:  "Deletes a context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -315,7 +315,7 @@ func Cmds() []*cobra.Command {
 		Short: "Lists contexts.",
 		Long:  "Lists contexts.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
+			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
@@ -386,7 +386,7 @@ func Cmds() []*cobra.Command {
 }
 
 func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		log.Fatal(err)
 	}

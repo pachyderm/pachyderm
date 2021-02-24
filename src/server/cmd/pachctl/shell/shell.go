@@ -9,8 +9,8 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -183,7 +183,7 @@ func (s *shell) run() {
 			Fn:  func(*prompt.Buffer) { s.clearCache() },
 		}),
 		prompt.OptionLivePrefix(func() (string, bool) {
-			cfg, err := config.Read(true)
+			cfg, err := config.Read(true, false)
 			if err != nil {
 				return "", false
 			}

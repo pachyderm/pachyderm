@@ -3,18 +3,18 @@ package client
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	types "github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -33,6 +33,30 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	}
 	ctx := metadata.NewOutgoingContext(c.Ctx(), md)
 	return c.WithCtx(ctx)
+}
+
+// WithoutTransaction returns a new APIClient which will run all future operations
+// outside of any active transaction
+// Removing from both incoming and outgoing metadata is necessary because Ctx() merges them
+func (c APIClient) WithoutTransaction() *APIClient {
+	ctx := c.Ctx()
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	newIn := make(metadata.MD)
+	newOut := make(metadata.MD)
+	for k, v := range incomingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newIn[k] = v
+	}
+	for k, v := range outgoingMD {
+		if k == transactionMetadataKey {
+			continue
+		}
+		newOut[k] = v
+	}
+	return c.WithCtx(metadata.NewIncomingContext(metadata.NewOutgoingContext(ctx, newOut), newIn))
 }
 
 // GetTransaction (should be run from the server-side) loads the active
@@ -172,10 +196,6 @@ type ppsBuilderClient struct {
 	tb *TransactionBuilder
 }
 
-type objectBuilderClient struct {
-	tb *TransactionBuilder
-}
-
 type authBuilderClient struct {
 	tb *TransactionBuilder
 }
@@ -208,10 +228,6 @@ func newPpsBuilderClient(tb *TransactionBuilder) pps.APIClient {
 	return &ppsBuilderClient{tb: tb}
 }
 
-func newObjectBuilderClient(tb *TransactionBuilder) pfs.ObjectAPIClient {
-	return &objectBuilderClient{tb: tb}
-}
-
 func newAuthBuilderClient(tb *TransactionBuilder) auth.APIClient {
 	return &authBuilderClient{tb: tb}
 }
@@ -240,7 +256,6 @@ func newTransactionBuilder(parent *APIClient) *TransactionBuilder {
 	tb := &TransactionBuilder{parent: parent}
 	tb.PfsAPIClient = newPfsBuilderClient(tb)
 	tb.PpsAPIClient = newPpsBuilderClient(tb)
-	tb.ObjectAPIClient = newObjectBuilderClient(tb)
 	tb.AuthAPIClient = newAuthBuilderClient(tb)
 	tb.Enterprise = newEnterpriseBuilderClient(tb)
 	tb.VersionAPIClient = newVersionBuilderClient(tb)
@@ -295,8 +310,8 @@ func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishComm
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{FinishCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteCommit(ctx context.Context, req *pfs.DeleteCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteCommit: req})
+func (c *pfsBuilderClient) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommit: req})
 	return nil, nil
 }
 func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
@@ -326,11 +341,8 @@ func (c *pfsBuilderClient) ListRepo(ctx context.Context, req *pfs.ListRepoReques
 func (c *pfsBuilderClient) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfo, error) {
 	return nil, unsupportedError("InspectCommit")
 }
-func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (*pfs.CommitInfos, error) {
+func (c *pfsBuilderClient) ListCommit(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitClient, error) {
 	return nil, unsupportedError("ListCommit")
-}
-func (c *pfsBuilderClient) ListCommitStream(ctx context.Context, req *pfs.ListCommitRequest, opts ...grpc.CallOption) (pfs.API_ListCommitStreamClient, error) {
-	return nil, unsupportedError("ListCommitStream")
 }
 func (c *pfsBuilderClient) FlushCommit(ctx context.Context, req *pfs.FlushCommitRequest, opts ...grpc.CallOption) (pfs.API_FlushCommitClient, error) {
 	return nil, unsupportedError("FlushCommit")
@@ -338,8 +350,8 @@ func (c *pfsBuilderClient) FlushCommit(ctx context.Context, req *pfs.FlushCommit
 func (c *pfsBuilderClient) SubscribeCommit(ctx context.Context, req *pfs.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
 }
-func (c *pfsBuilderClient) BuildCommit(ctx context.Context, req *pfs.BuildCommitRequest, opts ...grpc.CallOption) (*pfs.Commit, error) {
-	return nil, unsupportedError("BuildCommit")
+func (c *pfsBuilderClient) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCommit")
 }
 func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfo, error) {
 	return nil, unsupportedError("InspectBranch")
@@ -347,8 +359,8 @@ func (c *pfsBuilderClient) InspectBranch(ctx context.Context, req *pfs.InspectBr
 func (c *pfsBuilderClient) ListBranch(ctx context.Context, req *pfs.ListBranchRequest, opts ...grpc.CallOption) (*pfs.BranchInfos, error) {
 	return nil, unsupportedError("ListBranch")
 }
-func (c *pfsBuilderClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutFileClient, error) {
-	return nil, unsupportedError("PutFile")
+func (c *pfsBuilderClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (pfs.API_ModifyFileClient, error) {
+	return nil, unsupportedError("ModifyFile")
 }
 func (c *pfsBuilderClient) CopyFile(ctx context.Context, req *pfs.CopyFileRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CopyFile")
@@ -359,26 +371,17 @@ func (c *pfsBuilderClient) GetFile(ctx context.Context, req *pfs.GetFileRequest,
 func (c *pfsBuilderClient) InspectFile(ctx context.Context, req *pfs.InspectFileRequest, opts ...grpc.CallOption) (*pfs.FileInfo, error) {
 	return nil, unsupportedError("InspectFile")
 }
-func (c *pfsBuilderClient) ListFile(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (*pfs.FileInfos, error) {
+func (c *pfsBuilderClient) ListFile(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileClient, error) {
 	return nil, unsupportedError("ListFile")
-}
-func (c *pfsBuilderClient) ListFileStream(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileStreamClient, error) {
-	return nil, unsupportedError("ListFileStream")
 }
 func (c *pfsBuilderClient) WalkFile(ctx context.Context, req *pfs.WalkFileRequest, opts ...grpc.CallOption) (pfs.API_WalkFileClient, error) {
 	return nil, unsupportedError("WalkFile")
 }
-func (c *pfsBuilderClient) GlobFile(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (*pfs.FileInfos, error) {
+func (c *pfsBuilderClient) GlobFile(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileClient, error) {
 	return nil, unsupportedError("GlobFile")
 }
-func (c *pfsBuilderClient) GlobFileStream(ctx context.Context, req *pfs.GlobFileRequest, opts ...grpc.CallOption) (pfs.API_GlobFileStreamClient, error) {
-	return nil, unsupportedError("GlobFileStream")
-}
-func (c *pfsBuilderClient) DiffFile(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (*pfs.DiffFileResponse, error) {
+func (c *pfsBuilderClient) DiffFile(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileClient, error) {
 	return nil, unsupportedError("DiffFile")
-}
-func (c *pfsBuilderClient) DeleteFile(ctx context.Context, req *pfs.DeleteFileRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteFile")
 }
 func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteAll")
@@ -386,93 +389,17 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
-func (c *pfsBuilderClient) FileOperationV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_FileOperationV2Client, error) {
-	return nil, unsupportedError("FileOperationV2")
+func (c *pfsBuilderClient) CreateFileset(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateFilesetClient, error) {
+	return nil, unsupportedError("CreateFileset")
 }
-func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
-	return nil, unsupportedError("GetTarV2")
+func (c *pfsBuilderClient) RenewFileset(ctx context.Context, req *pfs.RenewFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RenewFileset")
 }
-func (c *pfsBuilderClient) DiffFileV2(ctx context.Context, req *pfs.DiffFileRequest, opts ...grpc.CallOption) (pfs.API_DiffFileV2Client, error) {
-	return nil, unsupportedError("DiffFileV2")
+func (c *pfsBuilderClient) AddFileset(ctx context.Context, req *pfs.AddFilesetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("AddFileset")
 }
-func (c *pfsBuilderClient) ClearCommitV2(ctx context.Context, req *pfs.ClearCommitRequestV2, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("ClearCommitV2")
-}
-func (c *pfsBuilderClient) CreateTmpFileSet(ctx context.Context, opts ...grpc.CallOption) (pfs.API_CreateTmpFileSetClient, error) {
-	return nil, unsupportedError("CreateTmpFileSet")
-}
-func (c *pfsBuilderClient) RenewTmpFileSet(ctx context.Context, req *pfs.RenewTmpFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("RenewTmpFileSet")
-}
-
-func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
-	return nil, unsupportedError("PutObject")
-}
-func (c *objectBuilderClient) PutObjectSplit(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectSplitClient, error) {
-	return nil, unsupportedError("PutObjectSplit")
-}
-func (c *objectBuilderClient) PutObjects(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectsClient, error) {
-	return nil, unsupportedError("PutObjects")
-}
-func (c *objectBuilderClient) CreateObject(ctx context.Context, req *pfs.CreateObjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("CreateObject")
-}
-func (c *objectBuilderClient) GetObject(ctx context.Context, req *pfs.Object, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjectClient, error) {
-	return nil, unsupportedError("GetObject")
-}
-func (c *objectBuilderClient) GetObjects(ctx context.Context, req *pfs.GetObjectsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjectsClient, error) {
-	return nil, unsupportedError("GetObjects")
-}
-func (c *objectBuilderClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutBlockClient, error) {
-	return nil, unsupportedError("PutBlock")
-}
-func (c *objectBuilderClient) GetBlock(ctx context.Context, req *pfs.GetBlockRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetBlockClient, error) {
-	return nil, unsupportedError("GetBlock")
-}
-func (c *objectBuilderClient) GetBlocks(ctx context.Context, req *pfs.GetBlocksRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetBlocksClient, error) {
-	return nil, unsupportedError("GetBlocks")
-}
-func (c *objectBuilderClient) ListBlock(ctx context.Context, req *pfs.ListBlockRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListBlockClient, error) {
-	return nil, unsupportedError("ListBlock")
-}
-func (c *objectBuilderClient) TagObject(ctx context.Context, req *pfs.TagObjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("TagObject")
-}
-func (c *objectBuilderClient) InspectObject(ctx context.Context, req *pfs.Object, opts ...grpc.CallOption) (*pfs.ObjectInfo, error) {
-	return nil, unsupportedError("InspectObject")
-}
-func (c *objectBuilderClient) CheckObject(ctx context.Context, req *pfs.CheckObjectRequest, opts ...grpc.CallOption) (*pfs.CheckObjectResponse, error) {
-	return nil, unsupportedError("CheckObject")
-}
-func (c *objectBuilderClient) ListObjects(ctx context.Context, req *pfs.ListObjectsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListObjectsClient, error) {
-	return nil, unsupportedError("ListObjects")
-}
-func (c *objectBuilderClient) DeleteObjects(ctx context.Context, req *pfs.DeleteObjectsRequest, opts ...grpc.CallOption) (*pfs.DeleteObjectsResponse, error) {
-	return nil, unsupportedError("DeleteObjects")
-}
-func (c *objectBuilderClient) GetTag(ctx context.Context, req *pfs.Tag, opts ...grpc.CallOption) (pfs.ObjectAPI_GetTagClient, error) {
-	return nil, unsupportedError("GetTag")
-}
-func (c *objectBuilderClient) InspectTag(ctx context.Context, req *pfs.Tag, opts ...grpc.CallOption) (*pfs.ObjectInfo, error) {
-	return nil, unsupportedError("InspectTag")
-}
-func (c *objectBuilderClient) ListTags(ctx context.Context, req *pfs.ListTagsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListTagsClient, error) {
-	return nil, unsupportedError("ListTags")
-}
-func (c *objectBuilderClient) DeleteTags(ctx context.Context, req *pfs.DeleteTagsRequest, opts ...grpc.CallOption) (*pfs.DeleteTagsResponse, error) {
-	return nil, unsupportedError("DeleteTags")
-}
-func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("Compact")
-}
-func (c *objectBuilderClient) PutObjDirect(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjDirectClient, error) {
-	return nil, unsupportedError("PutObjDirect")
-}
-func (c *objectBuilderClient) GetObjDirect(ctx context.Context, req *pfs.GetObjDirectRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjDirectClient, error) {
-	return nil, unsupportedError("GetObjDirect")
-}
-func (c *objectBuilderClient) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteObjDirect")
+func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest, opts ...grpc.CallOption) (*pfs.CreateFilesetResponse, error) {
+	return nil, unsupportedError("GetFileset")
 }
 
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {
@@ -481,11 +408,8 @@ func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequ
 func (c *ppsBuilderClient) InspectJob(ctx context.Context, req *pps.InspectJobRequest, opts ...grpc.CallOption) (*pps.JobInfo, error) {
 	return nil, unsupportedError("InspectJob")
 }
-func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (*pps.JobInfos, error) {
+func (c *ppsBuilderClient) ListJob(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobClient, error) {
 	return nil, unsupportedError("ListJob")
-}
-func (c *ppsBuilderClient) ListJobStream(ctx context.Context, req *pps.ListJobRequest, opts ...grpc.CallOption) (pps.API_ListJobStreamClient, error) {
-	return nil, unsupportedError("ListJobStream")
 }
 func (c *ppsBuilderClient) FlushJob(ctx context.Context, req *pps.FlushJobRequest, opts ...grpc.CallOption) (pps.API_FlushJobClient, error) {
 	return nil, unsupportedError("FlushJob")
@@ -499,11 +423,8 @@ func (c *ppsBuilderClient) StopJob(ctx context.Context, req *pps.StopJobRequest,
 func (c *ppsBuilderClient) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest, opts ...grpc.CallOption) (*pps.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
-func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (*pps.ListDatumResponse, error) {
+func (c *ppsBuilderClient) ListDatum(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumClient, error) {
 	return nil, unsupportedError("ListDatum")
-}
-func (c *ppsBuilderClient) ListDatumStream(ctx context.Context, req *pps.ListDatumRequest, opts ...grpc.CallOption) (pps.API_ListDatumStreamClient, error) {
-	return nil, unsupportedError("ListDatumStream")
 }
 func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
@@ -534,9 +455,6 @@ func (c *ppsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 }
 func (c *ppsBuilderClient) GetLogs(ctx context.Context, req *pps.GetLogsRequest, opts ...grpc.CallOption) (pps.API_GetLogsClient, error) {
 	return nil, unsupportedError("GetLogs")
-}
-func (c *ppsBuilderClient) GarbageCollect(ctx context.Context, req *pps.GarbageCollectRequest, opts ...grpc.CallOption) (*pps.GarbageCollectResponse, error) {
-	return nil, unsupportedError("GarbageCollect")
 }
 func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
@@ -569,17 +487,14 @@ func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetC
 func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
 	return nil, unsupportedError("SetConfiguration")
 }
-func (c *authBuilderClient) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest, opts ...grpc.CallOption) (*auth.GetAdminsResponse, error) {
-	return nil, unsupportedError("GetAdmins")
+func (c *authBuilderClient) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingResponse, error) {
+	return nil, unsupportedError("GetRoleBinding")
 }
-func (c *authBuilderClient) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetClusterRoleBindingsResponse, error) {
-	return nil, unsupportedError("GetClusterRoleBindings")
+func (c *authBuilderClient) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, unsupportedError("ModifyRoleBinding")
 }
-func (c *authBuilderClient) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest, opts ...grpc.CallOption) (*auth.ModifyAdminsResponse, error) {
-	return nil, unsupportedError("ModifyAdmins")
-}
-func (c *authBuilderClient) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyClusterRoleBindingResponse, error) {
-	return nil, unsupportedError("ModifyClusterRoleBinding")
+func (c *authBuilderClient) DeleteRoleBinding(ctx context.Context, req *auth.Resource, opts ...grpc.CallOption) error {
+	return unsupportedError("DeleteRoleBinding")
 }
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
@@ -589,18 +504,6 @@ func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRe
 }
 func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest, opts ...grpc.CallOption) (*auth.WhoAmIResponse, error) {
 	return nil, unsupportedError("WhoAmI")
-}
-func (c *authBuilderClient) GetScope(ctx context.Context, req *auth.GetScopeRequest, opts ...grpc.CallOption) (*auth.GetScopeResponse, error) {
-	return nil, unsupportedError("GetScope")
-}
-func (c *authBuilderClient) SetScope(ctx context.Context, req *auth.SetScopeRequest, opts ...grpc.CallOption) (*auth.SetScopeResponse, error) {
-	return nil, unsupportedError("SetScope")
-}
-func (c *authBuilderClient) GetACL(ctx context.Context, req *auth.GetACLRequest, opts ...grpc.CallOption) (*auth.GetACLResponse, error) {
-	return nil, unsupportedError("GetACL")
-}
-func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest, opts ...grpc.CallOption) (*auth.SetACLResponse, error) {
-	return nil, unsupportedError("SetACL")
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")
@@ -626,9 +529,6 @@ func (c *authBuilderClient) GetGroups(ctx context.Context, req *auth.GetGroupsRe
 func (c *authBuilderClient) GetUsers(ctx context.Context, req *auth.GetUsersRequest, opts ...grpc.CallOption) (*auth.GetUsersResponse, error) {
 	return nil, unsupportedError("GetUsers")
 }
-func (c *authBuilderClient) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest, opts ...grpc.CallOption) (*auth.GetOneTimePasswordResponse, error) {
-	return nil, unsupportedError("GetOneTimePassword")
-}
 func (c *authBuilderClient) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuthTokensRequest, opts ...grpc.CallOption) (*auth.ExtractAuthTokensResponse, error) {
 	return nil, unsupportedError("ExtractAuthTokens")
 }
@@ -642,23 +542,20 @@ func (c *enterpriseBuilderClient) Activate(ctx context.Context, req *enterprise.
 func (c *enterpriseBuilderClient) GetState(ctx context.Context, req *enterprise.GetStateRequest, opts ...grpc.CallOption) (*enterprise.GetStateResponse, error) {
 	return nil, unsupportedError("GetState")
 }
+func (c *enterpriseBuilderClient) GetActivationCode(ctx context.Context, req *enterprise.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise.GetActivationCodeResponse, error) {
+	return nil, unsupportedError("GetActivationCode")
+}
 func (c *enterpriseBuilderClient) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest, opts ...grpc.CallOption) (*enterprise.DeactivateResponse, error) {
 	return nil, unsupportedError("Deactivate")
+}
+func (c *enterpriseBuilderClient) Heartbeat(ctx context.Context, req *enterprise.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise.HeartbeatResponse, error) {
+	return nil, unsupportedError("Heartbeat")
 }
 
 func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
 	return nil, unsupportedError("GetVersion")
 }
 
-func (c *adminBuilderClient) Extract(ctx context.Context, req *admin.ExtractRequest, opts ...grpc.CallOption) (admin.API_ExtractClient, error) {
-	return nil, unsupportedError("Extract")
-}
-func (c *adminBuilderClient) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest, opts ...grpc.CallOption) (*admin.Op, error) {
-	return nil, unsupportedError("ExtractPipeline")
-}
-func (c *adminBuilderClient) Restore(ctx context.Context, opts ...grpc.CallOption) (admin.API_RestoreClient, error) {
-	return nil, unsupportedError("Restore")
-}
 func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }

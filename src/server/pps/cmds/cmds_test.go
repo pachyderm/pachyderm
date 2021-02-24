@@ -30,8 +30,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 const badJSON1 = `
@@ -92,7 +92,6 @@ func TestRawFullPipelineInfo(t *testing.T) {
 	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
-		pachctl garbage-collect
 	`).Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo data
@@ -296,7 +295,6 @@ func TestRunPipeline(t *testing.T) {
 	pipeline := tu.UniqueString("p-")
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
-		pachctl garbage-collect
 	`).Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo data
@@ -382,24 +380,20 @@ func TestYAMLPipelineSpec(t *testing.T) {
 }
 
 func TestListPipelineFilter(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
-		pachctl garbage-collect
 	`).Run())
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
 		{
 		"pipeline": {
-		  "name": "first"
+		  "name": "{{.pipeline}}"
 		},
 		"input": {
 		  "pfs": {
@@ -422,10 +416,10 @@ func TestListPipelineFilter(t *testing.T) {
 		echo foo | pachctl put file input@master:/foo
 		pachctl flush commit input@master
 		# make sure we see the pipeline with the appropriate state filters
-		pachctl list pipeline | match first
-		pachctl list pipeline --state starting --state running | match first
-		pachctl list pipeline --state crashing --state failure | match -v first
-	`,
+		pachctl list pipeline | match {{.pipeline}}
+		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
+		pachctl list pipeline --state starting --state running | match {{.pipeline}}
+	`, "pipeline", pipeline,
 	).Run())
 }
 
@@ -463,7 +457,9 @@ func TestYAMLError(t *testing.T) {
 	).Run())
 }
 
+// TODO: Make work with V2?
 func TestTFJobBasic(t *testing.T) {
+	t.Skip("TFJob not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -520,7 +516,7 @@ func TestTFJobBasic(t *testing.T) {
 }
 
 // TestYAMLSecret tests creating a YAML pipeline with a secret (i.e. the fix for
-// https://github.com/pachyderm/pachyderm/issues/4119)
+// https://github.com/pachyderm/pachyderm/v2/issues/4119)
 func TestYAMLSecret(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -559,7 +555,7 @@ func TestYAMLSecret(t *testing.T) {
 }
 
 // TestYAMLTimestamp tests creating a YAML pipeline with a timestamp (i.e. the
-// fix for https://github.com/pachyderm/pachyderm/issues/4209)
+// fix for https://github.com/pachyderm/pachyderm/v2/issues/4209)
 func TestYAMLTimestamp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -588,7 +584,9 @@ func TestYAMLTimestamp(t *testing.T) {
 	).Run())
 }
 
+// TODO: Make work with V2?
 func TestEditPipeline(t *testing.T) {
+	t.Skip("Edit pipeline not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -620,10 +618,8 @@ func TestEditPipeline(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePython(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
-
+	t.Skip("not implemented in V2")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	pipeline := testPipelineBuildLifecycle(t, "python", "python")
 
 	// the python example also contains a `.pachignore`, so we can verify it's
@@ -637,31 +633,41 @@ func TestPipelineBuildLifecyclePython(t *testing.T) {
 }
 
 func TestPipelineBuildLifecyclePythonNoDeps(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	t.Skip("not implemented in V2")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	testPipelineBuildLifecycle(t, "python", "python_no_deps")
 }
 
 func TestPipelineBuildLifecycleGo(t *testing.T) {
-	if os.Getenv("RUN_BAD_TESTS") == "" {
-		t.Skip("Skipping because RUN_BAD_TESTS was empty")
-	}
+	t.Skip("not implemented in V2")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
 	testPipelineBuildLifecycle(t, "go", "go")
 }
 
+func TestAuthorizedPipelineBuildLifecycle(t *testing.T) {
+	t.Skip("not implemented in V2")
+	require.NoError(t, tu.BashCmd("yes | pachctl delete all").Run())
+	tu.ActivateAuth(t)
+
+	defer tu.DeleteAll(t) // make sure to clean up auth
+
+	testPipelineBuildLifecycle(t, "go", "go")
+}
+
+//lint:ignore U1000 unreachable in v2
 func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	prefix := "../../../../etc/testing/pipeline-build"
+
 	// reset and create some test input
 	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
 		pachctl create repo in
-		pachctl put file -r in@master:/ -f ../../../../etc/testing/pipeline-build/input
-	`).Run())
+		pachctl put file -r in@master:/ -f {{.prefix}}/input
+	`, "prefix", prefix).Run())
 
 	// give pipeline a unique name to work around
 	// github.com/kubernetes/kubernetes/issues/82130
@@ -687,7 +693,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 
 	// test a barebones pipeline with a build spec and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl create pipeline <<EOF
 		{{.spec}}
 		EOF
@@ -695,6 +701,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	require.YesError(t, tu.BashCmd(fmt.Sprintf(`
 		pachctl list pipeline --state failure | match %s
@@ -703,7 +710,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 
 	// update the barebones pipeline and verify results
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl update pipeline <<EOF
 		{{.spec}}
 		EOF
@@ -711,6 +718,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	verifyPipelineBuildOutput(t, pipeline, "0")
 
@@ -741,7 +749,7 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 	`, pipeline, lang)
 
 	require.NoError(t, tu.BashCmd(`
-		cd ../../../../etc/testing/pipeline-build/{{.dir}}
+		cd {{.prefix}}/{{.dir}}
 		pachctl update pipeline --reprocess <<EOF
 		{{.spec}}
 		EOF
@@ -749,11 +757,13 @@ func testPipelineBuildLifecycle(t *testing.T, lang, dir string) string {
 		`,
 		"dir", dir,
 		"spec", spec,
+		"prefix", prefix,
 	).Run())
 	verifyPipelineBuildOutput(t, pipeline, "_")
 	return pipeline
 }
 
+//lint:ignore U1000 unreachable in v2
 func verifyPipelineBuildOutput(t *testing.T, pipeline, prefix string) {
 	t.Helper()
 

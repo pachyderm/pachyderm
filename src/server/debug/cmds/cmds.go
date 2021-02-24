@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 )
 
@@ -78,6 +78,7 @@ func Cmds() []*cobra.Command {
 	binary.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the binary from the given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
+	var limit int64
 	dump := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
@@ -93,13 +94,14 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			return withFile(args[0], func(f *os.File) error {
-				return client.Dump(filter, f)
+				return client.Dump(filter, limit, f)
 			})
 		}),
 	}
 	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
 	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
 	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
+	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
 
 	debug := &cobra.Command{

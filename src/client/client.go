@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,21 +24,23 @@ import (
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/src/client/admin"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/health"
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client/limit"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/health"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 const (
@@ -51,6 +52,9 @@ const (
 	// obj -> client dependency, so any changes to this variable need to be applied there.
 	// The obj package should eventually get refactored so that it does not have this dependency.
 	StorageSecretName = "pachyderm-storage-secret"
+	// PachctlSecretName is the name of the Kubernetes secret in which
+	// pachctl credentials are stored.
+	PachctlSecretName = "pachyderm-pachctl-secret"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -59,11 +63,11 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// ObjectAPIClient is an alias for pfs.ObjectAPIClient
-type ObjectAPIClient pfs.ObjectAPIClient
-
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
+
+// IdentityAPIClient is an alias of identity.APIClient
+type IdentityAPIClient identity.APIClient
 
 // VersionAPIClient is an alias of versionpb.APIClient
 type VersionAPIClient versionpb.APIClient
@@ -81,13 +85,14 @@ type DebugClient debug.DebugClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	ObjectAPIClient
 	AuthAPIClient
+	IdentityAPIClient
 	VersionAPIClient
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
+	License    license.APIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
@@ -125,8 +130,6 @@ type APIClient struct {
 	ctx context.Context
 
 	portForwarder *PortForwarder
-
-	storageV2 bool
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -148,7 +151,6 @@ type clientSettings struct {
 	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
-	storageV2            bool
 	unaryInterceptors    []grpc.UnaryClientInterceptor
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
@@ -164,16 +166,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
-	storageV2Env, ok := os.LookupEnv("STORAGE_V2")
-	if ok {
-		storageV2, err := strconv.ParseBool(storageV2Env)
-		if err != nil {
-			return nil, err
-		}
-		if storageV2 {
-			settings.storageV2 = storageV2
-		}
-	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
@@ -188,7 +180,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts:      settings.caCerts,
 		limiter:      limit.New(settings.maxConcurrentStreams),
 		gzipCompress: settings.gzipCompress,
-		storageV2:    settings.storageV2,
 	}
 	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err
@@ -436,7 +427,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
@@ -470,7 +461,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read(false)
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
@@ -574,8 +565,24 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 // NewInWorker constructs a new APIClient intended to be used from a worker
 // to talk to the sidecar pachd container
 func NewInWorker(options ...Option) (*APIClient, error) {
+	cfg, err := config.Read(false, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		return NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromAddress(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create client")
+		}
+		if context.SessionToken != "" {
+			client.authenticationToken = context.SessionToken
+		}
+		return client, nil
 	}
 	return nil, errors.New("PEER_PORT not set")
 }
@@ -597,9 +604,21 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -651,7 +670,6 @@ func DefaultDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
-
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
@@ -686,9 +704,10 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
+	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.License = license.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)

@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // IsDone returns true if the given context has been canceled, or false otherwise
@@ -20,32 +21,30 @@ func IsDone(ctx context.Context) bool {
 	}
 }
 
-// DatumID computes the id for a datum, this value is used in ListDatum and
-// InspectDatum.
+// DatumID computes the ID of a datum.
 func DatumID(inputs []*Input) string {
-	hash := sha256.New()
-	for _, input := range inputs {
-		hash.Write([]byte(input.FileInfo.File.Path))
-		hash.Write(input.FileInfo.Hash)
+	// TODO: This is a stopgap solution that needs to be addressed before 2.0 GA.
+	// Datum IDs need more design work.
+	if inputs[0].GroupBy != "" {
+		return inputs[0].GroupBy
 	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	return hex.EncodeToString(hash.Sum(nil))
+	var files []string
+	for _, input := range inputs {
+		files = append(files, input.Name+strings.ReplaceAll(input.FileInfo.File.Path, "/", "_"))
+	}
+	return strings.Join(files, "-")
 }
 
-// HashDatum computes and returns the hash of datum + pipeline, with a
-// pipeline-specific prefix.
+// HashDatum computes the hash of a datum.
 func HashDatum(pipelineName string, pipelineSalt string, inputs []*Input) string {
 	hash := sha256.New()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
 		hash.Write([]byte(input.FileInfo.File.Path))
-		hash.Write(input.FileInfo.Hash)
+		hash.Write([]byte(input.FileInfo.Hash))
 	}
-
 	hash.Write([]byte(pipelineName))
 	hash.Write([]byte(pipelineSalt))
-
 	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 

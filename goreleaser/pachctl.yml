@@ -1,6 +1,6 @@
 project_name: pachctl
 
-dist: /tmp/pachyderm/release/pachctl
+dist: ../dist-pach/pachctl
 
 before:
   hooks:

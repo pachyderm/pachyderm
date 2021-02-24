@@ -16,11 +16,11 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 type fileState int32
@@ -586,36 +586,35 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	if commit == "" {
 		return nil
 	}
-	if err := n.c().ListFileF(parts[0], commit, pathpkg.Join(parts[1:]...), 0,
-		func(fi *pfs.FileInfo) (retErr error) {
-			if fi.FileType == pfs.FileType_DIR {
-				return os.MkdirAll(n.filePath(fi), 0777)
+	if err := n.c().ListFile(parts[0], commit, pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+		if fi.FileType == pfs.FileType_DIR {
+			return os.MkdirAll(n.filePath(fi), 0777)
+		}
+		p := n.filePath(fi)
+		// Make sure the directory exists
+		// I think this may be unnecessary based on the constraints the
+		// OS imposes, but don't want to rely on that, especially
+		// because Mkdir should be pretty cheap.
+		if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
+			return errors.WithStack(err)
+		}
+		f, err := os.Create(p)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = errors.WithStack(err)
 			}
-			p := n.filePath(fi)
-			// Make sure the directory exists
-			// I think this may be unnecessary based on the constraints the
-			// OS imposes, but don't want to rely on that, especially
-			// because Mkdir should be pretty cheap.
-			if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
-				return errors.WithStack(err)
-			}
-			f, err := os.Create(p)
-			if err != nil {
-				return errors.WithStack(err)
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = errors.WithStack(err)
-				}
-			}()
-			if state < full {
-				return f.Truncate(int64(fi.SizeBytes))
-			}
-			if err := n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, 0, 0, f); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil && !errutil.IsNotFoundError(err) &&
+		}()
+		if state < full {
+			return f.Truncate(int64(fi.SizeBytes))
+		}
+		if err := n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, f); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}

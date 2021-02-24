@@ -9,15 +9,18 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	client "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	client "github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -62,6 +65,22 @@ type workerOptions struct {
 	service          *pps.Service
 }
 
+// getPachctlSecretVolumeAndMount returns a Volume and
+// VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: client.PachctlSecretName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secret,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      client.PachctlSecretName,
+			MountPath: "/pachctl",
+		}
+}
+
 func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
@@ -72,6 +91,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
+	}, {
+		Name:  "PACH_CACHE_ROOT",
+		Value: a.cacheRoot,
 	}, {
 		Name:  "PACH_NAMESPACE",
 		Value: a.namespace,
@@ -121,6 +143,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		{
 			Name:  "PACH_ROOT",
 			Value: a.storageRoot,
+		},
+		{
+			Name:  "PACH_CACHE_ROOT",
+			Value: a.cacheRoot,
 		},
 		{
 			Name:  "PACH_NAMESPACE",
@@ -183,10 +209,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.StorageV2 {
-		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-		workerEnv = append(workerEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
-	}
 	if a.env.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
@@ -219,7 +241,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 		userVolumeMounts = append(userVolumeMounts, storageMount)
 	} else {
 		// `pach-dir-volume` is needed for openshift, see:
-		// https://github.com/pachyderm/pachyderm/issues/3404
+		// https://github.com/pachyderm/pachyderm/v2/issues/3404
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "pach-dir-volume",
 			VolumeSource: v1.VolumeSource{
@@ -237,6 +259,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pipe
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
+
+	// mount secret for spouts using pachctl
+	if pipelineInfo.Spout != nil {
+		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
+		options.volumes = append(options.volumes, pachctlSecretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
+		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
+	}
 
 	// Explicitly set CPU requests to zero because some cloud providers set their
 	// own defaults which are usually not what we want. Mem request defaults to
@@ -528,6 +558,16 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
+	volumes = append(volumes, v1.Volume{
+		Name: "pach-tmp",
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		},
+	})
+	volumeMounts = append(volumeMounts, v1.VolumeMount{
+		Name:      "pach-tmp",
+		MountPath: a.cacheRoot,
+	})
 
 	volumes = append(volumes, v1.Volume{
 		Name: client.PPSWorkerVolume,
@@ -612,6 +652,49 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}, nil
 }
 
+func (a *apiServer) createWorkerPachctlSecret(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) error {
+	var cfg config.Config
+	err := cfg.InitV2()
+	if err != nil {
+		return errors.Wrapf(err, "error initializing V2 for config")
+	}
+	_, context, err := cfg.ActiveContext(true)
+	if err != nil {
+		return errors.Wrapf(err, "error getting the active context")
+	}
+	context.SessionToken = ptr.AuthToken
+	context.PachdAddress = "localhost:653"
+
+	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return errors.Wrapf(err, "error marshaling the config")
+	}
+	s := v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
+			Labels: labels(pipelineInfo.Pipeline.Name),
+		},
+		Data: map[string][]byte{
+			"config.json": rawConfig,
+		},
+	}
+	labels := s.GetLabels()
+	labels["pipelineName"] = pipelineInfo.Pipeline.Name
+	s.SetLabels(labels)
+
+	// send RPC to k8s to create the secret there
+	if _, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
 // getWorkerOptions returned an error to it (getWorkerOptions does not return
 // noValidOptions). This is a mechanism for createWorkerSvcAndRc to signal to
@@ -622,12 +705,19 @@ type noValidOptionsErr struct {
 
 func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", //lint:ignore SA4006 ctx never used, but we want the right one in scope for future uses
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
+
+	// create pachctl secret used in spouts
+	if pipelineInfo.Spout != nil {
+		if err := a.createWorkerPachctlSecret(ctx, ptr, pipelineInfo); err != nil {
+			return err
+		}
+	}
 
 	options, err := a.getWorkerOptions(ptr, pipelineInfo)
 	if err != nil {
@@ -733,6 +823,26 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 				return err
 			}
 		}
+	}
+
+	// Generate pipeline's auth token & add pipeline to the ACLs of input/output
+	// repos
+	pachClient := a.env.GetPachClient(ctx)
+	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
+			Subject: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
+			TTL:     -1,
+		})
+		if err != nil {
+			if auth.IsErrNotActivated(err) {
+				return nil // no auth work to do
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		ptr.AuthToken = tokenResp.Token
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// True if the pipeline has a git input

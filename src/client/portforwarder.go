@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -166,6 +166,11 @@ func (f *PortForwarder) RunForSAMLACS(localPort, remotePort uint16) (uint16, err
 
 // RunForOIDCACS creates a port forwarder for OIDC ACS.
 func (f *PortForwarder) RunForOIDCACS(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("pachd", localPort, remotePort)
+}
+
+// RunForDex creates a port forwarder for Dex.
+func (f *PortForwarder) RunForDex(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, remotePort)
 }
 

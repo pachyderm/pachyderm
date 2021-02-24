@@ -17,7 +17,7 @@ pachctl deploy amazon <bucket-name> <region> <disk-size> [flags]
 
 ```
       --block-cache-size string          Size of pachd's in-memory cache for PFS files. Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).
-      --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an alpha feature. No security restrictions have beenapplied to cloudfront, making all data public (obscured but not secured)
+      --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an experimental feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)
       --cluster-deployment-id string     Set an ID for the cluster deployment. Defaults to a random value.
   -c, --context string                   Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.
       --create-context --dry-run         Create a context, even with --dry-run.
@@ -38,12 +38,12 @@ pachctl deploy amazon <bucket-name> <region> <disk-size> [flags]
       --log-level string                 The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
       --max-upload-parts int             (rarely set) Set a custom maximum number of upload parts. (default 10000)
       --namespace string                 Kubernetes namespace to deploy Pachyderm to.
-      --new-storage-layer                (feature flag) Do not set, used for testing.
       --no-dashboard                     Don't deploy the Pachyderm UI alongside Pachyderm (experimental).
       --no-expose-docker-socket          Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.
       --no-guaranteed                    Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.
       --no-rbac                          Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)
       --no-verify-ssl                    (rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).
+      --obj-log-options string           (rarely set) Enable verbose logging in Pachyderm's internal S3 client for debugging. Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries', 'RequestErrors', 'EventStreamBody', or 'all' (case-insensitive). See 'AWS SDK for Go' docs for details.
   -o, --output string                    Output format. One of: json|yaml (default "json")
       --pachd-cpu-request string         (rarely set) The size of Pachd's CPU request, which we give to Kubernetes. Size is in cores (with partial cores allowed and encouraged).
       --pachd-memory-request string      (rarely set) The size of PachD's memory request in addition to its block cache (set via --block-cache-size). Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).
@@ -55,6 +55,7 @@ pachctl deploy amazon <bucket-name> <region> <disk-size> [flags]
       --reverse                          (rarely set) Reverse object storage paths. (default true)
       --shards int                       (rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance. (default 16)
       --static-etcd-volume string        Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.
+      --storage-v2                       Deploy Pachyderm using V2 storage (alpha)
       --timeout string                   (rarely set) Set a custom timeout for object storage requests. (default "5m")
       --tls string                       string of the form "<cert path>,<key path>" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)
       --upload-acl string                (rarely set) Set a custom upload ACL for object storage uploads. (default "bucket-owner-full-control")

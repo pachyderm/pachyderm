@@ -5,9 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // MockLogger is an implementation of the TaggedLogger interface for use in
@@ -16,7 +15,7 @@ import (
 // you can set the Writer field so that log statements go directly to stdout
 // (or some other location) for debugging purposes.
 type MockLogger struct {
-	// These fields are exposed so that tests can fuck around with them or make assertions
+	// These fields are exposed so that tests can set them or make assertions
 	Writer   io.Writer
 	Job      string
 	Data     []*common.Input
@@ -112,11 +111,4 @@ func (ml *MockLogger) WithUserCode() TaggedLogger {
 // TaggedLogger interface.
 func (ml *MockLogger) JobID() string {
 	return ml.Job
-}
-
-// Close is meant to be called to flush logs to object storage and return the
-// generated object, but this behavior is not implemented in MockLogger.
-func (ml *MockLogger) Close() (*pfs.Object, int64, error) {
-	// If you need an actual pfs.Object here, inherit and shadow this function
-	return nil, 0, nil
 }

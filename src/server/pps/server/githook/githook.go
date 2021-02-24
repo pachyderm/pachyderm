@@ -14,12 +14,12 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"
@@ -184,7 +184,7 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 	}
 	defer func() {
 		if retErr != nil {
-			if err := s.client.DeleteCommit(repoName, commit.ID); err != nil {
+			if err := s.client.SquashCommit(repoName, commit.ID); err != nil {
 				logrus.Errorf("git webhook failed to delete partial commit (%v) on repo (%v) with error %v", commit.ID, repoName, err)
 			}
 			return
@@ -194,7 +194,7 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 	if err = s.client.DeleteFile(repoName, commit.ID, "commit.json"); err != nil {
 		return err
 	}
-	if _, err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
+	if err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(rawPayload)); err != nil {
 		return err
 	}
 	return nil

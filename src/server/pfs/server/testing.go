@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -10,26 +9,25 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"golang.org/x/net/context"
 )
 
 const (
-	testingTreeCacheSize       = 8
 	etcdHost                   = "localhost"
 	etcdPort                   = "32379"
 	localBlockServerCacheBytes = 256 * 1024 * 1024
@@ -50,19 +48,13 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-// runServers starts serving requests for the given apiServer & blockAPIServer
+// runServers starts serving requests for the given apiServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(
-	t testing.TB,
-	port int32,
-	apiServer APIServer,
-	blockAPIServer BlockAPIServer,
-) {
+func runServers(t testing.TB, port int32, apiServer APIServer) {
 	server, err := grpcutil.NewServer(context.Background(), false)
 	require.NoError(t, err)
 
 	pfs.RegisterAPIServer(server.Server, apiServer)
-	pfs.RegisterObjectAPIServer(server.Server, blockAPIServer)
 	auth.RegisterAPIServer(server.Server, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
 	versionpb.RegisterAPIServer(server.Server,
 		version.NewAPIServer(version.Version, version.APIServerOptions{}))
@@ -111,25 +103,16 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 
 	// initialize new BlockAPIServier
 	env := serviceenv.InitServiceEnv(config)
-	blockAPIServer, err := newLocalBlockAPIServer(
-		root,
-		localBlockServerCacheBytes,
-		net.JoinHostPort(etcdHost, etcdPort),
-		true /* duplicate--see comment in newObjBlockAPIServer */)
-	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
-	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
-	if err != nil {
-		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
-	}
 
 	txnEnv := &txnenv.TransactionEnv{}
 
-	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+	db := dbutil.NewTestDB(t)
+	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, db)
 	require.NoError(t, err)
 
 	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
 
-	runServers(t, pfsPort, apiServer, blockAPIServer)
+	runServers(t, pfsPort, apiServer)
 	return env.GetPachClient(context.Background())
 }

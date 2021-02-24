@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
 const (
@@ -85,9 +85,9 @@ func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
 	return fmt.Sprintf("finish commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
 }
 
-func sprintDeleteCommit(request *pfs.DeleteCommitRequest) string {
-	return fmt.Sprintf("delete commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
-}
+// func sprintSquashCommit(request *pfs.SquashCommitRequest) string {
+// 	return fmt.Sprintf("squash commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
+// }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
 	provenance := ""
@@ -119,8 +119,6 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 			return "SUCCESS"
 		case pps.JobState_JOB_KILLED:
 			return "KILLED"
-		case pps.JobState_JOB_MERGING:
-			return "MERGING"
 		default:
 			return "<unknown state>"
 		}
@@ -129,6 +127,14 @@ func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
 		"update job %s -> %s (%s)",
 		request.Job.ID, state, request.Reason,
 	)
+}
+
+func sprintCreatePipeline(request *pps.CreatePipelineRequest) string {
+	verb := "create"
+	if request.Update {
+		verb = "update"
+	}
+	return fmt.Sprintf("%s pipeline %s", verb, request.Pipeline.Name)
 }
 
 func transactionRequests(
@@ -154,14 +160,16 @@ func transactionRequests(
 			}
 		} else if request.FinishCommit != nil {
 			line = sprintFinishCommit(request.FinishCommit)
-		} else if request.DeleteCommit != nil {
-			line = sprintDeleteCommit(request.DeleteCommit)
+			// } else if request.SquashCommit != nil {
+			// 	line = sprintSquashCommit(request.SquashCommit)
 		} else if request.CreateBranch != nil {
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
 		} else if request.UpdateJobState != nil {
 			line = sprintUpdateJobState(request.UpdateJobState)
+		} else if request.CreatePipeline != nil {
+			line = sprintCreatePipeline(request.CreatePipeline)
 		} else {
 			line = "ERROR (unknown request type)"
 		}

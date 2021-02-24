@@ -1,12 +1,12 @@
 package server
 
 import (
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // APIServer represents a PPS API server
@@ -27,6 +27,7 @@ func NewAPIServer(
 	storageRoot string,
 	storageBackend string,
 	storageHostPath string,
+	cacheRoot string,
 	iamRole string,
 	imagePullSecret string,
 	noExposeDockerSocket bool,
@@ -39,31 +40,30 @@ func NewAPIServer(
 	gcPercent int,
 ) (APIServer, error) {
 	apiServer := &apiServer{
-		Logger:                 log.NewLogger("pps.API"),
-		env:                    env,
-		txnEnv:                 txnEnv,
-		etcdPrefix:             etcdPrefix,
-		namespace:              namespace,
-		workerImage:            workerImage,
-		workerSidecarImage:     workerSidecarImage,
-		workerImagePullPolicy:  workerImagePullPolicy,
-		storageRoot:            storageRoot,
-		storageBackend:         storageBackend,
-		storageHostPath:        storageHostPath,
-		iamRole:                iamRole,
-		imagePullSecret:        imagePullSecret,
-		noExposeDockerSocket:   noExposeDockerSocket,
-		reporter:               reporter,
-		workerUsesRoot:         workerUsesRoot,
-		pipelines:              ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
-		jobs:                   ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
-		monitorCancels:         make(map[string]func()),
-		crashingMonitorCancels: make(map[string]func()),
-		workerGrpcPort:         workerGrpcPort,
-		port:                   port,
-		httpPort:               httpPort,
-		peerPort:               peerPort,
-		gcPercent:              gcPercent,
+		Logger:                log.NewLogger("pps.API"),
+		env:                   env,
+		txnEnv:                txnEnv,
+		etcdPrefix:            etcdPrefix,
+		namespace:             namespace,
+		workerImage:           workerImage,
+		workerSidecarImage:    workerSidecarImage,
+		workerImagePullPolicy: workerImagePullPolicy,
+		storageRoot:           storageRoot,
+		storageBackend:        storageBackend,
+		storageHostPath:       storageHostPath,
+		cacheRoot:             cacheRoot,
+		iamRole:               iamRole,
+		imagePullSecret:       imagePullSecret,
+		noExposeDockerSocket:  noExposeDockerSocket,
+		reporter:              reporter,
+		workerUsesRoot:        workerUsesRoot,
+		pipelines:             ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
+		jobs:                  ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
+		workerGrpcPort:        workerGrpcPort,
+		port:                  port,
+		httpPort:              httpPort,
+		peerPort:              peerPort,
+		gcPercent:             gcPercent,
 	}
 	apiServer.validateKube()
 	go apiServer.master()
@@ -99,6 +99,7 @@ func NewSidecarAPIServer(
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	// TODO: Make work with V2
+	//go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

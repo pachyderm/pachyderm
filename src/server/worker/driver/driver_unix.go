@@ -8,15 +8,16 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
+// TODO: Make spouts work with V2.
 // Mkfifo does not exist on Windows, so this is left unimplemented there, except for tests
-func createSpoutFifo(path string) error {
-	return syscall.Mkfifo(path, 0666)
-}
+//func createSpoutFifo(path string) error {
+//	return syscall.Mkfifo(path, 0666)
+//}
 
 func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
@@ -96,7 +97,7 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 			return err
 		}
 
-		// Always overwrite the symlink at this point, in case it's relative or some dumb shit
+		// Always overwrite the symlink at this point, in case it's relative
 		return os.Symlink(filepath.Join(target), filepath.Join(path))
 	})
 }

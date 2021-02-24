@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"text/template"
 
@@ -13,11 +12,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
@@ -127,7 +126,7 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
 }
 
 // PrintDetailedJobInfo pretty-prints detailed job info.
-func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
+func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
@@ -177,11 +176,7 @@ Egress: {{.Egress.URL}} {{end}}
 	if err != nil {
 		return err
 	}
-	err = template.Execute(os.Stdout, jobInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+	return template.Execute(w, jobInfo)
 }
 
 // PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
@@ -356,8 +351,6 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
-	case ppsclient.JobState_JOB_MERGING:
-		return color.New(color.FgYellow).SprintFunc()("merging")
 	case ppsclient.JobState_JOB_FAILURE:
 		return color.New(color.FgRed).SprintFunc()("failure")
 	case ppsclient.JobState_JOB_SUCCESS:

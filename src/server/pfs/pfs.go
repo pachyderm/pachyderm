@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -119,11 +119,6 @@ func (e ErrOutputCommitNotFinished) Error() string {
 
 func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit.ID)
-}
-
-// ByteRangeSize returns byteRange.Upper - byteRange.Lower.
-func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
-	return byteRange.Upper - byteRange.Lower
 }
 
 var (

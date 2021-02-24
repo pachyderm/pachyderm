@@ -78,8 +78,8 @@ case "${BUCKET}" in
     make test-proto-static
     make test-transaction
     make test-deploy-manifests
-    make test-s3gateway-unit
-    make test-enterprise
+    # TODO: Readd when s3 gateway is implemented in V2.
+    #make test-s3gateway-unit
     make test-worker
     if [[ "${TRAVIS_SECURE_ENV_VARS:-""}" == "true" ]]; then
         # these tests require secure env vars to run, which aren't available
@@ -89,18 +89,18 @@ case "${BUCKET}" in
         make test-vault
     fi
     ;;
- ADMIN)
+  ADMIN)
     make test-admin
     ;;
- EXAMPLES)
+  EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
     ;;
- PFS)
+  PFS)
     make test-pfs-server
     make test-pfs-storage
     ;;
- PPS?)
+  PPS?)
     pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
     popd
@@ -111,15 +111,18 @@ case "${BUCKET}" in
       go test -v -count=1 ./src/server/pps/server -timeout 300s
     fi
     ;;
- AUTH?)
-    make launch-dex
-    bucket_num="${BUCKET#AUTH}"
-    test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
+  AUTH)
+    make test-identity
+    make test-auth
     ;;
- OBJECT)
+  OBJECT)
     make test-object-clients
     ;;
- *)
+  ENTERPRISE)
+    make test-license
+    make test-enterprise
+    ;;
+  *)
     echo "Unknown bucket"
     exit 1
     ;;

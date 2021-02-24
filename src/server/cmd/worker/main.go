@@ -6,22 +6,22 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-	"github.com/pachyderm/pachyderm/src/server/cmd/worker/assets"
-	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/worker"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/worker/assets"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -87,7 +87,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.StorageRoot, "/")
+	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, "/")
 	if err != nil {
 		return err
 	}

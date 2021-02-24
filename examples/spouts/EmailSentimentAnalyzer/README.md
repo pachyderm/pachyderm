@@ -1,5 +1,12 @@
 # Email Sentiment Analysis
-
+>![pach_logo](./img/pach_logo.svg)
+   This example is based on **spouts 1.0** implementation
+   prior to Pachyderm 1.12.
+   The implementation in spouts 2.0 is significantly different.
+   We recommend upgrading 
+   to the latest version
+   of Pachyderm
+   and using the **spouts 2.0** implementation.
 ## Background
 
 This example connects to an IMAP mail account, 

@@ -4,25 +4,30 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"math"
 	"os"
 	"runtime/pprof"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
-	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
-	"k8s.io/api/core/v1"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// TODO: Figure out how pipeline versions should come into play with this.
+// Right now we just collect the spec and jobs for the current pipeline version.
 
 const (
 	defaultDuration = time.Minute
@@ -35,6 +40,7 @@ type debugServer struct {
 	env           *serviceenv.ServiceEnv
 	name          string
 	sidecarClient *client.APIClient
+	marshaller    *jsonpb.Marshaler
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
@@ -43,31 +49,8 @@ func NewDebugServer(env *serviceenv.ServiceEnv, name string, sidecarClient *clie
 		env:           env,
 		name:          name,
 		sidecarClient: sidecarClient,
+		marshaller:    &jsonpb.Marshaler{Indent: "  "},
 	}
-}
-
-func (s *debugServer) pachClient(ctx context.Context) (*client.APIClient, error) {
-	pachClient := s.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx()
-	// check if the caller is authorized -- they must be an admin
-	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
-		var isAdmin bool
-		for _, s := range me.ClusterRoles.Roles {
-			if s == auth.ClusterRole_SUPER {
-				isAdmin = true
-				break
-			}
-		}
-		if !isAdmin {
-			return nil, &auth.ErrNotAuthorized{
-				Subject: me.Username,
-				AdminOp: "Debug",
-			}
-		}
-	} else if !auth.IsErrNotActivated(err) {
-		return nil, errors.Wrapf(err, "error during authorization check")
-	}
-	return pachClient, nil
 }
 
 type collectPipelineFunc func(*tar.Writer, *pps.PipelineInfo, ...string) error
@@ -238,10 +221,7 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
@@ -304,10 +284,7 @@ func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFu
 }
 
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) error {
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
-	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
@@ -347,24 +324,28 @@ func redirectBinaryFunc(ctx context.Context) redirectFunc {
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
-	pachClient, err := s.pachClient(server.Context())
-	if err != nil {
-		return err
+	if request.Limit == 0 {
+		request.Limit = math.MaxInt64
 	}
+	pachClient := s.env.GetPachClient(server.Context())
 	return s.handleRedirect(
 		pachClient,
 		grpcutil.NewStreamingBytesWriter(server),
 		request.Filter,
-		s.collectPachdDumpFunc(pachClient),
-		s.collectPipelineSpecFunc(pachClient),
+		s.collectPachdDumpFunc(pachClient, request.Limit),
+		s.collectPipelineDumpFunc(pachClient, request.Limit),
 		s.collectWorkerDump,
 		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
 	)
 }
 
-func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient) collectFunc {
+func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit int64) collectFunc {
 	return func(tw *tar.Writer, prefix ...string) error {
+		// Collect input repos.
+		if err := s.collectInputRepos(tw, pachClient, limit); err != nil {
+			return err
+		}
 		// Collect the pachd version.
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
@@ -376,6 +357,28 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient) collect
 		// Collect the pachd container dump.
 		return collectDump(tw, prefix...)
 	}
+}
+
+func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APIClient, limit int64) error {
+	repoInfos, err := pachClient.ListRepo()
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos {
+		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name); err != nil {
+			// TODO: It would be better for this to be a structured error.
+			if strings.Contains(err.Error(), "not found") {
+				repoPrefix := join("input-repos", repoInfo.Repo.Name)
+				return collectDebugFile(tw, "commits", func(w io.Writer) error {
+					return pachClient.ListCommitF(repoInfo.Repo.Name, "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
+						return s.marshaller.Marshal(w, ci)
+					})
+				}, repoPrefix)
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
@@ -390,8 +393,23 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	return collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := stream.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = io.Copy(w, stream)
+		return err
+	}, prefix...); err != nil {
+		return err
+	}
+	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
 		}
@@ -412,14 +430,34 @@ func collectDump(tw *tar.Writer, prefix ...string) error {
 	return collectProfile(tw, &debug.Profile{Name: "heap"}, prefix...)
 }
 
-func (s *debugServer) collectPipelineSpecFunc(pachClient *client.APIClient) collectPipelineFunc {
+func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
 	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
-		return collectDebugFile(tw, "spec", func(w io.Writer) error {
+		if err := collectDebugFile(tw, "spec", func(w io.Writer) error {
 			fullPipelineInfo, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name)
 			if err != nil {
 				return err
 			}
-			return pretty.PrintDetailedPipelineInfo(w, pretty.NewPrintablePipelineInfo(fullPipelineInfo))
+			return s.marshaller.Marshal(w, fullPipelineInfo)
+		}, prefix...); err != nil {
+			return err
+		}
+		if err := collectDebugFile(tw, "commits", func(w io.Writer) error {
+			return pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", uint64(limit), false, func(ci *pfs.CommitInfo) error {
+				return s.marshaller.Marshal(w, ci)
+			})
+		}, prefix...); err != nil {
+			return err
+		}
+		return collectDebugFile(tw, "jobs", func(w io.Writer) error {
+			// TODO: The limiting should eventually be a feature of list job.
+			var count int64
+			return pachClient.ListJobF(pipelineInfo.Pipeline.Name, nil, nil, 0, false, func(ji *pps.JobInfo) error {
+				if count >= limit {
+					return errutil.ErrBreak
+				}
+				count++
+				return s.marshaller.Marshal(w, ji)
+			})
 		}, prefix...)
 	}
 }
