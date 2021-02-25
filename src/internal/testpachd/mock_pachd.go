@@ -341,6 +341,7 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 
 /* PFS Server Mocks */
 
+type activateAuthPFSFunc func(context.Context, *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error)
 type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty, error)
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(context.Context, *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error)
@@ -372,6 +373,7 @@ type addFilesetFunc func(context.Context, *pfs.AddFilesetRequest) (*types.Empty,
 type getFilesetFunc func(context.Context, *pfs.GetFilesetRequest) (*pfs.CreateFilesetResponse, error)
 type renewFilesetFunc func(context.Context, *pfs.RenewFilesetRequest) (*types.Empty, error)
 
+type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
 type mockListRepo struct{ handler listRepoFunc }
@@ -403,6 +405,7 @@ type mockAddFileset struct{ handler addFilesetFunc }
 type mockGetFileset struct{ handler getFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 
+func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc) { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)           { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)         { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)               { mock.handler = cb }
@@ -440,6 +443,7 @@ type pfsServerAPI struct {
 
 type mockPFSServer struct {
 	api             pfsServerAPI
+	ActivateAuth    mockActivateAuthPFS
 	CreateRepo      mockCreateRepo
 	InspectRepo     mockInspectRepo
 	ListRepo        mockListRepo
@@ -472,6 +476,12 @@ type mockPFSServer struct {
 	RenewFileset    mockRenewFileset
 }
 
+func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
+	if api.mock.ActivateAuth.handler != nil {
+		return api.mock.ActivateAuth.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ActivateAuth")
+}
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
 	if api.mock.CreateRepo.handler != nil {
 		return api.mock.CreateRepo.handler(ctx, req)

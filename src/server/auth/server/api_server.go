@@ -612,40 +612,15 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 }
 
 // DeleteRoleBindingInTransaction is used to remove role bindings for resources when they're deleted in other services.
+// It doesn't do any auth checks itself - the calling method should ensure the user is allowed to delete this resource.
 // This is not an RPC, this is only called in-process.
 func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, resource *auth.Resource) error {
 	if err := a.isActive(); err != nil {
 		return err
 	}
 
-	// TODO: check that the resource doesn't exist - this avoids "orphan" repos with no ACL
-	// which could be claimed by anyone
-
-	// DeleteRepoBinding can only be called for repos, as part of deletion
-	var permissions []auth.Permission
-	switch resource.Type {
-	case auth.ResourceType_CLUSTER:
+	if resource.Type == auth.ResourceType_CLUSTER {
 		return fmt.Errorf("cannot delete cluster role binding")
-	case auth.ResourceType_REPO:
-		permissions = []auth.Permission{auth.Permission_REPO_DELETE}
-	default:
-		return fmt.Errorf("unknown resource type %v", resource.Type)
-	}
-
-	// Check if the caller is authorized
-	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-		Resource:    resource,
-		Permissions: permissions,
-	})
-	if err != nil {
-		return err
-	}
-	if !authorized.Authorized {
-		return &auth.ErrNotAuthorized{
-			Subject:  authorized.Principal,
-			Resource: *resource,
-			Required: permissions,
-		}
 	}
 
 	key := resourceKey(resource)
@@ -657,16 +632,56 @@ func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txnenv.TransactionCon
 	return nil
 }
 
-func bindingFromRequest(req *auth.ModifyRoleBindingRequest) *auth.Roles {
-	if len(req.Roles) == 0 {
-		return nil
+// rolesFromRoleSlice converts a slice of strings into *auth.Roles,
+// validating that each role name is valid.
+func rolesFromRoleSlice(rs []string) (*auth.Roles, error) {
+	if len(rs) == 0 {
+		return nil, nil
+	}
+
+	for _, r := range rs {
+		if _, err := permissionsForRole(r); err != nil {
+			return nil, err
+		}
 	}
 
 	roles := &auth.Roles{Roles: make(map[string]bool)}
-	for _, r := range req.Roles {
+	for _, r := range rs {
 		roles.Roles[r] = true
 	}
-	return roles
+	return roles, nil
+}
+
+// CreateRoleBindingInTransaction is an internal-only API to create a role binding for a new resource.
+// It doesn't do any authorization checks itself - the calling method should ensure the user is allowed
+// to create the resource. This is not an RPC.
+func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txnenv.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error {
+	bindings := &auth.RoleBinding{
+		Entries: make(map[string]*auth.Roles),
+	}
+
+	if len(roleSlice) != 0 {
+		// Check that the subject is in canonical form (`<type>:<principal>`).
+		if err := a.checkCanonicalSubject(principal); err != nil {
+			return err
+		}
+
+		roles, err := rolesFromRoleSlice(roleSlice)
+		if err != nil {
+			return err
+		}
+
+		bindings.Entries[principal] = roles
+	}
+
+	// Call Create, this will raise an error if the role binding already exists.
+	key := resourceKey(resource)
+	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
+	if err := roleBindings.Create(key, bindings); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside
@@ -683,6 +698,11 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
+	roles, err := rolesFromRoleSlice(req.Roles)
+	if err != nil {
+		return nil, err
+	}
+
 	if strings.HasPrefix(req.Principal, auth.PachPrefix) && req.Resource.Type == auth.ResourceType_CLUSTER {
 		return nil, fmt.Errorf("cannot modify cluster role bindings for pach: users")
 	}
@@ -692,48 +712,38 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, err
 	}
 
-	// Check that the roles are valid
-	for _, r := range req.Roles {
-		if _, err := permissionsForRole(r); err != nil {
-			return nil, err
-		}
-	}
-
-	// Check if the binding exists - if not, skip the auth check and allow it to be created
 	key := resourceKey(req.Resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.Stm)
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
-		if !col.IsErrNotFound(err) {
-			return nil, err
-		}
-	} else {
-		// ModifyRoleBinding can be called for any type of resource,
-		// and the permission required depends on the type of resource.
-		var permissions []auth.Permission
-		switch req.Resource.Type {
-		case auth.ResourceType_CLUSTER:
-			permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
-		case auth.ResourceType_REPO:
-			permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
-		default:
-			return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
-		}
+		return nil, err
+	}
 
-		// Check if the caller is authorized
-		authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-			Resource:    req.Resource,
-			Permissions: permissions,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if !authorized.Authorized {
-			return nil, &auth.ErrNotAuthorized{
-				Subject:  callerInfo.Subject,
-				Resource: *req.Resource,
-				Required: permissions,
-			}
+	// ModifyRoleBinding can be called for any type of resource,
+	// and the permission required depends on the type of resource.
+	var permissions []auth.Permission
+	switch req.Resource.Type {
+	case auth.ResourceType_CLUSTER:
+		permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
+	case auth.ResourceType_REPO:
+		permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
+	default:
+		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
+	}
+
+	// Check if the caller is authorized
+	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
+		Resource:    req.Resource,
+		Permissions: permissions,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !authorized.Authorized {
+		return nil, &auth.ErrNotAuthorized{
+			Subject:  callerInfo.Subject,
+			Resource: *req.Resource,
+			Required: permissions,
 		}
 	}
 
@@ -744,7 +754,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	if len(req.Roles) == 0 {
 		delete(bindings.Entries, req.Principal)
 	} else {
-		bindings.Entries[req.Principal] = bindingFromRequest(req)
+		bindings.Entries[req.Principal] = roles
 	}
 	if err := roleBindings.Put(key, &bindings); err != nil {
 		return nil, err
@@ -769,7 +779,10 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 
 	// If the request is not in a transaction, block until the cache is updated
 	if req.Resource.Type == auth.ResourceType_CLUSTER {
-		expected := bindingFromRequest(req)
+		expected, err := rolesFromRoleSlice(req.Roles)
+		if err != nil {
+			return nil, err
+		}
 		if err := backoff.Retry(func() error {
 			bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
 			if !ok {
