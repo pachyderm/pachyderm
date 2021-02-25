@@ -3,11 +3,11 @@ package dbutil
 import (
 	"context"
 	"database/sql"
-	"math/rand"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,6 +53,11 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	for _, opt := range opts {
 		opt(c)
 	}
+	backoffStrategy := backoff.NewExponentialBackOff()
+	backoffStrategy.InitialInterval = 10 * time.Millisecond
+	backoffStrategy.MaxElapsedTime = 0
+	t := backoff.NewTicker(backoffStrategy)
+	defer t.Stop()
 	for i := 0; i < c.MaxRetries; i++ {
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
@@ -61,8 +66,11 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 		err = tryTxFunc(tx, cb)
 		if isSerializationFailure(err) {
 			retErr = err
-			waitDuration := time.Millisecond * time.Duration(5+rand.Intn(10))
-			time.Sleep(waitDuration)
+			select {
+			case <-t.C:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			continue
 		}
 		return err
