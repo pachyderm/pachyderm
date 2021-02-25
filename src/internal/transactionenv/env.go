@@ -45,8 +45,8 @@ type PpsWrites interface {
 // transaction, depending on if there is an active transaction in the client
 // context.
 type AuthWrites interface {
-	SetScope(*auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-	SetACL(*auth.SetACLRequest) (*auth.SetACLResponse, error)
+	ModifyRoleBinding(*auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	DeleteRoleBinding(*auth.Resource) error
 }
 
 // PfsPropagater is the interface that PFS implements to propagate commits at
@@ -138,14 +138,15 @@ type TransactionServer interface {
 type AuthTransactionServer interface {
 	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 
-	GetScopeInTransaction(*TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
-	SetScopeInTransaction(*TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-
-	GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error)
-	SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+	ModifyRoleBindingInTransaction(*TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	GetRoleBindingInTransaction(*TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+	DeleteRoleBindingInTransaction(*TransactionContext, *auth.Resource) error
 
 	GetAuthTokenInTransaction(*TransactionContext, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
 	RevokeAuthTokenInTransaction(*TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+
+	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
+	GetPipelineAuthTokenInTransaction(*TransactionContext, string) (string, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported
@@ -269,19 +270,19 @@ func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) 
 	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	req := proto.Clone(original).(*auth.SetScopeRequest)
-	return t.txnCtx.txnEnv.authServer.SetScopeInTransaction(t.txnCtx, req)
-}
-
-func (t *directTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	req := proto.Clone(original).(*auth.SetACLRequest)
-	return t.txnCtx.txnEnv.authServer.SetACLInTransaction(t.txnCtx, req)
+func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
+	return t.txnCtx.txnEnv.authServer.ModifyRoleBindingInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest, specCommit **pfs.Commit) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
 	return t.txnCtx.txnEnv.ppsServer.CreatePipelineInTransaction(t.txnCtx, req, specCommit)
+}
+
+func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
+	req := proto.Clone(original).(*auth.Resource)
+	return t.txnCtx.txnEnv.authServer.DeleteRoleBindingInTransaction(t.txnCtx, req)
 }
 
 type appendTransaction struct {
@@ -346,12 +347,12 @@ func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest, _ **p
 	return err
 }
 
-func (t *appendTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
-	panic("SetScope not yet implemented in transactions")
+func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	panic("ModifyRoleBinding not yet implemented in transactions")
 }
 
-func (t *appendTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
-	panic("SetACL not yet implemented in transactions")
+func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
+	panic("DeleteRoleBinding not yet implemented in transactions")
 }
 
 // WithTransaction will call the given callback with a txnenv.Transaction

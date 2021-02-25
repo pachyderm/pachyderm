@@ -47,21 +47,23 @@ func TestIsErrNotAuthorized(t *testing.T) {
 	require.False(t, IsErrNotAuthorized(nil))
 	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
 		Subject:  "alice",
-		Repo:     "data",
-		Required: Scope_WRITER,
+		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
+		Required: []Permission{},
 	}))
 	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
 		Subject:  "alice",
-		Repo:     "data",
-		Required: Scope_WRITER,
+		Resource: Resource{Type: ResourceType_REPO, Name: "data"},
+		Required: []Permission{},
 	})))
 	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
-		Subject: "alice",
-		AdminOp: "GetAuthToken on another user's token",
+		Subject:  "alice",
+		Resource: Resource{Type: ResourceType_CLUSTER},
+		Required: []Permission{},
 	}))
 	require.True(t, IsErrNotAuthorized(grpcify(&ErrNotAuthorized{
-		Subject: "alice",
-		AdminOp: "GetAuthToken on another user's token",
+		Subject:  "alice",
+		Resource: Resource{Type: ResourceType_CLUSTER},
+		Required: []Permission{},
 	})))
 }
 

@@ -36,32 +36,28 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/Authorize":    unauthenticated,
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
-	"/auth.API/GetAuthToken": unauthenticated,
 
-	// TODO: restrict GetClusterRoleBindings to cluster admins?
+	// TODO: restrict GetClusterRoleBinding to cluster admins?
 	// TODO: split GetScope for self and others
 	// TODO: split GetAuthToken for self and others
 	// TODO: split RevokeAuthToken for self and others
 	// TODO: split GetGroups for self and others
-	"/auth.API/GetAdmins":                authenticated,
-	"/auth.API/GetClusterRoleBindings":   authenticated,
-	"/auth.API/GetConfiguration":         authenticated,
-	"/auth.API/GetScope":                 authenticated,
-	"/auth.API/SetScope":                 authenticated,
-	"/auth.API/GetACL":                   authenticated,
-	"/auth.API/SetACL":                   authenticated,
-	"/auth.API/RevokeAuthToken":          authenticated,
-	"/auth.API/GetGroups":                authenticated,
-	"/auth.API/SetConfiguration":         admin,
-	"/auth.API/ModifyAdmins":             admin,
-	"/auth.API/ModifyClusterRoleBinding": admin,
-	"/auth.API/ExtendAuthToken":          admin,
-	"/auth.API/SetGroupsForUser":         admin,
-	"/auth.API/ModifyMembers":            admin,
-	"/auth.API/GetUsers":                 admin,
-	"/auth.API/ExtractAuthTokens":        admin,
-	"/auth.API/RestoreAuthToken":         admin,
-	"/auth.API/Deactivate":               admin,
+	"/auth.API/GetConfiguration":  authenticated,
+	"/auth.API/CreateRoleBinding": authenticated,
+	"/auth.API/GetRoleBinding":    authenticated,
+	"/auth.API/ModifyRoleBinding": authenticated,
+	"/auth.API/DeleteRoleBinding": authenticated,
+	"/auth.API/RevokeAuthToken":   authenticated,
+	"/auth.API/GetGroups":         authenticated,
+	"/auth.API/GetAuthToken":      admin,
+	"/auth.API/SetConfiguration":  admin,
+	"/auth.API/ExtendAuthToken":   admin,
+	"/auth.API/SetGroupsForUser":  admin,
+	"/auth.API/ModifyMembers":     admin,
+	"/auth.API/GetUsers":          admin,
+	"/auth.API/ExtractAuthTokens": admin,
+	"/auth.API/RestoreAuthToken":  admin,
+	"/auth.API/Deactivate":        admin,
 
 	//
 	// Debug API

@@ -180,17 +180,18 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: pachhub/pachhub_getting_started.md
-            - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
-            - Deploy on AWS:
-                - Overview: deploy-manage/deploy/amazon_web_services/index.md
-                - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
-                - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
-                - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
-                - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
-            - Deploy on Azure: deploy-manage/deploy/azure.md
-            - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
-            - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-            - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+             - Deploy on ...:
+                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on AWS:
+                    - Overview: deploy-manage/deploy/amazon_web_services/index.md
+                    - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
+                    - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
+                    - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
+                    - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on Azure: deploy-manage/deploy/azure.md
+                - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
+                - Deploy on OpenShift: deploy-manage/deploy/openshift.md
+                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -206,13 +207,16 @@ nav:
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
+            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+            - Configure Ingress:
+                - Overview: deploy-manage/deploy/ingress/index.md
+                - Pachyderm UI (Dash) Ingress: deploy-manage/deploy/ingress/pach-ui-ingress.md            
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
             - Monitor your cluster metrics with Prometheus: 
                 - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
                 - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
                 - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
-            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
             - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
