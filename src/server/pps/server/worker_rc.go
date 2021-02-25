@@ -825,26 +825,6 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 		}
 	}
 
-	// Generate pipeline's auth token & add pipeline to the ACLs of input/output
-	// repos
-	pachClient := a.env.GetPachClient(ctx)
-	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-			Subject: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
-			TTL:     -1,
-		})
-		if err != nil {
-			if auth.IsErrNotActivated(err) {
-				return nil // no auth work to do
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		ptr.AuthToken = tokenResp.Token
-		return nil
-	}); err != nil {
-		return err
-	}
-
 	// True if the pipeline has a git input
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
