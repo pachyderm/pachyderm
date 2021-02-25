@@ -1,9 +1,10 @@
-<!-- at the end of the HEAD -->
+<!-- at the end of the HEAD - Algolia snippet 1-->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
   {% import "partials/language.html" as lang with context %}
   
 <style>
 
+/* Adaptative display depending on screen size */ 
 @media all and (min-width: 768px) {
 .algolia-autocomplete .ds-dropdown-menu {
   width: 700px;
@@ -17,7 +18,7 @@
   }
 }
 
-
+/* Search formatting section */
 .algolia-autocomplete .algolia-docsearch-suggestion--category-header {
   color: rgb(62, 56, 64);
   font-size: 12px !important;
@@ -29,7 +30,6 @@
   color: rgb(62, 56, 64);
   box-shadow: none !important;
 }
-
 
 .algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column {
   color: rgb(62, 56, 64);
@@ -70,24 +70,7 @@
 .algolia-autocomplete .algolia-docsearch-suggestion--category-header .algolia-docsearch-suggestion--category-header-lvl0 .algolia-docsearch-suggestion--highlight {
   box-shadow: inset 0 -2px 0 0 #fff;
 }
-
-
 </style>
-  <!--div class="md-search">
-    <label class="md-search__overlay" for="__search"></label>
-    <div class="md-search__inner" role="search">
-        <input type="text" class="md-search__input" name="query" aria-label="{{ lang.t('search.placeholder') }}" 
-        placeholder="{{ lang.t('search.placeholder') }}" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" 
-        required>
-        <label class="md-search__icon md-icon" for="__search">
-          {% include ".icons/material/magnify.svg" %}
-          {% include ".icons/material/arrow-left.svg" %}
-        </label>
-       
-      </form>
-    </div>
-  </div-->
-
 
   <div class="md-search" data-md-component="search" role="dialog">
     <label class="md-search__overlay" for="__search"></label>
@@ -106,7 +89,7 @@
     </div>
   </div>
 
-<!-- at the end of the BODY -->
+<!-- at the end of the BODY - Algolia snippet 2-->
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
 <script type="text/javascript"> 
 function debounce(fn, delay) {
