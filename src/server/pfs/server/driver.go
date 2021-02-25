@@ -3943,29 +3943,34 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr != nil {
-				retErr = err
-			}
-		}
-	}()
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
-	var found bool
-	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil {
+	if err := func() (retErr error) {
+		defer func() {
+			for _, r := range rs {
+				if err := r.Close(); retErr != nil {
+					retErr = err
+				}
+			}
+		}()
+		var found bool
+		if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+			if node.FileNode == nil {
+				return nil
+			}
+			blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
+			totalSize += node.SubtreeSize
+			found = true
 			return nil
+		}); err != nil {
+			return err
 		}
-		blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
-		totalSize += node.SubtreeSize
-		found = true
+		if !found {
+			return pfsserver.ErrFileNotFound{file}
+		}
 		return nil
-	}); err != nil {
+	}(); err != nil {
 		return nil, err
-	}
-	if !found {
-		return nil, pfsserver.ErrFileNotFound{file}
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
@@ -5031,4 +5036,20 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		return false, "", "", err
 	}
 	return oneOff, repo, branch, nil
+}
+
+func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
+	info, err := pachClient.InspectObject(object.Hash)
+	if err != nil {
+		return nil, err
+	}
+	path, err := BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return nil, err
+	}
+	offset, size, err := getTreeRange(pachClient.Ctx(), d.objClient, path, prefix)
+	if err != nil {
+		return nil, err
+	}
+	return d.objClient.Reader(pachClient.Ctx(), path, offset, size)
 }
