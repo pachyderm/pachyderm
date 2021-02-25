@@ -1,0 +1,127 @@
+<!-- at the end of the HEAD - Algolia snippet 1-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
+  {% import "partials/language.html" as lang with context %}
+  
+<style>
+
+/* Adaptative display depending on screen size */ 
+@media all and (min-width: 768px) {
+.algolia-autocomplete .ds-dropdown-menu {
+  width: 700px;
+}
+}
+
+@media all and (max-width: 768px) {
+  .algolia-autocomplete .ds-dropdown-menu {
+    min-width: auto;
+    width: auto;
+  }
+}
+
+/* Search formatting section */
+.algolia-autocomplete .algolia-docsearch-suggestion--category-header {
+  color: rgb(62, 56, 64);
+  font-size: 12px !important;
+  font-weight: bold;
+  border-bottom: 1px solid rgb(62, 56, 64);
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--category-header  > span > .algolia-docsearch-suggestion--highlight {
+  color: rgb(62, 56, 64);
+  box-shadow: none !important;
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column {
+  color: rgb(62, 56, 64);
+  font-weight: lighter;
+  font-size: 11px !important;
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--title {
+  color: #000;
+  font-size: 11px !important;
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--text {
+  font-size: 10px !important;
+  font-weight: normal;
+  color: rgb(62, 56, 64);
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column-text > .algolia-docsearch-suggestion--highlight {
+  color: rgb(62, 56, 64);
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--title > .algolia-docsearch-suggestion--highlight {
+  box-shadow: inset 0 -2px 0 0 rgb(88, 47, 107);
+  color: rgb(88, 47, 107);
+}
+
+.algolia-autocomplete .algolia-docsearch-suggestion--text > .algolia-docsearch-suggestion--highlight {
+  box-shadow: inset 0 -2px 0 0 rgb(88, 47, 107);
+  color: rgb(88, 47, 107);
+}
+
+/* If you're using your own paid Algolia account and run the crawler yourself, you don't have to keep the logo.*/
+.algolia-autocomplete .algolia-docsearch-footer--logo {
+  background-size: 50%;
+} */
+
+.algolia-autocomplete .algolia-docsearch-suggestion--category-header .algolia-docsearch-suggestion--category-header-lvl0 .algolia-docsearch-suggestion--highlight {
+  box-shadow: inset 0 -2px 0 0 #fff;
+}
+</style>
+
+  <div class="md-search" data-md-component="search" role="dialog">
+    <label class="md-search__overlay" for="__search"></label>
+    <div class="md-search__inner" role="search">
+      <form class="md-search__form" name="search">
+        <input type="text" class="md-search__input" name="query" aria-label="{{ lang.t('search.placeholder') }}" placeholder="{{ lang.t('search.placeholder') }}" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" 
+        data-md-component="search-query" data-md-state="active" required>
+        <label class="md-search__icon md-icon" for="__search">
+          {% include ".icons/material/magnify.svg" %}
+          {% include ".icons/material/arrow-left.svg" %}
+        </label>
+        <button type="reset" class="md-search__icon md-icon" aria-label="{{ lang.t('search.reset') }}" tabindex="-1">
+          {% include ".icons/material/close.svg" %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+<!-- at the end of the BODY - Algolia snippet 2-->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
+<script type="text/javascript"> 
+function debounce(fn, delay) {
+  var timer = null;
+  return function () {
+    var context = this, args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      fn.apply(context, args);
+    }, delay);
+  };
+}
+docsearch({
+  apiKey: '1c5a1f36b613b96581249c08896a3979',
+  //appId: 'OT2DE719FU',
+  //apiKey: 'a0022a8adad0c9e7651399e97f95af0b',
+  indexName: 'pachyderm',
+  inputSelector: '.md-search__input',
+  algoliaOptions: { 
+    'facetFilters': ["version:{{ config.search_index_version }}"],
+    hitsPerPage: 10,
+    clickAnalytics: true
+  },
+  queryHook: debounce(function (query) {
+    rudderanalytics.track(
+      "search",
+      {
+        term:  query
+      }
+    );
+  }, 3000),
+  debug: true
+});
+</script>
+  
