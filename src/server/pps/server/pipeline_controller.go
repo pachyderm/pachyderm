@@ -413,7 +413,7 @@ func (op *pipelineOp) createPipelineResources() error {
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
 	op.stopCrashingPipelineMonitor()
-	op.m.startMonitor(op.pipelineInfo)
+	op.m.startMonitor(op.pipelineInfo, op.ptr)
 }
 
 func (op *pipelineOp) startCrashingPipelineMonitor() {
