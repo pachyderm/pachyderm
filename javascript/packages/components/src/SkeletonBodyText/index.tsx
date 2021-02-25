@@ -1,1 +1,1 @@
-export {SkeletonBodyText} from './SkeletonBodyText';
+export {default as SkeletonBodyText} from './SkeletonBodyText';
