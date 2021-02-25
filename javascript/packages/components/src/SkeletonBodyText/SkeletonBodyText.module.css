@@ -1,6 +1,6 @@
 @keyframes shimmer {
   from {
-    opacity: 0;
+    opacity: 0.2;
   }
 
   to {
@@ -8,9 +8,14 @@
   }
 }
 
-.skeletonBodyTextContainer {
-  backface-visibility: hidden;
-  animation: shimmer .8s linear infinite alternate;
+@keyframes waveShimmer {
+ 0% {
+   background-position: -400px 0;
+ }
+ 
+ 100% {
+   background-position: 400px 0; 
+ }
 }
 
 .skeletonBodyText {
@@ -39,7 +44,16 @@
   bottom: 0;
   left: 0;
   display: block;
-  background-color: var(--dropshadow-grey);
   border-radius: 3px;
+  background-color: var(--line-grey);
+  background-image: linear-gradient(
+    to right,
+    var(--line-grey) 0%,
+    var(--border-grey) 20%,
+    var(--line-grey) 40%,
+    var(--line-grey) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 100px; 
+  animation: waveShimmer 1s linear 0s infinite normal forwards
 }
-
