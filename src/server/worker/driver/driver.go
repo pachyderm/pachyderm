@@ -276,14 +276,14 @@ func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
-		return 0, errors.EnsureStack(err)
-	}
-	numWorkers := pipelinePtr.Parallelism
-	if numWorkers == 0 {
-		numWorkers = 1
-	}
+	//pipelinePtr := &pps.EtcdPipelineInfo{}
+	//if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
+	//	return 0, errors.EnsureStack(err)
+	//}
+	numWorkers := 1 //pipelinePtr.Parallelism
+	//if numWorkers == 0 {
+	//	numWorkers = 1
+	//}
 	return int64(numWorkers), nil
 }
 

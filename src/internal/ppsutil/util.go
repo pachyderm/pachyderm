@@ -156,6 +156,7 @@ func GetPipelineInfoAllowIncompleteNoEtcd(pachClient *client.APIClient, name, sp
 			Name: name,
 		}
 	}
+	result.Version = 1
 	//result.State = ptr.State
 	//result.Reason = ptr.Reason
 	//result.JobCounts = ptr.JobCounts
@@ -386,23 +387,23 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	if jobPtr.State == pps.JobState_JOB_FAILURE {
 		return errors.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
 	}
-
-	// Update pipeline
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
-	if pipelinePtr.JobCounts == nil {
-		pipelinePtr.JobCounts = make(map[int32]int32)
-	}
-	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-		pipelinePtr.JobCounts[int32(jobPtr.State)]--
-	}
-	pipelinePtr.JobCounts[int32(state)]++
-	pipelinePtr.LastJobState = state
-	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
+	/*
+		// Update pipeline
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+			return err
+		}
+		if pipelinePtr.JobCounts == nil {
+			pipelinePtr.JobCounts = make(map[int32]int32)
+		}
+		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+		}
+		pipelinePtr.JobCounts[int32(state)]++
+		pipelinePtr.LastJobState = state
+		if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+			return err
+		}*/
 
 	// Update job info
 	var err error

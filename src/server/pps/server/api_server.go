@@ -850,16 +850,22 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		return nil, errors.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", jobPtr.Job.ID)
 	}
 	result.SpecCommit = specCommit
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return nil, err
-	}
+	/*
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil { //Pipeline Reference
+			return nil, err
+		}
+	*/
+
 	// Override the SpecCommit for the pipeline to be what it was when this job
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
-	pipelinePtr.SpecCommit = specCommit
+
+	// pipelinePtr.SpecCommit = specCommit
+	// Need to pull the following from the CRD
+
 	if full {
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
+		pipelineInfo, err := ppsutil.GetPipelineInfoNoEtcd(pachClient, jobPtr.Pipeline.Name, specCommit.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -884,6 +890,8 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		result.PodSpec = pipelineInfo.PodSpec
 		result.PodPatch = pipelineInfo.PodPatch
 	}
+	// End CRD Pull
+
 	return result, nil
 }
 
@@ -2616,13 +2624,13 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 		return nil // shouldn't happen
 	}
 	if pipeline == nil {
-		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(name string) error {
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(name string) error { //Pipeline reference
 			return forEachPipeline(name)
 		}); err != nil {
 			return err
 		}
 	} else {
-		if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(pipeline.Name, p); err != nil {
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(pipeline.Name, p); err != nil { //Pipeline reference
 			if col.IsErrNotFound(err) {
 				return errors.Errorf("pipeline \"%s\" not found", pipeline.Name)
 			}
@@ -2645,7 +2653,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := a.pipelines.ReadOnly(ctx).List(pipelinePtr, col.DefaultOptions, func(pipelineName string) error {
+		if err := a.pipelines.ReadOnly(ctx).List(pipelinePtr, col.DefaultOptions, func(pipelineName string) error { //Pipeline Reference
 			request.Pipeline.Name = pipelineName
 			_, err := a.deletePipeline(pachClient, request)
 			return err
@@ -2683,7 +2691,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Check if there's an EtcdPipelineInfo for this pipeline. If not, we can't
 	// authorize, and must return something here
 	pipelinePtr := pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
+	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil { //Pipeline reference
 		if col.IsErrNotFound(err) {
 			if err := a.cleanUpSpecBranch(pachClient, request.Pipeline.Name); err != nil {
 				return nil, err

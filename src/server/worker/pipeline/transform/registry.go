@@ -247,6 +247,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	if err != nil {
 		return err
 	}
+	jobInfo.PipelineVersion = 1
 	switch {
 	case commitInfo.Finished != nil:
 		if !ppsutil.IsTerminal(jobInfo.State) {
