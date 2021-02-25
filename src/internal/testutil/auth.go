@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -36,7 +37,9 @@ func ActivateAuth(tb testing.TB) {
 	// Activate auth for PPS
 	client = client.WithCtx(context.Background())
 	client.SetAuthToken(RootToken)
-	_, err = client.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
+	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(tb, err)
+	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
 	require.NoError(tb, err)
 }
 

@@ -143,6 +143,21 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 	return d, nil
 }
 
+func (d *driver) activateAuth(txnCtx *txnenv.TransactionContext) error {
+	repos := d.repos.ReadOnly(txnCtx.ClientContext)
+	repoInfo := &pfs.RepoInfo{}
+	return repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+		err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: repoInfo.Repo.Name,
+		})
+		if err != nil && !col.IsErrExists(err) {
+			return err
+		}
+		return nil
+	})
+}
+
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Validate arguments
 	if repo == nil {
@@ -198,13 +213,8 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		if authIsActivated {
 			// Create ACL for new repo. Make caller the sole owner. If the ACL already
 			// exists with a different owner, this will fail.
-			_, err := txnCtx.Auth().ModifyRoleBindingInTransaction(txnCtx, &auth.ModifyRoleBindingRequest{
-				Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
-				Principal: whoAmI.Username,
-				Roles:     []string{auth.RepoOwnerRole},
-			})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
+			if err := txnCtx.Auth().CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo \"%s\"", repo.Name)
 			}
 		}
 		return repos.Create(repo.Name, &pfs.RepoInfo{

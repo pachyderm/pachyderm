@@ -332,6 +332,9 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
+func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest, opts ...grpc.CallOption) (*pfs.ActivateAuthResponse, error) {
+	return nil, unsupportedError("ActivateAuth")
+}
 func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }
