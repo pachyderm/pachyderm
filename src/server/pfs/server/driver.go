@@ -3943,34 +3943,29 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		for _, r := range rs {
+			if err := r.Close(); err != nil && retErr != nil {
+				retErr = err
+			}
+		}
+	}()
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
-	if err := func() (retErr error) {
-		defer func() {
-			for _, r := range rs {
-				if err := r.Close(); retErr != nil {
-					retErr = err
-				}
-			}
-		}()
-		var found bool
-		if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-			if node.FileNode == nil {
-				return nil
-			}
-			blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
-			totalSize += node.SubtreeSize
-			found = true
+	var found bool
+	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+		if node.FileNode == nil {
 			return nil
-		}); err != nil {
-			return err
 		}
-		if !found {
-			return pfsserver.ErrFileNotFound{file}
-		}
+		blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
+		totalSize += node.SubtreeSize
+		found = true
 		return nil
-	}(); err != nil {
+	}); err != nil {
 		return nil, err
+	}
+	if !found {
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
