@@ -2505,6 +2505,10 @@ func TestDebug(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
+	// Activate auth at the beginning of the test, so pipelines are created with auth tokens.
+	// Otherwise when we activate auth the pps master will asynchronously update RCs with tokens,
+	// which can cause pods to stop existing while we collect the debug logs.
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
@@ -2569,7 +2573,6 @@ func TestDebug(t *testing.T) {
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
 	require.YesError(t, aliceClient.Dump(nil, 0, buf))
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	require.NoError(t, adminClient.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
