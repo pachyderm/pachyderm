@@ -10,6 +10,9 @@ Jupyter notebook as a service by adding a `service` field:
 
 ```json
 {
+    "pipeline": {
+      "name": "notebook"
+    },
     "input": {
         "pfs": {
             "glob": "/",
@@ -34,8 +37,10 @@ The service section specifies the following parameters:
 | Parameter         | Description   |
 | ----------------- | ------------- |
 | `"internal_port"` | The port that the code running inside the container binds to. |
-| `"external_port"` | The port that is exposed outside of the container. You must <br> set this value in the range of `30000 — 32767`. You can access the <br> service from any Kubernetes node through the following address: <br> `http://<kubernetes-host>:<external_port>`. |
+| `"external_port"` | The port that is exposed outside of the container. You must set this value in the range of `30000 — 32767`. You can access the service from any Kubernetes node through the following address: `http://<kubernetes-host>:<external_port>`. |
 
-!!! note "See Also:"
+!!! Info
+        The Service starts running *at the first commit* in the input repo.
 
-- [Service](../../../../reference/pipeline_spec/#service-optional)
+!!! Note "See Also:"    
+        - [Service](../../../../reference/pipeline_spec/#service-optional)
