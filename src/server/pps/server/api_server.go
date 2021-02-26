@@ -3221,6 +3221,11 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
 	}
 
+	// Set the permissions on the spec repo so the PPS user can write to it
+	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.PpsUser, []string{auth.RepoWriterRole}); err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
+	}
+
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	var pipelines []*pps.PipelineInfo

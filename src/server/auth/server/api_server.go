@@ -299,8 +299,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
-	// themselves as an admin. If activation failed in PFS, calling auth.Activate
-	// again should work (in this state, the only admin will be 'ppsUser')
+	// themselves as an admin.
 	if err := a.isActive(); err == nil {
 		return nil, auth.ErrAlreadyActivated
 	}
@@ -320,7 +319,6 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
 				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				auth.PpsUser:  &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			},
 		}); err != nil {
 			return err
