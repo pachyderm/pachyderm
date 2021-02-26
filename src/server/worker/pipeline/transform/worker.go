@@ -627,20 +627,26 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 	return grpcutil.NewStreamingBytesReader(getChunkClient, cancel), nil
 }
 
-func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64, stats bool) (io.ReadCloser, error) {
+func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree.MergeCache, chunkID string, info *HashtreeInfo, shard int64, stats bool) error {
 	if info.Address != "" {
-		reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.SubtaskID, shard, stats)
+		err := func() error {
+			reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.SubtaskID, shard, stats)
+			if err != nil {
+				return err
+			}
+			return cache.Put(chunkID, reader)
+		}()
 		if err == nil {
-			return reader, nil
+			return nil
 		}
 		logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Object, info.Address, err)
 	}
 
 	reader, err := driver.PachClient().DirectObjReader(info.Object)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return err
 	}
-	return reader, nil
+	return cache.Put(chunkID, reader)
 }
 
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) (retErr error) {
@@ -681,24 +687,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 				hashtreeInfo := hashtreeInfo
 				eg.Go(func() (retErr error) {
 					defer limiter.Release()
-					reader, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard, data.Stats)
-					if err != nil {
-						return err
-					}
-
-					defer func() {
-						if err := reader.Close(); retErr == nil {
-							retErr = err
-						}
-					}()
-
-					// TODO: this only works if it is read into a buffer first?
-					buf := &bytes.Buffer{}
-					if _, err := io.Copy(buf, reader); err != nil {
-						return errors.EnsureStack(err)
-					}
-
-					return errors.EnsureStack(cache.Put(chunkID, bytes.NewBuffer(buf.Bytes())))
+					return errors.EnsureStack(fetchChunk(driver, logger, cache, chunkID, hashtreeInfo, data.Shard, data.Stats))
 				})
 				downloadedChunks++
 			} else {
