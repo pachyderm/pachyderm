@@ -2505,9 +2505,10 @@ func TestDebug(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	// Activate auth at the beginning of the test, so pipelines are created with auth tokens.
-	// Otherwise when we activate auth the pps master will asynchronously update RCs with tokens,
-	// which can cause pods to stop existing while we collect the debug logs.
+	// Get all the authenticated clients at the beginning of the test.
+	// GetAuthenticatedPachClient will always re-activate auth, which
+	// causes PPS to rotate all the pipeline tokens. This makes the RCs
+	// change and recreates all the pods, which used to race with collecting logs.
 	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
