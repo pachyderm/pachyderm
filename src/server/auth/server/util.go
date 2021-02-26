@@ -27,7 +27,7 @@ func CheckClusterIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, p 
 	return nil
 }
 
-// CheckRepoIsAuthorizedInTransaction is identical to CheckIsAuthorized except that
+// CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func CheckRepoIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r string, p ...auth.Permission) error {
 	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
@@ -46,7 +46,7 @@ func CheckRepoIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r str
 	return nil
 }
 
-// CheckRepoIsAuthorizedInTransaction returns an error if the current user doesn't have
+// CheckRepoIsAuthorized returns an error if the current user doesn't have
 // the permissions in `p` on the repo `r`
 func CheckRepoIsAuthorized(pachClient *client.APIClient, r string, p ...auth.Permission) error {
 	ctx := pachClient.Ctx()
