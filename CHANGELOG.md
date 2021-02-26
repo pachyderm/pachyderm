@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.12.4
+
+- Changes to capture previous logs in debug dump (#5723)
+- Fixes a bug that causes pachctl commands to hang when metrics were disabled (#5724)
+- Changes to improve performance of file downloads and egress (#5744)
+- Fixes a bug that causes pachd to crash when collecting metrics (#5752)
+- Fixes a bug that would cause a job merge to hang when the job output metadata is not cached in the cluster (#5754)
+
+
 ## 1.12.3
 - Fixes a bug that does not return objects with paths that have a leading slash in S3 gateway requests (#5679)
 - Fixes a bug that causes intermittent pachd crashes (#5690)
