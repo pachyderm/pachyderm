@@ -1100,111 +1100,11 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		}
 	}
 
-	if opts.EtcdOpts.Nodes > 0 && opts.EtcdOpts.Volume != "" {
-		return errors.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
-	}
-
-	// In the dynamic route, we create a storage class which dynamically
-	// provisions volumes, and run etcd as a stateful set.
-	// In the static route, we create a single volume, a single volume
-	// claim, and run etcd as a replication controller with a single node.
-	if persistentDiskBackend == LocalBackend {
-		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
-			return err
-		}
-	} else if opts.EtcdOpts.Nodes > 0 {
-		// Create a StorageClass, if the user didn't provide one.
-		if opts.EtcdOpts.StorageClassName == "" {
-			sc, err := EtcdStorageClass(opts, persistentDiskBackend)
-			if err != nil {
-				return err
-			}
-			if sc != nil {
-				if err = encoder.Encode(sc); err != nil {
-					return err
-				}
-			}
-		}
-		if err := encoder.Encode(EtcdHeadlessService(opts)); err != nil {
-			return err
-		}
-		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
-			return err
-		}
-	} else if opts.EtcdOpts.Volume != "" {
-		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdOpts.Volume, volumeSize)
-		if err != nil {
-			return err
-		}
-		if err = encoder.Encode(volume); err != nil {
-			return err
-		}
-		if err = encoder.Encode(EtcdVolumeClaim(volumeSize, opts)); err != nil {
-			return err
-		}
-		if err = encoder.Encode(EtcdDeployment(opts, "")); err != nil {
-			return err
-		}
-	} else {
-		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
-	}
-	if err := encoder.Encode(EtcdNodePortService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+	if err := WriteEtcdAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
 		return err
 	}
 
-	if err := encoder.Encode(PostgresInitConfigMap(opts)); err != nil {
-		return err
-	}
-
-	// In the dynamic route, we create a storage class which dynamically
-	// provisions volumes, and run postgres as a stateful set.
-	// In the static route, we create a single volume, a single volume
-	// claim, and run postgres as a replication controller with a single node.
-	if persistentDiskBackend == LocalBackend {
-		if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
-			return err
-		}
-	} else if opts.PostgresOpts.Nodes > 0 {
-		// TODO: Add support for multiple Postgres pods?
-		if opts.PostgresOpts.Nodes > 1 {
-			return fmt.Errorf("--dynamic-postgres-nodes must be equal to 1")
-		}
-		// Create a StorageClass, if the user didn't provide one.
-		if opts.PostgresOpts.StorageClassName == "" {
-			sc, err := PostgresStorageClass(opts, persistentDiskBackend)
-			if err != nil {
-				return err
-			}
-			if sc != nil {
-				if err = encoder.Encode(sc); err != nil {
-					return err
-				}
-			}
-		}
-		if err := encoder.Encode(PostgresHeadlessService(opts)); err != nil {
-			return err
-		}
-		if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
-			return err
-		}
-	} else if opts.PostgresOpts.Volume != "" {
-		volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresOpts.Volume, volumeSize)
-		if err != nil {
-			return err
-		}
-		if err = encoder.Encode(volume); err != nil {
-			return err
-		}
-		if err = encoder.Encode(PostgresVolumeClaim(volumeSize, opts)); err != nil {
-			return err
-		}
-		if err = encoder.Encode(PostgresDeployment(opts, "")); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
-	}
-	if err := encoder.Encode(PostgresService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+	if err := WritePostgresAssets(encoder, opts, objectStoreBackend, persistentDiskBackend, volumeSize, hostPath); err != nil {
 		return err
 	}
 
@@ -1388,22 +1288,6 @@ func Images(opts *AssetOpts) []string {
 		pauseImage,
 		versionedPachdImage(opts),
 		opts.DashImage,
-	}
-}
-
-func labels(name string) map[string]string {
-	return map[string]string{
-		"app":   name,
-		"suite": suite,
-	}
-}
-
-func objectMeta(name string, labels, annotations map[string]string, namespace string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:        name,
-		Labels:      labels,
-		Annotations: annotations,
-		Namespace:   namespace,
 	}
 }
 

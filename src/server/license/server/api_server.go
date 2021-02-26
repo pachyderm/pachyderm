@@ -46,7 +46,7 @@ func (a *apiServer) LogReq(request interface{}) {
 
 // New returns an implementation of license.APIServer.
 func New(env *serviceenv.ServiceEnv, etcdPrefix string) (lc.APIServer, error) {
-	enterpriseToken := col.NewCollection(
+	enterpriseToken := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package common;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/collection/testing";
+
+message Foo {
+  string id = 1;
+  string name = 2;
+  string value = 3;
+}

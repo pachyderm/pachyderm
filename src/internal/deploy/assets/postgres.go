@@ -5,6 +5,8 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -46,6 +48,70 @@ type PostgresOpts struct {
 	// creating a StatefulSet for dynamic postgres storage. If unset, a new
 	// StorageClass will be created for the StatefulSet.
 	StorageClassName string
+}
+
+// WritePostgresAssets generates all of the postgres-related parts of the
+// kubernetes manifest according to the given options and writes it into the
+// given encoder.
+func WritePostgresAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Backend,
+	persistentDiskBackend Backend, volumeSize int,
+	hostPath string) error {
+	if err := encoder.Encode(PostgresInitConfigMap(opts)); err != nil {
+		return err
+	}
+
+	// In the dynamic route, we create a storage class which dynamically
+	// provisions volumes, and run postgres as a stateful set.
+	// In the static route, we create a single volume, a single volume
+	// claim, and run postgres as a replication controller with a single node.
+	if persistentDiskBackend == LocalBackend {
+		if err := encoder.Encode(PostgresDeployment(opts, hostPath)); err != nil {
+			return err
+		}
+	} else if opts.PostgresOpts.Nodes > 0 {
+		// TODO: Add support for multiple Postgres pods?
+		if opts.PostgresOpts.Nodes > 1 {
+			return errors.Errorf("--dynamic-postgres-nodes must be equal to 1")
+		}
+		// Create a StorageClass, if the user didn't provide one.
+		if opts.PostgresOpts.StorageClassName == "" {
+			sc, err := PostgresStorageClass(opts, persistentDiskBackend)
+			if err != nil {
+				return err
+			}
+			if sc != nil {
+				if err = encoder.Encode(sc); err != nil {
+					return err
+				}
+			}
+		}
+		if err := encoder.Encode(PostgresHeadlessService(opts)); err != nil {
+			return err
+		}
+		if err := encoder.Encode(PostgresStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+			return err
+		}
+	} else if opts.PostgresOpts.Volume != "" {
+		volume, err := PostgresVolume(persistentDiskBackend, opts, hostPath, opts.PostgresOpts.Volume, volumeSize)
+		if err != nil {
+			return err
+		}
+		if err = encoder.Encode(volume); err != nil {
+			return err
+		}
+		if err = encoder.Encode(PostgresVolumeClaim(volumeSize, opts)); err != nil {
+			return err
+		}
+		if err = encoder.Encode(PostgresDeployment(opts, "")); err != nil {
+			return err
+		}
+	} else {
+		return errors.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
+	}
+	if err := encoder.Encode(PostgresService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // PostgresDeployment generates a Deployment for the pachyderm postgres instance.
@@ -315,6 +381,19 @@ func PostgresStatefulSet(opts *AssetOpts, backend Backend, diskSpace int) interf
 			"volumeClaimTemplates": pvcTemplates,
 		},
 	}
+}
+
+// TestPostgresVolume creates a persistent volume for use with StatefulSets in a
+// local deployment (used by some tests).
+func TestPostgresVolume(opts *AssetOpts, hostPath string, volumeName string, size int) (*v1.PersistentVolume, error) {
+	volumeLabels := labels(postgresName)
+	volumeLabels["namespace"] = opts.Namespace
+	volume, err := makePersistentVolume(opts, LocalBackend, hostPath, "", size, volumeName, volumeLabels)
+	if err != nil {
+		return nil, err
+	}
+	volume.Spec.PersistentVolumeReclaimPolicy = v1.PersistentVolumeReclaimDelete
+	return volume, nil
 }
 
 // PostgresVolume creates a persistent volume backed by a volume with name "name"

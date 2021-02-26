@@ -24,7 +24,7 @@ const (
 	// https://github.com/grpc/grpc-go/blob/b2c5f4a808fd5de543c4e987cd85d356140ed681/Documentation/grpc-metadata.md)
 	traceMDKey = "pipeline-trace-duration-bin"
 
-	// TracesCollectionPrefix is the prefix associated with the 'traces'
+	// tracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
 	tracesCollectionPrefix = "commit_traces"
 
@@ -41,9 +41,9 @@ const (
 
 // TracesCol returns the etcd collection of extended traces
 func TracesCol(c *etcd.Client) col.Collection {
-	return col.NewCollection(c,
-		TracesCollectionPrefix,
-		[]*col.Index{CommitIDIndex, PipelineIndex},
+	return col.NewEtcdCollection(c,
+		tracesCollectionPrefix,
+		nil, // no indexes
 		&TraceProto{},
 		nil, // no key check (keys are pipeline names)
 		nil) // no val check

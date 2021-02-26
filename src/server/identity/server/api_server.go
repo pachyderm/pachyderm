@@ -63,7 +63,7 @@ func NewIdentityServer(env *serviceenv.ServiceEnv, sp StorageProvider, public bo
 		env:        env,
 		pachLogger: log.NewLogger("identity.API"),
 		api:        newDexAPI(sp, logger),
-		config: col.NewCollection(
+		config: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, configPrefix),
 			nil,

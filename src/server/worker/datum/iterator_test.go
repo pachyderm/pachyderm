@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -14,7 +14,7 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -329,7 +329,7 @@ func TestIterators(t *testing.T) {
 // Make work with V2.
 //func TestJoinTrailingSlash(t *testing.T) {
 //	t.Parallel()
-//	db := dbutil.NewTestDB(t)
+//	db := dbtesting.NewTestDB(t)
 //	require.NoError(t, testpachd.WithRealEnv(db, func(env *testpachd.RealEnv) error {
 //		c := env.PachClient
 //		repo := []string{ // singular name b/c we only refer to individual elements

@@ -7,32 +7,48 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func makeStorageClass(opts *AssetOpts, backend Backend, storageClassName string, storageClassLabels map[string]string) (interface{}, error) {
-	sc := map[string]interface{}{
-		"apiVersion": "storage.k8s.io/v1",
-		"kind":       "StorageClass",
-		"metadata": map[string]interface{}{
-			"name":      storageClassName,
-			"labels":    storageClassLabels,
-			"namespace": opts.Namespace,
+func labels(name string) map[string]string {
+	return map[string]string{
+		"app":   name,
+		"suite": suite,
+	}
+}
+
+func objectMeta(name string, labels, annotations map[string]string, namespace string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:        name,
+		Labels:      labels,
+		Annotations: annotations,
+		Namespace:   namespace,
+	}
+}
+
+func makeStorageClass(opts *AssetOpts, backend Backend, storageClassName string, storageClassLabels map[string]string) (*storagev1.StorageClass, error) {
+	allowVolumeExpansion := true
+	sc := &storagev1.StorageClass{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "StorageClass",
+			APIVersion: "storage.k8s.io/v1",
 		},
-		"allowVolumeExpansion": true,
+		ObjectMeta:           objectMeta(storageClassName, storageClassLabels, nil, opts.Namespace),
+		AllowVolumeExpansion: &allowVolumeExpansion,
 	}
 	switch backend {
 	case GoogleBackend:
-		sc["provisioner"] = "kubernetes.io/gce-pd"
-		sc["parameters"] = map[string]string{
-			"type": "pd-ssd",
-		}
+		sc.Provisioner = "kubernetes.io/gce-pd"
+		sc.Parameters = map[string]string{"type": "pd-ssd"}
 	case AmazonBackend:
-		sc["provisioner"] = "kubernetes.io/aws-ebs"
-		sc["parameters"] = map[string]string{
-			"type": "gp2",
-		}
+		sc.Provisioner = "kubernetes.io/aws-ebs"
+		sc.Parameters = map[string]string{"type": "gp2"}
+	case LocalBackend:
+		sc.Provisioner = "kubernetes.io/no-provisioner"
+		bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+		sc.VolumeBindingMode = &bindingMode
 	default:
 		return nil, nil
 	}

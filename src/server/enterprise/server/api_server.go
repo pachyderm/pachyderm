@@ -52,7 +52,7 @@ func (a *apiServer) LogReq(request interface{}) {
 // NewEnterpriseServer returns an implementation of ec.APIServer.
 func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
-	enterpriseTokenCol := col.NewCollection(
+	enterpriseTokenCol := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		etcdPrefix,
 		nil,
@@ -66,7 +66,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 		env:                  env,
 		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol, enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            col.NewCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
+		configCol:            col.NewEtcdCollection(env.GetEtcdClient(), etcdPrefix, nil, &ec.EnterpriseConfig{}, nil, nil),
 	}
 	go s.enterpriseTokenCache.Watch()
 	go s.heartbeatRoutine()

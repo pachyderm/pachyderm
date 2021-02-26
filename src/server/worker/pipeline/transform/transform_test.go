@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -309,7 +309,7 @@ func TestJobSuccessEgress(t *testing.T) {
 }
 
 func testJobSuccess(t *testing.T, pi *pps.PipelineInfo, files []tarutil.File) {
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, files)
@@ -342,7 +342,7 @@ func testJobSuccess(t *testing.T, pi *pps.PipelineInfo, files []tarutil.File) {
 
 func TestJobFailedDatum(t *testing.T) {
 	pi := defaultPipelineInfo()
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
@@ -360,7 +360,7 @@ func TestJobFailedDatum(t *testing.T) {
 
 func TestJobMultiDatum(t *testing.T) {
 	pi := defaultPipelineInfo()
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -398,7 +398,7 @@ func TestJobMultiDatum(t *testing.T) {
 
 func TestJobSerial(t *testing.T) {
 	pi := defaultPipelineInfo()
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
@@ -442,7 +442,7 @@ func TestJobSerial(t *testing.T) {
 
 func TestJobSerialDelete(t *testing.T) {
 	pi := defaultPipelineInfo()
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{

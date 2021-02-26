@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	dbtesting "github.com/pachyderm/pachyderm/v2/src/internal/dbutil/testing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -53,7 +53,7 @@ func pathRange(fileNames []string) *PathRange {
 }
 
 func Check(t *testing.T, permString string) {
-	db := dbutil.NewTestDB(t)
+	db := dbtesting.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	fileNames := Generate(permString)

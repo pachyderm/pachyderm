@@ -7,10 +7,10 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
-	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
 
 // PostgresModel is the interface that all models must fulfill to be used in a postgres collection
@@ -20,7 +20,7 @@ type PostgresModel interface {
 }
 
 type postgresCollection struct {
-	db         *gorm.DB
+	db         *sqlx.DB
 	model      PostgresModel
 	pkeyField  string
 	withFields map[string]interface{}
@@ -34,7 +34,7 @@ func getPrimaryKeyField(model interface{}) string {
 		field := mt.Field(i)
 
 		// Get the field tag value
-		tag := field.Tag.Get("gorm")
+		tag := field.Tag.Get("collection")
 
 		fmt.Printf("%d. %v (%v), tag: '%v'\n", i+1, field.Name, field.Type.Name(), tag)
 	}
@@ -42,21 +42,13 @@ func getPrimaryKeyField(model interface{}) string {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *gorm.DB, model PostgresModel) Collection {
+func NewPostgresCollection(db *sqlx.DB, model PostgresModel) Collection {
 	return &postgresCollection{
 		db:         db,
 		model:      model,
 		pkeyField:  getPrimaryKeyField(model),
 		withFields: make(map[string]interface{}),
 	}
-}
-
-func (c *postgresCollection) newQuery() *gorm.DB {
-	query := c.db.Model(c.model)
-	for field, value := range c.withFields {
-		query = query.Where(fmt.Sprintf("%s = ?", field), value)
-	}
-	return query
 }
 
 func (c *postgresCollection) With(field string, value interface{}) Collection {
@@ -98,9 +90,15 @@ func writeToProtobuf(result reflect.Value, val proto.Message) error {
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
+func (c *postgresReadOnlyCollection) Get(id string, val proto.Message) error {
+	row := c.db.QueryRow("select * from :table where :pkey = :id", map[string]string{
+		"table": c.model.TableName(),
+		"pkey":  c.pkeyField,
+		"id":    id,
+	})
+
 	result := reflect.New(reflect.TypeOf(c.model))
-	if err := c.newQuery().Where(fmt.Sprintf("%s = ?", c.pkeyField), key).First(&result).Error; err != nil {
+	if err := row.Scan(result); err != nil {
 		return err
 	}
 	return writeToProtobuf(result, val)
@@ -131,28 +129,32 @@ func targetToSQL(target etcd.SortTarget) (string, error) {
 }
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
-	return c.listInternal(c.newQuery(), val, opts, f)
+	return c.listInternal("select * from :table", map[string]string{
+		"table": c.model.TableName(),
+	}, val, opts, f)
 }
 
 func (c *postgresReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
-	query := c.newQuery()
-	query = query.Where(fmt.Sprintf("%s LIKE ?", c.pkeyField), prefix+"%")
-	return c.listInternal(query, val, opts, f)
+	return c.listInternal("select * from :table where :pkey like :prefix", map[string]string{
+		"table":  c.model.TableName(),
+		"pkey":   c.pkeyField,
+		"prefix": prefix,
+	}, val, opts, f)
 }
 
-func (c *postgresReadOnlyCollection) listInternal(query *gorm.DB, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *postgresReadOnlyCollection) listInternal(query string, parameters map[string]string, val proto.Message, opts *Options, f func(key string) error) error {
 	if opts.Order != etcd.SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
 			return err
 		} else if target, err := targetToSQL(opts.Target); err != nil {
 			return err
 		} else {
-			query = query.Order(fmt.Sprintf("%s %s", target, order))
+			query += fmt.Sprintf(" order %s %s", target, order)
 		}
 	}
 
 	result := reflect.New(reflect.TypeOf(c.model))
-	rows, err := query.Rows()
+	rows, err := c.db.NamedQuery(query, parameters)
 	if err != nil {
 		return err
 	}
@@ -177,11 +179,13 @@ func (c *postgresReadOnlyCollection) listInternal(query *gorm.DB, val proto.Mess
 }
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
+	row := c.db.QueryRow("select count(*) from :table", map[string]string{
+		"table": c.model.TableName(),
+	})
+
 	var result int64
-	if err := c.newQuery().Count(&result).Error; err != nil {
-		return 0, err
-	}
-	return result, nil
+	err := row.Scan(result)
+	return result, err
 }
 
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {

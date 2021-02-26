@@ -135,7 +135,7 @@ func NewAuthServer(
 	requireNoncriticalServers bool,
 ) (APIServer, error) {
 
-	authConfig := col.NewCollection(
+	authConfig := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, configKey),
 		nil,
@@ -143,7 +143,7 @@ func NewAuthServer(
 		nil,
 		nil,
 	)
-	roleBindings := col.NewCollection(
+	roleBindings := col.NewEtcdCollection(
 		env.GetEtcdClient(),
 		path.Join(etcdPrefix, roleBindingsPrefix),
 		nil,
@@ -155,7 +155,7 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API"),
-		tokens: col.NewCollection(
+		tokens: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
 			nil,
@@ -163,7 +163,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		members: col.NewCollection(
+		members: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
@@ -179,7 +179,7 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		oidcStates: col.NewCollection(
+		oidcStates: col.NewEtcdCollection(
 			env.GetEtcdClient(),
 			path.Join(oidcAuthnPrefix),
 			nil,
@@ -1357,7 +1357,7 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 
 	tokens := a.tokens.ReadOnly(ctx)
 	var val auth.TokenInfo
-	if err := tokens.List(&val, col.DefaultOptions, func(hash string) error {
+	if err := tokens.List(&val, col.DefaultOptions(), func(hash string) error {
 		// Only extract robot tokens
 		if !strings.HasPrefix(val.Subject, auth.RobotPrefix) {
 			return nil

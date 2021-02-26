@@ -86,7 +86,7 @@ var (
 )
 
 type repoModel struct {
-	Name        string `gorm:"primary_key"`
+	Name        string `collection:"primary_key"`
 	CreatedAt   *time.Time
 	SizeBytes   uint64
 	Description string
@@ -98,9 +98,9 @@ func (*repoModel) TableName() string {
 }
 
 type branchModel struct {
-	ID               uint   `gorm:"primaryKey,autoIncrement"`
-	RepoName         string `gorm:"index:idx_repo_branch,unique"`
-	BranchName       string `gorm:"index:idx_repo_branch,unique"`
+	ID               uint   `collection:"primaryKey,autoIncrement"`
+	RepoName         string `collection:"index:idx_repo_branch,unique"`
+	BranchName       string `collection:"index:idx_repo_branch,unique"`
 	HeadCommitID     string
 	Provenance       []string
 	Subvenance       []string
@@ -113,8 +113,8 @@ func (*branchModel) TableName() string {
 
 /*
 type commitModel struct {
-	RepoName string `gorm:"primary_key"`
-	CommitID string `gorm:"primary_key"`
+	RepoName string `collection:"primary_key"`
+	CommitID string `collection:"primary_key"`
 	ParentCommitID string
 	BranchName string
 
@@ -148,20 +148,12 @@ type commitModel struct {
   int64 subvenant_commits_success = 18;
   int64 subvenant_commits_failure = 19;
   int64 subvenant_commits_total = 20;
-	Sourcetype string `sql:"type:reftype" gorm:"primary_key"`
-	Source     string `gorm:"primary_key"`
-	Chunk      string `gorm:"primary_key"`
+	Sourcetype string `sql:"type:reftype" collection:"primary_key"`
+	Source     string `collection:"primary_key"`
+	Chunk      string `collection:"primary_key"`
 }
 
 func (*commitModel) TableName() string {
 	return commitTable
 }
 */
-
-func initializeDb(db *gorm.DB) error {
-	if err := db.AutoMigrate(&repoModel{}, &branchModel{}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
