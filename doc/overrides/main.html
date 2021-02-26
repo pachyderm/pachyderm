@@ -81,10 +81,59 @@
     font-size: .685rem;
     line-height: 24px
  }
+
+
+ 
  <!-- Announcement bar -->
 {% block announce %}
    <style>.md-announce a,.md-announce a:focus,.md-announce a:hover{color:currentColor}.md-announce strong{white-space:nowrap}.md-announce .twitter{margin-left:.2em;color:#00acee}.md-announce .md-link1{font-family:'Montserrat', sans-serif;color:white;font-weight:400;text-decoration:none;font-size:.685rem;line-height:24px;background:transparent;}</style>
+
+<style>
+.beta {
+  position: absolute;
+    top: -6px;
+    right: -8px;
+    padding: 1px 8px;
+    color: #fff;
+    background-color: #ce6767;
+    border-radius: 5px;
+    font-size: .5625rem;
+    pointer-events: none;
+    margin: 0px;
+    line-height: 1;
+}
+
+.hub-button {
+  padding: 2px 10px;
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    appearance: none;
+    transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border 300ms ease-in-out;
+    color: #582f6b;
+    border: 2px solid #3E3840;
+    border-radius: 4px;
+    margin: 8px 0px;
+    background-color: white;
+    position: absolute;
+    right: 22px;
+    top: 2px;
+    text-decoration: none !important;
+}
+body {
+    max-width: 1500px;
+    margin: auto;
+}
+</style>
+
+
+
    <a href="https://github.com/pachyderm/pachyderm/releases/tag/v{{ config.pach_latest_version }}" class="md-announce md-link1">
      Pachyderm {{ config.pach_featured_version }} is out! Download <strong>here.</strong>
    </a>
+   <div class="tx-hero" style="float:right">
+  
+  <a class="hub-button" href="https://hub.pachyderm.com">Try on Hub!
+    <span class="beta">Free</span></a>
+  </div>
 {% endblock %}
