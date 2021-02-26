@@ -627,13 +627,18 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 	return grpcutil.NewStreamingBytesReader(getChunkClient, cancel), nil
 }
 
-func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree.MergeCache, chunkID string, info *HashtreeInfo, shard int64, stats bool) error {
+func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree.MergeCache, chunkID string, info *HashtreeInfo, shard int64, stats bool) (retErr error) {
 	if info.Address != "" {
-		err := func() error {
+		err := func() (retErr error) {
 			reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.SubtaskID, shard, stats)
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := reader.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
 			return cache.Put(chunkID, reader)
 		}()
 		if err == nil {
@@ -646,6 +651,11 @@ func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree.
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := reader.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
 	return cache.Put(chunkID, reader)
 }
 
