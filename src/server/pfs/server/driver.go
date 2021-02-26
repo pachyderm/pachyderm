@@ -5032,3 +5032,19 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	return oneOff, repo, branch, nil
 }
+
+func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
+	info, err := pachClient.InspectObject(object.Hash)
+	if err != nil {
+		return nil, err
+	}
+	path, err := BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return nil, err
+	}
+	offset, size, err := getTreeRange(pachClient.Ctx(), d.objClient, path, prefix)
+	if err != nil {
+		return nil, err
+	}
+	return d.objClient.Reader(pachClient.Ctx(), path, offset, size)
+}
