@@ -1701,9 +1701,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
-			// If we get an `ErrNoRoleBinding` that means the output repo no longer exists - this can happen if we're removing dangling role bindings
-			// from input repos but the output repo is already gone.
-			if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
+			if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
 				return err
 			}
 			return nil
