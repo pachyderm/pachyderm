@@ -25,6 +25,9 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoOwnerRole:
@@ -41,6 +44,9 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoWriterRole:
@@ -55,6 +61,9 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	case auth.RepoReaderRole:
@@ -65,6 +74,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_PIPELINE_LIST_JOB,
 		}, nil
 	}

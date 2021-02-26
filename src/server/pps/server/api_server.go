@@ -1680,51 +1680,31 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	for repo := range remove {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{},
-					})
-				if isNotFoundErr(err) {
-					// can happen if input repo is force-deleted; nothing to remove
-					return nil
-				}
+			// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
+			if err := txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for repo := range add {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{auth.RepoReaderRole},
-					})
+			// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
+			if err := txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().ModifyRoleBindingInTransaction(
-					superTxnCtx,
-					&auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: pipelineName},
-						Principal: auth.PipelinePrefix + pipelineName,
-						Roles:     []string{auth.RepoWriterRole},
-					})
+			if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -2700,18 +2680,16 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		// If auth was deactivated after the pipeline was created, don't bother
 		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
-			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				// 'pipelineInfo' == nil => remove pipeline from all input repos
-				if err := a.fixPipelineInputRepoACLs(superUserClient.Ctx(), nil, pipelineInfo); err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-				_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
-					&auth.RevokeAuthTokenRequest{
-						Token: pipelinePtr.AuthToken,
-					})
-				return grpcutil.ScrubGRPC(err)
-			}); err != nil {
-				return nil, errors.Wrapf(err, "error revoking old auth token")
+			// 'pipelineInfo' == nil => remove pipeline from all input repos
+			if err := a.fixPipelineInputRepoACLs(pachClient.Ctx(), nil, pipelineInfo); err != nil {
+				return nil, grpcutil.ScrubGRPC(err)
+			}
+			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
+				&auth.RevokeAuthTokenRequest{
+					Token: pipelinePtr.AuthToken,
+				}); err != nil {
+
+				return nil, grpcutil.ScrubGRPC(err)
 			}
 		}
 	}

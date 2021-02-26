@@ -1121,6 +1121,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoWriter: []auth.Permission{
@@ -1133,6 +1136,9 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_DELETE_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 		repoReader: []auth.Permission{
@@ -1141,11 +1147,12 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_COMMIT,
 			auth.Permission_REPO_LIST_BRANCH,
 			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_FILE,
 		},
 	}
 	for _, info := range listResp.RepoInfo {
-		require.Equal(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
@@ -1154,7 +1161,7 @@ func TestListAndInspectRepo(t *testing.T) {
 				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
-		require.Equal(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
+		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
 	}
 }
 
@@ -2498,6 +2505,11 @@ func TestDebug(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
+	// Get all the authenticated clients at the beginning of the test.
+	// GetAuthenticatedPachClient will always re-activate auth, which
+	// causes PPS to rotate all the pipeline tokens. This makes the RCs
+	// change and recreates all the pods, which used to race with collecting logs.
+	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
@@ -2562,7 +2574,6 @@ func TestDebug(t *testing.T) {
 	// Only admins can collect a debug dump.
 	buf := &bytes.Buffer{}
 	require.YesError(t, aliceClient.Dump(nil, 0, buf))
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	require.NoError(t, adminClient.Dump(nil, 0, buf))
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
