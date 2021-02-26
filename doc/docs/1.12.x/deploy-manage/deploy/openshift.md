@@ -106,7 +106,7 @@ Don't yet deploy your manifest, come back here after you've set up your PV and o
 1. Determine your role security policy
 Pachyderm is deployed by default with cluster roles.
 Many institutional Openshift security policies require namespace-local roles rather than cluster roles.
-If your security policies require namespace-local roles, use the [`pachctl deploy` command below with the `--local-roles` flag](see below).
+If your security policies require namespace-local roles, use the `pachctl deploy` command below with the `--local-roles` flag (see below).
 
 1. Run the deploy command with --dry-run
 Once you have your PV, object store, and project, you can create a manifest for editing using the `--dry-run` argument to `pachctl deploy`.
