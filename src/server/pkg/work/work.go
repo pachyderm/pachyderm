@@ -229,6 +229,7 @@ func (m *Master) createSubtask(subtask *Task) error {
 func (m *Master) deleteSubtasks() error {
 	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
 		m.subtaskCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
+		m.claimCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
 		return nil
 	})
 	return err
@@ -237,6 +238,7 @@ func (m *Master) deleteSubtasks() error {
 func (tq *TaskQueue) deleteTask(taskID string) error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
+		tq.claimCol.ReadWrite(stm).DeleteAllPrefix(taskID)
 		return tq.taskCol.ReadWrite(stm).Delete(taskID)
 	})
 	return err
@@ -245,6 +247,7 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 func (tq *TaskQueue) deleteAllTasks() error {
 	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAll()
+		tq.claimCol.ReadWrite(stm).DeleteAll()
 		tq.taskCol.ReadWrite(stm).DeleteAll()
 		return nil
 	})
