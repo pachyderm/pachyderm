@@ -200,7 +200,6 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	}
 	if input.Group != nil {
 		metrics.InputGroup++
-		inputMetrics(input, metrics)
 		for _, item := range input.Group {
 			if item.Pfs != nil {
 				pfsInputMetrics(item.Pfs, metrics)
