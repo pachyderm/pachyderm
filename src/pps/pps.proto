@@ -788,6 +788,7 @@ service API {
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc CreatePipelineAndReturn(CreatePipelineRequest) returns (pfs.Commit) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}

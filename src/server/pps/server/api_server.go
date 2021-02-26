@@ -1856,6 +1856,39 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) CreatePipelineAndReturn(ctx context.Context, request *pps.CreatePipelineRequest) (response *pfs.Commit, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.validatePipelineRequest(request); err != nil {
+		return nil, err
+	}
+
+	// Annotate current span with pipeline & persist any extended trace to etcd
+	span := opentracing.SpanFromContext(ctx)
+	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+	}()
+	extended.PersistAny(ctx, a.env.GetEtcdClient(), request.Pipeline.Name)
+
+	var specCommit *pfs.Commit
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreatePipeline(request, &specCommit)
+	}); err != nil {
+		// attempt to clean up any commit we created
+		if specCommit != nil {
+			a.sudo(a.env.GetPachClient(ctx), func(superClient *client.APIClient) error {
+				return superClient.SquashCommit(ppsconsts.SpecRepo, specCommit.ID)
+			})
+		}
+		return nil, err
+	}
+	return specCommit, nil
+}
+
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContext, request *pps.CreatePipelineRequest, prevSpecCommit **pfs.Commit) error {
 	// Validate request
 	if err := a.validatePipelineRequest(request); err != nil {

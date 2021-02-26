@@ -614,6 +614,33 @@ func (c APIClient) CreatePipeline(
 	return grpcutil.ScrubGRPC(err)
 }
 
+func (c APIClient) CreatePipelineAndReturn(
+	name string,
+	image string,
+	cmd []string,
+	stdin []string,
+	parallelismSpec *pps.ParallelismSpec,
+	input *pps.Input,
+	outputBranch string,
+	update bool) (*pfs.Commit, error) {
+	commit, err := c.PpsAPIClient.CreatePipelineAndReturn(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: NewPipeline(name),
+			Transform: &pps.Transform{
+				Image: image,
+				Cmd:   cmd,
+				Stdin: stdin,
+			},
+			ParallelismSpec: parallelismSpec,
+			Input:           input,
+			OutputBranch:    outputBranch,
+			Update:          update,
+		},
+	)
+	return commit, grpcutil.ScrubGRPC(err)
+}
+
 // InspectPipeline returns info about a specific pipeline.
 func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(

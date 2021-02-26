@@ -724,6 +724,7 @@ type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.Datu
 type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*types.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*types.Empty, error)
+type createPipelineAndReturnFunc func(context.Context, *pps.CreatePipelineRequest) (*pfs.Commit, error)
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
 type listPipelineFunc func(context.Context, *pps.ListPipelineRequest) (*pps.PipelineInfos, error)
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*types.Empty, error)
@@ -750,6 +751,7 @@ type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
 type mockCreatePipeline struct{ handler createPipelineFunc }
+type mockCreatePipelineAndReturn struct{ handler createPipelineAndReturnFunc }
 type mockInspectPipeline struct{ handler inspectPipelineFunc }
 type mockListPipeline struct{ handler listPipelineFunc }
 type mockDeletePipeline struct{ handler deletePipelineFunc }
@@ -796,32 +798,33 @@ type ppsServerAPI struct {
 }
 
 type mockPPSServer struct {
-	api             ppsServerAPI
-	CreateJob       mockCreateJob
-	InspectJob      mockInspectJob
-	ListJob         mockListJob
-	FlushJob        mockFlushJob
-	DeleteJob       mockDeleteJob
-	StopJob         mockStopJob
-	UpdateJobState  mockUpdateJobState
-	InspectDatum    mockInspectDatum
-	ListDatum       mockListDatum
-	RestartDatum    mockRestartDatum
-	CreatePipeline  mockCreatePipeline
-	InspectPipeline mockInspectPipeline
-	ListPipeline    mockListPipeline
-	DeletePipeline  mockDeletePipeline
-	StartPipeline   mockStartPipeline
-	StopPipeline    mockStopPipeline
-	RunPipeline     mockRunPipeline
-	RunCron         mockRunCron
-	CreateSecret    mockCreateSecret
-	DeleteSecret    mockDeleteSecret
-	InspectSecret   mockInspectSecret
-	ListSecret      mockListSecret
-	DeleteAll       mockDeleteAllPPS
-	GetLogs         mockGetLogs
-	ActivateAuth    mockActivateAuthPPS
+	api                     ppsServerAPI
+	CreateJob               mockCreateJob
+	InspectJob              mockInspectJob
+	ListJob                 mockListJob
+	FlushJob                mockFlushJob
+	DeleteJob               mockDeleteJob
+	StopJob                 mockStopJob
+	UpdateJobState          mockUpdateJobState
+	InspectDatum            mockInspectDatum
+	ListDatum               mockListDatum
+	RestartDatum            mockRestartDatum
+	CreatePipeline          mockCreatePipeline
+	CreatePipelineAndReturn mockCreatePipelineAndReturn
+	InspectPipeline         mockInspectPipeline
+	ListPipeline            mockListPipeline
+	DeletePipeline          mockDeletePipeline
+	StartPipeline           mockStartPipeline
+	StopPipeline            mockStopPipeline
+	RunPipeline             mockRunPipeline
+	RunCron                 mockRunCron
+	CreateSecret            mockCreateSecret
+	DeleteSecret            mockDeleteSecret
+	InspectSecret           mockInspectSecret
+	ListSecret              mockListSecret
+	DeleteAll               mockDeleteAllPPS
+	GetLogs                 mockGetLogs
+	ActivateAuth            mockActivateAuthPPS
 }
 
 func (api *ppsServerAPI) CreateJob(ctx context.Context, req *pps.CreateJobRequest) (*pps.Job, error) {
@@ -887,6 +890,12 @@ func (api *ppsServerAPI) RestartDatum(ctx context.Context, req *pps.RestartDatum
 func (api *ppsServerAPI) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest) (*types.Empty, error) {
 	if api.mock.CreatePipeline.handler != nil {
 		return api.mock.CreatePipeline.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipeline")
+}
+func (api *ppsServerAPI) CreatePipelineAndReturn(ctx context.Context, req *pps.CreatePipelineRequest) (*pfs.Commit, error) {
+	if api.mock.CreatePipelineAndReturn.handler != nil {
+		return api.mock.CreatePipelineAndReturn.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipeline")
 }

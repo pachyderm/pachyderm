@@ -432,6 +432,9 @@ func (c *ppsBuilderClient) RestartDatum(ctx context.Context, req *pps.RestartDat
 func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
 }
+func (c *ppsBuilderClient) CreatePipelineAndReturn(ctx context.Context, req *pps.CreatePipelineRequest, opts ...grpc.CallOption) (*pfs.Commit, error) {
+	return nil, unsupportedError("CreatePipeline")
+}
 func (c *ppsBuilderClient) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest, opts ...grpc.CallOption) (*pps.PipelineInfo, error) {
 	return nil, unsupportedError("InspectPipeline")
 }
