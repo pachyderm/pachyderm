@@ -23,7 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -427,8 +427,23 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 }
 
 func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
-	return collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
+	if err := collectDebugFile(tw, "logs", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := stream.Close(); retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = io.Copy(w, stream)
+		return err
+	}, prefix...); err != nil {
+		return err
+	}
+	return collectDebugFile(tw, "logs-previous", func(w io.Writer) (retErr error) {
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream()
 		if err != nil {
 			return err
 		}
