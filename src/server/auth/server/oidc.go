@@ -1,6 +1,7 @@
 package server
 
 import (
+	gotls "crypto/tls"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	oidc "github.com/coreos/go-oidc"
@@ -398,6 +400,25 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 
 func (a *apiServer) serveOIDC() error {
 	// serve OIDC handler to exchange the auth code
-	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return http.ListenAndServe(fmt.Sprintf(":%v", a.env.OidcPort), nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%v", a.env.OidcPort),
+		Handler: mux,
+	}
+	certPath, keyPath, err := tls.GetCertPaths()
+	if err != nil {
+		logrus.Warnf("OIDC callback server - TLS disabled: %v", err)
+		return server.ListenAndServe()
+	}
+
+	cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+	err = cLoader.LoadAndStart()
+	if err != nil {
+		return errors.Wrapf(err, "couldn't load TLS cert for pfs-over-http: %v", err)
+	}
+
+	server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+	return server.ListenAndServeTLS(certPath, keyPath)
 }
