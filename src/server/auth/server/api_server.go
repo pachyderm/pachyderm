@@ -743,37 +743,19 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 		return nil, fmt.Errorf("cannot modify cluster role bindings for pach: users")
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
-	if err != nil {
-		return nil, err
-	}
-
 	// ModifyRoleBinding can be called for any type of resource,
 	// and the permission required depends on the type of resource.
-	var permissions []auth.Permission
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		permissions = []auth.Permission{auth.Permission_CLUSTER_ADMIN}
+		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_ADMIN); err != nil {
+			return nil, err
+		}
 	case auth.ResourceType_REPO:
-		permissions = []auth.Permission{auth.Permission_REPO_MODIFY_BINDINGS}
+		if err := CheckRepoIsAuthorizedInTransaction(txnCtx, req.Resource.Name, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("unknown resource type %v", req.Resource.Type)
-	}
-
-	// Check if the caller is authorized
-	authorized, err := a.AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-		Resource:    req.Resource,
-		Permissions: permissions,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !authorized.Authorized {
-		return nil, &auth.ErrNotAuthorized{
-			Subject:  callerInfo.Subject,
-			Resource: *req.Resource,
-			Required: permissions,
-		}
 	}
 
 	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
