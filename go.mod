@@ -35,7 +35,7 @@ require (
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grafana/loki v1.5.0
-	github.com/hanwen/go-fuse/v2 v2.0.2
+	github.com/hanwen/go-fuse/v2 v2.0.3
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
