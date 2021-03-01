@@ -1,4 +1,4 @@
-// source: mock/mock.proto
+// source: projects/projects.proto
 /**
  * @fileoverview
  * @enhanceable

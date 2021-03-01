@@ -1,5 +1,5 @@
 // package: mock
-// file: mock/mock.proto
+// file: projects/projects.proto
 
 /* tslint:disable */
 /* eslint-disable */
