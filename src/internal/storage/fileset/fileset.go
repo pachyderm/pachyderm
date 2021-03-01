@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"database/sql/driver"
 	"encoding/hex"
 	"io"
 
@@ -60,6 +61,11 @@ func (id *ID) Scan(src interface{}) error {
 	}
 	_, err := hex.Decode(id[:], x)
 	return err
+}
+
+// Value implements sql.Valuer
+func (id ID) Value() (driver.Value, error) {
+	return id.HexString(), nil
 }
 
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.
