@@ -1038,18 +1038,19 @@ formatted patch by diffing the two pod specs.
 Each PFS input needs to **specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/)**.
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
-consists of.  Datums are the unit of parallelism in Pachyderm.  Per default,
-Pachyderm autoscales its workers to process datums in parallel. 
-You can override this behaviour by setting your own paramenter
+consists of.  Datums are the *unit of parallelism* in Pachyderm.  
+Per default,
+Pachyderm auto-scales its workers to process datums in parallel. 
+You can override this behaviour by setting your own parameter
 (see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/)).
 
 Intuitively, you may think of the input repo as a file system, and you are
 applying the glob pattern to the root of the file system.  The files and
-directories that match the glob pattern are considered [datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/)
-and will be processed by the Pachyderm worker(s) that run your pipeline code.
+directories that match the glob pattern constitute the [datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/)
+that will be processed by the Pachyderm worker(s) that run your pipeline code.
 For instance, let's say your input repo has the following structure:
 
-```shell
+```
   /foo-1
   /foo-2
   /bar
@@ -1059,19 +1060,19 @@ For instance, let's say your input repo has the following structure:
 
 Now let's consider what the following glob patterns would match respectively:
 
-* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be one single large datum.
-* `/*`:  this pattern matches everything under the root directory. Here, the 3 following datums:
-`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
-* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
-* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
-* `/*/*`:  this pattern matches everything that's two levels deep relative
-to the root: `/bar/bar-1` and `/bar/bar-2`
-* `**`: this pattern adds recursivity to your match. Your match will be done at all level of your directory structure.
-Let's take a more detailed look in the following example.
+|Glob Pattern| Corresponding match|
+|-----------------|---------------------------------|
+| `/`| this pattern matches `/`, the root directory itself, meaning all the data would be one single large datum.|
+| `/*`|  this pattern matches everything under the root directory. Here, the 3 following datums: `/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.|
+| `/bar/*`| this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`.|
+| `/foo*`|  this pattern matches files under the root directory that start with the characters `foo`.|
+| `/*/*`|  this pattern matches everything that's two levels deep relative to the root: `/bar/bar-1` and `/bar/bar-2`.|
+| `**`| the match is applied at all levels of your directory structure. Let's look at the following example for more detail.|
+
 
 !!! Example
     Say we have the following repo structure:
-    ```shell
+    ```
       /nope1.txt
       /test1.txt
       /foo-1
@@ -1083,24 +1084,19 @@ Let's take a more detailed look in the following example.
           /test3.txt
           /anothertest.txt
     ```
-    and apply the following pattern to our input repo:
-    ```json
+    ...and apply the following pattern to our input repo:
+    ```
       "glob": "**test*.txt"
     ```
-    We are instructing pachyderm to **recursively match all `.txt` files containing `test`** starting from the root directory.
-    In this case, we will obtain the following datums:
+    We are **recursively matching all `.txt` files containing `test`** starting from the root directory of our input repo.
+    In this case, we will get the following datums:
     
-    ```shell
-    - /test1.txt
-    - /foo-1/test2.txt
-    - /foo-2/foo-2_1/test3.txt
-    - /foo-2/foo-2_1/anothertest.txt
     ```
-
-The datums are defined as whichever files or directories match the glob pattern. 
-For instance, if we used
-`/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
+      - /test1.txt
+      - /foo-1/test2.txt
+      - /foo-2/foo-2_1/test3.txt
+      - /foo-2/foo-2_1/anothertest.txt
+    ```
 
 ## PPS Mounts and File Access
 
