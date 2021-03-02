@@ -36,9 +36,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
+	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -329,17 +331,22 @@ func (m *ppsMaster) monitorPipeline(ctx context.Context, pipelineInfo *pps.Pipel
 		if pipelineInfo.ParallelismSpec.Constant > 1 {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
+					worker := work.NewWorker(
+						m.a.env.GetEtcdClient(),
+						m.a.etcdPrefix,
+						driver.WorkNamespace(pipelineInfo),
+					)
 					for {
-						pi, err := pachClient.InspectPipeline(pipeline)
+						unclaimedTasks, err := worker.UnclaimedTasks(pachClient.Ctx())
 						if err != nil {
 							return err
 						}
-						if pi.UnclaimedTasks > 0 {
+						if unclaimedTasks > 0 {
 							kubeClient := m.a.env.GetKubeClient()
 							namespace := m.a.namespace
 							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
 							scale, err := rc.GetScale(pipelineInfo.WorkerRc, metav1.GetOptions{})
-							n := int64(scale.Spec.Replicas) + pi.UnclaimedTasks
+							n := int64(scale.Spec.Replicas) + int64(unclaimedTasks)
 							if n > int64(pipelineInfo.ParallelismSpec.Constant) {
 								n = int64(pipelineInfo.ParallelismSpec.Constant)
 							}
