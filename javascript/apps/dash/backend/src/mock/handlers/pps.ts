@@ -11,7 +11,7 @@ const pps: Pick<IAPIServer, 'listPipeline'> = {
 
     // "tutorial" in this case represents the default/catch-all project in core pach
     reply.setPipelineInfoList(
-      projectId ? pipelines[projectId.toString()] : pipelines['tutorial'],
+      projectId ? pipelines[projectId.toString()] : pipelines['1'],
     );
 
     callback(null, reply);

@@ -5,6 +5,7 @@
 
 import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {JobState} from '@pachyderm/proto/pb/pps/pps_pb';
+import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
 import {GraphQLResolveInfo} from 'graphql';
 
 import {Context} from 'lib/types';
@@ -66,6 +67,8 @@ export type Input = {
 export {PipelineState};
 
 export {JobState};
+
+export {ProjectStatus};
 
 export type Pipeline = {
   __typename?: 'Pipeline';
@@ -150,8 +153,18 @@ export type DagQueryArgs = {
   projectId: Scalars['ID'];
 };
 
+export type Project = {
+  __typename?: 'Project';
+  id: Scalars['ID'];
+  name: Scalars['String'];
+  status: ProjectStatus;
+  description: Scalars['String'];
+  createdAt: Scalars['Int'];
+};
+
 export type Query = {
   __typename?: 'Query';
+  projects: Array<Project>;
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
   jobs: Array<Job>;
@@ -304,6 +317,7 @@ export type ResolversTypes = ResolversObject<{
   ID: ResolverTypeWrapper<Scalars['ID']>;
   PipelineState: PipelineState;
   JobState: JobState;
+  ProjectStatus: ProjectStatus;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   Int: ResolverTypeWrapper<Scalars['Int']>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
@@ -316,6 +330,7 @@ export type ResolversTypes = ResolversObject<{
   Link: ResolverTypeWrapper<Link>;
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
+  Project: ResolverTypeWrapper<Project>;
   Query: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
@@ -339,6 +354,7 @@ export type ResolversParentTypes = ResolversObject<{
   Link: Link;
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
+  Project: Project;
   Query: {};
   Mutation: {};
 }>;
@@ -438,6 +454,11 @@ export type JobStateResolvers = EnumResolverSignature<
     JOB_EGRESSING?: any;
   },
   ResolversTypes['JobState']
+>;
+
+export type ProjectStatusResolvers = EnumResolverSignature<
+  {HEALTHY?: any; UNHEALTHY?: any},
+  ResolversTypes['ProjectStatus']
 >;
 
 export type PipelineResolvers<
@@ -566,10 +587,27 @@ export type DagResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ProjectResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project']
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['ProjectStatus'], ParentType, ContextType>;
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
 > = ResolversObject<{
+  projects?: Resolver<
+    Array<ResolversTypes['Project']>,
+    ParentType,
+    ContextType
+  >;
   pipelines?: Resolver<
     Array<ResolversTypes['Pipeline']>,
     ParentType,
@@ -610,6 +648,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Input?: InputResolvers<ContextType>;
   PipelineState?: PipelineStateResolvers;
   JobState?: JobStateResolvers;
+  ProjectStatus?: ProjectStatusResolvers;
   Pipeline?: PipelineResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
@@ -618,6 +657,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Node?: NodeResolvers<ContextType>;
   Link?: LinkResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
+  Project?: ProjectResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;

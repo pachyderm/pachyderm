@@ -7,6 +7,7 @@ import {Server, ServerCredentials} from '@grpc/grpc-js';
 import {APIService as AuthService} from '@pachyderm/proto/pb/auth/auth_grpc_pb';
 import {APIService as PFSService} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {APIService as PPSService} from '@pachyderm/proto/pb/pps/pps_grpc_pb';
+import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
 import express from 'express';
 import {sign} from 'jsonwebtoken';
 
@@ -15,6 +16,7 @@ import openIdConfiguration from './fixtures/openIdConfiguration';
 import auth from './handlers/auth';
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';
+import projects from './handlers/projects';
 
 const grpcPort = 50051;
 const authPort = 30658;
@@ -27,6 +29,7 @@ const createServer = () => {
   grpcServer.addService(PPSService, pps);
   grpcServer.addService(PFSService, pfs);
   grpcServer.addService(AuthService, auth);
+  grpcServer.addService(ProjectsService, projects);
 
   authApp.get('/.well-known/openid-configuration', (_, res) => {
     return res.send(openIdConfiguration);

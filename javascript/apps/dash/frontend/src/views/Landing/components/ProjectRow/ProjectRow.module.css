@@ -1,0 +1,33 @@
+.button {
+  width: 10rem;
+  height: 2.625rem
+}
+
+.row {
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 3px;
+  height: 7.875rem;
+  width: 100%;
+  font-size: var(--font-size-body-medium);
+}
+
+.row td {
+  background-color: var(--white);
+  padding: 1.5rem 2rem;
+}
+
+.row td:first-child {
+  padding-left: 1.5rem;
+  border-radius: 3px 0 0 3px;
+}
+
+.row td:last-child {
+  padding-right: 1.5rem;
+  border-radius: 0 3px 3px 0;
+}
+
+.title {
+  color: var(--pachyderm-black);
+  font-size: 1rem;
+  line-height: 25px;
+}

@@ -4,6 +4,7 @@ import createCredentials from './createCredentials';
 import auth from './services/auth';
 import pfs from './services/pfs';
 import pps from './services/pps';
+import projects from './services/projects';
 
 const client = (address: string, authToken = '', projectId = '') => {
   const channelCredentials = createCredentials(address);
@@ -15,6 +16,7 @@ const client = (address: string, authToken = '', projectId = '') => {
   let pfsClient: ReturnType<typeof pfs> | undefined;
   let ppsClient: ReturnType<typeof pps> | undefined;
   let authClient: ReturnType<typeof auth> | undefined;
+  let projectsClient: ReturnType<typeof projects> | undefined;
 
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
@@ -37,6 +39,11 @@ const client = (address: string, authToken = '', projectId = '') => {
 
       authClient = auth(address, channelCredentials);
       return authClient;
+    },
+    projects: () => {
+      if (projectsClient) return projectsClient;
+      projectsClient = projects(address, channelCredentials);
+      return projectsClient;
     },
   };
 };

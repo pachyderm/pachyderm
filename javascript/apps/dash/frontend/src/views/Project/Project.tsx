@@ -1,12 +1,14 @@
 import React from 'react';
+import {useParams} from 'react-router';
 
 import {useDAGData} from 'hooks/useDAGData';
 
 import DAG from './components/DAG';
-import styles from './Home.module.css';
+import styles from './Project.module.css';
 
-const Home: React.FC = () => {
-  const {dag, loading, error} = useDAGData();
+const Project: React.FC = () => {
+  const {projectId} = useParams<{projectId: string}>();
+  const {dag, loading, error} = useDAGData(projectId);
 
   if (error) return <h1 className={styles.base}>{JSON.stringify(error)}</h1>;
   if (loading || !dag) return <h1 className={styles.base}>Loading...</h1>;
@@ -20,4 +22,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home;
+export default Project;

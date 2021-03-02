@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@apollo/client": "3.3.1",
-    "@pachyderm/components": "0.6.0",
+    "@pachyderm/components": "0.7.4",
     "@sentry/browser": "5.19.1",
     "classnames": "2.2.6",
     "d3": "6.3.1",
@@ -36,7 +36,7 @@
     "react-bootstrap": "1.1.1",
     "react-dom": "17.0.1",
     "react-helmet": "6.1.0",
-    "react-hook-form": "5.7.2",
+    "react-hook-form": "6.15.4",
     "react-router": "5.2.0",
     "react-router-dom": "5.2.0",
     "url-search-params-polyfill": "8.1.0"

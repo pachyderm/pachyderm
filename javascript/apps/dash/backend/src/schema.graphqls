@@ -32,7 +32,7 @@ type Input {
   gitInput: GitInput
 }
 
-#
+# This enum is replaced with the one from pps on type generation
 enum PipelineState {
   PIPELINE_STARTING
   PIPELINE_RUNNING
@@ -43,6 +43,7 @@ enum PipelineState {
   PIPELINE_CRASHING
 }
 
+# This enum is replaced with the one from pps on type generation
 enum JobState {
   JOB_STARTING
   JOB_RUNNING
@@ -51,6 +52,12 @@ enum JobState {
   JOB_KILLED
   JOB_MERGING
   JOB_EGRESSING
+}
+
+# This enum is replaced with the one from projects on type generation
+enum ProjectStatus {
+  HEALTHY
+  UNHEALTHY
 }
 
 type Pipeline {
@@ -132,7 +139,16 @@ input DagQueryArgs {
   projectId: ID!
 }
 
+type Project {
+  id: ID!
+  name: String!
+  status: ProjectStatus!
+  description: String!
+  createdAt: Int!
+}
+
 type Query {
+  projects: [Project!]!
   pipelines: [Pipeline!]!
   repos: [Repo!]!
   jobs: [Job!]!

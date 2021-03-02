@@ -1,0 +1,11 @@
+.table {
+  width: 100%;
+  border-collapse: separate; 
+  border-spacing: 0 1rem;
+}
+.wrapper {
+  background-color: var(--background-grey);
+  padding-left: 2rem;
+  padding-right: 1rem;
+  height: 100%;
+}

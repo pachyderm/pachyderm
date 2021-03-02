@@ -21,7 +21,7 @@ describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
     const {dag} = await query<{dag: Dag}>`
       query getDag {
-        dag(args: {projectId: "tutorial"}) {
+        dag(args: {projectId: "1"}) {
           nodes {
             name
             type
@@ -58,7 +58,7 @@ describe('Dag resolver', () => {
   it('should resolve disconnected components of a dag', async () => {
     const {dags} = await query<{dags: Dag[]}>`
       query getDags {
-        dags(args: {projectId: "customerTeam"}) {
+        dags(args: {projectId: "2"}) {
           nodes {
             name
             type

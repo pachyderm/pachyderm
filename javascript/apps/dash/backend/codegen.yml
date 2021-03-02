@@ -5,6 +5,7 @@ generates:
       enumValues:
         PipelineState: \@pachyderm/proto/pb/pps/pps_pb#PipelineState
         JobState: \@pachyderm/proto/pb/pps/pps_pb#JobState
+        ProjectStatus: \@pachyderm/proto/pb/projects/projects_pb#ProjectStatus
       contextType: lib/types#Context
       useIndexSignature: true
     hooks:
