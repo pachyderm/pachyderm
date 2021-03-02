@@ -84,6 +84,11 @@ pachd:
     create: true
     name: pachyderm-worker #TODO Set default in helpers
 
+worker:
+  image:
+    repository: pachyderm/worker
+    tag: "1.11.3"
+
 etcd:
   image:
     repository: pachyderm/etcd

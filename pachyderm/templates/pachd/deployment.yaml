@@ -40,7 +40,7 @@ spec:
           value: /var/pachyderm/pachd
           {{ end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
+          value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
         - name: IMAGE_PULL_SECRET
           #value:
         - name: WORKER_SIDECAR_IMAGE
