@@ -45,6 +45,7 @@ import (
 )
 
 const crashingBackoff = time.Second * 15
+const scaleUpInterval = time.Second * 30
 
 //////////////////////////////////////////////////////////////////////////////
 //                     Locking Functions                                    //
@@ -373,7 +374,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 								}
 							}
 						}
-						time.Sleep(time.Second * 5)
+						time.Sleep(scaleUpInterval)
 					}
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
