@@ -2,12 +2,11 @@ package client
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
+	"sort"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -375,45 +374,18 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 	return grpcutil.ScrubGRPC(err)
 }
 
-// DeleteCommit deletes a commit.
-func (c APIClient) DeleteCommit(repoName string, commitID string) error {
-	_, err := c.PfsAPIClient.DeleteCommit(
+// SquashCommit deletes a commit.
+func (c APIClient) SquashCommit(repoName string, commitID string) error {
+	_, err := c.PfsAPIClient.SquashCommit(
 		c.Ctx(),
-		&pfs.DeleteCommitRequest{
+		&pfs.SquashCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-// FlushCommit returns an iterator that returns commits that have the
-// specified `commits` as provenance.  Note that the iterator can block if
-// jobs have not successfully completed. This in effect waits for all of the
-// jobs that are triggered by a set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those
-// repos will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushCommit to run jobs, they'll
-// run no matter what, FlushCommit just allows you to wait for them to
-// complete and see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
-	stream, err := c.PfsAPIClient.FlushCommit(
-		ctx,
-		&pfs.FlushCommitRequest{
-			Commits: commits,
-			ToRepos: toRepos,
-		},
-	)
-	if err != nil {
-		cancel()
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &commitInfoIterator{stream, cancel}, nil
-}
-
-// FlushCommitF calls f with commits that have the specified `commits` as
+// FlushCommit calls cb with commits that have the specified `commits` as
 // provenance. Note that it can block if jobs have not successfully
 // completed. This in effect waits for all of the jobs that are triggered by a
 // set of commits to complete.
@@ -424,8 +396,11 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
 // no matter what, FlushCommitF just allows you to wait for them to complete and
 // see their output once they do.
-func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
-	stream, err := c.PfsAPIClient.FlushCommit(
+func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, cb func(*pfs.CommitInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.FlushCommit(
 		c.Ctx(),
 		&pfs.FlushCommitRequest{
 			Commits: commits,
@@ -433,17 +408,20 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 		},
 	)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		ci, err := stream.Recv()
+		ci, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return grpcutil.ScrubGRPC(err)
+			return err
 		}
-		if err := f(ci); err != nil {
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
 			return err
 		}
 	}
@@ -461,46 +439,27 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 // no matter what, FlushCommitAll just allows you to wait for them to complete and
 // see their output once they do.
 func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
-	var result []*pfs.CommitInfo
-	if err := c.FlushCommitF(commits, toRepos, func(ci *pfs.CommitInfo) error {
-		result = append(result, ci)
+	var cis []*pfs.CommitInfo
+	if err := c.FlushCommit(commits, toRepos, func(ci *pfs.CommitInfo) error {
+		cis = append(cis, ci)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
-}
-
-// CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
-type CommitInfoIterator interface {
-	Next() (*pfs.CommitInfo, error)
-	Close()
-}
-
-type commitInfoIterator struct {
-	stream pfs.API_SubscribeCommitClient
-	cancel context.CancelFunc
-}
-
-func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
-	return c.stream.Recv()
-}
-
-func (c *commitInfoIterator) Close() {
-	c.cancel()
-	// according to this thread it's necessary to drain a server-side stream before closing
-	// https://github.com/grpc/grpc-go/issues/188
-	for {
-		if _, err := c.stream.Recv(); err != nil {
-			break
-		}
+	if len(cis) > 0 {
+		sort.Slice(cis, func(i, j int) bool {
+			return len(cis[i].Provenance) < len(cis[j].Provenance)
+		})
 	}
+	return cis, nil
 }
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState) (CommitInfoIterator, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
+func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, cb func(*pfs.CommitInfo) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
@@ -510,37 +469,23 @@ func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenan
 	if from != "" {
 		req.From = NewCommit(repo, from)
 	}
-	stream, err := c.PfsAPIClient.SubscribeCommit(ctx, req)
+	client, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
 	if err != nil {
-		cancel()
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &commitInfoIterator{stream, cancel}, nil
-}
-
-// SubscribeCommitF is like ListCommit but it calls a callback function with
-// the results rather than returning an iterator.
-func (c APIClient) SubscribeCommitF(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
-	req := &pfs.SubscribeCommitRequest{
-		Repo:   NewRepo(repo),
-		Branch: branch,
-		Prov:   prov,
-		State:  state,
-	}
-	if from != "" {
-		req.From = NewCommit(repo, from)
-	}
-	stream, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	for {
-		ci, err := stream.Recv()
+		ci, err := client.Recv()
 		if err != nil {
-			return grpcutil.ScrubGRPC(err)
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
 		}
-		if err := f(ci); err != nil {
-			return grpcutil.ScrubGRPC(err)
+		if err := cb(ci); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
 		}
 	}
 }
@@ -804,6 +749,22 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return gfrs.offset, nil
 }
 
+func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	req := &pfs.GetFileRequest{
+		File: NewFile(repo, commit, path),
+		URL:  URL,
+	}
+	client, err := c.PfsAPIClient.GetFile(c.Ctx(), req)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(ioutil.Discard, grpcutil.NewStreamingBytesReader(client, nil))
+	return err
+}
+
 // InspectFile returns info about a specific file.
 func (c APIClient) InspectFile(repoName string, commitID string, path string) (*pfs.FileInfo, error) {
 	return c.inspectFile(repoName, commitID, path)
@@ -827,7 +788,7 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.ListFile(
+	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
 			File: NewFile(repo, commit, path),
@@ -837,7 +798,7 @@ func (c APIClient) ListFile(repo, commit, path string, cb func(fi *pfs.FileInfo)
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -875,7 +836,7 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.GlobFile(
+	client, err := c.PfsAPIClient.GlobFile(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
 			Commit:  NewCommit(repo, commit),
@@ -886,7 +847,7 @@ func (c APIClient) GlobFile(repo, commit, pattern string, cb func(fi *pfs.FileIn
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -978,7 +939,7 @@ func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) er
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	fs, err := c.PfsAPIClient.WalkFile(
+	client, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
 		&pfs.WalkFileRequest{
 			File: NewFile(repo, commit, path),
@@ -987,7 +948,7 @@ func (c APIClient) WalkFile(repo, commit, path string, cb func(*pfs.FileInfo) er
 		return err
 	}
 	for {
-		fi, err := fs.Recv()
+		fi, err := client.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -1064,628 +1025,4 @@ func (c APIClient) FsckFastExit() error {
 			return errors.Errorf(resp.Error)
 		}
 	}
-}
-
-// TODO: Delete everything below after 1.12
-
-// PutObjectAsync puts a value into the object store asynchronously.
-func (c APIClient) PutObjectAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
-	w, err := c.newPutObjectWriteCloserAsync(tags)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return w, nil
-}
-
-// PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
-	r := grpcutil.ReaderWrapper{_r}
-	w, err := c.newPutObjectWriteCloser(tags...)
-	if err != nil {
-		return nil, 0, grpcutil.ScrubGRPC(err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = grpcutil.ScrubGRPC(err)
-		}
-		if retErr == nil {
-			object = w.object
-		}
-	}()
-	buf := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(buf)
-	written, err := io.CopyBuffer(w, r, buf)
-	if err != nil {
-		return nil, 0, grpcutil.ScrubGRPC(err)
-	}
-	// return value set by deferred function
-	return nil, written, nil
-}
-
-// PutObjectSplit is the same as PutObject except that the data is splitted
-// into several smaller objects.  This is primarily useful if you'd like to
-// be able to resume upload.
-func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
-	r := grpcutil.ReaderWrapper{_r}
-	w, err := c.newPutObjectSplitWriteCloser()
-	if err != nil {
-		return nil, 0, grpcutil.ScrubGRPC(err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = grpcutil.ScrubGRPC(err)
-		}
-		if retErr == nil {
-			objects = w.objects
-		}
-	}()
-	buf := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(buf)
-	written, err := io.CopyBuffer(w, r, buf)
-	if err != nil {
-		return nil, 0, grpcutil.ScrubGRPC(err)
-	}
-	// return value set by deferred function
-	return nil, written, nil
-}
-
-// CreateObject creates an object with hash, referencing the range
-// [lower,upper] in block. The block should already exist.
-func (c APIClient) CreateObject(hash, block string, lower, upper uint64) error {
-	_, err := c.ObjectAPIClient.CreateObject(c.Ctx(), &pfs.CreateObjectRequest{
-		Object:   NewObject(hash),
-		BlockRef: NewBlockRef(block, lower, upper),
-	})
-	return grpcutil.ScrubGRPC(err)
-}
-
-// GetObject gets an object out of the object store by hash.
-func (c APIClient) GetObject(hash string, writer io.Writer) error {
-	getObjectClient, err := c.ObjectAPIClient.GetObject(
-		c.Ctx(),
-		&pfs.Object{Hash: hash},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, writer); err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return nil
-}
-
-// GetObjectReader returns a reader for an object in object store by hash.
-func (c APIClient) GetObjectReader(hash string) (io.ReadCloser, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
-	getObjectClient, err := c.ObjectAPIClient.GetObject(
-		ctx,
-		&pfs.Object{Hash: hash},
-	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.NewStreamingBytesReader(getObjectClient, cancel), nil
-}
-
-// ReadObject gets an object by hash and returns it directly as []byte.
-func (c APIClient) ReadObject(hash string) ([]byte, error) {
-	var buffer bytes.Buffer
-	if err := c.GetObject(hash, &buffer); err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return buffer.Bytes(), nil
-}
-
-// GetObjects gets several objects out of the object store by hash.
-func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, totalSize uint64, writer io.Writer) error {
-	var objects []*pfs.Object
-	for _, hash := range hashes {
-		objects = append(objects, &pfs.Object{Hash: hash})
-	}
-	getObjectsClient, err := c.ObjectAPIClient.GetObjects(
-		c.Ctx(),
-		&pfs.GetObjectsRequest{
-			Objects:     objects,
-			OffsetBytes: offset,
-			SizeBytes:   size,
-			TotalSize:   totalSize,
-		},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	if err := grpcutil.WriteFromStreamingBytesClient(getObjectsClient, writer); err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return nil
-}
-
-// ReadObjects gets  several objects by hash and returns them directly as []byte.
-func (c APIClient) ReadObjects(hashes []string, offset uint64, size uint64) ([]byte, error) {
-	var buffer bytes.Buffer
-	if err := c.GetObjects(hashes, offset, size, 0, &buffer); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
-}
-
-// TagObject applies a tag to an existing object.
-func (c APIClient) TagObject(hash string, tags ...string) error {
-	var _tags []*pfs.Tag
-	for _, tag := range tags {
-		_tags = append(_tags, &pfs.Tag{Name: tag})
-	}
-	if _, err := c.ObjectAPIClient.TagObject(
-		c.Ctx(),
-		&pfs.TagObjectRequest{
-			Object: &pfs.Object{Hash: hash},
-			Tags:   _tags,
-		},
-	); err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return nil
-}
-
-// ListObject lists objects stored in pfs.
-func (c APIClient) ListObject(f func(*pfs.ObjectInfo) error) error {
-	listObjectClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		oi, err := listObjectClient.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(oi); err != nil {
-			return err
-		}
-	}
-}
-
-// InspectObject returns info about an Object.
-func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
-	value, err := c.ObjectAPIClient.InspectObject(
-		c.Ctx(),
-		&pfs.Object{Hash: hash},
-	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return value, nil
-}
-
-// GetTag gets an object out of the object store by tag.
-func (c APIClient) GetTag(tag string, writer io.Writer) error {
-	getTagClient, err := c.ObjectAPIClient.GetTag(
-		c.Ctx(),
-		&pfs.Tag{Name: tag},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, writer); err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return nil
-}
-
-// GetTagReader returns a reader for an object in object store by tag.
-func (c APIClient) GetTagReader(tag string) (io.ReadCloser, error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
-	getTagClient, err := c.ObjectAPIClient.GetTag(
-		ctx,
-		&pfs.Tag{Name: tag},
-	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.NewStreamingBytesReader(getTagClient, cancel), nil
-}
-
-// ReadTag gets an object by tag and returns it directly as []byte.
-func (c APIClient) ReadTag(tag string) ([]byte, error) {
-	var buffer bytes.Buffer
-	if err := c.GetTag(tag, &buffer); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
-}
-
-// ListTag lists tags stored in pfs.
-func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
-	listTagClient, err := c.ObjectAPIClient.ListTags(c.Ctx(), &pfs.ListTagsRequest{IncludeObject: true})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		listTagResponse, err := listTagClient.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(listTagResponse); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// ListBlock lists blocks stored in pfs.
-func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
-	listBlocksClient, err := c.ObjectAPIClient.ListBlock(c.Ctx(), &pfs.ListBlockRequest{})
-	if err != nil {
-		return err
-	}
-	for {
-		block, err := listBlocksClient.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(block); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// GetBlock gets the content of a block.
-func (c APIClient) GetBlock(hash string, w io.Writer) error {
-	getBlockClient, err := c.ObjectAPIClient.GetBlock(
-		c.Ctx(),
-		&pfs.GetBlockRequest{Block: NewBlock(hash)},
-	)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	if err := grpcutil.WriteFromStreamingBytesClient(getBlockClient, w); err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	return nil
-}
-
-// PutBlock puts a block.
-func (c APIClient) PutBlock(hash string, _r io.Reader) (_ int64, retErr error) {
-	r := grpcutil.ReaderWrapper{_r}
-	w, err := c.newPutBlockWriteCloser(hash)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = errors.Wrap(grpcutil.ScrubGRPC(err), "Close")
-		}
-	}()
-	buf := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(buf)
-	written, err := io.CopyBuffer(w, r, buf)
-	if err != nil {
-		return written, errors.Wrap(grpcutil.ScrubGRPC(err), "CopyBuffer")
-	}
-	// return value set by deferred function
-	return written, nil
-}
-
-// Compact forces compaction of objects.
-func (c APIClient) Compact() error {
-	_, err := c.ObjectAPIClient.Compact(
-		c.Ctx(),
-		&types.Empty{},
-	)
-	return err
-}
-
-// DirectObjReader returns a reader for the contents of an obj in object
-// storage, it reads directly from object storage, bypassing the
-// content-addressing layer.
-func (c APIClient) DirectObjReader(obj string) (io.ReadCloser, error) {
-	getObjClient, err := c.ObjectAPIClient.GetObjDirect(
-		c.Ctx(),
-		&pfs.GetObjDirectRequest{Obj: obj},
-	)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.NewStreamingBytesReader(getObjClient, nil), nil
-}
-
-// DirectObjWriter returns a writer for an obj in object storage, it writes
-// directly to object storage, bypassing the content-addressing layer.
-func (c APIClient) DirectObjWriter(obj string) (io.WriteCloser, error) {
-	return c.newPutObjWriteCloser(obj)
-}
-
-// NewObject creates a pfs.Object.
-func NewObject(hash string) *pfs.Object {
-	return &pfs.Object{
-		Hash: hash,
-	}
-}
-
-// NewBlock creates a pfs.Block.
-func NewBlock(hash string) *pfs.Block {
-	return &pfs.Block{
-		Hash: hash,
-	}
-}
-
-// NewBlockRef creates a pfs.BlockRef.
-func NewBlockRef(hash string, lower, upper uint64) *pfs.BlockRef {
-	return &pfs.BlockRef{
-		Block: NewBlock(hash),
-		Range: &pfs.ByteRange{Lower: lower, Upper: upper},
-	}
-}
-
-// NewTag creates a pfs.Tag.
-func NewTag(name string) *pfs.Tag {
-	return &pfs.Tag{
-		Name: name,
-	}
-}
-
-type putObjectWriteCloser struct {
-	request *pfs.PutObjectRequest
-	client  pfs.ObjectAPI_PutObjectClient
-	object  *pfs.Object
-}
-
-func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteCloser, error) {
-	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	var _tags []*pfs.Tag
-	for _, tag := range tags {
-		_tags = append(_tags, &pfs.Tag{Name: tag})
-	}
-	return &putObjectWriteCloser{
-		request: &pfs.PutObjectRequest{
-			Tags: _tags,
-		},
-		client: client,
-	}, nil
-}
-
-func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	for _, dataSlice := range grpcutil.Chunk(p) {
-		w.request.Value = dataSlice
-		if err := w.client.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-		w.request.Tags = nil
-	}
-	return len(p), nil
-}
-
-func (w *putObjectWriteCloser) Close() error {
-	var err error
-	w.object, err = w.client.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
-}
-
-// PutObjectWriteCloserAsync wraps a put object call in an asynchronous buffered writer.
-type PutObjectWriteCloserAsync struct {
-	client    pfs.ObjectAPI_PutObjectClient
-	request   *pfs.PutObjectRequest
-	buf       []byte
-	writeChan chan []byte
-	errChan   chan error
-	object    *pfs.Object
-}
-
-func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
-	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	w := &PutObjectWriteCloserAsync{
-		client: client,
-		request: &pfs.PutObjectRequest{
-			Tags: tags,
-		},
-		buf:       grpcutil.GetBuffer()[:0],
-		writeChan: make(chan []byte, 5),
-		errChan:   make(chan error),
-	}
-	go func() {
-		for buf := range w.writeChan {
-			w.request.Value = buf
-			if err := w.client.Send(w.request); err != nil {
-				w.errChan <- err
-				break
-			}
-			w.request.Tags = nil
-			grpcutil.PutBuffer(buf[:cap(buf)])
-		}
-		close(w.errChan)
-	}()
-	return w, nil
-}
-
-// Write performs a write.
-func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
-	var written int
-	for len(w.buf)+len(p) > cap(w.buf) {
-		// Write the bytes that fit into w.buf, then
-		// remove those bytes from p.
-		i := cap(w.buf) - len(w.buf)
-		w.buf = append(w.buf, p[:i]...)
-		if err := w.writeBuf(); err != nil {
-			return 0, err
-		}
-		written += i
-		p = p[i:]
-		w.buf = grpcutil.GetBuffer()[:0]
-	}
-	w.buf = append(w.buf, p...)
-	written += len(p)
-	return written, nil
-}
-
-// Close closes the writer.
-func (w *PutObjectWriteCloserAsync) Close() error {
-	if err := w.writeBuf(); err != nil {
-		return err
-	}
-	close(w.writeChan)
-	err := <-w.errChan
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	w.object, err = w.client.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
-}
-
-func (w *PutObjectWriteCloserAsync) writeBuf() error {
-	select {
-	case err := <-w.errChan:
-		if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	case w.writeChan <- w.buf:
-	}
-	return nil
-}
-
-// Object gets the pfs object for this writer.
-// This can only be called when the writer is closed (the put object
-// call is complete)
-func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
-	select {
-	case err := <-w.errChan:
-		if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
-		}
-		return w.object, nil
-	default:
-		return nil, errors.Errorf("attempting to get object before closing object writer")
-	}
-}
-
-type putObjectSplitWriteCloser struct {
-	request *pfs.PutObjectRequest
-	client  pfs.ObjectAPI_PutObjectSplitClient
-	objects []*pfs.Object
-}
-
-func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, error) {
-	client, err := c.ObjectAPIClient.PutObjectSplit(c.Ctx())
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &putObjectSplitWriteCloser{
-		request: &pfs.PutObjectRequest{},
-		client:  client,
-	}, nil
-}
-
-func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
-	for _, dataSlice := range grpcutil.Chunk(p) {
-		w.request.Value = dataSlice
-		if err := w.client.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-	}
-	return len(p), nil
-}
-
-func (w *putObjectSplitWriteCloser) Close() error {
-	objects, err := w.client.CloseAndRecv()
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	w.objects = objects.Objects
-	return nil
-}
-
-type putBlockWriteCloser struct {
-	request *pfs.PutBlockRequest
-	client  pfs.ObjectAPI_PutBlockClient
-}
-
-func (c APIClient) newPutBlockWriteCloser(hash string) (*putBlockWriteCloser, error) {
-	client, err := c.ObjectAPIClient.PutBlock(c.Ctx())
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &putBlockWriteCloser{
-		request: &pfs.PutBlockRequest{Block: NewBlock(hash)},
-		client:  client,
-	}, nil
-}
-
-func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
-	for _, dataSlice := range grpcutil.Chunk(p) {
-		w.request.Value = dataSlice
-		if err := w.client.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-		w.request.Block = nil
-	}
-	return len(p), nil
-}
-
-func (w *putBlockWriteCloser) Close() error {
-	if w.request.Block != nil {
-		// This happens if the block is empty in which case Write was never
-		// called, so we need to send an empty request to identify the block.
-		if err := w.client.Send(w.request); err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	}
-	_, err := w.client.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
-}
-
-type putObjWriteCloser struct {
-	request *pfs.PutObjDirectRequest
-	client  pfs.ObjectAPI_PutObjDirectClient
-}
-
-func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) {
-	client, err := c.ObjectAPIClient.PutObjDirect(c.Ctx())
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return &putObjWriteCloser{
-		request: &pfs.PutObjDirectRequest{Obj: obj},
-		client:  client,
-	}, nil
-}
-
-func (w *putObjWriteCloser) Write(p []byte) (int, error) {
-	for _, dataSlice := range grpcutil.Chunk(p) {
-		w.request.Value = dataSlice
-		if err := w.client.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-		w.request.Obj = ""
-	}
-	return len(p), nil
-}
-
-func (w *putObjWriteCloser) Close() error {
-	if w.request.Obj != "" {
-		// This happens if the block is empty in which case Write was never
-		// called, so we need to send an empty request to identify the block.
-		if err := w.client.Send(w.request); err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	}
-	_, err := w.client.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
 }

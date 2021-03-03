@@ -252,6 +252,10 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 
 // GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
 func (s *Storage) GC(ctx context.Context) error {
+	return s.newGC().RunForever(ctx)
+}
+
+func (s *Storage) newGC() *track.GarbageCollector {
 	const period = 10 * time.Second
 	tmpDeleter := track.NewTmpDeleter()
 	chunkDeleter := s.chunks.NewDeleter()
@@ -270,8 +274,18 @@ func (s *Storage) GC(ctx context.Context) error {
 			return nil
 		}
 	})
-	gc := track.NewGarbageCollector(s.tracker, period, mux)
-	return gc.Run(ctx)
+	return track.NewGarbageCollector(s.tracker, period, mux)
+}
+
+func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
+	_, err := s.store.Get(ctx, id)
+	if err != nil {
+		if err == ErrFileSetNotExists {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
@@ -327,7 +341,7 @@ func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 }
 
 func filesetObjectID(id ID) string {
-	return "fileset/" + id.HexString()
+	return TrackerPrefix + id.HexString()
 }
 
 var _ track.Deleter = &deleter{}
@@ -336,7 +350,13 @@ type deleter struct {
 	store Store
 }
 
-// TODO: This needs to be implemented, temporary filesets are still in Postgres.
-func (d *deleter) Delete(ctx context.Context, id string) error {
-	return nil
+func (d *deleter) Delete(ctx context.Context, oid string) error {
+	if !strings.HasPrefix(oid, TrackerPrefix) {
+		return errors.Errorf("don't know how to delete object %s", oid)
+	}
+	fsid, err := ParseID(oid[len(TrackerPrefix):])
+	if err != nil {
+		return err
+	}
+	return d.store.Delete(ctx, *fsid)
 }

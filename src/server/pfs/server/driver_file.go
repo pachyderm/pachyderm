@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"path"
 	"path/filepath"
 	"strings"
@@ -132,7 +131,7 @@ func (d *driver) openCommit(pachClient *client.APIClient, commit *pfs.Commit, op
 		}
 		return &pfs.CommitInfo{Commit: commit}, fs, nil
 	}
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
@@ -200,18 +199,18 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	})
 }
 
-func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string, w io.Writer) error {
+func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob string) (Source, error) {
 	indexOpt, mf, err := parseGlob(glob)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, fs, err := d.openCommit(pachClient, commit, indexOpt)
+	commitInfo, fs, err := d.openCommit(pachClient, commit, indexOpt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fs = fileset.NewDirInserter(fs)
 	var dir string
-	filter := fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 		if dir != "" && strings.HasPrefix(idx.Path, dir) {
 			return true
 		}
@@ -221,15 +220,7 @@ func (d *driver) getFile(pachClient *client.APIClient, commit *pfs.Commit, glob 
 		}
 		return match
 	})
-	// TODO: remove absolute paths on the way out?
-	// nonAbsolute := &fileset.HeaderMapper{
-	// 	R: filter,
-	// 	F: func(th *tar.Header) *tar.Header {
-	// 		th.Name = "." + th.Name
-	// 		return th
-	// 	},
-	// }
-	return fileset.WriteTarStream(pachClient.Ctx(), w, filter)
+	return NewSource(commitInfo, fs, false), nil
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (*pfs.FileInfo, error) {
@@ -348,12 +339,12 @@ func (d *driver) diffFile(pachClient *client.APIClient, oldFile, newFile *pfs.Fi
 	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, oldFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := authserver.CheckIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := authserver.CheckRepoIsAuthorized(pachClient, newFile.Commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 			return err
 		}
 	}
@@ -440,7 +431,7 @@ func (d *driver) addFileset(pachClient *client.APIClient, commit *pfs.Commit, fi
 }
 
 func (d *driver) getFileset(pachClient *client.APIClient, commit *pfs.Commit) (*fileset.ID, error) {
-	if err := authserver.CheckIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	if err := authserver.CheckRepoIsAuthorized(pachClient, commit.Repo.Name, auth.Permission_REPO_READ); err != nil {
 		return nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)

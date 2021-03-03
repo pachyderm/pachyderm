@@ -11,7 +11,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -576,13 +575,10 @@ func TestS3SkippedDatums(t *testing.T) {
 		var buf bytes.Buffer
 		// Flush commit so that GetFile doesn't accidentally run after the job
 		// finishes but before the commit finishes
-		ciIter, err := c.FlushCommit(
+		_, err = c.FlushCommitAll(
 			[]*pfs.Commit{client.NewCommit(s3in, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		for !errors.Is(err, io.EOF) {
-			_, err = ciIter.Next()
-		}
 		c.GetFile(pipeline, "master", "out", &buf)
 		s := bufio.NewScanner(&buf)
 		var seen [10]bool // One per file in 'pfsin'
@@ -681,13 +677,10 @@ func TestS3SkippedDatums(t *testing.T) {
 			// ------------
 			// Flush commit so that GetFile doesn't accidentally run after the job
 			// finishes but before the commit finishes
-			ciIter, err := c.FlushCommit(
+			_, err = c.FlushCommitAll(
 				[]*pfs.Commit{client.NewCommit(repo, "master")},
 				[]*pfs.Repo{client.NewRepo(pipeline)})
 			require.NoError(t, err)
-			for !errors.Is(err, io.EOF) {
-				_, err = ciIter.Next()
-			}
 			for j := 0; j <= i; j++ {
 				var buf bytes.Buffer
 				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), &buf))

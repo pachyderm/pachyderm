@@ -41,18 +41,28 @@ const (
 	// can be created for this user (during auth activation) and they cannot
 	// be removed from the set of cluster super-admins.
 	RootUser = "pach:root"
-)
 
-// ParseScope parses the string 's' to a scope (for example, parsing a command-
-// line argument.
-func ParseScope(s string) (Scope, error) {
-	for name, value := range Scope_value {
-		if strings.EqualFold(s, name) {
-			return Scope(value), nil
-		}
-	}
-	return Scope_NONE, errors.Errorf("unrecognized scope: %s", s)
-}
+	// PpsUser is a special, unrevokable cluster administrator account used by PPS
+	// to create pipeline tokens, close commits, and do other necessary PPS work.
+	// It's not possible to authenticate as ppsUser (pps reads the auth token for
+	// this user directly from etcd).
+	PpsUser = `pach:pps`
+
+	// ClusterAdminRole is the role for cluster admins, who have full access to all APIs
+	ClusterAdminRole = "clusterAdmin"
+
+	// RepoOwnerRole is a role which grants access to read, write and modify the role bindings for a repo
+	RepoOwnerRole = "repoOwner"
+
+	// RepoWriterRole is a role which grants ability to both read from and write to a repo
+	RepoWriterRole = "repoWriter"
+
+	// RepoReaderRole is a role which grants ability to both read from a repo
+	RepoReaderRole = "repoReader"
+
+	// AllClusterUsersSubject is a subject which applies a role binding to all authenticated users
+	AllClusterUsersSubject = "allClusterUsers"
+)
 
 var (
 	// ErrNotActivated is returned by an Auth API if the Auth service
@@ -138,23 +148,32 @@ func IsErrExpiredToken(err error) bool {
 	return strings.Contains(err.Error(), status.Convert(ErrExpiredToken).Message())
 }
 
+const errNoRoleBindingMsg = "no role binding exists for"
+
+// ErrNoRoleBinding is returned if no role binding exists for a resource.
+type ErrNoRoleBinding struct {
+	Resource Resource
+}
+
+func (e *ErrNoRoleBinding) Error() string {
+	return fmt.Sprintf("%v %v %v", errNoRoleBindingMsg, e.Resource.Type, e.Resource.Name)
+}
+
+// IsErrNoRoleBinding checks if an error is a ErrNoRoleBinding
+func IsErrNoRoleBinding(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), errNoRoleBindingMsg)
+}
+
 // ErrNotAuthorized is returned if the user is not authorized to perform
-// a certain operation. Either
-// 1) the operation is a user operation, in which case 'Repo' and/or 'Required'
-// 		should be set (indicating that the user needs 'Required'-level access to
-// 		'Repo').
-// 2) the operation is an admin-only operation (e.g. DeleteAll), in which case
-//    AdminOp should be set
+// a certain operation.
 type ErrNotAuthorized struct {
 	Subject string // subject trying to perform blocked operation -- always set
 
-	Repo     string // Repo that the user is attempting to access
-	Required Scope  // Caller needs 'Required'-level access to 'Repo'
-
-	// Group 2:
-	// AdminOp indicates an operation that the caller couldn't perform because
-	// they're not an admin
-	AdminOp string
+	Resource Resource     // Resource that the user is attempting to access
+	Required []Permission // Caller needs 'Required'-level access to 'Resource'
 }
 
 // This error message string is matched in the UI. If edited,
@@ -162,21 +181,7 @@ type ErrNotAuthorized struct {
 const errNotAuthorizedMsg = "not authorized to perform this operation"
 
 func (e *ErrNotAuthorized) Error() string {
-	var msg string
-	if e.Subject != "" {
-		msg += e.Subject + " is "
-	}
-	msg += errNotAuthorizedMsg
-	if e.Repo != "" {
-		msg += " on the repo " + e.Repo
-	}
-	if e.Required != Scope_NONE {
-		msg += ", must have at least " + e.Required.String() + " access"
-	}
-	if e.AdminOp != "" {
-		msg += "; must be an admin to call " + e.AdminOp
-	}
-	return msg
+	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
 // IsErrNotAuthorized checks if an error is a ErrNotAuthorized

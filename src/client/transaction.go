@@ -196,10 +196,6 @@ type ppsBuilderClient struct {
 	tb *TransactionBuilder
 }
 
-type objectBuilderClient struct {
-	tb *TransactionBuilder
-}
-
 type authBuilderClient struct {
 	tb *TransactionBuilder
 }
@@ -232,10 +228,6 @@ func newPpsBuilderClient(tb *TransactionBuilder) pps.APIClient {
 	return &ppsBuilderClient{tb: tb}
 }
 
-func newObjectBuilderClient(tb *TransactionBuilder) pfs.ObjectAPIClient {
-	return &objectBuilderClient{tb: tb}
-}
-
 func newAuthBuilderClient(tb *TransactionBuilder) auth.APIClient {
 	return &authBuilderClient{tb: tb}
 }
@@ -264,7 +256,6 @@ func newTransactionBuilder(parent *APIClient) *TransactionBuilder {
 	tb := &TransactionBuilder{parent: parent}
 	tb.PfsAPIClient = newPfsBuilderClient(tb)
 	tb.PpsAPIClient = newPpsBuilderClient(tb)
-	tb.ObjectAPIClient = newObjectBuilderClient(tb)
 	tb.AuthAPIClient = newAuthBuilderClient(tb)
 	tb.Enterprise = newEnterpriseBuilderClient(tb)
 	tb.VersionAPIClient = newVersionBuilderClient(tb)
@@ -319,8 +310,8 @@ func (c *pfsBuilderClient) FinishCommit(ctx context.Context, req *pfs.FinishComm
 	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{FinishCommit: req})
 	return nil, nil
 }
-func (c *pfsBuilderClient) DeleteCommit(ctx context.Context, req *pfs.DeleteCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{DeleteCommit: req})
+func (c *pfsBuilderClient) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	c.tb.requests = append(c.tb.requests, &transaction.TransactionRequest{SquashCommit: req})
 	return nil, nil
 }
 func (c *pfsBuilderClient) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
@@ -341,6 +332,9 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
+func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest, opts ...grpc.CallOption) (*pfs.ActivateAuthResponse, error) {
+	return nil, unsupportedError("ActivateAuth")
+}
 func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }
@@ -409,76 +403,6 @@ func (c *pfsBuilderClient) AddFileset(ctx context.Context, req *pfs.AddFilesetRe
 }
 func (c *pfsBuilderClient) GetFileset(ctx context.Context, req *pfs.GetFilesetRequest, opts ...grpc.CallOption) (*pfs.CreateFilesetResponse, error) {
 	return nil, unsupportedError("GetFileset")
-}
-
-func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
-	return nil, unsupportedError("PutObject")
-}
-func (c *objectBuilderClient) PutObjectSplit(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectSplitClient, error) {
-	return nil, unsupportedError("PutObjectSplit")
-}
-func (c *objectBuilderClient) PutObjects(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectsClient, error) {
-	return nil, unsupportedError("PutObjects")
-}
-func (c *objectBuilderClient) CreateObject(ctx context.Context, req *pfs.CreateObjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("CreateObject")
-}
-func (c *objectBuilderClient) GetObject(ctx context.Context, req *pfs.Object, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjectClient, error) {
-	return nil, unsupportedError("GetObject")
-}
-func (c *objectBuilderClient) GetObjects(ctx context.Context, req *pfs.GetObjectsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjectsClient, error) {
-	return nil, unsupportedError("GetObjects")
-}
-func (c *objectBuilderClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutBlockClient, error) {
-	return nil, unsupportedError("PutBlock")
-}
-func (c *objectBuilderClient) GetBlock(ctx context.Context, req *pfs.GetBlockRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetBlockClient, error) {
-	return nil, unsupportedError("GetBlock")
-}
-func (c *objectBuilderClient) GetBlocks(ctx context.Context, req *pfs.GetBlocksRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetBlocksClient, error) {
-	return nil, unsupportedError("GetBlocks")
-}
-func (c *objectBuilderClient) ListBlock(ctx context.Context, req *pfs.ListBlockRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListBlockClient, error) {
-	return nil, unsupportedError("ListBlock")
-}
-func (c *objectBuilderClient) TagObject(ctx context.Context, req *pfs.TagObjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("TagObject")
-}
-func (c *objectBuilderClient) InspectObject(ctx context.Context, req *pfs.Object, opts ...grpc.CallOption) (*pfs.ObjectInfo, error) {
-	return nil, unsupportedError("InspectObject")
-}
-func (c *objectBuilderClient) CheckObject(ctx context.Context, req *pfs.CheckObjectRequest, opts ...grpc.CallOption) (*pfs.CheckObjectResponse, error) {
-	return nil, unsupportedError("CheckObject")
-}
-func (c *objectBuilderClient) ListObjects(ctx context.Context, req *pfs.ListObjectsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListObjectsClient, error) {
-	return nil, unsupportedError("ListObjects")
-}
-func (c *objectBuilderClient) DeleteObjects(ctx context.Context, req *pfs.DeleteObjectsRequest, opts ...grpc.CallOption) (*pfs.DeleteObjectsResponse, error) {
-	return nil, unsupportedError("DeleteObjects")
-}
-func (c *objectBuilderClient) GetTag(ctx context.Context, req *pfs.Tag, opts ...grpc.CallOption) (pfs.ObjectAPI_GetTagClient, error) {
-	return nil, unsupportedError("GetTag")
-}
-func (c *objectBuilderClient) InspectTag(ctx context.Context, req *pfs.Tag, opts ...grpc.CallOption) (*pfs.ObjectInfo, error) {
-	return nil, unsupportedError("InspectTag")
-}
-func (c *objectBuilderClient) ListTags(ctx context.Context, req *pfs.ListTagsRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_ListTagsClient, error) {
-	return nil, unsupportedError("ListTags")
-}
-func (c *objectBuilderClient) DeleteTags(ctx context.Context, req *pfs.DeleteTagsRequest, opts ...grpc.CallOption) (*pfs.DeleteTagsResponse, error) {
-	return nil, unsupportedError("DeleteTags")
-}
-func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("Compact")
-}
-func (c *objectBuilderClient) PutObjDirect(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjDirectClient, error) {
-	return nil, unsupportedError("PutObjDirect")
-}
-func (c *objectBuilderClient) GetObjDirect(ctx context.Context, req *pfs.GetObjDirectRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjDirectClient, error) {
-	return nil, unsupportedError("GetObjDirect")
-}
-func (c *objectBuilderClient) DeleteObjDirect(ctx context.Context, req *pfs.DeleteObjDirectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteObjDirect")
 }
 
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {
@@ -566,17 +490,14 @@ func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetC
 func (c *authBuilderClient) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest, opts ...grpc.CallOption) (*auth.SetConfigurationResponse, error) {
 	return nil, unsupportedError("SetConfiguration")
 }
-func (c *authBuilderClient) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest, opts ...grpc.CallOption) (*auth.GetAdminsResponse, error) {
-	return nil, unsupportedError("GetAdmins")
+func (c *authBuilderClient) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest, opts ...grpc.CallOption) (*auth.GetRoleBindingResponse, error) {
+	return nil, unsupportedError("GetRoleBinding")
 }
-func (c *authBuilderClient) GetClusterRoleBindings(ctx context.Context, req *auth.GetClusterRoleBindingsRequest, opts ...grpc.CallOption) (*auth.GetClusterRoleBindingsResponse, error) {
-	return nil, unsupportedError("GetClusterRoleBindings")
+func (c *authBuilderClient) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyRoleBindingResponse, error) {
+	return nil, unsupportedError("ModifyRoleBinding")
 }
-func (c *authBuilderClient) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest, opts ...grpc.CallOption) (*auth.ModifyAdminsResponse, error) {
-	return nil, unsupportedError("ModifyAdmins")
-}
-func (c *authBuilderClient) ModifyClusterRoleBinding(ctx context.Context, req *auth.ModifyClusterRoleBindingRequest, opts ...grpc.CallOption) (*auth.ModifyClusterRoleBindingResponse, error) {
-	return nil, unsupportedError("ModifyClusterRoleBinding")
+func (c *authBuilderClient) DeleteRoleBinding(ctx context.Context, req *auth.Resource, opts ...grpc.CallOption) error {
+	return unsupportedError("DeleteRoleBinding")
 }
 func (c *authBuilderClient) Authenticate(ctx context.Context, req *auth.AuthenticateRequest, opts ...grpc.CallOption) (*auth.AuthenticateResponse, error) {
 	return nil, unsupportedError("Authenticate")
@@ -586,18 +507,6 @@ func (c *authBuilderClient) Authorize(ctx context.Context, req *auth.AuthorizeRe
 }
 func (c *authBuilderClient) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest, opts ...grpc.CallOption) (*auth.WhoAmIResponse, error) {
 	return nil, unsupportedError("WhoAmI")
-}
-func (c *authBuilderClient) GetScope(ctx context.Context, req *auth.GetScopeRequest, opts ...grpc.CallOption) (*auth.GetScopeResponse, error) {
-	return nil, unsupportedError("GetScope")
-}
-func (c *authBuilderClient) SetScope(ctx context.Context, req *auth.SetScopeRequest, opts ...grpc.CallOption) (*auth.SetScopeResponse, error) {
-	return nil, unsupportedError("SetScope")
-}
-func (c *authBuilderClient) GetACL(ctx context.Context, req *auth.GetACLRequest, opts ...grpc.CallOption) (*auth.GetACLResponse, error) {
-	return nil, unsupportedError("GetACL")
-}
-func (c *authBuilderClient) SetACL(ctx context.Context, req *auth.SetACLRequest, opts ...grpc.CallOption) (*auth.SetACLResponse, error) {
-	return nil, unsupportedError("SetACL")
 }
 func (c *authBuilderClient) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest, opts ...grpc.CallOption) (*auth.GetAuthTokenResponse, error) {
 	return nil, unsupportedError("GetAuthToken")

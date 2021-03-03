@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
@@ -51,10 +51,6 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 		}
 
 		if err := os.MkdirAll(env.LocalStorageDirectory, 0777); err != nil {
-			return err
-		}
-		// TODO: this is global and complicates running tests in parallel
-		if err := os.Setenv(pfsserver.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
 
@@ -281,14 +277,42 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 }
 
 func TestJobSuccess(t *testing.T) {
+	testJobSuccess(t, defaultPipelineInfo(), []tarutil.File{
+		tarutil.NewMemFile("/file", []byte("foobar")),
+	})
+}
+
+func TestJobSuccessEgress(t *testing.T) {
+	objC, bucket := obj.NewTestClient(t)
 	pi := defaultPipelineInfo()
+	pi.Egress = &pps.Egress{URL: fmt.Sprintf("local://%s/", bucket)}
+	files := []tarutil.File{
+		tarutil.NewMemFile("/file1", []byte("foo")),
+		tarutil.NewMemFile("/file2", []byte("bar")),
+	}
+	testJobSuccess(t, pi, files)
+	for _, file := range files {
+		hdr, err := file.Header()
+		require.NoError(t, err)
+		r, err := objC.Reader(context.Background(), hdr.Name, 0, 0)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, r.Close())
+		}()
+		buf1 := &bytes.Buffer{}
+		require.NoError(t, file.Content(buf1))
+		buf2 := &bytes.Buffer{}
+		_, err = io.Copy(buf2, r)
+		require.NoError(t, err)
+		require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
+	}
+}
+
+func testJobSuccess(t *testing.T, pi *pps.PipelineInfo, files []tarutil.File) {
 	db := dbutil.NewTestDB(t)
 	require.NoError(t, withWorkerSpawnerPair(db, pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		tarFiles := []tarutil.File{
-			tarutil.NewMemFile("/file", []byte("foobar")),
-		}
-		triggerJob(t, env, pi, tarFiles)
+		triggerJob(t, env, pi, files)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
@@ -306,10 +330,10 @@ func TestJobSuccess(t *testing.T) {
 		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
-			ok, err := tarutil.Equal(tarFiles[0], file)
+			ok, err := tarutil.Equal(files[0], file)
 			require.NoError(t, err)
 			require.True(t, ok)
-			tarFiles = tarFiles[1:]
+			files = files[1:]
 			return nil
 		}))
 		return nil

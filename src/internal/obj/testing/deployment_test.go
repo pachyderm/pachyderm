@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/deploy/assets"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -288,25 +286,8 @@ func runDeploymentTest(t *testing.T, pachClient *client.APIClient) {
 	require.NoError(t, err)
 
 	// Wait for the output commit
-	commitInfoIter, err := pachClient.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitInfos, err := pachClient.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-
-	// Collect commit infos
-	// TODO: Refactor this into a general purpose utility, this same function is in src/server/pachyderm_test.go.
-	var commitInfos []*pfs.CommitInfo
-	for {
-		commitInfo, err := commitInfoIter.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		require.NoError(t, err)
-		commitInfos = append(commitInfos, commitInfo)
-	}
-	if len(commitInfos) > 0 {
-		sort.Slice(commitInfos, func(i, j int) bool {
-			return len(commitInfos[i].Provenance) < len(commitInfos[j].Provenance)
-		})
-	}
 	require.Equal(t, 2, len(commitInfos))
 
 	// Check the pipeline output

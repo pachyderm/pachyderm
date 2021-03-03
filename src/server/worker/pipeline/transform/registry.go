@@ -122,7 +122,6 @@ type registry struct {
 }
 
 // TODO:
-// egress.
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).
 func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
@@ -145,16 +144,9 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 }
 
 func (reg *registry) succeedJob(pj *pendingJob) error {
-	var newState pps.JobState
-	if pj.ji.Egress == nil {
-		pj.logger.Logf("job successful, closing commits")
-		newState = pps.JobState_JOB_SUCCESS
-	} else {
-		pj.logger.Logf("job successful, advancing to egress")
-		newState = pps.JobState_JOB_EGRESSING
-	}
+	pj.logger.Logf("job successful, closing commits")
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, newState, "")
+	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_SUCCESS, "")
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
@@ -292,7 +284,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	}); err != nil {
 		return err
 	}
-	// TODO: we should NOT start the job this way if it is in EGRESSING
 	// TODO: This could probably be scoped to a callback, and we could move job specific features
 	// in the chain package (timeouts for example).
 	// TODO: I use the registry pachclient for the iterators, so I can reuse across jobs for skipping.
@@ -383,7 +374,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 				return pj.driver.PachClient().ClearCommit(pj.metaCommitInfo.Commit.Repo.Name, pj.metaCommitInfo.Commit.ID)
 			})
 			pj.logger.Logf("master done running processJobs")
-			// TODO: make sure that all paths close the commit correctly
 		}); err != nil {
 			return err
 		}
@@ -441,19 +431,22 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 
 func (reg *registry) processJob(pj *pendingJob) error {
 	state := pj.ji.State
-	switch {
-	case ppsutil.IsTerminal(state):
-		pj.cancel()
+	if ppsutil.IsTerminal(state) {
 		return errutil.ErrBreak
-	case state == pps.JobState_JOB_STARTING:
+	}
+	switch state {
+	case pps.JobState_JOB_STARTING:
 		return errors.New("job should have been moved out of the STARTING state before processJob")
-	case state == pps.JobState_JOB_RUNNING:
-		return pj.logger.LogStep("processing job datums", func() error {
+	case pps.JobState_JOB_RUNNING:
+		return pj.logger.LogStep("processing job running", func() error {
 			return reg.processJobRunning(pj)
 		})
+	case pps.JobState_JOB_EGRESSING:
+		return pj.logger.LogStep("processing job egressing", func() error {
+			return reg.processJobEgressing(pj)
+		})
 	}
-	pj.cancel()
-	return errors.Errorf("unknown job state: %v", state)
+	panic(fmt.Sprintf("unrecognized job state: %s", state))
 }
 
 func (reg *registry) processJobStarting(pj *pendingJob) error {
@@ -558,6 +551,10 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	if stats.FailedID != "" {
 		return reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID))
 	}
+	if pj.ji.Egress != nil {
+		pj.ji.State = pps.JobState_JOB_EGRESSING
+		return writeJobInfo(pj.driver.PachClient(), pj.ji)
+	}
 	return reg.succeedJob(pj)
 }
 
@@ -601,6 +598,16 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (reg *registry) processJobEgressing(pj *pendingJob) error {
+	repo := pj.commitInfo.Commit.Repo.Name
+	commit := pj.commitInfo.Commit.ID
+	url := pj.ji.Egress.URL
+	if err := pj.driver.PachClient().GetFileURL(repo, commit, "/", url); err != nil {
+		return err
+	}
+	return reg.succeedJob(pj)
 }
 
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {

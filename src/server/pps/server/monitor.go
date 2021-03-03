@@ -61,7 +61,7 @@ const crashingBackoff = time.Second * 15
 // corresponding goroutine running monitorPipeline() that puts the pipeline in
 // and out of standby in response to new output commits appearing in that
 // pipeline's output repo.
-func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
+func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo, ptr *pps.EtcdPipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	m.monitorCancelsMu.Lock()
 	defer m.monitorCancelsMu.Unlock()
@@ -70,14 +70,8 @@ func (m *ppsMaster) startMonitor(pipelineInfo *pps.PipelineInfo) {
 			"monitorPipeline for "+pipeline, func(pachClient *client.APIClient) {
 				// monitorPipeline needs auth privileges to call subscribeCommit and
 				// blockCommit
-				// TODO(msteffen): run the pipeline monitor as the pipeline user, rather
-				// than as the PPS superuser
-				if err := m.a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					m.monitorPipeline(superUserClient, pipelineInfo)
-					return nil
-				}); err != nil {
-					log.Errorf("error monitoring %q: %v", pipeline, err)
-				}
+				pachClient.SetAuthToken(ptr.AuthToken)
+				m.monitorPipeline(pachClient, pipelineInfo)
 			})
 	}
 }
@@ -201,7 +195,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
-				return pachClient.SubscribeCommitF(pipeline, "",
+				return pachClient.SubscribeCommit(pipeline, "",
 					client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 						ciChan <- ci
@@ -388,7 +382,7 @@ func (m *ppsMaster) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
-		if err = pachClient.DeleteCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
+		if err = pachClient.SquashCommit(in.Cron.Repo, commitInfo.Commit.ID); err != nil {
 			return err
 		}
 	}

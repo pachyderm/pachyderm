@@ -16,7 +16,7 @@ import (
 // the callback.
 func NewTestStorage(t testing.TB, db *sqlx.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
 	mdstore := NewTestStore(t, db)
-	objC := obj.NewTestClient(t)
+	objC, _ := obj.NewTestClient(t)
 	return objC, NewStorage(objC, kv.NewMemCache(10), mdstore, tr, opts...)
 }
 

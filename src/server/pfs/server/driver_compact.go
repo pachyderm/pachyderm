@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
@@ -23,9 +22,9 @@ func (d *driver) compact(master *work.Master, ids []fileset.ID) (*fileset.ID, er
 			for i := range task.Inputs {
 				serInputs[i] = task.Inputs[i].HexString()
 			}
-			any, err := serializeCompactionTask(&pfs.CompactionTask{
+			any, err := serializeCompactionTask(&CompactionTask{
 				Inputs: serInputs,
-				Range: &pfs.PathRange{
+				Range: &PathRange{
 					Lower: task.PathRange.Lower,
 					Upper: task.PathRange.Upper,
 				},
@@ -81,7 +80,7 @@ func (d *driver) compactionWorker() {
 			if err != nil {
 				return nil, err
 			}
-			return serializeCompactionResult(&pfs.CompactionTaskResult{
+			return serializeCompactionResult(&CompactionTaskResult{
 				Id: id.HexString(),
 			})
 		})
@@ -93,7 +92,7 @@ func (d *driver) compactionWorker() {
 	panic(err)
 }
 
-func serializeCompactionTask(task *pfs.CompactionTask) (*types.Any, error) {
+func serializeCompactionTask(task *CompactionTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, err
@@ -104,15 +103,15 @@ func serializeCompactionTask(task *pfs.CompactionTask) (*types.Any, error) {
 	}, nil
 }
 
-func deserializeCompactionTask(taskAny *types.Any) (*pfs.CompactionTask, error) {
-	task := &pfs.CompactionTask{}
+func deserializeCompactionTask(taskAny *types.Any) (*CompactionTask, error) {
+	task := &CompactionTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, err
 	}
 	return task, nil
 }
 
-func serializeCompactionResult(res *pfs.CompactionTaskResult) (*types.Any, error) {
+func serializeCompactionResult(res *CompactionTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(res)
 	if err != nil {
 		return nil, err
@@ -123,8 +122,8 @@ func serializeCompactionResult(res *pfs.CompactionTaskResult) (*types.Any, error
 	}, nil
 }
 
-func deserializeCompactionResult(any *types.Any) (*pfs.CompactionTaskResult, error) {
-	res := &pfs.CompactionTaskResult{}
+func deserializeCompactionResult(any *types.Any) (*CompactionTaskResult, error) {
+	res := &CompactionTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
 		return nil, err
 	}

@@ -42,7 +42,7 @@ func (s *postgresStore) Set(ctx context.Context, id ID, md *Metadata) error {
 		return err
 	}
 	if n == 0 {
-		return ErrPathExists
+		return ErrFileSetExists
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	var mdData []byte
 	if err := s.db.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE path = $1`, id.HexString()); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrPathNotExists
+			return nil, ErrFileSetNotExists
 		}
 		return nil, err
 	}

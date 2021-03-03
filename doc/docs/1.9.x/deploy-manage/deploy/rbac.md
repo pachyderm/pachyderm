@@ -3,23 +3,25 @@
 Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC) and is a default part of all Pachyderm deployments. For most users, you shouldn't have any issues as Pachyderm takes care of setting all the RBAC permissions automatically. However, if you are deploying Pachyderm on a cluster that your company owns, security policies might not allow certain RBAC permissions by default. Therefore, it's suggested that you contact your Kubernetes admin and provide the following to ensure you don't encounter any permissions issues:
 
 Pachyderm Permission Requirements
-```
-Rules: []rbacv1.PolicyRule{{
-	APIGroups: []string{""},
-	Verbs:     []string{"get", "list", "watch"},
-	Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
-}, {
-	APIGroups: []string{""},
-	Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-	Resources: []string{"replicationcontrollers", "services"},
-}, {
-	APIGroups:     []string{""},
-	Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-	Resources:     []string{"secrets"},
-	ResourceNames: []string{client.StorageSecretName},
-}},
-```
+{% raw %}
 
+```shell
+Rules: []rbacv1.PolicyRule{{
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch"},
+		Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+		}, {
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources: []string{"replicationcontrollers", "services"},
+		}, {
+		APIGroups:     []string{""},
+		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources:     []string{"secrets"},
+		ResourceNames: []string{client.StorageSecretName},
+		}},
+```
+{% endraw %}
 ## RBAC and DNS
 Kubernetes currently (as of 1.8.0) has a bug that prevents kube-dns from
 working with RBAC. Not having DNS will make Pachyderm effectively unusable. You

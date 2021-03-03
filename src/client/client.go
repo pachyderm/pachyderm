@@ -63,9 +63,6 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// ObjectAPIClient is an alias for pfs.ObjectAPIClient
-type ObjectAPIClient pfs.ObjectAPIClient
-
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
@@ -88,7 +85,6 @@ type DebugClient debug.DebugClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	ObjectAPIClient
 	AuthAPIClient
 	IdentityAPIClient
 	VersionAPIClient
@@ -708,7 +704,6 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
