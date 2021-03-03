@@ -42,7 +42,7 @@
     "url-search-params-polyfill": "8.1.0"
   },
   "devDependencies": {
-    "@cypress/code-coverage": "3.8.2",
+    "@cypress/code-coverage": "3.9.2",
     "@graphql-codegen/cli": "1.17.3",
     "@graphql-codegen/typescript": "1.20.0",
     "@graphql-codegen/typescript-operations": "1.17.13",
@@ -52,7 +52,7 @@
     "@pachyderm/config": "0.5.0",
     "@pachyderm/scripts": "0.4.2",
     "@sentry/cli": "1.55.0",
-    "@testing-library/cypress": "6.0.0",
+    "@testing-library/cypress": "7.0.4",
     "@testing-library/dom": "7.29.4",
     "@testing-library/jest-dom": "5.11.8",
     "@testing-library/react": "11.2.3",
@@ -74,7 +74,7 @@
     "body-parser": "1.19.0",
     "canvas": "2.6.1",
     "cross-fetch": "3.0.6",
-    "cypress": "5.2.0",
+    "cypress": "6.6.0",
     "cypress-wait-until": "1.7.1",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
