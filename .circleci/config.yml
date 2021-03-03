@@ -7,13 +7,16 @@ workflows:
   version: 2
   build-and-publish:
     jobs:
-      - build
+      - build:
+          filters:
+            tags:
+              only: /^pachyderm-\d+\.\d+\.\d+$/
       - publish:
           requires:
             - build
           filters:
             branches:
-              ignore: /.*/          
+              ignore: /.*/
             tags:
               only: /^pachyderm-\d+\.\d+\.\d+$/
 
