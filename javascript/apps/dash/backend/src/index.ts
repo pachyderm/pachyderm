@@ -1,10 +1,12 @@
 import {Server} from 'http';
 import path from 'path';
+import {AddressInfo} from 'net';
 
 import {renderFile} from 'ejs';
 import express, {Express} from 'express';
 
 import gqlServer from 'gqlServer';
+import {isTest} from 'lib/isTest';
 
 const PORT = process.env.PORT || '3000';
 const FE_BUILD_DIRECTORY =
@@ -51,14 +53,18 @@ const createServer = () => {
   }
 
   return {
-    port: PORT,
     start: async () => {
       return new Promise<string>((res) => {
         app.locals.server = app.listen({port: PORT}, () => {
-          console.log(
-            `Server ready at http://localhost:${PORT}${gqlServer.graphqlPath}`,
-          );
-          res(PORT);
+          const address: AddressInfo = app.locals.server.address();
+
+          if (!isTest()) {
+            console.log(
+              `Server ready at http://localhost:${address.port}${gqlServer.graphqlPath}`,
+            );
+          }
+
+          res(String(address.port));
         });
       });
     },

@@ -1,7 +1,17 @@
 import {mockServer, graphqlServer} from './testHelpers';
 
 beforeAll(async () => {
-  await Promise.all([mockServer.start(), graphqlServer.start()]);
+  const graphqlPort = await graphqlServer.start();
+  const [grpcPort, authPort] = await mockServer.start();
+
+  process.env.GRPC_PORT = String(grpcPort);
+  process.env.AUTH_PORT = String(authPort);
+  process.env.GRAPHQL_PORT = graphqlPort;
+  process.env.ISSUER_URI = `http://localhost:${authPort}`;
+});
+
+beforeEach(() => {
+  mockServer.resetState();
 });
 
 afterAll(async () => {

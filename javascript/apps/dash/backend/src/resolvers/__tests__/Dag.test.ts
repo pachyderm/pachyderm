@@ -1,10 +1,14 @@
 import {Dag} from 'generated/types';
-import {query} from 'testHelpers';
+import {executeOperation, createOperation} from 'testHelpers';
 
 const doesLinkExistInDag = (
   expectedLink: {source: string; target: string},
-  dag: Dag,
+  dag: Dag | undefined,
 ) => {
+  if (!dag) {
+    return false;
+  }
+
   const sourceNodeIndex = dag.nodes.findIndex(
     (node) => node.name === expectedLink.source,
   );
@@ -19,25 +23,13 @@ const doesLinkExistInDag = (
 
 describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
-    const {dag} = await query<{dag: Dag}>`
-      query getDag {
-        dag(args: {projectId: "1"}) {
-          nodes {
-            name
-            type
-            state
-            access
-          }
-          links {
-            source
-            target
-            state
-          }
-        }
-      }
-    `;
+    const {data} = await executeOperation<{dag: Dag}>('getDag', {
+      args: {projectId: '1'},
+    });
 
-    expect(dag.links.length).toBe(5);
+    const dag = data?.dag;
+
+    expect(dag?.links.length).toBe(5);
     expect(
       doesLinkExistInDag({source: 'montage', target: 'montage_repo'}, dag),
     ).toBe(true);
@@ -56,7 +48,7 @@ describe('Dag resolver', () => {
   });
 
   it('should resolve disconnected components of a dag', async () => {
-    const {dags} = await query<{dags: Dag[]}>`
+    const {dags} = await createOperation<{dags: Dag[]}>(`
       query getDags {
         dags(args: {projectId: "2"}) {
           nodes {
@@ -72,7 +64,7 @@ describe('Dag resolver', () => {
           }
         }
       }
-    `;
+    `);
 
     expect(dags.length).toBe(3);
 

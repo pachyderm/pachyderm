@@ -33,3 +33,8 @@ https://gist.github.com/actgardner/d11545796112003c637882571df4b357. DONT RUN `p
 `make launch-prod`
 
 This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
+## Graphql GQL/TS generation
+
+In the /frontend directory, `generate-operations` will output a `operations.gql` file to /generated, which includes all of the operations that we use in the client code. These are used when writing backend unit tests.
+
+In the /backend directory, `generate-types` will output  `types.ts` to /backend/generated which is a single set of Typescript types used in both the Frontend and Backend projects. NOTE: The Frontend references these types using `@graphqlTypes`.

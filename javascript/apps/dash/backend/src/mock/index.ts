@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import fs from 'fs';
 import http from 'http';
+import {AddressInfo} from 'net';
 import path from 'path';
 import {URL} from 'url';
 
@@ -11,6 +13,8 @@ import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projec
 import express from 'express';
 import {sign} from 'jsonwebtoken';
 
+import {isTest} from 'lib/isTest';
+
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
 import auth from './handlers/auth';
@@ -18,21 +22,34 @@ import pfs from './handlers/pfs';
 import pps from './handlers/pps';
 import projects from './handlers/projects';
 
-const grpcPort = 50051;
-const authPort = 30658;
+const defaultState = {
+  tokenError: false,
+};
 
 const createServer = () => {
   const grpcServer = new Server();
   const authApp = express();
   let authServer: http.Server;
+  let state = {...defaultState};
 
   grpcServer.addService(PPSService, pps);
   grpcServer.addService(PFSService, pfs);
-  grpcServer.addService(AuthService, auth);
+  grpcServer.addService(AuthService, auth.getService());
   grpcServer.addService(ProjectsService, projects);
 
+
   authApp.get('/.well-known/openid-configuration', (_, res) => {
-    return res.send(openIdConfiguration);
+    const issuer = process.env.ISSUER_URI;
+
+    return res.send({
+      issuer,
+      authorization_endpoint: `${issuer}/auth`,
+      token_endpoint: `${issuer}/token`,
+      jwks_uri: `${issuer}/keys`,
+      userinfo_endpoint: `${issuer}/userinfo`,
+      device_authorization_endpoint: `${issuer}/device/code`,
+      ...openIdConfiguration,
+    });
   });
 
   authApp.get('/keys', (_, res) => {
@@ -51,12 +68,16 @@ const createServer = () => {
   });
 
   authApp.post('/token', (_, res) => {
+    if (state.tokenError) {
+      throw new Error('Invalid Auth Code');
+    }
+
     const idToken = sign(
       {some: 'stuff', azp: 'dash'},
       fs.readFileSync(path.resolve(__dirname, 'mockPrivate.key')),
       {
         algorithm: 'RS256',
-        issuer: openIdConfiguration.issuer,
+        issuer: process.env.ISSUER_URI,
         subject: 'user',
         audience: ['pachd', 'dash'],
         expiresIn: '30 days',
@@ -68,28 +89,35 @@ const createServer = () => {
   });
 
   const mockServer = {
-    grpcPort,
-    authPort,
     start: () => {
-      return new Promise<number>((res, rej) => {
-        authServer = authApp.listen(authPort, () => {
-          console.log(`auth server listening on ${authPort}`);
+      return new Promise<[number, number]>((res, rej) => {
+        const test = isTest();
+
+        authServer = authApp.listen(process.env.MOCK_AUTH_PORT || 0, () => {
+          const address = authServer.address() as AddressInfo;
+
+          if (!test) {
+            console.log(`auth server listening on ${address.port}`);
+          }
+
+          grpcServer.bindAsync(
+            `localhost:${process.env.MOCK_GRPC_PORT || 0}`,
+            ServerCredentials.createInsecure(),
+            (err: Error | null, grpcPort: number) => {
+              if (err != null) {
+                rej(err);
+              }
+
+              grpcServer.start();
+
+              if (!test) {
+                console.log(`mock grpc listening on ${grpcPort}`);
+              }
+
+              res([grpcPort, address.port]);
+            },
+          );
         });
-
-        grpcServer.bindAsync(
-          `localhost:${grpcPort}`,
-          ServerCredentials.createInsecure(),
-          (err: Error | null, port: number) => {
-            if (err != null) {
-              rej(err);
-            }
-
-            console.log(`mock grpc listening on ${port}`);
-            grpcServer.start();
-
-            res(grpcPort);
-          },
-        );
       });
     },
 
@@ -100,15 +128,25 @@ const createServer = () => {
 
           authServer.close((authError) => {
             closeErr = authError;
+
+            if (closeErr != null) {
+              rej(closeErr);
+            }
+
+            res(null);
           });
-
-          if (closeErr != null) {
-            rej(closeErr);
-          }
-
-          res(null);
         });
       });
+    },
+
+    // mock methods
+    setHasInvalidIdToken: auth.setHasInvalidIdToken,
+    setTokenError: (tokenError: boolean) => (state.tokenError = tokenError),
+    resetState: () => {
+      auth.resetState();
+      // Add additional handler resets here
+
+      state = {...defaultState};
     },
   };
 

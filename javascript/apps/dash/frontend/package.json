@@ -19,7 +19,8 @@
     "serve": "PORT=4000 serve -s build",
     "start": "NODE_ENV=test PORT=4000 dotenv-flow -p ../ -- node ./node_modules/@pachyderm/scripts/startDev.js",
     "test": "NODE_ENV=test dotenv-flow -p ../ -- jest --max-workers=6",
-    "tslint": "npx tslint 'src/**/*.{ts,tsx}'"
+    "tslint": "npx tslint 'src/**/*.{ts,tsx}'",
+    "generate-operations": "node ./node_modules/@pachyderm/scripts/generateOperations.js ../generated/operations.gql"
   },
   "dependencies": {
     "@apollo/client": "3.3.1",
@@ -50,7 +51,7 @@
     "@graphql-tools/load": "6.0.14",
     "@graphql-tools/merge": "6.2.5",
     "@pachyderm/config": "0.5.0",
-    "@pachyderm/scripts": "0.4.2",
+    "@pachyderm/scripts": "0.5.2",
     "@sentry/cli": "1.55.0",
     "@testing-library/cypress": "7.0.4",
     "@testing-library/dom": "7.29.4",

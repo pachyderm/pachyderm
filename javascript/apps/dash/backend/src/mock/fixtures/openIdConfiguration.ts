@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 export default {
-  issuer: 'http://localhost:30658/',
-  authorization_endpoint: 'http://localhost:30658/auth',
-  token_endpoint: 'http://localhost:30658/token',
-  jwks_uri: 'http://localhost:30658/keys',
-  userinfo_endpoint: 'http://localhost:30658/userinfo',
-  device_authorization_endpoint: 'http://localhost:30658/device/code',
   grant_types_supported: [
     'authorization_code',
     'refresh_token',

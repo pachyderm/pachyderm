@@ -1,0 +1,19 @@
+
+mutation exchangeCode($code: String!) {
+  exchangeCode(code: $code)
+}
+query getDag($args: DagQueryArgs!) {
+  dag(args: $args) {
+    nodes {
+      name
+      type
+      access
+      state
+    }
+    links {
+      source
+      target
+      state
+    }
+  }
+}
