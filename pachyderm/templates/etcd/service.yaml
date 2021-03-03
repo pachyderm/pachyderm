@@ -13,4 +13,4 @@ spec:
     targetPort: client-port
   selector:
     app: etcd
-  type: NodePort #TODO ClusterIP
+  type: ClusterIP
