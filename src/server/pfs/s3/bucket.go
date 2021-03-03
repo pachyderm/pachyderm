@@ -53,6 +53,10 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
 
+	// Strip / from prefix to normalize: "/" means "all objects" and "/foo"
+	// means the same as "foo"
+	prefix = strings.TrimPrefix(prefix, "/")
+
 	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
