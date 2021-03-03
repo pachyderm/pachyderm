@@ -8,6 +8,12 @@
     <title>Pachyderm Dash</title>
   </head>
   <body>
+    <% if (process.env.NODE_ENV === 'production') { %>
+      <script>
+        window.pachDashConfig = <?- JSON.stringify(PACH_DASH_CONFIG) ?>
+      </script>
+    <% } %>
+
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
   </body>

@@ -12,3 +12,9 @@ declare module '*.svg' {
   const src: string;
   export default src;
 }
+
+declare interface Window {
+  REACT_APP_OAUTH_URL: string | undefined;
+  REACT_APP_OAUTH_CLIENT_ID: string | undefined;
+  REACT_APP_OAUTH_PACHD_CLIENT_ID: string | undefined;
+}

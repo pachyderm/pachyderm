@@ -5,10 +5,10 @@
   "proxy": "http://localhost:3000",
   "scripts": {
     "analyze": "ANALYZE_WEBPACK_BUILD=true npm run build",
-    "build": "NODE_ENV=production dotenv-flow -- webpack",
-    "build:staging": "NODE_ENV=staging dotenv-flow -- webpack",
-    "cypress:headless": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --headless --config video=false",
-    "cypress:open": "NODE_ENV=test dotenv-flow -- cypress open",
+    "build": "NODE_ENV=production dotenv-flow -p ../  -- webpack",
+    "build:staging": "NODE_ENV=staging dotenv-flow -p ../ -- webpack",
+    "cypress:headless": "NODE_ENV=test dotenv-flow -p ../ -- cypress run --browser chrome --headless --config video=false",
+    "cypress:open": "NODE_ENV=test dotenv-flow -p ../ -- cypress open",
     "e2e:open": "start-server-and-test start http://localhost:4000 cypress:headless",
     "e2e": "start-server-and-test start http://localhost:4000 cypress:headless",
     "lint": "npm run lint:js && npm run lint:css",
@@ -17,8 +17,8 @@
     "mock": "MOCK_PORT=3000 ts-node -r tsconfig-paths/register --project=src/mock/tsconfig.json src/mock/index.ts",
     "mock-and-start": "npm run mock & npm run start",
     "serve": "PORT=4000 serve -s build",
-    "start": "NODE_ENV=test PORT=4000 dotenv-flow -- node ./node_modules/@pachyderm/scripts/startDev.js",
-    "test": "NODE_ENV=test dotenv-flow -- jest --max-workers=6",
+    "start": "NODE_ENV=test PORT=4000 dotenv-flow -p ../ -- node ./node_modules/@pachyderm/scripts/startDev.js",
+    "test": "NODE_ENV=test dotenv-flow -p ../ -- jest --max-workers=6",
     "tslint": "npx tslint 'src/**/*.{ts,tsx}'"
   },
   "dependencies": {

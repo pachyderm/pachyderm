@@ -5,17 +5,7 @@
 ### Against the mock gRPC
 To run the development environment against the mock gRPC server, run:
 
-```
-// In /backend
-npm run mock-and-start
-```
-
-and...
-
-```
-// In /frontend
-npm start
-```
+`make launch-dev`
 
 This will start the UI server, API server, mock gRPC server, and a mock IDP. You can access the UI in the browser at `localhost:4000`.
 
@@ -37,3 +27,9 @@ https://gist.github.com/actgardner/d11545796112003c637882571df4b357. DONT RUN `p
 1. Run `npm run start:dev` from the /backend directory, and `npm run start` from the /frontend directory.
 1. Make sure to delete any existing `auth-token` from the mock-server in `localStorage`.
 1. Navigate to `localhost:4000` in the browser.
+
+## Running the production server
+
+`make launch-prod`
+
+This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
