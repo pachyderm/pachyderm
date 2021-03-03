@@ -75,10 +75,14 @@ func TestPachdImageTag(t *testing.T) {
 func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	helmChartPath := "../pachyderm"
 
-	expectedTag := "1234"
-	expectedContainerImage := "pachyderm/pachd:" + expectedTag
+	expectedTag := "blah1234"
+	expectedPachdContainerImage := "pachyderm/pachd:" + expectedTag
+	expectedWorkerContainerImage := "pachyderm/worker:" + expectedTag
 	options := &helm.Options{
-		SetValues: map[string]string{"pachd.image.tag": expectedTag},
+		SetValues: map[string]string{
+			"pachd.image.tag":  expectedTag,
+			"worker.image.tag": expectedTag,
+		},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/pachd/deployment.yaml"})
@@ -106,16 +110,18 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not find env var")
 	}
-
+	if deploymentContainers[0].Image != expectedPachdContainerImage {
+		t.Fatalf("Rendered Pachd Image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedPachdContainerImage)
+	}
 	if version != expectedTag {
 		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerImageEnvVar, version, expectedTag)
 	}
-	if workerImage != expectedContainerImage {
-		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerImageEnvVar, workerImage, expectedContainerImage)
+	if workerImage != expectedWorkerContainerImage {
+		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerImageEnvVar, workerImage, expectedWorkerContainerImage)
 	}
 
-	if workerSidecarImage != expectedContainerImage {
-		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerSidecarImageEnvVar, workerImage, expectedContainerImage)
+	if workerSidecarImage != expectedPachdContainerImage {
+		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerSidecarImageEnvVar, workerImage, expectedPachdContainerImage)
 	}
 
 }
