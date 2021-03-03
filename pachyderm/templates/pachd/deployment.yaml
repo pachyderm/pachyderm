@@ -27,6 +27,8 @@ spec:
       - command:
         - /pachd
         env:
+        - name: PACH_TRACE
+          value: "false" # TODO
         - name: PACH_ROOT
           value: /pach
         - name: ETCD_PREFIX

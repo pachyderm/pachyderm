@@ -4,4 +4,3 @@ SHELL := /bin/bash # Use bash syntax
 
 test:
 	go test -v -race ./... -count 1
-

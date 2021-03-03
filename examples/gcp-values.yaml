@@ -1,0 +1,8 @@
+pachd:
+  image:
+    tag: 1.12.3
+  storage:
+    backend: GOOGLE
+    google:
+      googleBucket: "fake-bucket"
+      googleCred: "fake-creds"

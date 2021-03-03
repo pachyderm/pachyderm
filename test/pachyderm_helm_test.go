@@ -11,6 +11,7 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/instrumenta/kubeval/kubeval"
 )
 
 func TestDashImageTag(t *testing.T) {
@@ -124,6 +125,15 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 		t.Fatalf("Rendered EnvVar (%s) value (%s) is not expected (%s)", workerSidecarImageEnvVar, workerImage, expectedPachdContainerImage)
 	}
 
+	res, err := kubeval.Validate([]byte(output))
+	if err != nil {
+		t.Fatalf("could not validate output: %v", err)
+	}
+	for _, res := range res {
+		if !res.ValidatedAgainstSchema {
+			t.Errorf("file %s failed to validate: %v", res.FileName, res.Errors)
+		}
+	}
 }
 
 func TestSetNamespaceWorkerRoleBinding(t *testing.T) {
