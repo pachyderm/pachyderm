@@ -33,22 +33,14 @@ func WithReadOnly() WithTxOption {
 	}
 }
 
-// WithMaxRetries sets the number of times to retry a transaction because of a serialization failure.
-func WithMaxRetries(n int) WithTxOption {
-	return func(c *withTxConfig) {
-		c.MaxRetries = n
-	}
-}
-
 // WithTx calls cb with a transaction,
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
-func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) (retErr error) {
+func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts ...WithTxOption) error {
 	c := &withTxConfig{
 		TxOptions: sql.TxOptions{
 			Isolation: sql.LevelSerializable,
 		},
-		MaxRetries: 100,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -56,26 +48,18 @@ func WithTx(ctx context.Context, db *sqlx.DB, cb func(tx *sqlx.Tx) error, opts .
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 10 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
-	t := backoff.NewTicker(backoffStrategy)
-	defer t.Stop()
-	for i := 0; i < c.MaxRetries; i++ {
+	return backoff.RetryUntilCancel(ctx, func() error {
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
 		if err != nil {
 			return err
 		}
-		err = tryTxFunc(tx, cb)
+		return tryTxFunc(tx, cb)
+	}, backoffStrategy, func(err error, _ time.Duration) error {
 		if isSerializationFailure(err) {
-			retErr = err
-			select {
-			case <-t.C:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			continue
+			return nil
 		}
 		return err
-	}
-	return retErr
+	})
 }
 
 func tryTxFunc(tx *sqlx.Tx, cb func(tx *sqlx.Tx) error) error {

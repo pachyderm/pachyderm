@@ -95,7 +95,7 @@ func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) 
 }
 
 func (s *postgresStore) DeleteTx(tx *sqlx.Tx, chunkID ID) error {
-	_, err := s.db.Exec(`DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
+	_, err := tx.Exec(`DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }
 

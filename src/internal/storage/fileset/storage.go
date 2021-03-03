@@ -66,14 +66,6 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 	return s
 }
 
-// Store returns the underlying store.
-// TODO Store is just used to poke through the information about file set sizes.
-// I think there might be a cleaner way to handle this through the file set interface, and changing
-// the metadata we expose for a file set as a set of metadata entries.
-// func (s *Storage) Store() Store {
-// 	return s.store
-// }
-
 // ChunkStorage returns the underlying chunk storage instance for this storage instance.
 func (s *Storage) ChunkStorage() *chunk.Storage {
 	return s.chunks
@@ -302,7 +294,7 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.store.Set(tx, id, md); err != nil {
+		if err := s.store.SetTx(tx, id, md); err != nil {
 			return err
 		}
 		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
@@ -325,7 +317,7 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
-		if err := s.store.Set(tx, id, md); err != nil {
+		if err := s.store.SetTx(tx, id, md); err != nil {
 			return err
 		}
 		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
@@ -366,5 +358,5 @@ func (d *deleter) DeleteTx(tx *sqlx.Tx, oid string) error {
 	if err != nil {
 		return err
 	}
-	return d.store.Delete(tx, *id)
+	return d.store.DeleteTx(tx, *id)
 }

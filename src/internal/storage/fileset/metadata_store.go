@@ -23,9 +23,9 @@ var (
 // All filesets exist in the same keyspace and can be merged by prefix
 type MetadataStore interface {
 	DB() *sqlx.DB
-	Set(tx *sqlx.Tx, id ID, md *Metadata) error
+	SetTx(tx *sqlx.Tx, id ID, md *Metadata) error
 	Get(ctx context.Context, id ID) (*Metadata, error)
-	Delete(tx *sqlx.Tx, id ID) error
+	DeleteTx(tx *sqlx.Tx, id ID) error
 }
 
 // StoreTestSuite is a suite of tests for a Store.
@@ -52,12 +52,12 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 
 func setMetadata(ctx context.Context, mds MetadataStore, id ID, md *Metadata) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *sqlx.Tx) error {
-		return mds.Set(tx, id, md)
+		return mds.SetTx(tx, id, md)
 	})
 }
 
 func deleteMetadata(ctx context.Context, mds MetadataStore, id ID) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *sqlx.Tx) error {
-		return mds.Delete(tx, id)
+		return mds.DeleteTx(tx, id)
 	})
 }

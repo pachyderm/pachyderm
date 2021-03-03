@@ -18,8 +18,6 @@ var (
 	ErrDanglingRef = errors.Errorf("the operation would create a dangling reference")
 	// ErrTombstone cannot create object because it is marked as a tombstone
 	ErrTombstone = errors.Errorf("cannot create object because it is marked as a tombstone")
-	// ErrNotTombstone object cannot be deleted because it is not marked as a tombstone
-	ErrNotTombstone = errors.Errorf("object cannot be deleted because it is not marked as a tombstone")
 	// ErrSelfReference object cannot reference itself
 	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
@@ -36,10 +34,8 @@ type Tracker interface {
 	DB() *sqlx.DB
 
 	// CreateTx creates an object with id=id, and pointers to everything in pointsTo
-	// It errors with ErrObjectExists if the object already exists.  Callers may be able to ignore this.
+	// It errors with ErrDifferentObjectExists if the object already exists.  Callers may be able to ignore this.
 	// It errors with ErrDanglingRef if any of the elements in pointsTo do not exist
-	// It errors with ErrTombstone if the object exists and is marked as a tombstone. Callers should retry until
-	// they successfully create the object.
 	CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error
 
 	// SetTTLPrefix sets the expiration time to current_time + ttl for all objects with ids starting with prefix
@@ -51,7 +47,7 @@ type Tracker interface {
 	// GetUpstream gets all objects immediately upstream of (pointing to) the object with id
 	GetUpstream(ctx context.Context, id string) ([]string, error)
 
-	// DeleteTx deletes the object, or returns ErrDanglingRef if it deleting it would create dangling refs.
+	// DeleteTx deletes the object, or returns ErrDanglingRef if deleting it would create dangling refs.
 	// If the id doesn't exist, no error is returned
 	DeleteTx(tx *sqlx.Tx, id string) error
 

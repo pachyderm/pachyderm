@@ -49,13 +49,14 @@ func (cs *postgresCommitStore) AddFileset(ctx context.Context, commit *pfs.Commi
 	if err != nil {
 		return err
 	}
+	id = *id2
 	return dbutil.WithTx(ctx, cs.db, func(tx *sqlx.Tx) error {
 		oid := commitDiffTrackerID(commit, id)
 		pointsTo := []string{id.TrackerID()}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 		VALUES ($1, $2)
-	`, commit.ID, *id2); err != nil {
+	`, commit.ID, id); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx,

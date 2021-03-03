@@ -25,7 +25,7 @@ func (s *postgresStore) DB() *sqlx.DB {
 	return s.db
 }
 
-func (s *postgresStore) Set(tx *sqlx.Tx, id ID, md *Metadata) error {
+func (s *postgresStore) SetTx(tx *sqlx.Tx, id ID, md *Metadata) error {
 	if md == nil {
 		md = &Metadata{}
 	}
@@ -66,7 +66,7 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	return md, nil
 }
 
-func (s *postgresStore) Delete(tx *sqlx.Tx, id ID) error {
+func (s *postgresStore) DeleteTx(tx *sqlx.Tx, id ID) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE path = $1`, id.HexString())
 	return err
 }
