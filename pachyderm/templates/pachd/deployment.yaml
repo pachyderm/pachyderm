@@ -42,7 +42,7 @@ spec:
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
         - name: IMAGE_PULL_SECRET
-          #value:
+          #value: TODO Wire up
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
