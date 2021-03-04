@@ -5,6 +5,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -22,6 +23,7 @@ spec:
         app: pachd
         suite: pachyderm
       name: pachd
+      namespace: {{ .Release.Namespace }}
     spec:
       containers:
       - command:

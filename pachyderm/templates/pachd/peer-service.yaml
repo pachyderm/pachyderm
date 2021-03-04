@@ -5,6 +5,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd-peer
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: api-grpc-peer-port

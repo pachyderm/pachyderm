@@ -6,6 +6,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
@@ -18,6 +19,7 @@ spec:
         app: dash
         suite: pachyderm
       name: dash
+      namespace: {{ .Release.Namespace }}
     spec:
       containers:
       - image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"

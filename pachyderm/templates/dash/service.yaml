@@ -6,6 +6,7 @@ metadata:
     app: dash
     suite: pachyderm
   name: dash
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: dash-http

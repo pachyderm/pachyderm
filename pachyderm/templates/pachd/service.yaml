@@ -8,6 +8,7 @@ metadata:
     app: pachd
     suite: pachyderm
   name: pachd
+  namespace: {{ .Release.Namespace }}
 spec:
   ports: #Port ordering so dash can access unencrypted port? (Alysha hack)
   - name: api-grpc-port

@@ -6,6 +6,7 @@ metadata:
     app: etcd
     suite: pachyderm
   name: etcd
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -19,6 +20,7 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd
+      namespace: {{ .Release.Namespace }}
     spec:
       containers:
       - args:
@@ -65,6 +67,7 @@ spec:
         app: etcd
         suite: pachyderm
       name: etcd-storage
+      namespace: {{ .Release.Namespace }}
     spec:
       accessModes:
       - ReadWriteOnce
