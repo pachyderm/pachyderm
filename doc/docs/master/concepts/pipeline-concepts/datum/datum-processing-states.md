@@ -27,6 +27,6 @@ the `pachctl list job` command:
 
 ![datums in progress](../../../assets/images/datums_in_progress.svg)
 
-!!! note
+!!! Note
     Datums that failed are still included in the total, but not
     shown in the progress indicator.
