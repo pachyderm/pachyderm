@@ -2518,10 +2518,16 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 	eg.Go(func() error {
 		defer close(etcdInfos)
 		return a.listPipelinePtr(pachClient, request.Pipeline, request.History, func(name string, ptr *pps.EtcdPipelineInfo) error {
+			// copy
+			data, _ := ptr.Marshal()
+			ptr2 := &pps.EtcdPipelineInfo{}
+			if err := ptr2.Unmarshal(data); err != nil {
+				panic(err)
+			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case etcdInfos <- etcdInfo{name: name, ptr: ptr}:
+			case etcdInfos <- etcdInfo{name: name, ptr: ptr2}:
 				return nil
 			}
 		})
