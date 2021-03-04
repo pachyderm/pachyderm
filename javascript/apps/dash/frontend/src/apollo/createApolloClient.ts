@@ -6,8 +6,8 @@ import {
 } from '@apollo/client';
 import {History as BrowserHistory} from 'history';
 
+import {LOGGED_IN_QUERY} from '@dash-frontend/hooks/useAuth';
 import {httpLink} from 'apollo/links/httpLink';
-import {LOGGED_IN_QUERY} from 'hooks/useAuth';
 
 import {contextLink} from './links/contextLink';
 

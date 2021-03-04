@@ -2,7 +2,7 @@ import {useLoginWindow} from '@pachyderm/components';
 import {useEffect, useMemo, useState} from 'react';
 import {useLocation} from 'react-router';
 
-import useAuth from 'hooks/useAuth';
+import useAuth from '@dash-frontend/hooks/useAuth';
 
 const pachdClientId = process.env.REACT_APP_OAUTH_PACHD_CLIENT_ID;
 const authUrl = process.env.REACT_APP_OAUTH_URL || '';

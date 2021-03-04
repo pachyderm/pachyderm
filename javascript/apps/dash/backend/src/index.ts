@@ -5,8 +5,8 @@ import {AddressInfo} from 'net';
 import {renderFile} from 'ejs';
 import express, {Express} from 'express';
 
-import gqlServer from 'gqlServer';
-import {isTest} from 'lib/isTest';
+import gqlServer from '@dash-backend/gqlServer';
+import {isTest} from '@dash-backend/lib/isTest';
 
 const PORT = process.env.PORT || '3000';
 const FE_BUILD_DIRECTORY =

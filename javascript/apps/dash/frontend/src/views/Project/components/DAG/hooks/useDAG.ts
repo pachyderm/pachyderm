@@ -1,10 +1,10 @@
 import * as d3 from 'd3';
 import {useEffect} from 'react';
 
+import {LinkDatum, NodeDatum} from '@dash-frontend/lib/DAGTypes';
+import linkStateAsJobState from '@dash-frontend/lib/linkStateAsJobState';
+import nodeStateAsPipelineState from '@dash-frontend/lib/nodeStateAsPipelineState';
 import {Dag, JobState, NodeType, PipelineState} from '@graphqlTypes';
-import {LinkDatum, NodeDatum} from 'lib/DAGTypes';
-import linkStateAsJobState from 'lib/linkStateAsJobState';
-import nodeStateAsPipelineState from 'lib/nodeStateAsPipelineState';
 
 import checkmark from '../images/checkmark.svg';
 import error from '../images/error.svg';

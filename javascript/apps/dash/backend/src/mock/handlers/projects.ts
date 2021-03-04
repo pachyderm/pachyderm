@@ -1,6 +1,6 @@
 import {IAPIServer} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
 
-import {default as projectFixtures, projectInfo} from 'mock/fixtures/projects';
+import {default as projectFixtures, projectInfo} from '@dash-backend/mock/fixtures/projects';
 
 const projects: Pick<IAPIServer, 'inspectProject' | 'listProject'> = {
   inspectProject: (call, callback) => {

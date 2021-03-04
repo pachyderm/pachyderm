@@ -5,7 +5,7 @@ import {
   Resolvers,
   JobState,
   ProjectStatus,
-} from 'generated/types';
+} from '@graphqlTypes';
 
 import authResolver from './Auth';
 import dagResolver from './Dag';

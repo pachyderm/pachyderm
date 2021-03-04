@@ -2,7 +2,7 @@
 import React, {ReactElement} from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
-import ApolloProvider from 'providers/ApolloProvider';
+import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
 export const withContextProviders = (
   Component: React.ElementType,

@@ -13,7 +13,7 @@ import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projec
 import express from 'express';
 import {sign} from 'jsonwebtoken';
 
-import {isTest} from 'lib/isTest';
+import {isTest} from '@dash-backend/lib/isTest';
 
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';

@@ -2,8 +2,8 @@
 import {AuthenticationError} from 'apollo-server-express';
 import {Issuer} from 'openid-client';
 
-import {MutationResolvers} from 'generated/types';
-import client from 'grpc/client';
+import {MutationResolvers} from '@graphqlTypes';
+import client from '@dash-backend/grpc/client';
 
 interface AuthResolver {
   Mutation: {

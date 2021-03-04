@@ -1,4 +1,4 @@
-import {mockServer, executeOperation} from 'testHelpers';
+import {mockServer, executeOperation} from '@dash-backend/testHelpers';
 
 describe('Auth resolver', () => {
   describe('exchangeCode', () => {

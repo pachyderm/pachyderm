@@ -1,7 +1,7 @@
 import {IAPIServer} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {ListRepoResponse} from '@pachyderm/proto/pb/pfs/pfs_pb';
 
-import repos from 'mock/fixtures/repos';
+import repos from '@dash-backend/mock/fixtures/repos';
 
 const pfs: Pick<IAPIServer, 'listRepo'> = {
   listRepo: (call, callback) => {

@@ -1,11 +1,11 @@
 import React from 'react';
 import {BrowserRouter, Route, Switch} from 'react-router-dom';
 
-import AuthenticatedRoute from 'components/AuthenticatedRoute';
-import Header from 'components/Header';
-import ApolloProvider from 'providers/ApolloProvider';
-import Landing from 'views/Landing';
-import Project from 'views/Project';
+import AuthenticatedRoute from '@dash-frontend/components/AuthenticatedRoute';
+import Header from '@dash-frontend/components/Header';
+import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
+import Landing from '@dash-frontend/views/Landing';
+import Project from '@dash-frontend/views/Project';
 
 const DashUI: React.FC = () => {
   return (

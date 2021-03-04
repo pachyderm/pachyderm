@@ -1,7 +1,7 @@
 import React from 'react';
 import {useParams} from 'react-router';
 
-import {useDAGData} from 'hooks/useDAGData';
+import {useDAGData} from '@dash-frontend/hooks/useDAGData';
 
 import DAG from './components/DAG';
 import styles from './Project.module.css';

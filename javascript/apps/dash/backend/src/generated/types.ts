@@ -8,7 +8,7 @@ import {JobState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
 import {GraphQLResolveInfo} from 'graphql';
 
-import {Context} from 'lib/types';
+import {Context} from '@dash-backend/lib/types';
 export type Maybe<T> = T | null;
 export type Exact<T extends {[key: string]: unknown}> = {[K in keyof T]: T[K]};
 export type EnumResolverSignature<T, AllowedValues = any> = {

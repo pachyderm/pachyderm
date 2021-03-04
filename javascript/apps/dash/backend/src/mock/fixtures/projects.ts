@@ -1,7 +1,5 @@
-import {Project, Projects} from '@pachyderm/proto/pb/projects/projects_pb';
+import {Project, Projects, ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
 import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
-
-import {ProjectStatus} from 'generated/types';
 
 const projects: {[projectId: string]: Project} = {
   '1': new Project()

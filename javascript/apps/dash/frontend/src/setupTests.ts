@@ -3,7 +3,7 @@ import {enableFetchMocks} from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
 import '@testing-library/jest-dom/extend-expect';
 
-import mockServer from './mock';
+import mockServer from '@dash-backend/mock';
 
 enableFetchMocks();
 
@@ -15,6 +15,6 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   fetchMock.dontMock();
-  mockServer.resetData();
+  // mockServer.resetData(); TODO implement this
 });
 afterAll(() => mockServer.stop());

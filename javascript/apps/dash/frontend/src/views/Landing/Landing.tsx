@@ -2,7 +2,7 @@ import {Group, TableView} from '@pachyderm/components';
 import React, {useState} from 'react';
 import {useForm} from 'react-hook-form';
 
-import {useProjects} from 'hooks/useProjects';
+import {useProjects} from '@dash-frontend/hooks/useProjects';
 
 import ProjectRow from './components/ProjectRow/ProjectRow';
 import styles from './Landing.module.css';

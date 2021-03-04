@@ -13,15 +13,20 @@ const isProd = NODE_ENV === 'production' || NODE_ENV === 'staging';
 
 const env = Object.keys(process.env)
   .filter((key) => key.startsWith('REACT_APP') || key === 'NODE_ENV')
-  .reduce((env, key) => {
-    if (key.startsWith('REACT_APP_RUNTIME')) {
-      env.pachDashConfig[key] = isProd ? `window.pachDashConfig['${key}']` : (JSON.stringify(process.env[key]) || '');
-    } else {
-      env[key] = JSON.stringify(process.env[key]) || '';
-    }
+  .reduce(
+    (env, key) => {
+      if (key.startsWith('REACT_APP_RUNTIME')) {
+        env.pachDashConfig[key] = isProd
+          ? `window.pachDashConfig['${key}']`
+          : JSON.stringify(process.env[key]) || '';
+      } else {
+        env[key] = JSON.stringify(process.env[key]) || '';
+      }
 
-    return env;
-  }, { pachDashConfig: {} });
+      return env;
+    },
+    {pachDashConfig: {}},
+  );
 
 config.module.rules[0].oneOf[1].include.push(
   path.resolve(appDir, '..', 'backend', 'src'),
@@ -33,8 +38,7 @@ module.exports = {
     ...config.resolve,
     plugins: [new TsconfigPathsPlugin()],
   },
-  plugins: [
-    new DefinePlugin({'process.env': env}),
-    ...config.plugins,
-  ].filter(Boolean),
+  plugins: [new DefinePlugin({'process.env': env}), ...config.plugins].filter(
+    Boolean,
+  ),
 };

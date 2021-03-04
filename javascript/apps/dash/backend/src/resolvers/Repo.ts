@@ -1,5 +1,5 @@
-import {QueryResolvers} from 'generated/types';
-import client from 'grpc/client';
+import {QueryResolvers} from '@graphqlTypes';
+import client from '@dash-backend/grpc/client';
 
 interface RepoResolver {
   Query: {

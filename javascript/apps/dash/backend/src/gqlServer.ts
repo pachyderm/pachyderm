@@ -3,7 +3,7 @@ import path from 'path';
 
 import {ApolloServer, gql} from 'apollo-server-express';
 
-import resolvers from 'resolvers';
+import resolvers from '@dash-backend/resolvers';
 
 const gqlServer = new ApolloServer({
   context: ({req}) => {

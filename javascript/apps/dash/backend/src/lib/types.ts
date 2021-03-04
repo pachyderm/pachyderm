@@ -1,4 +1,4 @@
-import {Node, JobState} from 'generated/types';
+import {Node, JobState} from '@graphqlTypes';
 
 export interface Context {
   authToken?: string;

@@ -3,10 +3,9 @@
     "baseUrl": "./src",
     "paths": {
       "@graphqlTypes": [ "../../backend/src/generated/types.ts" ],
+      "@dash-backend/*": ["../../backend/src/*"],
+      "@dash-frontend/*": ["./*"]
     }
   },
-  "extends": "@pachyderm/config/ts.config.json",
-  "include": [
-    "./src"
-  ]
+  "extends": "@pachyderm/config/ts.config.json"
 }
