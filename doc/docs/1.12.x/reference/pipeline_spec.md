@@ -1035,39 +1035,14 @@ formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/).
+Each PFS input needs to **specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/)**.
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
-consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
-Pachyderm attempts to process datums in parallel whenever possible.
-
-Intuitively, you may think of the input repo as a file system, and you are
-applying the glob pattern to the root of the file system.  The files and
-directories that match the glob pattern are considered datums.
-
-For instance, let's say your input repo has the following structure:
-
-```
-/foo-1
-/foo-2
-/bar
-  /bar-1
-  /bar-2
-```
-
-Now let's consider what the following glob patterns would match respectively:
-
-* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum.
-* `/*`:  this pattern matches everything under the root directory given us 3 datums:
-`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
-* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
-* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
-* `/*/*`:  this pattern matches everything that's two levels deep relative
-to the root: `/bar/bar-1` and `/bar/bar-2`
-
-The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
-`/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
+consists of.  [Datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/#datum) are the *unit of parallelism* in Pachyderm.  
+Per default,
+Pachyderm auto-scales its workers to process datums in parallel. 
+You can override this behaviour by setting your own parameter
+(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/)).
 
 ## PPS Mounts and File Access
 
