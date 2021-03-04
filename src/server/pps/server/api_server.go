@@ -2535,15 +2535,13 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 				if err != nil {
 					return err
 				}
-				if !filterPipeline(pinfo) {
-					continue
-				}
-				if err != nil {
-					return err
-				}
 				if err := func() error {
 					mu.Lock()
 					defer mu.Unlock()
+					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
+					if !filterPipeline(pinfo) {
+						return nil
+					}
 					return f(pinfo)
 				}(); err != nil {
 					return err
