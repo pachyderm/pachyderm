@@ -11,8 +11,7 @@
 
 # Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
 
-Pachyderm is a tool for version-controlled production data pipelines. If you need to chain
-together data scraping, ingestion, cleaning, munging, wrangling, processing,
+Pachyderm is a tool for version-controlled automated end-to-end data pipelines for data science. If you need to chain together data scraping, ingestion, cleaning, munging, wrangling, processing,
 modeling, and analysis in a sane way, while ensuring the traceability and provenance of your data, Pachyderm is for you. If you have an existing set of scripts which do this in an ad-hoc fashion and you're looking
 for a way to "productionize" them, Pachyderm can make this easy for you.
 
