@@ -21,7 +21,7 @@ Log in with your GitHub or Google account to start using [hub.pachyderm.com](htt
 Click the **Create a 4-hr Workspace** button and fill out the form.
 ![PachHub cluster](../images/pachhub_create_workspace.png)
 
-Your just provisioned a one-node cluster that you can now use for
+You just provisioned a one-node cluster that you can now use for
 a limited time for free!
 
 !!! Note
