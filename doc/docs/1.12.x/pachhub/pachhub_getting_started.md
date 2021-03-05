@@ -1,181 +1,101 @@
 # Getting Started with Pachyderm Hub
 
-Pachyderm Hub is a platform for data scientists where you can
-version-control your data, build analysis pipelines, and
-track the provenance of your data science workflow.
+Pachyderm Hub is a **SaaS platform** that 
+gives you access to all of **Pachyderm's functionalities
+without the burden of deploying and maintaining it** locally
+or in a third-party cloud platform. 
 
 This section walks you through
 the steps of creating a cluster in Pachyderm Hub so that
 you do not need to worry about the underlying infrastructure
-and can get started using Pachyderm right away.
+and can get started right away.
 
-<!--Follow the steps below to configure your first Pachyderm pipeline or
-watch the 2-minute [Getting Started Screencast](../tutorials/screencast-opencv.html).-->
+!!! Note
+    Let us know how to improve Pachyderm Hub. Join our [Slack channel](http://slack.pachyderm.io).
+## Get started in 4 simple steps
+![Pachyderm Hub Steps](../images/pachhub_steps.png)
+## Before you start
+Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com). 
+![Pachyderm Hub Login](../images/pachhub_login.png)
+## 1- Create a Cluster 
+Click the **Create a 4-hr Workspace** button and fill out the form.
+![PachHub cluster](../images/pachhub_create_workspace.png)
 
-Pachyderm Hub enables you to preview Pachyderm functionality
-free of charge by removing the burden of deploying Pachyderm locally
-or in a third-party cloud platform. Currently, Pachyderm Hub is in beta
-so clusters cannot be turned into production clusters and should only
-be used for easy development and testing. Production-grade functionality
-will be supported in later releases.
+Your just provisioned a one-node cluster that you can now use for
+a limited time for free!
 
-!!! note
-    We'd like to hear your feedback! Let us know what you think
-    about Pachyderm Hub and help us make it better.
-    Join our [Slack channel](http://slack.pachyderm.io).
+!!! Note
+      While Pachyderm maintains a few clusters that are instantly
+      available, none may be available during periods of high traffic. If
+      you see your cluster is in a *starting* state, you might have to wait a few
+      minutes for it to be ready.
 
-## How it Works
-
-To get started, complete the following steps:
-
-![Pachyderm Hub Steps](../assets/images/d_pachhub_steps.svg)
-
-## Log in
-
-Pachyderm Hub uses GitHub OAuth as an identity provider. Therefore,
-to start using Pachyderm Hub, you need to log in by authorizing
-Pachyderm Hub with your GitHub account. If you do not
-have a GitHub account yet, create one by following the steps described
-in [Join GitHub](https://github.com/join).
-
-To log in to Pachyderm Hub, complete the following steps:
-
-1. Go to [hub.pachyderm.com](https://hub.pachyderm.com).
-1. Click **Try for free**.
-1. Authorize Pachyderm Hub with your GitHub account by typing your
-   GitHub user name and password.
-1. Proceed to [Step 1](#step-1-create-a-cluster).
-
-## Step 1: Create a Cluster
-
-To get started, create a Pachyderm cluster on which your pipelines will run.
-A Pachyderm cluster runs on top of the underlying cloud infrastructure.
-In Pachyderm Hub, you can create a one-node cluster that you can use for
-a limited time.
-
-To create a Pachyderm cluster, complete the following steps:
-
-1. If you have not yet done so, log in to Pachyderm Hub.
-1. Click **Create cluster**.
-1. Type a name for your cluster. For example, `test1`.
-1. Click **Create**.
-
-   Your cluster is provisioned instantly!
-
-   ![PachHub cluster](../assets/images/s_pachhub_cluster.png)
-
-   **Note:** While Pachyderm maintains a few clusters that are instantly
-   available, none may be available during periods of high traffic. If
-   you see your cluster is in a *starting* state, you might have to wait a few
-   minutes for it to be ready.
-
-1. Proceed to [Step 2](#step-2-connect-to-your-cluster).
-
-## Step 2 - Connect to Your Cluster
-
-Pachyderm Hub enables you to access your cluster through a command-line
-interface (CLI) called `pachctl` and the web interface called the Dashboard.
-Although you can perform most simple actions directly in the dashboard,
+## 2- Install pachctl
+Pachyderm Hub enables you to access your cluster through Pachyderm 
+CLI `pachctl` and the web interface called the Dashboard.
+Although you can perform most simple actions directly in the Dashboard,
 `pachctl` provides full functionality. Most likely, you will use
 `pachctl` for any operation beyond the most basic workflow.
-Pachyderm recommends that you use `pachctl` for all data operations and
-the dashboard to view your data and graphical representation of your
+We recommend that you use `pachctl` for all data operations and
+the Dashboard to view your data and graphical representation of your
 pipelines.
 
-After you create a cluster, you need to go to the terminal on your computer
-and configure your CLI to connect to your cluster by installing `pachctl`
-and configuring your Pachyderm context. For more information about
-Pachyderm contexts, see [Connect by using a Pachyderm Context](../../deploy-manage/deploy/connect-to-cluster/#connect-by-using-a-pachyderm-context).
+After your cluster creation, open a terminal window and [install 'pachctl'](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl).
 
-To set the correct Pachyderm context, you need to use the hostname
-of your cluster that is available in the Pachyderm Hub UI under **Connect**.
-
-!!! note
+!!! Warning
     `kubectl` commands are not supported for the clusters deployed
     on Pachyderm Hub.
+## 3-4 Configure your Pachyderm context and login to your cluster by using a one-time authentication token
+1. To configure a Pachyderm context and log in to your cluster
+(i.e. have your`pachctl` point to your new cluster), click the **Connect** link on your cluster name in the Pachyderm Hub UI.
 
-To connect to your cluster, complete the following steps:
+      ![Pachyderm Cluster running](../images/pachhub_cluster_running.png)
 
-1. On your local computer, open a terminal window.
-1. Install or upgrade  `pachctl` as described in
-   [Install pachctl](../../getting_started/local_installation/#install-pachctl).
+      In your terminal window, copy, paste, and run the commands 1,2,3 listed in the instructions.
 
-1. Verify your `pachctl` version:
+      ![Pachyderm Cluster connect](../images/pachhub-cluster-connect.png)
 
-   ```shell
-   pachctl version --client-only
-   ```
+      **Note**
+            Your token has a limited lifetime. The following error means that your authentication
+            token has expired. Close the pop-up window and re-connect.
+            ```shell
+               error authenticating with Pachyderm cluster: otp is invalid or has expired
+            ```
 
-   **System Response:**
-
-   ```shell
-   {{ config.pach_latest_version }}
-   ```
-
-1. Configure a Pachyderm context and log in to your
-   cluster by using a one-time authentication token:
-
-   1. In the Pachyderm Hub UI, click **Connect** next to your cluster.
-   1. In your terminal window, copy, paste, and run the commands listed in
-      the instructions.
-      These commands create a new Pachyderm context with your cluster
-      details on your machine.
-
-      **Note:** If you get the following error, that means that your authentication
-      token has expired:
-
-      ```shell
-      error authenticating with Pachyderm cluster: /pachyderm_auth/auth-codes/ e14ccfafb35d4768f4a73b2dc9238b365492b88e98b76929d82ef0c6079e0027 not found
-      ```
-
-      To get a new token, refresh the page. Then, use
-      the new token to authenticate.
-
-   1. Verify that you have set the correct context:
+1. Verify that you have set the correct context:
 
       ```shell
       pachctl config get active-context
       ```
-
-      **System Response:**
-
-      ```shell
-      test-svet-cc0mi51i52
+      **System response**
+      ```
+      jolly-caribou
       ```
 
-1. Verify that you can run `pachctl` commands on your cluster:
-
-   1. Create a repo called `test`:
+1. Create a test repo:
 
       ```shell
       pachctl create repo test
       ```
-
-   1. Verify that the repo was created:
-
       ```shell
       pachctl list repo
       ```
-
-      **System Response:**
-
-      ```shell
-      NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
-      test   3 seconds ago 0B            OWNER
+      **System response**
+      ```
+      NAME CREATED       SIZE (MASTER) ACCESS LEVEL
+      test 5 seconds ago 0B            OWNER    
       ```
 
-   1. Go to the dashboard and verify that you can see the repo in the
-      dashboard:
+1. Check the repo in your dashboard:
 
-      1. In the Pachyderm Hub UI, click **Dashboard** next to your cluster.
-      The dashboard opens in a new window.
+      In the Pachyderm Hub UI, click the **Details** button next to your cluster name,
+      then **Dash**. Your dashboard opens in a new window.
 
-      ![repo_ready](../assets/images/s_pachhub_ready.png)
+      ![repo_ready](../images/pachhub_dash_ready.png)
 
-## Next Steps
+## Next Step
 
-Congratulations! You have successfully deployed and configured a Pachyderm
-cluster in Pachyderm Hub. Now, you can try out our Beginners tutorial that walks
-you through the Pachyderm basics.
+You have successfully deployed and configured a Pachyderm
+cluster in Pachyderm Hub.
 
-* [Beginner Tutorial](../getting_started/beginner_tutorial.md)
+Next: [Beginner Tutorial](../getting_started/beginner_tutorial.md)
