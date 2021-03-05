@@ -53,7 +53,7 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
 
       In your terminal window, copy, paste, and run the commands 1,2,3 listed in the instructions.
 
-      ![Pachyderm Cluster connect](../images/pachhub-cluster-connect.png)
+      ![Pachyderm Cluster connect](../images/pachhub_cluster_connect.png)
 
       **Note**
             Your token has a limited lifetime. The following error means that your authentication
