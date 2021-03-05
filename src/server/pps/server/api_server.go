@@ -1297,7 +1297,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
