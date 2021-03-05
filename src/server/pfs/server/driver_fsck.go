@@ -294,6 +294,15 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				}); err != nil {
 					return err
 				}
+				if err := onFix(fmt.Sprintf("adding %s to subvenance of %s", ci.Commit.ID, provCommitInfo.Commit.ID)); err != nil {
+					return err
+				}
+				newProvCommitInfo := proto.Clone(provCommitInfo).(*pfs.CommitInfo)
+				newProvCommitInfo.Subvenance = append(newProvCommitInfo.Subvenance, &pfs.CommitRange{
+					Lower: ci.Commit,
+					Upper: ci.Commit,
+				})
+				newCommitInfos[newProvCommitInfo.Commit.ID] = newProvCommitInfo
 			}
 		}
 		// <=
@@ -353,6 +362,15 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 					}); err != nil {
 						return err
 					}
+					if err := onFix(fmt.Sprintf("adding %s to provenence of %s", ci.Commit.ID, subvCommitInfo.Commit.ID)); err != nil {
+						return err
+					}
+					newSubvCommitInfo := proto.Clone(subvCommitInfo).(*pfs.CommitInfo)
+					newSubvCommitInfo.Provenance = append(subvCommitInfo.Provenance, &pfs.CommitProvenance{
+						Branch: ci.Branch,
+						Commit: ci.Commit,
+					})
+					newCommitInfos[subvCommit.ID] = newSubvCommitInfo
 				}
 
 				if subvCommit.ID == subvRange.Lower.ID {
