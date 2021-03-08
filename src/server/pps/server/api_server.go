@@ -960,7 +960,7 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 	}
 	commitInfo, err := pachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
 	if err != nil {
-		if pfsServer.IsCommitFinishedErr(err) || pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
+		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
 			return nil
 		}
 		return err
@@ -978,10 +978,12 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 			Empty:  true,
 		})
 	}); err != nil {
-		if pfsServer.IsCommitFinishedErr(err) || pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
+		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
 			return nil
 		}
-		return err
+		if !pfsServer.IsCommitFinishedErr(err) {
+			return err
+		}
 	}
 	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
 	// more comprehensive solution to this with global ids.
