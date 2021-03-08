@@ -19,7 +19,7 @@ deployment options and related topics:
       <div class="mdl-card__actions mdl-card--border">
         <ul>
           <li><a href="../../hub/hub_getting_started/" class="md-typeset md-link">
-          Getting Started with Pachyderm Hub
+          Getting Started with Hub
           </a>
           </li>
           <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
