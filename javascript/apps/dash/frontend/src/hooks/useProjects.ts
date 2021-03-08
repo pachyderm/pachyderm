@@ -1,7 +1,7 @@
 import {useQuery} from '@apollo/client';
 
+import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
 import {Project} from '@graphqlTypes';
-import {GET_PROJECTS_QUERY} from 'queries/GetProjectsQuery';
 
 type ProjectsQueryResponse = {
   projects: Project[];

@@ -7,9 +7,9 @@ import {
 import {History as BrowserHistory} from 'history';
 
 import {LOGGED_IN_QUERY} from '@dash-frontend/hooks/useAuth';
-import {httpLink} from 'apollo/links/httpLink';
 
 import {contextLink} from './links/contextLink';
+import {httpLink} from './links/httpLink';
 
 const createApolloClient = (
   browserHistory: BrowserHistory,
