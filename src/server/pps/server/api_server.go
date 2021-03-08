@@ -1452,7 +1452,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	// Set the default for the `Since` field.
-	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
+	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
