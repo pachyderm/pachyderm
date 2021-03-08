@@ -12,14 +12,12 @@ import (
 )
 
 var (
-	// ErrObjectExists the object already exists
-	ErrObjectExists = errors.Errorf("object exists")
+	// ErrDifferentObjectExists the object already exists, with different downstream objects.
+	ErrDifferentObjectExists = errors.Errorf("a different object exists at that id")
 	// ErrDanglingRef the operation would create a dangling reference
 	ErrDanglingRef = errors.Errorf("the operation would create a dangling reference")
 	// ErrTombstone cannot create object because it is marked as a tombstone
 	ErrTombstone = errors.Errorf("cannot create object because it is marked as a tombstone")
-	// ErrNotTombstone object cannot be deleted because it is not marked as a tombstone
-	ErrNotTombstone = errors.Errorf("object cannot be deleted because it is not marked as a tombstone")
 	// ErrSelfReference object cannot reference itself
 	ErrSelfReference = errors.Errorf("object cannot reference itself")
 )
@@ -32,20 +30,16 @@ const ExpireNow = time.Duration(math.MinInt32)
 
 // Tracker tracks objects and their references to one another.
 type Tracker interface {
-	// CreateObject creates an object with id=id, and pointers to everything in pointsTo
-	// It errors with ErrObjectExists if the object already exists.  Callers may be able to ignore this.
+	// DB returns the database the tracker is using
+	DB() *sqlx.DB
+
+	// CreateTx creates an object with id=id, and pointers to everything in pointsTo
+	// It errors with ErrDifferentObjectExists if the object already exists.  Callers may be able to ignore this.
 	// It errors with ErrDanglingRef if any of the elements in pointsTo do not exist
-	// It errors with ErrTombstone if the object exists and is marked as a tombstone. Callers should retry until
-	// they successfully create the object.
-	// CreateObject should always be called *before* adding an object to an auxillary store.
-	CreateObject(ctx context.Context, id string, pointsTo []string, ttl time.Duration) error
+	CreateTx(tx *sqlx.Tx, id string, pointsTo []string, ttl time.Duration) error
 
 	// SetTTLPrefix sets the expiration time to current_time + ttl for all objects with ids starting with prefix
 	SetTTLPrefix(ctx context.Context, prefix string, ttl time.Duration) (time.Time, error)
-
-	// TODO: thoughts on these?
-	// SetTTL(ctx context.Context, id string, ttl time.Duration) error
-	// SetTTLBatch(ctx context.Context, ids []string, ttl time.Duration) error
 
 	// GetDownstream gets all objects immediately downstream of (pointed to by) object with id
 	GetDownstream(ctx context.Context, id string) ([]string, error)
@@ -53,14 +47,9 @@ type Tracker interface {
 	// GetUpstream gets all objects immediately upstream of (pointing to) the object with id
 	GetUpstream(ctx context.Context, id string) ([]string, error)
 
-	// MarkTombstone causes the object to appear deleted.  It cannot be created, and objects referencing it cannot
-	// be created until it is deleted.
-	// It errors if id has other objects referencing it.
-	MarkTombstone(ctx context.Context, id string) error
-
-	// FinishDelete deletes the object
-	// It is an error to call FinishDelete without calling MarkTombstone.
-	FinishDelete(ctx context.Context, id string) error
+	// DeleteTx deletes the object, or returns ErrDanglingRef if deleting it would create dangling refs.
+	// If the id doesn't exist, no error is returned
+	DeleteTx(tx *sqlx.Tx, id string) error
 
 	// IterateDeletable calls cb with all the objects objects which are no longer referenced and have expired or are tombstoned
 	IterateDeletable(ctx context.Context, cb func(id string) error) error
@@ -77,36 +66,50 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 		{
 			"CreateSingleObject",
 			func(t *testing.T, tracker Tracker) {
-				require.Nil(t, tracker.CreateObject(ctx, "test-id", []string{}, 0))
+				require.NoError(t, Create(ctx, tracker, "test-id", []string{}, 0))
 			},
 		},
 		{
 			"CreateObjectDanglingRef",
 			func(t *testing.T, tracker Tracker) {
-				require.Equal(t, ErrDanglingRef, tracker.CreateObject(ctx, "test-id", []string{"none", "of", "these", "exist"}, 0))
+				require.Equal(t, ErrDanglingRef, Create(ctx, tracker, "test-id", []string{"none", "of", "these", "exist"}, 0))
 			},
 		},
 		{
-			"ErrObjectExists",
+			"ObjectExists",
 			func(t *testing.T, tracker Tracker) {
-				require.Nil(t, tracker.CreateObject(ctx, "test-id", []string{}, 0))
-				require.Equal(t, ErrObjectExists, tracker.CreateObject(ctx, "test-id", []string{}, 0))
+				require.NoError(t, Create(ctx, tracker, "test-id", []string{}, 0))
+				require.NoError(t, Create(ctx, tracker, "test-id", []string{}, 0))
+			},
+		},
+		{
+			"ErrDifferentObjectExists",
+			func(t *testing.T, tracker Tracker) {
+				require.NoError(t, Create(ctx, tracker, "1", []string{}, 0))
+				require.NoError(t, Create(ctx, tracker, "2", []string{}, 0))
+
+				require.NoError(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
+				require.NoError(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
+
+				err := Create(ctx, tracker, "3", []string{"1"}, 0)
+				require.YesError(t, err)
+				require.Equal(t, ErrDifferentObjectExists, err)
 			},
 		},
 		{
 			"CreateMultipleObjects",
 			func(t *testing.T, tracker Tracker) {
-				require.Nil(t, tracker.CreateObject(ctx, "1", []string{}, 0))
-				require.Nil(t, tracker.CreateObject(ctx, "2", []string{}, 0))
-				require.Nil(t, tracker.CreateObject(ctx, "3", []string{"1", "2"}, 0))
+				require.Nil(t, Create(ctx, tracker, "1", []string{}, 0))
+				require.Nil(t, Create(ctx, tracker, "2", []string{}, 0))
+				require.Nil(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
 			},
 		},
 		{
 			"GetReferences",
 			func(t *testing.T, tracker Tracker) {
-				require.Nil(t, tracker.CreateObject(ctx, "1", []string{}, 0))
-				require.Nil(t, tracker.CreateObject(ctx, "2", []string{}, 0))
-				require.Nil(t, tracker.CreateObject(ctx, "3", []string{"1", "2"}, 0))
+				require.Nil(t, Create(ctx, tracker, "1", []string{}, 0))
+				require.Nil(t, Create(ctx, tracker, "2", []string{}, 0))
+				require.Nil(t, Create(ctx, tracker, "3", []string{"1", "2"}, 0))
 
 				dwn, err := tracker.GetDownstream(ctx, "3")
 				require.Nil(t, err)
@@ -120,17 +123,16 @@ func TestTracker(t *testing.T, newTracker func(testing.TB) Tracker) {
 			"DeleteSingleObject",
 			func(t *testing.T, tracker Tracker) {
 				id := "test"
-				require.Nil(t, tracker.CreateObject(ctx, id, []string{}, ExpireNow))
-				require.Nil(t, tracker.MarkTombstone(ctx, id))
-				require.Nil(t, tracker.MarkTombstone(ctx, id)) // repeat mark tombstones should be allowed
-				require.Nil(t, tracker.FinishDelete(ctx, id))
+				require.NoError(t, Create(ctx, tracker, id, []string{}, ExpireNow))
+				require.NoError(t, Delete(ctx, tracker, id))
+				require.NoError(t, Delete(ctx, tracker, id))
 			},
 		},
 		{
 			"ExpireSingleObject",
 			func(t *testing.T, tracker Tracker) {
-				require.Nil(t, tracker.CreateObject(ctx, "keep", []string{}, time.Hour))
-				require.Nil(t, tracker.CreateObject(ctx, "expire", []string{}, ExpireNow))
+				require.Nil(t, Create(ctx, tracker, "keep", []string{}, time.Hour))
+				require.Nil(t, Create(ctx, tracker, "expire", []string{}, ExpireNow))
 
 				var toExpire []string
 				err := tracker.IterateDeletable(ctx, func(id string) error {

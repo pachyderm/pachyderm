@@ -12,13 +12,13 @@ import (
 
 // Reader is an abstraction for reading a fileset.
 type Reader struct {
-	store     Store
+	store     MetadataStore
 	chunks    *chunk.Storage
 	id        ID
 	indexOpts []index.Option
 }
 
-func newReader(store Store, chunks *chunk.Storage, id ID, opts ...index.Option) *Reader {
+func newReader(store MetadataStore, chunks *chunk.Storage, id ID, opts ...index.Option) *Reader {
 	r := &Reader{
 		store:     store,
 		chunks:    chunks,
