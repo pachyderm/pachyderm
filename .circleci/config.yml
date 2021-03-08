@@ -38,7 +38,9 @@ jobs:
           keys:
             - go-mod-v4-{{ checksum "go.sum" }}      
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
+      - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
       - run: make test
+      - run: make kubeval-gcp
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
