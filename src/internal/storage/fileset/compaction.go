@@ -16,7 +16,7 @@ func (s *Storage) IsCompacted(ctx context.Context, id ID) (bool, error) {
 	}
 	switch x := md.Value.(type) {
 	case *Metadata_Composite:
-		ids, err := stringsToIDs(x.Composite.Layers)
+		ids, err := x.Composite.PointsTo()
 		if err != nil {
 			return false, err
 		}
