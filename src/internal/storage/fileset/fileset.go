@@ -117,18 +117,6 @@ func (efs emptyFileSet) Iterate(ctx context.Context, cb func(File) error, deleti
 	return nil
 }
 
-func stringsToIDs(xs []string) ([]ID, error) {
-	ids := make([]ID, len(xs))
-	for i := range xs {
-		id, err := ParseID(xs[i])
-		if err != nil {
-			return nil, err
-		}
-		ids[i] = *id
-	}
-	return ids, nil
-}
-
 func idsToHex(xs []ID) []string {
 	ys := make([]string, len(xs))
 	for i := range xs {
