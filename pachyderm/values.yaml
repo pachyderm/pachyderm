@@ -100,11 +100,11 @@ etcd:
     #  cpu: "1"
     #  memory: 2G    
 
-imageCredentials:
-  registry: ""
-  username: ""
-  password: ""
-  email: ""
+imageCredentials: {}
+  #registry: ""
+  #username: ""
+  #password: ""
+  #email: ""
 
 # move under ingress? How to make work with cert-manager, maybe add
 # tls option to pachctl create secret?
