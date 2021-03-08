@@ -45,7 +45,7 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
 !!! Warning
     `kubectl` commands are not supported for the clusters deployed
     on Hub.
-## 3-4 Configure your Pachyderm context and login to your cluster by using a one-time authentication token
+## 3-4 Configure your Pachyderm context and login to your workspace by using a one-time authentication token
 1. To configure a Pachyderm context and log in to your cluster
 (i.e. have your`pachctl` point to your new cluster), click the **Connect** link on your cluster name in the Hub UI.
 
