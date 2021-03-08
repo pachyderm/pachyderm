@@ -34,7 +34,7 @@ func (id ID) HexString() string {
 
 // TrackerID returns the ID of the fileset's tracker object.
 func (id ID) TrackerID() string {
-	return filesetObjectID(id)
+	return TrackerPrefix + id.HexString()
 }
 
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.

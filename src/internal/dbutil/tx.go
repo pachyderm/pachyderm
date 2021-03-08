@@ -13,7 +13,6 @@ import (
 
 type withTxConfig struct {
 	sql.TxOptions
-	MaxRetries int
 }
 
 // WithTxOption parameterizes the WithTx function
@@ -29,7 +28,7 @@ func WithIsolationLevel(x sql.IsolationLevel) WithTxOption {
 // WithReadOnly causes WithTx to run the transaction as read only
 func WithReadOnly() WithTxOption {
 	return func(c *withTxConfig) {
-		c.ReadOnly = true
+		c.TxOptions.ReadOnly = true
 	}
 }
 

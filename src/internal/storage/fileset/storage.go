@@ -214,7 +214,7 @@ func (s *Storage) Drop(ctx context.Context, id ID) error {
 
 // SetTTL sets the time-to-live for the fileset at id
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
-	oid := filesetObjectID(id)
+	oid := id.TrackerID()
 	return s.tracker.SetTTLPrefix(ctx, oid, ttl)
 }
 
@@ -297,7 +297,7 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 		if err := s.store.SetTx(tx, id, md); err != nil {
 			return err
 		}
-		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
+		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
 	})
 	if err != nil {
 		return nil, err
@@ -314,13 +314,13 @@ func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Du
 	}
 	var pointsTo []string
 	for _, id := range comp.Layers {
-		pointsTo = append(pointsTo, filesetObjectID(ID(id)))
+		pointsTo = append(pointsTo, ID(id).TrackerID())
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
 		if err := s.store.SetTx(tx, id, md); err != nil {
 			return err
 		}
-		return s.tracker.CreateTx(tx, filesetObjectID(id), pointsTo, ttl)
+		return s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl)
 	})
 	if err != nil {
 		return nil, err
@@ -338,10 +338,6 @@ func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 		return nil, errors.Errorf("fileset %v is not primitive", id)
 	}
 	return prim, nil
-}
-
-func filesetObjectID(id ID) string {
-	return TrackerPrefix + id.HexString()
 }
 
 var _ track.Deleter = &deleter{}
