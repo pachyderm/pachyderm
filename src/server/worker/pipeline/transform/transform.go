@@ -1,7 +1,14 @@
 package transform
 
 import (
+	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -13,33 +20,41 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		return err
 	}
 	logger.Logf("transform spawner started")
-	return forEachCommit(driver, func(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
-		return reg.startJob(commitInfo, metaCommit)
-	})
+	return forEachCommit(driver, logger, reg.startJob)
 }
 
-func getStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
-	for _, commitRange := range commitInfo.Subvenance {
-		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
-			return commitRange.Lower
-		}
-	}
-	return nil
-}
-
-func forEachCommit(driver driver.Driver, cb func(*pfs.CommitInfo, *pfs.Commit) error) error {
+func forEachCommit(driver driver.Driver, logger logs.TaggedLogger, cb func(*pps.JobInfo, *pfs.CommitInfo) error) error {
 	pachClient := driver.PachClient()
-	pi := driver.PipelineInfo()
-	// TODO: Readd subscribe on spec commit provenance. Current code simplifies correctness in terms
-	// of commits being closed / jobs being finished.
+	pipelineInfo := driver.PipelineInfo()
 	return pachClient.SubscribeCommit(
-		pi.Pipeline.Name,
+		pipelineInfo.Pipeline.Name,
 		"",
-		nil,
+		client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
 		"",
 		pfs.CommitState_READY,
-		func(ci *pfs.CommitInfo) error {
-			return cb(ci, getStatsCommit(ci))
+		func(commitInfo *pfs.CommitInfo) error {
+			jobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.ID, false)
+			if err != nil {
+				// TODO: It would be better for this to be a structured error.
+				if strings.Contains(err.Error(), "not found") {
+					job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+					if err != nil {
+						if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+							return nil
+						}
+						return err
+					}
+					jobInfo, err = pachClient.InspectJob(job.ID, false)
+					if err != nil {
+						return err
+					}
+					logger.Logf("created new job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
+					return cb(jobInfo, commitInfo)
+				}
+				return err
+			}
+			logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+			return cb(jobInfo, commitInfo)
 		},
 	)
 }

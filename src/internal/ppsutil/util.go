@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -379,6 +380,62 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	jobPtr.State = state
 	jobPtr.Reason = reason
 	return jobs.Put(jobPtr.Job.ID, jobPtr)
+}
+
+func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+	jobInfo.State = state
+	jobInfo.Reason = reason
+	var empty bool
+	if state == pps.JobState_JOB_FAILURE || state == pps.JobState_JOB_KILLED {
+		empty = true
+	}
+	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Empty:  empty,
+		}); err != nil {
+			return err
+		}
+		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+			Commit: jobInfo.StatsCommit,
+			Empty:  empty,
+		}); err != nil {
+			return err
+		}
+		return WriteJobInfo(&builder.APIClient, jobInfo)
+	})
+	// TODO: Figure out how to clean up jobs after deleted commit. Just cleaning up here is not a good solution because
+	// we are not guaranteed to hit this code path after a deletion.
+	if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitDeletedErr(err) || pfsserver.IsCommitNotFoundErr(err) {
+		return nil
+	}
+	return err
+}
+
+func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
+	_, err := pachClient.PpsAPIClient.UpdateJobState(pachClient.Ctx(), &pps.UpdateJobStateRequest{
+		Job:           jobInfo.Job,
+		State:         jobInfo.State,
+		Reason:        jobInfo.Reason,
+		Restart:       jobInfo.Restart,
+		DataProcessed: jobInfo.DataProcessed,
+		DataSkipped:   jobInfo.DataSkipped,
+		DataTotal:     jobInfo.DataTotal,
+		DataFailed:    jobInfo.DataFailed,
+		DataRecovered: jobInfo.DataRecovered,
+		Stats:         jobInfo.Stats,
+	})
+	return err
+}
+
+func GetStatsCommit(commitInfo *pfs.CommitInfo) *pfs.Commit {
+	for _, commitRange := range commitInfo.Subvenance {
+		if commitRange.Lower.Repo.Name == commitInfo.Commit.Repo.Name {
+			return commitRange.Lower
+		}
+	}
+	// TODO: Getting here would be a bug in 2.0, log?
+	return nil
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

@@ -526,6 +526,7 @@ message DeleteJobRequest {
 
 message StopJobRequest {
   Job job = 1;
+  pfs.Commit output_commit = 2;
 }
 
 message UpdateJobStateRequest {

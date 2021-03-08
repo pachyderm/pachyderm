@@ -193,6 +193,12 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &types.Empty{}, nil
 }
 
+// InspectCommitInTransaction is identical to InspectCommit (some features excluded) except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServer) InspectCommitInTransaction(txnCtx *txnenv.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	return a.driver.resolveCommit(txnCtx.Stm, request.Commit)
+}
+
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
