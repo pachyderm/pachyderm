@@ -86,7 +86,6 @@ case "${BUCKET}" in
         # when the PR is coming from an outside contributor - so we just
         # disable them
         make test-tls
-        make test-vault
     fi
     ;;
   ADMIN)
