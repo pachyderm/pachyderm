@@ -143,6 +143,12 @@
    force = true
 
 [[redirects]]
+  from = "/latest/pachhub/pachhub_getting_started/"
+  to = "https://docs.pachyderm.com/latest/hub/hub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/enterprise/"
   to = "https://docs.pachyderm.com/latest/enterprise/"
   status = 301
