@@ -17,7 +17,7 @@ and can get started right away.
 ## Before you start
 Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com). 
 ![Hub Login](../images/hub_login.png)
-## 1- Create a Cluster 
+## 1- Create a Workspace 
 Click the **Create a 4-hr Workspace** button and fill out the form.
 ![Hub cluster](../images/hub_create_workspace.png)
 
