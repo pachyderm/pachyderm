@@ -16,7 +16,7 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../pachhub/pachhub_getting_started/" class="md-typeset md-link">
+          <li><a href="../hub/hub_getting_started/" class="md-typeset md-link">
           Getting Started with Hub
           </a>
           </li>

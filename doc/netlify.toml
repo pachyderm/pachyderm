@@ -461,8 +461,14 @@
   force = true
 
 [[redirects]]
+  from = "/en/latest/pachub/pachub_getting_started.html"
+  to = "https://docs.pachyderm.com/latest/hub/hub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/pachhub/pachhub_getting_started.html"
-  to = "https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/"
+  to = "https://docs.pachyderm.com/latest/hub/hub_getting_started/"
   status = 301
   force = true
 
@@ -1783,12 +1789,6 @@
   force = true
 
 [[redirects]]
-  from = "/deploy-manage/deploy/configuring_k8s_ingress/"
-  to = "/latest/deploy-manage/deploy/configuring_k8s_ingress/"
-  tatus = 301
-  force = true
-
-[[redirects]]
   from = "/how-tos/distributed_computing/"
   to = "/latest/concepts/pipeline-concepts/distributed_computing/"
   status = 301
@@ -2095,8 +2095,8 @@
   force = true
 
 [[redirects]]
-  from = "/pachhub/pachhub_getting_started/"
-  to = "/latest/pachhub/pachhub_getting_started/"
+  from = "/hub/hub_getting_started/"
+  to = "/latest/hub/hub_getting_started/"
   status = 301
   force = true
 

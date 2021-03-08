@@ -13,13 +13,13 @@ and can get started right away.
 !!! Note
     Let us know how to improve Hub. Join our [Slack channel](http://slack.pachyderm.io).
 ## Get started in 4 simple steps
-![Hub Steps](../images/pachhub_steps.png)
+![Hub Steps](../images/hub_steps.png)
 ## Before you start
 Log in with your GitHub or Google account to start using [hub.pachyderm.com](https://hub.pachyderm.com). 
-![Hub Login](../images/pachhub_login.png)
+![Hub Login](../images/hub_login.png)
 ## 1- Create a Cluster 
 Click the **Create a 4-hr Workspace** button and fill out the form.
-![Hub cluster](../images/pachhub_create_workspace.png)
+![Hub cluster](../images/hub_create_workspace.png)
 
 You just provisioned a one-node cluster that you can now use for
 a limited time for free!
@@ -49,11 +49,11 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
 1. To configure a Pachyderm context and log in to your cluster
 (i.e. have your`pachctl` point to your new cluster), click the **Connect** link on your cluster name in the Hub UI.
 
-      ![Pachyderm Cluster running](../images/pachhub_cluster_running.png)
+      ![Pachyderm Cluster running](../images/hub_cluster_running.png)
 
       In your terminal window, copy, paste, and run the commands 1,2,3 listed in the instructions.
 
-      ![Pachyderm Cluster connect](../images/pachhub_cluster_connect.png)
+      ![Pachyderm Cluster connect](../images/hub_cluster_connect.png)
 
       **Note**
             Your token has a limited lifetime. The following error means that your authentication
@@ -67,7 +67,7 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
       ```shell
       pachctl config get active-context
       ```
-      The system should return the name of your workspace.
+      The system should return the name of your workspace. 
       ```
       jolly-caribou
       ```
@@ -91,7 +91,7 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
       In the Hub UI, click the **Details** button next to your cluster name,
       then **Dash**. Your dashboard opens in a new window.
 
-      ![repo_ready](../images/pachhub_dash_ready.png)
+      ![repo_ready](../images/hub_dash_ready.png)
 
 ## Next Step
 

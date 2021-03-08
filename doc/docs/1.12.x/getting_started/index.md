@@ -2,7 +2,7 @@
 
 Pachyderm provides multiple easy ways to get up and running quickly.
 You can deploy Pachyderm on your local machine, in your favorite cloud
-provider, or in our fully managed service, Pachyderm Hub.
+provider, or in our fully managed service, Hub.
 
 <div class="row">
   <div class="column-2">
@@ -16,7 +16,7 @@ provider, or in our fully managed service, Pachyderm Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../pachhub/pachhub_getting_started/" class="md-typeset md-link">
+          <li><a href="../hub/hub_getting_started/" class="md-typeset md-link">
           Getting Started with Hub
           </a>
           </li>
