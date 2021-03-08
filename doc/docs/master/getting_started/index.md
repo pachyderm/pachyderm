@@ -2,7 +2,7 @@
 
 Pachyderm provides multiple easy ways to get up and running quickly.
 You can deploy Pachyderm on your local machine, in your favorite cloud
-provider, or in our fully managed service, Pachyderm Hub.
+provider, or in our fully managed service, Hub.
 
 <div class="row">
   <div class="column-2">

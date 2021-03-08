@@ -96,6 +96,6 @@ After your cluster creation, open a terminal window and [install 'pachctl'](http
 ## Next Step
 
 You have successfully deployed and configured a Pachyderm
-cluster in Hub.
+workspace in Hub.
 
 Next: [Beginner Tutorial](../getting_started/beginner_tutorial.md)
