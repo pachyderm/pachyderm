@@ -29,8 +29,8 @@ spec:
         - containerPort: 8080
           name: dash-http
         resources: {}
-      - image: pachyderm/grpc-proxy:0.4.10 #TODO 
-        imagePullPolicy: IfNotPresent #TODO
+      - image: pachyderm/grpc-proxy:0.4.10
+        imagePullPolicy: IfNotPresent
         name: grpc-proxy
         ports:
         - containerPort: 8081

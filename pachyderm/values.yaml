@@ -1,33 +1,29 @@
 dash:
   image:
     repository: pachyderm/dash
-    tag: "0.5.48"
+    tag: "0.5.57"
     pullPolicy: IfNotPresent
-  resources: {} #TODO Wire up, default resources?
-    # We usually recommend not to specify default resources and to leave this as a conscious
-    # choice for the user. This also increases chances charts run on environments with little
-    # resources, such as Minikube. If you do want to specify resources, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-    # requests:
-    #   cpu: 100m
-    #   memory: 128Mi
+  # resources: {} TODO
 
 pachd:
   image:
     repository: pachyderm/pachd
-    tag: "1.11.3"
+    tag: "1.12.4"
     pullPolicy: IfNotPresent
-  resources: {} #TODO Wire up
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: 2G
+    #requests:
+    #  cpu: "1"
+    #  memory: 2G  
   logLevel: info
   metrics:
     enabled: true
     endpoint: ""
   noExposeDockerSocket: false
   numShards: 16
-  blockCacheBytes: 0G
+  blockCacheBytes: 1G
   authenticationDisabledForTesting: false
   exposeObjectAPI: false
   clusterDeploymentID: ""
@@ -50,14 +46,15 @@ pachd:
       amazon-vault-token: ""
       amazonDistribution: ""
       customEndpoint: ""
-      retries: ""
-      timeout: ""
-      uploadACL: ""
-      reverse: ""
-      partSize: ""
-      maxUploadParts: ""
-      disableSSL: ""
-      noVerifySSL: ""
+      retries: "10"
+      timeout: "5m"
+      uploadACL: bucket-owner-full-control
+      reverse: "true"
+      partSize: "5242880"
+      maxUploadParts: "10000"
+      disableSSL: "false"
+      logOptions: ""
+      noVerifySSL: "false"
       iamRole: "" #TODO - ensure iam role wired up in all places
     microsoft:
       microsoftContainer: ""
@@ -73,28 +70,35 @@ pachd:
     uploadConcurrencyLimit: 100
     putFileConcurrencyLimit: 100
   service: #TODO How to handle selective ports for hub
-    type: LoadBalancer
-    apiGrpcPort:
-      expose: true
-      port: 30650
+    type: ClusterIP
+    #apiGrpcPort:
+    #  expose: true
+    #  port: 30650
   serviceAccount:
     create: true
-    name: pachyderm #TODO Set default in helpers
+    name: pachyderm #TODO Set default in helpers / Wire up in templates
   workerServiceAccount:
     create: true
-    name: pachyderm-worker #TODO Set default in helpers
+    name: pachyderm-worker #TODO Set default in helpers / Wire up in templates
 
 worker:
   image:
     repository: pachyderm/worker
-    tag: "1.11.3"
+    tag: "1.12.4"
 
 etcd:
   image:
     repository: pachyderm/etcd
     tag: "v3.3.5"
     pullPolicy: IfNotPresent
-  resources: {} #TODO Wire up
+  storageSize: 10Gi    
+  resources: {}
+    #limits:
+    #  cpu: "1"
+    #  memory: 2G
+    #requests:
+    #  cpu: "1"
+    #  memory: 2G    
 
 imageCredentials:
   registry: ""

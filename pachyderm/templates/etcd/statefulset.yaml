@@ -51,18 +51,16 @@ spec:
           name: client-port
         - containerPort: 2380
           name: peer-port
-        resources:
-          requests: #TODO
-            cpu: "1"
-            memory: 2G
+        resources: {{- toYaml .Values.etcd.resources | nindent 10 }}
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
-      imagePullSecrets: null #TODO
   volumeClaimTemplates:
   - metadata:
+  {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") }}
       annotations:
-        volume.beta.kubernetes.io/storage-class: etcd-storage-class #TODO only set if storage class created
+        volume.beta.kubernetes.io/storage-class: etcd-storage-class
+  {{- end }}
       labels:
         app: etcd
         suite: pachyderm
@@ -73,4 +71,4 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi #TODO Parameterize storage size
+          storage: {{ .Values.etcd.storageSize }}

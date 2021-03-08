@@ -15,10 +15,10 @@ spec:
   strategy: {}
   template:
     metadata:
-      {{ if .Values.pachd.storage.amazon.iamRole }}
+      {{- if .Values.pachd.storage.amazon.iamRole }}
       annotations:
         iam.amazonaws.com/role: {{ .Values.pachd.storage.amazon.iamRole }}
-      {{ end }}
+      {{- end }}
       labels:
         app: pachd
         suite: pachyderm
@@ -40,35 +40,35 @@ spec:
         - name: STORAGE_BACKEND
           value: {{ .Values.pachd.storage.backend }}
         - name: STORAGE_HOST_PATH
-          {{ if eq .Values.pachd.storage.backend "LOCAL" }}
+          {{- if eq .Values.pachd.storage.backend "LOCAL" }}
           value: /var/pachyderm/pachd
-          {{ end }}
+          {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
         - name: IMAGE_PULL_SECRET
-          #value: TODO Wire up
+          #value: TODO
         - name: WORKER_SIDECAR_IMAGE
           value: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
-          value: IfNotPresent #TODO use pachd pull policy or make separate workerPullPolicy?
+          value: IfNotPresent #TODO
         - name: WORKER_SERVICE_ACCOUNT
           value: {{ .Values.pachd.workerServiceAccount.name }}
         - name: PACHD_VERSION
           value: "{{ .Values.pachd.image.tag }}"
         - name: METRICS
           value: {{ .Values.pachd.metrics.enabled | quote }}
-        {{ if .Values.pachd.metricsEndpoint}}
+        {{- if .Values.pachd.metricsEndpoint}}
         - name: METRICS_ENDPOINT
           value: "https://{{ .Values.pachd.metricsEndpoint }}/api/v1/metrics"
-        {{ end }}
+        {{- end }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
         - name: BLOCK_CACHE_BYTES
           value: {{ .Values.pachd.blockCacheBytes | quote }}
-          {{ if.Values.pachd.storage.amazon.iamRole }}
+          {{- if.Values.pachd.storage.amazon.iamRole }}
         - name: IAM_ROLE
           value: {{ .Values.pachd.storage.amazon.iamRole }}
-          {{ end }}
+          {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
           value: {{ .Values.pachd.noExposeDockerSocket | quote }}
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
@@ -86,10 +86,10 @@ spec:
               resource: requests.memory
         - name: EXPOSE_OBJECT_API
           value: {{ .Values.pachd.exposeObjectAPI | quote }}
-        {{ if .Values.pachd.clusterDeploymentID }}
+        {{- if .Values.pachd.clusterDeploymentID }}
         - name: CLUSTER_DEPLOYMENT_ID
           value: {{ .Values.pachd.clusterDeploymentID }}
-        {{ end }}
+        {{- end }}
         - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: {{ .Values.pachd.requireCriticalServersOnly | quote }}
         - name: PACHD_POD_NAME
@@ -99,7 +99,7 @@ spec:
               fieldPath: metadata.name
         - name: PPS_WORKER_GRPC_PORT
           value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
-        {{ if eq .Values.pachd.storage.backend "GOOGLE" }}
+        {{- if eq .Values.pachd.storage.backend "GOOGLE" }}
         - name: GOOGLE_BUCKET
           valueFrom:
             secretKeyRef:
@@ -112,8 +112,8 @@ spec:
               key: google-cred
               name: pachyderm-storage-secret
               optional: true
-        {{ end }}
-        {{ if eq .Values.pachd.storage.backend "MICROSOFT" }}
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "MICROSOFT" }}
         - name: MICROSOFT_CONTAINER
           valueFrom:
             secretKeyRef:
@@ -132,8 +132,8 @@ spec:
               key: microsoft-secret
               name: pachyderm-storage-secret
               optional: true
-        {{ end }}
-        {{ if eq .Values.pachd.storage.backend "MINIO" }}
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "MINIO" }}
         - name: MINIO_BUCKET
           valueFrom:
             secretKeyRef:
@@ -170,8 +170,8 @@ spec:
               key: minio-signature
               name: pachyderm-storage-secret
               optional: true
-        {{ end }}
-        {{ if eq .Values.pachd.storage.backend "AMAZON" }}
+        {{- end }}
+        {{- if eq .Values.pachd.storage.backend "AMAZON" }}
         - name: AMAZON_REGION
           valueFrom:
             secretKeyRef:
@@ -280,11 +280,19 @@ spec:
               key: no-verify-ssl
               name: pachyderm-storage-secret
               optional: true
-        {{ end }}
+        - name: OBJ_LOG_OPTS
+          valueFrom:
+            secretKeyRef:
+              key: log-options
+              name: pachyderm-storage-secret
+              optional: true
+        {{- end }}
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        - name: STORAGE_V2
+          value: "false"
         image: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
@@ -309,37 +317,34 @@ spec:
         - containerPort: 657
           name: oidc-port
           protocol: TCP
+        - containerPort: 656
+          name: prometheus-metrics
+          protocol: TCP
         readinessProbe:
           exec:
             command:
             - /pachd
             - --readiness
-        resources:
-          limits: #TODO
-            cpu: "1"
-            memory: 2G
-          requests: #TODO
-            cpu: "1"
-            memory: 2G
+        resources: {{- toYaml .Values.pachd.resources | nindent 10 }}
         volumeMounts:
         - mountPath: /pach
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
-        {{ if .Values.tls.enabled }}
+        {{- if .Values.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
-        {{ end }}
-      {{ if .Values.pachd.serviceAccount.name }}
+        {{- end }}
+      {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name }}
-      {{ end }}
+      {{- end }}
       volumes:
       - name: pach-disk
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
-      {{ if .Values.tls.enabled }}
+      {{- if .Values.tls.enabled }}
       - name: pachd-tls-cert
         secret:
           secretName: pachd-tls-cert
-      {{ end }}
+      {{- end }}

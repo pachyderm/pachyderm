@@ -1,10 +1,9 @@
-#TODO Check if service account name set
 {{ if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
-    app: "" #TODO
+    app: ""
     suite: pachyderm
   name: pachyderm-worker
   namespace: {{ .Release.Namespace }}

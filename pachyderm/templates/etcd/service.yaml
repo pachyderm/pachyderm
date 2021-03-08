@@ -11,7 +11,6 @@ spec:
   ports:
   - name: client-port
     port: 2379
-    targetPort: client-port
   selector:
     app: etcd
   type: ClusterIP

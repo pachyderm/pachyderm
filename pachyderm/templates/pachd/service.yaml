@@ -10,49 +10,61 @@ metadata:
   name: pachd
   namespace: {{ .Release.Namespace }}
 spec:
-  ports: #Port ordering so dash can access unencrypted port? (Alysha hack)
+  ports:
+  # This must remain first in the list for compatibility with old dash (can't connect when TLS enabled on api-grpc-port)
+  # The first port in the list sets the PACHD_SERVICE_PORT variable used by https://github.com/pachyderm/grpc-proxy/blob/master/Dockerfile
+  - name: api-grpc-peer
+    {{- if eq .Values.pachd.service.type "NodePort" }}
+    nodePort: 30653
+    {{- end }}
+    port: 653
+    targetPort: peer-port    
   - name: api-grpc-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650
-    {{ end }}
+    {{- end }}
     port: 650
     targetPort: api-grpc-port
   - name: trace-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30651
-    {{ end }}
+    {{- end }}
     port: 651
     targetPort: trace-port
   - name: api-http-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30652
-    {{ end }}
+    {{- end }}
     port: 652
     targetPort: api-http-port
   - name: saml-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30654
-    {{ end }}
+    {{- end }}
     port: 654
     targetPort: saml-port
   - name: oidc-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30657
-    {{ end }}
+    {{- end }}
     port: 657
     targetPort: oidc-port
   - name: api-git-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30655
-    {{ end }}
+    {{- end }}
     port: 655
     targetPort: api-git-port
   - name: s3gateway-port
-    {{ if eq .Values.pachd.service.type "NodePort" }}
+    {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30600
-    {{ end }}
+    {{- end }}
     port: 600
     targetPort: s3gateway-port
+  - name: prometheus-metrics
+    port: 656
+    protocol: TCP
+    targetPort: prometheus-metrics
   selector:
     app: pachd
   type: {{ .Values.pachd.service.type }}
