@@ -7,3 +7,6 @@ test:
 
 kubeval-gcp:
 	helm template pachyderm -f examples/gcp-values.yaml | kubeval --strict
+
+kubeval-aws:
+	helm template pachyderm -f examples/aws-values.yaml | kubeval --strict

@@ -1,0 +1,7 @@
+pachd: 
+  storage:
+    backend: AMAZON
+    amazon:
+      amazonBucket: blah
+      amazonSecret: blah
+      amazonID: blah
