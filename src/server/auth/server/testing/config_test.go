@@ -120,7 +120,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_SET_CONFIG\\] on CLUSTER", err.Error())
 
 	// Confirm that alice didn't modify the configuration by retrieving the empty
 	// config

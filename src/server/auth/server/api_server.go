@@ -747,7 +747,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	// and the permission required depends on the type of resource.
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_ADMIN); err != nil {
+		if err := CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
@@ -1196,7 +1196,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
 			Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 			Permissions: []auth.Permission{
-				auth.Permission_CLUSTER_ADMIN,
+				auth.Permission_CLUSTER_AUTH_GET_GROUPS,
 			},
 		})
 		if err != nil {
@@ -1208,7 +1208,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 				Subject:  resp.Principal,
 				Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
 				Required: []auth.Permission{
-					auth.Permission_CLUSTER_ADMIN,
+					auth.Permission_CLUSTER_AUTH_GET_GROUPS,
 				},
 			}
 		}
