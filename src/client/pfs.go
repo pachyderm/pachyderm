@@ -1,6 +1,7 @@
 package client
 
 import (
+	"archive/tar"
 	"context"
 	"io"
 	"io/ioutil"
@@ -640,8 +641,9 @@ func (c APIClient) CopyFile(srcRepo, srcCommit, srcPath, dstRepo, dstCommit, dst
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
+// TODO: Should we error if multiple files are matched?
 func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
-	r, err := c.getFile(repo, commit, path)
+	r, err := c.getFileTar(repo, commit, path)
 	if err != nil {
 		return err
 	}
@@ -650,12 +652,7 @@ func (c APIClient) GetFile(repo, commit, path string, w io.Writer) error {
 	}, true)
 }
 
-// GetTarFile gets a tar file from PFS.
-func (c APIClient) GetTarFile(repo, commit, path string) (io.Reader, error) {
-	return c.getFile(repo, commit, path)
-}
-
-func (c APIClient) getFile(repo, commit, path string) (_ io.Reader, retErr error) {
+func (c APIClient) getFileTar(repo, commit, path string) (_ io.Reader, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -667,6 +664,89 @@ func (c APIClient) getFile(repo, commit, path string) (_ io.Reader, retErr error
 		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
+}
+
+// GetFileTar gets a tar file from PFS.
+func (c APIClient) GetFileTar(repo, commit, path string) (io.Reader, error) {
+	return c.getFileTar(repo, commit, path)
+}
+
+// TODO: This should probably be an io.ReadCloser so we can close the rpc if the full file isn't read.
+func (c APIClient) GetFileReader(repo, commit, path string) (io.Reader, error) {
+	r, err := c.getFileTar(repo, commit, path)
+	if err != nil {
+		return nil, err
+	}
+	tr := tar.NewReader(r)
+	if _, err := tr.Next(); err != nil {
+		return nil, err
+	}
+	return tr, nil
+}
+
+// GetFileReadSeeker returns a reader for the contents of a file at a specific
+// Commit that permits Seeking to different points in the file.
+func (c APIClient) GetFileReadSeeker(repo, commit, path string) (io.ReadSeeker, error) {
+	fi, err := c.InspectFile(repo, commit, path)
+	if err != nil {
+		return nil, err
+	}
+	r, err := c.GetFileReader(repo, commit, path)
+	if err != nil {
+		return nil, err
+	}
+	return &getFileReadSeeker{
+		Reader: r,
+		c:      c,
+		file:   NewFile(repo, commit, path),
+		offset: 0,
+		size:   int64(fi.SizeBytes),
+	}, nil
+}
+
+type getFileReadSeeker struct {
+	io.Reader
+	c            APIClient
+	file         *pfs.File
+	offset, size int64
+}
+
+func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	getFileReader := func(offset int64) (io.Reader, error) {
+		r, err := gfrs.c.GetFileReader(gfrs.file.Commit.Repo.Name, gfrs.file.Commit.ID, gfrs.file.Path)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: Replace with file range request when implemented in PFS.
+		if _, err := io.CopyN(ioutil.Discard, r, offset); err != nil {
+			return nil, err
+		}
+		return r, nil
+	}
+	switch whence {
+	case io.SeekStart:
+		r, err := getFileReader(offset)
+		if err != nil {
+			return gfrs.offset, err
+		}
+		gfrs.offset = offset
+		gfrs.Reader = r
+	case io.SeekCurrent:
+		r, err := getFileReader(gfrs.offset + offset)
+		if err != nil {
+			return gfrs.offset, err
+		}
+		gfrs.offset += offset
+		gfrs.Reader = r
+	case io.SeekEnd:
+		r, err := getFileReader(gfrs.size - offset)
+		if err != nil {
+			return gfrs.offset, err
+		}
+		gfrs.offset = gfrs.size - offset
+		gfrs.Reader = r
+	}
+	return gfrs.offset, nil
 }
 
 func (c APIClient) GetFileURL(repo, commit, path, URL string) (retErr error) {

@@ -1099,7 +1099,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_TOKEN\\] on CLUSTER", err.Error())
 }
 
 // TestGetAuthTokenErrorFSAdminUser tests that FS admin users can't call
@@ -1129,7 +1129,7 @@ func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
-	require.Matches(t, "needs permissions \\[CLUSTER_ADMIN\\] on CLUSTER", err.Error())
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_TOKEN\\] on CLUSTER", err.Error())
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)

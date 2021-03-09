@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 
 	"github.com/sirupsen/logrus"
@@ -37,45 +38,42 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/WhoAmI":       unauthenticated,
 	"/auth.API/GetOIDCLogin": unauthenticated,
 
-	// TODO: restrict GetClusterRoleBinding to cluster admins?
-	// TODO: split GetScope for self and others
-	// TODO: split GetAuthToken for self and others
-	// TODO: split RevokeAuthToken for self and others
 	// TODO: split GetGroups for self and others
-	"/auth.API/GetConfiguration":  authenticated,
+	// TODO: restrict GetClusterRoleBinding to cluster admins?
 	"/auth.API/CreateRoleBinding": authenticated,
 	"/auth.API/GetRoleBinding":    authenticated,
 	"/auth.API/ModifyRoleBinding": authenticated,
-	"/auth.API/DeleteRoleBinding": authenticated,
 	"/auth.API/RevokeAuthToken":   authenticated,
 	"/auth.API/GetGroups":         authenticated,
-	"/auth.API/GetAuthToken":      admin,
-	"/auth.API/SetConfiguration":  admin,
-	"/auth.API/ExtendAuthToken":   admin,
-	"/auth.API/SetGroupsForUser":  admin,
-	"/auth.API/ModifyMembers":     admin,
-	"/auth.API/GetUsers":          admin,
-	"/auth.API/ExtractAuthTokens": admin,
-	"/auth.API/RestoreAuthToken":  admin,
-	"/auth.API/Deactivate":        admin,
+
+	"/auth.API/GetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
+	"/auth.API/SetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
+	"/auth.API/GetAuthToken":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_TOKEN),
+	"/auth.API/ExtendAuthToken":   clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTEND_TOKEN),
+	"/auth.API/SetGroupsForUser":  clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
+	"/auth.API/ModifyMembers":     clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
+	"/auth.API/GetUsers":          clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_GROUP_USERS),
+	"/auth.API/ExtractAuthTokens": clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTRACT_TOKENS),
+	"/auth.API/RestoreAuthToken":  clusterPermissions(auth.Permission_CLUSTER_AUTH_RESTORE_TOKEN),
+	"/auth.API/Deactivate":        clusterPermissions(auth.Permission_CLUSTER_AUTH_DEACTIVATE),
 
 	//
 	// Debug API
 	//
 
-	"/debug.Debug/Profile": authDisabledOr(admin),
-	"/debug.Debug/Binary":  authDisabledOr(admin),
-	"/debug.Debug/Dump":    authDisabledOr(admin),
+	"/debug.Debug/Profile": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug.Debug/Binary":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug.Debug/Dump":    authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 
 	//
 	// Enterprise API
 	//
 
-	"/enterprise.API/Activate":          unauthenticated,
 	"/enterprise.API/GetState":          unauthenticated,
-	"/enterprise.API/GetActivationCode": authDisabledOr(admin),
-	"/enterprise.API/Deactivate":        authDisabledOr(admin),
-	"/enterprise.API/Heartbeat":         authDisabledOr(admin),
+	"/enterprise.API/Activate":          authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_ACTIVATE)),
+	"/enterprise.API/GetActivationCode": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_GET_CODE)),
+	"/enterprise.API/Deactivate":        authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_DEACTIVATE)),
+	"/enterprise.API/Heartbeat":         authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_HEARTBEAT)),
 
 	//
 	// Health API
@@ -85,31 +83,30 @@ var authHandlers = map[string]authHandler{
 	//
 	// Identity API
 	//
-	"/identity.API/SetIdentityServerConfig": admin,
-	"/identity.API/GetIdentityServerConfig": admin,
-	"/identity.API/CreateIDPConnector":      admin,
-	"/identity.API/UpdateIDPConnector":      admin,
-	"/identity.API/ListIDPConnectors":       admin,
-	"/identity.API/GetIDPConnector":         admin,
-	"/identity.API/DeleteIDPConnector":      admin,
-	"/identity.API/CreateOIDCClient":        admin,
-	"/identity.API/UpdateOIDCClient":        admin,
-	"/identity.API/GetOIDCClient":           admin,
-	"/identity.API/ListOIDCClients":         admin,
-	"/identity.API/DeleteOIDCClient":        admin,
-	"/identity.API/DeleteAll":               admin,
+	"/identity.API/SetIdentityServerConfig": clusterPermissions(auth.Permission_CLUSTER_IDENTITY_SET_CONFIG),
+	"/identity.API/GetIdentityServerConfig": clusterPermissions(auth.Permission_CLUSTER_IDENTITY_GET_CONFIG),
+	"/identity.API/CreateIDPConnector":      clusterPermissions(auth.Permission_CLUSTER_IDENTITY_CREATE_IDP),
+	"/identity.API/UpdateIDPConnector":      clusterPermissions(auth.Permission_CLUSTER_IDENTITY_UPDATE_IDP),
+	"/identity.API/ListIDPConnectors":       clusterPermissions(auth.Permission_CLUSTER_IDENTITY_LIST_IDPS),
+	"/identity.API/GetIDPConnector":         clusterPermissions(auth.Permission_CLUSTER_IDENTITY_GET_IDP),
+	"/identity.API/DeleteIDPConnector":      clusterPermissions(auth.Permission_CLUSTER_IDENTITY_DELETE_IDP),
+	"/identity.API/CreateOIDCClient":        clusterPermissions(auth.Permission_CLUSTER_IDENTITY_CREATE_OIDC_CLIENT),
+	"/identity.API/UpdateOIDCClient":        clusterPermissions(auth.Permission_CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT),
+	"/identity.API/GetOIDCClient":           clusterPermissions(auth.Permission_CLUSTER_IDENTITY_GET_OIDC_CLIENT),
+	"/identity.API/ListOIDCClients":         clusterPermissions(auth.Permission_CLUSTER_IDENTITY_LIST_OIDC_CLIENTS),
+	"/identity.API/DeleteOIDCClient":        clusterPermissions(auth.Permission_CLUSTER_IDENTITY_DELETE_OIDC_CLIENT),
+	"/identity.API/DeleteAll":               clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL),
 
 	//
 	// License API
 	//
-	"/license.API/Activate":          authDisabledOr(admin),
-	"/license.API/GetActivationCode": authDisabledOr(admin),
-	"/license.API/Deactivate":        authDisabledOr(admin),
-	"/license.API/AddCluster":        authDisabledOr(admin),
-	"/license.API/UpdateCluster":     authDisabledOr(admin),
-	"/license.API/DeleteCluster":     authDisabledOr(admin),
-	"/license.API/ListClusters":      authDisabledOr(admin),
-	"/license.API/DeleteAll":         authDisabledOr(admin),
+	"/license.API/Activate":          authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_ACTIVATE)),
+	"/license.API/GetActivationCode": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_GET_CODE)),
+	"/license.API/AddCluster":        authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_ADD_CLUSTER)),
+	"/license.API/UpdateCluster":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_UPDATE_CLUSTER)),
+	"/license.API/DeleteCluster":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_DELETE_CLUSTER)),
+	"/license.API/ListClusters":      authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_LICENSE_LIST_CLUSTERS)),
+	"/license.API/DeleteAll":         authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 	// Heartbeat relies on the shared secret generated at cluster registration-time
 	"/license.API/Heartbeat": unauthenticated,
 
@@ -118,7 +115,7 @@ var authHandlers = map[string]authHandler{
 	//
 
 	// TODO: Add methods to handle repo permissions
-	"/pfs.API/ActivateAuth":    admin,
+	"/pfs.API/ActivateAuth":    clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
 	"/pfs.API/CreateRepo":      authDisabledOr(authenticated),
 	"/pfs.API/InspectRepo":     authDisabledOr(authenticated),
 	"/pfs.API/ListRepo":        authDisabledOr(authenticated),
@@ -208,8 +205,8 @@ var authHandlers = map[string]authHandler{
 	"/pps.API/GarbageCollect":  authDisabledOr(authenticated),
 	"/pps.API/UpdateJobState":  authDisabledOr(authenticated),
 	"/pps.API/ListPipeline":    authDisabledOr(authenticated),
-	"/pps.API/ActivateAuth":    admin,
-	"/pps.API/DeleteAll":       authDisabledOr(admin),
+	"/pps.API/ActivateAuth":    clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
+	"/pps.API/DeleteAll":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 
 	//
 	// TransactionAPI
@@ -221,7 +218,7 @@ var authHandlers = map[string]authHandler{
 	"/transaction.API/DeleteTransaction":  authDisabledOr(authenticated),
 	"/transaction.API/ListTransaction":    authDisabledOr(authenticated),
 	"/transaction.API/FinishTransaction":  authDisabledOr(authenticated),
-	"/transaction.API/DeleteAll":          authDisabledOr(admin),
+	"/transaction.API/DeleteAll":          authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DELETE_ALL)),
 
 	//
 	// Version API

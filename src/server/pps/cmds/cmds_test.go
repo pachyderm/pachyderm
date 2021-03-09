@@ -457,9 +457,7 @@ func TestYAMLError(t *testing.T) {
 	).Run())
 }
 
-// TODO: Make work with V2?
 func TestTFJobBasic(t *testing.T) {
-	t.Skip("TFJob not implemented in V2")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
