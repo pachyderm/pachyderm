@@ -7,6 +7,8 @@ require (
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.27.0
+	github.com/blevesearch/bleve v1.0.14
+	github.com/blevesearch/bleve/v2 v2.0.2 // indirect
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -19,6 +21,7 @@ require (
 	github.com/dexidp/dex v0.0.0-20201118094123-6ca0cbc85759
 	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect

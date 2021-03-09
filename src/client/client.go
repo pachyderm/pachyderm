@@ -26,6 +26,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/catalog"
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -81,6 +82,9 @@ type TransactionAPIClient transaction.APIClient
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
+// CatalogClient is an alias of catalog.APIClient
+type CatalogClient catalog.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -91,6 +95,7 @@ type APIClient struct {
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
+	CatalogClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
@@ -712,6 +717,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
+	c.CatalogClient = catalog.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	return nil

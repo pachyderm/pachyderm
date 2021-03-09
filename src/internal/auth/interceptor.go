@@ -228,6 +228,11 @@ var authHandlers = map[string]authHandler{
 	//
 
 	"/versionpb.API/GetVersion": unauthenticated,
+
+	//
+	// Catalog API
+	//
+	"/catalog.API/Query": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor

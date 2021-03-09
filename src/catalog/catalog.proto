@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package catalog;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/catalog";
+
+message QueryRequest {
+  string query = 1;
+}
+
+message QueryResponse {
+  repeated string results = 1;
+}
+
+service API {
+  // CreateRepo creates a new repo.
+  rpc Query(QueryRequest) returns (QueryResponse) {}
+}
