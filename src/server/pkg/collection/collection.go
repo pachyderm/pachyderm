@@ -640,12 +640,24 @@ func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options,
 	return listRevision(c, prefix, limitPtr, opts, f)
 }
 
+var (
+	countOpts = []etcd.OpOption{etcd.WithPrefix(), etcd.WithCountOnly()}
+)
+
 func (c *readonlyCollection) Count() (int64, error) {
-	resp, err := c.get(c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
+	resp, err := c.get(c.prefix, countOpts...)
 	if err != nil {
 		return 0, err
 	}
 	return resp.Count, err
+}
+
+func (c *readonlyCollection) CountRev(rev int64) (int64, int64, error) {
+	resp, err := c.get(c.prefix, append(countOpts, etcd.WithRev(rev))...)
+	if err != nil {
+		return 0, 0, err
+	}
+	return resp.Count, resp.Header.Revision, err
 }
 
 // Watch a collection, returning the current content of the collection as

@@ -109,6 +109,7 @@ type ReadonlyCollection interface {
 	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
 	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
 	Count() (int64, error)
+	CountRev(int64) (int64, int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
 	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)

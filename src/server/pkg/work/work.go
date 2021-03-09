@@ -392,11 +392,11 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 
 // UnclaimedTasks returns how many unclaimed tasks there are in the queue.
 func (w *Worker) UnclaimedTasks(ctx context.Context) (int, error) {
-	subTasks, err := w.subtaskCol.ReadOnly(ctx).Count()
+	subTasks, rev, err := w.subtaskCol.ReadOnly(ctx).CountRev(0)
 	if err != nil {
 		return 0, err
 	}
-	claims, err := w.claimCol.ReadOnly(ctx).Count()
+	claims, _, err := w.claimCol.ReadOnly(ctx).CountRev(rev)
 	if err != nil {
 		return 0, err
 	}
