@@ -122,7 +122,6 @@ type registry struct {
 }
 
 // TODO:
-// s3 input / gateway stuff (need more information here).
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).
 func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
@@ -164,9 +163,14 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 
 func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 	if reg.jobChain == nil {
+		pi := reg.driver.PipelineInfo()
 		hasher := &hasher{
-			name: reg.driver.PipelineInfo().Pipeline.Name,
-			salt: reg.driver.PipelineInfo().Salt,
+			name: pi.Pipeline.Name,
+			salt: pi.Salt,
+		}
+		var opts []chain.JobChainOption
+		if pi.NoSkip || pi.S3Out {
+			opts = append(opts, chain.WithNoSkip())
 		}
 		pachClient := reg.driver.PachClient()
 		metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -177,7 +181,7 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 			return err
 		}
 		if metaCommitInfo.ParentCommit == nil {
-			reg.jobChain = chain.NewJobChain(hasher)
+			reg.jobChain = chain.NewJobChain(hasher, opts...)
 			return nil
 		}
 		parentMetaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
@@ -191,7 +195,7 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 		commit := parentMetaCommitInfo.Commit
 		reg.jobChain = chain.NewJobChain(
 			hasher,
-			datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID),
+			append(opts, chain.WithBase(datum.NewCommitIterator(pachClient, commit.Repo.Name, commit.ID)))...,
 		)
 	}
 	return nil
@@ -466,6 +470,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+
+	// TODO: We need to delete the output for S3Out since we don't have a clear way to track the output in the stats commit (which means datums cannot be skipped with S3Out).
+	// If we had a way to map the output added through the S3 gateway back to the datums, and stored this in the appropriate place in the stats commit, then we would be able
+	// handle datums the same way we handle normal pipelines.
+	if pj.driver.PipelineInfo().S3Out {
+		if err := pachClient.DeleteFile(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID, "/"); err != nil {
+			return err
+		}
+	}
 
 	// TODO: This is a hack to ensure that deletions are generated before any output is uploaded.
 	// This may be resolved by either explicitly generating deletes first (somewhat similar to this hack) or

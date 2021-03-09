@@ -189,7 +189,7 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
 }
 
 func (fsi *fileSetIterator) Iterate(cb func(*Meta) error) error {
-	r, err := fsi.pachClient.GetTarFile(fsi.repo, fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
+	r, err := fsi.pachClient.GetFileTar(fsi.repo, fsi.commit, path.Join("/", MetaPrefix, "*", MetaFileName))
 	if err != nil {
 		return err
 	}

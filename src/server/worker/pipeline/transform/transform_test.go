@@ -327,7 +327,7 @@ func testJobSuccess(t *testing.T, pi *pps.PipelineInfo, files []tarutil.File) {
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(files[0], file)
@@ -383,7 +383,7 @@ func TestJobMultiDatum(t *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -427,7 +427,7 @@ func TestJobSerial(t *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[0], file)
@@ -477,7 +477,7 @@ func TestJobSerialDelete(t *testing.T) {
 		require.NotNil(t, branchInfo)
 
 		// Get the output files.
-		r, err := env.PachClient.GetTarFile(pi.Pipeline.Name, outputCommitID, "/*")
+		r, err := env.PachClient.GetFileTar(pi.Pipeline.Name, outputCommitID, "/*")
 		require.NoError(t, err)
 		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
 			ok, err := tarutil.Equal(tarFiles[1], file)

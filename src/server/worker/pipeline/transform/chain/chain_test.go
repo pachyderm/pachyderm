@@ -37,8 +37,7 @@ func (ti *testIterator) Iterate(cb func(*datum.Meta) error) error {
 func newTestChain(metas ...*datum.Meta) *JobChain {
 	hasher := &testHasher{}
 	if len(metas) > 0 {
-		baseDit := newTestIterator(metas)
-		return NewJobChain(hasher, baseDit)
+		return NewJobChain(hasher, WithBase(newTestIterator(metas)))
 	}
 	return NewJobChain(hasher)
 }
