@@ -150,20 +150,13 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason)
 }
 
-func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
+func (reg *registry) initializeJobChain(metaCommitInfo *pfs.CommitInfo) error {
 	if reg.jobChain == nil {
 		hasher := &hasher{
 			name: reg.driver.PipelineInfo().Pipeline.Name,
 			salt: reg.driver.PipelineInfo().Salt,
 		}
 		pachClient := reg.driver.PachClient()
-		metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
-			&pfs.InspectCommitRequest{
-				Commit: metaCommit,
-			})
-		if err != nil {
-			return err
-		}
 		if metaCommitInfo.ParentCommit == nil {
 			reg.jobChain = chain.NewJobChain(hasher)
 			return nil
@@ -185,7 +178,31 @@ func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 	return nil
 }
 
-func (reg *registry) startJob(jobInfo *pps.JobInfo, commitInfo *pfs.CommitInfo) error {
+func (reg *registry) ensureJob(commitInfo *pfs.CommitInfo) (*pps.JobInfo, error) {
+	pachClient := reg.driver.PachClient()
+	pipelineInfo := reg.driver.PipelineInfo()
+	jobInfo, err := pachClient.InspectJobOutputCommit(pipelineInfo.Pipeline.Name, commitInfo.Commit.ID, false)
+	if err != nil {
+		// TODO: It would be better for this to be a structured error.
+		if strings.Contains(err.Error(), "not found") {
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, ppsutil.GetStatsCommit(commitInfo))
+			if err != nil {
+				return nil, err
+			}
+			jobInfo, err = pachClient.InspectJob(job.ID, false)
+			if err != nil {
+				return nil, err
+			}
+			reg.logger.Logf("created new job %q for output commit %q", jobInfo.Job.ID, jobInfo.OutputCommit.ID)
+			return jobInfo, nil
+		}
+		return nil, err
+	}
+	reg.logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+	return jobInfo, nil
+}
+
+func (reg *registry) startJob(commitInfo *pfs.CommitInfo) error {
 	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
 	defer func() {
@@ -194,11 +211,15 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo, commitInfo *pfs.CommitInfo) 
 			reg.limiter.Release()
 		}
 	}()
-	if err := reg.initializeJobChain(jobInfo.StatsCommit); err != nil {
+	jobInfo, err := reg.ensureJob(commitInfo)
+	if err != nil {
 		return err
 	}
 	metaCommitInfo, err := reg.driver.PachClient().InspectCommit(jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
 	if err != nil {
+		return err
+	}
+	if err := reg.initializeJobChain(metaCommitInfo); err != nil {
 		return err
 	}
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
