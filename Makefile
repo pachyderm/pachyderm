@@ -334,7 +334,7 @@ test-auth:
 	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-identity:
-	etc/testing/port-forward.sh
+	etc/testing/forward-postgres.sh
 	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN)
 
 test-license:
