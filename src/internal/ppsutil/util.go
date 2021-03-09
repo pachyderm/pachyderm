@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -404,11 +403,6 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 		}
 		return WriteJobInfo(&builder.APIClient, jobInfo)
 	})
-	// TODO: Figure out how to clean up jobs after deleted commit. Just cleaning up here is not a good solution because
-	// we are not guaranteed to hit this code path after a deletion.
-	if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitDeletedErr(err) || pfsserver.IsCommitNotFoundErr(err) {
-		return nil
-	}
 	return err
 }
 
