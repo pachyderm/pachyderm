@@ -242,7 +242,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -296,14 +296,6 @@ test-libs:
 	go test -count=1 ./src/internal/collection -timeout $(TIMEOUT) -vet=off
 	go test -count=1 ./src/internal/cert -timeout $(TIMEOUT)
 	go test -count=1 ./src/internal/work -timeout $(TIMEOUT)
-
-test-vault:
-	kill $$(cat /tmp/vault.pid) || true
-	./src/plugin/vault/etc/start-vault.sh
-	./src/plugin/vault/etc/pach-auth.sh --activate
-	./src/plugin/vault/etc/setup-vault.sh
-	go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT)
-	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 # TODO: Readd when s3 gateway is implemented in V2.
 #test-s3gateway-conformance:
@@ -520,7 +512,6 @@ spellcheck:
 	test-transaction \
 	test-client \
 	test-libs \
-	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
 	test-s3gateway-unit \
