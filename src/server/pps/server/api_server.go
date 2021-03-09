@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	authServer "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/server/githook"
@@ -414,7 +415,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
 func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
-	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
+	_, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
 	} else if err != nil {
@@ -441,19 +442,8 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 			}
 			done[repo] = struct{}{}
 			eg.Go(func() error {
-				resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-					Repo:  repo,
-					Scope: auth.Scope_READER,
-				})
-				if err != nil {
+				if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_READ); err != nil {
 					return err
-				}
-				if !resp.Authorized {
-					return &auth.ErrNotAuthorized{
-						Subject:  me.Username,
-						Repo:     repo,
-						Required: auth.Scope_READER,
-					}
 				}
 				return nil
 			})
@@ -470,21 +460,23 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 	// (if it did exist, we'd have to check that the user has permission to write
 	// to it, and this is simpler)
 	if output != "" {
-		var required auth.Scope
+		var required auth.Permission
 		switch operation {
 		case pipelineOpCreate:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
 			}); err == nil {
 				// the repo already exists, so we need the same permissions as update
-				required = auth.Scope_WRITER
-			} else if !isNotFoundErr(err) {
+				required = auth.Permission_REPO_WRITE
+			} else if isNotFoundErr(err) {
+				return nil
+			} else {
 				return err
 			}
 		case pipelineOpListDatum, pipelineOpGetLogs:
-			required = auth.Scope_READER
+			required = auth.Permission_REPO_READ
 		case pipelineOpUpdate:
-			required = auth.Scope_WRITER
+			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
 				Repo: &pfs.Repo{Name: output},
@@ -493,25 +485,12 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txnenv.TransactionC
 				// pipeline is now invalid). It should be possible to delete the pipeline.
 				return nil
 			}
-			required = auth.Scope_OWNER
+			required = auth.Permission_REPO_DELETE
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if required != auth.Scope_NONE {
-			resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, &auth.AuthorizeRequest{
-				Repo:  output,
-				Scope: required,
-			})
-			if err != nil {
-				return err
-			}
-			if !resp.Authorized {
-				return &auth.ErrNotAuthorized{
-					Subject:  me.Username,
-					Repo:     output,
-					Required: required,
-				}
-			}
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(txnCtx, output, required); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -683,14 +662,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline,
 	outputCommit *pfs.Commit, inputCommits []*pfs.Commit, history int64, full bool,
 	jqFilter string, f func(*pps.JobInfo) error) error {
-	authIsActive := true
-	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		authIsActive = false
-	} else if err != nil {
-		return err
-	}
-	if authIsActive && pipeline != nil {
+	if pipeline != nil {
 		// If 'pipeline is set, check that caller has access to the pipeline's
 		// output repo; currently, that's all that's required for ListJob.
 		//
@@ -698,21 +670,12 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
-			Repo:  pipeline.Name,
-			Scope: auth.Scope_READER,
-		})
-		if err != nil {
+		if err := authServer.CheckRepoIsAuthorized(pachClient, pipeline.Name, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+
 			return err
 		}
-		if !resp.Authorized {
-			return &auth.ErrNotAuthorized{
-				Subject:  me.Username,
-				Repo:     pipeline.Name,
-				Required: auth.Scope_READER,
-			}
-		}
 	}
+	var err error
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
@@ -1092,7 +1055,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	// Set the default for the `Since` field.
-	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
+	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
@@ -1333,7 +1296,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
@@ -1697,45 +1660,31 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txnenv.Transac
 	for repo := range remove {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     repo,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_NONE,
-				})
-				if isNotFoundErr(err) {
-					// can happen if input repo is force-deleted; nothing to remove
-					return nil
-				}
+			// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
+			if err := txnCtx.Auth().RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for repo := range add {
 		repo := repo
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     repo,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_READER,
-				})
+			// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
+			if err := txnCtx.Auth().AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		eg.Go(func() error {
-			return a.sudoTransaction(txnCtx, func(superTxnCtx *txnenv.TransactionContext) error {
-				_, err := superTxnCtx.Auth().SetScopeInTransaction(superTxnCtx, &auth.SetScopeRequest{
-					Repo:     pipelineName,
-					Username: auth.PipelinePrefix + pipelineName,
-					Scope:    auth.Scope_WRITER,
-				})
+			if err := txnCtx.Auth().AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
 				return err
-			})
+			}
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -1865,6 +1814,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
+		NoSkip:                request.NoSkip,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -2095,23 +2045,20 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			pipelinePtr.Parallelism = uint64(parallelism)
 
 			// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
-			if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
+			if err := func() error {
 				oldAuthToken := pipelinePtr.AuthToken
-				tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
-					Subject: auth.PipelinePrefix + request.Pipeline.Name,
-					TTL:     -1,
-				})
+				token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 				if err != nil {
 					if auth.IsErrNotActivated(err) {
 						return nil // no auth work to do
 					}
 					return grpcutil.ScrubGRPC(err)
 				}
-				pipelinePtr.AuthToken = tokenResp.Token
+				pipelinePtr.AuthToken = token
 
 				// If getting a new auth token worked, we should revoke the old one
 				if oldAuthToken != "" {
-					_, err := superCtx.Auth().RevokeAuthTokenInTransaction(superCtx,
+					_, err := txnCtx.Auth().RevokeAuthTokenInTransaction(txnCtx,
 						&auth.RevokeAuthTokenRequest{
 							Token: oldAuthToken,
 						})
@@ -2123,7 +2070,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 					}
 				}
 				return nil
-			}); err != nil {
+			}(); err != nil {
 				return err
 			}
 			return nil
@@ -2205,20 +2152,19 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
-		if err := a.sudoTransaction(txnCtx, func(superCtx *txnenv.TransactionContext) error {
-			tokenResp, err := superCtx.Auth().GetAuthTokenInTransaction(superCtx, &auth.GetAuthTokenRequest{
-				Subject: auth.PipelinePrefix + request.Pipeline.Name,
-				TTL:     -1,
-			})
+
+		if err := func() error {
+			token, err := txnCtx.Auth().GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
 			if err != nil {
 				if auth.IsErrNotActivated(err) {
 					return nil // no auth work to do
 				}
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelinePtr.AuthToken = tokenResp.Token
+
+			pipelinePtr.AuthToken = token
 			return nil
-		}); err != nil {
+		}(); err != nil {
 			return err
 		}
 		// Put a pointer to the new PipelineInfo commit into etcd
@@ -2697,18 +2643,16 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		// If auth was deactivated after the pipeline was created, don't bother
 		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
-			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				// 'pipelineInfo' == nil => remove pipeline from all input repos
-				if err := a.fixPipelineInputRepoACLs(superUserClient.Ctx(), nil, pipelineInfo); err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-				_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
-					&auth.RevokeAuthTokenRequest{
-						Token: pipelinePtr.AuthToken,
-					})
-				return grpcutil.ScrubGRPC(err)
-			}); err != nil {
-				return nil, errors.Wrapf(err, "error revoking old auth token")
+			// 'pipelineInfo' == nil => remove pipeline from all input repos
+			if err := a.fixPipelineInputRepoACLs(pachClient.Ctx(), nil, pipelineInfo); err != nil {
+				return nil, grpcutil.ScrubGRPC(err)
+			}
+			if _, err := pachClient.RevokeAuthToken(pachClient.Ctx(),
+				&auth.RevokeAuthTokenRequest{
+					Token: pipelinePtr.AuthToken,
+				}); err != nil {
+
+				return nil, grpcutil.ScrubGRPC(err)
 			}
 		}
 	}
@@ -3235,18 +3179,22 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
 
+	// Set the permissions on the spec repo so anyone can read it
+	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.AllClusterUsersSubject, []string{auth.RepoReaderRole}); err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
+	}
+
+	// Set the permissions on the spec repo so the PPS user can write to it
+	if err := pachClient.ModifyRepoRoleBinding(ppsconsts.SpecRepo, auth.PpsUser, []string{auth.RepoWriterRole}); err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot configure role binding on spec repo")
+	}
+
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	var pipelines []*pps.PipelineInfo
-	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		var err error
-		pipelines, err = superUserClient.ListPipeline()
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+	pipelines, err := pachClient.ListPipeline()
+	if err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
 	}
 
 	var eg errgroup.Group
@@ -3256,26 +3204,24 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
-			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
-					Subject: auth.PipelinePrefix + pipelineName,
-				})
-				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-				}
-				_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-					var pipelinePtr pps.EtcdPipelineInfo
-
-					if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
-						pipelinePtr.AuthToken = tokenResp.Token
-						return nil
-					}); err != nil {
-						return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
-					}
-					return nil
-				})
-				return err
+			tokenResp, err := pachClient.GetAuthToken(pachClient.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: auth.PipelinePrefix + pipelineName,
 			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+			}
+			_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+				var pipelinePtr pps.EtcdPipelineInfo
+
+				if err := a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
+					pipelinePtr.AuthToken = tokenResp.Token
+					return nil
+				}); err != nil {
+					return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
+				}
+				return nil
+			})
+			return err
 		})
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {

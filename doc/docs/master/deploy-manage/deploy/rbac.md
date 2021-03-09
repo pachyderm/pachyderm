@@ -1,5 +1,4 @@
 # RBAC
-
 Pachyderm has support for Kubernetes Role-Based Access
 Controls (RBAC), which is a default part of all
 Pachyderm deployments. In most use cases, Pachyderm
@@ -10,22 +9,26 @@ RBAC permissions by default. Therefore, you need to
 contact your Kubernetes administrator and provide the
 following list of required permissions:
 
-```
+{% raw %}
+
+```shell
 Rules: []rbacv1.PolicyRule{{
-	APIGroups: []string{""},
-	Verbs:     []string{"get", "list", "watch"},
-	Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
-}, {
-	APIGroups: []string{""},
-	Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-	Resources: []string{"replicationcontrollers", "services"},
-}, {
-	APIGroups:     []string{""},
-	Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-	Resources:     []string{"secrets"},
-	ResourceNames: []string{client.StorageSecretName},
-}},
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch"},
+		Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+		}, {
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources: []string{"replicationcontrollers", "services"},
+		}, {
+		APIGroups:     []string{""},
+		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources:     []string{"secrets"},
+		ResourceNames: []string{client.StorageSecretName},
+		}},
 ```
+
+{% endraw %}
 
 The following table explains how Pachyderm uses those permissions:
 

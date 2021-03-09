@@ -46,12 +46,13 @@ var (
 
 // MetadataStore stores metadata about chunks
 type MetadataStore interface {
+	DB() *sqlx.DB
 	// Set adds chunk metadata to the tracker
-	Set(ctx context.Context, chunkID ID, md Metadata) error
+	SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error
 	// Get returns info about the chunk if it exists
 	Get(ctx context.Context, chunkID ID) (*Metadata, error)
 	// Delete removes chunk metadata from the tracker
-	Delete(ctx context.Context, chunkID ID) error
+	DeleteTx(tx *sqlx.Tx, chunkID ID) error
 }
 
 var _ MetadataStore = &postgresStore{}
@@ -65,22 +66,16 @@ func NewPostgresStore(db *sqlx.DB) MetadataStore {
 	return &postgresStore{db: db}
 }
 
-func (s *postgresStore) Set(ctx context.Context, chunkID ID, md Metadata) error {
-	res, err := s.db.ExecContext(ctx,
+func (s *postgresStore) DB() *sqlx.DB {
+	return s.db
+}
+
+func (s *postgresStore) SetTx(tx *sqlx.Tx, chunkID ID, md Metadata) error {
+	_, err := tx.Exec(
 		`INSERT INTO storage.chunks (hash_id, size) VALUES ($1, $2)
-		ON CONFLICT DO NOTHING
+		ON CONFLICT (hash_id) DO NOTHING
 		`, chunkID, md.Size)
-	if err != nil {
-		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrMetadataExists
-	}
-	return nil
+	return err
 }
 
 func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) {
@@ -99,8 +94,8 @@ func (s *postgresStore) Get(ctx context.Context, chunkID ID) (*Metadata, error) 
 	}, nil
 }
 
-func (s *postgresStore) Delete(ctx context.Context, chunkID ID) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
+func (s *postgresStore) DeleteTx(tx *sqlx.Tx, chunkID ID) error {
+	_, err := tx.Exec(`DELETE FROM storage.chunks WHERE hash_id = $1`, chunkID)
 	return err
 }
 
@@ -115,7 +110,7 @@ func SetupPostgresStoreV0(ctx context.Context, tableName string, tx *sqlx.Tx) er
 	}
 	query := fmt.Sprintf(`
 	CREATE TABLE %s (
-		hash_id BYTEA NOT NULL UNIQUE,
+		hash_id BYTEA NOT NULL PRIMARY KEY,
 		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);`, tableName)

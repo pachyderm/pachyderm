@@ -102,15 +102,31 @@ make VERSION_ADDITIONAL= regenerate-test-deploy-manifests
 git commit -a -m"Regenerate golden deployment manifests for $(pachctl version --client-only) release"
 ```
 
+### Update the testfaster hash [apply step only when running point-release target]
+
+Update the test faster hash to point to the latest git commit.
+
+```shell
+git log --pretty=format:%H | head -n 1
+```
+Copy the commit hash printed from the above command. Search for "git checkout" in
+`.testfaster.yml` file. Replace the hash value with the one from above git log cmd.
+
+```shell
+git commit -am "Upadate test faster hash for $(pachctl version --client-only) release"
+```
+
 ### Update the changelog [apply step only when running point-release target]
 
 Update the changelog in the branch and commit it locally. Edit `CHANGELOG.md`
 
 ```shell
-git commit -am "Upadate change log for $(pachctl version --client-onlt) release"
+git commit -am "Upadate change log for $(pachctl version --client-only) release"
 ```
 
 ### Push changes [apply step only when running point-release target]
+
+In a typical point release you will have 5 commits to push to the server.
 
 ```shell
 git push

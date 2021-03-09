@@ -56,8 +56,11 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
-func (s *Storage) NewWriter(ctx context.Context, tmpID string, cb WriterCallback, opts ...WriterOption) *Writer {
-	client := NewClient(s.store, s.mdstore, s.tracker, tmpID)
+func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback, opts ...WriterOption) *Writer {
+	if name == "" {
+		panic("name must not be empty")
+	}
+	client := NewClient(s.store, s.mdstore, s.tracker, name)
 	return newWriter(ctx, client, s.memCache, s.createOpts, cb, opts...)
 }
 

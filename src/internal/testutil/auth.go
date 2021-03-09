@@ -7,10 +7,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -35,20 +34,12 @@ func ActivateAuth(tb testing.TB) {
 	}
 	config.WritePachTokenToConfig(RootToken)
 
-	// Wait for the Pachyderm Auth system to activate
-	require.NoError(tb, backoff.Retry(func() error {
-		if isActive, err := client.IsAuthActive(); err != nil {
-			return err
-		} else if isActive {
-			return nil
-		}
-		return errors.Errorf("auth not active yet")
-	}, backoff.NewTestingBackOff()))
-
 	// Activate auth for PPS
 	client = client.WithCtx(context.Background())
 	client.SetAuthToken(RootToken)
-	_, err = client.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
+	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(tb, err)
+	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
 	require.NoError(tb, err)
 }
 

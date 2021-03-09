@@ -163,12 +163,13 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 
 func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
 	if reg.jobChain == nil {
+		pi := reg.driver.PipelineInfo()
 		hasher := &hasher{
-			name: reg.driver.PipelineInfo().Pipeline.Name,
-			salt: reg.driver.PipelineInfo().Salt,
+			name: pi.Pipeline.Name,
+			salt: pi.Salt,
 		}
 		var opts []chain.JobChainOption
-		if reg.driver.PipelineInfo().S3Out {
+		if pi.NoSkip || pi.S3Out {
 			opts = append(opts, chain.WithNoSkip())
 		}
 		pachClient := reg.driver.PachClient()

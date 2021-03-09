@@ -12,7 +12,11 @@ Pachyderm needs a few things to install and run successfully in any Kubernetes e
    The kind of PV you provision will be dependent on your infrastructure. 
    For example, many on-premises deployments use Network File System (NFS) access to some kind of enterprise storage.
 1. An object store, used by Pachyderm's `pachd` for storing all your data. 
-   The object store you use will probably be dependent on where you're going to run OpenShift: S3 for [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html), GCS for [Google Cloud Platform](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), Azure Blob Storage for  [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
+   The object store you use will probably be dependent on where you're going to run OpenShift: 
+	- S3 for [AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-on-aws)
+	- GCS for [Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/)
+	- Azure Blob Storage for  [Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/)
+	- or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
 1. Access to particular TCP/IP ports for communication.
 
 ### Persistent volume
@@ -79,7 +83,8 @@ We highly encourage you to apply the best practices used in developing software 
 
 ## Preparing to deploy Pachyderm
 
-Things you'll need
+Things you'll need:
+
 1. Your PV.  It can be created separately.
 
 1. Your object store information.
@@ -88,118 +93,120 @@ Things you'll need
 
 1. A text editor for editing your deployment manifest.
 ## Deploying Pachyderm
-### 1. Setting up PV and object stores
+1. Setting up PV and object stores
 How you deploy Pachyderm on OpenShift is largely going to depend on where OpenShift is deployed. 
 Below you'll find links to the documentation for each kind of deployment you can do.
 Follow the instructions there for setting up persistent volumes and object storage resources.
 Don't yet deploy your manifest, come back here after you've set up your PV and object store.
-* OpenShift Deployed on [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html) 
-* OpenShift Deployed on [GCP](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html)
-* OpenShift Deployed on [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html)
-* OpenShift Deployed [on-premise](https://pachyderm.readthedocs.io/en/latest/deployment/on_premises.html)
-### 2. Determine your role security policy
+    * OpenShift Deployed on [AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-on-aws) 
+    * OpenShift Deployed on [GCP](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/)
+    * OpenShift Deployed on [Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/)
+    * OpenShift Deployed [on-premise](https://docs.pachyderm.com/latest/deploy-manage/deploy/on_premises/)
+
+1. Determine your role security policy
 Pachyderm is deployed by default with cluster roles.
 Many institutional Openshift security policies require namespace-local roles rather than cluster roles.
-If your security policies require namespace-local roles, use the [`pachctl deploy` command below with the `--local-roles` flag](#namespace-local-roles).
-### 3. Run the deploy command with --dry-run
+If your security policies require namespace-local roles, use the `pachctl deploy` command below with the `--local-roles` flag (see below).
+
+1. Run the deploy command with --dry-run
 Once you have your PV, object store, and project, you can create a manifest for editing using the `--dry-run` argument to `pachctl deploy`.
 That step is detailed in the deployment instructions for each type of deployment, above.
 
-Below, find examples, 
-with cluster roles and with namespace-local roles,
-using AWS elastic block storage as a persistent disk with a custom deploy.
-We'll show how to remove this PV in case you want to use a PV you create separately.
+	Below, find examples, 
+	with cluster roles and with namespace-local roles,
+	using AWS elastic block storage as a persistent disk with a custom deploy.
+	We'll show how to remove this PV in case you want to use a PV you create separately.
 
-#### Cluster roles
-```
-pachctl deploy custom --persistent-disk aws --object-store s3 \
-     <pv-storage-name> <pv-storage-size> \
-     <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
-     --static-etcd-volume=<pv-storage-name> --dry-run > manifest.json
-```
+	- Cluster roles
+		```shell
+		pachctl deploy custom --persistent-disk aws --object-store s3 \
+			<pv-storage-name> <pv-storage-size> \
+			<s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
+			--static-etcd-volume=<pv-storage-name> --dry-run > manifest.json
+		```
 
-#### Namespace-local roles
-```
-pachctl deploy custom --persistent-disk aws --object-store s3 \
-     <pv-storage-name> <pv-storage-size> \
-     <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
-     --static-etcd-volume=<pv-storage-name> --local-roles --dry-run > manifest.json
-```
+	- Namespace-local roles
+		```shell
+		pachctl deploy custom --persistent-disk aws --object-store s3 \
+			<pv-storage-name> <pv-storage-size> \
+			<s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
+			--static-etcd-volume=<pv-storage-name> --local-roles --dry-run > manifest.json
+		```
 
-### 4. Modify pachd Service ports
+1. Modify pachd Service ports
 
-In the deployment manifest, which we called `manifest.json`, above, find the stanza for the `pachd` Service.  An example is shown below.
+	In the deployment manifest, which we called `manifest.json`, above, find the stanza for the `pachd` Service.  An example is shown below.
 
-```
-{
-	"kind": "Service",
-	"apiVersion": "v1",
-	"metadata": {
-		"name": "pachd",
-		"namespace": "default",
-		"creationTimestamp": null,
-		"labels": {
-			"app": "pachd",
-			"suite": "pachyderm"
-		},
-		"annotations": {
-			"prometheus.io/port": "9091",
-			"prometheus.io/scrape": "true"
-		}
-	},
-	"spec": {
-		"ports": [
-			{
-				"name": "api-grpc-port",
-				"port": 650,
-				"targetPort": 0,
-				"nodePort": 30650
+	```json
+	{
+		"kind": "Service",
+		"apiVersion": "v1",
+		"metadata": {
+			"name": "pachd",
+			"namespace": "default",
+			"creationTimestamp": null,
+			"labels": {
+				"app": "pachd",
+				"suite": "pachyderm"
 			},
-			{
-				"name": "trace-port",
-				"port": 651,
-				"targetPort": 0,
-				"nodePort": 30651
-			},
-			{
-				"name": "api-http-port",
-				"port": 652,
-				"targetPort": 0,
-				"nodePort": 30652
-			},
-			{
-				"name": "saml-port",
-				"port": 654,
-				"targetPort": 0,
-				"nodePort": 30654
-			},
-			{
-				"name": "api-git-port",
-				"port": 999,
-				"targetPort": 0,
-				"nodePort": 30999
-			},
-			{
-				"name": "s3gateway-port",
-				"port": 600,
-				"targetPort": 0,
-				"nodePort": 30600
+			"annotations": {
+				"prometheus.io/port": "9091",
+				"prometheus.io/scrape": "true"
 			}
-		],
-		"selector": {
-			"app": "pachd"
 		},
-		"type": "NodePort"
-	},
-	"status": {
-		"loadBalancer": {}
+		"spec": {
+			"ports": [
+				{
+					"name": "api-grpc-port",
+					"port": 650,
+					"targetPort": 0,
+					"nodePort": 30650
+				},
+				{
+					"name": "trace-port",
+					"port": 651,
+					"targetPort": 0,
+					"nodePort": 30651
+				},
+				{
+					"name": "api-http-port",
+					"port": 652,
+					"targetPort": 0,
+					"nodePort": 30652
+				},
+				{
+					"name": "saml-port",
+					"port": 654,
+					"targetPort": 0,
+					"nodePort": 30654
+				},
+				{
+					"name": "api-git-port",
+					"port": 999,
+					"targetPort": 0,
+					"nodePort": 30999
+				},
+				{
+					"name": "s3gateway-port",
+					"port": 600,
+					"targetPort": 0,
+					"nodePort": 30600
+				}
+			],
+			"selector": {
+				"app": "pachd"
+			},
+			"type": "NodePort"
+		},
+		"status": {
+			"loadBalancer": {}
+		}
 	}
-}
-```
+	```
 
-While the nodePort declarations are fine, the port declarations are too low for OpenShift. Good example values are shown below.
+	While the nodePort declarations are fine, the port declarations are too low for OpenShift. Good example values are shown below.
 
-```
+	```json
 	"spec": {
 		"ports": [
 			{
@@ -239,197 +246,200 @@ While the nodePort declarations are fine, the port declarations are too low for 
 				"nodePort": 30600
 			}
 		],
-```
+	```
 
-### 5. Modify pachd Deployment ports and add environment variables
+1. Modify pachd Deployment ports and add environment variables
 In this case you're editing two parts of the `pachd` Deployment json.  
 Here, we'll omit the example of the unmodified version.
 Instead, we'll show you the modified version.
-#### 5.1 pachd Deployment ports
-The `pachd` Deployment also has a set of port numbers in the spec for the `pachd` container. 
-Those must be modified to match the port numbers you set above for each port.
 
-```
-{
-	"kind": "Deployment",
-	"apiVersion": "apps/v1",
-	"metadata": {
-		"name": "pachd",
-		"namespace": "default",
-		"creationTimestamp": null,
-		"labels": {
-			"app": "pachd",
-			"suite": "pachyderm"
-		}
-	},
-	"spec": {
-		"replicas": 1,
-		"selector": {
-			"matchLabels": {
+	- pachd Deployment ports
+
+	The `pachd` Deployment also has a set of port numbers in the spec for the `pachd` container. 
+	Those must be modified to match the port numbers you set above for each port.
+
+	```json
+	{
+		"kind": "Deployment",
+		"apiVersion": "apps/v1",
+		"metadata": {
+			"name": "pachd",
+			"namespace": "default",
+			"creationTimestamp": null,
+			"labels": {
 				"app": "pachd",
 				"suite": "pachyderm"
 			}
 		},
-		"template": {
-			"metadata": {
-				"name": "pachd",
-				"namespace": "default",
-				"creationTimestamp": null,
-				"labels": {
+		"spec": {
+			"replicas": 1,
+			"selector": {
+				"matchLabels": {
 					"app": "pachd",
 					"suite": "pachyderm"
-				},
-				"annotations": {
-					"iam.amazonaws.com/role": ""
 				}
 			},
-			"spec": {
-				"volumes": [
-					{
-						"name": "pach-disk"
+			"template": {
+				"metadata": {
+					"name": "pachd",
+					"namespace": "default",
+					"creationTimestamp": null,
+					"labels": {
+						"app": "pachd",
+						"suite": "pachyderm"
 					},
-					{
-						"name": "pachyderm-storage-secret",
-						"secret": {
-							"secretName": "pachyderm-storage-secret"
-						}
+					"annotations": {
+						"iam.amazonaws.com/role": ""
 					}
-				],
-				"containers": [
-					{
-						"name": "pachd",
-						"image": "pachyderm/pachd:{{ config.pach_latest_version }}",
-						"ports": [
-							{
-								"name": "api-grpc-port",
-								"containerPort": 1650,
-								"protocol": "TCP"
-							},
-							{
-								"name": "trace-port",
-								"containerPort": 1651
-							},
-							{
-								"name": "api-http-port",
-								"containerPort": 1652,
-								"protocol": "TCP"
-							},
-							{
-								"name": "peer-port",
-								"containerPort": 1653,
-								"protocol": "TCP"
-							},
-							{
-								"name": "api-git-port",
-								"containerPort": 1999,
-								"protocol": "TCP"
-							},
-							{
-								"name": "saml-port",
-								"containerPort": 1654,
-								"protocol": "TCP"
+				},
+				"spec": {
+					"volumes": [
+						{
+							"name": "pach-disk"
+						},
+						{
+							"name": "pachyderm-storage-secret",
+							"secret": {
+								"secretName": "pachyderm-storage-secret"
 							}
-						],
+						}
+					],
+					"containers": [
+						{
+							"name": "pachd",
+							"image": "pachyderm/pachd:{{ config.pach_latest_version }}",
+							"ports": [
+								{
+									"name": "api-grpc-port",
+									"containerPort": 1650,
+									"protocol": "TCP"
+								},
+								{
+									"name": "trace-port",
+									"containerPort": 1651
+								},
+								{
+									"name": "api-http-port",
+									"containerPort": 1652,
+									"protocol": "TCP"
+								},
+								{
+									"name": "peer-port",
+									"containerPort": 1653,
+									"protocol": "TCP"
+								},
+								{
+									"name": "api-git-port",
+									"containerPort": 1999,
+									"protocol": "TCP"
+								},
+								{
+									"name": "saml-port",
+									"containerPort": 1654,
+									"protocol": "TCP"
+								}
+							],
 
-```
+	```
 
-#### 5.2 Add environment variables
+	- Add environment variables
 
-You need to configure the following environment variables for
-OpenShift:
+	You need to configure the following environment variables for
+	OpenShift:
 
-1. `WORKER_USES_ROOT`: This controls whether worker pipelines run as the root user or not. You'll need to set it to `false`
-1. `PORT`: This is the grpc port used by pachd for communication with `pachctl` and the api.  It should be set to the same value you set for `api-grpc-port` above.
-1. `HTTP_PORT`: The port for the api proxy.  It should be set to `api-http-port` above.
-1. `PEER_PORT`: Used to coordinate `pachd`'s. Same as `peer-port` above.
-1. `PPS_WORKER_GRPC_PORT`: Used to talk to pipelines. Should be set to a value above 1024.  The example value of 1680 below is recommended.
-1. `PACH_ROOT`: The Pachyderm root directory. In an OpenShift
-deployment, you need to set this value to a directory to which non-root users
-have write access, which might depend on your container image. By
-default, `PACH_ROOT` is set to `/pach`, which requires root privileges.
-Because in OpenShift, you do not have root access, you need to modify
-the default setting.
+	1. `WORKER_USES_ROOT`: This controls whether worker pipelines run as the root user or not. You'll need to set it to `false`
+	1. `PORT`: This is the grpc port used by pachd for communication with `pachctl` and the api.  It should be set to the same value you set for `api-grpc-port` above.
+	1. `HTTP_PORT`: The port for the api proxy.  It should be set to `api-http-port` above.
+	1. `PEER_PORT`: Used to coordinate `pachd`'s. Same as `peer-port` above.
+	1. `PPS_WORKER_GRPC_PORT`: Used to talk to pipelines. Should be set to a value above 1024.  The example value of 1680 below is recommended.
+	1. `PACH_ROOT`: The Pachyderm root directory. In an OpenShift
+	deployment, you need to set this value to a directory to which non-root users
+	have write access, which might depend on your container image. By
+	default, `PACH_ROOT` is set to `/pach`, which requires root privileges.
+	Because in OpenShift, you do not have root access, you need to modify
+	the default setting.
 
-The added values below are shown inserted above the `PACH_ROOT` value, which is typically the first value in this array.
-The rest of the stanza is omitted for clarity.
+		The added values below are shown inserted above the `PACH_ROOT` value, which is typically the first value in this array.
+		The rest of the stanza is omitted for clarity.
 
-```
-						"env": [
-                            {
-                            "name": "WORKER_USES_ROOT",
-                            "value": "false"
-                            },
-                            {
-                            "name": "PORT",
-                            "value": "1650"
-                            },
-                            {
-                            "name": "HTTP_PORT",
-                            "value": "1652"
-                            },
-                            {
-                            "name": "PEER_PORT",
-                            "value": "1653"
-                            },
-                            {
-                            "name": "PPS_WORKER_GRPC_PORT",
-                            "value": "1680"
-                            },
-							{
-								"name": "PACH_ROOT",
-								"value": "<path-to-non-root-dir>"
-							},
+	```json
+		"env": [
+			{
+			"name": "WORKER_USES_ROOT",
+			"value": "false"
+			},
+			{
+			"name": "PORT",
+			"value": "1650"
+			},
+			{
+			"name": "HTTP_PORT",
+			"value": "1652"
+			},
+			{
+			"name": "PEER_PORT",
+			"value": "1653"
+			},
+			{
+			"name": "PPS_WORKER_GRPC_PORT",
+			"value": "1680"
+			},
+			{
+				"name": "PACH_ROOT",
+				"value": "<path-to-non-root-dir>"
+			},
 
-```
+	```
 
-### 6. (Optional) Remove the PV created during the deploy command
-If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
+1. (Optional) Remove the PV created during the deploy command
 
-```
-{
-	"kind": "PersistentVolume",
-	"apiVersion": "v1",
-	"metadata": {
-		"name": "etcd-volume",
-		"namespace": "default",
-		"creationTimestamp": null,
-		"labels": {
-			"app": "etcd",
-			"suite": "pachyderm"
-		}
-	},
-	"spec": {
-		"capacity": {
-			"storage": "10Gi"
+	If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
+
+	```json
+	{
+		"kind": "PersistentVolume",
+		"apiVersion": "v1",
+		"metadata": {
+			"name": "etcd-volume",
+			"namespace": "default",
+			"creationTimestamp": null,
+			"labels": {
+				"app": "etcd",
+				"suite": "pachyderm"
+			}
 		},
-		"awsElasticBlockStore": {
-			"volumeID": "pach-disk",
-			"fsType": "ext4"
+		"spec": {
+			"capacity": {
+				"storage": "10Gi"
+			},
+			"awsElasticBlockStore": {
+				"volumeID": "pach-disk",
+				"fsType": "ext4"
+			},
+			"accessModes": [
+				"ReadWriteOnce"
+			],
+			"persistentVolumeReclaimPolicy": "Retain"
 		},
-		"accessModes": [
-			"ReadWriteOnce"
-		],
-		"persistentVolumeReclaimPolicy": "Retain"
-	},
-	"status": {}
-}
-```
+		"status": {}
+	}
+	```
 
-## 7. Deploy the Pachyderm manifest you modified.
+1. Deploy the Pachyderm manifest you modified.
 
-```shell
-oc create -f pachyderm.json
-```
+	```shell
+	oc create -f pachyderm.json
+	```
 
-You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
+	You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
-```shell
-    oc get pods
-    NAME                     READY     STATUS    RESTARTS   AGE
-    dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
-    etcd-0                   1/1       Running   0          4m
-    pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
-```
+	```shell
+		oc get pods
+		NAME                     READY     STATUS    RESTARTS   AGE
+		dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
+		etcd-0                   1/1       Running   0          4m
+		pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
+	```
 
 ### Known issues
 

@@ -168,6 +168,15 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	}
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
 
+	// Request that will list all files in with / as a prefix ("/" should mean
+	// the same as "", e.g. rust-s3 client)
+	ch = s.minioClient.ListObjects("in2", "/", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i <= 1000; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
+	}
+	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
+
 	// Request that will list all files starting with 1
 	ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
 	expectedFiles = []string{}

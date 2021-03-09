@@ -26,9 +26,8 @@ Pachyderm context with the cluster IP address that starts with `grpcs://`.
 You can do so by running the following command:
 
 !!! example
-    ```shell
-    echo '{"pachd_address": "grpcs://<cluster-ip>:31400"}' | pachctl config
-    pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
+    ```shell   
+    echo '{"pachd_address": "grpcs://<cluster-ip:30650"}' | pachctl config set context "local-grpcs" --overwrite && pachctl config set active-context "local-grpcs"   
     ```
 
 !!! note "See Also:"

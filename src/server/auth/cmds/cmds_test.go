@@ -79,11 +79,9 @@ func TestCheckGetSet(t *testing.T) {
 	loginAsUser(t, alice)
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
-		pachctl auth check owner {{.repo}}
-		pachctl auth get {{.repo}} \
+		pachctl auth check repo REPO_MODIFY_BINDINGS {{.repo}}
+		pachctl auth get repo {{.repo}} \
 			| match {{.alice}}
-		pachctl auth get {{.bob}} {{.repo}} \
-			| match NONE
 		`,
 		"alice", alice,
 		"bob", bob,
@@ -92,9 +90,10 @@ func TestCheckGetSet(t *testing.T) {
 
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`pachctl create repo {{.repo}}
-		pachctl auth set {{.bob}} reader {{.repo}}
-		pachctl auth get {{.bob}} {{.repo}} \
-			| match READER
+		pachctl auth set repo {{.repo}} repoReader {{.bob}}
+		pachctl auth get repo {{.repo}}\
+			| match "{{.bob}}: \[repoReader\]" \
+			| match "{{.alice}}: \[repoOwner\]"
 		`,
 		"alice", alice,
 		"bob", bob,
@@ -111,18 +110,19 @@ func TestAdmins(t *testing.T) {
 
 	// Modify the list of admins to add 'admin2'
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins \
+		pachctl auth get cluster \
 			| match "pach:root"
-		pachctl auth modify-admins --add robot:admin,robot:admin2
-		pachctl auth list-admins \
-			| match "^robot:admin2$" \
-			| match "^robot:admin$" 
-		pachctl auth modify-admins --remove robot:admin
+		pachctl auth set cluster clusterAdmin robot:admin
+		pachctl auth set cluster clusterAdmin robot:admin2
+		pachctl auth get cluster \
+			| match "^robot:admin2: \[clusterAdmin\]$" \
+			| match "^robot:admin: \[clusterAdmin\]$" 
+		pachctl auth set cluster none robot:admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
-		pachctl auth list-admins \
+		pachctl auth get cluster \
 			| match -v "^robot:admin$" \
-			| match "^robot:admin2$"
+			| match "^robot:admin2: \[clusterAdmin\]$"
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
@@ -130,10 +130,11 @@ func TestAdmins(t *testing.T) {
 	// works for non-admins)
 	loginAsUser(t, "robot:admin2")
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth modify-admins --add robot:admin --remove robot:admin2
+		pachctl auth set cluster clusterAdmin robot:admin 
+		pachctl auth set cluster none robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {
-		return tu.BashCmd(`pachctl auth list-admins \
+		return tu.BashCmd(`pachctl auth get cluster \
 			| match -v "robot:admin2" \
 			| match "robot:admin"
 		`).Run()
@@ -192,25 +193,6 @@ func TestConfig(t *testing.T) {
 		`).Run())
 }
 
-// TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
-// subject from the currently logged-in user if none is specified on the command
-// line
-func TestGetAuthTokenNoSubject(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	tu.ActivateAuth(t)
-	defer tu.DeleteAll(t)
-
-	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
-	require.NoError(t, tu.BashCmd(`pachctl auth get-auth-token -q | pachctl auth use-auth-token
-		pachctl auth whoami | match {{.alice}}
-		`,
-		"alice", alice,
-	).Run())
-}
-
 // TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
 // correctly limits the lifetime of the returned token
 func TestGetAuthTokenTTL(t *testing.T) {
@@ -221,10 +203,9 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	alice := tu.UniqueString("robot:alice")
-	loginAsUser(t, alice)
 
 	var tokenBuf bytes.Buffer
-	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
+	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token {{.alice}} --ttl=5s -q`, "alice", alice)
 	tokenCmd.Stdout = &tokenBuf
 	require.NoError(t, tokenCmd.Run())
 	token := strings.TrimSpace(tokenBuf.String())
