@@ -402,5 +402,11 @@ func (w *Worker) UnclaimedTasks(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	result := subTasks - claims
+	if result < 0 {
+		// This is defensive, it shouldn't be possible to get more claims than
+		// subtasks.
+		result = 0
+	}
 	return int(subTasks - claims), nil
 }
