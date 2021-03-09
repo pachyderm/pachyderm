@@ -40,12 +40,16 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	newCommitInfos := make(map[string]*pfs.CommitInfo)
+	addToProv := make(map[string][]*pfs.CommitProvenance)
+	addToSub := make(map[string][]*pfs.CommitRange)
+	commitToRepo := make(map[string]string)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
 			commitInfos[key(repoName, commitID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+			commitToRepo[commitID] = repoName
 			return nil
 		}); err != nil {
 			return err
@@ -297,12 +301,10 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				if err := onFix(fmt.Sprintf("adding %s to subvenance of %s", ci.Commit.ID, provCommitInfo.Commit.ID)); err != nil {
 					return err
 				}
-				newProvCommitInfo := proto.Clone(provCommitInfo).(*pfs.CommitInfo)
-				newProvCommitInfo.Subvenance = append(newProvCommitInfo.Subvenance, &pfs.CommitRange{
+				addToSub[provCommitInfo.Commit.ID] = append(addToSub[provCommitInfo.Commit.ID], &pfs.CommitRange{
 					Lower: ci.Commit,
 					Upper: ci.Commit,
 				})
-				newCommitInfos[newProvCommitInfo.Commit.ID] = newProvCommitInfo
 			}
 		}
 		// <=
@@ -365,12 +367,10 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 					if err := onFix(fmt.Sprintf("adding %s to provenence of %s", ci.Commit.ID, subvCommitInfo.Commit.ID)); err != nil {
 						return err
 					}
-					newSubvCommitInfo := proto.Clone(subvCommitInfo).(*pfs.CommitInfo)
-					newSubvCommitInfo.Provenance = append(subvCommitInfo.Provenance, &pfs.CommitProvenance{
+					addToProv[subvCommit.ID] = append(addToProv[subvCommit.ID], &pfs.CommitProvenance{
 						Branch: ci.Branch,
 						Commit: ci.Commit,
 					})
-					newCommitInfos[subvCommit.ID] = newSubvCommitInfo
 				}
 
 				if subvCommit.ID == subvRange.Lower.ID {
@@ -387,6 +387,34 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 				// which doesn't make a lot of sense, but we insulate against
 				// it anyways so it doesn't prevent the command from working.
 				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			for commitID, provs := range addToProv {
+				repo := commitToRepo[commitID]
+				x := &pfs.CommitInfo{}
+				err := d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
+					x.Provenance = append(x.Provenance, provs...)
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+			}
+			for commitID, subs := range addToSub {
+				repo := commitToRepo[commitID]
+				x := &pfs.CommitInfo{}
+				err := d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
+					x.Subvenance = append(x.Subvenance, subs...)
+					return nil
+				})
+				if err != nil {
 					return err
 				}
 			}

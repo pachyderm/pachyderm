@@ -19,14 +19,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -6196,6 +6199,75 @@ func testFsckFix(t *testing.T, splitTransaction bool) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestFsckFixSubProv(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		input := "input"
+		output1 := "output1"
+		output2 := "output2"
+		require.NoError(t, env.PachClient.CreateRepo(input))
+		require.NoError(t, env.PachClient.CreateRepo(output1))
+		require.NoError(t, env.PachClient.CreateRepo(output2))
+		require.NoError(t, env.PachClient.CreateBranch(output1, "master", "", []*pfs.Branch{pclient.NewBranch(input, "master")}))
+		require.NoError(t, env.PachClient.CreateBranch(output2, "master", "", []*pfs.Branch{pclient.NewBranch(output1, "master")}))
+		numCommits := 10
+		for i := 0; i < numCommits; i++ {
+			_, err := env.PachClient.PutFile(input, "master", "file", strings.NewReader("1"))
+			require.NoError(t, err)
+		}
+		c1 := pickCommit(t, env.PachClient, input)
+		require.NoError(t, corruptSubvenance(env, input, c1.Commit.ID))
+		c2 := pickCommit(t, env.PachClient, output1)
+		require.NoError(t, corruptProvenance(env, output1, c2.Commit.ID))
+
+		require.NoError(t, env.PachClient.Fsck(true, func(fres *pfs.FsckResponse) error {
+			t.Log(fres.Fix)
+			return nil
+		}))
+
+		c1Fixed, err := env.PachClient.InspectCommit(input, c1.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(c1.Subvenance), len(c1Fixed.Subvenance))
+		c2Fixed, err := env.PachClient.InspectCommit(output1, c2.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(c2.Provenance), len(c2Fixed.Provenance))
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func pickCommit(t *testing.T, pachClient *client.APIClient, repo string) *pfs.CommitInfo {
+	infos, err := pachClient.ListCommitByRepo(repo)
+	require.NoError(t, err)
+	return infos[rand.Intn(len(infos))]
+}
+
+func corruptSubvenance(env *testpachd.RealEnv, repo, commitID string) error {
+	return updateCommit(env, repo, commitID, func(commitInfo *pfs.CommitInfo) error {
+		commitInfo.Subvenance = nil
+		return nil
+	})
+}
+
+func corruptProvenance(env *testpachd.RealEnv, repo, commitID string) error {
+	return updateCommit(env, repo, commitID, func(commitInfo *pfs.CommitInfo) error {
+		commitInfo.Provenance = nil
+		return nil
+	})
+}
+
+func updateCommit(env *testpachd.RealEnv, repo, commitID string, apply func(commitInfo *pfs.CommitInfo) error) error {
+	commits := pfsdb.Commits(env.EtcdClient, "", repo)
+	_, err := collection.NewSTM(env.Context, env.EtcdClient, func(stm collection.STM) error {
+		commitInfo := &pfs.CommitInfo{}
+		return commits.ReadWrite(stm).Update(commitID, commitInfo, func() error {
+			return apply(commitInfo)
+		})
+	})
+	return err
 }
 
 func TestPutFileAtomic(t *testing.T) {
