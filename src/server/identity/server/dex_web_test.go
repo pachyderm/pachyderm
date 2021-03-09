@@ -148,5 +148,26 @@ func TestLogApprovedUsers(t *testing.T) {
 
 	users, err := listUsers(context.Background(), db)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(users))
 	require.Equal(t, "test@example.com", users[0].Email)
+
+	// Create a second request and confirm the last-authenticated date is updated
+	require.NoError(t, sp.provider.CreateAuthRequest(dex_storage.AuthRequest{
+		ID:       "testreq2",
+		ClientID: "testclient",
+		Expiry:   time.Now().Add(time.Hour),
+		LoggedIn: true,
+		Claims:   dex_storage.Claims{Email: "test@example.com"},
+	}))
+
+	req = httptest.NewRequest("GET", "/approval?req=testreq2", nil)
+	recorder = httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusSeeOther, recorder.Result().StatusCode)
+
+	newUsers, err := listUsers(context.Background(), db)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newUsers))
+	require.Equal(t, "test@example.com", newUsers[0].Email)
+	require.NotEqual(t, users[0].LastAuthenticated, newUsers[0].LastAuthenticated)
 }

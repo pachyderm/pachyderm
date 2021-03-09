@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"sync"
 
@@ -161,7 +162,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		tx, err := w.db.BeginTxx(r.Context)
+		tx, err := w.db.BeginTxx(r.Context(), &sql.TxOptions{})
 		if err != nil {
 			w.logger.WithError(err).Error("failed to start transaction")
 			rw.WriteHeader(http.StatusInternalServerError)
