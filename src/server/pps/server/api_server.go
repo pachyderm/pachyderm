@@ -2534,6 +2534,7 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 	})
 	// spin up goroutines to get the PFS info, and then use the mutex to call f all synchronized like.
 	var mu sync.Mutex
+	var fHasErrored bool
 	for i := 0; i < 20; i++ {
 		eg.Go(func() error {
 			for info := range etcdInfos {
@@ -2544,11 +2545,18 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 				if err := func() error {
 					mu.Lock()
 					defer mu.Unlock()
+					if fHasErrored {
+						return nil
+					}
 					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
 					if !filterPipeline(pinfo) {
 						return nil
 					}
-					return f(pinfo)
+					if err := f(pinfo); err != nil {
+						fHasErrored = true
+						return err
+					}
+					return nil
 				}(); err != nil {
 					return err
 				}
