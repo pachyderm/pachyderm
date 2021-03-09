@@ -997,7 +997,11 @@ func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, j
 	}
 	jobInfo.State = pps.JobState_JOB_KILLED
 	jobInfo.Reason = reason
-	return ppsutil.WriteJobInfo(pachClient, jobInfo)
+	err = ppsutil.WriteJobInfo(pachClient, jobInfo)
+	if ppsServer.IsJobFinishedErr(err) {
+		return nil
+	}
+	return err
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
