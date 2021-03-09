@@ -45,8 +45,8 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/ModifyRoleBinding": authenticated,
 	"/auth.API/RevokeAuthToken":   authenticated,
 	"/auth.API/GetGroups":         authenticated,
-	"/auth.API/GetConfiguration":  authenticated,
 
+	"/auth.API/GetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
 	"/auth.API/SetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
 	"/auth.API/GetAuthToken":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_TOKEN),
 	"/auth.API/ExtendAuthToken":   clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTEND_TOKEN),
