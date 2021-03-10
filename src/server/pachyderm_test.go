@@ -6986,7 +6986,6 @@ func TestHTTPGetFile(t *testing.T) {
 }
 
 func TestService(t *testing.T) {
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
