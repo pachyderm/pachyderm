@@ -53,7 +53,8 @@ func GetAuthenticatedPachClient(tb testing.TB, subject string) *client.APIClient
 	if subject == auth.RootUser {
 		return rootClient
 	}
-	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: subject})
+	robot := strings.TrimPrefix(subject, auth.RobotPrefix)
+	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(tb, err)
 	client := GetUnauthenticatedPachClient(tb)
 	client.SetAuthToken(token.Token)
