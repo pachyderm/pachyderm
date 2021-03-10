@@ -14,12 +14,12 @@ import (
 // Reader reads data from chunk storage.
 type Reader struct {
 	ctx      context.Context
-	client   *Client
+	client   Client
 	memCache kv.GetPut
 	dataRefs []*DataRef
 }
 
-func newReader(ctx context.Context, client *Client, memCache kv.GetPut, dataRefs []*DataRef) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, dataRefs []*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		client:   client,
@@ -58,14 +58,14 @@ func (r *Reader) Get(w io.Writer) error {
 type DataReader struct {
 	ctx        context.Context
 	memCache   kv.GetPut
-	client     *Client
+	client     Client
 	dataRef    *DataRef
 	seed       *DataReader
 	getChunkMu sync.Mutex
 	chunk      []byte
 }
 
-func newDataReader(ctx context.Context, client *Client, memCache kv.GetPut, dataRef *DataRef, seed *DataReader) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dataRef *DataRef, seed *DataReader) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,

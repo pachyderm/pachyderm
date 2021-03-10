@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -22,17 +23,17 @@ type Storage struct {
 	store     kv.Store
 	memCache  kv.GetPut
 	tracker   track.Tracker
-	mdstore   MetadataStore
+	db        *sqlx.DB
 
 	createOpts CreateOptions
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, memCache kv.GetPut, mdstore MetadataStore, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(objC obj.Client, memCache kv.GetPut, db *sqlx.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objClient: objC,
 		memCache:  memCache,
-		mdstore:   mdstore,
+		db:        db,
 		tracker:   tracker,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,
@@ -49,7 +50,7 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, mdstore MetadataStore, trac
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) *Reader {
 	// using the empty string for the tmp id to disable the renewer
-	client := NewClient(s.store, s.mdstore, s.tracker, "")
+	client := NewClient(s.store, s.db, s.tracker, "")
 	return newReader(ctx, client, s.memCache, dataRefs)
 }
 
@@ -60,7 +61,7 @@ func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback,
 	if name == "" {
 		panic("name must not be empty")
 	}
-	client := NewClient(s.store, s.mdstore, s.tracker, name)
+	client := NewClient(s.store, s.db, s.tracker, name)
 	return newWriter(ctx, client, s.memCache, s.createOpts, cb, opts...)
 }
 
@@ -73,8 +74,5 @@ func (s *Storage) List(ctx context.Context, cb func(id ID) error) error {
 
 // NewDeleter creates a deleter for use with a tracker.GC
 func (s *Storage) NewDeleter() track.Deleter {
-	return &deleter{
-		mdstore: s.mdstore,
-		store:   s.store,
-	}
+	return &deleter{}
 }
