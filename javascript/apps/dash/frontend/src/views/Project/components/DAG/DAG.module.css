@@ -1,15 +1,19 @@
 .base {
     border: solid 1px rgba(0,0,0,0.1);
     float: right;
-    height: 98vh;
+    height: calc(100vh - 71px);
     overflow: auto;
 }
 
-.base:hover {
+.base > svg {
+    border: solid 1px rgba(0,0,0,0.1);
+}
+
+.base.draggable:hover {
     cursor: grab;
 }
 
-.base:active {
+.base.draggable:active {
     cursor: grabbing;
 }
 
@@ -19,15 +23,15 @@
     border-radius: 2.7px;
 }
   
-.base :global .nodeGroup:hover{
+.base :global .nodeGroup.draggable:hover{
     cursor: grab;
 }
   
-.base :global .nodeGroup:hover .node{
+.base :global .nodeGroup.draggable:hover .node{
     fill:#ECF5F7;
 }
   
-.base :global .nodeGroup:active{
+.base :global .nodeGroup.draggable:active{
     cursor: grabbing;
 }
 

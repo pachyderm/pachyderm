@@ -17,7 +17,7 @@ const Project: React.FC = () => {
       <div className={styles.leftPane}>
         <h1>Dash Home</h1>
       </div>
-      <DAG data={dag} id="d3-dag" nodeWidth={149} nodeHeight={102} />
+      <DAG data={dag} id="d3-dag" nodeWidth={120} nodeHeight={60} />
     </div>
   );
 };

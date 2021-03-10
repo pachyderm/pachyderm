@@ -141,12 +141,15 @@ const generateNodeGroups = (
   nodes: NodeDatum[],
   nodeWidth: number,
   nodeHeight: number,
+  preview = false,
 ) => {
   const nodeGroup = svgParent
     .selectAll<SVGGElement, NodeDatum>('.nodeGroup')
     .data(nodes)
     .join((group) => {
-      const enter = group.append<SVGGElement>('g').attr('class', 'nodeGroup');
+      const enter = group
+        .append<SVGGElement>('g')
+        .attr('class', `nodeGroup ${!preview ? 'draggable' : ''}`);
 
       enter
         .append<SVGRectElement>('rect')
@@ -156,23 +159,24 @@ const generateNodeGroups = (
         .attr('height', () => nodeHeight * 0.95)
         .attr('y', nodeHeight * 0.2);
 
-      enter
-        .append<SVGTextElement>('text')
-        .attr('class', 'label')
-        .attr('text-anchor', 'middle')
-        .attr('fill', (d) => {
-          const state = nodeStateAsPipelineState(d.state);
-          if (
-            d.access &&
-            (state === PipelineState.PIPELINE_CRASHING ||
-              state === PipelineState.PIPELINE_FAILURE)
-          )
-            return '#E02020';
-          return '#020408';
-        })
-        .text((d) => (d.access ? d.name : 'No Access'))
-        .attr('y', nodeHeight * 0.2 + (nodeHeight * 0.95) / 2 + 15)
-        .attr('x', nodeWidth / 2);
+      !preview &&
+        enter
+          .append<SVGTextElement>('text')
+          .attr('class', 'label')
+          .attr('text-anchor', 'middle')
+          .attr('fill', (d) => {
+            const state = nodeStateAsPipelineState(d.state);
+            if (
+              d.access &&
+              (state === PipelineState.PIPELINE_CRASHING ||
+                state === PipelineState.PIPELINE_FAILURE)
+            )
+              return '#E02020';
+            return '#020408';
+          })
+          .text((d) => (d.access ? d.name : 'No Access'))
+          .attr('y', nodeHeight * 0.2 + (nodeHeight * 0.95) / 2 + 15)
+          .attr('x', nodeWidth / 2);
 
       enter
         .append<SVGUseElement>('use')
@@ -183,7 +187,9 @@ const generateNodeGroups = (
           }
           return '#nodeImageNoAccess';
         })
-        .attr('y', (d) => (d.access ? -4 : 6));
+        .attr('transform', `scale(${nodeHeight / 102})`)
+        .attr('x', () => (170 - nodeWidth) / 2)
+        .attr('y', (d) => (!preview ? (d.access ? -4 : 6) : nodeHeight - 10));
 
       enter
         .append<SVGUseElement>('use')
@@ -243,7 +249,6 @@ const attachBackgroundDragHandlers = (baseElement: HTMLElement) => {
       x: e.clientX,
       y: e.clientY,
     };
-
     document.addEventListener('mousemove', mouseMoveHandler);
     document.addEventListener('mouseup', mouseUpHandler);
   };
@@ -278,6 +283,7 @@ type useDAGProps = {
   nodeWidth: number;
   nodeHeight: number;
   data: Dag;
+  preview: boolean;
 };
 
 const useDAG = ({
@@ -287,6 +293,7 @@ const useDAG = ({
   setSVGParentSize,
   nodeWidth,
   nodeHeight,
+  preview = false,
 }: useDAGProps) => {
   // Pre-build steps
   useEffect(() => {
@@ -317,7 +324,7 @@ const useDAG = ({
       ...defaultd3Node,
     }));
     const links = generateLinks(svg, d3Links);
-    generateNodeGroups(svg, d3Nodes, nodeWidth, nodeHeight);
+    generateNodeGroups(svg, d3Nodes, nodeWidth, nodeHeight, preview);
 
     const simulation = d3
       .forceSimulation<NodeDatum, LinkDatum>()
@@ -353,24 +360,26 @@ const useDAG = ({
         .data(d3Nodes)
         .call(drag);
     };
-    enableDragging(simulation);
+    !preview && enableDragging(simulation);
     assignPositions(svg, links, d3Nodes, nodeWidth, nodeHeight);
-  }, [id, nodeHeight, nodeWidth, data, svgParentSize]);
+  }, [id, nodeHeight, nodeWidth, data, svgParentSize, preview]);
 
   // Post-build steps
   useEffect(() => {
-    const svgElement = document.getElementById(id) as SVGSVGElement | null;
-    const baseElement = document.getElementById(`${id}_base`);
+    const svgElement = d3.select<SVGSVGElement, null>(`#${id}`).node();
+    const baseElement = document.getElementById(`${id}Base`);
 
     // Set parent svg with and height to our SVG's content-defined bounding box to readjust graph positioning
-    svgElement &&
+    if (svgElement) {
       setSVGParentSize({
-        width: svgElement.getBBox().width + 600,
-        height: svgElement.getBBox().height + 300,
+        width: svgElement.getBBox().width + nodeWidth,
+        height: svgElement.getBBox().width + nodeHeight,
       });
+    }
+
     // Attach drag handlers to move overall SVG around parent container for browser only, NOT individual nodes
     baseElement && attachBackgroundDragHandlers(baseElement);
-  }, [id, setSVGParentSize]);
+  }, [id, setSVGParentSize, nodeHeight, nodeWidth]);
 };
 
 export default useDAG;

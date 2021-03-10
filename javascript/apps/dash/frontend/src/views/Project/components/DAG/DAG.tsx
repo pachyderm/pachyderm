@@ -1,4 +1,6 @@
-import React, {useState} from 'react';
+import classnames from 'classnames';
+import * as d3 from 'd3';
+import React, {useState, useEffect} from 'react';
 
 import {Dag} from '@graphqlTypes';
 
@@ -9,13 +11,28 @@ type DagProps = {
   id: string;
   nodeWidth: number;
   nodeHeight: number;
+  fixedWidth?: number;
+  fixedHeight?: number;
+  preview?: boolean;
   data: Dag;
 };
 
-const DAG: React.FC<DagProps> = ({data, id, nodeWidth, nodeHeight}) => {
+const DAG: React.FC<DagProps> = ({
+  data,
+  id,
+  nodeWidth,
+  nodeHeight,
+  fixedHeight,
+  fixedWidth,
+  preview = false,
+}) => {
   const [svgParentSize, setSVGParentSize] = useState({
-    width: 2000,
-    height: 2000,
+    width: 0,
+    height: 0,
+  });
+  const [svgOffset, setSvgOffset] = useState({
+    x: 0,
+    y: 0,
   });
   useDAG({
     id,
@@ -24,19 +41,34 @@ const DAG: React.FC<DagProps> = ({data, id, nodeWidth, nodeHeight}) => {
     nodeWidth,
     nodeHeight,
     data,
+    preview,
   });
-  const dagHeight = Math.max(svgParentSize.height, window.innerHeight - 100);
-  const dagWidth = Math.max(svgParentSize.width, window.innerWidth * 0.7 - 100);
+  // The constants here are static sizes on the page. When the UI gets developed further we can adjust these
+  const dagHeight = Math.max(svgParentSize.height, window.innerHeight - 80);
+  const dagWidth = Math.max(svgParentSize.width, window.innerWidth - 410);
+
+  useEffect(() => {
+    const svgElement = d3.select<SVGSVGElement, null>(`#${id}`).node();
+    const padding = 30;
+    if (svgElement) {
+      setSvgOffset({
+        x: (svgElement?.getBBox()?.x || 0) - padding,
+        y: (svgElement?.getBBox()?.y || 0) - padding,
+      });
+    }
+  }, [id, svgParentSize, nodeHeight]);
 
   return (
-    <div className={styles.base} id={`${id}Base`}>
-      {/* preserveAspectRatio and viewbox are necessary to keep the svg contents visible with overflow in some cases */}
+    <div
+      className={classnames(styles.base, {[styles.draggable]: !preview})}
+      id={`${id}Base`}
+    >
       <svg
         id={id}
-        preserveAspectRatio="xMinYMin meet"
-        viewBox={`0 0 ${svgParentSize.width} ${svgParentSize.height}`}
-        width={dagWidth}
-        height={dagHeight}
+        preserveAspectRatio="xMaxYMax meet"
+        viewBox={`${svgOffset.x} ${svgOffset.y} ${dagWidth} ${dagHeight}`}
+        width={fixedWidth || dagWidth}
+        height={fixedHeight || dagHeight}
         className={styles.parent}
       />
     </div>
