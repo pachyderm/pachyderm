@@ -10,9 +10,9 @@ following:
 3. Log in to both the dash and CLI.
 
 !!! note
-    Although this section describes how to enable SAML with Okta, you can
+    SAML is not supported with Okta, you can
     configure Okta with OIDC with a corresponding
-    [OIDC auth config](../../oidc/configure-keycloak/#configure-keycloak).
+    [OIDC auth config](../../oidc/configure-with-okta/).
 
 ## Activation
 
@@ -21,7 +21,7 @@ mistakes in this configuration could lock you out of your cluster.
 
 To activate Pachyderm enterprise and Pachyderm auth:
 
-```
+```shell
 pachctl enterprise activate <enterprise code>
 pachctl auth activate --initial-admin=robot:admin
 ```
@@ -61,23 +61,13 @@ SAML service provider URLs below are set to some variation of `localhost`,
 which will only work if you're using port forwarding and your browser is able
 to access Pachyderm via `localhost` on the port forwarder's usual ports.
 
-## Create IdP test app
-The ID provider (IdP) that this example uses is Okta. Here is an example
-configuration for an Okta test app that authenticates Okta users
-with Pachyderm:
+## Create an IdP test app
 
-![Okta test app config](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/okta_form.png)
-
-Once created, you can get the IdP Metadata URL associated with the test Okta
-app here:
-
-![Metadata image](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/IdPMetadata_highlight.png)
-
+Once created, you can **get the IdP Metadata URL** associated with the test app.
 ## Write Pachyderm config
 Broadly, setting an auth config is what enables SAML in Pachyderm
 (specifically, it enables Pachyderm's ACS). Below is an example config that will
-allow users to authenticate in your Pachyderm cluster using the Okta app above.
-Note that this example assumes
+allow users to authenticate in your Pachyderm cluster using the app above.
 
 ```
 # Lookup current config version--pachyderm config has a barrier to prevent
@@ -91,10 +81,10 @@ pachctl auth set-config <<EOF
   "live_config_version": ${live_config_version},
   "id_providers": [
     {
-      "name": "okta",
-      "description": "Okta test app",
+      "name": "My test app",
+      "description": "IdP test app",
       "saml": {
-        "metadata_url": <okta app metadata URL>,
+        "metadata_url": < app metadata URL>,
         "group_attribute": "memberOf" # optional: enable group support
       }
     }
@@ -111,11 +101,11 @@ EOF
 
 ## Logging In
 Currently Pachyderm only supports IdP-initiated authentication. To proceed,
-configure your Okta app to point to the Pachyderm ACS
+configure your app to point to the Pachyderm ACS
 (`http://localhost:30654/saml/acs` if using `pachctl`'s port forwarding), then
-sign in via the new Okta app in your Okta dashboard.
+sign in via the new app in your dashboard.
 
-After clicking on the test Okta app, your browser will do a SAML authentication
+After clicking on the test app, your browser will do a SAML authentication
 handshake with your pachyderm cluster, and you will arrive at your Pachyderm
 dashboard fully authenticated. To log in with the Pachyderm CLI, get a One-Time
 Password from the Pachyderm dash, and then run `pachctl auth login
@@ -123,7 +113,7 @@ Password from the Pachyderm dash, and then run `pachctl auth login
 
 ### Groups
 If your SAML ID provider supports setting group attributes, you can use groups to manage access in Pachyderm with the `"group_attribute"` in the IDProvider field of the auth config:
-```
+```json
 pachctl auth set-config <<EOF
 {
   ...
@@ -140,14 +130,14 @@ EOF
 ```
 
 Then, try:
-```
+```shell
 pachctl create repo group-test
 pachctl put file group-test@master -f some-data.txt
 pachctl auth set group/saml:"Test Group" reader group-test
 ```
 
 Elsewhere:
-```
+```shell
 pachctl auth login --code=<auth code>
 pachctl get file group-test@master:some-data.txt # should work for members of "Test Group"
 ```
