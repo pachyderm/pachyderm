@@ -5,14 +5,13 @@ following:
 
 1. Activate Pachyderm enterprise and Pachyderm auth.
 2. Configure Pachyderm's auth system to enable its SAML ACS, receive SAML
-   assertions, and allow you to log in by using the Okta® access management
+   assertions, and allow you to log in by using the your access management
    software.
 3. Log in to both the dash and CLI.
 
 !!! note
-    SAML is not supported with Okta, you can
-    configure Okta with OIDC with a corresponding
-    [OIDC auth config](../../oidc/configure-with-okta/).
+    SAML is not supported with Okta. However, you can
+    configure Okta with [OIDC auth config](../../oidc/configure-with-okta/).
 
 ## Activation
 
@@ -63,7 +62,7 @@ to access Pachyderm via `localhost` on the port forwarder's usual ports.
 
 ## Create an IdP test app
 
-Once created, you can **get the IdP Metadata URL** associated with the test app.
+Once created, get **the IdP Metadata URL** associated with the test app.
 ## Write Pachyderm config
 Broadly, setting an auth config is what enables SAML in Pachyderm
 (specifically, it enables Pachyderm's ACS). Below is an example config that will
