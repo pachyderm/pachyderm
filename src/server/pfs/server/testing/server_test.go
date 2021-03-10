@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -6239,7 +6238,7 @@ func TestFsckFixSubProv(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func pickCommit(t *testing.T, pachClient *client.APIClient, repo string) *pfs.CommitInfo {
+func pickCommit(t *testing.T, pachClient *pclient.APIClient, repo string) *pfs.CommitInfo {
 	infos, err := pachClient.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return infos[rand.Intn(len(infos))]
