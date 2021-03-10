@@ -161,8 +161,14 @@ func (env *ServiceEnv) initKubeClient() error {
 			if !ok {
 				return errors.Wrapf(err, "can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config")
 			}
+			kubePort, ok := os.LookupEnv("KUBERNETES_PORT")
+			if !ok {
+				kubePort = ":443"
+			}
+			bearerToken, _ := os.LookupEnv("KUBERNETES_BEARER_TOKEN_FILE")
 			cfg = &rest.Config{
-				Host: fmt.Sprintf("%s:443", kubeAddr),
+				Host:            fmt.Sprintf("%s:%s", kubeAddr, kubePort),
+				BearerTokenFile: bearerToken,
 				TLSClientConfig: rest.TLSClientConfig{
 					Insecure: true,
 				},
