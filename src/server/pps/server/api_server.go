@@ -535,12 +535,23 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	job := client.NewJob(uuid.NewWithoutDashes())
-	if request.Stats == nil {
-		request.Stats = &pps.ProcessStats{}
-	}
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	var job *pps.Job
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		commitInfo, err := txnCtx.Pfs().InspectCommitInTransaction(txnCtx, &pfs.InspectCommitRequest{
+			Commit: request.OutputCommit,
+		})
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			return pfsServer.ErrCommitFinished{commitInfo.Commit}
+		}
+		if request.Stats == nil {
+			request.Stats = &pps.ProcessStats{}
+		}
+		pipelines := a.pipelines.ReadWrite(txnCtx.Stm)
+		jobs := a.jobs.ReadWrite(txnCtx.Stm)
+		job = client.NewJob(uuid.NewWithoutDashes())
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
 			OutputCommit:  request.OutputCommit,
@@ -556,9 +567,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Started:       request.Started,
 			Finished:      request.Finished,
 		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, request.State, request.Reason)
-	})
-	if err != nil {
+		return ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_STARTING, "")
+	}); err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -794,7 +804,9 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
 		if isNotFoundErr(err) {
-			if _, err := a.DeleteJob(pachClient.Ctx(), &pps.DeleteJobRequest{Job: jobPtr.Job}); err != nil {
+			if _, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
+				return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
+			}); err != nil {
 				return nil, err
 			}
 			return nil, errors.Errorf("job %s not found", jobPtr.Job.ID)
@@ -914,7 +926,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+	if err := a.stopJob(ctx, pachClient, request.Job, nil, "job deleted"); err != nil {
 		return nil, err
 	}
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
@@ -931,30 +943,64 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := a.stopJob(ctx, pachClient, request.Job); err != nil {
+	if err := a.stopJob(ctx, pachClient, request.Job, request.OutputCommit, "job stopped"); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job) error {
-	// Lookup jobInfo
-	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).Get(job.ID, jobPtr); err != nil {
+func (a *apiServer) stopJob(ctx context.Context, pachClient *client.APIClient, job *pps.Job, outputCommit *pfs.Commit, reason string) error {
+	if job != nil {
+		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: job})
+		if err != nil {
+			return err
+		}
+		outputCommit = jobInfo.OutputCommit
+	}
+	commitInfo, err := pachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
+	if err != nil {
+		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
+			return nil
+		}
 		return err
 	}
-	// Finish the job's output commit without a tree -- worker/master will mark
-	// the job 'killed'
-	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
-		&pfs.FinishCommitRequest{
-			Commit: jobPtr.OutputCommit,
+	statsCommit := ppsutil.GetStatsCommit(commitInfo)
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		if err := txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+			Commit: commitInfo.Commit,
 			Empty:  true,
 		}); err != nil {
-		if !(pfsServer.IsCommitFinishedErr(err) || pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err)) {
+			return err
+		}
+		return txnCtx.Pfs().FinishCommitInTransaction(txnCtx, &pfs.FinishCommitRequest{
+			Commit: statsCommit,
+			Empty:  true,
+		})
+	}); err != nil {
+		if pfsServer.IsCommitNotFoundErr(err) || pfsServer.IsCommitDeletedErr(err) {
+			return nil
+		}
+		if !pfsServer.IsCommitFinishedErr(err) {
 			return err
 		}
 	}
-	return nil
+	// TODO: We can still not update a job's state if we fail here. This is probably fine for now since we are likely to have a
+	// more comprehensive solution to this with global ids.
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{OutputCommit: outputCommit})
+	if err != nil {
+		// TODO: It would be better for this to be a structured error.
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		return err
+	}
+	jobInfo.State = pps.JobState_JOB_KILLED
+	jobInfo.Reason = reason
+	err = ppsutil.WriteJobInfo(pachClient, jobInfo)
+	if ppsServer.IsJobFinishedErr(err) {
+		return nil
+	}
+	return err
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC

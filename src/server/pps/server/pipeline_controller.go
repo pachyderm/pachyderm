@@ -456,28 +456,15 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 	}
 	pachClient.SetAuthToken(op.ptr.AuthToken)
 
-	commitInfos, err := pachClient.ListCommit(op.name, op.pipelineInfo.OutputBranch, "", 0)
-	if isNotFoundErr(err) {
-		return nil // already deleted
-	}
-	if err != nil {
-		return errors.Wrapf(err, "could not list output commits of %q to finish them", op.name)
-	}
-
-	var finishCommitErr error
-	for _, ci := range commitInfos {
-		if ci.Finished != nil {
-			continue // nothing needs to be done
+	if err := pachClient.ListCommitF(op.name, op.pipelineInfo.OutputBranch, "", 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+	}); err != nil {
+		if isNotFoundErr(err) {
+			return nil // already deleted
 		}
-		if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
-			&pfs.FinishCommitRequest{
-				Commit: client.NewCommit(op.name, ci.Commit.ID),
-				Empty:  true,
-			}); err != nil && finishCommitErr == nil {
-			finishCommitErr = err
-		}
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", op.name)
 	}
-	return finishCommitErr
+	return nil
 }
 
 // deletePipelineResources deletes the RC and services associated with op's

@@ -83,15 +83,7 @@ func (f *PipelineFinisher) Run() error {
 			0,     // number
 			false, // reverse
 			func(commitInfo *pfs.CommitInfo) error {
-				// finish all open commits on the branch
-				if commitInfo.Finished != nil {
-					return nil
-				}
-				return f.d.finishCommit(
-					f.txnCtx,
-					client.NewCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID),
-					"",
-				)
+				return f.txnCtx.Client.StopJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}); err != nil && !isNotFoundErr(err) {
 			return err
 		}

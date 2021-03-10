@@ -390,6 +390,20 @@ func (c APIClient) StopJob(jobID string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// StopJobOutputCommit stops a job associated with an output commit.
+func (c APIClient) StopJobOutputCommit(repo, commit string) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	_, err := c.PpsAPIClient.StopJob(
+		c.Ctx(),
+		&pps.StopJobRequest{
+			OutputCommit: NewCommit(repo, commit),
+		},
+	)
+	return err
+}
+
 // RestartDatum restarts a datum that's being processed as part of a job.
 // datumFilter is a slice of strings which are matched against either the Path
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
