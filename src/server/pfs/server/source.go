@@ -21,17 +21,17 @@ type Source interface {
 }
 
 type source struct {
-	commit  *pfs.Commit
-	fileSet fileset.FileSet
-	full    bool
+	commitInfo *pfs.CommitInfo
+	fileSet    fileset.FileSet
+	full       bool
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(commit *pfs.Commit, fileSet fileset.FileSet, full bool) Source {
+func NewSource(commitInfo *pfs.CommitInfo, fileSet fileset.FileSet, full bool) Source {
 	return &source{
-		commit:  commit,
-		fileSet: fileSet,
-		full:    full,
+		commitInfo: commitInfo,
+		fileSet:    fileSet,
+		full:       full,
 	}
 }
 
@@ -45,8 +45,11 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	return s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
 		fi := &pfs.FileInfo{
-			File:     client.NewFile(s.commit.Repo.Name, s.commit.ID, idx.Path),
+			File:     client.NewFile(s.commitInfo.Commit.Repo.Name, s.commitInfo.Commit.ID, idx.Path),
 			FileType: pfs.FileType_FILE,
+			// TODO: Need some more design work for timestamps.
+			// There is a pretty straightforward way to make it based on last modification.
+			Committed: s.commitInfo.Finished,
 		}
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR

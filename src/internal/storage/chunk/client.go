@@ -6,9 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/sirupsen/logrus"
 )
 
 // Client allows manipulation of individual chunks, by maintaining consistency between
@@ -46,19 +49,19 @@ func (c *Client) Create(ctx context.Context, md Metadata, chunkData []byte) (_ I
 	for _, cid := range md.PointsTo {
 		pointsTo = append(pointsTo, ObjectID(cid))
 	}
-	// TODO: retry on ErrTombstone
 	chunkOID := ObjectID(chunkID)
-	if err := c.tracker.CreateObject(ctx, chunkOID, pointsTo, c.ttl); err != nil {
-		if err != track.ErrObjectExists {
-			return nil, err
+	if err := dbutil.WithTx(ctx, c.mdstore.DB(), func(tx *sqlx.Tx) error {
+		if err := c.mdstore.SetTx(tx, chunkID, md); err != nil && err != ErrMetadataExists {
+			return err
 		}
+		return c.tracker.CreateTx(tx, chunkOID, pointsTo, c.ttl)
+	}); err != nil {
+		return nil, err
 	}
 	if err := c.renewer.Add(ctx, chunkOID); err != nil {
 		return nil, err
 	}
-	if err := c.mdstore.Set(ctx, chunkID, md); err != nil && err != ErrMetadataExists {
-		return nil, err
-	}
+	// TODO: need to check for existence of specific objects.
 	key := chunkKey(chunkID)
 	if exists, err := c.store.Exists(ctx, key); err != nil {
 		return nil, err
@@ -108,7 +111,7 @@ type deleter struct {
 	store   kv.Store
 }
 
-func (d *deleter) Delete(ctx context.Context, id string) error {
+func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
 	if !strings.HasPrefix(id, prefix+"/") {
 		return errors.Errorf("cannot delete (%s)", id)
 	}
@@ -116,8 +119,15 @@ func (d *deleter) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if err := d.store.Delete(ctx, chunkKey(chunkID)); err != nil {
+	if err := d.mdstore.DeleteTx(tx, chunkID); err != nil {
 		return err
 	}
-	return d.mdstore.Delete(ctx, chunkID)
+	// TODO: this is wrong, but at least it's obviously wrong.
+	go func() {
+		ctx := context.Background()
+		if err := d.store.Delete(ctx, chunkKey(chunkID)); err != nil {
+			logrus.Error(err)
+		}
+	}()
+	return nil
 }

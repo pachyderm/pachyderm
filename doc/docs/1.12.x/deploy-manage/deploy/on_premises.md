@@ -6,7 +6,7 @@ This document is broken down into the following sections, available at the links
 - [Customizing your Pachyderm deployment for on-premises use](deploy_custom/index.md) details the various options of the `pachctl deploy custom ...` command for an on-premises deployment.
 - [Single-node Pachyderm deployment](./single-node.md) is the document you should read when deploying Pachyderm for personal, low-volume usage.
 - [Registries](./docker_registries.md) takes you through on-premises, private Docker registry configuration.
-- [Ingress](./configuring_k8s_ingress.md) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
+- [Ingress](https://docs.pachyderm.com/latest/deploy-manage/deploy/ingress/) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
 - [Non-cloud object stores](./non-cloud-object-stores.md) discusses common configurations for on-premises object stores.
 
 Need information on a particular flavor of Kubernetes or object store?  Check out the [see also](#see-also) section.

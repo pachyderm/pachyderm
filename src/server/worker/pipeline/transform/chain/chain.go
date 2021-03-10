@@ -9,24 +9,28 @@ import (
 )
 
 // TODO: More documentation.
-// TODO: Do we need a no skip job chain?
 
 // JobChain manages a chain of jobs.
 type JobChain struct {
 	hasher  datum.Hasher
+	base    datum.Iterator
+	noSkip  bool
 	prevJob *JobDatumIterator
 }
 
 // NewJobChain creates a new job chain.
 // TODO: We should probably pipe a context through here.
-func NewJobChain(hasher datum.Hasher, baseDit ...datum.Iterator) *JobChain {
+func NewJobChain(hasher datum.Hasher, opts ...JobChainOption) *JobChain {
 	jc := &JobChain{hasher: hasher}
-	if len(baseDit) > 0 {
+	for _, opt := range opts {
+		opt(jc)
+	}
+	if jc.base != nil {
 		// Insert a dummy job representing the given base datum set
 		jdi := &JobDatumIterator{
 			jc:        jc,
-			dit:       baseDit[0],
-			outputDit: baseDit[0],
+			dit:       jc.base,
+			outputDit: jc.base,
 			done:      make(chan struct{}),
 		}
 		close(jdi.done)
@@ -140,7 +144,7 @@ func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {
 
 func (jdi *JobDatumIterator) skippableDatum(meta1, meta2 *datum.Meta) bool {
 	// If the hashes are equal and the second datum was processed, then skip it.
-	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
+	return !jdi.jc.noSkip && meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
 // Stats returns the stats for the most recent iteration.

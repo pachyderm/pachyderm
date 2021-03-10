@@ -97,6 +97,8 @@ A release under development may undergo several pre-release stages before becomi
 | Feature             | Version | EOL Date   |
 | ------------------- | --------| ---------- |
 | Spouts: Named Pipes | 1.12.0  | 2021-07-05 |
+| Vault Plugin        | 1.12.5  | 2021-09-12 |
+
 
 ## End of Life (EOL) Features
 

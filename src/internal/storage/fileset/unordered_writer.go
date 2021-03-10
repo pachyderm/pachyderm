@@ -234,7 +234,7 @@ func (uw *UnorderedWriter) serialize() error {
 	}
 	uw.layers = append(uw.layers, *id)
 	if uw.renewer != nil {
-		uw.renewer.Add(filesetObjectID(*id))
+		uw.renewer.Add(id.TrackerID())
 	}
 	// Reset in-memory file set.
 	uw.memFileSet = newMemFileSet()

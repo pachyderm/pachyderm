@@ -9,9 +9,9 @@ concepts:
 * Data persistence between datums
 
 A datum is a Pachyderm abstraction that helps in optimizing
-pipeline processing. Because datums exist only as a pipeline
-processing property and are not filesystem objects, you can never
-list or copy a datum. Instead, a datum, as a representation of a unit
+pipeline processing. Datums exist only as a pipeline
+processing property and are not filesystem objects. You can never
+copy a datum. Instead, a datum, as a representation of a unit
 of work, helps you to run your pipelines much faster by avoiding
 repeated processing of unchanged datums. For example, if you have
 multiple datums, and only one datum was modified, Pachyderm processes

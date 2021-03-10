@@ -32,6 +32,11 @@ func (id ID) HexString() string {
 	return string(id)
 }
 
+// TrackerID returns the ID of the fileset's tracker object.
+func (id ID) TrackerID() string {
+	return TrackerPrefix + id.HexString()
+}
+
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.
 // Transitively reachable chunks are not included in the slice.
 func (p *Primitive) PointsTo() []chunk.ID {

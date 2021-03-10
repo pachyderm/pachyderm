@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
-	ppath "github.com/pachyderm/pachyderm/v2/src/internal/path"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsconsts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -1102,7 +1101,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	// Set the default for the `Since` field.
-	if request.Since.Seconds == 0 && request.Since.Nanos == 0 {
+	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
@@ -1343,7 +1342,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(ctx, loki, query, time.Time{}, time.Now(), request.Follow, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
 		msg := &pps.LogMessage{}
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
@@ -1426,9 +1425,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
 		return errors.New("s3 output is not supported in spouts or services")
 	}
-	if request.S3Out && request.EnableStats {
-		return errors.New("stats are not supported for pipelines that output via Pachyderm's S3 gateway")
-	}
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
 	}
@@ -1437,24 +1433,14 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 
 // TODO: Implement the appropriate features.
 func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps.CreatePipelineRequest, error) {
-	if request.TFJob != nil {
-		return nil, errors.Errorf("TFJob not implemented")
-	}
-	if request.S3Out {
-		return nil, errors.Errorf("S3Out not implemented")
-	}
 	if request.CacheSize != "" {
 		return nil, errors.Errorf("CacheSize not implemented")
 	}
-	request.EnableStats = true
+	if request.Service == nil && request.Spout == nil {
+		request.EnableStats = true
+	}
 	if request.MaxQueueSize != 0 {
 		return nil, errors.Errorf("MaxQueueSize not implemented")
-	}
-	if request.Service != nil {
-		return nil, errors.Errorf("Service not implemented")
-	}
-	if request.Spout != nil {
-		return nil, errors.Errorf("Spout not implemented")
 	}
 	return request, nil
 }
@@ -1534,12 +1520,6 @@ func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionCont
 	if pipelineInfo.Spout != nil {
 		if pipelineInfo.EnableStats {
 			return errors.Errorf("spouts are not allowed to have a stats branch")
-		}
-		if pipelineInfo.Spout.Marker != "" {
-			// we need to make sure the marker name is also a valid file name, since it is used in file names
-			if err := ppath.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
-				return errors.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
-			}
 		}
 		if pipelineInfo.Spout.Service == nil && pipelineInfo.Input != nil {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
@@ -1880,6 +1860,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
+		NoSkip:                request.NoSkip,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err
@@ -1937,10 +1918,8 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
 		statsBranch      = client.NewBranch(pipelineName, "stats")
-		markerBranch     = client.NewBranch(pipelineName, ppsconsts.SpoutMarkerBranch)
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
-		markerBranchHead *pfs.Commit
 	)
 
 	// Get the expected number of workers for this pipeline
@@ -2146,7 +2125,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		}
 
 		if !request.Reprocess {
-			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2161,13 +2140,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 				return err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
-			}
-
-			_, err = txnCtx.Pfs().InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{Branch: markerBranch})
-			if err != nil && !isNotFoundErr(err) {
-				return err
-			} else if err == nil {
-				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
@@ -2316,15 +2288,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		}); err != nil {
 			return errors.Wrapf(err, "could not create/update stats branch")
 		}
-	}
-	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
-		if err := txnCtx.Pfs().CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch: markerBranch,
-			Head:   markerBranchHead,
-		}); err != nil {
-			return errors.Wrapf(err, "could not create/update marker branch")
-		}
-		return nil
 	}
 	return nil
 }
