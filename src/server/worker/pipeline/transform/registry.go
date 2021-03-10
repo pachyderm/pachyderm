@@ -146,19 +146,19 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 func (reg *registry) succeedJob(pj *pendingJob) error {
 	pj.logger.Logf("job successful, closing commits")
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_SUCCESS, "")
+	return finishJob(reg.driver.PachClient(), pj, pps.JobState_JOB_SUCCESS, "")
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_FAILURE, reason)
+	return finishJob(reg.driver.PachClient(), pj, pps.JobState_JOB_FAILURE, reason)
 }
 
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj, pps.JobState_JOB_KILLED, reason)
+	return finishJob(reg.driver.PachClient(), pj, pps.JobState_JOB_KILLED, reason)
 }
 
 func (reg *registry) initializeJobChain(metaCommit *pfs.Commit) error {
@@ -248,11 +248,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		if !ppsutil.IsTerminal(jobInfo.State) {
 			jobInfo.State = pps.JobState_JOB_KILLED
 		}
-		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
+		return recoverJob(reg.driver.PachClient(), jobInfo, true)
 	case jobInfo.PipelineVersion < reg.driver.PipelineInfo().Version:
 		jobInfo.State = pps.JobState_JOB_KILLED
 		jobInfo.Reason = "pipeline has been updated"
-		return recoverJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), jobInfo, true)
+		return recoverJob(reg.driver.PachClient(), jobInfo, true)
 	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
 		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
 			"version (%d), this should automatically resolve when the worker "+
@@ -646,7 +646,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 
 // TODO: Errors that can occur while finishing jobs needs more thought.
 // TODO: Job failures are propagated through commits with pfs.EmptyStr in the description, would be better to have general purpose metadata associated with a commit.
-func finishJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj *pendingJob, state pps.JobState, reason string) error {
+func finishJob(pachClient *client.APIClient, pj *pendingJob, state pps.JobState, reason string) error {
 	jobInfo := pj.ji
 	// Optimistically update the local state and reason - if any errors occur the
 	// local state will be reloaded way up the stack
@@ -672,7 +672,7 @@ func finishJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj 
 		return writeJobInfo(&builder.APIClient, jobInfo)
 	}); err != nil {
 		if pfsserver.IsCommitFinishedErr(err) || pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-			if err := recoverJob(pipelineInfo, pachClient, jobInfo, empty); err != nil {
+			if err := recoverJob(pachClient, jobInfo, empty); err != nil {
 				return err
 			}
 			// TODO: How to handle errors without causing subsequent jobs to get stuck.
@@ -688,7 +688,7 @@ func finishJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, pj 
 	return nil
 }
 
-func recoverJob(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, jobInfo *pps.JobInfo, empty bool) error {
+func recoverJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, empty bool) error {
 	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 		Commit: jobInfo.StatsCommit,
 		Empty:  empty,
