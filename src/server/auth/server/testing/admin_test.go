@@ -784,6 +784,75 @@ func TestGetTokenForRootUser(t *testing.T) {
 	require.Equal(t, "rpc error: code = Unknown desc = GetAuthTokenRequest.Subject is invalid", err.Error())
 }
 
+// TestGetIndefiniteRobotToken tests that an admin can generate a robot token that never
+// times out - this is the default behaviour
+func TestGetIndefiniteRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Generate auth credentials
+	robotUser := tu.UniqueString("rock-em-sock-em")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robot(robotUser), who.Username)
+	require.Equal(t, int64(-1), who.TTL)
+}
+
+// TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
+func TestGetTemporaryRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	// Generate auth credentials
+	robotUser := tu.UniqueString("rock-em-sock-em")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robot(robotUser), who.Username)
+	require.True(t, who.TTL > 0)
+	require.True(t, who.TTL <= 600)
+}
+
+// TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
+// GetRobotToken
+func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	alice := robot(tu.UniqueString("alice"))
+	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	resp, err := aliceClient.GetRobotToken(aliceClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: tu.UniqueString("t-1000"),
+	})
+	require.Nil(t, resp)
+	require.YesError(t, err)
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_ROBOT_TOKEN\\] on CLUSTER", err.Error())
+}
+
 // TestGetIndefiniteAuthToken tests that an admin can generate an auth token that never
 // times out if explicitly requested (e.g. for a daemon)
 func TestGetIndefiniteAuthToken(t *testing.T) {

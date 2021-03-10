@@ -870,6 +870,31 @@ func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBinding
 	return response, nil
 }
 
+// GetRobotToken implements the protobuf auth.GetRobotToken RPC
+func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (resp *auth.GetRobotTokenResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	subject := auth.RobotPrefix + req.Robot
+
+	tokenInfo := auth.TokenInfo{
+		Source:  auth.TokenInfo_GET_TOKEN,
+		Subject: subject,
+	}
+
+	// generate new token, and write to etcd
+	token := uuid.NewWithoutDashes()
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		return a.tokens.ReadWrite(stm).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &auth.GetRobotTokenResponse{
+		Token: token,
+	}, nil
+}
+
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
 func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)

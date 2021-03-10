@@ -49,6 +49,7 @@ var authHandlers = map[string]authHandler{
 	"/auth.API/GetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_CONFIG),
 	"/auth.API/SetConfiguration":  clusterPermissions(auth.Permission_CLUSTER_AUTH_SET_CONFIG),
 	"/auth.API/GetAuthToken":      clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_TOKEN),
+	"/auth.API/GetRobotToken":     clusterPermissions(auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN),
 	"/auth.API/ExtendAuthToken":   clusterPermissions(auth.Permission_CLUSTER_AUTH_EXTEND_TOKEN),
 	"/auth.API/SetGroupsForUser":  clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),
 	"/auth.API/ModifyMembers":     clusterPermissions(auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS),

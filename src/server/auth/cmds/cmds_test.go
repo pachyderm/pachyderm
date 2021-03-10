@@ -157,6 +157,22 @@ func TestGetAndUseAuthToken(t *testing.T) {
 		`).Run())
 }
 
+func TestGetAndUseRobotToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	// Test both get-robot-token and use-auth-token; make sure that they work
+	// together with -q
+	require.NoError(t, tu.BashCmd(`pachctl auth get-robot-token -q marvin \
+	  | pachctl auth use-auth-token
+	pachctl auth whoami \
+	  | match 'robot:marvin'
+		`).Run())
+}
+
 func TestConfig(t *testing.T) {
 	if os.Getenv("RUN_BAD_TESTS") == "" {
 		t.Skip("Skipping because RUN_BAD_TESTS was empty")
@@ -191,6 +207,30 @@ func TestConfig(t *testing.T) {
 		  | match 'client_id: localhost' \
 		  | match 'redirect_uri: "http://localhost:650"' \
 		`).Run())
+}
+
+// TestGetRobotTokenTTL tests that the --ttl argument to 'pachctl get-robot-token'
+// correctly limits the lifetime of the returned token
+func TestGetRobotTokenTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	tu.ActivateAuth(t)
+	defer tu.DeleteAll(t)
+
+	alice := tu.UniqueString("alice")
+
+	var tokenBuf bytes.Buffer
+	tokenCmd := tu.BashCmd(`pachctl auth get-robot-token {{.alice}} --ttl=1h -q`, "alice", alice)
+	tokenCmd.Stdout = &tokenBuf
+	require.NoError(t, tokenCmd.Run())
+	token := strings.TrimSpace(tokenBuf.String())
+
+	login := tu.BashCmd(`echo {{.token}} | pachctl auth use-auth-token
+		pachctl auth whoami | \
+		match 'session expires: '
+	`, "token", token)
+	require.NoError(t, login.Run())
 }
 
 // TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
