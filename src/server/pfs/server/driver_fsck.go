@@ -395,6 +395,9 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		if err != nil {
 			return err
 		}
+		for _, ci := range newCommitInfos {
+			commitToRepo[ci.Commit.ID] = ci.Commit.Repo.Name
+		}
 		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 			for commitID, provs := range addToProv {
 				repo := commitToRepo[commitID]
