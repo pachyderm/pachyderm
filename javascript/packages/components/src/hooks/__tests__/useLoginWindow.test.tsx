@@ -1,5 +1,5 @@
 import {render, act, waitFor} from '@testing-library/react';
-import React from 'react';
+import React, {useState} from 'react';
 
 import useLoginWindow from 'hooks/useLoginWindow';
 
@@ -25,7 +25,14 @@ describe('useLoginWindow', () => {
   const onSuccess = jest.fn();
 
   const Login: React.FC = () => {
-    const {initiateOauthFlow, loginWindowError} = useLoginWindow({onSuccess});
+    const {
+      initiateOauthFlow,
+      loginWindowError,
+      loginWindowSucceeded,
+    } = useLoginWindow({onSuccess});
+
+    const [firstRenderError] = useState(loginWindowError);
+    const [firstRenderSucceeded] = useState(loginWindowSucceeded);
 
     return (
       <>
@@ -37,6 +44,11 @@ describe('useLoginWindow', () => {
         </button>
 
         {loginWindowError && <span>Error: {loginWindowError}</span>}
+
+        {firstRenderError && (
+          <span>First render error: {firstRenderError}</span>
+        )}
+        {firstRenderSucceeded && <span>First render succeeded</span>}
       </>
     );
   };
@@ -143,5 +155,15 @@ describe('useLoginWindow', () => {
     );
 
     expect(await findByText(`Error: ${oauthError}`)).toBeVisible();
+  });
+
+  it('should set succeeded and error flags on first render', () => {
+    window.localStorage.setItem('oauthCode', 'code');
+    window.localStorage.setItem('oauthError', 'error');
+
+    const {getByText} = render(<Login />);
+
+    expect(getByText('First render succeeded')).toBeVisible();
+    expect(getByText('First render error: error')).toBeVisible();
   });
 });

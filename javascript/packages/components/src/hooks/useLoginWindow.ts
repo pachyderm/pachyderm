@@ -18,6 +18,7 @@ interface InitiateOauthFlowArgs {
 
 const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
   const [error, setError] = useState<string | null>(null);
+  const [succeeded, setSucceeded] = useState<boolean>(false);
   const [loginWindow, setLoginWindow] = useState<Window | null>(null);
 
   const initiateOauthFlow = useCallback(
@@ -65,34 +66,34 @@ const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
     [loginWindow, setLoginWindow],
   );
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-
-    let oauthCode = window.localStorage.getItem('oauthCode');
-    let oauthError = window.localStorage.getItem('oauthError');
+  const extractStateFromLocalStorage = useCallback(() => {
+    const oauthCode = window.localStorage.getItem('oauthCode');
+    const oauthError = window.localStorage.getItem('oauthError');
 
     window.localStorage.removeItem('oauthCode');
     window.localStorage.removeItem('oauthError');
 
     if (oauthCode) {
       onSuccess(oauthCode);
+      setSucceeded(true);
     } else if (oauthError) {
       setError(oauthError);
     }
 
+    return {oauthCode, oauthError};
+  }, [onSuccess]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+
+    let {oauthCode, oauthError} = extractStateFromLocalStorage();
+
     if (!interval && loginWindow) {
       interval = setInterval(() => {
-        oauthCode = window.localStorage.getItem('oauthCode');
-        oauthError = window.localStorage.getItem('oauthError');
+        const results = extractStateFromLocalStorage();
 
-        window.localStorage.removeItem('oauthCode');
-        window.localStorage.removeItem('oauthError');
-
-        if (oauthCode) {
-          onSuccess(oauthCode);
-        } else if (oauthError) {
-          setError(oauthError);
-        }
+        oauthCode = results.oauthCode;
+        oauthError = results.oauthError;
 
         if (interval && (oauthCode || oauthError)) {
           clearInterval(interval);
@@ -103,10 +104,12 @@ const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [loginWindow, onSuccess, setError]);
+  }, [loginWindow, onSuccess, setError, extractStateFromLocalStorage]);
 
   return {
-    loginWindowError: error,
+    loginWindowSucceeded:
+      succeeded || Boolean(window.localStorage.getItem('oauthCode')),
+    loginWindowError: error || window.localStorage.getItem('oauthError'),
     initiateOauthFlow,
   };
 };
