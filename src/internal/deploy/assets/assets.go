@@ -55,6 +55,8 @@ var (
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 656
 
+	enterpriseServerName = "pach-enterprise"
+
 	// Role & binding names, used for Roles or ClusterRoles and their associated
 	// bindings.
 	roleName        = "pachyderm"
@@ -661,8 +663,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
 
+	name := pachdName
 	command := []string{"/pachd"}
 	if opts.EnterpriseServer {
+		name = enterpriseServerName
 		command = append(command, "--mode=enterprise")
 	}
 
@@ -671,14 +675,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
 		},
-		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
+		ObjectMeta: objectMeta(name, labels(name), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas(1),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels(pachdName),
+				MatchLabels: labels(name),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: objectMeta(pachdName, labels(pachdName),
+				ObjectMeta: objectMeta(name, labels(name),
 					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -733,6 +737,58 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 					ServiceAccountName: ServiceAccountName,
 					Volumes:            volumes,
 					ImagePullSecrets:   imagePullSecrets(opts),
+				},
+			},
+		},
+	}
+}
+
+// EnterpriseService returns a service for the Enterprise Server
+func EnterpriseService(opts *AssetOpts) *v1.Service {
+	prometheusAnnotations := map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
+	}
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(enterpriseServerName, labels(enterpriseServerName), prometheusAnnotations, opts.Namespace),
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app": enterpriseServerName,
+			},
+			Ports: []v1.ServicePort{
+				// NOTE: do not put any new ports before `api-grpc-port`, as
+				// it'll change k8s SERVICE_PORT env var values
+				{
+					Port:     650, // also set in cmd/pachd/main.go
+					Name:     "api-grpc-port",
+					NodePort: 31650,
+				},
+				{
+					Port:     651, // also set in cmd/pachd/main.go
+					Name:     "trace-port",
+					NodePort: 31651,
+				},
+				{
+					Port:     auth.OidcPort,
+					Name:     "oidc-port",
+					NodePort: 31000 + auth.OidcPort,
+				},
+				{
+					Port:     658,
+					Name:     "identity-port",
+					NodePort: 31658,
+				},
+				{
+					Port:       656,
+					Name:       "prometheus-metrics",
+					NodePort:   31656,
+					Protocol:   v1.ProtocolTCP,
+					TargetPort: intstr.FromInt(656),
 				},
 			},
 		},
@@ -1218,8 +1274,15 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 		return err
 	}
 
-	if err := encoder.Encode(PachdService(opts)); err != nil {
-		return err
+	// If we're deploying the enterprise server, use a different service definition with the correct ports.
+	if opts.EnterpriseServer {
+		if err := encoder.Encode(EnterpriseService(opts)); err != nil {
+			return err
+		}
+	} else {
+		if err := encoder.Encode(PachdService(opts)); err != nil {
+			return err
+		}
 	}
 	if err := encoder.Encode(PachdPeerService(opts)); err != nil {
 		return err

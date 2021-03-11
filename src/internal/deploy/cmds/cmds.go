@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -429,6 +430,11 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
+		// When deploying the enterprise server, configure a different port for pachd and don't ever install dash.
+		if enterpriseServer {
+			noDash = true
+		}
+
 		if dashImage == "" {
 			dashImage = fmt.Sprintf("%s:%s", defaultDashImage, getCompatibleVersion("dash", "", defaultDashVersion))
 		}
@@ -541,9 +547,16 @@ func standardDeployCmds() []*cobra.Command {
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true
 
-				// Set the postgres and etcd ports explicitly for local deployments
+				// Set the postgres and etcd nodeports explicitly for developers
 				opts.PostgresOpts.Port = 32228
 				opts.EtcdOpts.Port = 32379
+			}
+
+			// Put the enterprise server backing data in a different path,
+			// so a user can deploy a pachd and enterprise server in the same minikube
+			// in different namespaces
+			if enterpriseServer {
+				hostPath = filepath.Join(hostPath, "enterprise")
 			}
 
 			var buf bytes.Buffer
