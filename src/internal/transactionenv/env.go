@@ -171,6 +171,7 @@ type PfsTransactionServer interface {
 	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
 	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
 	SquashCommitInTransaction(*TransactionContext, *pfs.SquashCommitRequest) error
+	InspectCommitInTransaction(*TransactionContext, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	InspectBranchInTransaction(*TransactionContext, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)

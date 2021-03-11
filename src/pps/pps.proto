@@ -80,9 +80,7 @@ message Service {
 }
 
 message Spout {
-  bool overwrite = 1;
-  Service service = 2;
-  string marker = 3;
+  Service service = 1;
 }
 
 message PFSInput {
@@ -527,6 +525,7 @@ message DeleteJobRequest {
 
 message StopJobRequest {
   Job job = 1;
+  pfs.Commit output_commit = 2;
 }
 
 message UpdateJobStateRequest {
