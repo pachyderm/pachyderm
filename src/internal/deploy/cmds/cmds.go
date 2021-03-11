@@ -540,7 +540,12 @@ func standardDeployCmds() []*cobra.Command {
 				// Serve the Pachyderm object/block API locally, as this is needed by
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true
+
+				// Set the postgres and etcd ports explicitly for local deployments
+				opts.PostgresOpts.Port = 32228
+				opts.EtcdOpts.Port = 32379
 			}
+
 			var buf bytes.Buffer
 			if err := assets.WriteLocalAssets(
 				encoder(outputFormat, &buf), opts, hostPath,

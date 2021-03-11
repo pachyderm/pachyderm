@@ -1157,7 +1157,8 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	} else {
 		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+
+	if err := encoder.Encode(EtcdNodePortService(opts)); err != nil {
 		return err
 	}
 
@@ -1213,7 +1214,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 	} else {
 		return fmt.Errorf("unless deploying locally, either --dynamic-postgres-nodes or --static-postgres-volume needs to be provided")
 	}
-	if err := encoder.Encode(PostgresService(persistentDiskBackend == LocalBackend, opts)); err != nil {
+	if err := encoder.Encode(PostgresService(opts)); err != nil {
 		return err
 	}
 
