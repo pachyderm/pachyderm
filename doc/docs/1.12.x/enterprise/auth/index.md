@@ -10,11 +10,17 @@ platform and operate as that user with the data stored in
 Pachyderm. Pachyderm supports the following identity providers
 with the specified authentication protocols:
 
-- Okta™ with Security Assertion Markup Language(SAML)
-- Keycloak with OpenID Connect (OIDC)
-- Google™ Identity Platform (OIDC)
-- Auth0
-- GitHub™ OAuth
+
+| Provider        | Users           | Groups          |
+| --------------- | --------------- | --------------- |
+| GitHub          | &#10004;        | X               |
+| Otka (OIDC)     | &#10004;        | &#10004;        |
+| Keycloak (OIDC) | &#10004;        | &#10004;        |
+| Keycloak (SAML) | &#10004;        | &#10004;        |
+| Google (OIDC)   | &#10004;        | X               | 
+| Auth0 (OIDC)    | &#10004;        | X               |
+| Auth0 (SAML)    | &#10004;        | X               |
+
 
 Other configurations might work as well, but the list
 above summarizes officially supported platforms. In general, 
