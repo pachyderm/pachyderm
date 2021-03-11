@@ -65,7 +65,7 @@ var mode string
 var readiness bool
 
 func init() {
-	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The latter runs only PFS, the Auth service, and a stripped-down version of PPS.")
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports three modes: full, enterprise and sidecar. full includes everything you need in a full pachd node. Enterprise runs the Enterprise Server. Sidecar runs only PFS, the Auth service, and a stripped-down version of PPS.")
 	flag.BoolVar(&readiness, "readiness", false, "Run readiness check.")
 	flag.Parse()
 }
@@ -78,6 +78,8 @@ func main() {
 		cmdutil.Main(doReadinessCheck, &serviceenv.PachdFullConfiguration{})
 	case mode == "full":
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
+	case mode == "enterprise":
+		cmdutil.Main(doEnterpriseMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	default:
@@ -88,6 +90,234 @@ func main() {
 func doReadinessCheck(config interface{}) error {
 	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
 	return env.GetPachClient(context.Background()).Health()
+}
+
+func doEnterpriseMode(config interface{}) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		}
+	}()
+	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "info", "":
+		log.SetLevel(log.InfoLevel)
+	default:
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
+		log.SetLevel(log.InfoLevel)
+	}
+	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
+	// may create a pach client before tracing is active, not install the Jaeger
+	// gRPC interceptor in the client, and not propagate traces)
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	debug.SetGCPercent(env.GCPercent)
+
+	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.Env{}, clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
+	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
+
+	if env.EtcdPrefix == "" {
+		env.EtcdPrefix = col.DefaultPrefix
+	}
+
+	// Setup External Pachd GRPC Server.
+	authInterceptor := auth.NewInterceptor(env)
+	externalServer, err := grpcutil.NewServer(
+		context.Background(),
+		true,
+		grpc.ChainUnaryInterceptor(
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+		),
+		grpc.ChainStreamInterceptor(
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+		),
+	)
+	if err != nil {
+		return err
+	}
+
+	identityStorageProvider := identity_server.NewLazyPostgresStorage(
+		env.PostgresServiceHost,
+		env.IdentityServerDatabase,
+		env.IdentityServerUser,
+		env.IdentityServerPassword,
+		env.PostgresServiceSSL,
+		env.PostgresServicePort,
+	)
+
+	if err := logGRPCServerSetup("External Enterprise Server", func() error {
+		txnEnv := &txnenv.TransactionEnv{}
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				true,
+				true,
+			)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(externalServer.Server, health.NewHealthServer())
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer, err := identity_server.NewIdentityServer(
+				env,
+				identityStorageProvider,
+				true,
+				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
+		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Setup Internal Pachd GRPC Server.
+	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	if err != nil {
+		return err
+	}
+
+	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
+		txnEnv := &txnenv.TransactionEnv{}
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				false,
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer, err := identity_server.NewIdentityServer(
+				env,
+				identityStorageProvider,
+				false,
+				path.Join(env.EtcdPrefix, env.IdentityEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		txnEnv.Initialize(env, nil, authAPIServer, nil, nil)
+		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Create the goroutines for the servers.
+	// Any server error is considered critical and will cause Pachd to exit.
+	// The first server that errors will have its error message logged.
+	errChan := make(chan error, 1)
+	go waitForError("External Enterprise GRPC Server", errChan, true, func() error {
+		return externalServer.Wait()
+	})
+	go waitForError("Internal Enterprise GRPC Server", errChan, true, func() error {
+		return internalServer.Wait()
+	})
+	return <-errChan
 }
 
 func doSidecarMode(config interface{}) (retErr error) {
