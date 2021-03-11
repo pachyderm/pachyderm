@@ -116,10 +116,11 @@ disk, the bucket name, and create the bucket by running the following
 commands:
 
 ```shell
-# For the persistent disk, 10GB is a good size to start with.
-# This stores PFS metadata. For reference, 1GB
-# should work fine for 1000 commits on 1000 files.
-STORAGE_SIZE=<the size of the volume that you are going to create, in GBs. e.g. "10">
+# This stores PFS metadata. For reference, 1GB should work fine for 1000 commits
+# on 1000 files. For the persistent disk, 50GB is a good size to start with,
+# though we recommend provisioning at least 1500 write IOPS, which requires at
+# least 50GB of space on [SSD-based PDs](https://cloud.google.com/compute/docs/disks/performance)).
+STORAGE_SIZE=<the size of the volume that you are going to create, in GBs. e.g. "50">
 
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
 BUCKET_NAME=<The name of the GCS bucket where your data will be stored>
