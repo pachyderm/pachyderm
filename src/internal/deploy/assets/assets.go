@@ -244,6 +244,9 @@ type AssetOpts struct {
 	// WorkerServiceAccountName is the name of the service account that will be
 	// used in the worker pods for creating S3 gateways.
 	WorkerServiceAccountName string
+
+	// EnterpriseServer deploys the enterprise server when set.
+	EnterpriseServer bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -657,6 +660,12 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
+
+	command := []string{"/pachd"}
+	if opts.EnterpriseServer {
+		command = append(command, "--mode=enterprise")
+	}
+
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -676,7 +685,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend Backend, hostPath strin
 						{
 							Name:    pachdName,
 							Image:   image,
-							Command: []string{"/pachd"},
+							Command: command,
 							Env:     envVars,
 							Ports: []v1.ContainerPort{
 								{

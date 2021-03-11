@@ -318,6 +318,7 @@ func standardDeployCmds() []*cobra.Command {
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
 	var workerServiceAccountName string
+	var enterpriseServer bool
 	appendGlobalFlags := func(cmd *cobra.Command) {
 		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
@@ -344,6 +345,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
+		cmd.Flags().BoolVar(&enterpriseServer, "enterprise-server", false, "Deploy the Enterprise Server.")
 		cmd.Flags().StringVar(&workerServiceAccountName, "worker-service-account", assets.DefaultWorkerServiceAccountName, "The Kubernetes service account for workers to use when creating S3 gateways.")
 
 		// Flags for setting pachd resource requests. These should rarely be set --
@@ -471,6 +473,7 @@ func standardDeployCmds() []*cobra.Command {
 			ClusterDeploymentID:        clusterDeploymentID,
 			RequireCriticalServersOnly: requireCriticalServersOnly,
 			WorkerServiceAccountName:   workerServiceAccountName,
+			EnterpriseServer:           enterpriseServer,
 		}
 		if opts.PostgresOpts.Volume == "" {
 			opts.PostgresOpts.Nodes = 1

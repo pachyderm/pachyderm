@@ -95,6 +95,7 @@ func doReadinessCheck(config interface{}) error {
 func doEnterpriseMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
+			log.WithError(retErr).Print("failed to start server")
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
@@ -202,8 +203,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+
+		healthServer := health.NewHealthServer()
 		if err := logGRPCServerSetup("Health", func() error {
-			healthclient.RegisterHealthServer(externalServer.Server, health.NewHealthServer())
+			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -228,6 +231,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
 			return err
 		}
+		healthServer.Ready()
 		return nil
 	}); err != nil {
 		return err
@@ -271,6 +275,14 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 
+		healthServer := health.NewHealthServer()
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -302,6 +314,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
 			return err
 		}
+		healthServer.Ready()
 		return nil
 	}); err != nil {
 		return err
