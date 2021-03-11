@@ -875,10 +875,13 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	subject := req.Robot
-	if !strings.HasPrefix(subject, auth.RobotPrefix) {
-		subject = auth.RobotPrefix + subject
+	// If the user specified a redundant robot: prefix, strip it. Colons are not permitted in robot names.
+	subject := strings.TrimPrefix(req.Robot, auth.RobotPrefix)
+	if strings.Contains(subject, ":") {
+		return nil, errors.New("robot names cannot contain colons (':')")
 	}
+
+	subject = auth.RobotPrefix + subject
 
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,
