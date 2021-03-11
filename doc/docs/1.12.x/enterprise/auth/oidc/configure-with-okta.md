@@ -18,7 +18,7 @@ Before you can configure Pachyderm to work with Okta, you need:
   pachctl enterprise get-state
   ```
 
-  For more information, see [Activate Pachyderm Enterprise Edition](../../../deployment/#activate-pachyderm-enterprise-edition).
+  For more information, see [Activate Pachyderm Enterprise Edition](../../../deployment/#activate-pachyderm-enterprise-edition.
 
 * An account at https://www.okta.com/login/. 
 
@@ -31,13 +31,14 @@ For more detailed step by step instructions, follow this [documentation](https:/
 1. From the Admin Console side navigation, click **Applications > Applications**.
 1. Click **Add Application**.
 1. Click **Create New App** (or search for your existing app).
-1. Select the appropriate platform to match your external application environment and select the OpenID Connect sign-on method.
+1. Select **Platform: Web** and sign-on method **OpenID Connect**.
 1. Click **Create**.
 1. Type the name of your application, such as **Pachyderm**.
 1. Add the following Login redirect URI. 
    ```shell
-   http://<ip>:30657/authorization-code/callback
+   http://<ip>:657/authorization-code/callback
    ```
+   Note: Your port number should be whatever is routing to pachd:657.
 
    The IP address is the address of your Pachyderm host. For example,
    if you are running Pachyderm in Minikube, you can find the IP
@@ -46,7 +47,6 @@ For more detailed step by step instructions, follow this [documentation](https:/
 1. Click **Edit** to change the General Settings pane. In the Allowed grant types section, enable **Implicit**, **Authorization Code**, **Refresh Token**, and **Client Credentials**.
 1. Click **Save**
 1. On the Assignments tab, click **Assign** to assign the app integration to any user or group in your org. Click **Done** when the assignments are complete.
-
 
 
 ## Configure Pachyderm Auth
@@ -121,7 +121,7 @@ step:
       "issuer": "https://",
       "client_id": "",
       "client_secret": "",
-      "redirect_uri": "http://localhost:30657/authorization-code/callback",
+      "redirect_uri": "your redirect URI",
       ignore_email_verified: true
       }
       }]

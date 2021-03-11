@@ -11,15 +11,11 @@ Pachyderm. Pachyderm supports the following identity providers
 with the specified authentication protocols:
 
 
-| Provider        | Users           | Groups          |
-| --------------- | --------------- | --------------- |
-| GitHub          | &#10004;        | X               |
-| Otka (OIDC)     | &#10004;        | &#10004;        |
-| Keycloak (OIDC) | &#10004;        | &#10004;        |
-| Keycloak (SAML) | &#10004;        | &#10004;        |
-| Google (OIDC)   | &#10004;        | X               | 
-| Auth0 (OIDC)    | &#10004;        | X               |
-| Auth0 (SAML)    | &#10004;        | X               |
+- Okta™ (OIDC)
+- Keycloak (OIDC)
+- Google™ Identity Platform (OIDC)
+- Auth0 (OIDC & SAML)
+- GitHub™ OAuth (OIDC)
 
 
 Other configurations might work as well, but the list

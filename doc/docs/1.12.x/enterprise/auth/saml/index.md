@@ -81,8 +81,9 @@ click on the **Addons** tab.
 
 1. set your **Application Callback URL** (enter the URL of Pachyderm to which the SAML assertions should be sent after Auth0 has authenticated the user)
    ```shell
-   http://<ip>:30657/authorization-code/callback
+   http://<ip>:657/authorization-code/callback
    ```
+   Note: Your port number should be whatever is routing to pachd:657.
 
    The IP address is the address of your Pachyderm host. For example,
    if you are running Pachyderm in Minikube, you can find the IP
