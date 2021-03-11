@@ -14,11 +14,11 @@ Before you can configure Pachyderm to work with Okta, you need:
   activated by running `pachctl enterprise activate`.
   Check the status of your license by running:
 
-  ```shell
-  pachctl enterprise get-state
-  ```
+      ```shell
+      pachctl enterprise get-state
+      ```
 
-  For more information, see [Activate Pachyderm Enterprise Edition](../../../deployment/#activate-pachyderm-enterprise-edition.
+      For more information, see [Activate Pachyderm Enterprise Edition](../../../deployment/#activate-pachyderm-enterprise-edition.
 
 * An account at https://www.okta.com/login/. 
 

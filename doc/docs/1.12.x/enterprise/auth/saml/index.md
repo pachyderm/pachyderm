@@ -1,11 +1,13 @@
+# Configure SAML 
+
+
+This section walks you through the configuration an SAML IdP for Pachyderm.
+We used Auth0 for this example.
+
 !!! Note
     SAML is not supported with Okta. However, you can
     configure Okta with [OIDC auth config](../oidc/configure-with-okta).
 
-# Configure SAML 
-
-This section walks you through the configuration an SAML IdP for Pachyderm.
-We used Auth0 for this example.
 
 When starting out, we recommend running Pachyderm locally, as
 mistakes in this configuration could lock you out of your cluster for good.
@@ -27,40 +29,31 @@ confirm)
 Pachyderm is ready to authenticate & authorize users.
 
 What the `--initial-admin` flag does:
-1. Pachyderm requires at least one cluster admin when auth is
-   activated
-2. Pachyderm's authentication is built around GitHub by default. Without this
-   flag, Pachyderm asks the caller to go through an OAuth flow with GitHub, and
-   then at the conclusion, makes the caller the cluster admin. Then whoever
-   activated Pachyderm's auth system can modify it by re-authenticating via
-   GitHub and performing any necessary actions
-3. To avoid the OAuth flow, it is also possible to make the initial
-   cluster admin a "robot user". This is what
-   `--initial-admin=robot:<something>` does.
-   Pachyderm will print out a Pachyderm token that authenticates the holder as
-   this robot user. At any point, you can authenticate as this robot user by
-   running the following command:
 
-   ```shell
+1. Pachyderm requires at least one cluster admin when auth is activated.
+1. Pachyderm's authentication is built around GitHub by default. Without this flag, Pachyderm asks the caller to go through an OAuth flow with GitHub, and then at the conclusion, makes the caller the cluster admin. Then whoever activated Pachyderm's auth system can modify it by re-authenticating via GitHub and performing any necessary actions.
+1. To avoid the OAuth flow, it is also possible to make the initial cluster admin a "robot user". This is what `--initial-admin=robot:<something>` does. Pachyderm will print out a Pachyderm token that authenticates the holder as this robot user. At any point, you can authenticate as this robot user by running the following command:
+
+    ```shell
     pachctl auth use-auth-token
-   ```
-   **System response:**
+    ```
+    **System response:**
 
-   ```shell
-   Please paste your Pachyderm auth token:
-   <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
-   ```
-
-   ```shell
-   pachctl auth whoami
+    ```shell
+    Please paste your Pachyderm auth token:
+    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
     ```
 
-   **System response:**
+    ```shell
+    pachctl auth whoami
+    ```
 
-   ```shell
-   You are "robot:admin"
-   You are an administrator of this Pachyderm cluster
-   ```
+    **System response:**
+
+    ```shell
+    You are "robot:admin"
+    You are an administrator of this Pachyderm cluster
+    ```
 
 The rest of this example assumes that your Pachyderm cluster is running in
 minikube, and you are accessing it via `pachctl`'s port forwarding. Many of the

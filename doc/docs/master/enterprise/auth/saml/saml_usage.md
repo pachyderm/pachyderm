@@ -9,69 +9,69 @@ demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.
 
 In the CLI, that would look like:
 
-```shell
-    $ pachctl auth use-auth-token
-```
+    ```shell
+        $ pachctl auth use-auth-token
+    ```
 
-**System response:**
+    **System response:**
 
-```
-    Please paste your Pachyderm auth token:
-    <auth token>
-```
+    ```
+        Please paste your Pachyderm auth token:
+        <auth token>
+    ```
 
-```shell
-    $ pachctl auth whoami
-```
+    ```shell
+        $ pachctl auth whoami
+    ```
 
-**System response:**
+    **System response:**
 
-```
-    You are "robot:admin"
-    You are an administrator of this Pachyderm cluster
-```
+    ```
+        You are "robot:admin"
+        You are an administrator of this Pachyderm cluster
+    ```
 
 As the **cluster admin**, create a repository, pipelines, and put files into the
 repository.
 
-```shell
-    $ pachctl create repo images
-    $ pachctl create pipeline -f examples/opencv/edges.json
-    $ pachctl create pipeline -f examples/opencv/montage.json
-    $ pachctl put file images@master -i examples/opencv/images.txt
-    $ pachctl put file images@master -i examples/opencv/images2.txt
-```
+    ```shell
+        $ pachctl create repo images
+        $ pachctl create pipeline -f examples/opencv/edges.json
+        $ pachctl create pipeline -f examples/opencv/montage.json
+        $ pachctl put file images@master -i examples/opencv/images.txt
+        $ pachctl put file images@master -i examples/opencv/images2.txt
+    ```
 
 View the list of existing repositories:
 
-```shell
-$ pachctl list repo
-```
+    ```shell
+    $ pachctl list repo
+    ```
 
-**System response:**
+    **System response:**
 
-```
-NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
-montage 2 minutes ago 1.653MiB      OWNER
-edges   2 minutes ago 133.6KiB      OWNER
-images  2 minutes ago 238.3KiB      OWNER
-```
+    ```
+    NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
+    montage 2 minutes ago 1.653MiB      OWNER
+    edges   2 minutes ago 133.6KiB      OWNER
+    images  2 minutes ago 238.3KiB      OWNER
+    ```
 
 And the list of jobs:
 
-```shell
-$ pachctl list job
-```
+    ```shell
+    $ pachctl list job
+    ```
 
-**System response:**
+    **System response:**
 
-```shell
-ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
-023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
-fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
-152cb8a0b0854d44affb4bf4bd57228f montage/82a49260595246fe8f6a7d381e092650 2 minutes ago 5 seconds 0       1 + 0 / 1 79.49KiB 378.6KiB success
-86e6eb4ae1e74745b993c2e47eba05e9 edges/ee7ebdddd31d46d1af10cee25f17870b   2 minutes ago 4 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
-```
+    ```shell
+    ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
+    023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
+    fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
+    152cb8a0b0854d44affb4bf4bd57228f montage/82a49260595246fe8f6a7d381e092650 2 minutes ago 5 seconds 0       1 + 0 / 1 79.49KiB 378.6KiB success
+    86e6eb4ae1e74745b993c2e47eba05e9 edges/ee7ebdddd31d46d1af10cee25f17870b   2 minutes ago 4 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+    ```
 ## Authenticating via a SAML ID Provider in the dashboard as a non admin user
 Before authenticating, navigating to the dash will yield a blank screen:
 
@@ -88,7 +88,7 @@ later from the settings panel.
 
 ![Dash logged in](../../../assets/images/saml_successfully_logged_in.png)
 
-After closing the OTP panel, you'll be able to see the Pachyderm DAG, but you
+After closing the OTP panel, you will be able to see the Pachyderm DAG, but you
 may not have access to any of the repos inside (a repo that you cannot read is
 indicated by a lock symbol):
 
