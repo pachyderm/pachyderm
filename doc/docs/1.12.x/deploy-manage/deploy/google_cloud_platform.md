@@ -119,7 +119,8 @@ commands:
 # This stores PFS metadata. For reference, 1GB should work fine for 1000 commits
 # on 1000 files. For the persistent disk, 10GB is often a sufficient starting
 # size, though we recommend provisioning at least 1500 write IOPS, which
-# requires at least 50GB of space on [SSD-based PDs](https://cloud.google.com/compute/docs/disks/performance) and 1TB of space on Standard PDs).
+# requires at least 50GB of space on SSD-based PDs and 1TB of space on Standard PDs.
+# See https://cloud.google.com/compute/docs/disks/performance
 STORAGE_SIZE=<the size of the volume that you are going to create, in GBs. e.g. "50">
 
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
