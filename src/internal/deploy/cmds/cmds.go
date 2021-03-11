@@ -430,7 +430,7 @@ func standardDeployCmds() []*cobra.Command {
 			}
 		}
 
-		// When deploying the enterprise server, configure a different port for pachd and don't ever install dash.
+		// When deploying the enterprise server don't ever install dash.
 		if enterpriseServer {
 			noDash = true
 		}
