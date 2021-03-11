@@ -7072,8 +7072,11 @@ func TestService(t *testing.T) {
 		return address
 	}()
 
+	httpClient := &http.Client{
+		Timeout: 3 * time.Second,
+	}
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
 			return err
 		}
@@ -7100,7 +7103,7 @@ func TestService(t *testing.T) {
 	httpAPIAddr := net.JoinHostPort(host, port)
 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := http.Get(url)
+		resp, err := httpClient.Get(url)
 		if err != nil {
 			return err
 		}
@@ -7123,7 +7126,7 @@ func TestService(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
+		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
 		if err != nil {
 			return err
 		}
