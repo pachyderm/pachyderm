@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-    test-node:
+    components-test:
         docker:
             - image: circleci/node:14.15.0
         steps:
@@ -9,7 +9,7 @@ jobs:
             - run: cd packages/components && npm ci
             - run: cd packages/components && npm run lint
             - run: cd packages/components && npm run test
-    storybook-release:
+    components-storybook-release:
         docker:
             - image: circleci/node:14.15.0
         steps:
@@ -20,10 +20,10 @@ workflows:
     version: 2
     test:
         jobs:
-            - test-node
-    storybook-release:
+            - components-test
+    components-storybook-release:
         jobs:
-            - storybook-release:
+            - components-storybook-release:
                   filters:
                       branches:
                           only: master
