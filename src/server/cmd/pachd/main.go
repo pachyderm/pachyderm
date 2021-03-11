@@ -151,6 +151,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		return err
 	}
 
+	clusterID, err := getClusterID(env.GetEtcdClient())
+	if err != nil {
+		return errors.Wrapf(err, "getClusterID")
+	}
+
 	identityStorageProvider := identity_server.NewLazyPostgresStorage(
 		env.PostgresServiceHost,
 		env.IdentityServerDatabase,
@@ -207,6 +212,23 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		healthServer := health.NewHealthServer()
 		if err := logGRPCServerSetup("Health", func() error {
 			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
+				ID:           clusterID,
+				DeploymentID: env.DeploymentID,
+			}))
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
@@ -290,6 +312,23 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return err
 			}
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(&adminclient.ClusterInfo{
+				ID:           clusterID,
+				DeploymentID: env.DeploymentID,
+			}))
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
