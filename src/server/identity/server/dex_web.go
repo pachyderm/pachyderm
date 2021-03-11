@@ -100,7 +100,10 @@ func (w *dexWeb) startWebServer() (*dex_server.Server, bool) {
 		Issuer:             w.issuer,
 		SkipApprovalScreen: true,
 		Web: dex_server.WebConfig{
-			Dir: webDir,
+			Issuer:  "Pachyderm",
+			LogoURL: "/theme/logo.svg",
+			Theme:   "pachyderm",
+			Dir:     webDir,
 		},
 		Logger: w.logger,
 	}
