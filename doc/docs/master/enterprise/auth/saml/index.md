@@ -1,6 +1,6 @@
 !!! Note
     SAML is not supported with Okta. However, you can
-    configure Okta with [OIDC auth config](../../oidc/configure-with-okta).
+    configure Okta with [OIDC auth config](../oidc/configure-with-okta).
 
 # Configure SAML 
 

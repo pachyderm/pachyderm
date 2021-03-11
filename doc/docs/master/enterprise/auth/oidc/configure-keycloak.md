@@ -236,9 +236,6 @@ user.
    session expires: 06 Aug 20 09:23 PDT
    ```
 
-!!! note "See Also"
-    - [Configure SAML authentication with Okta](../../saml/saml_setup/)
-
 ## Modifying Realm Settings
 
 If you make any changes, such as changing the protocol from
