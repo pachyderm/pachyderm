@@ -112,7 +112,7 @@ func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
 // or a sparsely-populated PipelineInfo if the spec data cannot be found in PPS
 // (e.g. due to corruption or a missing block). It does the PFS
 // read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, &buf); err != nil {
@@ -124,9 +124,7 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, p
 	}
 
 	if result.Pipeline == nil {
-		result.Pipeline = &pps.Pipeline{
-			Name: name,
-		}
+		result.Pipeline = ptr.Pipeline
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason
@@ -138,8 +136,8 @@ func GetPipelineInfoAllowIncomplete(pachClient *client.APIClient, name string, p
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
-	result, err := GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+	result, err := GetPipelineInfoAllowIncomplete(pachClient, ptr)
 	if err == nil && result.Transform == nil {
 		return nil, errors.Errorf("could not retrieve pipeline spec file from PFS for pipeline '%s', there may be a problem reaching object storage, or the pipeline may need to be deleted and recreated", result.Pipeline.Name)
 	}

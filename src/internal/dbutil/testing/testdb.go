@@ -18,7 +18,7 @@ import (
 )
 
 // set this to false if you want to keep the database around
-var cleanup = false
+var cleanup = true
 
 const postgresMaxConnections = 100
 

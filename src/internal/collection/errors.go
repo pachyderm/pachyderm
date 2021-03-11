@@ -3,6 +3,8 @@ package collection
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // ErrNotFound indicates that a key was not found when it was expected to
@@ -12,14 +14,18 @@ type ErrNotFound struct {
 	Key  string
 }
 
-func (e ErrNotFound) Error() string {
-	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key)
+func (err ErrNotFound) Is(other error) bool {
+	_, ok := other.(ErrNotFound)
+	return ok
+}
+
+func (err ErrNotFound) Error() string {
+	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
 }
 
 // IsErrNotFound determines if an error is an ErrNotFound error
-func IsErrNotFound(e error) bool {
-	_, ok := e.(ErrNotFound)
-	return ok
+func IsErrNotFound(err error) bool {
+	return errors.Is(err, ErrNotFound{})
 }
 
 // ErrExists indicates that a key was found to exist when it was expected not
@@ -29,30 +35,16 @@ type ErrExists struct {
 	Key  string
 }
 
-func (e ErrExists) Error() string {
-	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key)
+func (err ErrExists) Is(other error) bool {
+	_, ok := other.(ErrExists)
+	return ok
+}
+
+func (err ErrExists) Error() string {
+	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(err.Type, DefaultPrefix), err.Key)
 }
 
 // IsErrExists determines if an error is an ErrExists error
-func IsErrExists(e error) bool {
-	_, ok := e.(ErrExists)
-	return ok
-}
-
-// ErrMalformedValue indicates that a value was malformed, such as when it was
-// supposed to be parseable as an int but wasn't.
-type ErrMalformedValue struct {
-	Type string
-	Key  string
-	Val  string
-}
-
-func (e ErrMalformedValue) Error() string {
-	return fmt.Sprintf("malformed value at %s/%s: %s", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key, e.Val)
-}
-
-// IsErrMalformedValue determines if an error is an ErrMalformedValue error
-func IsErrMalformedValue(e error) bool {
-	_, ok := e.(ErrMalformedValue)
-	return ok
+func IsErrExists(err error) bool {
+	return errors.Is(err, ErrExists{})
 }

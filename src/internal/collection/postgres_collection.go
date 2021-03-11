@@ -2,12 +2,15 @@ package collection
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -17,38 +20,141 @@ import (
 type PostgresModel interface {
 	TableName() string
 	WriteToProtobuf(proto.Message) error
+	LoadFromProtobuf(proto.Message) error
 }
 
 type postgresCollection struct {
 	db         *sqlx.DB
 	model      PostgresModel
-	pkeyField  string
+	sqlInfo    *SQLInfo
 	withFields map[string]interface{}
 }
 
-func getPrimaryKeyField(model interface{}) string {
-	mt := reflect.TypeOf(model)
-	// Iterate over all available fields and read the tag value
-	for i := 0; i < mt.NumField(); i++ {
-		// Get the field, returns https://golang.org/pkg/reflect/#StructField
-		field := mt.Field(i)
+func toSQLName(name string) string {
+	return strings.ToLower(name)
+}
 
+var sqlTypes = map[string]string{
+	"string":    "varchar",
+	"time.Time": "timestamp",
+	"bool":      "bool",
+}
+
+func toSQLType(gotype string) (string, error) {
+	if result, ok := sqlTypes[gotype]; ok {
+		return result, nil
+	}
+	return "", errors.Errorf("No SQL type for %s", gotype)
+}
+
+type SQLField struct {
+	SQLType string
+	SQLName string
+	GoType  string
+	GoName  string
+}
+
+type SQLIndex struct {
+	Names []string
+}
+
+type SQLInfo struct {
+	Table   string
+	Pkey    *SQLField
+	Fields  []SQLField
+	Indexes []SQLIndex
+}
+
+func forEachField(modelType reflect.Type, cb func(reflect.StructField) error) error {
+	for i := 0; i < modelType.NumField(); i++ {
+		if err := cb(modelType.Field(i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseModel(model PostgresModel) (*SQLInfo, error) {
+	modelType := reflect.TypeOf(model).Elem()
+
+	pkey := []*SQLField{}
+	sqlFields := []SQLField{}
+	sqlIndexes := []SQLIndex{}
+	if err := forEachField(modelType, func(field reflect.StructField) error {
 		// Get the field tag value
 		tag := field.Tag.Get("collection")
 
-		fmt.Printf("%d. %v (%v), tag: '%v'\n", i+1, field.Name, field.Type.Name(), tag)
+		goType := fmt.Sprintf("%v", field.Type)
+		sqlType, err := toSQLType(goType)
+		if err != nil {
+			return err
+		}
+		sqlFields = append(sqlFields, SQLField{
+			SQLName: toSQLName(field.Name),
+			SQLType: sqlType,
+			GoName:  field.Name,
+			GoType:  goType,
+		})
+
+		for _, prop := range strings.Split(tag, ",") {
+			switch prop {
+			case "primaryKey":
+				pkey = append(pkey, &sqlFields[len(sqlFields)-1])
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return ""
+
+	if len(pkey) == 0 {
+		return nil, errors.Errorf("%v has no field tagged with collection:\"primaryKey\"", modelType)
+	} else if len(pkey) != 1 {
+		// TODO: support compound primary keys
+		return nil, errors.Errorf("%v has multiple fields tagged with collection:\"primaryKey\": %v", modelType, pkey[0].GoName)
+	}
+
+	return &SQLInfo{model.TableName(), pkey[0], sqlFields, sqlIndexes}, nil
+}
+
+// Ensure the table and all indices exist
+func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
+	columns := []string{}
+	for _, field := range info.Fields {
+		// TODO: "createdat timestamp with time zone default current_timestamp"
+		columns = append(columns, fmt.Sprintf("%s %s", field.SQLName, field.SQLType))
+	}
+	columns = append(columns, fmt.Sprintf("primary key(%s)", info.Pkey.SQLName))
+
+	createTable := fmt.Sprintf("create table if not exists %s (%s);", info.Table, strings.Join(columns, ", "))
+	fmt.Printf(createTable + "\n")
+	_, err := db.Exec(createTable)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
 func NewPostgresCollection(db *sqlx.DB, model PostgresModel) Collection {
-	return &postgresCollection{
+	sqlInfo, err := parseModel(model)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := ensureCollection(db, sqlInfo); err != nil {
+		panic(err)
+	}
+
+	// TODO: handle error
+
+	c := &postgresCollection{
 		db:         db,
 		model:      model,
-		pkeyField:  getPrimaryKeyField(model),
+		sqlInfo:    sqlInfo,
 		withFields: make(map[string]interface{}),
 	}
+	return c
 }
 
 func (c *postgresCollection) With(field string, value interface{}) Collection {
@@ -60,7 +166,7 @@ func (c *postgresCollection) With(field string, value interface{}) Collection {
 	return &postgresCollection{
 		db:         c.db,
 		model:      c.model,
-		pkeyField:  c.pkeyField,
+		sqlInfo:    c.sqlInfo,
 		withFields: newWithFields,
 	}
 }
@@ -69,12 +175,63 @@ func (c *postgresCollection) ReadOnly(ctx context.Context) ReadOnlyCollection {
 	return &postgresReadOnlyCollection{c, ctx}
 }
 
-func (c *postgresCollection) ReadWrite(stm STM) ReadWriteCollection {
-	return &postgresReadWriteCollection{c, stm}
+func (c *postgresCollection) ReadWrite(tx interface{}) ReadWriteCollection {
+	return &postgresReadWriteCollection{c, tx.(*sqlx.Tx)}
+}
+
+func NewSQLTx(db *sqlx.DB, ctx context.Context, apply func(*sqlx.Tx) error) error {
+	errs := []error{}
+
+	attemptTx := func() (bool, error) {
+		tx, err := db.BeginTxx(context.Background(), nil)
+		if err != nil {
+			return true, errors.EnsureStack(err)
+		}
+
+		// TODO: log something on failed rollback?
+		defer tx.Rollback()
+
+		err = apply(tx)
+		if err != nil {
+			return true, err
+		}
+
+		return true, errors.EnsureStack(tx.Commit())
+	}
+
+	// TODO: try indefinitely?  time out?
+	for i := 0; i < 3; i++ {
+		if done, err := attemptTx(); done {
+			return err
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Errorf("sql transaction rolled back too many times: %v", errs)
 }
 
 func (c *postgresCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
 	return errors.New("Claim is not supported on postgres collections")
+}
+
+func isDuplicateKeyError(err error) bool {
+	if err, ok := err.(*pq.Error); ok {
+		return err.Code == "23505" // Postgres error code: unique_violation
+	}
+	return false
+}
+
+func (c *postgresCollection) mapSQLError(err error, key string) error {
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.WithStack(ErrNotFound{c.sqlInfo.Table, key})
+		} else if isDuplicateKeyError(err) {
+			return errors.WithStack(ErrExists{c.sqlInfo.Table, key})
+		}
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 type postgresReadOnlyCollection struct {
@@ -90,21 +247,21 @@ func writeToProtobuf(result reflect.Value, val proto.Message) error {
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) Get(id string, val proto.Message) error {
-	row := c.db.QueryRow("select * from :table where :pkey = :id", map[string]string{
-		"table": c.model.TableName(),
-		"pkey":  c.pkeyField,
-		"id":    id,
-	})
+func (c *postgresCollection) getInternal(key string, val proto.Message, q sqlx.Queryer) error {
+	queryString := fmt.Sprintf("select * from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
+	result := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 
-	result := reflect.New(reflect.TypeOf(c.model))
-	if err := row.Scan(result); err != nil {
-		return err
+	if err := sqlx.Get(q, result.Interface(), queryString, key); err != nil {
+		return c.mapSQLError(err, key)
 	}
 	return writeToProtobuf(result, val)
 }
 
-func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *postgresReadOnlyCollection) Get(key string, val proto.Message) error {
+	return c.getInternal(key, val, c.db)
+}
+
+func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error {
 	return c.With(index.Field, indexVal).ReadOnly(c.ctx).List(val, opts, f)
 }
 
@@ -121,71 +278,68 @@ func orderToSQL(order etcd.SortOrder) (string, error) {
 func targetToSQL(target etcd.SortTarget) (string, error) {
 	switch target {
 	case etcd.SortByCreateRevision:
-		return "created_at", nil
+		return "createdat", nil
 	case etcd.SortByModRevision:
-		return "updated_at", nil
+		return "updatedat", nil
 	}
 	return "", errors.Errorf("unsupported sort target: %d", target)
 }
 
-func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
-	return c.listInternal("select * from :table", map[string]string{
-		"table": c.model.TableName(),
-	}, val, opts, f)
+func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
+	queryString := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
+	// TODO: mapSQLError
+	return c.listInternal(queryString, []interface{}{}, val, opts, f)
 }
 
-func (c *postgresReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.listInternal("select * from :table where :pkey like :prefix", map[string]string{
-		"table":  c.model.TableName(),
-		"pkey":   c.pkeyField,
-		"prefix": prefix,
-	}, val, opts, f)
+func (c *postgresReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error {
+	queryString := fmt.Sprintf(`select * from %s where %s like $1`, c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
+	// TODO: mapSQLError
+	return c.listInternal(queryString, []interface{}{prefix + "%"}, val, opts, f)
 }
 
-func (c *postgresReadOnlyCollection) listInternal(query string, parameters map[string]string, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *postgresReadOnlyCollection) listInternal(query string, params []interface{}, val proto.Message, opts *Options, f func() error) error {
 	if opts.Order != etcd.SortNone {
 		if order, err := orderToSQL(opts.Order); err != nil {
 			return err
 		} else if target, err := targetToSQL(opts.Target); err != nil {
 			return err
 		} else {
-			query += fmt.Sprintf(" order %s %s", target, order)
+			query += fmt.Sprintf(" order by %s %s", target, order)
 		}
 	}
 
-	result := reflect.New(reflect.TypeOf(c.model))
-	rows, err := c.db.NamedQuery(query, parameters)
+	fmt.Printf("running query: %s\nparams: %v\n", query, params)
+	rows, err := c.db.Queryx(query, params...)
 	if err != nil {
-		return err
+		return c.mapSQLError(err, "")
 	}
 	defer rows.Close()
 
+	result := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 	for rows.Next() {
-		if err := rows.Scan(result); err != nil {
-			return err
+		if err := rows.StructScan(result.Interface()); err != nil {
+			return c.mapSQLError(err, "")
 		}
 
 		if err := writeToProtobuf(result, val); err != nil {
 			return err
 		}
 
-		// TODO: get the pkey from the model or just remove this arg, why is it here - they've already got the model
-		if err := f(""); err != nil {
+		if err := f(); err != nil {
 			return err
 		}
 	}
 
-	return rows.Close()
+	return c.mapSQLError(rows.Close(), "")
 }
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
-	row := c.db.QueryRow("select count(*) from :table", map[string]string{
-		"table": c.model.TableName(),
-	})
+	query := fmt.Sprintf("select count(*) from %s", c.sqlInfo.Table)
+	row := c.db.QueryRow(query)
 
 	var result int64
-	err := row.Scan(result)
-	return result, err
+	err := row.Scan(&result)
+	return result, c.mapSQLError(err, "")
 }
 
 func (c *postgresReadOnlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
@@ -224,39 +378,97 @@ func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f
 
 type postgresReadWriteCollection struct {
 	*postgresCollection
-	stm STM
+	tx *sqlx.Tx
 }
 
 func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
-	return errors.New("Get is not supported on read-write postgres collections")
+	return c.getInternal(key, val, c.tx)
 }
 
+// Update all values
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
-	return errors.New("Put is not supported on read-write postgres collections")
+	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
+	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
+
+	values := []interface{}{}
+	updateFields := []string{}
+	for i, field := range c.sqlInfo.Fields {
+		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
+		updateFields = append(updateFields, fmt.Sprintf("%s = $%d", field.SQLName, i+1))
+	}
+
+	values = append(values, key)
+	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey, len(values)-1)
+	_, err := c.tx.Exec(query, values...)
+	return c.mapSQLError(err, key)
 }
 
+// Get then update all values
 func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
-	return errors.New("Update is not supported on read-write postgres collections")
+	if err := c.Get(key, val); err != nil {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+	return c.Put(key, val)
 }
 
+func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
+	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
+	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
+
+	columns := []string{}
+	params := []string{}
+	values := []interface{}{}
+	for i, field := range c.sqlInfo.Fields {
+		columns = append(columns, field.SQLName)
+		params = append(params, fmt.Sprintf("$%d", i+1))
+		values = append(values, reflect.Indirect(row).FieldByName(field.GoName).Interface())
+	}
+
+	query := fmt.Sprintf("insert into %s (%s) values (%s)", c.sqlInfo.Table, strings.Join(columns, ", "), strings.Join(params, ", "))
+	if upsert {
+		upsertFields := []string{}
+		for i, column := range columns {
+			upsertFields = append(upsertFields, fmt.Sprintf("%s = $%d", column, i+1))
+		}
+		query = fmt.Sprintf("%s on conflict do update set %s", query, strings.Join(upsertFields, ", "))
+	}
+	fmt.Printf("query: %s\n", query)
+	fmt.Printf("values: %v\n", values)
+	_, err := c.tx.Exec(query, values...)
+	return err
+}
+
+// Insert on conflict update all values (except createdat)
 func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
-	return errors.New("Upsert is not supported on read-write postgres collections")
+	return c.mapSQLError(c.insert(key, val, true), key)
 }
 
+// Insert
 func (c *postgresReadWriteCollection) Create(key string, val proto.Message) error {
-	return errors.New("Create is not supported on read-write postgres collections")
+	// TODO: require that the proto pkey matches key or override it in the insert
+	return c.mapSQLError(c.insert(key, val, false), key)
 }
 
 func (c *postgresReadWriteCollection) Delete(key string) error {
-	return errors.New("Delete is not supported on read-write postgres collections")
+	// TODO: do soft deletes for point-deletes?
+	query := fmt.Sprintf("delete from %s where %s = $1;", c.sqlInfo.Table, c.sqlInfo.Pkey)
+	_, err := c.tx.Exec(query, key)
+	return c.mapSQLError(err, key)
 }
 
-func (c *postgresReadWriteCollection) DeleteAll() {
-	return
+func (c *postgresReadWriteCollection) DeleteAll() error {
+	query := fmt.Sprintf("delete from %s;", c.sqlInfo.Table)
+	_, err := c.db.Exec(query)
+	return c.mapSQLError(err, "")
 }
 
-func (c *postgresReadWriteCollection) DeleteAllPrefix(prefix string) {
-	return
+func (c *postgresReadWriteCollection) DeleteAllPrefix(prefix string) error {
+	query := fmt.Sprintf("delete from %s where %s like $1;", c.sqlInfo.Table, c.sqlInfo.Pkey)
+	_, err := c.db.Exec(query, prefix)
+	return c.mapSQLError(err, "")
 }
 
 // These operations will (probably) never be supported on a postgres collection

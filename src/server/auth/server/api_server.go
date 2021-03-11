@@ -325,11 +325,13 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		}); err != nil {
 			return err
 		}
+		hash := auth.HashToken(pachToken)
 		return tokens.Put(
-			auth.HashToken(pachToken),
+			hash,
 			&auth.TokenInfo{
 				Subject: auth.RootUser,
 				Source:  auth.TokenInfo_AUTHENTICATE,
+				Hash:    hash,
 			},
 		)
 	}); err != nil {
@@ -439,10 +441,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		pachToken = uuid.NewWithoutDashes()
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(auth.HashToken(pachToken),
+			hash := auth.HashToken(pachToken)
+			return tokens.PutTTL(hash,
 				&auth.TokenInfo{
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
+					Hash:    hash,
 				},
 				defaultSessionTTLSecs)
 		}); err != nil {
@@ -475,10 +479,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		pachToken = uuid.NewWithoutDashes()
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
-			return tokens.PutTTL(auth.HashToken(pachToken),
+			hash := auth.HashToken(pachToken)
+			return tokens.PutTTL(hash,
 				&auth.TokenInfo{
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
+					Hash:    hash,
 				},
 				expirationSecs)
 		}); err != nil {
@@ -856,14 +862,16 @@ func (a *apiServer) GetAuthTokenInTransaction(txnCtx *txnenv.TransactionContext,
 		// lifetime.
 		req.TTL = defaultSessionTTLSecs
 	}
-	tokenInfo := auth.TokenInfo{
-		Source:  auth.TokenInfo_GET_TOKEN,
-		Subject: req.Subject,
-	}
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, req.TTL); err != nil {
+	tokenInfo := auth.TokenInfo{
+		Source:  auth.TokenInfo_GET_TOKEN,
+		Subject: req.Subject,
+		Hash:    auth.HashToken(token),
+	}
+
+	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(tokenInfo.Hash, &tokenInfo, req.TTL); err != nil {
 		return nil, errors.Wrapf(err, "error storing token")
 	}
 	return &auth.GetAuthTokenResponse{
@@ -879,14 +887,15 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(txnCtx *txnenv.Transaction
 		return "", err
 	}
 
+	// generate new token, and write to etcd
+	token := uuid.NewWithoutDashes()
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,
 		Subject: auth.PipelinePrefix + pipeline,
+		Hash:    auth.HashToken(token),
 	}
 
-	// generate new token, and write to etcd
-	token := uuid.NewWithoutDashes()
-	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(auth.HashToken(token), &tokenInfo, -1); err != nil {
+	if err := a.tokens.ReadWrite(txnCtx.Stm).PutTTL(tokenInfo.Hash, &tokenInfo, -1); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	}
 	return token, nil
@@ -938,7 +947,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 			return auth.ErrBadToken
 		}
 
-		ttl, err := tokens.TTL(auth.HashToken(req.Token))
+		ttl, err := tokens.TTL(tokenInfo.Hash)
 		if err != nil {
 			return errors.Wrapf(err, "error looking up TTL for token")
 		}
@@ -952,7 +961,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 				ExistingTTL: ttl,
 			}
 		}
-		return tokens.PutTTL(auth.HashToken(req.Token), &tokenInfo, req.TTL)
+		return tokens.PutTTL(tokenInfo.Hash, &tokenInfo, req.TTL)
 	}); err != nil {
 		return nil, err
 	}
@@ -1205,8 +1214,8 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	membersCol := a.members.ReadOnly(ctx)
 	groups := &auth.Groups{}
 	var users []string
-	if err := membersCol.List(groups, col.DefaultOptions(), func(user string) error {
-		users = append(users, user)
+	if err := membersCol.List(groups, col.DefaultOptions(), func() error {
+		users = append(users, groups.Username)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -1356,23 +1365,24 @@ func (a *apiServer) ExtractAuthTokens(ctx context.Context, req *auth.ExtractAuth
 	extracted := make([]*auth.HashedAuthToken, 0)
 
 	tokens := a.tokens.ReadOnly(ctx)
-	var val auth.TokenInfo
-	if err := tokens.List(&val, col.DefaultOptions(), func(hash string) error {
+	var tokInfo auth.TokenInfo
+	if err := tokens.List(&tokInfo, col.DefaultOptions(), func() error {
 		// Only extract robot tokens
-		if !strings.HasPrefix(val.Subject, auth.RobotPrefix) {
+		if !strings.HasPrefix(tokInfo.Subject, auth.RobotPrefix) {
 			return nil
 		}
 
-		ttl, err := tokens.TTL(hash)
+		ttl, err := tokens.TTL(tokInfo.Hash)
 		if err != nil {
 			return err
 		}
 
 		token := &auth.HashedAuthToken{
-			HashedToken: hash,
+			HashedToken: tokInfo.Hash,
 			TokenInfo: &auth.TokenInfo{
-				Subject: val.Subject,
-				Source:  val.Source,
+				Subject: tokInfo.Subject,
+				Source:  tokInfo.Source,
+				Hash:    tokInfo.Hash,
 			},
 		}
 		if ttl != -1 {

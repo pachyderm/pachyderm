@@ -271,8 +271,8 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.List(repoInfo, col.DefaultOptions(), func(repoName string) error {
-		if repoName == ppsconsts.SpecRepo {
+	if err := repos.List(repoInfo, col.DefaultOptions(), func() error {
+		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
 			return nil
 		}
 		if includeAuth && authSeemsActive {
@@ -282,7 +282,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoName)
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoInfo.Repo.Name)
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -329,8 +329,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
-	if err := commits.List(commitInfo, col.DefaultOptions(), func(commitID string) error {
-		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+	if err := commits.List(commitInfo, col.DefaultOptions(), func() error {
+		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return err

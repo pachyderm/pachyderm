@@ -78,10 +78,10 @@ func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index,
 	}
 }
 
-func (c *etcdCollection) ReadWrite(stm STM) ReadWriteCollection {
+func (c *etcdCollection) ReadWrite(stm interface{}) ReadWriteCollection {
 	return &etcdReadWriteCollection{
 		etcdCollection: c,
-		stm:            stm,
+		stm:            stm.(STM),
 	}
 }
 
@@ -397,16 +397,18 @@ func (c *etcdReadWriteCollection) Delete(key string) error {
 	return nil
 }
 
-func (c *etcdReadWriteCollection) DeleteAll() {
+func (c *etcdReadWriteCollection) DeleteAll() error {
 	// Delete indexes
 	for _, index := range c.indexes {
 		c.stm.DelAll(c.indexRoot(index))
 	}
 	c.stm.DelAll(c.prefix)
+	return nil
 }
 
-func (c *etcdReadWriteCollection) DeleteAllPrefix(prefix string) {
+func (c *etcdReadWriteCollection) DeleteAllPrefix(prefix string) error {
 	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
+	return nil
 }
 
 type etcdReadOnlyCollection struct {
@@ -443,7 +445,7 @@ func (c *etcdReadOnlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
@@ -460,7 +462,7 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, 
 			}
 			return err
 		}
-		return f(key)
+		return f()
 	})
 }
 
@@ -505,7 +507,7 @@ func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 // ListPrefix returns keys (and values) that begin with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
+func (c *etcdReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/ListPrefix", "col", c.prefix, "prefix", prefix)
 	defer tracing.FinishAnySpan(span)
 	queryPrefix := c.prefix
@@ -518,15 +520,16 @@ func (c *etcdReadOnlyCollection) ListPrefix(prefix string, val proto.Message, op
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
-		return f(strings.TrimPrefix(string(kv.Key), queryPrefix))
+		return f()
 	})
 }
 
-// List returns objects sorted based on the options passed in. f will be called with each key, val will contain the
-// corresponding value. Val is not an argument to f because that would require
-// f to perform a cast before it could be used.
+// List returns objects sorted based on the options passed in. f will be called
+// for each item, val will contain the corresponding value. Val is not an
+// argument to f because that would require f to perform a cast before it could
+// be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -536,7 +539,7 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(k
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
-		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
+		return f()
 	})
 }
 

@@ -101,6 +101,7 @@ func withWorkerSpawnerPair(db *sqlx.DB, pipelineInfo *pps.PipelineInfo, cb func(
 		// Put the pipeline info into etcd (which is read by the master)
 		if _, err = env.driver.NewSTM(func(stm col.STM) error {
 			etcdPipelineInfo := &pps.EtcdPipelineInfo{
+				Pipeline:    pipelineInfo.Pipeline,
 				State:       pps.PipelineState_PIPELINE_STARTING,
 				SpecCommit:  pipelineInfo.SpecCommit,
 				Parallelism: 1,

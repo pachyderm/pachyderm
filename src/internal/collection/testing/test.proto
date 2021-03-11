@@ -3,8 +3,10 @@ syntax = "proto3";
 package common;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/collection/testing";
 
+import "gogoproto/gogo.proto";
+
 message Foo {
-  string id = 1;
+  string id = 1 [(gogoproto.customname) = "ID"];
   string name = 2;
   string value = 3;
 }

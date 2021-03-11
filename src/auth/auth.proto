@@ -86,6 +86,8 @@ message TokenInfo {
     GET_TOKEN = 2;  // returned by GetToken()--revokeable.
   }
   TokenSource source = 2;
+
+  string hash = 3;
 }
 
 //// Authentication API
@@ -172,6 +174,7 @@ message Users {
 
 message Groups {
   map<string, bool> groups = 1;
+  string username = 2;
 }
 
 //// Authorization API

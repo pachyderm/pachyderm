@@ -19,7 +19,7 @@ type Collection interface {
 	// invalidated at the end of the transaction.  Basically, it's
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
-	ReadWrite(stm STM) ReadWriteCollection
+	ReadWrite(interface{}) ReadWriteCollection
 	// For read-only operatons, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) ReadOnlyCollection
 	// Claim attempts to claim a key and run the passed in callback with
@@ -78,22 +78,22 @@ type ReadWriteCollection interface {
 	Upsert(key string, val proto.Message, f func() error) error
 	Create(key string, val proto.Message) error
 	Delete(key string) error
-	DeleteAll()
-	DeleteAllPrefix(prefix string)
+	DeleteAll() error
+	DeleteAllPrefix(prefix string) error
 }
 
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
+	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
-	List(val proto.Message, opts *Options, f func(key string) error) error
+	List(val proto.Message, opts *Options, f func() error) error
 	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
-	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
+	ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error
 	Count() (int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error

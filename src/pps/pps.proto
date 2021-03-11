@@ -390,6 +390,7 @@ message EtcdPipelineInfo {
   // k8s privileges and without knowing the number of cluster nodes in the
   // Coefficient case.
   uint64 parallelism = 7;
+  Pipeline pipeline = 8;
 }
 
 message PipelineInfo {
