@@ -875,7 +875,10 @@ func (a *apiServer) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRe
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	subject := auth.RobotPrefix + req.Robot
+	subject := req.Robot
+	if !strings.HasPrefix(subject, auth.RobotPrefix) {
+		subject = auth.RobotPrefix + subject
+	}
 
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,
