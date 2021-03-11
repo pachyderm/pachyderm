@@ -35,6 +35,7 @@ For more detailed step by step instructions, follow this [documentation](https:/
 1. Click **Create**.
 1. Type the name of your application, such as **Pachyderm**.
 1. Add the following Login redirect URI. 
+
       ```shell
       http://<ip>:657/authorization-code/callback
       ```

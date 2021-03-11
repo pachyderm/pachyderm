@@ -59,7 +59,7 @@ authentication file:
 | `dash_url`         | The public URL of the Pachyderm dashboard. <br> For example, `https://localhost:30080`. |
 | `session_duration` | The length of a user session in hours (h) or <br> minutes (m). For example, `8h`. If left blank 24 hours session is <br> configured by default. |
 
-[View a sample config](../saml/saml_setup/#write-pachyderm-config)
+[View a sample config](../saml/index/#write-pachyderm-config)
 
 ## OIDC Authentication Parameters
 
