@@ -14,19 +14,19 @@ You need to complete the following steps to deploy Pachyderm:
 
 Pachyderm requires the following types of persistent storage:
 
-An S3 object store bucket for data. The S3 bucket name
- must be globally unique across the whole
- Amazon region. Therefore, add a descriptive prefix to the S3 bucket
- name, such as your username.
+1. An S3 object store bucket for data. The S3 bucket name
+  must be globally unique across the whole
+  Amazon region. Therefore, add a descriptive prefix to the S3 bucket
+  name, such as your username.
 
-An Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm metadata.
-Pachyderm recommends that you assign at least 10 GB of space and at least 1500
-IOPS (which requires provisioning at least 500 GB of space on gp2 volumes, the
-default [volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html))
-for this persistent EBS volume. If you expect your cluster to be very long
-running or scale to thousands of jobs per commits, you might need to go add
-more storage.  However, you can easily increase the size of the persistent
-volume later.
+1. An Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm metadata.
+  Pachyderm recommends that you assign at least 10 GB of space and at least 1500
+  IOPS (which requires provisioning at least 500 GB of space on gp2 volumes, the
+  default [volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html))
+  for this persistent EBS volume. If you expect your cluster to be very long
+  running or scale to thousands of jobs per commits, you might need to go add
+  more storage.  However, you can easily increase the size of the persistent
+  volume later.
 
 To add stateful storage, complete the following steps:
 
