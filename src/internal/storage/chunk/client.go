@@ -40,6 +40,7 @@ func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, name string) Clien
 	}
 	c := &trackedClient{
 		store:   store,
+		db:      db,
 		tracker: tr,
 		renewer: renewer,
 		ttl:     defaultChunkTTL,
@@ -50,6 +51,9 @@ func NewClient(store kv.Store, db *sqlx.DB, tr track.Tracker, name string) Clien
 // Create creates a new chunk from metadata and chunkData.
 // It returns the ID for the chunk
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
+	if c.renewer == nil {
+		panic("client must be named to create chunks")
+	}
 	chunkID := Hash(chunkData)
 	var pointsTo []string
 	for _, cid := range md.PointsTo {
@@ -64,7 +68,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		}
 		var ents []Entry
 		if err := tx.Select(&ents, `
-		SELECT hash_id, gen
+		SELECT chunk_id, gen
 		FROM storage.chunk_objects
 		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1`, chunkID); err != nil {
 			return err
@@ -91,14 +95,16 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if !needUpload {
 		return chunkID, nil
 	}
-	// TODO: need to check for existence of specific objects.
 	key := chunkKey(chunkID, gen)
-	if exists, err := c.store.Exists(ctx, key); err != nil {
-		return nil, err
-	} else if exists {
-		return chunkID, nil
-	}
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
+		return nil, err
+	}
+	_, err := c.db.Exec(`
+	UPDATE storage.chunk_objects
+	SET uploaded = TRUE
+	WHERE chunk_id = $1 AND gen = $2
+	`, chunkID, gen)
+	if err != nil {
 		return nil, err
 	}
 	return chunkID, nil
@@ -110,7 +116,7 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 	err := c.db.Get(&gen, `
 	SELECT gen
 	FROM storage.chunk_objects
-	WHERE chunk_id = %1
+	WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1
 	LIMIT 1
 	`, chunkID)
 	if err != nil {
@@ -133,7 +139,7 @@ func chunkPath(chunkID ID, gen uint64) string {
 	if len(chunkID) == 0 {
 		panic("chunkID cannot be empty")
 	}
-	return path.Join(prefix, fmt.Sprintf("%s.%016x", chunkID, gen))
+	return path.Join(prefix, fmt.Sprintf("%s.%016x", chunkID.HexString(), gen))
 }
 
 func chunkKey(chunkID ID, gen uint64) []byte {
@@ -142,8 +148,7 @@ func chunkKey(chunkID ID, gen uint64) []byte {
 
 var _ track.Deleter = &deleter{}
 
-type deleter struct {
-}
+type deleter struct{}
 
 func (d *deleter) DeleteTx(tx *sqlx.Tx, id string) error {
 	if !strings.HasPrefix(id, prefix+"/") {
