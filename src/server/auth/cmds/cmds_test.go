@@ -21,7 +21,8 @@ import (
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, user string) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	token, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{Subject: user})
+	robot := strings.TrimPrefix(user, auth.RobotPrefix)
+	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
 	config.WritePachTokenToConfig(token.Token)
 }

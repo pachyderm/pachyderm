@@ -893,9 +893,9 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("r2d2"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("r2d2")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
@@ -903,7 +903,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 
 	who, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robotUser, who.Username)
+	require.Equal(t, robot(robotUser), who.Username)
 	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
 }
 
@@ -917,9 +917,9 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("voltron"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("voltron")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
@@ -928,10 +928,10 @@ func TestRobotUserACL(t *testing.T) {
 	// robotUser creates a repo and adds alice as a writer
 	repo := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, robotClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robotUser, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robot(robotUser), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	// test that alice can commit to the robot user's repo
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -942,8 +942,8 @@ func TestRobotUserACL(t *testing.T) {
 	repo2 := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(repo2))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo2))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robotUser, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robotUser, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo2, robot(robotUser), []string{auth.RepoWriterRole}))
+	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot(robotUser), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
 
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(repo2, "master")
@@ -967,25 +967,25 @@ func TestRobotUserAdmin(t *testing.T) {
 	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := robot(tu.UniqueString("bender"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(),
-		&auth.GetAuthTokenRequest{Subject: robotUser})
+	robotUser := tu.UniqueString("bender")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
+		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	// copy client & use resp token
 	robotClient := rootClient.WithCtx(context.Background())
 	robotClient.SetAuthToken(resp.Token)
 
 	// make robotUser an admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(robotUser, []string{auth.ClusterAdminRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(robot(robotUser), []string{auth.ClusterAdminRole}))
 	// wait until robotUser shows up in admin list
 	bindings, err := rootClient.GetClusterRoleBinding()
 	require.NoError(t, err)
-	require.Equal(t, buildClusterBindings(robotUser, auth.ClusterAdminRole), bindings)
+	require.Equal(t, buildClusterBindings(robot(robotUser), auth.ClusterAdminRole), bindings)
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := robot(tu.UniqueString("robocop"))
-	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: robotUser2,
+	robotUser2 := tu.UniqueString("robocop")
+	resp, err = robotClient.GetRobotToken(robotClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: robotUser2,
 	})
 	require.NoError(t, err)
 	require.NotEqual(t, "", resp.Token)
@@ -1000,9 +1000,9 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, robotClient.FinishCommit(repo, commit.ID))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
-	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, buildBindings(robotUser2, auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
+	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
@@ -1127,9 +1127,9 @@ func TestTokenRevoke(t *testing.T) {
 	repo := tu.UniqueString("TestTokenRevoke")
 	require.NoError(t, rootClient.CreateRepo(repo))
 
-	alice := robot(tu.UniqueString("alice"))
-	resp, err := rootClient.GetAuthToken(rootClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: alice,
+	alice := tu.UniqueString("alice")
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: alice,
 	})
 	require.NoError(t, err)
 	aliceClient := rootClient.WithCtx(context.Background())
