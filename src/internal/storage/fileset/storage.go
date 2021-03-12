@@ -303,7 +303,7 @@ func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Du
 	}
 	var pointsTo []string
 	for _, chunkID := range prim.PointsTo() {
-		pointsTo = append(pointsTo, chunk.ObjectID(chunkID))
+		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
 	err := dbutil.WithTx(ctx, s.store.DB(), func(tx *sqlx.Tx) error {
 		if err := s.store.SetTx(tx, id, md); err != nil {
