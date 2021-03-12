@@ -455,11 +455,6 @@ func NewForTest() (*APIClient, error) {
 
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
-//
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
-// pachyderm client library incompatible with Windows. We may want to move this
-// (and similar) logic into src/server and have it call a NewFromOptions()
-// constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
@@ -469,7 +464,29 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
 
+// NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary to communicate with the
+// enterprise server.
+func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+	return newOnUserMachine(cfg, context, prefix, options...)
+}
+
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
+func newOnUserMachine(cfg *config.Config, context *config.Context, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
