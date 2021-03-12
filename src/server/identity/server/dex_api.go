@@ -170,7 +170,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 
 	if err := storage.CreateConnector(conn); err != nil {
 		if errors.Is(err, dex_storage.ErrAlreadyExists) {
-			return nil, identity.ErrAlreadyExists
+			return identity.ErrAlreadyExists
 		}
 		return err
 	}

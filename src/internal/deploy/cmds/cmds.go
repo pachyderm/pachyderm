@@ -1484,8 +1484,18 @@ func addOIDCClient(c *client.APIClient, clientID, redirectURI string) (string, s
 		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the OIDC config for pachd")
 	}
 
-	pachdClient.Client.TrustedPeers = append(pachdClient.Client.TrustedPeers, clientID)
-	if _, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: pachdClient.Client}); err != nil {
+	if err := func() error {
+		// If the client ID is already a trusted peer, don't add  it again
+		for _, peer := range pachdClient.Client.TrustedPeers {
+			if peer == clientID {
+				return nil
+			}
+		}
+
+		pachdClient.Client.TrustedPeers = append(pachdClient.Client.TrustedPeers, clientID)
+		_, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: pachdClient.Client})
+		return err
+	}(); err != nil {
 		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not update OIDC config for pachd")
 	}
 
