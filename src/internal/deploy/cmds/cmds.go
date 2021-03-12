@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -68,14 +69,8 @@ access, you can check progress with:
 
   kubectl get pod -l release=pachyderm-ide
 
-Once all of the pods are in the 'Ready' status, you can access the IDE in the
-following manners:
-
-* If you're on docker for mac, it should be accessible on 'localhost'.
-* If you're on minikube, run 'minikube service proxy-public --url' -- one or
-  both of the URLs printed should reach the IDE.
-* If you're on a cloud deployment, use the external IP of
-  'kubectl get service proxy-public'.
+Once all of the pods are in the 'Ready' status, you can access the IDE
+by running 'pachctl port-forward' and visiting 'localhost:30659'
 
 For more information about the Pachyderm IDE, see these resources:
 
@@ -1079,6 +1074,8 @@ func Cmds() []*cobra.Command {
 	var jupyterhubChartVersion string
 	var hubImage string
 	var userImage string
+	var clientID string
+	var internalIDAddr, idAddr, ideAddr string
 	deployIDE := &cobra.Command{
 		Short: "Deploy the Pachyderm IDE.",
 		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
@@ -1133,6 +1130,11 @@ func Cmds() []*cobra.Command {
 				}
 			}
 
+			pachdClientID, clientSecret, err := addOIDCClient(c, clientID, ideAddr+"/hub/oauth_callback")
+			if err != nil {
+				return err
+			}
+
 			hubImageName, hubImageTag := docker.ParseRepositoryTag(hubImage)
 			userImageName, userImageTag := docker.ParseRepositoryTag(userImage)
 
@@ -1142,8 +1144,10 @@ func Cmds() []*cobra.Command {
 						"name": hubImageName,
 						"tag":  hubImageTag,
 					},
-					"extraConfig": map[string]interface{}{
-						"templates": "c.JupyterHub.template_paths = ['/app/templates']",
+					"extraEnv": map[string]interface{}{
+						"OAUTH2_AUTHORIZE_URL": idAddr + "/auth",
+						"OAUTH2_TOKEN_URL":     internalIDAddr + "/token",
+						"OAUTH_CALLBACK_URL":   ideAddr + "/hub/oauth_callback",
 					},
 				},
 				"singleuser": map[string]interface{}{
@@ -1153,6 +1157,12 @@ func Cmds() []*cobra.Command {
 					},
 					"defaultUrl": "/lab",
 				},
+				"proxy": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"suite": "pachyderm",
+					},
+					"secretToken": generateSecureToken(16),
+				},
 				"auth": map[string]interface{}{
 					"state": map[string]interface{}{
 						"enabled":   true,
@@ -1161,13 +1171,19 @@ func Cmds() []*cobra.Command {
 					"type": "custom",
 					"custom": map[string]interface{}{
 						"className": "pachyderm_authenticator.PachydermAuthenticator",
+						"config": map[string]interface{}{
+							"enable_auth_state": true,
+							"client_id":         clientID,
+							"client_secret":     clientSecret,
+							"token_url":         internalIDAddr + "/token",
+							"userdata_url":      internalIDAddr + "/userinfo",
+							"scope":             []string{"openid", "email", "audience:server:client_id:" + pachdClientID},
+							"username_key":      "email",
+						},
 					},
 					"admin": map[string]interface{}{
 						"users": []string{whoamiResp.Username},
 					},
-				},
-				"proxy": map[string]interface{}{
-					"secretToken": generateSecureToken(16),
 				},
 			}
 
@@ -1214,6 +1230,10 @@ func Cmds() []*cobra.Command {
 	deployIDE.Flags().StringVar(&jupyterhubChartVersion, "jupyterhub-chart-version", "", "Version of the underlying Zero to JupyterHub with Kubernetes helm chart to use. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&hubImage, "hub-image", "", "Image for IDE hub. By default this value is automatically derived.")
 	deployIDE.Flags().StringVar(&userImage, "user-image", "", "Image for IDE user environments. By default this value is automatically derived.")
+	deployIDE.Flags().StringVar(&clientID, "client-id", "ide", "The OIDC client ID for the IDE.")
+	deployIDE.Flags().StringVar(&internalIDAddr, "internal-id-server", "http://pachd:658", "The web address where the identity server can be reached from within the cluster.")
+	deployIDE.Flags().StringVar(&idAddr, "id-server", "http://localhost:30658", "The web address where the identity server can be reached from the client machine.")
+	deployIDE.Flags().StringVar(&ideAddr, "ide-address", "http://localhost:30659", "The web address where the IDE can be reached from the client machine.")
 	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
@@ -1450,4 +1470,43 @@ func getCompatibleVersion(displayName, subpath, defaultValue string) string {
 	}
 	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
 	return latestVersion
+}
+
+// addOIDCClient registers a new OIDC client for the app, and makes it a trusted peer of this app.
+// If the client already exists, it will return the existing client secret.
+func addOIDCClient(c *client.APIClient, clientID, redirectURI string) (string, string, error) {
+	authConfig, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
+	if err != nil {
+		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get auth configuration")
+	}
+	pachdClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: authConfig.Configuration.ClientID})
+	if err != nil {
+		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the OIDC config for pachd")
+	}
+
+	pachdClient.Client.TrustedPeers = append(pachdClient.Client.TrustedPeers, clientID)
+	if _, err = c.UpdateOIDCClient(c.Ctx(), &identity.UpdateOIDCClientRequest{Client: pachdClient.Client}); err != nil {
+		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not update OIDC config for pachd")
+	}
+
+	existingOIDCClient, err := c.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: clientID})
+	if err == nil {
+		if len(existingOIDCClient.Client.RedirectUris) != 1 || existingOIDCClient.Client.RedirectUris[0] != redirectURI {
+			return "", "", errors.New("another client is already registered with this ID")
+		}
+		return authConfig.Configuration.ClientID, existingOIDCClient.Client.Secret, nil
+	}
+
+	oidcClient, err := c.CreateOIDCClient(c.Ctx(), &identity.CreateOIDCClientRequest{
+		Client: &identity.OIDCClient{
+			Id:           clientID,
+			Name:         clientID,
+			RedirectUris: []string{redirectURI},
+		},
+	})
+
+	if err != nil {
+		return "", "", errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create new OIDC client")
+	}
+	return authConfig.Configuration.ClientID, oidcClient.Client.Secret, nil
 }
