@@ -104,6 +104,9 @@ func Cmds() []*cobra.Command {
 			if _, ok := cfg.V2.Contexts[args[0]]; !ok {
 				return errors.Errorf("context does not exist: %s", args[0])
 			}
+			if cfg.V2.ActiveContext == cfg.V2.ActiveEnterpriseContext {
+				cfg.V2.ActiveEnterpriseContext = args[0]
+			}
 			cfg.V2.ActiveContext = args[0]
 			return cfg.Write()
 		}),
