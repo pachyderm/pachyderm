@@ -8,12 +8,12 @@ which providers support user and group authentication:
 | Provider        | Users           | Groups          |
 | --------------- | --------------- | --------------- |
 | GitHub          | &#10004;        | X               |
-| Okta (SAML)     | &#10004;        | &#10004;        |
 | Otka (OIDC)     | &#10004;        | &#10004;        |
 | Keycloak (OIDC) | &#10004;        | &#10004;        |
 | Keycloak (SAML) | &#10004;        | &#10004;        |
 | Google (OIDC)   | &#10004;        | X               | 
 | Auth0 (OIDC)    | &#10004;        | X               |
+| Auth0 (SAML)    | &#10004;        | X               |
 
 ## Configure User Access
 
@@ -148,4 +148,4 @@ To configure groups in OIDC providers, you need to add the `groups` scope to
 
 
 !!! note "See also"
-    [Configure a SAML User](saml/saml.md)
+    [Configure a SAML User](saml/index.md)

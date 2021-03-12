@@ -11,7 +11,7 @@ Pachyderm cluster.
 Then, the `admin` user can configure Pachyderm to work with
 a identity management provider (IdP) of your choice.
 
-If you want to configure a SAML IdP, such as Okta, you need
+If you want to configure a SAML IdP, such as Auth0, you need
 to create an initial robot admin account by using the
 `--initial-admin=robot:<user>` flag.
 

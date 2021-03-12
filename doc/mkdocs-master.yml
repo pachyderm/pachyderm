@@ -405,11 +405,11 @@ nav:
             - Manage Users and Groups: enterprise/auth/manage-users-groups.md
             - Manage Authentication Config: enterprise/auth/auth-config.md
             - Configure a SAML Provider:
-              - Overview: enterprise/auth/saml/saml.md
-              - Configure SAML: enterprise/auth/saml/saml_setup.md
+              - Configure SAML: enterprise/auth/saml/index.md
               - Use SAML: enterprise/auth/saml/saml_usage.md
             - Configure an OIDC Provider:
               - Overview: enterprise/auth/oidc/index.md
+              - Configure Pachyderm with Okta: enterprise/auth/oidc/configure-with-okta.md
               - Configure Pachyderm with Keycloak: enterprise/auth/oidc/configure-keycloak.md
               - Configure Pachyderm with Auth0: enterprise/auth/oidc/configure-auth0.md
               - Configure Pachyderm with Google OAuth 2.0: enterprise/auth/oidc/configure-google-oidc.md
