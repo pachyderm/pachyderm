@@ -1085,13 +1085,6 @@ func Cmds() []*cobra.Command {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get the current logged in user")
 			}
 
-			authTokenResp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
-				Subject: whoamiResp.Username,
-			})
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get an auth token")
-			}
-
 			if jupyterhubChartVersion == "" {
 				jupyterhubChartVersion = getCompatibleVersion("jupyterhub", "/jupyterhub", defaultIDEChartVersion)
 			}
@@ -1133,9 +1126,6 @@ func Cmds() []*cobra.Command {
 					"type": "custom",
 					"custom": map[string]interface{}{
 						"className": "pachyderm_authenticator.PachydermAuthenticator",
-						"config": map[string]interface{}{
-							"pach_auth_token": authTokenResp.Token,
-						},
 					},
 					"admin": map[string]interface{}{
 						"users": []string{whoamiResp.Username},

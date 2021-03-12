@@ -16,7 +16,7 @@ func (c APIClient) IsAuthActive() (bool, error) {
 	case auth.IsErrNotActivated(err):
 		return false, nil
 	default:
-		return false, grpcutil.ScrubGRPC(err)
+		return true, grpcutil.ScrubGRPC(err)
 	}
 }
 
