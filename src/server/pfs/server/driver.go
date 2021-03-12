@@ -117,7 +117,7 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		return nil, err
 	}
 	memCache := env.ChunkMemoryCache()
-	chunkStorage := chunk.NewStorage(objClient, memCache, chunk.NewPostgresStore(db), tracker, chunkStorageOpts...)
+	chunkStorage := chunk.NewStorage(objClient, memCache, db, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
 	d.compactionQueue, err = work.NewTaskQueue(context.Background(), etcdClient, etcdPrefix, storageTaskNamespace)

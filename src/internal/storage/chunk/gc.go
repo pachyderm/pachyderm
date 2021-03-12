@@ -13,6 +13,11 @@ type GarbageCollector struct {
 	s *Storage
 }
 
+// NewGC returns a new garbage collector operating on s
+func NewGC(s *Storage) *GarbageCollector {
+	return &GarbageCollector{s: s}
+}
+
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
 func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 	ticker := time.NewTicker(time.Minute)
@@ -38,7 +43,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	rows, err := gc.s.db.QueryContext(ctx, `
 	SELECT chunk_id, gen, uploaded FROM storage.chunk_objects
-	WHERE tombstoned = true
+	WHERE tombstone = true
 	`)
 	if err != nil {
 		return err
