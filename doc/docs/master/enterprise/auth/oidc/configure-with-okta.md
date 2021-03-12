@@ -35,7 +35,6 @@ For more detailed step by step instructions, follow this [documentation](https:/
 1. Click **Create**.
 1. Type the name of your application, such as **Pachyderm**.
 1. Add the following Login redirect URI. 
-
       ```shell
       http://<ip>:657/authorization-code/callback
       ```
@@ -44,6 +43,7 @@ For more detailed step by step instructions, follow this [documentation](https:/
       The IP address is the address of your Pachyderm host. For example,
       if you are running Pachyderm in Minikube, you can find the IP
       address by running `minikube ip`.
+
 1. Click **Save**
 1. Click **Edit** to change the General Settings pane. In the Allowed grant types section, enable **Implicit**, **Authorization Code**, **Refresh Token**, and **Client Credentials**.
 1. Click **Save**

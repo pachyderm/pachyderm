@@ -7,49 +7,46 @@ Pachyderm cluster and connect it to a SAML ID provider.
 We will then authenticate as a **cluster admin** in one console and run our [open CV
 demo](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/README.md).
 
-In the CLI, that would look like:
+- In the CLI, that would look like:
 
     ```shell
-        $ pachctl auth use-auth-token
+    $ pachctl auth use-auth-token
     ```
 
     **System response:**
-
     ```
-        Please paste your Pachyderm auth token:
-        <auth token>
+    Please paste your Pachyderm auth token:
+    <auth token>
     ```
 
     ```shell
-        $ pachctl auth whoami
+    $ pachctl auth whoami
     ```
 
     **System response:**
-
     ```
-        You are "robot:admin"
-        You are an administrator of this Pachyderm cluster
+    You are "robot:admin"
+    You are an administrator of this Pachyderm cluster
     ```
 
-As the **cluster admin**, create a repository, pipelines, and put files into the
+- As the **cluster admin**, create a repository, pipelines, and put files into the
 repository.
 
     ```shell
-        $ pachctl create repo images
-        $ pachctl create pipeline -f examples/opencv/edges.json
-        $ pachctl create pipeline -f examples/opencv/montage.json
-        $ pachctl put file images@master -i examples/opencv/images.txt
-        $ pachctl put file images@master -i examples/opencv/images2.txt
+    $ pachctl create repo images
+    $ pachctl create pipeline -f examples/opencv/edges.json
+    $ pachctl create pipeline -f examples/opencv/montage.json
+    $ pachctl put file images@master -i examples/opencv/images.txt
+    $ pachctl put file images@master -i examples/opencv/images2.txt
     ```
 
-View the list of existing repositories:
+    View the list of existing repositories:
 
     ```shell
     $ pachctl list repo
     ```
 
     **System response:**
-
     ```
     NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
     montage 2 minutes ago 1.653MiB      OWNER
@@ -57,14 +54,13 @@ View the list of existing repositories:
     images  2 minutes ago 238.3KiB      OWNER
     ```
 
-And the list of jobs:
+    ... And the list of jobs:
 
     ```shell
     $ pachctl list job
     ```
 
     **System response:**
-
     ```shell
     ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
     023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
