@@ -49,8 +49,7 @@ What the `--initial-admin` flag does:
     ```
 
     **System response:**
-
-    ```shell
+   ```shell
     You are "robot:admin"
     You are an administrator of this Pachyderm cluster
     ```
@@ -72,13 +71,11 @@ follow this [documentation](https://auth0.com/learn/saml-identity-provider/).
 1. Navigate to **Applications** on the dashboard, choose your type of application,
 click on the **Addons** tab.
 1. Follow those [instructions](https://auth0.com/docs/protocols/saml-protocol/configure-auth0-as-saml-identity-provider#configure-auth0-as-idp)
-
 1. set your **Application Callback URL** (enter the URL of Pachyderm to which the SAML assertions should be sent after Auth0 has authenticated the user)
    ```shell
    http://<ip>:657/authorization-code/callback
    ```
    Note: Your port number should be whatever is routing to pachd:657.
-
    The IP address is the address of your Pachyderm host. For example,
    if you are running Pachyderm in Minikube, you can find the IP
    address by running `minikube ip`.

@@ -47,7 +47,7 @@ authentication file:
 
 | Parameter        | Description                          |
 | ---------------- | ------------------------------------ |
-| `name`           | The name of the SAML provider. For example, `okta`. <br> This name is used as a prefix for all usernames derived <br> from the identity  provider. For example, <br> `okta:test@pachyderm.com`. |
+| `name`           | The name of the SAML provider. For example, `auth0`. <br> This name is used as a prefix for all usernames derived <br> from the identity  provider. For example, <br> `auth0:test@pachyderm.com`. |
 | `description`    | An optional description of the identity provider. |
 | `saml`           | A list of parameters related to the SAML provider <br> configuration. |
 | `metadata_url`   | A URL of the SAML provider metadata service. |
