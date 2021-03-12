@@ -222,7 +222,7 @@ func findEquivalentContext(cfg *config.Config, to *config.Context) (string, *con
 	return "", nil
 }
 
-func contextCreate(namePrefix, namespace, serverCert string) error {
+func contextCreate(namePrefix, namespace, serverCert string, enterpriseServer bool) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
 		return err
@@ -266,7 +266,16 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 	}
 
 	cfg.V2.Contexts[newContextName] = newContext
-	cfg.V2.ActiveContext = newContextName
+	if enterpriseServer {
+		cfg.V2.ActiveEnterpriseContext = newContextName
+	} else {
+		// If the user deploys a pachd and they don't have an enterprise server, they probably want
+		// a single-server deployment. Default to using the new pachd as the enterprise server as well.
+		if cfg.V2.ActiveEnterpriseContext == "" {
+			cfg.V2.ActiveEnterpriseContext = newContextName
+		}
+		cfg.V2.ActiveContext = newContextName
+	}
 	return cfg.Write()
 }
 
@@ -572,7 +581,7 @@ func standardDeployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -628,7 +637,7 @@ func standardDeployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -689,7 +698,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -826,7 +835,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
@@ -890,7 +899,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert, enterpriseServer); err != nil {
 					return err
 				}
 			}
