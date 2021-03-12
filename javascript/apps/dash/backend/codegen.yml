@@ -6,6 +6,7 @@ generates:
         PipelineState: \@pachyderm/proto/pb/pps/pps_pb#PipelineState
         JobState: \@pachyderm/proto/pb/pps/pps_pb#JobState
         ProjectStatus: \@pachyderm/proto/pb/projects/projects_pb#ProjectStatus
+        FileType: \@pachyderm/proto/pb/pfs/pfs_pb#FileType
       contextType: \@dash-backend/lib/types#Context
       useIndexSignature: true
     hooks:

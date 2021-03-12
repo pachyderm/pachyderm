@@ -147,6 +147,28 @@ type Project {
   createdAt: Int!
 }
 
+enum FileType {
+  RESERVED
+  DIR
+  FILE
+}
+
+type File {
+  commitId: String!
+  download: String!
+  hash: String!
+  path: String!
+  repoName: String!
+  sizeBytes: Float!
+  type: FileType!
+}
+
+input FileQueryArgs {
+  commitId: String
+  path: String
+  repoName: String!
+}
+
 type Query {
   projects: [Project!]!
   pipelines: [Pipeline!]!
@@ -154,6 +176,7 @@ type Query {
   jobs: [Job!]!
   dag(args: DagQueryArgs!): Dag!
   dags(args: DagQueryArgs!): [Dag!]!
+  files(args: FileQueryArgs!): [File!]!
 }
 
 type Mutation {

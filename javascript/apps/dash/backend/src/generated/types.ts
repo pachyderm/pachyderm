@@ -3,6 +3,7 @@
 /* eslint-disable import/no-duplicates */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import {FileType} from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {PipelineState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {JobState} from '@pachyderm/proto/pb/pps/pps_pb';
 import {ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
@@ -162,6 +163,25 @@ export type Project = {
   createdAt: Scalars['Int'];
 };
 
+export {FileType};
+
+export type File = {
+  __typename?: 'File';
+  commitId: Scalars['String'];
+  download: Scalars['String'];
+  hash: Scalars['String'];
+  path: Scalars['String'];
+  repoName: Scalars['String'];
+  sizeBytes: Scalars['Float'];
+  type: FileType;
+};
+
+export type FileQueryArgs = {
+  commitId?: Maybe<Scalars['String']>;
+  path?: Maybe<Scalars['String']>;
+  repoName: Scalars['String'];
+};
+
 export type Query = {
   __typename?: 'Query';
   projects: Array<Project>;
@@ -170,6 +190,7 @@ export type Query = {
   jobs: Array<Job>;
   dag: Dag;
   dags: Array<Dag>;
+  files: Array<File>;
 };
 
 export type QueryDagArgs = {
@@ -178,6 +199,10 @@ export type QueryDagArgs = {
 
 export type QueryDagsArgs = {
   args: DagQueryArgs;
+};
+
+export type QueryFilesArgs = {
+  args: FileQueryArgs;
 };
 
 export type Mutation = {
@@ -331,6 +356,10 @@ export type ResolversTypes = ResolversObject<{
   Dag: ResolverTypeWrapper<Dag>;
   DagQueryArgs: DagQueryArgs;
   Project: ResolverTypeWrapper<Project>;
+  FileType: FileType;
+  File: ResolverTypeWrapper<File>;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
+  FileQueryArgs: FileQueryArgs;
   Query: ResolverTypeWrapper<{}>;
   Mutation: ResolverTypeWrapper<{}>;
 }>;
@@ -355,6 +384,9 @@ export type ResolversParentTypes = ResolversObject<{
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   Project: Project;
+  File: File;
+  Float: Scalars['Float'];
+  FileQueryArgs: FileQueryArgs;
   Query: {};
   Mutation: {};
 }>;
@@ -599,6 +631,25 @@ export type ProjectResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type FileTypeResolvers = EnumResolverSignature<
+  {RESERVED?: any; DIR?: any; FILE?: any},
+  ResolversTypes['FileType']
+>;
+
+export type FileResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File']
+> = ResolversObject<{
+  commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  download?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']
@@ -626,6 +677,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryDagsArgs, 'args'>
+  >;
+  files?: Resolver<
+    Array<ResolversTypes['File']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryFilesArgs, 'args'>
   >;
 }>;
 
@@ -658,6 +715,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Link?: LinkResolvers<ContextType>;
   Dag?: DagResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
+  FileType?: FileTypeResolvers;
+  File?: FileResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
 }>;

@@ -4,10 +4,10 @@ import flatten from 'lodash/flatten';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 
-import {NodeType, QueryResolvers} from '@graphqlTypes';
 import client from '@dash-backend/grpc/client';
 import disconnectedComponents from '@dash-backend/lib/disconnectedComponents';
 import {LinkInputData, Vertex} from '@dash-backend/lib/types';
+import {NodeType, QueryResolvers} from '@graphqlTypes';
 
 interface DagResolver {
   Query: {

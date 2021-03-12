@@ -1,4 +1,5 @@
 import {gql, useApolloClient, useMutation, useQuery} from '@apollo/client';
+import Cookies from 'js-cookie';
 import {useCallback, useEffect} from 'react';
 
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
@@ -17,6 +18,8 @@ export const LOGGED_IN_QUERY = gql`
     loggedIn @client
   }
 `;
+
+const COOKIE_EXPIRES = 365; // TODO: align with api token expiry
 
 const useAuth = () => {
   const client = useApolloClient();
@@ -42,6 +45,24 @@ const useAuth = () => {
   useEffect(() => {
     if (codeMutationData) {
       window.localStorage.setItem('auth-token', codeMutationData.exchangeCode);
+
+      // We need these cookies to enable file downloads and previews
+      Cookies.set(
+        'dashAuthToken',
+        window.localStorage.getItem('auth-token') || '',
+        {
+          expires: COOKIE_EXPIRES,
+          httpOnly: true,
+          sameSite: 'strict',
+          secure: true,
+        },
+      );
+      Cookies.set('dashAddress', process.env.REACT_APP_PACHD_ADDRESS || '', {
+        expires: COOKIE_EXPIRES,
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: true,
+      });
 
       client.writeQuery({
         query: LOGGED_IN_QUERY,

@@ -8,8 +8,8 @@ import resolvers from '@dash-backend/resolvers';
 const gqlServer = new ApolloServer({
   context: ({req}) => {
     return {
-      authToken: req.headers['auth-token'],
-      pachdAddress: req.headers['pachd-address'],
+      authToken: req.header('auth-token'),
+      pachdAddress: req.header('pachd-address'),
     };
   },
   // TODO: Maybe move this and add global error messaging

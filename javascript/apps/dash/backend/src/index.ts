@@ -1,11 +1,13 @@
 import {Server} from 'http';
-import path from 'path';
 import {AddressInfo} from 'net';
+import path from 'path';
 
+import cookieParser from 'cookie-parser';
 import {renderFile} from 'ejs';
 import express, {Express} from 'express';
 
 import gqlServer from '@dash-backend/gqlServer';
+import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import {isTest} from '@dash-backend/lib/isTest';
 
 const PORT = process.env.PORT || '3000';
@@ -35,6 +37,10 @@ const attachWebServer = (app: Express) => {
 
   // eslint-disable-next-line import/no-named-as-default-member
   app.use(express.static(FE_BUILD_DIRECTORY));
+
+  app.use(cookieParser());
+
+  app.get('/download/:repoName/:commitId/*', handleFileDownload);
 
   app.get('/*', (_, res) => {
     res.render('index.html', {

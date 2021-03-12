@@ -6,7 +6,7 @@ import pfs from './services/pfs';
 import pps from './services/pps';
 import projects from './services/projects';
 
-const client = (address: string, authToken = '', projectId = '') => {
+const client = (address = '', authToken = '', projectId = '') => {
   const channelCredentials = createCredentials(address);
 
   const credentialMetadata = new Metadata();
