@@ -70,10 +70,14 @@ func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder
 
 // Run starts the port forwarder. Returns after initialization is begun with
 // the locally bound port and any initialization errors.
-func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint16, error) {
+func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, selectors ...string) (uint16, error) {
 	podNameSelector := map[string]string{
 		"suite": "pachyderm",
 		"app":   appName,
+	}
+
+	for i := 1; i < len(selectors); i += 2 {
+		podNameSelector[selectors[i-1]] = selectors[i]
 	}
 
 	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
@@ -192,6 +196,11 @@ func (f *PortForwarder) RunForPFS(localPort uint16) (uint16, error) {
 // RunForS3Gateway creates a port forwarder for the s3gateway.
 func (f *PortForwarder) RunForS3Gateway(localPort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, 600)
+}
+
+// RunForIDE creates a port forwarder for the IDE
+func (f *PortForwarder) RunForIDE(localPort, remotePort uint16) (uint16, error) {
+	return f.Run("jupyterhub", localPort, remotePort, "component", "proxy")
 }
 
 // Close shuts down port forwarding.

@@ -89,7 +89,7 @@ func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClient
 	}
 
 	if resp.AlreadyExists {
-		return nil, fmt.Errorf("OIDC client with id %q already exists", req.Client.Id)
+		return nil, identity.ErrAlreadyExists
 	}
 
 	return dexClientToPach(resp.Client), nil
@@ -169,6 +169,9 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 	}
 
 	if err := storage.CreateConnector(conn); err != nil {
+		if errors.Is(err, dex_storage.ErrAlreadyExists) {
+			return nil, identity.ErrAlreadyExists
+		}
 		return err
 	}
 
@@ -183,6 +186,9 @@ func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
 
 	conn, err := storage.GetConnector(id)
 	if err != nil {
+		if errors.Is(err, dex_storage.ErrNotFound) {
+			return nil, identity.ErrInvalidID
+		}
 		return nil, err
 	}
 
@@ -276,6 +282,9 @@ func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
 
 	client, err := storage.GetClient(id)
 	if err != nil {
+		if errors.Is(err, dex_storage.ErrNotFound) {
+			return nil, identity.ErrInvalidID
+		}
 		return nil, err
 	}
 	return storageClientToPach(client), nil
