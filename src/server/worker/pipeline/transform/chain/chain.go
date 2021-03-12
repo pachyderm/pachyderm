@@ -116,18 +116,20 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 			filesetIterator := datum.NewFileSetIterator(pachClient, filesetID)
 			parentFilesetIterator := datum.NewFileSetIterator(pachClient, parentFilesetID)
 			var err error
-			if outputFilesetID, err = jdi.withMergeDatumFileset(pachClient, []datum.Iterator{filesetIterator, parentFilesetIterator}, func(outputSet *datum.Set, metas []*datum.Meta) error {
-				if len(metas) == 1 {
-					if metas[0].JobID != jdi.jobID {
-						return nil
+			if outputFilesetID, err = jdi.withDatumFileset(pachClient, func(outputSet *datum.Set) error {
+				return datum.Merge([]datum.Iterator{filesetIterator, parentFilesetIterator}, func(metas []*datum.Meta) error {
+					if len(metas) == 1 {
+						if metas[0].JobID != jdi.jobID {
+							return nil
+						}
+						return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+					}
+					if jdi.skippableDatum(metas[0], metas[1]) {
+						jdi.stats.Skipped++
+						return skippedSet.UploadMeta(metas[0])
 					}
 					return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
-				}
-				if jdi.skippableDatum(metas[0], metas[1]) {
-					jdi.stats.Skipped++
-					return skippedSet.UploadMeta(metas[0])
-				}
-				return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+				})
 			}); err != nil {
 				return err
 			}
@@ -149,20 +151,22 @@ func (jdi *JobDatumIterator) Iterate(cb func(*datum.Meta) error) error {
 		// Create the output datum fileset for the skipped datums that were not processed by the parent (failed, recovered, etc.).
 		// Also create deletion operations appropriately.
 		skippedFilesetIterator := datum.NewFileSetIterator(pachClient, skippedFilesetID)
-		outputFilesetID, err = jdi.withMergeDatumFileset(pachClient, []datum.Iterator{skippedFilesetIterator, jdi.parent.outputDit}, func(s *datum.Set, metas []*datum.Meta) error {
-			// Datum only exists in the parent job.
-			if len(metas) == 1 {
-				return jdi.deleteDatum(metas[0])
-			}
-			// Check if a skipped datum was not successfully processed by the parent.
-			if !jdi.skippableDatum(metas[0], metas[1]) {
-				jdi.stats.Skipped--
-				if err := jdi.deleteDatum(metas[1]); err != nil {
-					return err
+		outputFilesetID, err = jdi.withDatumFileset(pachClient, func(s *datum.Set) error {
+			return datum.Merge([]datum.Iterator{skippedFilesetIterator, jdi.parent.outputDit}, func(metas []*datum.Meta) error {
+				// Datum only exists in the parent job.
+				if len(metas) == 1 {
+					return jdi.deleteDatum(metas[0])
 				}
-				return s.UploadMeta(metas[0], datum.WithPrefixIndex())
-			}
-			return nil
+				// Check if a skipped datum was not successfully processed by the parent.
+				if !jdi.skippableDatum(metas[0], metas[1]) {
+					jdi.stats.Skipped--
+					if err := jdi.deleteDatum(metas[1]); err != nil {
+						return err
+					}
+					return s.UploadMeta(metas[0], datum.WithPrefixIndex())
+				}
+				return nil
+			})
 		})
 		if err != nil {
 			return err
@@ -186,19 +190,6 @@ func (jdi *JobDatumIterator) withDatumFileset(pachClient *client.APIClient, cb f
 		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(datum.NewClientFileset(cfsc)))
 	})
 	return resp.FilesetId, err
-}
-
-func (jdi *JobDatumIterator) withMergeDatumFileset(pachClient *client.APIClient, dits []datum.Iterator, cb func(*datum.Set, []*datum.Meta) error) (string, error) {
-	resp, err := pachClient.WithCreateFilesetClient(func(cfsc *client.CreateFilesetClient) error {
-		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
-		return datum.WithSet(nil, storageRoot, func(s *datum.Set) error {
-			return datum.Merge(dits, func(metas []*datum.Meta) error {
-				return cb(s, metas)
-			})
-		}, datum.WithMetaOutput(datum.NewClientFileset(cfsc)))
-	})
-	return resp.FilesetId, err
-
 }
 
 func (jdi *JobDatumIterator) deleteDatum(meta *datum.Meta) error {
