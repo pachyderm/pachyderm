@@ -33,7 +33,7 @@ type TaskQueue struct {
 
 type taskEtcd struct {
 	etcdClient                    *etcd.Client
-	taskCol, subtaskCol, claimCol col.Collection
+	taskCol, subtaskCol, claimCol col.EtcdCollection
 }
 
 // NewTaskQueue sets up a new task queue.
@@ -61,7 +61,7 @@ func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace strin
 	}
 }
 
-func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.Collection {
+func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		etcdPrefix,

@@ -136,7 +136,7 @@ func ensureCollection(db *sqlx.DB, info *SQLInfo) error {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(db *sqlx.DB, model PostgresModel) Collection {
+func NewPostgresCollection(db *sqlx.DB, model PostgresModel) PostgresCollection {
 	sqlInfo, err := parseModel(model)
 	if err != nil {
 		panic(err)
@@ -157,7 +157,7 @@ func NewPostgresCollection(db *sqlx.DB, model PostgresModel) Collection {
 	return c
 }
 
-func (c *postgresCollection) With(field string, value interface{}) Collection {
+func (c *postgresCollection) With(field string, value interface{}) PostgresCollection {
 	newWithFields := make(map[string]interface{})
 	for k, v := range c.withFields {
 		newWithFields[k] = v
@@ -171,12 +171,12 @@ func (c *postgresCollection) With(field string, value interface{}) Collection {
 	}
 }
 
-func (c *postgresCollection) ReadOnly(ctx context.Context) ReadOnlyCollection {
+func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyCollection {
 	return &postgresReadOnlyCollection{c, ctx}
 }
 
-func (c *postgresCollection) ReadWrite(tx interface{}) ReadWriteCollection {
-	return &postgresReadWriteCollection{c, tx.(*sqlx.Tx)}
+func (c *postgresCollection) ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection {
+	return &postgresReadWriteCollection{c, tx}
 }
 
 func NewSQLTx(db *sqlx.DB, ctx context.Context, apply func(*sqlx.Tx) error) error {
@@ -287,13 +287,11 @@ func targetToSQL(target etcd.SortTarget) (string, error) {
 
 func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func() error) error {
 	queryString := fmt.Sprintf("select * from %s", c.sqlInfo.Table)
-	// TODO: mapSQLError
 	return c.listInternal(queryString, []interface{}{}, val, opts, f)
 }
 
 func (c *postgresReadOnlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error {
 	queryString := fmt.Sprintf(`select * from %s where %s like $1`, c.sqlInfo.Table, c.sqlInfo.Pkey.SQLName)
-	// TODO: mapSQLError
 	return c.listInternal(queryString, []interface{}{prefix + "%"}, val, opts, f)
 }
 
@@ -362,20 +360,6 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, val interface{})
 	return nil, errors.New("WatchByIndex is not supported on read-only postgres collections")
 }
 
-// These operations will (probably) never be supported for a postgres collection
-
-func (c *postgresReadOnlyCollection) GetBlock(key string, val proto.Message) error {
-	return errors.New("GetBlock is not supported on read-only postgres collections")
-}
-
-func (c *postgresReadOnlyCollection) TTL(key string) (int64, error) {
-	return 0, errors.New("TTL is not supported on read-only postgres collections")
-}
-
-func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
-	return errors.New("ListRev is not supported on read-only postgres collections")
-}
-
 type postgresReadWriteCollection struct {
 	*postgresCollection
 	tx *sqlx.Tx
@@ -385,8 +369,20 @@ func (c *postgresReadWriteCollection) Get(key string, val proto.Message) error {
 	return c.getInternal(key, val, c.tx)
 }
 
-// Update all values
+// Upsert without the get and callback
 func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
+	return c.mapSQLError(c.insert(key, val, true), key)
+}
+
+// Get then update all values
+func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
+	if err := c.Get(key, val); err != nil {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+
 	row := reflect.New(reflect.ValueOf(c.model).Elem().Type())
 	row.MethodByName("LoadFromProtobuf").Call([]reflect.Value{reflect.ValueOf(val)})
 
@@ -401,17 +397,6 @@ func (c *postgresReadWriteCollection) Put(key string, val proto.Message) error {
 	query := fmt.Sprintf("update %s set %s where %s = $%d", c.sqlInfo.Table, strings.Join(updateFields, ", "), c.sqlInfo.Pkey, len(values)-1)
 	_, err := c.tx.Exec(query, values...)
 	return c.mapSQLError(err, key)
-}
-
-// Get then update all values
-func (c *postgresReadWriteCollection) Update(key string, val proto.Message, f func() error) error {
-	if err := c.Get(key, val); err != nil {
-		return err
-	}
-	if err := f(); err != nil {
-		return err
-	}
-	return c.Put(key, val)
 }
 
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
@@ -443,7 +428,13 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 
 // Insert on conflict update all values (except createdat)
 func (c *postgresReadWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
-	return c.mapSQLError(c.insert(key, val, true), key)
+	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+	return c.Put(key, val)
 }
 
 // Insert
@@ -469,14 +460,4 @@ func (c *postgresReadWriteCollection) DeleteAllPrefix(prefix string) error {
 	query := fmt.Sprintf("delete from %s where %s like $1;", c.sqlInfo.Table, c.sqlInfo.Pkey)
 	_, err := c.db.Exec(query, prefix)
 	return c.mapSQLError(err, "")
-}
-
-// These operations will (probably) never be supported on a postgres collection
-
-func (c *postgresReadWriteCollection) TTL(key string) (int64, error) {
-	return 0, errors.New("TTL is not supported on read-write postgres collections")
-}
-
-func (c *postgresReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
-	return errors.New("PutTTL is not supported on read-write postgres collections")
 }

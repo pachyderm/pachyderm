@@ -27,8 +27,8 @@ var (
 	JobsOutputIndex = &col.Index{Field: "OutputCommit"}
 )
 
-// Pipelines returns a Collection of pipelines
-func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+// Pipelines returns an EtcdCollection of pipelines
+func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
@@ -39,8 +39,8 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	)
 }
 
-// Jobs returns a Collection of jobs
-func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+// Jobs returns an EtcdCollection of jobs
+func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),

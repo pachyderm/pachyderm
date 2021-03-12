@@ -19,7 +19,6 @@ type FooModel struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	ID        string `collection:"primaryKey"`
-	Name      string
 	Value     string
 }
 
@@ -33,7 +32,6 @@ func (fm *FooModel) WriteToProtobuf(val proto.Message) error {
 		return errors.Errorf("incorrect protobuf type")
 	}
 	pb.ID = fm.ID
-	pb.Name = fm.Name
 	pb.Value = fm.Value
 	return nil
 }
@@ -44,7 +42,6 @@ func (fm *FooModel) LoadFromProtobuf(val proto.Message) error {
 		return errors.Errorf("incorrect protobuf type")
 	}
 	fm.ID = pb.ID
-	fm.Name = pb.Name
 	fm.Value = pb.Value
 	return nil
 }
@@ -52,13 +49,13 @@ func (fm *FooModel) LoadFromProtobuf(val proto.Message) error {
 func TestPostgresCollections(suite *testing.T) {
 	postgres := dbtesting.NewPostgresDeployment(suite)
 
-	initCollection := func(t *testing.T) (*sqlx.DB, col.Collection) {
+	initCollection := func(t *testing.T) (*sqlx.DB, col.PostgresCollection) {
 		db := postgres.NewDatabase(t)
 		fooCol := col.NewPostgresCollection(db, &FooModel{})
 
 		// Write several rows
 		writeRow := func(i int) *Foo {
-			foo := &Foo{ID: fmt.Sprintf("%d", i)}
+			foo := &Foo{ID: fmt.Sprintf("%d", i), Value: "old"}
 			err := col.NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
 				readWrite := fooCol.ReadWrite(tx)
 				return readWrite.Create(foo.ID, foo)
@@ -117,7 +114,7 @@ func TestPostgresCollections(suite *testing.T) {
 			// Succeeds when creating a new row
 			err = col.NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
 				readWrite := fooCol.ReadWrite(tx)
-				fooProto.ID = "11"
+				fooProto.ID = "10"
 				return readWrite.Create(fooProto.ID, &fooProto)
 			})
 			require.NoError(t, err)
@@ -125,7 +122,7 @@ func TestPostgresCollections(suite *testing.T) {
 			// Fails when doing both
 			err = col.NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
 				readWrite := fooCol.ReadWrite(tx)
-				fooProto.ID = "12"
+				fooProto.ID = "11"
 				if err := readWrite.Create(fooProto.ID, &fooProto); err != nil {
 					return err
 				}
@@ -141,7 +138,7 @@ func TestPostgresCollections(suite *testing.T) {
 
 			expectedKeys := []string{}
 			actualKeys := []string{}
-			for i := 1; i <= 12; i++ {
+			for i := 0; i <= 10; i++ {
 				expectedKeys = append(expectedKeys, fmt.Sprintf("%d", i))
 			}
 			require.NoError(t, readOnly.List(&fooProto, col.DefaultOptions(), func() error {
@@ -157,6 +154,18 @@ func TestPostgresCollections(suite *testing.T) {
 		})
 
 		suite.Run("Put", func(t *testing.T) {
+			db, fooCol := initCollection(t)
+			fooProto := Foo{}
+
+			// Fails if row doesn't exist
+			err := col.NewSQLTx(db, context.Background(), func(tx *sqlx.Tx) error {
+				readWrite := fooCol.ReadWrite(tx)
+				fooProto.ID = "5"
+				return readWrite.Create(fooProto.ID, &fooProto)
+			})
+			require.YesError(t, err)
+			require.True(t, col.IsErrExists(err))
+			require.True(t, errors.Is(err, col.ErrExists{Type: "foos", Key: "5"}))
 		})
 
 		suite.Run("Update", func(t *testing.T) {
@@ -174,4 +183,6 @@ func TestPostgresCollections(suite *testing.T) {
 		suite.Run("DeleteAllPrefix", func(t *testing.T) {
 		})
 	})
+
+	// Watch tests
 }

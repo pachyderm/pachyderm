@@ -17,14 +17,14 @@ import (
 // Cache watches a key in etcd and caches the value in an atomic value
 // This is useful for frequently read but infrequently updated values
 type Cache struct {
-	c            col.Collection
+	c            col.EtcdCollection
 	defaultValue proto.Message
 	key          string
 	value        *atomic.Value
 }
 
 // NewCache returns a cache for the given key in the etcd collection
-func NewCache(c col.Collection, key string, defaultValue proto.Message) *Cache {
+func NewCache(c col.EtcdCollection, key string, defaultValue proto.Message) *Cache {
 	value := &atomic.Value{}
 	value.Store(defaultValue)
 	return &Cache{

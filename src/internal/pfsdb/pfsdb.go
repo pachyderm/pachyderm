@@ -27,7 +27,7 @@ var (
 )
 
 // Repos returns a collection of repos
-func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
@@ -39,7 +39,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 }
 
 // Commits returns a collection of commits
-func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
+func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, commitsPrefix, repo),
@@ -51,7 +51,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 }
 
 // Branches returns a collection of branches
-func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
+func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, branchesPrefix, repo),
@@ -68,7 +68,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 }
 
 // OpenCommits returns a collection of open commits
-func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, openCommitsPrefix),

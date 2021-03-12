@@ -58,7 +58,7 @@ type etcdCollection struct {
 }
 
 // NewEtcdCollection creates a new collection backed by etcd.
-func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
+func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) EtcdCollection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -78,22 +78,18 @@ func NewEtcdCollection(etcdClient *etcd.Client, prefix string, indexes []*Index,
 	}
 }
 
-func (c *etcdCollection) ReadWrite(stm interface{}) ReadWriteCollection {
+func (c *etcdCollection) ReadWrite(stm STM) EtcdReadWriteCollection {
 	return &etcdReadWriteCollection{
 		etcdCollection: c,
 		stm:            stm.(STM),
 	}
 }
 
-func (c *etcdCollection) ReadOnly(ctx context.Context) ReadOnlyCollection {
+func (c *etcdCollection) ReadOnly(ctx context.Context) EtcdReadOnlyCollection {
 	return &etcdReadOnlyCollection{
 		etcdCollection: c,
 		ctx:            ctx,
 	}
-}
-
-func (c *etcdCollection) With(field string, val interface{}) Collection {
-	panic("'With' is not supported on etcd collections")
 }
 
 func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
@@ -466,25 +462,6 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal interface{}, 
 	})
 }
 
-func (c *etcdReadOnlyCollection) GetBlock(key string, val proto.Message) error {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetBlock",
-		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
-	defer tracing.FinishAnySpan(span)
-	if err := watch.CheckType(c.template, val); err != nil {
-		return err
-	}
-	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.path(key), c.template)
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-	e := <-watcher.Watch()
-	if e.Err != nil {
-		return e.Err
-	}
-	return e.Unmarshal(&key, val)
-}
-
 func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
 	resp, err := c.get(c.path(key))
 	if err != nil {
@@ -540,25 +517,6 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func()
 			return err
 		}
 		return f()
-	})
-}
-
-// ListRev returns objects sorted based on the options passed in. f will be called
-// with each key and the create-revision of the key, val will contain the
-// corresponding value. Val is not an argument to f because that would require
-// f to perform a cast before it could be used.  You can break out of iteration
-// by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
-	defer tracing.FinishAnySpan(span)
-	if err := watch.CheckType(c.template, val); err != nil {
-		return err
-	}
-	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return err
-		}
-		return f(strings.TrimPrefix(string(kv.Key), c.prefix), kv.CreateRevision)
 	})
 }
 

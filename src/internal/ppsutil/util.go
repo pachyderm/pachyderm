@@ -145,13 +145,13 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
-func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
 	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
 }
 
 // CrashingPipeline updates the pipeline's state to crashing and sets the reason
-func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipelineName string, reason string) error {
 	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
@@ -210,7 +210,7 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 //
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
-func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.EtcdCollection, pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	logSetPipelineState(pipeline, from, to, reason)
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)

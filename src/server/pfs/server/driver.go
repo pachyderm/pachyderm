@@ -67,7 +67,7 @@ type CommitStream interface {
 	Close()
 }
 
-type collectionFactory func(string) col.Collection
+type collectionFactory func(string) col.EtcdCollection
 
 type driver struct {
 	env *serviceenv.ServiceEnv
@@ -77,10 +77,10 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos       col.Collection
+	repos       col.EtcdCollection
 	commits     collectionFactory
 	branches    collectionFactory
-	openCommits col.Collection
+	openCommits col.EtcdCollection
 
 	storage         *fileset.Storage
 	commitStore     commitStore
@@ -101,10 +101,10 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		etcdClient: etcdClient,
 		prefix:     etcdPrefix,
 		repos:      pfsdb.Repos(etcdClient, etcdPrefix),
-		commits: func(repo string) col.Collection {
+		commits: func(repo string) col.EtcdCollection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
-		branches: func(repo string) col.Collection {
+		branches: func(repo string) col.EtcdCollection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
@@ -1354,7 +1354,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		number = math.MaxUint64
 	}
 	commits := d.commits(repo.Name).ReadOnly(ctx)
-	ci := &pfs.CommitInfo{}
+	// ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
@@ -1387,6 +1387,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 			cis = nil
 			return nil
 		}
+		/* TODO: do this without ListRev (unsupported by postgres collections)
 		lastRev := int64(-1)
 		if err := commits.ListRev(ci, opts, func(commitID string, createRev int64) error {
 			if createRev != lastRev {
@@ -1403,6 +1404,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 		}); err != nil {
 			return err
 		}
+		*/
 		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
@@ -2151,8 +2153,8 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}
 
 	var result []*pfs.BranchInfo
-	branchInfo := &pfs.BranchInfo{}
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
+	// branchInfo := &pfs.BranchInfo{}
+	// branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
 	opts := col.DefaultOptions()
 	if reverse {
 		opts.Order = etcd.SortAscend
@@ -2167,6 +2169,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 		result = append(result, bis...)
 		bis = nil
 	}
+	/* TODO: do this without ListRev (unsupported by postgres collections)
 	lastRev := int64(-1)
 	if err := branches.ListRev(branchInfo, opts, func(branch string, createRev int64) error {
 		if createRev != lastRev {
@@ -2178,6 +2181,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	}); err != nil {
 		return nil, err
 	}
+	*/
 	sendBis()
 	return result, nil
 }

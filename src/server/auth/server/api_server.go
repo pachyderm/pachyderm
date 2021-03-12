@@ -79,17 +79,17 @@ type apiServer struct {
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
-	tokens col.Collection
+	tokens col.EtcdCollection
 	// roleBindings is a collection of resource name -> role binding mappings.
-	roleBindings col.Collection
+	roleBindings col.EtcdCollection
 	// members is a collection of username -> groups mappings.
-	members col.Collection
+	members col.EtcdCollection
 	// groups is a collection of group -> usernames mappings.
-	groups col.Collection
+	groups col.EtcdCollection
 	// collection containing the auth config (under the key configKey)
-	authConfig col.Collection
+	authConfig col.EtcdCollection
 	// oidcStates  contains the set of OIDC nonces for requests that are in progress
-	oidcStates col.Collection
+	oidcStates col.EtcdCollection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated

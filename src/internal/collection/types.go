@@ -6,27 +6,45 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/jmoiron/sqlx"
 )
 
 // Collection implements helper functions that makes common operations
 // on top of etcd more pleasant to work with.  It's called collection
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
-type Collection interface {
+
+type PostgresCollection interface {
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
 	// invalidated at the end of the transaction.  Basically, it's
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
-	ReadWrite(interface{}) ReadWriteCollection
+	ReadWrite(tx *sqlx.Tx) PostgresReadWriteCollection
+
 	// For read-only operatons, use the ReadOnly for better performance
-	ReadOnly(ctx context.Context) ReadOnlyCollection
+	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
+
+	// With returns a new collection with the given predicate
+	With(field string, val interface{}) PostgresCollection
+}
+
+type EtcdCollection interface {
+	// ReadWrite enables reads and writes on a collection in a
+	// transactional manner.  Specifically, all writes are applied
+	// atomically, and writes are only applied if reads have not been
+	// invalidated at the end of the transaction.  Basically, it's
+	// software transactional memory.  See this blog post for details:
+	// https://coreos.com/blog/transactional-memory-with-etcd3.html
+	ReadWrite(stm STM) EtcdReadWriteCollection
+
+	// For read-only operatons, use the ReadOnly for better performance
+	ReadOnly(ctx context.Context) EtcdReadOnlyCollection
+
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.
 	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
-	// With returns a new collection with the given predicate
-	With(field string, val interface{}) Collection
 }
 
 // Index specifies a secondary index on a collection.
@@ -61,15 +79,6 @@ type Index struct {
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
 	Put(key string, val proto.Message) error
-	// TTL returns the amount of time that 'key' will continue to exist in the
-	// collection, or '0' if 'key' will remain in the collection indefinitely
-	TTL(key string) (int64, error)
-	// PutTTL is the same as Put except that the object is removed after
-	// TTL seconds.
-	// WARNING: using PutTTL with a collection that has secondary indices
-	// can result in inconsistency, as the indices are removed at roughly
-	// but not exactly the same time as the documents.
-	PutTTL(key string, val proto.Message, ttl int64) error
 	// Update reads the current value associated with 'key', calls 'f' to update
 	// the value, and writes the new value back to the collection. 'key' must be
 	// present in the collection, or a 'Not Found' error is returned
@@ -82,17 +91,29 @@ type ReadWriteCollection interface {
 	DeleteAllPrefix(prefix string) error
 }
 
+type PostgresReadWriteCollection interface {
+	ReadWriteCollection
+}
+
+type EtcdReadWriteCollection interface {
+	ReadWriteCollection
+
+	// TTL returns the amount of time that 'key' will continue to exist in the
+	// collection, or '0' if 'key' will remain in the collection indefinitely
+	TTL(key string) (int64, error)
+	// PutTTL is the same as Put except that the object is removed after
+	// TTL seconds.
+	// WARNING: using PutTTL with a collection that has secondary indices
+	// can result in inconsistency, as the indices are removed at roughly
+	// but not exactly the same time as the documents.
+	PutTTL(key string, val proto.Message, ttl int64) error
+}
+
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func() error) error
-	// GetBlock is like Get but waits for the key to exist if it doesn't already.
-	GetBlock(key string, val proto.Message) error
-	// TTL returns the number of seconds that 'key' will continue to exist in the
-	// collection, or '0' if 'key' will remain in the collection indefinitely
-	TTL(key string) (int64, error)
 	List(val proto.Message, opts *Options, f func() error) error
-	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
 	ListPrefix(prefix string, val proto.Message, opts *Options, f func() error) error
 	Count() (int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
@@ -100,4 +121,16 @@ type ReadOnlyCollection interface {
 	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
 	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
+}
+
+type PostgresReadOnlyCollection interface {
+	ReadOnlyCollection
+}
+
+type EtcdReadOnlyCollection interface {
+	ReadOnlyCollection
+
+	// TTL returns the number of seconds that 'key' will continue to exist in the
+	// collection, or '0' if 'key' will remain in the collection indefinitely
+	TTL(key string) (int64, error)
 }
