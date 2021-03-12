@@ -191,6 +191,9 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	})
 
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
+		if etcdJobInfo.OutputCommit == nil {
+			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
+		}
 		outputCommitInfo, err := env.PachClient.InspectCommit(etcdJobInfo.OutputCommit.Repo.Name, etcdJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 

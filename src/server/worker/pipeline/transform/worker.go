@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/work"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -74,6 +73,8 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 // TODO: It would probably be better to write the output to temporary file sets and expose an operation through pfs for adding a temporary fileset to a commit.
 func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
 	pachClient := driver.PachClient()
+	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
+	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	// Setup file operation client for output meta commit.
@@ -83,8 +84,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 		outputCommit := datumSet.OutputCommit
 		return pachClient.WithModifyFileClient(outputCommit.Repo.Name, outputCommit.ID, func(mfcPFS *client.ModifyFileClient) (retErr error) {
 			opts := []datum.SetOption{
-				datum.WithMetaOutput(newDatumClient(mfcMeta, pachClient, metaCommit)),
-				datum.WithPFSOutput(newDatumClient(mfcPFS, pachClient, outputCommit)),
+				datum.WithMetaOutput(datum.NewClient(mfcMeta, pachClient, metaCommit)),
+				datum.WithPFSOutput(datum.NewClient(mfcPFS, pachClient, outputCommit)),
 				datum.WithStats(datumSet.Stats),
 			}
 			// Setup datum set for processing.
@@ -125,37 +126,4 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 			}, opts...)
 		})
 	})
-}
-
-// TODO: This should be removed when CopyFile is a part of ModifyFile.
-type datumClient struct {
-	*client.ModifyFileClient
-	pachClient *client.APIClient
-	commit     *pfs.Commit
-}
-
-func newDatumClient(mfc *client.ModifyFileClient, pachClient *client.APIClient, commit *pfs.Commit) datum.Client {
-	return &datumClient{
-		ModifyFileClient: mfc,
-		pachClient:       pachClient,
-		commit:           commit,
-	}
-}
-
-func (dc *datumClient) CopyFile(dst string, srcFile *pfs.File, tag string) error {
-	return dc.pachClient.CopyFile(srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path, dc.commit.Repo.Name, dc.commit.ID, dst, false, tag)
-}
-
-type datumClientFileset struct {
-	*client.CreateFilesetClient
-}
-
-func newDatumClientFileset(cfc *client.CreateFilesetClient) datum.Client {
-	return &datumClientFileset{
-		CreateFilesetClient: cfc,
-	}
-}
-
-func (dcf *datumClientFileset) CopyFile(_ string, _ *pfs.File, _ string) error {
-	panic("attempted copy file in fileset datum client")
 }
