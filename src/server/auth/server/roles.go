@@ -19,6 +19,7 @@ func permissionsForRole(role string) ([]auth.Permission, error) {
 			auth.Permission_CLUSTER_AUTH_GET_CONFIG,
 			auth.Permission_CLUSTER_AUTH_SET_CONFIG,
 			auth.Permission_CLUSTER_AUTH_GET_TOKEN,
+			auth.Permission_CLUSTER_AUTH_GET_ROBOT_TOKEN,
 			auth.Permission_CLUSTER_AUTH_EXTEND_TOKEN,
 			auth.Permission_CLUSTER_AUTH_MODIFY_GROUP_MEMBERS,
 			auth.Permission_CLUSTER_AUTH_GET_GROUPS,

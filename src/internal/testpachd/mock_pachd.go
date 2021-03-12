@@ -81,6 +81,7 @@ type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.Authoriz
 type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 type getOIDCLoginFunc func(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error)
 type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
+type getRobotTokenFunc func(context.Context, *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error)
 type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
 type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
@@ -102,6 +103,7 @@ type mockAuthorize struct{ handler authorizeFunc }
 type mockWhoAmI struct{ handler whoAmIFunc }
 type mockGetOIDCLogin struct{ handler getOIDCLoginFunc }
 type mockGetAuthToken struct{ handler getAuthTokenFunc }
+type mockGetRobotToken struct{ handler getRobotTokenFunc }
 type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
 type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
 type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
@@ -122,6 +124,7 @@ func (mock *mockAuthorize) Use(cb authorizeFunc)                 { mock.handler 
 func (mock *mockWhoAmI) Use(cb whoAmIFunc)                       { mock.handler = cb }
 func (mock *mockGetOIDCLogin) Use(cb getOIDCLoginFunc)           { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)           { mock.handler = cb }
+func (mock *mockGetRobotToken) Use(cb getRobotTokenFunc)         { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)     { mock.handler = cb }
 func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)     { mock.handler = cb }
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)   { mock.handler = cb }
@@ -148,6 +151,7 @@ type mockAuthServer struct {
 	WhoAmI            mockWhoAmI
 	GetOIDCLogin      mockGetOIDCLogin
 	GetAuthToken      mockGetAuthToken
+	GetRobotToken     mockGetRobotToken
 	ExtendAuthToken   mockExtendAuthToken
 	RevokeAuthToken   mockRevokeAuthToken
 	SetGroupsForUser  mockSetGroupsForUser
@@ -223,6 +227,12 @@ func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTok
 		return api.mock.GetAuthToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetAuthToken")
+}
+func (api *authServerAPI) GetRobotToken(ctx context.Context, req *auth.GetRobotTokenRequest) (*auth.GetRobotTokenResponse, error) {
+	if api.mock.GetRobotToken.handler != nil {
+		return api.mock.GetRobotToken.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetRobotToken")
 }
 func (api *authServerAPI) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	if api.mock.ExtendAuthToken.handler != nil {

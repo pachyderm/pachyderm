@@ -335,6 +335,53 @@ func GetAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
 }
 
+// GetRobotTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func GetRobotTokenCmd() *cobra.Command {
+	var quiet bool
+	var ttl string
+	getAuthToken := &cobra.Command{
+		Use:   "{{alias}} [username]",
+		Short: "Get an auth token for a robot user with the specified name.",
+		Long:  "Get an auth token for a robot user with the specified name.",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			req := &auth.GetRobotTokenRequest{
+				Robot: args[0],
+			}
+			if ttl != "" {
+				d, err := time.ParseDuration(ttl)
+				if err != nil {
+					return errors.Wrapf(err, "could not parse duration %q", ttl)
+				}
+				req.TTL = int64(d.Seconds())
+			}
+			resp, err := c.GetRobotToken(c.Ctx(), req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if quiet {
+				fmt.Println(resp.Token)
+			} else {
+				fmt.Printf("Token: %s\n", resp.Token)
+			}
+			return nil
+		}),
+	}
+	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
+		"set, only print the resulting token (if successful). This is useful for "+
+		"scripting, as the output can be piped to use-auth-token")
+	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
+		"resulting auth token will have the given lifetime. If not set, the token does not expire."+
+		" This flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\").")
+	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
+}
+
 // UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
 func UseAuthTokenCmd() *cobra.Command {
@@ -525,6 +572,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, LogoutCmd())
 	commands = append(commands, WhoamiCmd())
 	commands = append(commands, GetAuthTokenCmd())
+	commands = append(commands, GetRobotTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
