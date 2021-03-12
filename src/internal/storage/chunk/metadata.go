@@ -1,7 +1,6 @@
 package chunk
 
 import (
-	"context"
 	"encoding/hex"
 
 	"github.com/jmoiron/sqlx"
@@ -40,8 +39,6 @@ type Metadata struct {
 }
 
 var (
-	// ErrMetadataExists metadata exists
-	ErrMetadataExists = errors.Errorf("metadata exists")
 	// ErrChunkNotExists chunk does not exist
 	ErrChunkNotExists = errors.Errorf("chunk does not exist")
 )
@@ -50,18 +47,19 @@ var (
 type Entry struct {
 	ChunkID   ID     `db:"chunk_id"`
 	Gen       uint64 `db:"gen"`
-	Uploaded  uint64 `db:"uploaded"`
-	Tombstone uint64 `db:"tombstone"`
+	Uploaded  bool   `db:"uploaded"`
+	Tombstone bool   `db:"tombstone"`
 }
 
 // SetupPostgresStoreV0 sets up tables in db
-func SetupPostgresStoreV0(ctx context.Context, tx *sqlx.Tx) error {
-	_, err := tx.ExecContext(ctx, `
+func SetupPostgresStoreV0(tx *sqlx.Tx) error {
+	_, err := tx.Exec(`
 	CREATE TABLE storage.chunk_objects (
 		chunk_id BYTEA NOT NULL,
 		gen BIGSERIAL NOT NULL,
 		uploaded BOOLEAN NOT NULL DEFAULT FALSE,
 		tombstone BOOLEAN NOT NULL DEFAULT FALSE,
+		size INT8 NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
 		PRIMARY KEY(chunk_id, gen)
