@@ -2966,37 +2966,87 @@ func (a *apiServer) listPipeline(pachClient *client.APIClient, request *pps.List
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	return a.listPipelinePtr(pachClient, request.Pipeline, request.History,
-		func(name string, ptr *pps.EtcdPipelineInfo) error {
-			var pipelineInfo *pps.PipelineInfo
-			var err error
-			if request.AllowIncomplete {
-				pipelineInfo, err = ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
-				if err != nil {
-					return err
-				}
-			} else {
-				pipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, name, ptr)
-				if err != nil {
-					return err
-				}
+	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
+		if jqCode != nil {
+			jsonBuffer.Reset()
+			// convert pipelineInfo to a map[string]interface{} for use with gojq
+			enc.EncodeProto(pipelineInfo)
+			var pipelineInterface interface{}
+			json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
+			iter := jqCode.Run(pipelineInterface)
+			// treat either jq false-y value as rejection
+			if v, _ := iter.Next(); v == false || v == nil {
+				return false
 			}
-			// apply jq filter to the full pipelineInfo object
-			// could have issues if the filter uses fields from .transform which aren't filled in due to AllowIncomplete
-			if jqCode != nil {
-				jsonBuffer.Reset()
-				// convert pipelineInfo to a map[string]interface{} for use with gojq
-				enc.EncodeProto(pipelineInfo)
-				var pipelineInterface interface{}
-				json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
-				iter := jqCode.Run(pipelineInterface)
-				// treat either jq false-y value as rejection
-				if v, _ := iter.Next(); v == false || v == nil {
-					return nil
-				}
+		}
+		return true
+	}
+	// the mess below is so we can lookup the PFS info for each pipeline concurrently.
+	type etcdInfo struct {
+		name string
+		ptr  *pps.EtcdPipelineInfo
+	}
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
+	etcdInfos := make(chan etcdInfo)
+	// stream these out of etcd
+	eg.Go(func() error {
+		defer close(etcdInfos)
+		return a.listPipelinePtr(pachClient, request.Pipeline, request.History, func(name string, ptr *pps.EtcdPipelineInfo) error {
+			// copy
+			data, _ := ptr.Marshal()
+			ptr2 := &pps.EtcdPipelineInfo{}
+			if err := ptr2.Unmarshal(data); err != nil {
+				panic(err)
 			}
-			return f(pipelineInfo)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case etcdInfos <- etcdInfo{name: name, ptr: ptr2}:
+				return nil
+			}
 		})
+	})
+	// spin up goroutines to get the PFS info, and then use the mutex to call f all synchronized like.
+	var mu sync.Mutex
+	var fHasErrored bool
+	for i := 0; i < 20; i++ {
+		eg.Go(func() error {
+			for info := range etcdInfos {
+				pinfo, err := a.resolvePipelineInfo(pachClient, request.AllowIncomplete, info.name, info.ptr)
+				if err != nil {
+					return err
+				}
+				if err := func() error {
+					mu.Lock()
+					defer mu.Unlock()
+					if fHasErrored {
+						return nil
+					}
+					// the filtering shares that buffer thing, and it's CPU bound so why not do it with the lock
+					if !filterPipeline(pinfo) {
+						return nil
+					}
+					if err := f(pinfo); err != nil {
+						fHasErrored = true
+						return err
+					}
+					return nil
+				}(); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
+}
+
+// resolvePipelineInfo looks up additional pipeline info in PFS needed to turn a EtcdPipelineInfo into a PipelineInfo
+func (a *apiServer) resolvePipelineInfo(pachClient *client.APIClient, allowIncomplete bool, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+	if allowIncomplete {
+		return ppsutil.GetPipelineInfoAllowIncomplete(pachClient, name, ptr)
+	}
+	return ppsutil.GetPipelineInfo(pachClient, name, ptr)
 }
 
 // listPipelinePtr enumerates all PPS pipelines in etcd, filters them based on
@@ -3026,7 +3076,6 @@ func (a *apiServer) listPipelinePtr(pachClient *client.APIClient,
 				p.SpecCommit = ci.ParentCommit
 			}
 		}
-		return nil // shouldn't happen
 	}
 	if pipeline == nil {
 		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(p, col.DefaultOptions, func(name string) error {
