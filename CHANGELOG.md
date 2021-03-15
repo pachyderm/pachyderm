@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.5
+Deprecation notice: Deprecating the use of vault plugin. It will be removed from the code in a future release.
+
+- Changes to switches to an inode generation scheme to work around the reserved inode issues which prevent `pachctl mount` from succeeding. (#5766)
+- Fixed a bug that causes panic in GetLogs when `since` has not been specified (#5769)
+- Fixes a bug that caused the `since` field to not propagate to Loki for some `logs` calls. (#5777)
+- Added support to `fsck` to fix provenance relationships not mirrored by subvenance relationships and vice versa (#5782)
+- Fixes a bug that caused pachd to crash on some incorrect glob patterns (#5812)
+- Changes to improve ListPipeline performance when it returns many pipelines. (#5830)
+
 ## 1.12.4
 
 - Changes to capture previous logs in debug dump (#5723)
