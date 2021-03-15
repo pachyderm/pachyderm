@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pachyderm-test-connection
+  labels:
+    suite: pachyderm
+    app: pach-test
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: nc
+      image: "alpine"
+      command: ['nc']
+      args: ['-zv','pachd-peer', '30653']
+  restartPolicy: Never
