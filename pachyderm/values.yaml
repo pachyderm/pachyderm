@@ -1,3 +1,5 @@
+imagePullSecret: "" # FIXME: should this be per-image?
+
 dash:
   image:
     repository: pachyderm/dash

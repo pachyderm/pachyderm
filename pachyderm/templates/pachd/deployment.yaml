@@ -293,6 +293,9 @@ spec:
           value: "false"
         image: "{{ .Values.pachd.image.repository }}:{{ .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
+        {{- if .Values.imagePullSecret }}
+        imagePullSecret: {{ .Values.imagePullSecret | quote }}
+        {{- end }}
         name: pachd
         ports:
         - containerPort: 650
