@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"database/sql"
 	"fmt"
 	"math"
 	"os"
@@ -35,6 +37,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -117,6 +120,12 @@ func newDriver(env *serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, etcdPr
 		return nil, err
 	}
 	memCache := env.ChunkMemoryCache()
+	keyStore := chunk.NewPostgresKeyStore(db)
+	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, db, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunkStorage, env.FileSetStorageOptions()...)
 	// Setup compaction queue and worker.
@@ -2364,4 +2373,22 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
+	secret, err := keyStore.Get(ctx, name)
+	if err != sql.ErrNoRows {
+		return secret, err
+	}
+	if err == sql.ErrNoRows {
+		secret = make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, err
+		}
+		logrus.Infof("generated new secret: %q", name)
+		if err := keyStore.Create(ctx, name, secret); err != nil {
+			return nil, err
+		}
+	}
+	return keyStore.Get(ctx, name)
 }
