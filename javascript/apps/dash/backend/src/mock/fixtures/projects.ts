@@ -1,4 +1,8 @@
-import {Project, Projects, ProjectStatus} from '@pachyderm/proto/pb/projects/projects_pb';
+import {
+  Project,
+  Projects,
+  ProjectStatus,
+} from '@pachyderm/proto/pb/projects/projects_pb';
 import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
 
 const projects: {[projectId: string]: Project} = {

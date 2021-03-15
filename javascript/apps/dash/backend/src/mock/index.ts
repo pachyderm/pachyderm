@@ -37,7 +37,6 @@ const createServer = () => {
   grpcServer.addService(AuthService, auth.getService());
   grpcServer.addService(ProjectsService, projects);
 
-
   authApp.get('/.well-known/openid-configuration', (_, res) => {
     const issuer = process.env.ISSUER_URI;
 

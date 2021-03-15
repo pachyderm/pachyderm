@@ -1,5 +1,5 @@
-import {Dag} from '@graphqlTypes';
 import {executeOperation, createOperation} from '@dash-backend/testHelpers';
+import {Dag} from '@graphqlTypes';
 
 const doesLinkExistInDag = (
   expectedLink: {source: string; target: string},

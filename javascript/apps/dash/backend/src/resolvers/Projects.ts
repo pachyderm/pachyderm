@@ -1,5 +1,5 @@
-import {QueryResolvers} from '@graphqlTypes';
 import client from '@dash-backend/grpc/client';
+import {QueryResolvers} from '@graphqlTypes';
 
 interface ProjectsResolver {
   Query: {
