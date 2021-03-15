@@ -16,7 +16,7 @@ pachd:
     #  memory: 2G
     #requests:
     #  cpu: "1"
-    #  memory: 2G  
+    #  memory: 2G
   logLevel: info
   metrics:
     enabled: true
@@ -91,14 +91,9 @@ etcd:
     repository: pachyderm/etcd
     tag: "v3.3.5"
     pullPolicy: IfNotPresent
-  storageSize: 10Gi    
-  resources: {}
-    #limits:
-    #  cpu: "1"
-    #  memory: 2G
-    #requests:
-    #  cpu: "1"
-    #  memory: 2G    
+  storageSize: 10Gi
+  cpuRequest: 1
+  memoryRequest: 2G
 
 imageCredentials: {}
   #registry: ""
