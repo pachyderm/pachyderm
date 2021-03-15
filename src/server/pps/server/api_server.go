@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	enterpriselimits "github.com/pachyderm/pachyderm/src/server/enterprise/limits"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -1458,7 +1459,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.LokiLogging || request.UseLokiBackend {
-		resp, err := pachClient.Enterprise.GetState(context.Background(),
+		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 			&enterpriseclient.GetStateRequest{})
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
@@ -1854,6 +1855,30 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Transform == nil {
 		return errors.Errorf("pipeline must specify a transform")
+	}
+	return nil
+}
+
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, request *pps.CreatePipelineRequest) error {
+	pachClient := a.env.GetPachClient(ctx)
+	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
+		&enterpriseclient.GetStateRequest{})
+	if err != nil {
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
+	}
+	if resp.State == enterpriseclient.State_ACTIVE {
+		// Enterprise is enabled so anything goes.
+		return nil
+	}
+	pipelines, err := a.pipelines.ReadOnly(ctx).Count()
+	if err != nil {
+		return err
+	}
+	if pipelines >= enterpriselimits.Pipelines {
+		return errors.Errorf("too many pipelines, enable enterprise to create more")
+	}
+	if request.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+		return errors.Errorf("too much parallelism, enable enterprise use this much parallelism")
 	}
 	return nil
 }
