@@ -327,9 +327,11 @@ spec:
             - /pachd
             - --readiness
         resources:
+          {{ if .Values.pachd.guaranteedResources -}}
           limits:
             cpu: {{ .Values.pachd.cpuRequest | quote }}
             memory: {{ .Values.pachd.memoryRequest }}
+          {{ end -}}
           requests:
             cpu: {{ .Values.pachd.cpuRequest | quote }}
             memory: {{ .Values.pachd.memoryRequest }}

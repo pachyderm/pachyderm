@@ -15,6 +15,7 @@ pachd:
     pullPolicy: IfNotPresent
   cpuRequest: 1
   memoryRequest: 2G
+  guaranteedResources: true # if false, no resource limits set
   logLevel: info
   metrics:
     enabled: true
