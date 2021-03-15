@@ -1,7 +1,8 @@
-{{- if and .Values.rbac.create (.Values.rbac.localRoles | not) -}}
+{{- if and .Values.rbac.create .Values.rbac.localRoles -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
+  creationTimestamp: null
   labels:
     app: ""
     suite: pachyderm
@@ -9,10 +10,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: ""
-  kind: ClusterRole
+  kind: Role
   name: pachyderm
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.pachd.serviceAccount.name }}
-  namespace: {{ .Release.Namespace }}
+  name: pachyderm
+  namespace: default
 {{- end }}
