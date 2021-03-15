@@ -1,4 +1,4 @@
----
+{{- if .Values.dash.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,3 +36,4 @@ spec:
         - containerPort: 8081
           name: grpc-proxy-http
         resources: {}
+{{- end }}
