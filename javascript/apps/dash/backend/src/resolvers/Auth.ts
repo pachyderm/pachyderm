@@ -15,10 +15,10 @@ const authResolver: AuthResolver = {
   Mutation: {
     exchangeCode: async (_field, {code}, {pachdAddress = ''}) => {
       const {
-        ISSUER_URI: issuerUri,
-        OAUTH_CLIENT_ID: clientId,
-        OAUTH_CLIENT_SECRET: clientSecret,
-        OAUTH_REDIRECT_URI: redirectUri,
+        ISSUER_URI: issuerUri = '',
+        OAUTH_CLIENT_ID: clientId = '',
+        OAUTH_CLIENT_SECRET: clientSecret = '',
+        OAUTH_REDIRECT_URI: redirectUri = '',
       } = process.env;
 
       try {

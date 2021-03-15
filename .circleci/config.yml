@@ -3,17 +3,19 @@ version: 2.1
 jobs:
     backend-test:
         docker:
-            - image: circleci/node:14.15.0
+            - image: circleci/node:14.16.0
         steps:
             - checkout
+            - run: cd javascript/apps/dash/frontend && npm ci
             - run: cd javascript/apps/dash/backend && npm ci
             - run: cd javascript/apps/dash/backend && npm run lint
             - run: cd javascript/apps/dash/backend && npm run test
     frontend-test:
         docker:
-            - image: circleci/node:14.15.0
+            - image: circleci/node:14.16.0
         steps:
             - checkout
+            - run: cd javascript/apps/dash/backend && npm ci
             - run: cd javascript/apps/dash/frontend && npm ci
             - run: cd javascript/apps/dash/frontend && npm run lint
             - run: cd javascript/apps/dash/frontend && npm run test
