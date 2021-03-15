@@ -453,6 +453,34 @@ func NewForTest() (*APIClient, error) {
 	return client, nil
 }
 
+// NewEnterpriseClientForTest constructs a new APIClient for tests.
+func NewEnterpriseClientForTest() (*APIClient, error) {
+	cfg, err := config.Read(false, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read config")
+	}
+	_, context, err := cfg.ActiveEnterpriseContext(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get active context")
+	}
+
+	// create new pachctl client
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if pachdAddress == nil {
+		return nil, errors.New("no enterprise server configured")
+	}
+
+	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
+	}
+	return client, nil
+}
+
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
