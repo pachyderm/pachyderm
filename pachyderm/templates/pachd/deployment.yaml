@@ -68,7 +68,7 @@ spec:
           value: {{ .Values.pachd.storage.amazon.iamRole }}
           {{- end }}
         - name: NO_EXPOSE_DOCKER_SOCKET
-          value: {{ .Values.pachd.noExposeDockerSocket | quote }}
+          value: {{ .Values.pachd.exposeDockerSocket | not | quote }}
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: {{ .Values.pachd.authenticationDisabledForTesting | quote }}
         - name: PACH_NAMESPACE

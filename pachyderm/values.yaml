@@ -17,7 +17,7 @@ pachd:
   metrics:
     enabled: true
     endpoint: ""
-  noExposeDockerSocket: false
+  exposeDockerSocket: true
   numShards: 16
   blockCacheBytes: 1G
   authenticationDisabledForTesting: false
