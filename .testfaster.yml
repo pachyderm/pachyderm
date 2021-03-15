@@ -59,7 +59,7 @@ base:
     # the linter uses (we don't really care if the linter passes)
     RUN git clone https://github.com/pachyderm/pachyderm && \
         cd pachyderm && \
-        git checkout b40204e03b222adea3d32113c58f96bfa117aed2 && \
+        git checkout 76f9583132a6a0cce4b2481f3e1c8d18068c85ac && \
         CIRCLE_BRANCH=1 make install && \
         PATH="/root/go/bin:${PATH}" etc/testing/lint.sh || true
     RUN wget -nv https://github.com/instrumenta/kubeval/releases/download/0.15.0/kubeval-linux-amd64.tar.gz && \
