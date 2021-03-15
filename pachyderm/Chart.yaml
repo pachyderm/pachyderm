@@ -26,3 +26,7 @@ version: 0.1.8
 # Versioning. They should reflect the version the application is
 # using.
 appVersion: 1.12.4
+
+kubeVersion: ">= 1.16"
+
+icon: https://www.pachyderm.com/favicons/favicon-32x32.png
