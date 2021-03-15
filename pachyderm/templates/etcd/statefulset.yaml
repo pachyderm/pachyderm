@@ -62,7 +62,11 @@ spec:
   - metadata:
   {{- if or (eq .Values.pachd.storage.backend "AMAZON") (eq .Values.pachd.storage.backend "GOOGLE") }}
       annotations:
-        volume.beta.kubernetes.io/storage-class: etcd-storage-class
+        volume.beta.kubernetes.io/storage-class: {{ if .Values.etcd.storageClass -}}
+        {{ .Values.etcd.storageClass }}
+        {{- else -}}
+        etcd-storage-class
+        {{- end }}
   {{- end }}
       labels:
         app: etcd

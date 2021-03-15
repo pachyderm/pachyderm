@@ -90,6 +90,7 @@ etcd:
   storageSize: 10Gi
   cpuRequest: 1
   memoryRequest: 2G
+  storageClass: ""
 
 imageCredentials: {}
   #registry: ""
