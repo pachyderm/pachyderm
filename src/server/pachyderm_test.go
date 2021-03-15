@@ -10410,6 +10410,118 @@ func TestPipelineSpecCommitCleanup(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 }
 
+func TestPipelineAutoscaling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"sleep 30",
+				},
+			},
+			Input:           client.NewPFSInput(dataRepo, "/*"),
+			Standby:         true,
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+		},
+	)
+	require.NoError(t, err)
+
+	fileIndex := 0
+	commitNFiles := func(n int) {
+		commit1, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		for i := fileIndex; i < fileIndex+n; i++ {
+			_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			require.NoError(t, err)
+		}
+		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+		fileIndex += n
+		replicas := n
+		if replicas > 4 {
+			replicas = 4
+		}
+		monitorReplicas(t, pipeline, replicas)
+	}
+	commitNFiles(1)
+	commitNFiles(3)
+	commitNFiles(8)
+}
+
+func monitorReplicas(t testing.TB, pipeline string, n int) {
+	c := tu.GetPachClient(t)
+	kc := tu.GetKubeClient(t)
+	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	enoughReplicas := false
+	tooManyReplicas := false
+	require.NoErrorWithinTRetry(t, 120*time.Second, func() error {
+		for {
+			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(rcName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if int(scale.Spec.Replicas) == n {
+				enoughReplicas = true
+			}
+			if int(scale.Spec.Replicas) > n {
+				tooManyReplicas = true
+			}
+			ci, err := c.InspectCommit(pipeline, "master")
+			require.NoError(t, err)
+			if ci.Finished != nil {
+				return nil
+			}
+			time.Sleep(time.Second * 2)
+		}
+	})
+	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
+	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
+}
+
+func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
+	pipelineInfos, err := c.ListPipeline()
+	require.NoError(t, err)
+	repoInfo, err := c.InspectRepo(repo)
+	require.NoError(t, err)
+	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0, "")
+	require.NoError(t, err)
+	return activeStat.NObjects
+}
+
+func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
+	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
+	require.NoError(t, err)
+	var objects []*pfs.Object
+	for object, err := objectsClient.Recv(); !errors.Is(err, io.EOF); object, err = objectsClient.Recv() {
+		require.NoError(t, err)
+		objects = append(objects, object.Object)
+	}
+	return objects
+}
+
+func getAllTags(t testing.TB, c *client.APIClient) []string {
+	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
+	require.NoError(t, err)
+	var tags []string
+	for resp, err := tagsClient.Recv(); !errors.Is(err, io.EOF); resp, err = tagsClient.Recv() {
+		require.NoError(t, err)
+		tags = append(tags, resp.Tag.Name)
+	}
+	return tags
+}
+
 //lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
 	k := tu.GetKubeClient(t)
