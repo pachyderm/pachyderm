@@ -494,7 +494,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.12.4",
+            "image": "pachyderm/pachd:1.12.5",
             "command": [
               "/pachd"
             ],
@@ -555,14 +555,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.12.4"
+                "value": "pachyderm/worker:1.12.5"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.12.4"
+                "value": "pachyderm/pachd:1.12.5"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -574,7 +574,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.12.4"
+                "value": "1.12.5"
               },
               {
                 "name": "METRICS",
