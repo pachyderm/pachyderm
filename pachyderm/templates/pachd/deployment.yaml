@@ -323,7 +323,13 @@ spec:
             command:
             - /pachd
             - --readiness
-        resources: {{- toYaml .Values.pachd.resources | nindent 10 }}
+        resources:
+          limits:
+            cpu: {{ .Values.pachd.cpuRequest | quote }}
+            memory: {{ .Values.pachd.memoryRequest }}
+          requests:
+            cpu: {{ .Values.pachd.cpuRequest | quote }}
+            memory: {{ .Values.pachd.memoryRequest }}
         volumeMounts:
         - mountPath: /pach
           name: pach-disk
