@@ -1,0 +1,308 @@
+{
+    "$schema": "http://json-schema.org/schema#",
+    "type": "object",
+    "properties": {
+        "dash": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "etcd": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "storageSize": {
+                    "type": "string"
+                }
+            }
+        },
+        "imageCredentials": {
+            "type": "object"
+        },
+        "pachd": {
+            "type": "object",
+            "properties": {
+                "authenticationDisabledForTesting": {
+                    "type": "boolean"
+                },
+                "blockCacheBytes": {
+                    "type": "string"
+                },
+                "clusterDeploymentID": {
+                    "type": "string"
+                },
+                "exposeObjectAPI": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "logLevel": {
+                    "type": "string"
+                },
+                "metrics": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "noExposeDockerSocket": {
+                    "type": "boolean"
+                },
+                "numShards": {
+                    "type": "integer"
+                },
+                "ppsWorkerGRPCPort": {
+                    "type": "integer"
+                },
+                "requireCriticalServersOnly": {
+                    "type": "boolean"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "storage": {
+                    "type": "object",
+                    "properties": {
+                        "amazon": {
+                            "type": "object",
+                            "properties": {
+                                "amazon-vault-role": {
+                                    "type": "string"
+                                },
+                                "amazon-vault-token": {
+                                    "type": "string"
+                                },
+                                "amazonBucket": {
+                                    "type": "string"
+                                },
+                                "amazonDistribution": {
+                                    "type": "string"
+                                },
+                                "amazonID": {
+                                    "type": "string"
+                                },
+                                "amazonRegion": {
+                                    "type": "string"
+                                },
+                                "amazonSecret": {
+                                    "type": "string"
+                                },
+                                "amazonToken": {
+                                    "type": "string"
+                                },
+                                "amazonVaultAddr": {
+                                    "type": "string"
+                                },
+                                "customEndpoint": {
+                                    "type": "string"
+                                },
+                                "disableSSL": {
+                                    "type": "boolean"
+                                },
+                                "iamRole": {
+                                    "type": "string"
+                                },
+                                "logOptions": {
+                                    "type": "string"
+                                },
+                                "maxUploadParts": {
+                                    "type": "integer"
+                                },
+                                "noVerifySSL": {
+                                    "type": "boolean"
+                                },
+                                "partSize": {
+                                    "type": "integer"
+                                },
+                                "retries": {
+                                    "type": "integer"
+                                },
+                                "reverse": {
+                                    "type": "string"
+                                },
+                                "timeout": {
+                                    "type": "string"
+                                },
+                                "uploadACL": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "backend": {
+                            "type": "string"
+                        },
+                        "google": {
+                            "type": "object",
+                            "properties": {
+                                "googleBucket": {
+                                    "type": "string"
+                                },
+                                "googleCred": {
+                                    "type": "string"
+                                },
+                                "serviceAccountName": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "microsoft": {
+                            "type": "object",
+                            "properties": {
+                                "microsoftContainer": {
+                                    "type": "string"
+                                },
+                                "microsoftID": {
+                                    "type": "string"
+                                },
+                                "microsoftSecret": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "minio": {
+                            "type": "object",
+                            "properties": {
+                                "minioBucket": {
+                                    "type": "string"
+                                },
+                                "minioEndpoint": {
+                                    "type": "string"
+                                },
+                                "minioID": {
+                                    "type": "string"
+                                },
+                                "minioSecret": {
+                                    "type": "string"
+                                },
+                                "minioSecure": {
+                                    "type": "string"
+                                },
+                                "minioSignature": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "putFileConcurrencyLimit": {
+                            "type": "integer"
+                        },
+                        "uploadConcurrencyLimit": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "workerServiceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "rbac": {
+            "type": "object",
+            "properties": {
+                "create": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "tls": {
+            "type": "object",
+            "properties": {
+                "crt": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                }
+            }
+        },
+        "worker": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

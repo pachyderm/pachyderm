@@ -58,7 +58,7 @@ func TestPachdImageTag(t *testing.T) {
 	helmChartPath := "../pachyderm"
 
 	options := &helm.Options{
-		SetValues: map[string]string{"pachd.image.tag": "1234"},
+		SetValues: map[string]string{"pachd.image.tag": "blah1234"},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/pachd/deployment.yaml"})
@@ -66,7 +66,7 @@ func TestPachdImageTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/pachd:1234"
+	expectedContainerImage := "pachyderm/pachd:blah1234"
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
