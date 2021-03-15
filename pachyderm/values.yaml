@@ -26,6 +26,8 @@ pachd:
   requireCriticalServersOnly: false
   ppsWorkerGRPCPort: 80
   storage:
+    uploadConcurrencyLimit: 100
+    putFileConcurrencyLimit: 100
     backend: "" # GOOGLE, AMAZON, MINIO, MICROSOFT, LOCAL
     google:
       googleBucket: ""
@@ -63,8 +65,6 @@ pachd:
       minioSecret: ""
       minioSecure: ""
       minioSignature: ""
-    uploadConcurrencyLimit: 100
-    putFileConcurrencyLimit: 100
   service: #TODO How to handle selective ports for hub
     type: ClusterIP
     #apiGrpcPort:
