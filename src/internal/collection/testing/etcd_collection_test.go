@@ -26,11 +26,6 @@ import (
 var (
 	pipelineIndex *Index = &Index{
 		Field: "Pipeline",
-		Multi: false,
-	}
-	commitMultiIndex *Index = &Index{
-		Field: "Provenance",
-		Multi: true,
 	}
 )
 
@@ -378,112 +373,11 @@ func TestIndexWatch(t *testing.T) {
 	require.Equal(t, j2.Job.ID, ID)
 }
 
-func TestMultiIndex(t *testing.T) {
-	etcdClient := getEtcdClient()
-	uuidPrefix := uuid.NewWithoutDashes()
-
-	cis := NewEtcdCollection(etcdClient, uuidPrefix, []*Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
-
-	c1 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "c1"),
-		Provenance: []*pfs.CommitProvenance{
-			client.NewCommitProvenance("in", "master", "c1"),
-			client.NewCommitProvenance("in", "master", "c2"),
-			client.NewCommitProvenance("in", "master", "c3"),
-		},
-	}
-	c2 := &pfs.CommitInfo{
-		Commit: client.NewCommit("repo", "c2"),
-		Provenance: []*pfs.CommitProvenance{
-			client.NewCommitProvenance("in", "master", "c1"),
-			client.NewCommitProvenance("in", "master", "c2"),
-			client.NewCommitProvenance("in", "master", "c3"),
-		},
-	}
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		cis := cis.ReadWrite(stm)
-		cis.Put(c1.Commit.ID, c1)
-		cis.Put(c2.Commit.ID, c2)
-		return nil
-	})
-	require.NoError(t, err)
-
-	cisReadonly := cis.ReadOnly(context.Background())
-
-	// Test that the first key retrieves both r1 and r2
-	ci := &pfs.CommitInfo{}
-	i := 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions(), func(ID string) error {
-		if i == 1 {
-			require.Equal(t, c1.Commit.ID, ID)
-			require.Equal(t, c1, ci)
-		} else {
-			require.Equal(t, c2.Commit.ID, ID)
-			require.Equal(t, c2, ci)
-		}
-		i++
-		return nil
-	}))
-
-	// Test that the second key retrieves both r1 and r2
-	i = 1
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"), ci, DefaultOptions(), func(ID string) error {
-		if i == 1 {
-			require.Equal(t, c1.Commit.ID, ID)
-			require.Equal(t, c1, ci)
-		} else {
-			require.Equal(t, c2.Commit.ID, ID)
-			require.Equal(t, c2, ci)
-		}
-		i++
-		return nil
-	}))
-
-	// replace "c3" in the provenance of c1 with "c4"
-	c1.Provenance[2].Commit.ID = "c4"
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		cis := cis.ReadWrite(stm)
-		cis.Put(c1.Commit.ID, c1)
-		return nil
-	})
-	require.NoError(t, err)
-
-	// Now "c3" only retrieves c2 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"), ci, DefaultOptions(), func(ID string) error {
-		require.Equal(t, c2.Commit.ID, ID)
-		require.Equal(t, c2, ci)
-		return nil
-	}))
-
-	// And "C4" only retrieves r1 (indexes are updated)
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"), ci, DefaultOptions(), func(ID string) error {
-		require.Equal(t, c1.Commit.ID, ID)
-		require.Equal(t, c1, ci)
-		return nil
-	}))
-
-	// Delete c1 from etcd completely
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		cis := cis.ReadWrite(stm)
-		cis.Delete(c1.Commit.ID)
-		return nil
-	})
-	require.NoError(t, err)
-
-	// Now "c1" only retrieves c2
-	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions(), func(ID string) error {
-		require.Equal(t, c2.Commit.ID, ID)
-		require.Equal(t, c2, ci)
-		return nil
-	}))
-}
-
 func TestBoolIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 	boolValues := NewEtcdCollection(etcdClient, uuidPrefix, []*Index{{
 		Field: "Value",
-		Multi: false,
 	}}, &types.BoolValue{}, nil, nil)
 
 	r1 := &types.BoolValue{

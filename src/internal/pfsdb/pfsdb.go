@@ -21,11 +21,6 @@ const (
 	shardsPrefix      = "/shards"
 )
 
-var (
-	// ProvenanceIndex is a secondary index on provenance
-	ProvenanceIndex = &col.Index{Field: "Provenance", Multi: true}
-)
-
 // Repos returns a collection of repos
 func Repos(etcdClient *etcd.Client, etcdPrefix string) col.EtcdCollection {
 	return col.NewEtcdCollection(
@@ -43,7 +38,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.EtcdCo
 	return col.NewEtcdCollection(
 		etcdClient,
 		path.Join(etcdPrefix, commitsPrefix, repo),
-		[]*col.Index{{Field: "Provenance", Multi: true}},
+		nil,
 		&pfs.CommitInfo{},
 		nil,
 		nil,

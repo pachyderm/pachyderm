@@ -267,48 +267,20 @@ func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int6
 
 		// Put the appropriate record in any of c's secondary indexes
 		for _, index := range c.indexes {
-			if index.Multi {
-				indexPaths := c.getMultiIndexPaths(val, index, key)
-				for _, indexPath := range indexPaths {
-					// Only put the index if it doesn't already exist; otherwise
-					// we might trigger an unnecessary event if someone is
-					// watching the index
-					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-						if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-							return err
-						}
-					}
+			indexPath := c.getIndexPath(val, index, key)
+			// If we can get the original value, we remove the original indexes
+			if err := c.Get(key, clone); err == nil {
+				originalIndexPath := c.getIndexPath(clone, index, key)
+				if originalIndexPath != indexPath {
+					c.stm.Del(originalIndexPath)
 				}
-				// If we can get the original value, we remove the original indexes
-				if err := c.Get(key, clone); err == nil {
-					for _, originalIndexPath := range c.getMultiIndexPaths(clone, index, key) {
-						var found bool
-						for _, indexPath := range indexPaths {
-							if originalIndexPath == indexPath {
-								found = true
-							}
-						}
-						if !found {
-							c.stm.Del(originalIndexPath)
-						}
-					}
-				}
-			} else {
-				indexPath := c.getIndexPath(val, index, key)
-				// If we can get the original value, we remove the original indexes
-				if err := c.Get(key, clone); err == nil {
-					originalIndexPath := c.getIndexPath(clone, index, key)
-					if originalIndexPath != indexPath {
-						c.stm.Del(originalIndexPath)
-					}
-				}
-				// Only put the index if it doesn't already exist; otherwise
-				// we might trigger an unnecessary event if someone is
-				// watching the index
-				if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-					if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
-						return err
-					}
+			}
+			// Only put the index if it doesn't already exist; otherwise
+			// we might trigger an unnecessary event if someone is
+			// watching the index
+			if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
+				if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
+					return err
 				}
 			}
 		}
@@ -377,15 +349,8 @@ func (c *etcdReadWriteCollection) Delete(key string) error {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
 			if err := c.Get(key, val.(proto.Message)); err == nil {
-				if index.Multi {
-					indexPaths := c.getMultiIndexPaths(val, index, key)
-					for _, indexPath := range indexPaths {
-						c.stm.Del(indexPath)
-					}
-				} else {
-					indexPath := c.getIndexPath(val, index, key)
-					c.stm.Del(indexPath)
-				}
+				indexPath := c.getIndexPath(val, index, key)
+				c.stm.Del(indexPath)
 			}
 		}
 	}

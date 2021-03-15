@@ -64,13 +64,8 @@ type EtcdCollection interface {
 // is empty.  Thus, to get all items in collection `foo` whose values of
 // field `bar` is `test`, we issue a query for all items under
 // `foo__index_bar/test`.
-//
-// Multi specifies whether this is a multi-index.  A multi-index is an index
-// on a field that's a slice.  The item is then indexed on each element of
-// the slice.
 type Index struct {
 	Field string
-	Multi bool
 	limit int64
 }
 
