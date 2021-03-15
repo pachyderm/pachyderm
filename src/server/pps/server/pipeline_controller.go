@@ -521,7 +521,11 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 			return // prior attempt succeeded
 		}
 		rc.Spec.Replicas = new(int32)
-		*rc.Spec.Replicas = 1
+		if op.pipelineInfo.Autoscaling {
+			*rc.Spec.Replicas = 1
+		} else {
+			*rc.Spec.Replicas = int32(parallelism)
+		}
 	})
 }
 

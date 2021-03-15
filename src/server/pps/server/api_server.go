@@ -1965,6 +1965,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
 		ReprocessSpec:         request.ReprocessSpec,
+		Autoscaling:           request.Autoscaling,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err

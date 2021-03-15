@@ -325,6 +325,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		S3Out:                 pipelineInfo.S3Out,
 		Metadata:              pipelineInfo.Metadata,
 		ReprocessSpec:         pipelineInfo.ReprocessSpec,
+		Autoscaling:           pipelineInfo.Autoscaling,
 	}
 }
 
