@@ -2,6 +2,7 @@ import './index.module.css';
 
 export {default as useLoginWindow} from './hooks/useLoginWindow';
 export {default as useOutsideClick} from './hooks/useOutsideClick';
+export * from './hooks/useSort';
 
 export * from './Button';
 export * from './ButtonLink';
