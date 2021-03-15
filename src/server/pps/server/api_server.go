@@ -2324,6 +2324,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txnenv.TransactionContex
 		PodPatch:              request.PodPatch,
 		S3Out:                 request.S3Out,
 		Metadata:              request.Metadata,
+		Autoscaling:           request.Autoscaling,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return err

@@ -198,7 +198,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			})
 		}
 	})
-	if pipelineInfo.Standby {
+	if pipelineInfo.Standby || pipelineInfo.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)
@@ -342,7 +342,7 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
 		})
-		if pipelineInfo.ParallelismSpec.Constant > 1 {
+		if pipelineInfo.ParallelismSpec.Constant > 1 && pipelineInfo.Autoscaling {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
 					worker := work.NewWorker(

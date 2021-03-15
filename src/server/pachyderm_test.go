@@ -13634,7 +13634,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
-			Standby:         true,
+			Autoscaling:     true,
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
 		},
 	)
@@ -13673,7 +13673,7 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 			if err != nil {
 				return err
 			}
-			if int(scale.Spec.Replicas) == n {
+			if int(scale.Spec.Replicas) >= n {
 				enoughReplicas = true
 			}
 			if int(scale.Spec.Replicas) > n {
