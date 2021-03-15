@@ -398,32 +398,32 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		for _, ci := range newCommitInfos {
 			commitToRepo[ci.Commit.ID] = ci.Commit.Repo.Name
 		}
-		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			for commitID, provs := range addToProv {
+		for commitID, provs := range addToProv {
+			_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 				repo := commitToRepo[commitID]
 				x := &pfs.CommitInfo{}
-				err := d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
+				return d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
 					x.Provenance = append(x.Provenance, provs...)
 					return nil
 				})
-				if err != nil {
-					return err
-				}
+			})
+			if err != nil {
+				return err
 			}
-			for commitID, subs := range addToSub {
+		}
+		for commitID, subs := range addToSub {
+			_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 				repo := commitToRepo[commitID]
 				x := &pfs.CommitInfo{}
-				err := d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
+				return d.commits(repo).ReadWrite(stm).Update(commitID, x, func() error {
 					x.Subvenance = append(x.Subvenance, subs...)
 					return nil
 				})
-				if err != nil {
-					return err
-				}
+			})
+			if err != nil {
+				return err
 			}
-			return nil
-		})
-		return err
+		}
 	}
 	return nil
 }
