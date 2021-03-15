@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "0.8.5",
+  "version": "0.9.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
