@@ -17,4 +17,4 @@ spec:
     port: 2380
   selector:
     app: etcd
-{{- end }}
+{{ end -}}

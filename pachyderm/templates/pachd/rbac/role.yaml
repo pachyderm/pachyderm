@@ -43,4 +43,4 @@ rules:
   - update
   - delete
   - deletecollection
-{{- end }}
+{{ end -}}

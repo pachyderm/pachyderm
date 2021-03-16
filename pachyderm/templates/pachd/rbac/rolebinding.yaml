@@ -15,4 +15,4 @@ subjects:
 - kind: ServiceAccount
   name: pachyderm
   namespace: default
-{{- end }}
+{{ end -}}

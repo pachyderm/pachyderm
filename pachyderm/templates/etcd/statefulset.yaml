@@ -88,4 +88,4 @@ spec:
 {{- if not .Values.etcd.staticVolume }}
   {{ fail "Must specify etcd.dynamicNodes or etcd.staticVolume" }}
 {{ end -}}
-{{- end }}
+{{ end -}}

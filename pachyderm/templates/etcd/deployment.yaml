@@ -58,4 +58,4 @@ spec:
 {{- if not (gt .Values.etcd.dynamicNodes 0.0) -}}
   {{ fail "Must specify etcd.dynamicNodes or etcd.staticVolume" }}
 {{ end -}}
-{{- end }}
+{{ end -}}

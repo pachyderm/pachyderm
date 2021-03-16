@@ -39,4 +39,4 @@ spec:
         ports:
         - containerPort: 8081
           name: grpc-proxy-http
-{{- end }}
+{{ end -}}

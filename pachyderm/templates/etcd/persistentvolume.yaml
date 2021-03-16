@@ -19,4 +19,4 @@ spec:
     fsType: ext4
     pdName: {{ .Values.etcd.staticVolume }}
   persistentVolumeReclaimPolicy: Retain
-{{- end }}
+{{ end -}}

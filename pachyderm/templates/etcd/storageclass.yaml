@@ -21,4 +21,4 @@ provisioner: {{ if eq .Values.pachd.storage.backend "GOOGLE" -}}
   {{- else if eq .Values.pachd.storage.backend "AMAZON" -}}
   kubernetes.io/aws-ebs
   {{- end }}
-{{- end }}
+{{ end -}}

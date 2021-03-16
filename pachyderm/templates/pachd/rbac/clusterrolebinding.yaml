@@ -15,4 +15,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ .Values.pachd.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
-{{- end }}
+{{ end -}}

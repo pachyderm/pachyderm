@@ -18,7 +18,7 @@ spec:
     nodePort: 30653
     {{- end }}
     port: 653
-    targetPort: peer-port    
+    targetPort: peer-port
   - name: api-grpc-port
     {{- if eq .Values.pachd.service.type "NodePort" }}
     nodePort: 30650

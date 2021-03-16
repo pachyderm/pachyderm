@@ -18,4 +18,4 @@ rules:
   - update
   - create
   - delete
-{{- end }}
+{{ end -}}
