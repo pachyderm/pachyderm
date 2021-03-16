@@ -1,15 +1,21 @@
 SHELL := /bin/bash # Use bash syntax
 
-.PHONY: test lint kubeval-gcp kubeval-aws
+
+.PHONY: all test lint kubeval-gcp kubeval-gcp-tls kubeval-aws
+
+all: pachyderm/values.schema.json
 
 lint:
 	helm lint pachyderm
 
-test:
+test: kubeval-gcp kubeval-gcp-tls kubeval-aws
 	go test -race ./... -count 1
 
 kubeval-gcp:
 	helm template pachyderm -f examples/gcp-values.yaml | kubeval --strict
+
+kubeval-gcp-tls:
+	helm template pachyderm -f examples/gcp-values-tls.yaml | kubeval --strict
 
 kubeval-aws:
 	helm template pachyderm -f examples/aws-values.yaml | kubeval --strict
