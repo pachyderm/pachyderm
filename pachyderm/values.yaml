@@ -79,8 +79,8 @@ pachd:
       googleCred: ""
       serviceAccountName: "" # For Workload Identity access to the bucket
     amazon:
-      amazonRegion: ""
-      amazonBucket: ""
+      region: ""
+      bucket: ""
       # id sets the Amazon access key ID to use.  Together with secret
       # and token, it implements the functionality of the
       # --credentials argument to pachctl deploy.
