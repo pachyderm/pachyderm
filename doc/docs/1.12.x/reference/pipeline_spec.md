@@ -907,6 +907,15 @@ workers are reading from and writing to PFS simultaneously). Part of what these
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 
+If not explicitly specified, cache_size defaults to ???.
+
+!!! Note
+    When setting `cache_size`, it is important to keep in mind that any file
+    which is larger than 40% of the total `cache_size` will NOT be cached. 
+    For example, if `cache_size` is set to 1G, 
+    then only files which are 400M or smaller will be cached; 
+    files larger than 400M will not be cached.
+
 ### Enable Stats (optional)
 
 The `enable_stats` parameter turns on statistics tracking for the pipeline.
