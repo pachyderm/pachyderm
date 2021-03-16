@@ -27,3 +27,11 @@ export interface ServiceArgs {
   credentialMetadata: Metadata;
   log: Logger;
 }
+export interface GRPCPlugin {
+  onCall?: (args: {requestName: string}) => void;
+  onCompleted?: (args: {requestName: string}) => void;
+  onError?: (args: {error: Error; requestName: string}) => void;
+}
+
+export type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;
+export type ServiceDefinition = Record<string, ServiceHandlerFunction>;

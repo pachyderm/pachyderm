@@ -9,7 +9,7 @@ import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
 import {ServiceArgs} from '@dash-backend/lib/types';
 
-const projects = ({pachdAddress, channelCredentials, log}: ServiceArgs) => {
+const projects = ({pachdAddress, channelCredentials}: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
@@ -20,27 +20,11 @@ const projects = ({pachdAddress, channelCredentials, log}: ServiceArgs) => {
         const request = new ProjectRequest();
         request.setProjectid(projectId);
 
-        log.info(
-          {
-            meta: {
-              args: {projectId},
-            },
-          },
-          'inspectProject request',
-        );
-
         client.inspectProject(request, metadata, (error, res) => {
           if (error) {
-            log.error(
-              {
-                error: error.message,
-              },
-              'inspectProject request failed',
-            );
             return reject(error);
           }
 
-          log.info('inspectProject request succeeded');
           return resolve(res.toObject());
         });
       });
@@ -50,20 +34,11 @@ const projects = ({pachdAddress, channelCredentials, log}: ServiceArgs) => {
         const metadata = new Metadata();
         const empty = new Empty();
 
-        log.info('listProject request');
-
         client.listProject(empty, metadata, (error, res) => {
           if (error) {
-            log.error(
-              {
-                error: error.message,
-              },
-              'listProject request failed',
-            );
             return reject(error);
           }
 
-          log.info('listProject request succeeded');
           return resolve(res.toObject());
         });
       });

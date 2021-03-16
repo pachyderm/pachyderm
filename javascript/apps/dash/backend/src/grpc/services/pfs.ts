@@ -20,7 +20,6 @@ const pfs = ({
   pachdAddress,
   channelCredentials,
   credentialMetadata,
-  log,
 }: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);
 
@@ -96,18 +95,14 @@ const pfs = ({
     },
     listRepo: () => {
       return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {
-        log.info('listRepo request');
-
         client.listRepo(
           new ListRepoRequest(),
           credentialMetadata,
           (error, res) => {
             if (error) {
-              log.error({error: error.message}, 'listRepo request failed');
               return reject(error);
             }
 
-            log.error('listRepo request succeeded');
             return resolve(res.toObject().repoInfoList);
           },
         );
