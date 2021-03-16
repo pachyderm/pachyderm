@@ -5,7 +5,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   labels:
     app: etcd
     suite: pachyderm
@@ -20,7 +19,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: etcd
         suite: pachyderm
