@@ -82,9 +82,6 @@
                 "cpuRequest": {
                     "type": "integer"
                 },
-                "exposeDockerSocket": {
-                    "type": "boolean"
-                },
                 "exposeObjectAPI": {
                     "type": "boolean"
                 },
@@ -121,6 +118,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "noExposeDockerSocket": {
+                    "type": "boolean"
                 },
                 "numShards": {
                     "type": "integer"
