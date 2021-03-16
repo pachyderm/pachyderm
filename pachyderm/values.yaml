@@ -110,7 +110,10 @@ pachd:
       disableSSL: false
       logOptions: ""
       noVerifySSL: false
-      iamRole: "" #TODO - ensure iam role wired up in all places
+      # iamRole specifies the IAM role.  If specified, neither id,
+      # secret, token nor customEndpoint are used.  It is analogous to
+      # the --iam-role argument to pachctl deploy.
+      iamRole: ""
     microsoft:
       microsoftContainer: ""
       microsoftID: ""
