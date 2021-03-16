@@ -180,7 +180,7 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: hub/hub_getting_started.md
-             - Deploy on ...:
+            - Deploy on ...:
                 - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
@@ -243,6 +243,7 @@ nav:
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
     - Reference:
         - Overview: reference/index.md
+        - Community Edition Limit: reference/scaling_changes.md
         - Pipeline Specification: reference/pipeline_spec.md
         - Pachyderm Config Specification: reference/config_spec.md
         - Pachyderm Language Clients: reference/clients.md
