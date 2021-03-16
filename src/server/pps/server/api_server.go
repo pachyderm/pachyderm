@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	enterpriselimits "github.com/pachyderm/pachyderm/src/server/enterprise/limits"
+	enterprisetext "github.com/pachyderm/pachyderm/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -1524,8 +1525,13 @@ func (a *apiServer) validateV2Features(request *pps.CreatePipelineRequest) (*pps
 	return request, nil
 }
 
-func (a *apiServer) validateEnterpriseChecks(ctx context.Context, request *pps.CreatePipelineRequest) error {
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	pachClient := a.env.GetPachClient(ctx)
+	if _, err := pachClient.InspectPipeline(pipelineInfo.Pipeline.Name); err == nil {
+		// Pipeline already exists so we allow people to update it even if
+		// they're over the limits.
+		return nil
+	}
 	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -1540,10 +1546,12 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, request *pps.C
 		return err
 	}
 	if pipelines >= enterpriselimits.Pipelines {
-		return errors.Errorf("too many pipelines, enable enterprise to create more")
+		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, pipelines, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
-	if request.ParallelismSpec.Constant > enterpriselimits.Parallelism {
-		return errors.Errorf("too much parallelism, enable enterprise use this much parallelism")
+	if pipelineInfo.ParallelismSpec.Constant > enterpriselimits.Parallelism {
+		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
+			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
 	}
 	return nil
 }
@@ -1627,6 +1635,9 @@ func (a *apiServer) validatePipelineInTransaction(txnCtx *txnenv.TransactionCont
 		if pipelineInfo.Spout.Service == nil && pipelineInfo.Input != nil {
 			return errors.Errorf("spout pipelines (without a service) must not have an input")
 		}
+	}
+	if err := a.validateEnterpriseChecks(txnCtx.ClientContext, pipelineInfo); err != nil {
+		return err
 	}
 	return nil
 }
