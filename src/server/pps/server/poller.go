@@ -186,41 +186,46 @@ func (m *ppsMaster) pollPipelinePods(pollClient *client.APIClient) {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
 		defer kubePipelineWatch.Stop()
-		for event := range kubePipelineWatch.ResultChan() {
-			// if we get an error we restart the watch
-			if event.Type == kube_watch.Error {
-				return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
-			} else if event.Type == "" {
-				// k8s watches seem to sometimes get stuck in a loop returning events
-				// with Type = "". We treat these as errors as otherwise we get an
-				// endless stream of them and can't do anything.
-				return errors.New("error while watching kubernetes pods: empty event type")
-			}
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				continue // irrelevant event
-			}
-			if pod.Status.Phase == v1.PodFailed {
-				log.Errorf("pod failed because: %s", pod.Status.Message)
-			}
-			pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-					if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
-						return errors.Wrap(err, "error moving pipeline to CRASHING")
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case event := <-kubePipelineWatch.ResultChan():
+				// if we get an error we restart the watch
+				if event.Type == kube_watch.Error {
+					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
+				} else if event.Type == "" {
+					// k8s watches seem to sometimes get stuck in a loop returning events
+					// with Type = "". We treat these as errors as otherwise we get an
+					// endless stream of them and can't do anything.
+					return errors.New("error while watching kubernetes pods: empty event type")
+				}
+				pod, ok := event.Object.(*v1.Pod)
+				if !ok {
+					continue // irrelevant event
+				}
+				if pod.Status.Phase == v1.PodFailed {
+					log.Errorf("pod failed because: %s", pod.Status.Message)
+				}
+				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
+						if err := m.a.setPipelineCrashing(ctx, pipelineName, status.State.Waiting.Message); err != nil {
+							return errors.Wrap(err, "error moving pipeline to CRASHING")
+						}
+					}
+				}
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodScheduled &&
+						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
+						if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
+							return errors.Wrap(err, "error moving pipeline to CRASHING")
+						}
 					}
 				}
 			}
-			for _, condition := range pod.Status.Conditions {
-				if condition.Type == v1.PodScheduled &&
-					condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-					if err := m.a.setPipelineCrashing(ctx, pipelineName, condition.Message); err != nil {
-						return errors.Wrap(err, "error moving pipeline to CRASHING")
-					}
-				}
-			}
+			return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
 		}
-		return backoff.ErrContinue // keep polling until cancelled (RetryUntilCancel)
 	}, backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
 		log.Fatalf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
