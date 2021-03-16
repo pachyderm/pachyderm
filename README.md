@@ -31,13 +31,18 @@ something similar to the following:
  3. Visually diff the two.
 
 # JSON Schema
-We use this [plugin](https://github.com/karuppiah7890/helm-schema-gen) 
-to manage JSON schema
 
-When updating `values.yaml` please run the following to update the 
+We use [helm-schema-gen](https://github.com/karuppiah7890/helm-schema-gen)
+to manage the JSON schema.  It can be installed with:
+
+```sh
+$ helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
+```
+
+When updating `values.yaml` please run the following to update the
 json schema file.
 
-```
+```sh
 cd pachyderm
 helm schema-gen values.yaml > values.schema.json
 ```

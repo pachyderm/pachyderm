@@ -5,6 +5,9 @@
         "dash": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -24,6 +27,12 @@
         "etcd": {
             "type": "object",
             "properties": {
+                "cpuRequest": {
+                    "type": "integer"
+                },
+                "dynamicNodes": {
+                    "type": "integer"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -38,8 +47,14 @@
                         }
                     }
                 },
-                "resources": {
-                    "type": "object"
+                "memoryRequest": {
+                    "type": "string"
+                },
+                "staticVolume": {
+                    "type": "string"
+                },
+                "storageClass": {
+                    "type": "string"
                 },
                 "storageSize": {
                     "type": "string"
@@ -48,6 +63,9 @@
         },
         "imageCredentials": {
             "type": "object"
+        },
+        "imagePullSecret": {
+            "type": "string"
         },
         "pachd": {
             "type": "object",
@@ -61,7 +79,16 @@
                 "clusterDeploymentID": {
                     "type": "string"
                 },
+                "cpuRequest": {
+                    "type": "integer"
+                },
+                "exposeDockerSocket": {
+                    "type": "boolean"
+                },
                 "exposeObjectAPI": {
+                    "type": "boolean"
+                },
+                "guaranteedResources": {
                     "type": "boolean"
                 },
                 "image": {
@@ -81,6 +108,9 @@
                 "logLevel": {
                     "type": "string"
                 },
+                "memoryRequest": {
+                    "type": "string"
+                },
                 "metrics": {
                     "type": "object",
                     "properties": {
@@ -92,9 +122,6 @@
                         }
                     }
                 },
-                "noExposeDockerSocket": {
-                    "type": "boolean"
-                },
                 "numShards": {
                     "type": "integer"
                 },
@@ -103,9 +130,6 @@
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
-                },
-                "resources": {
-                    "type": "object"
                 },
                 "service": {
                     "type": "object",
@@ -273,6 +297,9 @@
             "type": "object",
             "properties": {
                 "create": {
+                    "type": "boolean"
+                },
+                "localRoles": {
                     "type": "boolean"
                 }
             }
