@@ -122,6 +122,8 @@ pachd:
       # analogous to the --max-upload-parts argument to pachctl
       # deploy.
       maxUploadParts: 10000
+      # disableSSL disables SSL.  It is analogous to the --disable-ssl
+      # argument to pachctl deploy.
       disableSSL: false
       # logOptions sets various log options in Pachyderm’s internal S3
       # client.  Comma-separated list containing zero or more of:
