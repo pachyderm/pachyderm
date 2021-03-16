@@ -81,12 +81,21 @@ pachd:
     amazon:
       amazonRegion: ""
       amazonBucket: ""
-      amazonID: ""
-      amazonSecret: "" #FIXME: delete?
-      amazonToken: ""  #FIXME: delete?
+      # id sets the Amazon access key ID to use.  Together with secret
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      id: ""
+      # secret sets the Amazon secret access key to use.  Together with id
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      secret: ""
+      # token optionally sets the Amazon token to use.  Together with
+      # id and secret, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      token: ""
       amazonVaultAddr: "" #TODO Add vault to secret
-      amazon-vault-role: ""
-      amazon-vault-token: ""
+      amazon-vault-role: "" #FIXME: delete?
+      amazon-vault-token: "" #FIXME: delete?
       # cloudFrontDistribution sets the CloudFront distribution in the
       # storage secrets.  It is analogous to the
       # --cloudfront-distribution argument to pachctl deploy.
