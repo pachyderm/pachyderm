@@ -21,15 +21,39 @@
                             "type": "string"
                         }
                     }
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
         "etcd": {
             "type": "object",
             "properties": {
-                "cpuRequest": {
-                    "type": "integer"
-                },
                 "dynamicNodes": {
                     "type": "integer"
                 },
@@ -47,8 +71,32 @@
                         }
                     }
                 },
-                "memoryRequest": {
-                    "type": "string"
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 },
                 "staticVolume": {
                     "type": "string"
@@ -79,13 +127,7 @@
                 "clusterDeploymentID": {
                     "type": "string"
                 },
-                "cpuRequest": {
-                    "type": "integer"
-                },
                 "exposeObjectAPI": {
-                    "type": "boolean"
-                },
-                "guaranteedResources": {
                     "type": "boolean"
                 },
                 "image": {
@@ -103,9 +145,6 @@
                     }
                 },
                 "logLevel": {
-                    "type": "string"
-                },
-                "memoryRequest": {
                     "type": "string"
                 },
                 "metrics": {
@@ -130,6 +169,33 @@
                 },
                 "requireCriticalServersOnly": {
                     "type": "boolean"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 },
                 "service": {
                     "type": "object",

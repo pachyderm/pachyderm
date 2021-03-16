@@ -14,18 +14,28 @@ dash:
     pullPolicy: IfNotPresent
   # enabled controls whether the dash manifests are created or not.
   enabled: true
+  # resources specifies the resource request
+  resources:
+    limits:
+      cpu: 1
+      memory: 2G
+    requests:
+      cpu: 1
+      memory: 2G
 
 pachd:
   image:
     repository: pachyderm/pachd
     tag: "1.12.4"
     pullPolicy: IfNotPresent
-  # cpuRequest is the number of CPU units to request.
-  cpuRequest: 1
-  # memoryRequest is the amount of memory to request.
-  memoryRequest: 2G
-  # guaranteedResources enables resource limits if set.
-  guaranteedResources: true # if false, no resource limits set
+  # resources specifies the resource request
+  resources:
+    limits:
+      cpu: 1
+      memory: 2G
+    requests:
+      cpu: 1
+      memory: 2G
   logLevel: info
   metrics:
     enabled: true
@@ -125,10 +135,14 @@ etcd:
     tag: "v3.3.5"
     pullPolicy: IfNotPresent
   storageSize: "10Gi"
-  # cpuRequest is the number of CPU units to request.
-  cpuRequest: 1
-  # memoryRequest is the amount of memory to request.
-  memoryRequest: 2G
+  # resources specifies the resource request
+  resources:
+    limits:
+      cpu: 1
+      memory: 2G
+    requests:
+      cpu: 1
+      memory: 2G
   # storageClass indicates the etcd should use an existing
   # StorageClass for its storage.  It is analogous to the
   # --etcd-storage-class argument to pachctl deploy.

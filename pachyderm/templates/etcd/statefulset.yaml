@@ -59,9 +59,7 @@ spec:
         - containerPort: 2380
           name: peer-port
         resources:
-          requests:
-            cpu: {{ .Values.etcd.cpuRequest | quote }}
-            memory: {{ .Values.etcd.memoryRequest }}
+{{ toYaml .Values.etcd.resources | indent 12 }}
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
