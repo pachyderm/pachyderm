@@ -1,0 +1,63 @@
+{{- if .Values.etcd.staticVolume -}}
+{{- if gt .Values.etcd.dynamicNodes 0.0 -}}
+  {{ fail "May not specify etcd.dynamicNodes and etcd.staticVolume" }}
+{{ end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd
+      suite: pachyderm
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: etcd
+        suite: pachyderm
+      name: etcd
+      namespace: default
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/etcd
+        - --listen-client-urls=http://0.0.0.0:2379
+        - --advertise-client-urls=http://0.0.0.0:2379
+        - --data-dir=/var/data/etcd
+        - --auto-compaction-retention=1
+        - --max-txn-ops=10000
+        - --max-request-bytes=52428800
+        - --quota-backend-bytes=8589934592
+        image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
+        imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
+        name: etcd
+        ports:
+        - containerPort: 2379
+          name: client-port
+        - containerPort: 2380
+          name: peer-port
+        resources:
+          requests:
+            cpu: {{ .Values.etcd.cpuRequest | quote }}
+            memory: {{ .Values.etcd.memoryRequest }}
+        volumeMounts:
+        - mountPath: /var/data/etcd
+          name: etcd-storage
+      volumes:
+      - name: etcd-storage
+        persistentVolumeClaim:
+          claimName: etcd-storage
+{{- else }}
+{{- if not (gt .Values.etcd.dynamicNodes 0.0) -}}
+  {{ fail "Must specify etcd.dynamicNodes or etcd.staticVolume" }}
+{{ end -}}
+{{- end }}

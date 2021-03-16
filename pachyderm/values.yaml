@@ -94,6 +94,8 @@ etcd:
   cpuRequest: 1
   memoryRequest: 2G
   storageClass: ""
+  dynamicNodes: 1
+  staticVolume: ""
 
 imageCredentials: {}
   #registry: ""

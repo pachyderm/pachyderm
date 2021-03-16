@@ -1,0 +1,21 @@
+{{- if .Values.etcd.staticVolume -}}
+{{- if gt .Values.etcd.dynamicNodes 0.0 -}}
+  {{ fail "May not specify etcd.dynamicNodes and etcd.staticVolume" }}
+{{ end -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  creationTimestamp: null
+  labels:
+    app: etcd
+    suite: pachyderm
+  name: etcd-storage
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 31337Gi
+  volumeName: etcd-volume
+{{- end }}

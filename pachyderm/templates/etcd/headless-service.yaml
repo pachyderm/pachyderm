@@ -1,4 +1,7 @@
----
+{{- if gt .Values.etcd.dynamicNodes 0.0 -}}
+{{- if .Values.etcd.staticVolume }}
+  {{ fail "May not specify etcd.dynamicNodes and etcd.staticVolume" }}
+{{ end -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,3 +17,4 @@ spec:
     port: 2380
   selector:
     app: etcd
+{{- end }}
