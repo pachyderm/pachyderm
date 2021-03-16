@@ -27,11 +27,13 @@ We provide an easy way to request a **2 weeks Enterprise Token** that will help 
 
 ## What happens when you exceed those limits?
 
-As a general rule, each `pachctl` command requiring an enterprise key check (For example: `pachctl auth,` `pachctl deploy ide`...) will generate an alert message in your STDERR with a link to the Enterprise landing page. 
+As a general rule, each `pachctl` command invoking an enterprise feature (For example: `pachctl auth,` `pachctl deploy ide`...) will generate an alert message in your STDERR with a link to the Enterprise page for more information. 
 
 Similarly, all of the `pachctl deploy` commands will generate an alert message in your STDERR and provide a link to request a 14 day trial Enterprise key.
 
 ### Pipelines limit
+
+When exceeding the number of pipelines:
 
 - `pachctl create pipeline` will succeed if creating without upsert, fail when trying to upsert. 
 
@@ -41,11 +43,11 @@ Similarly, all of the `pachctl deploy` commands will generate an alert message i
 
 - `pachctl restore` fails when trying to restore with too many pipelines. 
 
-In any case, running any of the following commands below will create a distinct message to stderr as well as to the pachd logs and let you know the number of pipelines limit, what number of pipelines you have, and provide a link to request an Enterprise key.
+In any case, running any of the following commands below will create a distinct message to stderr as well as to the pachd logs letting you know the number of pipelines limit, the number of pipelines you have, and provide a link to request an Enterprise key.
 
 ### Workers limit
 
-When trying to create the parallelism too high:
+When trying to create a parallelism too high:
 
 (//TODO investigate which it is fail or succeed... Jd seemed to suggest it should fail - To be validated)
 
