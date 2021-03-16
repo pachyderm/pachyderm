@@ -93,17 +93,27 @@ pachd:
       # id and secret, it implements the functionality of the
       # --credentials argument to pachctl deploy.
       token: ""
-      amazonVaultAddr: "" #TODO Add vault to secret
-      amazon-vault-role: "" #FIXME: delete?
-      amazon-vault-token: "" #FIXME: delete?
+      vault:
+        address: ""
+        role: ""
+        token: ""
       # cloudFrontDistribution sets the CloudFront distribution in the
       # storage secrets.  It is analogous to the
       # --cloudfront-distribution argument to pachctl deploy.
       cloudFrontDistribution: ""
       customEndpoint: ""
+      # retries sets the number of retries for object storage
+      # requests.  It is analogous to the --retries argument to
+      # pachctl deploy.
       retries: 10
+      # timeout sets the timeout for object storage requests.  It is
+      # analogous to the --timeout argument to pachctl deploy.
       timeout: "5m"
+      # uploadACL sets the upload ACL for object storage uploads.  It
+      # is analogous to the --upload-acl argument to pachctl deploy.
       uploadACL: bucket-owner-full-control
+      # reverse reverses object storage paths.  It is analogous to the
+      # --reverse argument to pachctl deploy.
       reverse: "true"
       # partSize sets the part size for object storage uploads.  It is
       # analogous to the --part-size argument to pachctl deploy.
