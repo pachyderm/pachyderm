@@ -1,6 +1,9 @@
 SHELL := /bin/bash # Use bash syntax
 
-.PHONY: test kubeval-gcp
+.PHONY: test lint kubeval-gcp kubeval-aws
+
+lint:
+	helm lint pachyderm
 
 test:
 	go test -v -race ./... -count 1

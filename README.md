@@ -30,6 +30,18 @@ something similar to the following:
     examples/gcp-values.yaml ./pachyderm > helmmanifest.yaml`
  3. Visually diff the two.
 
+# JSON Schema
+We use this [plugin](https://github.com/karuppiah7890/helm-schema-gen) 
+to manage JSON schema
+
+When updating `values.yaml` please run the following to update the 
+json schema file.
+
+```
+cd pachyderm
+helm schema-gen values.yaml > values.schema.json
+```
+
 # Validate Helm manifest
  1. `go install github.com/instrumenta/kubeval`
  2. `kubeval helmmanifest.yaml`

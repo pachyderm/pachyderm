@@ -22,7 +22,7 @@ pachd:
     endpoint: ""
   exposeDockerSocket: true
   numShards: 16
-  blockCacheBytes: 1G
+  blockCacheBytes: "1G"
   authenticationDisabledForTesting: false
   exposeObjectAPI: false
   clusterDeploymentID: ""
@@ -47,15 +47,15 @@ pachd:
       amazon-vault-token: ""
       amazonDistribution: ""
       customEndpoint: ""
-      retries: "10"
+      retries: 10
       timeout: "5m"
       uploadACL: bucket-owner-full-control
       reverse: "true"
-      partSize: "5242880"
-      maxUploadParts: "10000"
-      disableSSL: "false"
+      partSize: 5242880
+      maxUploadParts: 10000
+      disableSSL: false
       logOptions: ""
-      noVerifySSL: "false"
+      noVerifySSL: false
       iamRole: "" #TODO - ensure iam role wired up in all places
     microsoft:
       microsoftContainer: ""
@@ -90,7 +90,7 @@ etcd:
     repository: pachyderm/etcd
     tag: "v3.3.5"
     pullPolicy: IfNotPresent
-  storageSize: 10Gi
+  storageSize: "10Gi"
   cpuRequest: 1
   memoryRequest: 2G
   storageClass: ""
@@ -106,8 +106,8 @@ imageCredentials: {}
 # move under ingress? How to make work with cert-manager, maybe add
 # tls option to pachctl create secret?
 tls:
-  crt:
-  key:
+  crt: ""
+  key: ""
 
 rbac:
   create: true
