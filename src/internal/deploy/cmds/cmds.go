@@ -557,10 +557,7 @@ func standardDeployCmds() []*cobra.Command {
 				opts.ExposeObjectAPI = true
 
 				// Set the postgres and etcd nodeports explicitly for developers
-				if enterpriseServer {
-					opts.PostgresOpts.Port = 31228
-					opts.EtcdOpts.Port = 31379
-				} else {
+				if !enterpriseServer {
 					opts.PostgresOpts.Port = 32228
 					opts.EtcdOpts.Port = 32379
 				}
