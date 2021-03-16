@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	log "github.com/sirupsen/logrus"
@@ -249,6 +250,7 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) {
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
 	}
+	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	// Pipeline info
 	resp, err := pachClient.PpsAPIClient.ListPipeline(pachClient.Ctx(), &pps.ListPipelineRequest{AllowIncomplete: true})
