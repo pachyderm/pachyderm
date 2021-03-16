@@ -688,6 +688,31 @@ func (c APIClient) DeleteAll() error {
 	return nil
 }
 
+// DeleteAllEnterprise deletes everything in the enterprise server.
+// Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
+func (c APIClient) DeleteAllEnterprise() error {
+	if _, err := c.IdentityAPIClient.DeleteAll(
+		c.Ctx(),
+		&identity.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.AuthAPIClient.Deactivate(
+		c.Ctx(),
+		&auth.DeactivateRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.License.DeleteAll(
+		c.Ctx(),
+		&license.DeleteAllRequest{},
+	); err != nil && !auth.IsErrNotActivated(err) {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
 // SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
 // client can have. It is not safe to call this operations while operations are
 // outstanding.

@@ -124,7 +124,7 @@ case "${BUCKET}" in
     make test-enterprise
     # Launch a stand-alone enterprise server in a separate namespace
     make launch-enterprise
-    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTEPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite 
+    echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite 
     pachctl config set active-enterprise-context enterprise
     make test-enterprise-integration
     ;;
