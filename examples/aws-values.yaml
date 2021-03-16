@@ -1,7 +1,8 @@
-pachd: 
+pachd:
   storage:
     backend: AMAZON
     amazon:
       amazonBucket: blah
       amazonSecret: blah
       amazonID: blah
+      cloudFrontDistribution: cfd-123

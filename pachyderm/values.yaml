@@ -82,12 +82,15 @@ pachd:
       amazonRegion: ""
       amazonBucket: ""
       amazonID: ""
-      amazonSecret: ""
-      amazonToken: ""
+      amazonSecret: "" #FIXME: delete?
+      amazonToken: ""  #FIXME: delete?
       amazonVaultAddr: "" #TODO Add vault to secret
       amazon-vault-role: ""
       amazon-vault-token: ""
-      amazonDistribution: ""
+      # cloudFrontDistribution sets the CloudFront distribution in the
+      # storage secrets.  It is analogous to the
+      # --cloudfront-distribution argument to pachctl deploy.
+      cloudFrontDistribution: ""
       customEndpoint: ""
       retries: 10
       timeout: "5m"

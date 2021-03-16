@@ -231,9 +231,6 @@
                                 "amazonBucket": {
                                     "type": "string"
                                 },
-                                "amazonDistribution": {
-                                    "type": "string"
-                                },
                                 "amazonID": {
                                     "type": "string"
                                 },
@@ -247,6 +244,9 @@
                                     "type": "string"
                                 },
                                 "amazonVaultAddr": {
+                                    "type": "string"
+                                },
+                                "cloudFrontDistribution": {
                                     "type": "string"
                                 },
                                 "customEndpoint": {
