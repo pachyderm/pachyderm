@@ -347,6 +347,7 @@ test-enterprise:
 	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
 
 test-enterprise-integration:
+	go install ./src/testing/match
 	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT)
 
 test-tls:
