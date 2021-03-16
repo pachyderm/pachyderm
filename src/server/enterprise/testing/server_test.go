@@ -12,8 +12,26 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
 
+func resetClusterState(t *testing.T) {
+	ec, err := client.NewEnterpriseClientForTest()
+	require.NoError(t, err)
+
+	c, err := client.NewForTest()
+	require.NoError(t, err)
+
+	// Set the root token, in case a previous test failed
+	c.SetAuthToken(tu.RootToken)
+	ec.SetAuthToken(tu.RootToken)
+
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, ec.DeleteAll())
+}
+
 // TestRegisterPachd tests registering a pachd with the enterprise server when auth is disabled
 func TestRegisterPachd(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
 	ec, err := client.NewEnterpriseClientForTest()
 	require.NoError(t, err)
 
@@ -22,13 +40,13 @@ func TestRegisterPachd(t *testing.T) {
 
 	code := tu.GetTestEnterpriseCode(t)
 
-	_, err = ec.License.Activate(c.Ctx(),
+	_, err = ec.License.Activate(ec.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: code,
 		})
 	require.NoError(t, err)
 
-	_, err = ec.License.AddCluster(c.Ctx(),
+	_, err = ec.License.AddCluster(ec.Ctx(),
 		&license.AddClusterRequest{
 			Id:      "pachd",
 			Secret:  "pachd",
@@ -45,9 +63,12 @@ func TestRegisterPachd(t *testing.T) {
 			LicenseServer: "pach-enterprise.enterprise:650",
 		})
 	require.NoError(t, err)
-}
 
-// TestRegisterPachdAuthenticated tests registering a pachd with the enterprise server when auth is enabled.
-func TestRegisterPachdAuthenticated(t *testing.T) {
+	state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
+	require.NoError(t, err)
+	require.Equal(t, enterprise.State_ACTIVE, state.State)
 
+	clusters, err := ec.License.ListClusters(ec.Ctx(), &license.ListClustersRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(clusters.Clusters))
 }
