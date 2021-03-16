@@ -9,6 +9,8 @@ VM_IP="localhost"
 export VM_IP
 PACH_PORT="30650"
 export PACH_PORT
+ENTERPRISE_PORT="31650"
+export ENTERPRISE_PORT
 GOPATH=/root/go
 export GOPATH
 PATH="${GOPATH}/bin:${PATH}"
