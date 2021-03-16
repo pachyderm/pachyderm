@@ -6,7 +6,7 @@ lint:
 	helm lint pachyderm
 
 test:
-	go test -v -race ./... -count 1
+	go test -race ./... -count 1
 
 kubeval-gcp:
 	helm template pachyderm -f examples/gcp-values.yaml | kubeval --strict
