@@ -13,7 +13,7 @@ import {
   fileFromObject,
   fileInfoFromObject,
   FileObject,
-} from '@dash-backend/grpc/builders';
+} from '@dash-backend/grpc/builders/pfs';
 import {ServiceArgs} from '@dash-backend/lib/types';
 
 const pfs = ({
