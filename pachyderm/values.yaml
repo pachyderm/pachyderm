@@ -1,11 +1,18 @@
+# imagePullSecret sets the image pull secret used for all images.  It
+# is analogous to the --image-pull-secret argument to pachctl deploy.
 imagePullSecret: "" # FIXME: should this be per-image?
 
 dash:
   image:
+    # repository is the image repo to pull from; together with tag it
+    # replicates the --dash-image & --registry arguments to pachctl
+    # deploy.
     repository: pachyderm/dash
+    # tag is the image repo to pull from; together with repository it
+    # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
     pullPolicy: IfNotPresent
-  # resources: {} TODO
+  # enabled controls whether the dash manifests are created or not.
   enabled: true
 
 pachd:
@@ -13,23 +20,48 @@ pachd:
     repository: pachyderm/pachd
     tag: "1.12.4"
     pullPolicy: IfNotPresent
+  # cpuRequest is the number of CPU units to request.
   cpuRequest: 1
+  # memoryRequest is the amount of memory to request.
   memoryRequest: 2G
+  # guaranteedResources enables resource limits if set.
   guaranteedResources: true # if false, no resource limits set
   logLevel: info
   metrics:
     enabled: true
     endpoint: ""
+  # exposeDockerSocket controls whether the Docker socket is exposed.
+  # It is the inverse of the --no-expose-docker-socket argument passed
+  # to pachctl deploy.
   exposeDockerSocket: true
+  # numShards sets the maximum number of pachd nodes allowed in the
+  # cluster; increasing this number blindly can result in degraded
+  # performance.  It is analogous to the --shards argument to pachctl
+  # deploy.
   numShards: 16
+  # blockCacheBytes sets the size of the block cache.  It is analogous
+  # to the --block-cache-size argument passed to pachctl deploy.
   blockCacheBytes: "1G"
   authenticationDisabledForTesting: false
+  # exposeObjectAPI controls whether the object API is exposed.  It is
+  # analogous to --expose-object-api passed to pachctl deploy.
   exposeObjectAPI: false
+  # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""
+  # requireCriticalServersOnly only requires the critical pachd
+  # servers to startup and run without errors.  It is analogous to the
+  # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
   ppsWorkerGRPCPort: 80
   storage:
+    # uploadConcurrencyLimit sets the maximum number of concurrent
+    # object storage uploads per Pachd instance.  It is analogous to
+    # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    # putFileConcurrencyLimit sets the maximum number of files to
+    # upload or fetch from remote sources (HTTP, blob storage) using
+    # PutFile concurrently.  It is analogous to the
+    # --put-file-concurrency-limit argument to pachctl deploy.
     putFileConcurrencyLimit: 100
     backend: "" # GOOGLE, AMAZON, MINIO, MICROSOFT, LOCAL
     google:
@@ -78,6 +110,8 @@ pachd:
     name: pachyderm #TODO Set default in helpers / Wire up in templates
   workerServiceAccount:
     create: true
+    # name sets the name of the worker service account.  Analogous to
+    # the --worker-service-account argument to pachctl deploy.
     name: pachyderm-worker #TODO Set default in helpers / Wire up in templates
 
 worker:
@@ -91,9 +125,17 @@ etcd:
     tag: "v3.3.5"
     pullPolicy: IfNotPresent
   storageSize: "10Gi"
+  # cpuRequest is the number of CPU units to request.
   cpuRequest: 1
+  # memoryRequest is the amount of memory to request.
   memoryRequest: 2G
+  # storageClass indicates the etcd should use an existing
+  # StorageClass for its storage.  It is analogous to the
+  # --etcd-storage-class argument to pachctl deploy.
   storageClass: ""
+  # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
+  # is analogous to the --dynamic-etcd-nodes argument to pachctl
+  # deploy.
   dynamicNodes: 1
   staticVolume: ""
 
@@ -106,9 +148,17 @@ imageCredentials: {}
 # move under ingress? How to make work with cert-manager, maybe add
 # tls option to pachctl create secret?
 tls:
+  # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
   crt: ""
+  # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
   key: ""
 
 rbac:
+  # create indicates whether RBAC resources should be created.
+  # Setting it to false is analogous to passing --no-rbac to pachctl
+  # deploy.
   create: true
+  # localRoles indicates if a Role and RoleBinding should be used
+  # rather than a ClusterRole and ClusterRoleBinding; it is analogous
+  # to --local-roles passed to pachctl deploy.
   localRoles: false
