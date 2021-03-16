@@ -112,6 +112,10 @@ pachd:
       maxUploadParts: 10000
       disableSSL: false
       logOptions: ""
+      # noVerifySSL skips SSL certificate verification.  It is
+      # analogous to the --no-verify-ssl argument to pachctl deploy.
+      #
+      # FIXME: invert this to verifySSL
       noVerifySSL: false
       # iamRole specifies the IAM role.  If specified, neither id,
       # secret, token nor customEndpoint are used.  It is analogous to
