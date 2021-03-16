@@ -1,5 +1,5 @@
 import {useLoginWindow} from '@pachyderm/components';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo} from 'react';
 import {useLocation} from 'react-router';
 
 import useAuth from '@dash-frontend/hooks/useAuth';
@@ -10,14 +10,14 @@ const clientId = process.env.REACT_APP_OAUTH_CLIENT_ID || '';
 
 const useAuthenticatedRoute = () => {
   const {exchangeCodeError, loggedIn, exchangeCode} = useAuth();
-  const {initiateOauthFlow, loginWindowError} = useLoginWindow({
+  const {
+    initiateOauthFlow,
+    loginWindowError,
+    loginWindowSucceeded,
+  } = useLoginWindow({
     onSuccess: exchangeCode,
   });
   const location = useLocation();
-  const [authenticating] = useState(() =>
-    Boolean(window.localStorage.getItem('oauthCode')),
-  );
-
   const error = exchangeCodeError || loginWindowError;
 
   const redirectSearchString = useMemo(() => {
@@ -28,7 +28,7 @@ const useAuthenticatedRoute = () => {
   }, [location]);
 
   useEffect(() => {
-    if (!error && !loggedIn && !authenticating) {
+    if (!error && !loggedIn && !loginWindowSucceeded) {
       initiateOauthFlow({
         authUrl,
         clientId,
@@ -36,7 +36,7 @@ const useAuthenticatedRoute = () => {
         openWindow: false,
       });
     }
-  }, [error, loggedIn, initiateOauthFlow, authenticating]);
+  }, [error, loggedIn, initiateOauthFlow, loginWindowSucceeded]);
 
   return {
     error,

@@ -4,6 +4,9 @@ import {BrowserRouter} from 'react-router-dom';
 
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
+export {default as server} from '@dash-backend/index';
+export {default as mockServer} from '@dash-backend/mock';
+
 export const withContextProviders = (
   Component: React.ElementType,
 ): ((props: any) => ReactElement) => {

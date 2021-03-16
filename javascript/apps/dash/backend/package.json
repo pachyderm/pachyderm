@@ -11,7 +11,7 @@
     "start:dev": "LOG_LEVEL=debug NODE_ENV=test DOTENV_FLOW_PATH=../ ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:mock": "LOG_LEVEL=debug NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=50051 ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
     "mock-and-start": "npm run start:dev & npm run start:mock",
-    "test": "NODE_ENV=test LOG_LEVEL=none PORT=0 dotenv-flow -p ../ -- jest --max-workers=6"
+    "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest --max-workers=6"
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",

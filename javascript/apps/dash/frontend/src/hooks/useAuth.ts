@@ -1,5 +1,12 @@
-import {gql, useApolloClient, useMutation, useQuery} from '@apollo/client';
+import {
+  ApolloError,
+  gql,
+  useApolloClient,
+  useMutation,
+  useQuery,
+} from '@apollo/client';
 import Cookies from 'js-cookie';
+import noop from 'lodash/noop';
 import {useCallback, useEffect} from 'react';
 
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
@@ -21,13 +28,18 @@ export const LOGGED_IN_QUERY = gql`
 
 const COOKIE_EXPIRES = 365; // TODO: align with api token expiry
 
-const useAuth = () => {
+interface UseAuthArgs {
+  onError?: (error: ApolloError) => void;
+}
+
+const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const client = useApolloClient();
   const [
     exchangeCodeMutation,
     {data: codeMutationData, error, loading},
   ] = useMutation<ExchangeCodeMutationResults, MutationExchangeCodeArgs>(
     EXCHANGE_CODE_MUTATION,
+    {onError},
   );
   const {data: loggedInData} = useQuery<LogInResponse>(LOGGED_IN_QUERY);
 

@@ -6,6 +6,8 @@ beforeAll(async () => {
 
   process.env.GRPC_PORT = String(grpcPort);
   process.env.AUTH_PORT = String(authPort);
+
+  // set this, so we can reference it from testHelpers
   process.env.GRAPHQL_PORT = graphqlPort;
   process.env.ISSUER_URI = `http://localhost:${authPort}`;
 });

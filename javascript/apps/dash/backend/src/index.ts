@@ -10,7 +10,7 @@ import gqlServer from '@dash-backend/gqlServer';
 import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import log from '@dash-backend/lib/log';
 
-const PORT = process.env.PORT || '3000';
+const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
   process.env.FE_BUILD_DIRECTORY ||
   path.join(__dirname, '../../frontend/build');
