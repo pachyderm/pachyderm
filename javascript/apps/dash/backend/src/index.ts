@@ -8,7 +8,7 @@ import express, {Express} from 'express';
 
 import gqlServer from '@dash-backend/gqlServer';
 import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
-import {isTest} from '@dash-backend/lib/isTest';
+import log from '@dash-backend/lib/log';
 
 const PORT = process.env.PORT || '3000';
 const FE_BUILD_DIRECTORY =
@@ -64,11 +64,9 @@ const createServer = () => {
         app.locals.server = app.listen({port: PORT}, () => {
           const address: AddressInfo = app.locals.server.address();
 
-          if (!isTest()) {
-            console.log(
-              `Server ready at http://localhost:${address.port}${gqlServer.graphqlPath}`,
-            );
-          }
+          log.info(
+            `Server ready at http://localhost:${address.port}${gqlServer.graphqlPath}`,
+          );
 
           res(String(address.port));
         });

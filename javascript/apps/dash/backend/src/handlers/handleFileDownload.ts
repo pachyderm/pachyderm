@@ -2,6 +2,7 @@ import {Request, Response} from 'express';
 import {lookup} from 'mime-types';
 
 import client from '@dash-backend/grpc/client';
+import log from '@dash-backend/lib/log';
 
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
@@ -19,7 +20,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
   let data;
 
   try {
-    data = await client(pachdAddress, authToken)
+    data = await client({pachdAddress, authToken, log})
       .pfs()
       .getFile({commitId, path, repoName});
   } catch (err) {

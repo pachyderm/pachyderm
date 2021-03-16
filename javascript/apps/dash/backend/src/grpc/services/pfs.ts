@@ -1,4 +1,3 @@
-import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
 import {APIClient} from '@pachyderm/proto/pb/pfs/pfs_grpc_pb';
 import {
   FileInfo,
@@ -15,12 +14,14 @@ import {
   fileInfoFromObject,
   FileObject,
 } from '@dash-backend/grpc/builders';
+import {ServiceArgs} from '@dash-backend/lib/types';
 
-const pfs = (
-  pachdAddress: string,
-  channelCredentials: ChannelCredentials,
-  credentialMetadata: Metadata,
-) => {
+const pfs = ({
+  pachdAddress,
+  channelCredentials,
+  credentialMetadata,
+  log,
+}: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
@@ -95,12 +96,18 @@ const pfs = (
     },
     listRepo: () => {
       return new Promise<RepoInfo.AsObject[]>((resolve, reject) => {
+        log.info('listRepo request');
+
         client.listRepo(
           new ListRepoRequest(),
           credentialMetadata,
-          (err, res) => {
-            if (err) return reject(err);
+          (error, res) => {
+            if (error) {
+              log.error({error: error.message}, 'listRepo request failed');
+              return reject(error);
+            }
 
+            log.error('listRepo request succeeded');
             return resolve(res.toObject().repoInfoList);
           },
         );

@@ -8,21 +8,23 @@
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r dotenv-flow/config dist/index.js",
-    "start:dev": "NODE_ENV=test DOTENV_FLOW_PATH=../ ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
-    "start:mock": "NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=50051 ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
+    "start:dev": "LOG_LEVEL=debug NODE_ENV=test DOTENV_FLOW_PATH=../ ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
+    "start:mock": "LOG_LEVEL=debug NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=50051 ts-node --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
     "mock-and-start": "npm run start:dev & npm run start:mock",
-    "test": "NODE_ENV=test PORT=0 dotenv-flow -p ../ -- jest --max-workers=6"
+    "test": "NODE_ENV=test LOG_LEVEL=none PORT=0 dotenv-flow -p ../ -- jest --max-workers=6"
   },
   "dependencies": {
     "@grpc/grpc-js": "1.2.2",
     "@pachyderm/proto": "2.0.0-alpha.5.2",
     "apollo-server-express": "2.19.0",
     "cookie-parser": "1.4.5",
+    "bunyan": "1.8.15",
     "express": "4.17.1",
     "graphql": "15.5.0",
     "lodash": "4.17.20",
     "mime-types": "2.1.29",
-    "openid-client": "4.4.0"
+    "openid-client": "4.4.0",
+    "uuid": "8.3.2"
   },
   "devDependencies": {
     "@graphql-codegen/add": "2.0.1",
@@ -31,10 +33,12 @@
     "@graphql-codegen/typescript-resolvers": "1.18.1",
     "@pachyderm/config": "0.5.0",
     "@types/cookie-parser": "1.4.2",
+    "@types/bunyan": "1.8.6",
     "@types/ejs": "3.0.6",
     "@types/jest": "26.0.15",
     "@types/lodash": "4.14.167",
     "@types/mime-types": "2.1.0",
+    "@types/uuid": "8.3.0",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
     "ejs": "3.1.6",

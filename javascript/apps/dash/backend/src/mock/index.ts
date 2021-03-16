@@ -13,7 +13,7 @@ import {APIService as ProjectsService} from '@pachyderm/proto/pb/projects/projec
 import express from 'express';
 import {sign} from 'jsonwebtoken';
 
-import {isTest} from '@dash-backend/lib/isTest';
+import log from '@dash-backend/lib/log';
 
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
@@ -90,14 +90,10 @@ const createServer = () => {
   const mockServer = {
     start: () => {
       return new Promise<[number, number]>((res, rej) => {
-        const test = isTest();
-
         authServer = authApp.listen(process.env.MOCK_AUTH_PORT || 0, () => {
           const address = authServer.address() as AddressInfo;
 
-          if (!test) {
-            console.log(`auth server listening on ${address.port}`);
-          }
+          log.info(`auth server listening on ${address.port}`);
 
           grpcServer.bindAsync(
             `localhost:${process.env.MOCK_GRPC_PORT || 0}`,
@@ -109,9 +105,7 @@ const createServer = () => {
 
               grpcServer.start();
 
-              if (!test) {
-                console.log(`mock grpc listening on ${grpcPort}`);
-              }
+              log.info(`mock grpc listening on ${grpcPort}`);
 
               res([grpcPort, address.port]);
             },

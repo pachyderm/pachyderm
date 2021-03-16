@@ -13,7 +13,7 @@ interface AuthResolver {
 
 const authResolver: AuthResolver = {
   Mutation: {
-    exchangeCode: async (_field, {code}, {pachdAddress = ''}) => {
+    exchangeCode: async (_field, {code}, {pachdAddress = '', log}) => {
       const {
         ISSUER_URI: issuerUri = '',
         OAUTH_CLIENT_ID: clientId = '',
@@ -22,6 +22,10 @@ const authResolver: AuthResolver = {
       } = process.env;
 
       try {
+        log.info({
+          eventSource: 'exchangeCode resolver',
+          event: 'discovering issuer',
+        });
         const dexIssuer = await Issuer.discover(issuerUri);
 
         const dexClient = new dexIssuer.Client({
@@ -31,11 +35,15 @@ const authResolver: AuthResolver = {
           response_types: ['code'],
         });
 
+        log.info({
+          eventSource: 'exchangeCode resolver',
+          event: 'retreiving token from issuer',
+        });
         const {id_token = ''} = await dexClient.callback(redirectUri, {
           code,
         });
 
-        const pachToken = await client(pachdAddress)
+        const pachToken = await client({pachdAddress, log})
           .auth()
           .authenticate(id_token);
 

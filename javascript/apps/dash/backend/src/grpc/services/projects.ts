@@ -1,4 +1,4 @@
-import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
+import {Metadata} from '@grpc/grpc-js';
 import {APIClient} from '@pachyderm/proto/pb/projects/projects_grpc_pb';
 import {
   Project,
@@ -7,10 +7,9 @@ import {
 } from '@pachyderm/proto/pb/projects/projects_pb';
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 
-const projects = (
-  pachdAddress: string,
-  channelCredentials: ChannelCredentials,
-) => {
+import {ServiceArgs} from '@dash-backend/lib/types';
+
+const projects = ({pachdAddress, channelCredentials, log}: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
@@ -21,9 +20,27 @@ const projects = (
         const request = new ProjectRequest();
         request.setProjectid(projectId);
 
-        client.inspectProject(request, metadata, (err, res) => {
-          if (err) return reject(err);
+        log.info(
+          {
+            meta: {
+              args: {projectId},
+            },
+          },
+          'inspectProject request',
+        );
 
+        client.inspectProject(request, metadata, (error, res) => {
+          if (error) {
+            log.error(
+              {
+                error: error.message,
+              },
+              'inspectProject request failed',
+            );
+            return reject(error);
+          }
+
+          log.info('inspectProject request succeeded');
           return resolve(res.toObject());
         });
       });
@@ -33,9 +50,20 @@ const projects = (
         const metadata = new Metadata();
         const empty = new Empty();
 
-        client.listProject(empty, metadata, (err, res) => {
-          if (err) return reject(err);
+        log.info('listProject request');
 
+        client.listProject(empty, metadata, (error, res) => {
+          if (error) {
+            log.error(
+              {
+                error: error.message,
+              },
+              'listProject request failed',
+            );
+            return reject(error);
+          }
+
+          log.info('listProject request succeeded');
           return resolve(res.toObject());
         });
       });

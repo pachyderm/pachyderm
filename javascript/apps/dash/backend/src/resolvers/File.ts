@@ -12,9 +12,9 @@ const fileResolver: FileResolver = {
     files: async (
       _parent,
       {args: {commitId, path, repoName}},
-      {pachdAddress = '', authToken = ''},
+      {pachdAddress = '', authToken = '', log},
     ) => {
-      const files = await client(pachdAddress, authToken)
+      const files = await client({pachdAddress, authToken, log})
         .pfs()
         .listFile({
           commitId: commitId || 'master',

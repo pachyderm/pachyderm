@@ -9,8 +9,12 @@ interface ProjectsResolver {
 
 const projectsResolver: ProjectsResolver = {
   Query: {
-    projects: async (_field, _args, {pachdAddress = '', authToken = ''}) => {
-      const pachClient = client(pachdAddress, authToken);
+    projects: async (
+      _field,
+      _args,
+      {pachdAddress = '', authToken = '', log},
+    ) => {
+      const pachClient = client({pachdAddress, authToken, log});
       const projects = await pachClient.projects().listProject();
       return projects.projectInfoList.map((project) => {
         return {

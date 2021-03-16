@@ -110,9 +110,9 @@ const dagResolver: DagResolver = {
     dag: async (
       _field,
       {args: {projectId}},
-      {pachdAddress = '', authToken = ''},
+      {pachdAddress = '', authToken = '', log},
     ) => {
-      const pachClient = client(pachdAddress, authToken, projectId);
+      const pachClient = client({pachdAddress, authToken, projectId, log});
 
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
@@ -120,6 +120,11 @@ const dagResolver: DagResolver = {
         pachClient.pps().listPipeline(),
       ]);
 
+      log.info({
+        eventSource: 'dag resolver',
+        event: 'deriving vertices for dag',
+        meta: {projectId},
+      });
       const allVertices = deriveVertices(repos, pipelines);
 
       return normalizeDAGData(allVertices);
@@ -127,9 +132,9 @@ const dagResolver: DagResolver = {
     dags: async (
       _field,
       {args: {projectId}},
-      {pachdAddress = '', authToken = ''},
+      {pachdAddress = '', authToken = '', log},
     ) => {
-      const pachClient = client(pachdAddress, authToken, projectId);
+      const pachClient = client({pachdAddress, authToken, projectId, log});
 
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
@@ -137,8 +142,18 @@ const dagResolver: DagResolver = {
         pachClient.pps().listPipeline(),
       ]);
 
+      log.info({
+        eventSource: 'dag resolver',
+        event: 'deriving vertices for dag',
+        meta: {projectId},
+      });
       const allVertices = deriveVertices(repos, pipelines);
 
+      log.info({
+        eventSource: 'dag resolver',
+        event: 'discovering disconnected components',
+        meta: {projectId},
+      });
       const components = disconnectedComponents(allVertices);
 
       return components.map((component) => normalizeDAGData(component));

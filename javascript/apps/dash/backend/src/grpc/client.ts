@@ -1,4 +1,5 @@
 import {Metadata} from '@grpc/grpc-js';
+import Logger from 'bunyan';
 
 import createCredentials from './createCredentials';
 import auth from './services/auth';
@@ -6,12 +7,30 @@ import pfs from './services/pfs';
 import pps from './services/pps';
 import projects from './services/projects';
 
-const client = (address = '', authToken = '', projectId = '') => {
-  const channelCredentials = createCredentials(address);
+interface ClientArgs {
+  pachdAddress?: string;
+  authToken?: string;
+  projectId?: string;
+  log: Logger;
+}
+
+const client = ({
+  pachdAddress = '',
+  authToken = '',
+  projectId = '',
+  log: baseLogger,
+}: ClientArgs) => {
+  const channelCredentials = createCredentials(pachdAddress);
 
   const credentialMetadata = new Metadata();
   credentialMetadata.add('authn-token', authToken);
   credentialMetadata.add('project-id', projectId);
+
+  const log = baseLogger.child({
+    eventSource: 'grpc client',
+    pachdAddress,
+    projectId,
+  });
 
   let pfsClient: ReturnType<typeof pfs> | undefined;
   let ppsClient: ReturnType<typeof pps> | undefined;
@@ -25,24 +44,45 @@ const client = (address = '', authToken = '', projectId = '') => {
     pfs: () => {
       if (pfsClient) return pfsClient;
 
-      pfsClient = pfs(address, channelCredentials, credentialMetadata);
+      pfsClient = pfs({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        log,
+      });
       return pfsClient;
     },
     pps: () => {
       if (ppsClient) return ppsClient;
 
-      ppsClient = pps(address, channelCredentials, credentialMetadata);
+      ppsClient = pps({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        log,
+      });
       return ppsClient;
     },
     auth: () => {
       if (authClient) return authClient;
 
-      authClient = auth(address, channelCredentials);
+      authClient = auth({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        log,
+      });
       return authClient;
     },
     projects: () => {
       if (projectsClient) return projectsClient;
-      projectsClient = projects(address, channelCredentials);
+
+      projectsClient = projects({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        log,
+      });
       return projectsClient;
     },
   };
