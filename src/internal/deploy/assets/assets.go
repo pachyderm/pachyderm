@@ -1089,7 +1089,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend Back
 			return err
 		}
 	}
-	if !opts.NoRBAC {
+	if !opts.NoRBAC && !opts.EnterpriseServer {
 		if opts.LocalRoles {
 			if err := encoder.Encode(Role(opts)); err != nil {
 				return err
