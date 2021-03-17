@@ -581,10 +581,9 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}()
 
 	// compute target pipeline parallelism
-	parallelism := op.pipelineInfo.ParallelismSpec.Constant
-	if parallelism == 0 {
-		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker)")
-		parallelism = 1
+	parallelism := uint64(1)
+	if op.pipelineInfo.ParallelismSpec != nil {
+		parallelism = op.pipelineInfo.ParallelismSpec.Constant
 	}
 
 	// update pipeline RC

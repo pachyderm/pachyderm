@@ -374,7 +374,11 @@ func (m *ppsMaster) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 								}
 							}
 						}
-						time.Sleep(scaleUpInterval)
+						select {
+						case <-time.After(scaleUpInterval):
+						case <-pachClient.Ctx().Done():
+							return pachClient.Ctx().Err()
+						}
 					}
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
