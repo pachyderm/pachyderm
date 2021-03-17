@@ -98,7 +98,15 @@ pachd:
       disableSSL: false
       logOptions: ""
       noVerifySSL: false
-      iamRole: "" #TODO - ensure iam role wired up in all places
+      # iamRole specifies the IAM role.  If specified, neither id,
+      # secret, token nor customEndpoint are used.  It is analogous to
+      # the --iam-role argument to pachctl deploy.
+      iamRole: ""
+    local:
+      # hostPath indicates the path on the host where the PFS metadata
+      # will be stored.  It must end in /.  It is analogous to the
+      # --host-path argument to pachctl deploy.
+      hostPath: "/var/pachyderm/"
     microsoft:
       microsoftContainer: ""
       microsoftID: ""
