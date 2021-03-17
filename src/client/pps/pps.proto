@@ -463,6 +463,7 @@ message PipelineInfo {
   string pod_patch = 44;
   bool s3_out = 47;
   Metadata metadata = 48;
+  // Set at call time, not stored in etcd
   int64 unclaimed_tasks = 52;
   string worker_rc = 53;
   bool autoscaling = 54;

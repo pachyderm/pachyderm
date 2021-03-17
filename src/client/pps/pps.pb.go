@@ -2881,28 +2881,29 @@ type PipelineInfo struct {
 	EnableStats           bool            `protobuf:"varint,24,opt,name=enable_stats,json=enableStats,proto3" json:"enable_stats,omitempty"`
 	Salt                  string          `protobuf:"bytes,25,opt,name=salt,proto3" json:"salt,omitempty"`
 	// reason includes any error messages associated with a failed pipeline
-	Reason               string          `protobuf:"bytes,28,opt,name=reason,proto3" json:"reason,omitempty"`
-	MaxQueueSize         int64           `protobuf:"varint,29,opt,name=max_queue_size,json=maxQueueSize,proto3" json:"max_queue_size,omitempty"`
-	Service              *Service        `protobuf:"bytes,30,opt,name=service,proto3" json:"service,omitempty"`
-	Spout                *Spout          `protobuf:"bytes,45,opt,name=spout,proto3" json:"spout,omitempty"`
-	ChunkSpec            *ChunkSpec      `protobuf:"bytes,32,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
-	DatumTimeout         *types.Duration `protobuf:"bytes,33,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
-	JobTimeout           *types.Duration `protobuf:"bytes,34,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
-	GithookURL           string          `protobuf:"bytes,35,opt,name=githook_url,json=githookUrl,proto3" json:"githook_url,omitempty"`
-	SpecCommit           *pfs.Commit     `protobuf:"bytes,36,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
-	Standby              bool            `protobuf:"varint,37,opt,name=standby,proto3" json:"standby,omitempty"`
-	DatumTries           int64           `protobuf:"varint,39,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
-	SchedulingSpec       *SchedulingSpec `protobuf:"bytes,40,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
-	PodSpec              string          `protobuf:"bytes,41,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`
-	PodPatch             string          `protobuf:"bytes,44,opt,name=pod_patch,json=podPatch,proto3" json:"pod_patch,omitempty"`
-	S3Out                bool            `protobuf:"varint,47,opt,name=s3_out,json=s3Out,proto3" json:"s3_out,omitempty"`
-	Metadata             *Metadata       `protobuf:"bytes,48,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	UnclaimedTasks       int64           `protobuf:"varint,52,opt,name=unclaimed_tasks,json=unclaimedTasks,proto3" json:"unclaimed_tasks,omitempty"`
-	WorkerRc             string          `protobuf:"bytes,53,opt,name=worker_rc,json=workerRc,proto3" json:"worker_rc,omitempty"`
-	Autoscaling          bool            `protobuf:"varint,54,opt,name=autoscaling,proto3" json:"autoscaling,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+	Reason         string          `protobuf:"bytes,28,opt,name=reason,proto3" json:"reason,omitempty"`
+	MaxQueueSize   int64           `protobuf:"varint,29,opt,name=max_queue_size,json=maxQueueSize,proto3" json:"max_queue_size,omitempty"`
+	Service        *Service        `protobuf:"bytes,30,opt,name=service,proto3" json:"service,omitempty"`
+	Spout          *Spout          `protobuf:"bytes,45,opt,name=spout,proto3" json:"spout,omitempty"`
+	ChunkSpec      *ChunkSpec      `protobuf:"bytes,32,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
+	DatumTimeout   *types.Duration `protobuf:"bytes,33,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
+	JobTimeout     *types.Duration `protobuf:"bytes,34,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
+	GithookURL     string          `protobuf:"bytes,35,opt,name=githook_url,json=githookUrl,proto3" json:"githook_url,omitempty"`
+	SpecCommit     *pfs.Commit     `protobuf:"bytes,36,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
+	Standby        bool            `protobuf:"varint,37,opt,name=standby,proto3" json:"standby,omitempty"`
+	DatumTries     int64           `protobuf:"varint,39,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
+	SchedulingSpec *SchedulingSpec `protobuf:"bytes,40,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
+	PodSpec        string          `protobuf:"bytes,41,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`
+	PodPatch       string          `protobuf:"bytes,44,opt,name=pod_patch,json=podPatch,proto3" json:"pod_patch,omitempty"`
+	S3Out          bool            `protobuf:"varint,47,opt,name=s3_out,json=s3Out,proto3" json:"s3_out,omitempty"`
+	Metadata       *Metadata       `protobuf:"bytes,48,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	// Set at call time, not stored in etcd
+	UnclaimedTasks       int64    `protobuf:"varint,52,opt,name=unclaimed_tasks,json=unclaimedTasks,proto3" json:"unclaimed_tasks,omitempty"`
+	WorkerRc             string   `protobuf:"bytes,53,opt,name=worker_rc,json=workerRc,proto3" json:"worker_rc,omitempty"`
+	Autoscaling          bool     `protobuf:"varint,54,opt,name=autoscaling,proto3" json:"autoscaling,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
