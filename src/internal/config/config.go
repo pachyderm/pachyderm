@@ -265,16 +265,24 @@ func (c *Config) Write() error {
 
 // WritePachTokenToConfig sets the auth token for the current pachctl config.
 // Used during tests to ensure we don't lose access to a cluster if a test fails.
-func WritePachTokenToConfig(token string) error {
+func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 	cfg, err := Read(false, false)
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
-	_, context, err := cfg.ActiveContext(true)
-	if err != nil {
-		return errors.Wrapf(err, "error getting the active context")
+	if enterpriseContext {
+		_, context, err := cfg.ActiveEnterpriseContext(true)
+		if err != nil {
+			return errors.Wrapf(err, "error getting the active enterprise context")
+		}
+		context.SessionToken = token
+	} else {
+		_, context, err := cfg.ActiveContext(true)
+		if err != nil {
+			return errors.Wrapf(err, "error getting the active context")
+		}
+		context.SessionToken = token
 	}
-	context.SessionToken = token
 	if err := cfg.Write(); err != nil {
 		return errors.Wrapf(err, "error writing pachyderm config")
 	}
