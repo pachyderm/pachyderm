@@ -46,6 +46,9 @@ type PostgresOpts struct {
 	// creating a StatefulSet for dynamic postgres storage. If unset, a new
 	// StorageClass will be created for the StatefulSet.
 	StorageClassName string
+
+	// Port is the port to use for the NodePort service
+	Port int32
 }
 
 // PostgresDeployment generates a Deployment for the pachyderm postgres instance.
@@ -332,11 +335,7 @@ func PostgresVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 }
 
 // PostgresService generates a Service for the pachyderm postgres instance.
-func PostgresService(local bool, opts *AssetOpts) *v1.Service {
-	var clientNodePort int32
-	if local {
-		clientNodePort = 32228
-	}
+func PostgresService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -352,7 +351,7 @@ func PostgresService(local bool, opts *AssetOpts) *v1.Service {
 				{
 					Port:     5432,
 					Name:     "client-port",
-					NodePort: clientNodePort,
+					NodePort: opts.PostgresOpts.Port,
 				},
 			},
 		},
