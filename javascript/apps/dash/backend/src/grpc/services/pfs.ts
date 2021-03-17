@@ -7,13 +7,8 @@ import {
   RepoInfo,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
-import flattenDeep from 'lodash/flattenDeep';
 
-import {
-  fileFromObject,
-  fileInfoFromObject,
-  FileObject,
-} from '@dash-backend/grpc/builders/pfs';
+import {fileFromObject, FileObject} from '@dash-backend/grpc/builders/pfs';
 import {ServiceArgs} from '@dash-backend/lib/types';
 
 const pfs = ({
@@ -35,28 +30,7 @@ const pfs = ({
       return new Promise<FileInfo.AsObject[]>((resolve, reject) => {
         const files: FileInfo.AsObject[] = [];
 
-        stream.on('data', (chunk) => {
-          const [
-            repoName,
-            commitId,
-            path,
-            fileType,
-            sizeBytes,
-            ,
-            ,
-            ,
-            hash,
-          ] = flattenDeep(chunk.array);
-
-          files.push(
-            fileInfoFromObject({
-              file: {commitId, path, repoName},
-              fileType,
-              sizeBytes,
-              hash,
-            }).toObject(),
-          );
-        });
+        stream.on('data', (chunk: FileInfo) => files.push(chunk.toObject()));
         stream.on('error', (err) => reject(err));
         stream.on('end', () => resolve(files));
       });
@@ -73,14 +47,16 @@ const pfs = ({
         // The chunks contain:
         // chunks[0]: File metadata
         // chunks[1]: File data
-        const chunks: BytesValue[] = [];
+        // chunks[2...n]: All 0s
+        // TODO: why is 2...n even sent?
+        const chunks: BytesValue.AsObject['value'][] = [];
 
-        stream.on('data', (chunk) => {
-          chunks.push(chunk.array[0]);
+        stream.on('data', (chunk: BytesValue) => {
+          chunks.push(chunk.getValue());
         });
 
         stream.on('end', () => {
-          // We typically already have the metadata we need, so we create a buffer from chunks[1]
+          // We already have the metadata we need, so we only create a buffer from chunks[1][0]
           if (chunks[1]) {
             return resolve(Buffer.from(chunks[1]));
           } else {

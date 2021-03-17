@@ -7,6 +7,8 @@ import {
   Trigger,
 } from '@pachyderm/proto/pb/pfs/pfs_pb';
 
+import {timestampFromObject} from '@dash-backend/grpc/builders/protobuf';
+
 export type FileObject = {
   commitId?: Commit.AsObject['id'];
   path?: File.AsObject['path'];
@@ -14,6 +16,7 @@ export type FileObject = {
 };
 
 export type FileInfoObject = {
+  committed: FileInfo.AsObject['committed'];
   file: FileObject;
   fileType: FileType;
   hash: FileInfo.AsObject['hash'];
@@ -56,12 +59,17 @@ export const fileFromObject = ({
 };
 
 export const fileInfoFromObject = ({
+  committed,
   file,
   fileType,
   hash,
   sizeBytes,
 }: FileInfoObject) => {
   const fileInfo = new FileInfo();
+
+  if (committed) {
+    fileInfo.setCommitted(timestampFromObject(committed));
+  }
 
   fileInfo.setFile(fileFromObject(file));
   fileInfo.setFileType(fileType);

@@ -1,3 +1,5 @@
+import {FileInfo} from '@pachyderm/proto/pb/pfs/pfs_pb';
+
 import {QueryResolvers} from '@dash-backend/generated/types';
 import client from '@dash-backend/grpc/client';
 
@@ -6,6 +8,18 @@ interface FileResolver {
     files: QueryResolvers['files'];
   };
 }
+
+const getDownloadLink = (file: FileInfo.AsObject) => {
+  if (
+    file.file?.commit?.repo?.name &&
+    file.file?.commit?.id &&
+    file.file?.path
+  ) {
+    return `/download/${file.file?.commit?.repo?.name}/${file.file?.commit?.id}${file?.file?.path}`;
+  }
+
+  return null;
+};
 
 const fileResolver: FileResolver = {
   Query: {
@@ -24,8 +38,9 @@ const fileResolver: FileResolver = {
 
       return files.map((file) => ({
         commitId: file.file?.commit?.id || '',
+        committed: file.committed,
         // TODO: This may eventually come from the S3 gateway or Pach's http server
-        download: `/download/${file.file?.commit?.repo?.name}/${file.file?.commit?.id}/${file?.file?.path}`,
+        download: getDownloadLink(file),
         hash: file.hash.toString(),
         path: file.file?.path || '/',
         repoName: file.file?.commit?.repo?.name || '',

@@ -153,9 +153,15 @@ enum FileType {
   FILE
 }
 
+type Timestamp {
+  seconds: Int!
+  nanos: Int!
+}
+
 type File {
+  committed: Timestamp
   commitId: String!
-  download: String!
+  download: String
   hash: String!
   path: String!
   repoName: String!

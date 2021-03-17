@@ -165,10 +165,17 @@ export type Project = {
 
 export {FileType};
 
+export type Timestamp = {
+  __typename?: 'Timestamp';
+  seconds: Scalars['Int'];
+  nanos: Scalars['Int'];
+};
+
 export type File = {
   __typename?: 'File';
+  committed?: Maybe<Timestamp>;
   commitId: Scalars['String'];
-  download: Scalars['String'];
+  download?: Maybe<Scalars['String']>;
   hash: Scalars['String'];
   path: Scalars['String'];
   repoName: Scalars['String'];
@@ -357,6 +364,7 @@ export type ResolversTypes = ResolversObject<{
   DagQueryArgs: DagQueryArgs;
   Project: ResolverTypeWrapper<Project>;
   FileType: FileType;
+  Timestamp: ResolverTypeWrapper<Timestamp>;
   File: ResolverTypeWrapper<File>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   FileQueryArgs: FileQueryArgs;
@@ -384,6 +392,7 @@ export type ResolversParentTypes = ResolversObject<{
   Dag: Dag;
   DagQueryArgs: DagQueryArgs;
   Project: Project;
+  Timestamp: Timestamp;
   File: File;
   Float: Scalars['Float'];
   FileQueryArgs: FileQueryArgs;
@@ -636,12 +645,26 @@ export type FileTypeResolvers = EnumResolverSignature<
   ResolversTypes['FileType']
 >;
 
+export type TimestampResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp']
+> = ResolversObject<{
+  seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  nanos?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type FileResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File']
 > = ResolversObject<{
+  committed?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
   commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  download?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -716,6 +739,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Dag?: DagResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   FileType?: FileTypeResolvers;
+  Timestamp?: TimestampResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;

@@ -1,11 +1,4 @@
 import {
-  commitFromObject,
-  fileFromObject,
-  fileInfoFromObject,
-  repoFromObject,
-  triggerFromObject,
-} from '@dash-backend/grpc/builders/pfs';
-import {
   buildSpecFromObject,
   chunkSpecFromObject,
   cronInputFromObject,
@@ -26,87 +19,7 @@ import {
   transformFromObject,
 } from '@dash-backend/grpc/builders/pps';
 
-import {durationFromObject, timestampFromObject} from '../builders/protobuf';
-
-describe('grpc/pb pfs', () => {
-  it('should create File from an object', () => {
-    const file = fileFromObject({
-      commitId: '1234567890',
-      path: '/assets',
-      repoName: 'neato',
-    });
-
-    expect(file.getCommit()?.getId()).toBe('1234567890');
-    expect(file.getCommit()?.getRepo()?.getName()).toBe('neato');
-    expect(file.getPath()).toBe('/assets');
-  });
-
-  it('should create File from an object with defaults', () => {
-    const file = fileFromObject({
-      repoName: 'neato',
-    });
-
-    expect(file.getCommit()?.getId()).toBe('master');
-    expect(file.getCommit()?.getRepo()?.getName()).toBe('neato');
-    expect(file.getPath()).toBe('/');
-  });
-
-  it('should create FileInfo from an object', () => {
-    const fileInfo = fileInfoFromObject({
-      file: {
-        commitId: '1234567890',
-        path: '/assets',
-        repoName: 'neato',
-      },
-      fileType: 2,
-      hash: 'abcde12345',
-      sizeBytes: 123,
-    });
-
-    expect(fileInfo.getFile()?.getCommit()?.getId()).toBe('1234567890');
-    expect(fileInfo.getFile()?.getCommit()?.getRepo()?.getName()).toBe('neato');
-    expect(fileInfo.getFile()?.getPath()).toBe('/assets');
-    expect(fileInfo.getFileType()).toBe(2);
-    expect(fileInfo.getHash()).toBe('abcde12345');
-    expect(fileInfo.getSizeBytes()).toBe(123);
-  });
-
-  it('should create Trigger from an object', () => {
-    const trigger = triggerFromObject({
-      branch: 'master',
-      all: true,
-      cronSpec: '@every 10s',
-      size: 'big',
-      commits: 12,
-    });
-
-    expect(trigger.getBranch()).toBe('master');
-    expect(trigger.getAll()).toBe(true);
-    expect(trigger.getCronSpec()).toBe('@every 10s');
-    expect(trigger.getSize()).toBe('big');
-    expect(trigger.getCommits()).toBe(12);
-  });
-
-  it('should create Repo from an object', () => {
-    const repo = repoFromObject({
-      name: '__spec__',
-    });
-
-    expect(repo.getName()).toBe('__spec__');
-  });
-
-  it('should create Commit from an object', () => {
-    const commit = commitFromObject({
-      repo: {name: '__spec__'},
-      id: '4af40d34a0384f23a5b98d3bd7eaece1',
-    });
-
-    expect(commit.getRepo()?.getName()).toBe('__spec__');
-    expect(commit.getId()).toBe('4af40d34a0384f23a5b98d3bd7eaece1');
-  });
-});
-
-describe('grpc/pb pps', () => {
+describe('grpc/builders/pps', () => {
   it('should create Pipeline from an object', () => {
     const pipeline = pipelineFromObject({
       name: 'testPipeline',
@@ -501,27 +414,6 @@ describe('grpc/pb pps', () => {
 
     expect(chunkSpec.getNumber()).toBe(123);
     expect(chunkSpec.getSizeBytes()).toBe(23498769);
-  });
-});
-describe('grpc/pb protobuff', () => {
-  it('should create Timestamp from an object', () => {
-    const timestamp = timestampFromObject({
-      seconds: 1614736724,
-      nanos: 344218476,
-    });
-
-    expect(timestamp.getSeconds()).toBe(1614736724);
-    expect(timestamp.getNanos()).toBe(344218476);
-  });
-
-  it('should create Duration from an object', () => {
-    const duration = durationFromObject({
-      seconds: 1614736724,
-      nanos: 344218476,
-    });
-
-    expect(duration.getSeconds()).toBe(1614736724);
-    expect(duration.getNanos()).toBe(344218476);
   });
 
   it('should create PipelineInfo from an object with defaults', () => {

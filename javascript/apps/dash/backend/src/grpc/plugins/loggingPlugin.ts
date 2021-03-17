@@ -11,7 +11,8 @@ const loggingPlugin: (log?: Logger) => GRPCPlugin = (log = baseLogger) => ({
     log.info(`${requestName} request completed`);
   },
   onError: ({requestName, error}) => {
-    log.error({error: error.message}, `${requestName} request failed`);
+    if (error)
+      log.error({error: error.message}, `${requestName} request failed`);
   },
 });
 
