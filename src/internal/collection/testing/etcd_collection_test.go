@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -29,6 +30,29 @@ var (
 		Field: "Pipeline",
 	}
 )
+
+func TestEtcdCollections(suite *testing.T) {
+	err := testetcd.WithEnv(func(etcdEnv *testetcd.Env) (err error) {
+		newCollection := func(t *testing.T) (col.ReadOnlyCollection, WriteCallback) {
+			prefix := testutil.UniqueString("test-etcd-collections-")
+			testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, nil, &TestItem{}, nil, nil)
+
+			writeCallback := func(f func(col.ReadWriteCollection) error) error {
+				_, err := col.NewSTM(context.Background(), etcdEnv.EtcdClient, func(stm col.STM) error {
+					return f(testCol.ReadWrite(stm))
+				})
+				return err
+			}
+
+			return testCol.ReadOnly(context.Background()), writeCallback
+		}
+
+		readOnlyTests(suite, newCollection)
+		readWriteTests(suite, newCollection)
+		return nil
+	})
+	require.NoError(suite, err)
+}
 
 func TestDryrun(t *testing.T) {
 	etcdClient := getEtcdClient()
