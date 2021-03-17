@@ -41,8 +41,8 @@ pachd:
     enabled: true
     endpoint: ""
   # noExposeDockerSocket controls whether the Docker socket is
-  # exposed.  It analogous to the --no-expose-docker-socket argument
-  # passed to pachctl deploy.
+  # exposed.  It is analogous to the --no-expose-docker-socket
+  # argument passed to pachctl deploy.
   noExposeDockerSocket: false
   # numShards sets the maximum number of pachd nodes allowed in the
   # cluster; increasing this number blindly can result in degraded

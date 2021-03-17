@@ -64,7 +64,7 @@ spec:
   - name: prometheus-metrics
     port: 656
     protocol: TCP
-    targetPort: prometheus-metrics
+    targetPort: prometheus
   selector:
     app: pachd
   type: {{ .Values.pachd.service.type }}

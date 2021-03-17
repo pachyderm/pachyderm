@@ -30,13 +30,13 @@ spec:
         - /pachd
         env:
         - name: PACH_ROOT
-          value: /pach
+          value: "/pach"
         - name: ETCD_PREFIX
           #value:
         - name: NUM_SHARDS
-          value: {{ .Values.pachd.numShards | quote }}
+          value: {{ required "number of shards missing" .Values.pachd.numShards | quote }}
         - name: STORAGE_BACKEND
-          value: {{ .Values.pachd.storage.backend }}
+          value: {{ required "storage backend missing" .Values.pachd.storage.backend | quote }}
         - name: STORAGE_HOST_PATH
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
           value: /var/pachyderm/pachd
@@ -319,7 +319,7 @@ spec:
           name: oidc-port
           protocol: TCP
         - containerPort: 656
-          name: prometheus-metrics
+          name: prometheus
           protocol: TCP
         readinessProbe:
           exec:
