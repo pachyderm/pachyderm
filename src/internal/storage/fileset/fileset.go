@@ -26,15 +26,10 @@ func newID() ID {
 
 // ParseID parses a string into an ID or returns an error
 func ParseID(x string) (*ID, error) {
-	if len(x) < 32 {
-		return nil, errors.Errorf("string (%v) too short to be ID", x)
-	}
-	data, err := hex.DecodeString(x)
+	id, err := parseID([]byte(x))
 	if err != nil {
 		return nil, err
 	}
-	id := ID{}
-	copy(id[:], data[:])
 	return &id, nil
 }
 
@@ -54,18 +49,30 @@ func (id *ID) Scan(src interface{}) error {
 	if !ok {
 		return errors.Errorf("scanning fileset.ID: can't turn %T into fileset.ID", src)
 	}
-	x = bytes.Replace(x, []byte{'-'}, []byte{}, -1)
-	*id = ID{}
-	if len(x) < 32 {
-		return errors.Errorf("scanning fileset.ID: too short to be ID")
-	}
-	_, err := hex.Decode(id[:], x)
+	var err error
+	*id, err = parseID(x)
 	return err
 }
 
 // Value implements sql.Valuer
 func (id ID) Value() (driver.Value, error) {
 	return id.HexString(), nil
+}
+
+func parseID(x []byte) (ID, error) {
+	x = bytes.Replace(x, []byte{'-'}, []byte{}, -1)
+	id := ID{}
+	if len(x) < 32 {
+		return ID{}, errors.Errorf("parsing fileset.ID: too short to be ID len=%d", len(x))
+	}
+	if len(x) > 32 {
+		return ID{}, errors.Errorf("parsing fileset.ID: too long to be ID len=%d", len(x))
+	}
+	_, err := hex.Decode(id[:], x)
+	if err != nil {
+		return ID{}, err
+	}
+	return id, nil
 }
 
 // PointsTo returns a slice of the chunk.IDs which this fileset immediately points to.
