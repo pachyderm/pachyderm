@@ -5,8 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/collection/t
 
 import "gogoproto/gogo.proto";
 
-message Foo {
+message TestItem {
   string id = 1 [(gogoproto.customname) = "ID"];
-  string name = 2;
-  string value = 3;
+  string value = 2;
 }

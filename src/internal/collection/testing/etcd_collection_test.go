@@ -1,4 +1,4 @@
-package collection
+package testing
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
@@ -24,7 +25,7 @@ import (
 )
 
 var (
-	pipelineIndex *Index = &Index{
+	pipelineIndex *col.Index = &col.Index{
 		Field: "Pipeline",
 	}
 )
@@ -33,13 +34,13 @@ func TestDryrun(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	job := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	err := NewDryrunSTM(context.Background(), etcdClient, func(stm STM) error {
+	err := col.NewDryrunSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(job.Job.ID, job)
 		return nil
@@ -48,7 +49,7 @@ func TestDryrun(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 	err = jobInfosReadonly.Get("j1", job)
-	require.True(t, IsErrNotFound(err))
+	require.True(t, col.IsErrNotFound(err))
 }
 
 func TestDelNonexistant(t *testing.T) {
@@ -56,14 +57,14 @@ func TestDelNonexistant(t *testing.T) {
 		c := e.EtcdClient
 		uuidPrefix := uuid.NewWithoutDashes()
 
-		jobInfos := NewEtcdCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+		jobInfos := col.NewEtcdCollection(c, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
-		_, err := NewSTM(context.Background(), c, func(stm STM) error {
+		_, err := col.NewSTM(context.Background(), c, func(stm col.STM) error {
 			err := jobInfos.ReadWrite(stm).Delete("test")
-			require.True(t, IsErrNotFound(err))
+			require.True(t, col.IsErrNotFound(err))
 			return err
 		})
-		require.True(t, IsErrNotFound(err))
+		require.True(t, col.IsErrNotFound(err))
 		return nil
 	}))
 }
@@ -72,7 +73,7 @@ func TestGetAfterDel(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -86,7 +87,7 @@ func TestGetAfterDel(t *testing.T) {
 		Job:      client.NewJob("j3"),
 		Pipeline: client.NewPipeline("p2"),
 	}
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -95,23 +96,23 @@ func TestGetAfterDel(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		job := &pps.JobInfo{}
 		jobInfos := jobInfos.ReadWrite(stm)
 		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
 			return err
 		}
 
-		if err := jobInfos.Get("j4", job); !IsErrNotFound(err) {
+		if err := jobInfos.Get("j4", job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", "j4")
 		}
 
 		jobInfos.DeleteAll()
 
-		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		return nil
@@ -127,7 +128,7 @@ func TestDeletePrefix(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/suffix/job"),
@@ -146,7 +147,7 @@ func TestDeletePrefix(t *testing.T) {
 		Pipeline: client.NewPipeline("p"),
 	}
 
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -156,15 +157,15 @@ func TestDeletePrefix(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		job := &pps.JobInfo{}
 		jobInfos := jobInfos.ReadWrite(stm)
 
 		jobInfos.DeleteAllPrefix("prefix/suffix")
-		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		if err := jobInfos.Get(j3.Job.ID, job); err != nil {
@@ -175,13 +176,13 @@ func TestDeletePrefix(t *testing.T) {
 		}
 
 		jobInfos.DeleteAllPrefix("prefix")
-		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
-		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j2.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
-		if err := jobInfos.Get(j3.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j3.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
 		if err := jobInfos.Get(j4.Job.ID, job); err != nil {
@@ -194,7 +195,7 @@ func TestDeletePrefix(t *testing.T) {
 		}
 
 		jobInfos.DeleteAllPrefix("prefix/suffix")
-		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+		if err := jobInfos.Get(j1.Job.ID, job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 
@@ -209,10 +210,10 @@ func TestDeletePrefix(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	jobs := jobInfos.ReadOnly(context.Background())
-	require.True(t, IsErrNotFound(jobs.Get(j1.Job.ID, job)))
+	require.True(t, col.IsErrNotFound(jobs.Get(j1.Job.ID, job)))
 	require.NoError(t, jobs.Get(j2.Job.ID, job))
 	require.Equal(t, j2, job)
-	require.True(t, IsErrNotFound(jobs.Get(j3.Job.ID, job)))
+	require.True(t, col.IsErrNotFound(jobs.Get(j3.Job.ID, job)))
 	require.NoError(t, jobs.Get(j4.Job.ID, job))
 	require.Equal(t, j4, job)
 }
@@ -221,7 +222,7 @@ func TestIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewEtcdCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -235,7 +236,7 @@ func TestIndex(t *testing.T) {
 		Job:      client.NewJob("j3"),
 		Pipeline: client.NewPipeline("p2"),
 	}
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -248,13 +249,11 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline, job, DefaultOptions(), func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline, job, col.DefaultOptions(), func() error {
 		switch i {
 		case 1:
-			require.Equal(t, j1.Job.ID, ID)
 			require.Equal(t, j1, job)
 		case 2:
-			require.Equal(t, j2.Job.ID, ID)
 			require.Equal(t, j2, job)
 		case 3:
 			t.Fatal("too many jobs")
@@ -264,10 +263,9 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline, job, DefaultOptions(), func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline, job, col.DefaultOptions(), func() error {
 		switch i {
 		case 1:
-			require.Equal(t, j3.Job.ID, ID)
 			require.Equal(t, j3, job)
 		case 2:
 			t.Fatal("too many jobs")
@@ -281,13 +279,13 @@ func TestIndexWatch(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewEtcdCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p1"),
 	}
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
@@ -310,7 +308,7 @@ func TestIndexWatch(t *testing.T) {
 
 	// Now we will put j1 again, unchanged.  We want to make sure
 	// that we do not receive an event.
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
@@ -328,7 +326,7 @@ func TestIndexWatch(t *testing.T) {
 		Pipeline: client.NewPipeline("p1"),
 	}
 
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j2.Job.ID, j2)
 		return nil
@@ -346,7 +344,7 @@ func TestIndexWatch(t *testing.T) {
 		Job:      client.NewJob("j1"),
 		Pipeline: client.NewPipeline("p3"),
 	}
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1Prime)
 		return nil
@@ -359,7 +357,7 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j1.Job.ID, ID)
 
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Delete(j2.Job.ID)
 		return nil
@@ -376,7 +374,7 @@ func TestIndexWatch(t *testing.T) {
 func TestBoolIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
-	boolValues := NewEtcdCollection(etcdClient, uuidPrefix, []*Index{{
+	boolValues := col.NewEtcdCollection(etcdClient, uuidPrefix, []*col.Index{{
 		Field: "Value",
 	}}, &types.BoolValue{}, nil, nil)
 
@@ -386,7 +384,7 @@ func TestBoolIndex(t *testing.T) {
 	r2 := &types.BoolValue{
 		Value: false,
 	}
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		boolValues := boolValues.ReadWrite(stm)
 		boolValues.Put("true", r1)
 		boolValues.Put("false", r2)
@@ -413,15 +411,15 @@ func TestTTL(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
 
 	var actualTTL int64
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -434,9 +432,9 @@ func TestTTLExpire(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
@@ -453,15 +451,15 @@ func TestTTLExtend(t *testing.T) {
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	// Put value with short TLL & check that it was set
-	clxn := NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
-	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
 	})
 	require.NoError(t, err)
 
 	var actualTTL int64
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -471,12 +469,12 @@ func TestTTLExtend(t *testing.T) {
 
 	// Put value with new, longer TLL and check that it was set
 	const LongerTTL = 15
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL)
 	})
 	require.NoError(t, err)
 
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		var err error
 		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
 		return err
@@ -489,32 +487,34 @@ func TestIteration(t *testing.T) {
 	etcdClient := getEtcdClient()
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &TestItem{}, nil, nil)
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
-			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
-				return col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{})
+			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+				testProto := makeProto(i)
+				return c.ReadWrite(stm).Put(testProto.ID, testProto)
 			})
 			require.NoError(t, err)
 		}
-		ro := col.ReadOnly(context.Background())
-		val := &types.Empty{}
+		ro := c.ReadOnly(context.Background())
+		testProto := &TestItem{}
 		i := numVals - 1
-		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
-			require.Equal(t, fmt.Sprintf("%d", i), key)
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+			require.Equal(t, fmt.Sprintf("%d", i), testProto.ID)
 			i--
 			return nil
 		}))
 	})
 	t.Run("many-vals-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewEtcdCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &TestItem{}, nil, nil)
 		numBatches := 10
 		valsPerBatch := 7
 		for i := 0; i < numBatches; i++ {
-			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 				for j := 0; j < valsPerBatch; j++ {
-					if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i*valsPerBatch+j), &types.Empty{}); err != nil {
+					testProto := makeProto(i*valsPerBatch + j)
+					if err := c.ReadWrite(stm).Put(testProto.ID, testProto); err != nil {
 						return err
 					}
 				}
@@ -523,37 +523,37 @@ func TestIteration(t *testing.T) {
 			require.NoError(t, err)
 		}
 		vals := make(map[string]bool)
-		ro := col.ReadOnly(context.Background())
-		val := &types.Empty{}
-		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
+		ro := c.ReadOnly(context.Background())
+		testProto := &TestItem{}
+		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func() error {
+			require.False(t, vals[testProto.ID], "saw value %s twice", testProto.ID)
+			vals[testProto.ID] = true
 			return nil
 		}))
 		require.Equal(t, numBatches*valsPerBatch, len(vals), "didn't receive every value")
 	})
 	t.Run("large-vals", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewEtcdCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
+		c := col.NewEtcdCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
 		numVals := 100
 		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
 		for i := 0; i < numVals; i++ {
-			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
-				if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
+			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+				if err := c.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
 					return err
 				}
 				return nil
 			})
 			require.NoError(t, err)
 		}
-		ro := col.ReadOnly(context.Background())
+		ro := c.ReadOnly(context.Background())
 		val := &pfs.Repo{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}
-		require.NoError(t, ro.List(val, DefaultOptions(), func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
-			valsOrder = append(valsOrder, key)
+		require.NoError(t, ro.List(val, col.DefaultOptions(), func() error {
+			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
+			vals[val.Name] = true
+			valsOrder = append(valsOrder, val.Name)
 			return nil
 		}))
 		for i, key := range valsOrder {
@@ -562,10 +562,10 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &Options{etcd.SortByCreateRevision, etcd.SortAscend}, func(key string) error {
-			require.False(t, vals[key], "saw value %s twice", key)
-			vals[key] = true
-			valsOrder = append(valsOrder, key)
+		require.NoError(t, ro.List(val, &col.Options{etcd.SortByCreateRevision, etcd.SortAscend}, func() error {
+			require.False(t, vals[val.Name], "saw value %s twice", val.Name)
+			vals[val.Name] = true
+			valsOrder = append(valsOrder, val.Name)
 			return nil
 		}))
 		for i, key := range valsOrder {
