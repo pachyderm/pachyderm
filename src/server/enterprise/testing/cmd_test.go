@@ -42,3 +42,23 @@ func TestRegisterPachd(t *testing.T) {
 		"license", tu.GetTestEnterpriseCode(t),
 	).Run())
 }
+
+// TestRegisterAuthenticated tests registering a pachd with the enterprise server when auth is enabled
+func TestRegisterAuthenticated(t *testing.T) {
+	resetClusterState(t)
+	defer resetClusterState(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo {{.license}} | pachctl license activate
+		pachctl auth activate --enterprise --issuer http://pach-enterprise:658
+		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:650 --pachd-address pachd.default:650
+		pachctl enterprise get-state | match ACTIVE
+		pachctl license list-clusters \
+		  | match 'id: {{.id}}' \
+		  | match -v 'last_heartbeat: <nil>'
+		pachctl auth --enterprise whoami | match 'pach:root'
+		`,
+		"id", tu.UniqueString("cluster"),
+		"license", tu.GetTestEnterpriseCode(t),
+	).Run())
+}
