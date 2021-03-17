@@ -231,22 +231,13 @@
                                 "amazonBucket": {
                                     "type": "string"
                                 },
-                                "amazonDistribution": {
-                                    "type": "string"
-                                },
-                                "amazonID": {
-                                    "type": "string"
-                                },
                                 "amazonRegion": {
                                     "type": "string"
                                 },
-                                "amazonSecret": {
-                                    "type": "string"
-                                },
-                                "amazonToken": {
-                                    "type": "string"
-                                },
                                 "amazonVaultAddr": {
+                                    "type": "string"
+                                },
+                                "cloudFrontDistribution": {
                                     "type": "string"
                                 },
                                 "customEndpoint": {
@@ -256,6 +247,9 @@
                                     "type": "boolean"
                                 },
                                 "iamRole": {
+                                    "type": "string"
+                                },
+                                "id": {
                                     "type": "string"
                                 },
                                 "logOptions": {
@@ -276,7 +270,13 @@
                                 "reverse": {
                                     "type": "string"
                                 },
+                                "secret": {
+                                    "type": "string"
+                                },
                                 "timeout": {
+                                    "type": "string"
+                                },
+                                "token": {
                                     "type": "string"
                                 },
                                 "uploadACL": {

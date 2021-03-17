@@ -104,26 +104,69 @@ pachd:
         client_x509_cert_url: ""
       serviceAccountName: "" # For Workload Identity access to the bucket
     amazon:
-      amazonRegion: ""
-      amazonBucket: ""
-      amazonID: ""
-      amazonSecret: ""
-      amazonToken: ""
-      amazonVaultAddr: "" #TODO Add vault to secret
-      amazon-vault-role: ""
-      amazon-vault-token: ""
-      amazonDistribution: ""
+      region: ""
+      bucket: ""
+      # id sets the Amazon access key ID to use.  Together with secret
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      id: ""
+      # secret sets the Amazon secret access key to use.  Together with id
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      secret: ""
+      # token optionally sets the Amazon token to use.  Together with
+      # id and secret, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      token: ""
+      vault:
+        address: ""
+        role: ""
+        token: ""
+      # cloudFrontDistribution sets the CloudFront distribution in the
+      # storage secrets.  It is analogous to the
+      # --cloudfront-distribution argument to pachctl deploy.
+      cloudFrontDistribution: ""
       customEndpoint: ""
+      # retries sets the number of retries for object storage
+      # requests.  It is analogous to the --retries argument to
+      # pachctl deploy.
       retries: 10
+      # timeout sets the timeout for object storage requests.  It is
+      # analogous to the --timeout argument to pachctl deploy.
       timeout: "5m"
+      # uploadACL sets the upload ACL for object storage uploads.  It
+      # is analogous to the --upload-acl argument to pachctl deploy.
       uploadACL: bucket-owner-full-control
+      # reverse reverses object storage paths.  It is analogous to the
+      # --reverse argument to pachctl deploy.
       reverse: "true"
+      # partSize sets the part size for object storage uploads.  It is
+      # analogous to the --part-size argument to pachctl deploy.
       partSize: 5242880
+      # maxUploadParts sets the maximum number of upload parts.  It is
+      # analogous to the --max-upload-parts argument to pachctl
+      # deploy.
       maxUploadParts: 10000
+      # disableSSL disables SSL.  It is analogous to the --disable-ssl
+      # argument to pachctl deploy.
       disableSSL: false
+      # logOptions sets various log options in Pachyderm’s internal S3
+      # client.  Comma-separated list containing zero or more of:
+      # 'Debug', 'Signing', 'HTTPBody', 'RequestRetries',
+      # 'RequestErrors', 'EventStreamBody', or 'all'
+      # (case-insensitive).  See 'AWS SDK for Go' docs for details.
+      # logOptions is analogous to the --obj-log-options argument to
+      # pachctl deploy.
       logOptions: ""
+      # noVerifySSL skips SSL certificate verification.  It is
+      # analogous to the --no-verify-ssl argument to pachctl deploy.
+      #
+      # FIXME: invert this to verifySSL
       noVerifySSL: false
-      iamRole: "" #TODO - ensure iam role wired up in all places
+      # iamRole specifies the IAM role.  If specified, neither id,
+      # secret, token nor customEndpoint are used.  It is analogous to
+      # the --iam-role argument to pachctl deploy.
+      iamRole: ""
     microsoft:
       microsoftContainer: ""
       microsoftID: ""
