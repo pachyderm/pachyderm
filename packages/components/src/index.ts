@@ -29,3 +29,4 @@ export * from './Tabs';
 export * from './TagsInput';
 export * from './Text';
 export * from './TextArea';
+export * from './Tooltip';

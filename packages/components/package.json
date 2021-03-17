@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -49,7 +49,9 @@
     "postcss-loader": "^3.0.0",
     "postcss-normalize": "^8.0.1",
     "postcss-preset-env": "^6.7.0",
+    "postcss-custom-media": "^7.0.8",
     "react": "^17.0.1",
+    "react-bootstrap": "1.4.0",
     "react-dev-utils": "^11.0.2",
     "react-dom": "^17.0.1",
     "react-router-dom": "^5.2.0",
@@ -63,7 +65,7 @@
     "classnames": "^2.2.6",
     "lodash": "^4.17.20",
     "react-helmet": "^6.1.0",
-    "react-hook-form": "^6.14.1",
+    "react-hook-form": "^6.15.4",
     "splitting": "^1.0.6"
   },
   "peerDependencies": {
