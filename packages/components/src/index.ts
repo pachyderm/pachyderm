@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.module.css';
 
 export {default as useLoginWindow} from './hooks/useLoginWindow';
@@ -29,3 +30,4 @@ export * from './Tabs';
 export * from './TagsInput';
 export * from './Text';
 export * from './TextArea';
+export * from './Tooltip';

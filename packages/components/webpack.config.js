@@ -45,7 +45,7 @@ const config = {
             },
           },
           {
-            test: /\.module\.css$/,
+            test: /\.css$/,
             use: [
               process.env.NODE_ENV === 'production'
                 ? {

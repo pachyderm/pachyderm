@@ -1,0 +1,55 @@
+.base [class$="inner"] {
+  text-emphasis: center;
+  color: var(--background-grey);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: 'Montserrat', sans-serif;
+  padding: .5rem 1rem;
+  border-radius: 3px;
+  background-color: var(--pachyderm-black);
+  box-shadow: 0 1px 2px 0 var(--table-head-dropshadow-grey);
+  line-height: 1.375rem;
+  text-align: left;
+}
+
+.base.large [class$="inner"] {
+  padding: 1rem;
+  max-width: 18.75rem;
+}
+.base.extraLarge [class$="inner"] {
+  padding: 1.25rem;
+  max-width: 24.75rem;
+}
+
+.base.hasClose [class$="inner"] {
+  padding-right: 2rem;
+}
+
+.base[x-placement^="top"] [class$="arrow"]::before {
+  border-top-color: var(--pachyderm-black);
+}
+
+.base[x-placement^="right"] [class$="arrow"]::before {
+  border-right-color: var(--pachyderm-black);
+}
+
+.base[x-placement^="left"] [class$="arrow"]::before {
+  border-left-color: var(--pachyderm-black);
+}
+
+.base[x-placement^="bottom"] [class$="arrow"]::before {
+  border-bottom-color: var(--pachyderm-black);
+}
+
+.close {
+  background-color: transparent;
+  border: none;
+  position: absolute;
+  top: 0.225rem;
+  right: 0.625rem;
+  z-index: 1;
+}
+
+.close:focus:not([class$='focus-visible']) {
+  outline: none;
+}
