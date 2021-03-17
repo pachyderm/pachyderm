@@ -222,19 +222,7 @@
                         "amazon": {
                             "type": "object",
                             "properties": {
-                                "amazon-vault-role": {
-                                    "type": "string"
-                                },
-                                "amazon-vault-token": {
-                                    "type": "string"
-                                },
-                                "amazonBucket": {
-                                    "type": "string"
-                                },
-                                "amazonRegion": {
-                                    "type": "string"
-                                },
-                                "amazonVaultAddr": {
+                                "bucket": {
                                     "type": "string"
                                 },
                                 "cloudFrontDistribution": {
@@ -264,6 +252,9 @@
                                 "partSize": {
                                     "type": "integer"
                                 },
+                                "region": {
+                                    "type": "string"
+                                },
                                 "retries": {
                                     "type": "integer"
                                 },
@@ -281,6 +272,20 @@
                                 },
                                 "uploadACL": {
                                     "type": "string"
+                                },
+                                "vault": {
+                                    "type": "object",
+                                    "properties": {
+                                        "address": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": "string"
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -329,6 +334,14 @@
                                     }
                                 },
                                 "serviceAccountName": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "local": {
+                            "type": "object",
+                            "properties": {
+                                "hostPath": {
                                     "type": "string"
                                 }
                             }
