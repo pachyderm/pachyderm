@@ -392,7 +392,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	var numTasks int64
 	if numDatums < reg.concurrency*taskGranularity {
 		numTasks = numDatums
-	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency {
+	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency*taskGranularity {
 		numTasks = numDatums / maxDatumsPerTask
 	} else {
 		numTasks = reg.concurrency * taskGranularity
