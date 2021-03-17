@@ -24,7 +24,7 @@ func loginAsUser(t *testing.T, user string) {
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
-	config.WritePachTokenToConfig(token.Token)
+	config.WritePachTokenToConfig(token.Token, false)
 }
 
 func TestLogin(t *testing.T) {
