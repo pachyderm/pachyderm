@@ -232,22 +232,20 @@ func TestPipelineWithParallelism(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	pipeline := tu.UniqueString("pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"sleep 5",
-				},
-			},
-			Input:           client.NewPFSInput(dataRepo, "/*"),
-			Standby:         true,
-			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
-	)
-	require.NoError(t, err)
+		&pps.ParallelismSpec{
+			Constant: 4,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
 
 	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
