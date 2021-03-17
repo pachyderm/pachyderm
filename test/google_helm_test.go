@@ -27,8 +27,7 @@ func TestGoogleServiceAccount(t *testing.T) {
 		SetValues: map[string]string{
 			"pachd.image.tag":                         "1.12.3",
 			"pachd.storage.backend":                   "GOOGLE",
-			"pachd.storage.google.googleBucket":       "fake-bucket",
-			"pachd.storage.google.googleCred":         "fake-creds",
+			"pachd.storage.google.bucket":             "fake-bucket",
 			"pachd.storage.google.serviceAccountName": expectedServiceAccount,
 		},
 	}
@@ -54,8 +53,7 @@ func TestGoogleWorkerServiceAccount(t *testing.T) {
 		SetValues: map[string]string{
 			"pachd.image.tag":                         "1.12.3",
 			"pachd.storage.backend":                   "GOOGLE",
-			"pachd.storage.google.googleBucket":       "fake-bucket",
-			"pachd.storage.google.googleCred":         "fake-creds",
+			"pachd.storage.google.bucket":             "fake-bucket",
 			"pachd.storage.google.serviceAccountName": expectedServiceAccount,
 		},
 	}

@@ -19,7 +19,11 @@ func TestDashImageTag(t *testing.T) {
 	helmChartPath := "../pachyderm"
 
 	options := &helm.Options{
-		SetValues: map[string]string{"dash.image.tag": "0.5.5"},
+		SetValues: map[string]string{
+			"dash.image.tag":              "0.5.5",
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/dash/deployment.yaml"})
@@ -39,7 +43,11 @@ func TestEtcdImageTag(t *testing.T) {
 	helmChartPath := "../pachyderm"
 
 	options := &helm.Options{
-		SetValues: map[string]string{"etcd.image.tag": "blah"},
+		SetValues: map[string]string{
+			"etcd.image.tag":              "blah",
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "statefulset", []string{"templates/etcd/statefulset.yaml"})
@@ -58,7 +66,11 @@ func TestPachdImageTag(t *testing.T) {
 	helmChartPath := "../pachyderm"
 
 	options := &helm.Options{
-		SetValues: map[string]string{"pachd.image.tag": "blah1234"},
+		SetValues: map[string]string{
+			"pachd.image.tag":             "blah1234",
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "deployment", []string{"templates/pachd/deployment.yaml"})
@@ -81,8 +93,10 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	expectedWorkerContainerImage := "pachyderm/worker:" + expectedTag
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.image.tag":  expectedTag,
-			"worker.image.tag": expectedTag,
+			"pachd.image.tag":             expectedTag,
+			"worker.image.tag":            expectedTag,
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
 		},
 	}
 
@@ -143,6 +157,10 @@ func TestSetNamespaceWorkerRoleBinding(t *testing.T) {
 	expectedNamespace := "kspace"
 
 	options := &helm.Options{
+		SetValues: map[string]string{
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
@@ -165,6 +183,10 @@ func TestSetNamespaceServiceAccount(t *testing.T) {
 	expectedNamespace := "kspace1234"
 
 	options := &helm.Options{
+		SetValues: map[string]string{
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
@@ -187,6 +209,10 @@ func TestSetNamespaceWorkerServiceAccount(t *testing.T) {
 	expectedNamespace := "kspaceworker"
 
 	options := &helm.Options{
+		SetValues: map[string]string{
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
@@ -209,6 +235,10 @@ func TestSetNamespaceClusterRoleBinding(t *testing.T) {
 	expectedNamespace := "kspace123"
 
 	options := &helm.Options{
+		SetValues: map[string]string{
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": "bucket",
+		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
 	}
 
@@ -289,8 +319,8 @@ func TestGoogleStorageSecrets(t *testing.T) {
 	googleBucket := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":             "GOOGLE",
-			"pachd.storage.google.googleBucket": googleBucket},
+			"pachd.storage.backend":       "GOOGLE",
+			"pachd.storage.google.bucket": googleBucket},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/pachd/storage-secret.yaml"})
