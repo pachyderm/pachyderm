@@ -39,7 +39,7 @@ spec:
           value: {{ required "storage backend missing" .Values.pachd.storage.backend | quote }}
         - name: STORAGE_HOST_PATH
           {{- if eq .Values.pachd.storage.backend "LOCAL" }}
-          value: /var/pachyderm/pachd
+          value: {{ .Values.pachd.storage.local.hostPath }}pachd
           {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
