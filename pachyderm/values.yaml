@@ -5,17 +5,17 @@
 imagePullSecret: ""
 
 dash:
+  # enabled controls whether the dash manifests are created or not.
+  enabled: true
   image:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
     # deploy.
     repository: pachyderm/dash
+    pullPolicy: IfNotPresent
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "0.5.57"
-    pullPolicy: IfNotPresent
-  # enabled controls whether the dash manifests are created or not.
-  enabled: true
   # resources specifies the resource request
   resources:
     limits:
@@ -25,10 +25,14 @@ dash:
       cpu: 1
       memory: 2G
 
-pachd:
+etcd:
+  # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
+  # is analogous to the --dynamic-etcd-nodes argument to pachctl
+  # deploy.
+  dynamicNodes: 1
   image:
-    repository: pachyderm/pachd
-    tag: "1.12.4"
+    repository: pachyderm/etcd
+    tag: "v3.3.5"
     pullPolicy: IfNotPresent
   # resources specifies the resource request
   resources:
@@ -38,44 +42,137 @@ pachd:
     requests:
       cpu: 1
       memory: 2G
-  logLevel: info
-  metrics:
-    enabled: true
-    endpoint: ""
+  # staticVolume sets the name of a static volume to use.  It is
+  # analogous to the --static-etcd-volume argument to pachctl deploy.
+  staticVolume: ""
+  # storageClass indicates the etcd should use an existing
+  # StorageClass for its storage.  It is analogous to the
+  # --etcd-storage-class argument to pachctl deploy.
+  storageClass: ""
+  storageSize: "10Gi"
+
+imageCredentials: {}
+  #registry: ""
+  #username: ""
+  #password: ""
+  #email: ""
+
+pachd:
+  # blockCacheBytes sets the size of the block cache.  It is analogous
+  # to the --block-cache-size argument passed to pachctl deploy.
+  blockCacheBytes: "1G"
+  # clusterDeploymentID sets the Pachyderm cluster ID.
+  clusterDeploymentID: ""
   # exposeDockerSocket controls whether the Docker socket is
   # exposed.  It is the inverse of the --no-expose-docker-socket
   # argument passed to pachctl deploy.
   exposeDockerSocket: false
+  # exposeObjectAPI controls whether the object API is exposed.  It is
+  # analogous to --expose-object-api passed to pachctl deploy.
+  exposeObjectAPI: false
+  image:
+    repository: pachyderm/pachd
+    pullPolicy: IfNotPresent
+    tag: "1.12.4"
+  logLevel: info
+  metrics:
+    enabled: true
+    endpoint: ""
   # numShards sets the maximum number of pachd nodes allowed in the
   # cluster; increasing this number blindly can result in degraded
   # performance.  It is analogous to the --shards argument to pachctl
   # deploy.
   numShards: 16
-  # blockCacheBytes sets the size of the block cache.  It is analogous
-  # to the --block-cache-size argument passed to pachctl deploy.
-  blockCacheBytes: "1G"
-  authenticationDisabledForTesting: false
-  # exposeObjectAPI controls whether the object API is exposed.  It is
-  # analogous to --expose-object-api passed to pachctl deploy.
-  exposeObjectAPI: false
-  # clusterDeploymentID sets the Pachyderm cluster ID.
-  clusterDeploymentID: ""
+  # resources specifies the resource request
+  resources:
+    limits:
+      cpu: 1
+      memory: 2G
+    requests:
+      cpu: 1
+      memory: 2G
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
   requireCriticalServersOnly: false
-  ppsWorkerGRPCPort: 80
+  service: #TODO How to handle selective ports for hub
+    type: ClusterIP
+    #apiGrpcPort:
+    #  expose: true
+    #  port: 30650
+  serviceAccount:
+    create: true
+    name: pachyderm #TODO Set default in helpers / Wire up in templates
   storage:
-    # uploadConcurrencyLimit sets the maximum number of concurrent
-    # object storage uploads per Pachd instance.  It is analogous to
-    # the --upload-concurrency-limit argument to pachctl deploy.
-    uploadConcurrencyLimit: 100
-    # putFileConcurrencyLimit sets the maximum number of files to
-    # upload or fetch from remote sources (HTTP, blob storage) using
-    # PutFile concurrently.  It is analogous to the
-    # --put-file-concurrency-limit argument to pachctl deploy.
-    putFileConcurrencyLimit: 100
-    backend: "" # GOOGLE, AMAZON, MINIO, MICROSOFT, LOCAL
+    amazon:
+      # bucket sets the S3 bucket to use.
+      bucket: ""
+      # cloudFrontDistribution sets the CloudFront distribution in the
+      # storage secrets.  It is analogous to the
+      # --cloudfront-distribution argument to pachctl deploy.
+      cloudFrontDistribution: ""
+      customEndpoint: ""
+      # disableSSL disables SSL.  It is analogous to the --disable-ssl
+      # argument to pachctl deploy.
+      disableSSL: false
+      # iamRole specifies the IAM role.  If specified, neither id,
+      # secret, token nor customEndpoint are used.  It is analogous to
+      # the --iam-role argument to pachctl deploy.
+      iamRole: ""
+      # id sets the Amazon access key ID to use.  Together with secret
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      id: ""
+      # logOptions sets various log options in Pachyderm’s internal S3
+      # client.  Comma-separated list containing zero or more of:
+      # 'Debug', 'Signing', 'HTTPBody', 'RequestRetries',
+      # 'RequestErrors', 'EventStreamBody', or 'all'
+      # (case-insensitive).  See 'AWS SDK for Go' docs for details.
+      # logOptions is analogous to the --obj-log-options argument to
+      # pachctl deploy.
+      logOptions: ""
+      # maxUploadParts sets the maximum number of upload parts.  It is
+      # analogous to the --max-upload-parts argument to pachctl
+      # deploy.
+      maxUploadParts: 10000
+      # noVerifySSL skips SSL certificate verification.  It is
+      # analogous to the --no-verify-ssl argument to pachctl deploy.
+      #
+      # FIXME: invert this to verifySSL
+      noVerifySSL: false
+      # partSize sets the part size for object storage uploads.  It is
+      # analogous to the --part-size argument to pachctl deploy.
+      partSize: 5242880
+      # region sets the AWS region to use.
+      region: ""
+      # retries sets the number of retries for object storage
+      # requests.  It is analogous to the --retries argument to
+      # pachctl deploy.
+      retries: 10
+      # reverse reverses object storage paths.  It is analogous to the
+      # --reverse argument to pachctl deploy.
+      reverse: "true"
+      # secret sets the Amazon secret access key to use.  Together with id
+      # and token, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      secret: ""
+      # timeout sets the timeout for object storage requests.  It is
+      # analogous to the --timeout argument to pachctl deploy.
+      timeout: "5m"
+      # token optionally sets the Amazon token to use.  Together with
+      # id and secret, it implements the functionality of the
+      # --credentials argument to pachctl deploy.
+      token: ""
+      # uploadACL sets the upload ACL for object storage uploads.  It
+      # is analogous to the --upload-acl argument to pachctl deploy.
+      uploadACL: bucket-owner-full-control
+      vault:
+        address: ""
+        role: ""
+        token: ""
+    # backend configures the storage backend to use.  It must be one
+    # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL.
+    backend: ""
     google:
       bucket: ""
       # cred is a GCP service account private key, in object (JSON or
@@ -105,142 +202,40 @@ pachd:
         auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs"
         client_x509_cert_url: ""
       serviceAccountName: "" # For Workload Identity access to the bucket
-    amazon:
-      region: ""
-      bucket: ""
-      # id sets the Amazon access key ID to use.  Together with secret
-      # and token, it implements the functionality of the
-      # --credentials argument to pachctl deploy.
-      id: ""
-      # secret sets the Amazon secret access key to use.  Together with id
-      # and token, it implements the functionality of the
-      # --credentials argument to pachctl deploy.
-      secret: ""
-      # token optionally sets the Amazon token to use.  Together with
-      # id and secret, it implements the functionality of the
-      # --credentials argument to pachctl deploy.
-      token: ""
-      vault:
-        address: ""
-        role: ""
-        token: ""
-      # cloudFrontDistribution sets the CloudFront distribution in the
-      # storage secrets.  It is analogous to the
-      # --cloudfront-distribution argument to pachctl deploy.
-      cloudFrontDistribution: ""
-      customEndpoint: ""
-      # retries sets the number of retries for object storage
-      # requests.  It is analogous to the --retries argument to
-      # pachctl deploy.
-      retries: 10
-      # timeout sets the timeout for object storage requests.  It is
-      # analogous to the --timeout argument to pachctl deploy.
-      timeout: "5m"
-      # uploadACL sets the upload ACL for object storage uploads.  It
-      # is analogous to the --upload-acl argument to pachctl deploy.
-      uploadACL: bucket-owner-full-control
-      # reverse reverses object storage paths.  It is analogous to the
-      # --reverse argument to pachctl deploy.
-      reverse: "true"
-      # partSize sets the part size for object storage uploads.  It is
-      # analogous to the --part-size argument to pachctl deploy.
-      partSize: 5242880
-      # maxUploadParts sets the maximum number of upload parts.  It is
-      # analogous to the --max-upload-parts argument to pachctl
-      # deploy.
-      maxUploadParts: 10000
-      # disableSSL disables SSL.  It is analogous to the --disable-ssl
-      # argument to pachctl deploy.
-      disableSSL: false
-      # logOptions sets various log options in Pachyderm’s internal S3
-      # client.  Comma-separated list containing zero or more of:
-      # 'Debug', 'Signing', 'HTTPBody', 'RequestRetries',
-      # 'RequestErrors', 'EventStreamBody', or 'all'
-      # (case-insensitive).  See 'AWS SDK for Go' docs for details.
-      # logOptions is analogous to the --obj-log-options argument to
-      # pachctl deploy.
-      logOptions: ""
-      # noVerifySSL skips SSL certificate verification.  It is
-      # analogous to the --no-verify-ssl argument to pachctl deploy.
-      #
-      # FIXME: invert this to verifySSL
-      noVerifySSL: false
-      # iamRole specifies the IAM role.  If specified, neither id,
-      # secret, token nor customEndpoint are used.  It is analogous to
-      # the --iam-role argument to pachctl deploy.
-      iamRole: ""
     local:
       # hostPath indicates the path on the host where the PFS metadata
       # will be stored.  It must end in /.  It is analogous to the
       # --host-path argument to pachctl deploy.
       hostPath: "/var/pachyderm/"
     microsoft:
-      microsoftContainer: ""
-      microsoftID: ""
-      microsoftSecret: ""
+      container: ""
+      id: ""
+      secret: ""
     minio:
-      minioBucket: ""
-      minioEndpoint: ""
-      minioID: ""
-      minioSecret: ""
-      minioSecure: ""
-      minioSignature: ""
-  service: #TODO How to handle selective ports for hub
-    type: ClusterIP
-    #apiGrpcPort:
-    #  expose: true
-    #  port: 30650
-  serviceAccount:
-    create: true
-    name: pachyderm #TODO Set default in helpers / Wire up in templates
+      bucket: ""
+      endpoint: ""
+      id: ""
+      secret: ""
+      secure: ""
+      signature: ""
+    # putFileConcurrencyLimit sets the maximum number of files to
+    # upload or fetch from remote sources (HTTP, blob storage) using
+    # PutFile concurrently.  It is analogous to the
+    # --put-file-concurrency-limit argument to pachctl deploy.
+    putFileConcurrencyLimit: 100
+    # uploadConcurrencyLimit sets the maximum number of concurrent
+    # object storage uploads per Pachd instance.  It is analogous to
+    # the --upload-concurrency-limit argument to pachctl deploy.
+    uploadConcurrencyLimit: 100
   workerServiceAccount:
     create: true
     # name sets the name of the worker service account.  Analogous to
     # the --worker-service-account argument to pachctl deploy.
     name: pachyderm-worker #TODO Set default in helpers / Wire up in templates
-
-worker:
-  image:
-    repository: pachyderm/worker
-    tag: "1.12.4"
-
-etcd:
-  image:
-    repository: pachyderm/etcd
-    tag: "v3.3.5"
-    pullPolicy: IfNotPresent
-  storageSize: "10Gi"
-  # resources specifies the resource request
-  resources:
-    limits:
-      cpu: 1
-      memory: 2G
-    requests:
-      cpu: 1
-      memory: 2G
-  # storageClass indicates the etcd should use an existing
-  # StorageClass for its storage.  It is analogous to the
-  # --etcd-storage-class argument to pachctl deploy.
-  storageClass: ""
-  # dynamicNodes sets the number of nodes in the etcd StatefulSet.  It
-  # is analogous to the --dynamic-etcd-nodes argument to pachctl
-  # deploy.
-  dynamicNodes: 1
-  staticVolume: ""
-
-imageCredentials: {}
-  #registry: ""
-  #username: ""
-  #password: ""
-  #email: ""
-
-# move under ingress? How to make work with cert-manager, maybe add
-# tls option to pachctl create secret?
-tls:
-  # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
-  crt: ""
-  # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
-  key: ""
+  # The options below are unusual.  You probably will not want to
+  # change them.
+  authenticationDisabledForTesting: false
+  ppsWorkerGRPCPort: 80
 
 rbac:
   # create indicates whether RBAC resources should be created.
@@ -251,3 +246,17 @@ rbac:
   # rather than a ClusterRole and ClusterRoleBinding; it is analogous
   # to --local-roles passed to pachctl deploy.
   localRoles: false
+
+
+# move under ingress? How to make work with cert-manager, maybe add
+# tls option to pachctl create secret?
+tls:
+  # crt is the TLS certificate, e.g. "-----BEGIN CERTIFICATE----- …"
+  crt: ""
+  # key is the TLS key, e.g. "-----BEGIN RSA PRIVATE KEY----- …"
+  key: ""
+
+worker:
+  image:
+    repository: pachyderm/worker
+    tag: "1.12.4"

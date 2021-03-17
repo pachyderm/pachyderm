@@ -349,13 +349,13 @@
                         "microsoft": {
                             "type": "object",
                             "properties": {
-                                "microsoftContainer": {
+                                "container": {
                                     "type": "string"
                                 },
-                                "microsoftID": {
+                                "id": {
                                     "type": "string"
                                 },
-                                "microsoftSecret": {
+                                "secret": {
                                     "type": "string"
                                 }
                             }
@@ -363,22 +363,22 @@
                         "minio": {
                             "type": "object",
                             "properties": {
-                                "minioBucket": {
+                                "bucket": {
                                     "type": "string"
                                 },
-                                "minioEndpoint": {
+                                "endpoint": {
                                     "type": "string"
                                 },
-                                "minioID": {
+                                "id": {
                                     "type": "string"
                                 },
-                                "minioSecret": {
+                                "secret": {
                                     "type": "string"
                                 },
-                                "minioSecure": {
+                                "secure": {
                                     "type": "string"
                                 },
-                                "minioSignature": {
+                                "signature": {
                                     "type": "string"
                                 }
                             }

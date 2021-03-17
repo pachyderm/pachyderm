@@ -299,8 +299,8 @@ func TestMicrosoftStorageSecrets(t *testing.T) {
 	microsoftContainer := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":                      "MICROSOFT",
-			"pachd.storage.microsoft.microsoftContainer": microsoftContainer},
+			"pachd.storage.backend":             "MICROSOFT",
+			"pachd.storage.microsoft.container": microsoftContainer},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/pachd/storage-secret.yaml"})
@@ -339,8 +339,8 @@ func TestMinioStorageSecrets(t *testing.T) {
 	minioBucket := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
-			"pachd.storage.backend":           "MINIO",
-			"pachd.storage.minio.minioBucket": minioBucket},
+			"pachd.storage.backend":      "MINIO",
+			"pachd.storage.minio.bucket": minioBucket},
 	}
 
 	output := helm.RenderTemplate(t, options, helmChartPath, "secret", []string{"templates/pachd/storage-secret.yaml"})
