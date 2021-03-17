@@ -7,18 +7,6 @@ const postcssNormalize = require('postcss-normalize');
 const getCSSModuleLocalIdent = require('react-dev-utils/getCSSModuleLocalIdent');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
-const postcssPlugins = () => [
-  require('postcss-flexbugs-fixes'),
-  require('postcss-preset-env')({
-    autoprefixer: {
-      flexbox: 'no-2009',
-    },
-    stage: 3,
-  }),
-  require('postcss-custom-media'),
-  postcssNormalize(),
-];
-
 const config = {
   mode: 'production',
   devtool: 'hidden-source-map',
@@ -58,33 +46,6 @@ const config = {
           },
           {
             test: /\.css$/,
-            exclude: /\.module\.css$/,
-            use: [
-              process.env.NODE_ENV === 'production'
-                ? {
-                    loader: MiniCssExtractPlugin.loader,
-                  }
-                : require.resolve('style-loader'),
-              {
-                loader: require.resolve('css-loader'),
-                options: {
-                  importLoaders: 1,
-                  sourceMap: process.env.NODE_ENV === 'production',
-                },
-              },
-              {
-                loader: require.resolve('postcss-loader'),
-                options: {
-                  ident: 'postcss',
-                  plugins: postcssPlugins,
-                  sourceMap: process.env.NODE_ENV === 'production',
-                },
-              },
-            ],
-            sideEffects: true,
-          },
-          {
-            test: /\.module\.css$/,
             use: [
               process.env.NODE_ENV === 'production'
                 ? {
