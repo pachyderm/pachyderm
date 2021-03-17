@@ -1,0 +1,6 @@
+{
+  "eslint.workingDirectories": [
+    "javascript/apps/dash/backend",
+    "javascript/apps/dash/frontend"
+  ]
+}
