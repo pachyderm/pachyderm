@@ -27,7 +27,7 @@ func RewriteClient(expected, rewrite string) (*http.Client, error) {
 	}
 
 	if rewriteURL.Host == "" || rewriteURL.Scheme == "" {
-		return nil, fmt.Errorf("invalid URL %q is missing host or scheme", err)
+		return nil, fmt.Errorf("invalid URL %q is missing host or scheme", rewrite)
 	}
 
 	return &http.Client{

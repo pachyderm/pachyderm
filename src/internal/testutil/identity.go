@@ -25,7 +25,7 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 		ClientID:      "pachyderm",
 		ClientSecret:  "notsecret",
 		RedirectURI:   "http://pachd:657/authorization-code/callback",
-		RewriteIssuer: "http:localhost:658",
+		RewriteIssuer: "http://localhost:658",
 	}
 }
 
